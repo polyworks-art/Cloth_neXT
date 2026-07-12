@@ -20,7 +20,7 @@ import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, companion_manager, hud,
                icon_registry, object_properties, physics_operators, physics_ui,
-               preferences)
+               preferences, solver_test, test_scene)
 
 _CLASSES = (
     preferences.CLASSES
@@ -28,6 +28,8 @@ _CLASSES = (
     + object_properties.CLASSES
     + physics_operators.CLASSES
     + bake_operators.CLASSES
+    + test_scene.CLASSES
+    + solver_test.CLASSES
     + physics_ui.CLASSES
 )
 
@@ -70,7 +72,10 @@ def unregister() -> None:
     global _registered
     if not _registered:
         return
-    # Stop installer/update workers, timers, and handles first.
+    # Stop installer/update workers, timers, and handles first. The solver
+    # test shutdown cancels the run, stops the exact owned solver process
+    # (never an external server), and joins the worker thread.
+    solver_test.shutdown()
     preferences.shutdown()
     addon_update_operators.shutdown()
     bake_preview.stop()

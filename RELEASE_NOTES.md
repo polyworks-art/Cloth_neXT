@@ -1,31 +1,41 @@
-# Cloth NeXt 0.2.0-beta.5
+# Cloth NeXt 0.2.0-beta.6
 
-This beta ships the intended compact companion window that was missing from
-0.2.0-beta.4, whose bundled companion was built from an older UI state.
+This beta introduces Cloth NeXt's first real PPF solver vertical slice for
+interactive Blender testing.
 
-## Fixed
+## First real simulation test
 
-- Bundled Cloth NeXt Bake companion now uses the compact 370x108 dark
-  DCC-style window intended for 0.2.0-beta.4
-- Companion progress bar and its label now resize with the window
-- Companion bottom row uses a responsive layout instead of fixed pixel
-  positions
+The new developer workflow can:
 
-## Unchanged from 0.2.0-beta.4
+- snapshot one Cloth NeXt cloth object
+- snapshot one static collider
+- encode and upload a PPF 0.11 scene
+- start the real external solver
+- build and simulate eight frames
+- retrieve and validate completed frames
+- create constant-topology playback in Blender
+- display real progress in the panel, HUD, and companion window
+- cancel and clean up owned solver sessions
 
-- Role-aware Cloth and Collider panels in Physics Properties
-- Custom monochrome runtime icons, croissant Bake icon
-- Compact and expanded Viewport HUD, shared bake preview state
-- Optional bundled Cloth NeXt Bake companion with authenticated localhost
-  communication, Cloth NeXt title and taskbar icon
-- Help popup containing: SideFX, please don’t sue me.
-- Preflight-verified release pipeline with exact commit SHA and version
-  verification
+## Also fixed
 
-## Important
+- Blender's automatic update path no longer fails because disabled extension
+  repositories shift the repository index
+- Cloth NeXt now targets its exact repository and package through Blender's own
+  extension system
+- incomplete solver frames are rejected instead of imported
+- worker, timer, subscription, and companion-cancellation cleanup was hardened
 
-The current workflow remains a UI preview. It does not yet perform PPF scene
-export, real cloth simulation, frame transfer, result import, or real cache
-generation.
+## Experimental scope
 
-The external PPF Contact Solver remains separate and is not bundled.
+This is a Phase 3A test build. It currently supports only one cloth, one static
+collider, eight frames, constant topology, and a limited verified material
+configuration. The interactive Blender 5.1.2 timeline, collision, cancellation,
+and cache test is the primary purpose of this beta. It is not production ready,
+and interactive acceptance has not yet passed.
+
+## External solver
+
+The PPF Contact Solver is external software developed by ST Tech / ZOZO. It is
+not bundled, mirrored, or redistributed with Cloth NeXt. A compatible separately
+installed solver is required.

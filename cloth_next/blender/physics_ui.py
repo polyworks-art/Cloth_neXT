@@ -185,6 +185,53 @@ class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
         for name in ("pin_group", "pin_stiffness", "use_rest_shape", "rest_shape_source", "rest_scale"): self.layout.prop(s, name)
 
 
+def _developer_tools_enabled(context) -> bool:
+    addon_id = __package__.partition(".blender")[0]
+    try:
+        return bool(context.preferences.addons[addon_id]
+                    .preferences.developer_tools)
+    except (KeyError, AttributeError):
+        return False
+
+
+def _draw_solver_test_section(layout, context) -> None:
+    """Phase-3A developer actions, clearly separated from the production
+    Bake workflow (which does not exist yet)."""
+    from . import solver_test
+    box = layout.box()
+    box.label(text="Developer: Real Solver Test (Phase 3A)", icon="EXPERIMENTAL")
+    snapshot = shared_controller.snapshot()
+    running = solver_test.run_active()
+    box.operator("clothnext.create_test_scene", icon="MESH_GRID")
+    run_row = box.row()
+    run_row.enabled = not running and not snapshot.active
+    run_row.operator("clothnext.solver_test_run",
+                     **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
+    if running or snapshot.active:
+        cancel_row = box.row()
+        cancel_row.enabled = snapshot.can_cancel
+        cancel_row.operator("clothnext.solver_test_cancel", icon="CANCEL")
+    column = box.column(align=True)
+    column.label(text=f"State: {snapshot.status_title}")
+    if snapshot.status_message:
+        column.label(text=snapshot.status_message)
+    if running or snapshot.active:
+        from ..bake.status import format_duration
+        plan = solver_test._active_plan
+        if plan is not None:
+            column.label(text=f"Solver: {plan.resolved.mode.name}")
+            diag_host = "127.0.0.1 (owned process)"
+            column.label(text=f"Server: {diag_host}")
+        if snapshot.current_frame is not None and snapshot.frame_end:
+            column.label(text=f"Frame {snapshot.current_frame} "
+                              f"of {snapshot.frame_end}")
+        column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
+    if snapshot.error_summary:
+        column.label(text=snapshot.error_summary, icon="ERROR")
+    box.operator("clothnext.solver_test_clear", icon="TRASH")
+    box.operator("clothnext.solver_test_open_logs", icon="FILE_FOLDER")
+
+
 class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Cache"; bl_idname = "CLOTHNEXT_PT_cache"
     def draw(self, context):
@@ -196,6 +243,8 @@ class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
         self.layout.operator("clothnext.companion_launch", text="Launch Bake Window", icon="WINDOW")
         if shared_controller.snapshot().active:
             self.layout.operator("clothnext.preview_cancel", text="Cancel UI Preview", icon="CANCEL")
+        if _developer_tools_enabled(context):
+            _draw_solver_test_section(self.layout, context)
 
 
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):

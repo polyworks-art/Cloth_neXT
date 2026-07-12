@@ -17,7 +17,10 @@ class BakeState(str, Enum):
     PREPARING = "PREPARING"
     EXPORTING = "EXPORTING"
     STARTING_SOLVER = "STARTING_SOLVER"
+    UPLOADING = "UPLOADING"
+    BUILDING = "BUILDING"
     SIMULATING = "SIMULATING"
+    FETCHING = "FETCHING"
     IMPORTING = "IMPORTING"
     FINISHED = "FINISHED"
     CANCELLING = "CANCELLING"
@@ -27,7 +30,8 @@ class BakeState(str, Enum):
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
 _ACTIVE = {BakeState.PREPARING, BakeState.EXPORTING,
-           BakeState.STARTING_SOLVER, BakeState.SIMULATING,
+           BakeState.STARTING_SOLVER, BakeState.UPLOADING,
+           BakeState.BUILDING, BakeState.SIMULATING, BakeState.FETCHING,
            BakeState.IMPORTING, BakeState.CANCELLING}
 
 

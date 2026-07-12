@@ -35,6 +35,7 @@ def blender_env():
         object_properties=sys.modules["cloth_next.blender.object_properties"],
         physics_operators=sys.modules["cloth_next.blender.physics_operators"],
         physics_ui=sys.modules["cloth_next.blender.physics_ui"],
+        solver_test=sys.modules["cloth_next.blender.solver_test"],
         addon_update_operators=sys.modules[
             "cloth_next.blender.addon_update_operators"],
     )

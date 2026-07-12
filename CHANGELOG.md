@@ -6,6 +6,21 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+## 0.2.0-beta.6 — 2026-07-12 (beta channel)
+
+### Added
+
+- First real Phase 3A PPF solver vertical slice.
+- Blender scene snapshot for one cloth and one static collider.
+- Exact PPF 0.11 Scene and Param encoding with float32-correct CBOR scene payloads.
+- Typed upload, build, simulation, cancellation, and result-transfer protocol.
+- Incremental retrieval and validation of eight complete playback frames.
+- Constant-topology Blender PC2 playback cache.
+- Real shared bake status through Physics panels, HUD, and companion.
+- Developer operators for creating and running the PPF test scene.
+- Opt-in real pinned-solver integration coverage.
+- Worker-thread `bpy` access protection and lifecycle cleanup tests.
+
 ### Fixed
 - Automatic add-on update failed in real Blender 5.1.2 with "Repository not
   set": the extension operators' `repo_index` parameter counts only enabled
@@ -26,6 +41,22 @@ All notable Cloth NeXt changes. Versioning follows
   disabled-repository condition that previously raised "Repository not set",
   exact-repository synchronization, unrelated repositories staying untouched,
   and the manual fallback.
+- Incomplete-frame handling and schema/wire-format mismatches.
+- Companion cancellation propagation and worker, timer, and subscription cleanup.
+
+### Experimental
+
+Phase 3A currently supports one cloth, one static collider, a small verified
+material subset, eight test frames, constant topology, and developer-oriented
+test execution. Interactive Blender validation is still required.
+
+### Important
+
+This release does not yet provide general production baking, multiple cloths or
+colliders, animated colliders, pins, pressure, sewing, tearing, production cache
+metadata, complete material UI mapping, live solver preview, or remote solver
+hosts. The PPF Contact Solver remains separately installed external software and
+is not included in the Cloth NeXt package.
 
 ## 0.2.0-beta.5 — 2026-07-12 (beta channel)
 

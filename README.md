@@ -49,12 +49,11 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - An optional display-only bake status HUD
 
 > [!NOTE]
-> The current Phase 2.8B interfaces are UI-ready previews. Their settings and
-> bake controls are not connected to the real PPF simulation pipeline yet.
-> The optional bundled Windows Bake window receives the same preview status through an
-> authenticated localhost session. Its manifest and SHA-256 are validated before
-> launch. Real
-> simulation integration remains Phase 3.
+> Phase 3A includes an experimental developer-only real PPF vertical slice for
+> one cloth, one static collider, and eight frames. Enable Developer Test Tools
+> to create and run its fixed test scene. The general Bake workflow and material
+> controls are not connected to production simulation yet, and interactive
+> Blender acceptance remains pending.
 
 > [!IMPORTANT]
 > The PPF Contact Solver is external software developed and distributed by
@@ -138,7 +137,7 @@ solver updates never touch the add-on.
 
 ## Quick start
 
-Once Cloth NeXt and the solver are installed:
+The production quick-start workflow below is planned, not complete:
 
 1. Open your project in Blender.
 2. Select or prepare the objects for simulation.

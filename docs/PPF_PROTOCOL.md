@@ -37,8 +37,9 @@ both report `0.11`.
 - `BDAT`: a legacy/test stub acknowledged as `BINARY_OK`; not a production path.
 - transfer chunks are 32 KiB in the official client.
 
-Phase 2 implements only the side-effect-free TCMD status ping. Its payload is exactly
-`--name <project>` with no `--request`. The client bounds the response to 1 MiB by
+Phase 3A implements status plus typed `build`, `cancel_build`, `start`,
+`terminate`, and `delete` requests. Its payload is `--name <project>` with an
+optional `--request <value>`. The client bounds the response to 1 MiB by
 default and applies separate connect/read timeouts. Golden bytes and source provenance
 are under `tests/fixtures/ppf_0_11/`.
 
@@ -55,7 +56,7 @@ implemented and tested.
 
 The payloads historically retain filenames `data.pickle` and `param.pickle`, but at
 protocol 0.11 their content is a CBOR envelope encoded with `cbor2`, not Python pickle.
-The envelope contains a schema version, payload kind (`Data` or `Param`) and payload.
+The envelope is `{version: 1, kind: "Scene"|"Param", payload: ...}`.
 Both data and parameter SHA-256 hashes plus an add-on-minted upload ID participate in
 transfer/status tracking. Cloth NeXt must reproduce the schema independently from the
 published format definitions; it must not import the official add-on.
@@ -87,6 +88,14 @@ float32 XYZ, constant vertex count) by the official add-on and played through Bl
 Mesh Cache modifier. PC2 is a client cache format, not the network frame format.
 
 ## Release/update observations
+
+Phase 3A fetches `session/map.pickle`, a CBOR `VertexMap` envelope mapping
+object UUIDs to global output indices, then
+`session/output/vert_<N>.bin`: raw little-endian float32 XYZ triples in solver
+world space. It validates exact byte counts, finite coordinates, UUIDs, index
+order, and vertex count. The implemented status contract consumes `status`,
+`data`, `frame`, `initialized`, `error`, `root`, `upload_id`, `data_hash`,
+`param_hash`, and `protocol_version`, plus optional `progress` and `info`.
 
 The official add-on has a stable Blender Extension feed at
 `releases/download/addon-latest/index.json`. A mutable `addon-latest` index points to

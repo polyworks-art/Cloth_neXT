@@ -106,6 +106,15 @@ guessing an endpoint, parameter or format.
   no claim about real Blender operator context compatibility.
 # Phase 2.8B interface limitations
 
+## Phase 3A developer slice
+
+- One cloth shell, one static collider, and the eight-frame developer scene.
+- No pins, pressure, tearing, animated colliders, multiple cloths/colliders, or
+  production cache metadata/invalidation.
+- Playback is constant-topology PC2. Blender frame 1 is the exported initial
+  state; frames 2--8 map to solver `vert_1.bin`--`vert_7.bin`.
+- The UI entry is a developer test, not a claim of production readiness.
+
 - Physics settings are UI-ready but are not yet mapped to the PPF pipeline.
 - Bake actions are unmistakable UI previews and never claim to run PPF.
 - The Viewport HUD is display-only; cancellation remains an operator action.

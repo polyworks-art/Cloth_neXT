@@ -208,16 +208,33 @@ def make_module() -> types.ModuleType:
 
     app_module = types.SimpleNamespace(
         online_access=True,
+        tempdir="/fake/session-temp",
         timers=types.SimpleNamespace(register=timers_register,
                                      unregister=timers_unregister,
                                      is_registered=timers_is_registered,
                                      functions=timer_functions))
+
+    class _NamedStore(dict):
+        def new(self, name, *args):
+            item = types.SimpleNamespace(name=name)
+            self[name] = item
+            return item
+
+        def remove(self, item, **_kw):
+            self.pop(getattr(item, "name", None), None)
+
+    data_module = types.SimpleNamespace(
+        objects=_NamedStore(), collections=_NamedStore(),
+        meshes=_NamedStore())
+    path_module = types.SimpleNamespace(abspath=lambda p: p)
 
     bpy.types = types_module
     bpy.props = props_module
     bpy.utils = utils_module
     bpy.app = app_module
     bpy.ops = ops_module
+    bpy.data = data_module
+    bpy.path = path_module
     bpy.context = types.SimpleNamespace(window_manager=None,
                                         preferences=context_preferences)
     bpy.registry = registry

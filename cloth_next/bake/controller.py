@@ -20,8 +20,18 @@ _NEXT = {
     BakeState.IDLE: {BakeState.PREPARING},
     BakeState.PREPARING: {BakeState.EXPORTING, BakeState.CANCELLING, BakeState.ERROR},
     BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.CANCELLING, BakeState.ERROR},
-    BakeState.STARTING_SOLVER: {BakeState.SIMULATING, BakeState.CANCELLING, BakeState.ERROR},
-    BakeState.SIMULATING: {BakeState.IMPORTING, BakeState.CANCELLING, BakeState.ERROR},
+    # STARTING_SOLVER -> SIMULATING stays for the display-only UI preview;
+    # the real run goes through UPLOADING and BUILDING.
+    BakeState.STARTING_SOLVER: {BakeState.UPLOADING, BakeState.SIMULATING,
+                                BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.UPLOADING: {BakeState.BUILDING, BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.BUILDING: {BakeState.SIMULATING, BakeState.FETCHING,
+                         BakeState.CANCELLING, BakeState.ERROR},
+    # Simulation and incremental frame download interleave.
+    BakeState.SIMULATING: {BakeState.FETCHING, BakeState.IMPORTING,
+                           BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.FETCHING: {BakeState.SIMULATING, BakeState.IMPORTING,
+                         BakeState.CANCELLING, BakeState.ERROR},
     BakeState.IMPORTING: {BakeState.FINISHED, BakeState.CANCELLING, BakeState.ERROR},
     BakeState.CANCELLING: {BakeState.CANCELLED, BakeState.ERROR},
     BakeState.FINISHED: {BakeState.IDLE, BakeState.PREPARING},

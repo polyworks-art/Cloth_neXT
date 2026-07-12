@@ -196,6 +196,20 @@ there is no open-ended parent search or developer-specific absolute path.
 
 ## Sources
 
+## Phase 3A vertical slice
+
+```text
+Blender main-thread snapshot -> immutable RunPlan -> worker PPF session
+  -> incremental validated frames -> atomic PC2 -> bounded queue
+  -> Blender main-thread timer attaches Mesh Cache playback
+```
+
+`cloth_next/ppf/` owns wire/schema/coordinate/result contracts and
+`cloth_next/ppf_run/` composes the session, deterministic fixture, and playback
+conversion. No `bpy` reference crosses into the worker. Blender frame 1 is the
+captured initial state and frames 2--8 consume solver frames 1--7. This is a
+developer acceptance slice, not the production Bake architecture.
+
 Research baseline: official repository commit
 [`7193f158`](https://github.com/st-tech/ppf-contact-solver/tree/7193f158e3843597070f66cb29af19efd9bdcff7),
 especially the [server](https://github.com/st-tech/ppf-contact-solver/tree/7193f158e3843597070f66cb29af19efd9bdcff7/crates/ppf-cts-server)

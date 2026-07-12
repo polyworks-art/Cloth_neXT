@@ -36,6 +36,13 @@ Reader threads are non-daemon, close streams, and must join before cleanup retur
 
 ## Readiness, races, and failure
 
+For a Phase-3A owned solve, Cloth NeXt pins `PPF_CTS_DATA_ROOT` below the run
+work directory, uses a unique `clothnext_<12hex>` project, and deletes only
+that project before stopping and reaping only its owned child. Cancellation
+uses `cancel_build` during BUILDING and `terminate` during simulation. An
+external server receives the scoped project lifecycle requests but is never
+stopped or killed by Cloth NeXt.
+
 A free preflight port is advisory; another process can bind before the child. The
 manager therefore continues checking child exit and the real compatibility response.
 A reachable port is not called PPF until valid status JSON with `protocol_version` and

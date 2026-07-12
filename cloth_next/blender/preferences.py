@@ -446,10 +446,16 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Which Cloth NeXt release channel to check for add-on "
                     "updates (independent of the PPF solver)")
 
+    developer_tools: bpy.props.BoolProperty(
+        name="Developer Test Tools", default=False,
+        description="Show the Phase-3A developer actions (Create PPF Test "
+                    "Scene, Run Real Solver Test) in the Cache panel")
+
     def draw(self, _context) -> None:
         layout = self.layout
         self._draw_addon_update_section(layout)
         self._draw_solver_section(layout)
+        layout.prop(self, "developer_tools")
 
     def _draw_addon_update_section(self, layout) -> None:
         """Cloth NeXt's own update status; never performs network work."""

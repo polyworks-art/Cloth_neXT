@@ -109,6 +109,13 @@ frames; clear removes only Cloth NeXt cache; cancellation leaves Blender respons
 
 ## 4. Cache
 
+Phase 3A status: the bounded developer slice is implemented for one 121-vertex
+cloth, one static collider, and frames 1--8. Independent CBOR encoding, atomic
+upload/build/start/fetch, UUID vertex-map validation, and PC2 playback pass the
+standalone pinned-solver harness. Automated and interactive Blender 5.1.2
+acceptance remain environment-dependent gates; this is not the general
+production simulation workflow.
+
 Add crash-safe PC2 (subject to the phase-3 proof) plus versioned JSON metadata:
 scene/object/settings hashes, topology/order, pin group, colliders, material, pressure,
 range, Blender/PPF/Cloth NeXt versions and completion state.

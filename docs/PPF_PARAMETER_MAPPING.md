@@ -3,6 +3,14 @@
 Status: verified candidate mappings only. This file does not authorize UI properties
 until encode/decode fixtures pass against protocol `0.11`.
 
+Phase 3A proves only this fixed developer-test subset: SHELL
+`model=baraff-witkin`, density `1000 kg/m³`, density-normalized `young-mod=1.0`,
+`poiss-rat=0.35`, `bend=10.0`, both damping values `0.0`, friction `0.5`,
+contact gap `0.001 m`, contact offset `0.0`, and strain limit `0.0`; STATIC
+friction/gap/offset are `0.5/0.001/0.0`. Scene values are `dt=0.001 s`, scene
+FPS, swapped gravity, and seven produced solver frames. Other rows remain audit
+candidates and are not implemented UI mappings.
+
 PPF uses SI-oriented values and swaps Blender coordinates in the official encoder.
 Young's modulus requires special care: the solver field `young-mod` is density
 normalized (Pa / density) unless the authored value is already normalized.
@@ -62,4 +70,3 @@ The mapping is derived from the official
 and [current parameter documentation](https://st-tech.github.io/ppf-contact-solver/blender_addon/workflow/params/index.html).
 Cloth NeXt will implement its own encoder from the server schema and test vectors; no
 official add-on code or runtime imports will be used.
-
