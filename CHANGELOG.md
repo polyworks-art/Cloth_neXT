@@ -4,6 +4,14 @@ All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.
 
+## 0.2.0-beta.5 — 2026-07-12 (beta channel)
+
+### Fixed
+- The bundled Bake companion in 0.2.0-beta.4 was built from an older UI
+  state. beta.5 ships the intended compact 370x108 window with a responsive
+  progress bar and label and a pack-based bottom row instead of fixed pixel
+  positions.
+
 ## 0.2.0-beta.4 — 2026-07-12 (beta channel)
 
 Publishes the Phase 2.8B UI preview through the corrected, preflight-verified

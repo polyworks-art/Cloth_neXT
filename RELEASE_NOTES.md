@@ -1,29 +1,26 @@
-# Cloth NeXt 0.2.0-beta.4
+# Cloth NeXt 0.2.0-beta.5
 
-This beta publishes the Phase 2.8B UI preview through the corrected,
-preflight-verified release pipeline.
-
-## New
-
-- Role-aware Cloth and Collider panels in Physics Properties
-- Custom monochrome runtime icons
-- Croissant Bake icon
-- Compact and expanded Viewport HUD
-- Shared bake preview state
-- Optional bundled Cloth NeXt Bake companion
-- Authenticated localhost communication
-- Compact dark DCC-style companion window
-- Cloth NeXt title and taskbar icon
-- Help popup containing: SideFX, please don’t sue me.
+This beta ships the intended compact companion window that was missing from
+0.2.0-beta.4, whose bundled companion was built from an older UI state.
 
 ## Fixed
 
-- Build-time Pillow dependency
-- Companion build and staging order
-- Separation between source tests and built-artifact tests
-- Windows-only EXE assertions now run after the Windows build
-- Mandatory unpublished release preflight
-- Exact commit SHA and version verification before publication
+- Bundled Cloth NeXt Bake companion now uses the compact 370x108 dark
+  DCC-style window intended for 0.2.0-beta.4
+- Companion progress bar and its label now resize with the window
+- Companion bottom row uses a responsive layout instead of fixed pixel
+  positions
+
+## Unchanged from 0.2.0-beta.4
+
+- Role-aware Cloth and Collider panels in Physics Properties
+- Custom monochrome runtime icons, croissant Bake icon
+- Compact and expanded Viewport HUD, shared bake preview state
+- Optional bundled Cloth NeXt Bake companion with authenticated localhost
+  communication, Cloth NeXt title and taskbar icon
+- Help popup containing: SideFX, please don’t sue me.
+- Preflight-verified release pipeline with exact commit SHA and version
+  verification
 
 ## Important
 
