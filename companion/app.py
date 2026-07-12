@@ -29,7 +29,7 @@ class BakeWindow:
     def __init__(self,transport=None,root=None):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
-        self.root.geometry("370x142"); self.root.minsize(370,142)
+        self.root.geometry("370x108"); self.root.minsize(370,108)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
         self._bake_icon=tk.PhotoImage(file=str(_asset("bake.png"))).subsample(2,2)
         self.root.iconphoto(True,self._app_icon)
@@ -38,6 +38,7 @@ class BakeWindow:
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self._progress_fraction=0.0
         self._configure_style(); self._build(); self.show(BakeSnapshot())
         self.root.protocol("WM_DELETE_WINDOW",self.close)
 
@@ -51,26 +52,34 @@ class BakeWindow:
         style.map("CN.TButton",background=[("active","#444950"),("disabled",PANEL)],foreground=[("disabled","#6f747a")])
 
     def _build(self):
-        outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,5)); outer.grid(sticky="nsew")
+        self.root.columnconfigure(0,weight=1); self.root.rowconfigure(0,weight=1)
+        outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
+        outer.columnconfigure(0,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
         icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=66,height=65)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
         tk.Label(icon_box,image=self._bake_icon,bg=PANEL).place(relx=.5,rely=.5,anchor="center")
         right=ttk.Frame(body,style="CN.TFrame"); right.grid(row=0,column=1,sticky="ew"); body.columnconfigure(1,weight=1)
-        self.progress=tk.Canvas(right,height=22,bg=PANEL,highlightbackground="#777777",highlightthickness=1,borderwidth=0)
+        self.progress=tk.Canvas(right,width=270,height=22,bg=PANEL,highlightbackground="#777777",highlightthickness=1,borderwidth=0)
         self.progress.grid(row=0,column=0,sticky="ew"); right.columnconfigure(0,weight=1)
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
-        status=tk.Label(right,textvariable=self.secondary,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",
+        self.progress.bind("<Configure>",self._resize_progress)
+        status=tk.Label(right,textvariable=self.secondary,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
                         highlightbackground="#777777",highlightthickness=1,height=1)
         status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
-        bottom=ttk.Frame(outer,style="CN.TFrame",width=358,height=30); bottom.grid(row=1,column=0,sticky="ew",pady=(5,0)); bottom.grid_propagate(False)
+        bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=1,column=0,sticky="ew",pady=(5,0))
         self.pause=ttk.Button(bottom,text="Pause",width=8,style="CN.TButton",state="disabled",command=self._pause)
-        self.pause.place(x=0,y=0,width=64,height=26)
-        ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel").place(relx=.5,y=13,anchor="center")
-        ttk.Button(bottom,text="?",width=3,style="CN.TButton",command=self._about).place(x=260,y=0,width=30,height=26)
+        self.pause.pack(side="left")
+        ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",anchor="center",justify="center").place(relx=.5,rely=.5,anchor="center")
         self.cancel=ttk.Button(bottom,text="Cancel",width=8,style="CN.TButton",command=self._cancel)
-        self.cancel.place(x=295,y=0,width=63,height=26)
+        self.cancel.pack(side="right")
+        ttk.Button(bottom,text="?",width=3,style="CN.TButton",command=self._about).pack(side="right",padx=(5,5))
+
+    def _resize_progress(self,event=None):
+        width=max(1,event.width if event is not None else self.progress.winfo_width())
+        self.progress.coords(self.progress_fill,0,0,width*self._progress_fraction,22)
+        self.progress.coords(self.progress_label,width/2,11)
 
     def _about(self): messagebox.showinfo("About Cloth NeXt Bake","SideFX, please don’t sue me.",parent=self.root)
     def _pause(self): pass
@@ -80,6 +89,7 @@ class BakeWindow:
     def show(self,snapshot: BakeSnapshot):
         self.root.update_idletasks()
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
+        self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
         if snapshot.current_frame is not None and snapshot.frame_end is not None:
             self.progress_text.set(f"render frame {snapshot.current_frame} / {snapshot.frame_end}")
