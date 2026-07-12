@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 import bpy
+from .. import manifest_version
+from ..bake.companion_bundle import validate_bundle
 from ..bake.controller import shared_controller
 from ..bake.transport import LocalSocketServer
 
@@ -24,12 +26,14 @@ def running(): return _process is not None and _process.poll() is None
 def launch():
     global _process,_server,_unsubscribe
     if running(): return False, "Bake window is already running"
-    root=Path(__file__).resolve().parents[2]
-    exe=Path(os.environ.get("CLOTH_NEXT_COMPANION_EXE", root/"companion/dist/Cloth NeXt Bake.exe"))
+    extension_root=Path(__file__).resolve().parents[1]
+    root=extension_root.parent
     python=os.environ.get("CLOTH_NEXT_COMPANION_PYTHON", sys.executable)
-    if exe.is_file(): command=[str(exe)]
-    elif (root/"companion/app.py").is_file(): command=[python,"-m","companion.app"]
-    else: return False,"Companion source or development EXE is unavailable"
+    try: command=[str(validate_bundle(extension_root,manifest_version()))]
+    except (OSError,ValueError,KeyError):
+        if os.environ.get("CLOTH_NEXT_DEVELOPER_COMPANION")=="1" and (root/"companion/app.py").is_file():
+            command=[python,"-m","companion.app"]
+        else: return False,"Bundled Bake companion is missing or failed validation"
     _server=LocalSocketServer()
     command += ["--port",str(_server.port),"--token",_server.token]
     try:

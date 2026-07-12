@@ -235,6 +235,9 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
                                 "stop it before updating.")
             self.report({"ERROR"}, _session.message)
             return {"CANCELLED"}
+        # Companion ownership is deliberately separate from solver ownership.
+        from . import companion_manager
+        companion_manager.shutdown()
         channel = selected_channel(context)
         repos = context.preferences.extensions.repos
         index = addon_updates.find_channel_repo(repos, channel)

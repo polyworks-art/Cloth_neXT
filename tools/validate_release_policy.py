@@ -25,6 +25,7 @@ if __package__ in (None, ""):
 from cloth_next.ppf.bootstrap import sha256_file
 from cloth_next.updater.solver_manifest import parse_manifest
 from tools.scan_release_artifact import scan_names
+from cloth_next.bake.companion_bundle import validate_bundle
 
 RELEASE_PLATFORM = "windows-x64"
 SEMVER_RE = re.compile(
@@ -123,6 +124,16 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             raise ValueError("extension ZIP misses solver_compatibility.json")
         solver_manifest = json.loads(bundle.read("solver_compatibility.json"))
         parse_manifest(solver_manifest, expected_cloth_next_version=version.text)
+        if "bin/cloth-next-bake.exe" not in names or "companion_manifest.json" not in names:
+            raise ValueError("extension ZIP misses the approved bundled companion")
+        companion = json.loads(bundle.read("companion_manifest.json"))
+        binary = bundle.read("bin/cloth-next-bake.exe")
+        if companion.get("cloth_next_version") != version.text:
+            raise ValueError("companion manifest version mismatch")
+        if companion.get("filename") != "cloth-next-bake.exe" or companion.get("platform") != "windows-x64":
+            raise ValueError("invalid bundled companion identity")
+        if companion.get("file_size") != len(binary) or companion.get("sha256") != __import__("hashlib").sha256(binary).hexdigest():
+            raise ValueError("bundled companion size/hash mismatch")
 
 
 def check_release_manifest(path: Path, zip_path: Path, version: ReleaseVersion,

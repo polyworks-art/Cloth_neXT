@@ -98,6 +98,5 @@ guessing an endpoint, parameter or format.
 - Physics settings are UI-ready but are not yet mapped to the PPF pipeline.
 - Bake actions are unmistakable UI previews and never claim to run PPF.
 - The Viewport HUD is display-only; cancellation remains an operator action.
-- The optional companion receives preview data through localhost IPC. A local
-  development EXE can be built, but no companion binary or automatic launch is
-  distributed.
+- The optional Windows companion is bundled and hash-validated but still receives
+  preview data only until Phase 3. It never launches automatically.

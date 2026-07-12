@@ -51,8 +51,9 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 > [!NOTE]
 > The current Phase 2.8B interfaces are UI-ready previews. Their settings and
 > bake controls are not connected to the real PPF simulation pipeline yet.
-> The optional external Bake window receives the same preview status through an
-> authenticated localhost session. No companion binary is distributed. Real
+> The optional bundled Windows Bake window receives the same preview status through an
+> authenticated localhost session. Its manifest and SHA-256 are validated before
+> launch. Real
 > simulation integration remains Phase 3.
 
 > [!IMPORTANT]

@@ -20,8 +20,15 @@ is installed and updated separately. It is enforced technically by
 and `.github/workflows/release.yml`, and organizationally by this document.
 
 Cloth NeXt publishes exclusively: the Cloth NeXt add-on code, its own correctly
-declared Python dependencies, its own release metadata, and a solver compatibility
-manifest. Cloth NeXt never publishes PPF binaries, PPF runtime files, or PPF archives.
+declared Python dependencies, its own release metadata, a solver compatibility
+manifest, and the Cloth NeXt-owned Windows Bake companion built from the tagged
+repository source by the release workflow. Cloth NeXt never publishes PPF binaries,
+PPF runtime files, or PPF archives.
+
+The sole approved executable is `bin/cloth-next-bake.exe` inside the Windows
+extension ZIP. It is validated by `companion_manifest.json` (version, platform,
+size, and SHA-256), is never a separate release asset, and does not authorize any
+other executable, third-party binary, solver DLL, archive, or runtime.
 
 ## 2. Version Source of Truth
 
@@ -146,7 +153,8 @@ A failing check aborts the release; nothing is published.
   build, validation, repository-generation, and Pages step succeeded.
 - Beta releases are marked as GitHub prereleases.
 - Release assets are exactly: the extension ZIP, `release-manifest.json`,
-  `SHA256SUMS.txt`. No solver binaries, archives, or runtime files, ever.
+  `SHA256SUMS.txt`. The extension ZIP may contain only the policy-approved Cloth
+  NeXt Bake companion executable. No solver binaries, archives, or runtime files, ever.
 
 ## 10. Blender Extension Repository
 

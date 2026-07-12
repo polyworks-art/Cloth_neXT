@@ -1,187 +1,111 @@
-# Cloth NeXt release pipeline — publishes ONLY Cloth NeXt.
-# Governed by docs/RELEASE_POLICY.md. Never uploads, mirrors, or bundles the
-# external PPF Contact Solver (ST Tech / ZOZO).
 name: release
-
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Existing release tag (v<version>) to rebuild"
-        required: true
-
-permissions:
-  contents: write
-
-concurrency:
-  group: release
-  cancel-in-progress: false
-
+      tag: {description: "Existing release tag", required: true}
+permissions: {contents: write}
+concurrency: {group: release, cancel-in-progress: false}
 env:
-  BLENDER_VERSION: "5.0.0"
-  BLENDER_SERIES: "5.0"
+  BLENDER_VERSION: "5.1.2"
+  BLENDER_SERIES: "5.1"
   PYTHON_VERSION: "3.11"
 
 jobs:
-  release:
+  validate:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      zip: ${{ steps.version.outputs.zip }}
+      channel: ${{ steps.channel.outputs.channel }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
-      - name: Parse tag and manifest version
-        id: version
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}"}
+      - id: version
+        shell: bash
         run: |
-          set -euo pipefail
           TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "zip=cloth_next-$VERSION-windows-x64.zip" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Release policy validator (pre-build)
-        id: channel
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - id: channel
         run: |
-          set -euo pipefail
           python tools/validate_release_policy.py --phase pre-build --tag "${{ steps.version.outputs.tag }}"
-          CHANNEL="$(python tools/validate_release_policy.py --phase pre-build --tag "${{ steps.version.outputs.tag }}" --print-channel)"
-          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "channel=$(python tools/validate_release_policy.py --phase pre-build --tag '${{ steps.version.outputs.tag }}' --print-channel)" >> "$GITHUB_OUTPUT"
+      - env: {GH_TOKEN: "${{ github.token }}"}
+        run: '! gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1'
+      - run: pytest
+      - run: python tools/build_icons.py --check
+      - run: python tools/validate_extension.py cloth_next
 
-      - name: Refuse to replace an existing release
-        env:
-          GH_TOKEN: ${{ github.token }}
+  build-windows-extension:
+    needs: validate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.validate.outputs.tag }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - run: python tools/build_icons.py
+      - run: python companion/build_companion.py
+      - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/scan_companion.py "cloth_next/bin/cloth-next-bake.exe"
+      - shell: pwsh
         run: |
-          set -euo pipefail
-          if gh release view "${{ steps.version.outputs.tag }}" --json isDraft --jq .isDraft 2>/dev/null | grep -q false; then
-            echo "release ${{ steps.version.outputs.tag }} already exists and is published; artifacts are immutable" >&2
-            exit 1
-          fi
+          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
+          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
+          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
+          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/${{ needs.validate.outputs.zip }}"
+      - run: python tools/validate_extension.py "dist/${{ needs.validate.outputs.zip }}"
+      - run: python tools/scan_release_artifact.py "dist/${{ needs.validate.outputs.zip }}"
+      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}"
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --command extension validate "dist/${{ needs.validate.outputs.zip }}"'
+      - uses: actions/upload-artifact@v4
+        with: {name: windows-extension, path: "dist/${{ needs.validate.outputs.zip }}", if-no-files-found: error}
 
-      - name: Install test dependencies
-        run: pip install pytest
-
-      - name: Unit and integration tests
-        # Integration tests self-skip unless CLOTH_NEXT_PPF_EXECUTABLE names a
-        # pinned local solver; CI never downloads the solver.
-        run: pytest
-
-      - name: Validate extension source structure
-        run: python tools/validate_extension.py cloth_next
-
-      - name: Download Blender (official extension tooling)
+  publish:
+    needs: [validate, build-windows-extension]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: "${{ needs.validate.outputs.tag }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - uses: actions/download-artifact@v4
+        with: {name: windows-extension, path: dist}
+      - run: python tools/release_metadata.py --zip "dist/${{ needs.validate.outputs.zip }}" --tag "${{ needs.validate.outputs.tag }}" --commit "$GITHUB_SHA" --output-dir dist
+      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}"
+      - env: {GH_TOKEN: "${{ github.token }}"}
         run: |
-          set -euo pipefail
-          URL="https://download.blender.org/release/Blender${BLENDER_SERIES}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
-          curl -fsSL "$URL" -o blender.tar.xz
-          mkdir -p "$RUNNER_TEMP/blender"
-          tar -xf blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
+          FLAG=""; [ "${{ needs.validate.outputs.channel }}" = beta ] && FLAG=--prerelease
+          gh release create "${{ needs.validate.outputs.tag }}" --draft $FLAG --title "Cloth NeXt ${{ needs.validate.outputs.version }}" --notes-file RELEASE_NOTES.md
+          gh release upload "${{ needs.validate.outputs.tag }}" "dist/${{ needs.validate.outputs.zip }}" dist/release-manifest.json dist/SHA256SUMS.txt
+      - shell: bash
+        run: |
+          curl -fsSL "https://download.blender.org/release/Blender${BLENDER_SERIES}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o blender.tar.xz
+          mkdir -p "$RUNNER_TEMP/blender"; tar -xf blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
           echo "CLOTH_NEXT_BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
-
-      - name: Build extension ZIP (official tooling)
-        run: |
-          set -euo pipefail
-          python tools/build_extension.py --blender "$CLOTH_NEXT_BLENDER" \
-            --output "dist/${{ steps.version.outputs.zip }}"
-
-      - name: Scan artifact for forbidden PPF solver material
-        run: python tools/scan_release_artifact.py "dist/${{ steps.version.outputs.zip }}"
-
-      - name: Validate built extension with Blender
-        run: |
-          set -euo pipefail
-          "$CLOTH_NEXT_BLENDER" --command extension validate "dist/${{ steps.version.outputs.zip }}"
-
-      - name: Generate release metadata
-        run: |
-          set -euo pipefail
-          python tools/release_metadata.py --zip "dist/${{ steps.version.outputs.zip }}" \
-            --tag "${{ steps.version.outputs.tag }}" --commit "$GITHUB_SHA" --output-dir dist
-
-      - name: Release policy validator (post-build)
-        run: |
-          set -euo pipefail
-          python tools/validate_release_policy.py --phase post-build \
-            --tag "${{ steps.version.outputs.tag }}" \
-            --zip "dist/${{ steps.version.outputs.zip }}"
-
-      - name: Create draft GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          PRERELEASE=""
-          if [ "${{ steps.channel.outputs.channel }}" = "beta" ]; then
-            PRERELEASE="--prerelease"
-          fi
-          if ! gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
-            gh release create "${{ steps.version.outputs.tag }}" --draft $PRERELEASE \
-              --title "Cloth NeXt ${{ steps.version.outputs.version }}" \
-              --notes-file RELEASE_NOTES.md
-          fi
-          gh release upload "${{ steps.version.outputs.tag }}" \
-            "dist/${{ steps.version.outputs.zip }}" \
-            dist/release-manifest.json dist/SHA256SUMS.txt
-
-      - name: Fetch current channel repositories
-        run: |
-          set -euo pipefail
+      - run: |
           git fetch origin gh-pages || true
           mkdir -p site
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
-            git worktree add site-publish origin/gh-pages
-            cp -r site-publish/. site/ || true
-            rm -rf site/.git
-          fi
-
-      - name: Build Blender extension repository (channel index)
-        run: |
-          set -euo pipefail
-          SHA256="$(sha256sum "dist/${{ steps.version.outputs.zip }}" | cut -d' ' -f1)"
-          python tools/build_extension_repository.py \
-            --zip "dist/${{ steps.version.outputs.zip }}" --sha256 "$SHA256" \
-            --channel "${{ steps.channel.outputs.channel }}" --site-dir site \
-            --blender "$CLOTH_NEXT_BLENDER"
-
-      - name: Release policy validator (pre-publish)
-        run: |
-          set -euo pipefail
-          python tools/validate_release_policy.py --phase pre-publish \
-            --tag "${{ steps.version.outputs.tag }}" \
-            --zip "dist/${{ steps.version.outputs.zip }}" \
-            --release-manifest dist/release-manifest.json \
-            --sha256sums dist/SHA256SUMS.txt \
-            --site-dir site
-
-      - name: Deploy channel repository to GitHub Pages branch
-        run: |
-          set -euo pipefail
-          CHANNEL="${{ steps.channel.outputs.channel }}"
-          if [ ! -d site-publish ]; then
-            git worktree add --detach site-publish
-            git -C site-publish checkout --orphan gh-pages
-            git -C site-publish rm -rf --quiet . || true
-          fi
-          rm -rf "site-publish/$CHANNEL"
-          cp -r "site/$CHANNEL" "site-publish/$CHANNEL"
-          touch site-publish/.nojekyll
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then git worktree add site-publish origin/gh-pages; cp -r site-publish/. site/ || true; rm -rf site/.git; fi
+      - run: python tools/build_extension_repository.py --zip "dist/${{ needs.validate.outputs.zip }}" --sha256 "$(sha256sum 'dist/${{ needs.validate.outputs.zip }}' | cut -d' ' -f1)" --channel "${{ needs.validate.outputs.channel }}" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
+      - run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
+      - run: |
+          CHANNEL="${{ needs.validate.outputs.channel }}"
+          if [ ! -d site-publish ]; then git worktree add --detach site-publish; git -C site-publish checkout --orphan gh-pages; git -C site-publish rm -rf --quiet . || true; fi
+          rm -rf "site-publish/$CHANNEL"; cp -r "site/$CHANNEL" "site-publish/$CHANNEL"; touch site-publish/.nojekyll
           git -C site-publish add -A
-          git -C site-publish -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -m "Publish $CHANNEL channel for ${{ steps.version.outputs.tag }}"
+          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL channel for ${{ needs.validate.outputs.tag }}"
           git -C site-publish push origin HEAD:gh-pages
-
-      - name: Publish the release (only after full success)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ steps.version.outputs.tag }}" --draft=false
+      - env: {GH_TOKEN: "${{ github.token }}"}
+        run: gh release edit "${{ needs.validate.outputs.tag }}" --draft=false

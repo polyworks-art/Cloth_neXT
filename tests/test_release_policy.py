@@ -36,11 +36,18 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
     manifest = json.loads(SOLVER_MANIFEST)
     manifest["cloth_next_version"] = version
     path = tmp_path / (name or expected_zip_name(parse_version(version)))
+    companion = b"MZcloth-next-companion"
+    import hashlib
+    companion_manifest = {"schema_version": 1, "cloth_next_version": version,
+        "filename": "cloth-next-bake.exe", "platform": "windows-x64",
+        "file_size": len(companion), "sha256": hashlib.sha256(companion).hexdigest()}
     with zipfile.ZipFile(path, "w") as bundle:
         bundle.writestr("blender_manifest.toml",
                         f'id = "cloth_next"\nversion = "{version}"\n')
         bundle.writestr("__init__.py", "")
         bundle.writestr("solver_compatibility.json", json.dumps(manifest))
+        bundle.writestr("bin/cloth-next-bake.exe", companion)
+        bundle.writestr("companion_manifest.json", json.dumps(companion_manifest))
         for member in extra:
             bundle.writestr(member, b"data")
     return path

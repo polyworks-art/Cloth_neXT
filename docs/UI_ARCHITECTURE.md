@@ -26,8 +26,9 @@ KiB and fixed hello/status/shutdown/ready/cancel/close message types. Socket
 threads only enqueue requests; a Blender timer applies cancellation to the
 controller. Disconnect never affects preview state.
 
-Launch is explicit. Blender tracks the exact child, prefers the ignored local
-development EXE, and falls back to configured Python source mode. Unregister
+Launch is explicit. Blender validates and launches only
+`bin/cloth-next-bake.exe` using `companion_manifest.json`; source mode requires
+the explicit developer override. Blender tracks the exact child. Unregister
 stops the preview, authenticates companion shutdown, closes IPC, then terminates
 only that exact child if graceful exit fails. Panel, HUD and companion always
 observe one controller.

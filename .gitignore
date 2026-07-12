@@ -8,6 +8,8 @@ dist/
 companion/dist/
 companion/build/
 companion/*.spec
+cloth_next/bin/*.exe
+cloth_next/companion_manifest.json
 site/
 *.zip
 

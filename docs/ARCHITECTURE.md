@@ -53,6 +53,10 @@ transport. The companion is separately owned from every PPF process; its future
 IPC boundary is authenticated, bounded JSON on localhost only. See
 `UI_ARCHITECTURE.md`.
 
+The Windows package contains exactly one Cloth NeXt-owned executable at
+`bin/cloth-next-bake.exe`. CI builds it from tagged source and generates a strict
+version/platform/size/SHA-256 manifest. This narrow allowance never applies to PPF.
+
 Cloth NeXt is a Blender client and pipeline for PPF, never a physics engine.
 
 ```text

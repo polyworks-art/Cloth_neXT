@@ -1,0 +1,25 @@
+from pathlib import Path
+from PIL import Image
+
+from companion.build_assets import build
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_companion_assets_reuse_approved_identity_and_bake_icons():
+    build()
+    target = ROOT / "companion" / "assets"
+    source = ROOT / "cloth_next" / "assets" / "icons"
+    assert (target / "cloth_next.png").read_bytes() == (source / "cloth_next.png").read_bytes()
+    with Image.open(target/"bake.png") as derived, Image.open(source/"bake.png") as approved:
+        assert derived.getchannel("A").tobytes() == approved.convert("RGBA").getchannel("A").tobytes()
+        assert derived.getpixel((derived.width//2,derived.height//2))[:3] in {(217,154,50),(0,0,0)}
+    with Image.open(target / "cloth_next.ico") as icon:
+        assert icon.format == "ICO"
+        assert (256, 256) in icon.info["sizes"]
+
+
+def test_only_approved_companion_executable_is_staged_in_extension_source():
+    executables=[path.relative_to(ROOT/"cloth_next").as_posix()
+                 for path in (ROOT/"cloth_next").rglob("*.exe")]
+    assert executables == ["bin/cloth-next-bake.exe"]

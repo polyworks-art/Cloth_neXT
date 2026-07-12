@@ -1,4 +1,4 @@
-# Cloth NeXt 0.2.0-beta.2
+# Cloth NeXt 0.2.0-beta.3
 
 This beta introduces the completed Phase 2.8B user-interface shell for
 interactive Blender testing. Final visual QA is intentionally still open.
@@ -31,8 +31,9 @@ disable/re-enable lifecycle, role switching, preview cancellation, and errors.
 
 ## Companion application
 
-The standalone Cloth NeXt Bake EXE is a local development artifact only. It is
-not included in this release or distributed through the extension package.
+The Cloth NeXt-owned Bake companion is built from tagged source by release CI,
+bundled at one validated location inside the Windows extension, and never
+published as a separate release asset.
 
 ## External solver
 

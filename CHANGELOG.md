@@ -4,6 +4,22 @@ All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.
 
+## 0.2.0-beta.3 — 2026-07-12 (beta channel)
+
+### Added
+- Compact dark Cloth NeXt Bake companion aligned with a native DCC progress
+  dialog, using the Cloth NeXt application identity and croissant progress icon.
+- CI-built Windows companion bundled at `bin/cloth-next-bake.exe`, guarded by a
+  strict version/platform/size/SHA-256 manifest before launch.
+- Coordinated Ubuntu validation, Windows extension build, and gated publishing
+  jobs with one shared build-dependency declaration.
+
+### Fixed
+- CI now installs Pillow and the deterministic icon tooling before test
+  collection, correcting the failed immutable beta.2 release attempt.
+- Companion shutdown is performed before add-on replacement without mixing its
+  ownership with PPF solver ownership.
+
 ## 0.2.0-beta.2 — 2026-07-12 (beta channel)
 
 ### Added

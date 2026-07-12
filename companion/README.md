@@ -11,5 +11,12 @@ request to Blender's shared controller; it never kills a process or touches file
 For a local development EXE, install `companion/requirements-build.txt`, then run
 `python companion/build_companion.py`. Output is
 `companion/dist/Cloth NeXt Bake.exe`, which is ignored and excluded from the
-extension package. No solver or PPF files are included. This binary is not
-distributed; future distribution would require a separate policy decision.
+extension package for development. Release CI independently rebuilds it and stages
+the validated result as the sole allowed executable inside the Windows extension.
+No solver or PPF files are included.
+
+The executable, taskbar, title bar, and Tk window use the approved `cloth_next`
+project identity icon. The approved croissant remains distinct and appears only
+as the Bake/progress symbol inside the window. Deterministic PNG/ICO derivatives
+are produced by `python companion/build_assets.py` during the development build;
+normal startup performs no conversion.
