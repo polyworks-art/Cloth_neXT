@@ -45,6 +45,25 @@ def _phase28_roundtrip(bpy) -> None:
     assert mesh_obj.cloth_next.role == "CLOTH"
 
 
+def _solver_download_dispatch_check(bpy, module_name: str) -> None:
+    """The download button regression: RNA must resolve the operator classes
+    (a registered-operator subclass used to corrupt this mapping and silently
+    skip ``invoke``), and the confirmation state machine must work. Declining
+    the confirmation performs no network or file operation.
+    """
+    preferences = importlib.import_module(module_name + ".blender.preferences")
+    for name in ("CLOTHNEXT_OT_solver_download", "CLOTHNEXT_OT_solver_repair"):
+        resolved = bpy.types.Operator.bl_rna_get_subclass_py(name)
+        assert resolved is getattr(preferences, name), (
+            f"RNA does not resolve {name} to its Python class")
+    installer = preferences._session.ensure_installer()
+    assert installer is not None, preferences._session.disabled_reason
+    state = installer.request_download()
+    assert state.name == "AWAITING_CONFIRMATION"
+    state = installer.install(confirmed=False)  # decline: no download starts
+    assert state.name == "DOWNLOAD_AVAILABLE"
+
+
 def main() -> None:
     import bpy
 
@@ -69,6 +88,7 @@ def main() -> None:
         assert hasattr(bpy.types, "CLOTHNEXT_PT_physics")
         assert "cloth_next" in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 1
+        _solver_download_dispatch_check(bpy, module_name)
         _phase28_roundtrip(bpy)
         extension.unregister()
         extension.unregister()

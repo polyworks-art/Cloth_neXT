@@ -151,9 +151,28 @@ def make_module() -> types.ModuleType:
     utils_module = types.SimpleNamespace(register_class=register_class,
                                          unregister_class=unregister_class)
 
+    timer_functions: list = []
+
+    def timers_register(func, first_interval=0.0):
+        timer_functions.append(func)
+
+    def timers_unregister(func):
+        timer_functions.remove(func)
+
+    def timers_is_registered(func):
+        return func in timer_functions
+
+    app_module = types.SimpleNamespace(
+        online_access=True,
+        timers=types.SimpleNamespace(register=timers_register,
+                                     unregister=timers_unregister,
+                                     is_registered=timers_is_registered,
+                                     functions=timer_functions))
+
     bpy.types = types_module
     bpy.props = props_module
     bpy.utils = utils_module
-    bpy.context = types.SimpleNamespace()
+    bpy.app = app_module
+    bpy.context = types.SimpleNamespace(window_manager=None)
     bpy.registry = registry
     return bpy

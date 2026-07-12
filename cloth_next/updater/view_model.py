@@ -54,10 +54,21 @@ _BUSY_STATES = frozenset({
 })
 
 
+def format_download_progress(done: int, total: int) -> str:
+    """Human-readable download progress, e.g. '123 / 430 MiB (28%)'."""
+    done_mib = done / (1024 * 1024)
+    if total <= 0:
+        return f"{done_mib:.0f} MiB"
+    total_mib = total / (1024 * 1024)
+    percent = min(100, 100 * done // total)
+    return f"{done_mib:.0f} / {total_mib:.0f} MiB ({percent}%)"
+
+
 def build_section(installer_state: InstallerState,
                   entry: SolverCompatibilityEntry | None,
                   download_disabled_reason: str | None,
-                  installed: InstalledInfo | None) -> SolverSection:
+                  installed: InstalledInfo | None,
+                  download_progress: str | None = None) -> SolverSection:
     descriptor = describe(installer_state)
     actions = descriptor.allowed_actions
     if entry is None:
@@ -67,8 +78,10 @@ def build_section(installer_state: InstallerState,
                                           InstallerAction.CONFIRM_DOWNLOAD,
                                           InstallerAction.INSTALL_COMPATIBLE_VERSION))
     if installer_state in _BUSY_STATES:
-        return SolverSection(SectionStatus.BUSY, (("Status", descriptor.ui_message),),
-                             actions, descriptor.ui_message)
+        rows: tuple[tuple[str, str], ...] = (("Status", descriptor.ui_message),)
+        if installer_state is InstallerState.DOWNLOADING and download_progress:
+            rows += (("Progress", download_progress),)
+        return SolverSection(SectionStatus.BUSY, rows, actions, descriptor.ui_message)
     if installer_state is InstallerState.ERROR:
         return SolverSection(SectionStatus.ERROR, (("Status", "Error"),),
                              actions, descriptor.ui_message)

@@ -114,19 +114,41 @@ def _installed_info() -> view_model.InstalledInfo | None:
         _session.entry.schema_version)
 
 
+def _tag_redraw_preferences() -> None:
+    window_manager = getattr(bpy.context, "window_manager", None)
+    if window_manager is None:
+        return
+    for window in window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "PREFERENCES":
+                area.tag_redraw()
+
+
+def _ui_refresh_pulse() -> float | None:
+    """Timer callback: redraw preferences while the installer worker runs."""
+    worker = _session.worker
+    _tag_redraw_preferences()
+    if worker is None or not worker.is_alive():
+        return None  # worker finished; final redraw done, stop the timer
+    return 0.25
+
+
 def _run_in_worker(target) -> None:
     if _session.worker is not None and _session.worker.is_alive():
         return
     _session.worker = threading.Thread(target=target, daemon=True,
                                        name="clothnext-solver-installer")
     _session.worker.start()
+    if not bpy.app.timers.is_registered(_ui_refresh_pulse):
+        bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
 
 
 def shutdown(join_timeout: float = 10.0) -> None:
     """Cancel running downloads and join the worker; called on unregister.
 
-    Leaves no running worker thread, no open download handle, and no partially
-    started installer behind. Safe to call multiple times.
+    Leaves no running worker thread, no open download handle, no UI refresh
+    timer, and no partially started installer behind. Safe to call multiple
+    times.
     """
     installer = _session.installer
     if installer is not None:
@@ -134,6 +156,8 @@ def shutdown(join_timeout: float = 10.0) -> None:
     worker = _session.worker
     if worker is not None and worker.is_alive():
         worker.join(timeout=join_timeout)
+    if bpy.app.timers.is_registered(_ui_refresh_pulse):
+        bpy.app.timers.unregister(_ui_refresh_pulse)
     _session.worker = None
     _session.installer = None
     _session.entry = None
@@ -141,20 +165,22 @@ def shutdown(join_timeout: float = 10.0) -> None:
     _session.loaded = False
 
 
-class CLOTHNEXT_OT_solver_download(bpy.types.Operator):
-    """Download the official PPF Contact Solver after explicit confirmation"""
-    bl_idname = "clothnext.solver_download"
-    bl_label = "Download Official Solver"
-    bl_options = {"REGISTER", "INTERNAL"}
+class _SolverInstallDialog:
+    """Shared confirmation-dialog behavior for download and repair.
 
-    def invoke(self, context, _event):
-        installer = _session.ensure_installer()
-        if installer is None:
-            self.report({"ERROR"}, "Automatic download is disabled: "
-                        f"{_session.disabled_reason}")
-            return {"CANCELLED"}
-        installer.request_download()
-        return context.window_manager.invoke_props_dialog(self, width=520)
+    Deliberately a plain mixin, NOT a registered Operator subclass:
+    registering a subclass of an already registered Operator corrupts
+    Blender's RNA↔Python class mapping, after which the parent operator's
+    ``invoke`` is silently skipped and its button appears to do nothing.
+    """
+
+    def _report_online_access_blocked(self) -> bool:
+        if getattr(bpy.app, "online_access", True):
+            return False
+        self.report({"ERROR"}, "Blender's online access is disabled. Enable "
+                    "'Allow Online Access' in Preferences > System to download "
+                    "the solver.")
+        return True
 
     def draw(self, _context):
         layout = self.layout
@@ -172,6 +198,11 @@ class CLOTHNEXT_OT_solver_download(bpy.types.Operator):
         installer = _session.ensure_installer()
         if installer is None:
             return {"CANCELLED"}
+        if installer.state is not InstallerState.AWAITING_CONFIRMATION:
+            # Never crash the worker with an invalid transition; tell the user.
+            self.report({"WARNING"}, "The download was not confirmed; "
+                        "nothing was started.")
+            return {"CANCELLED"}
         _run_in_worker(lambda: installer.install(confirmed=True))
         self.report({"INFO"}, "Downloading the official solver in the background.")
         return {"FINISHED"}
@@ -180,6 +211,27 @@ class CLOTHNEXT_OT_solver_download(bpy.types.Operator):
         installer = _session.installer
         if installer is not None and installer.state is InstallerState.AWAITING_CONFIRMATION:
             installer.install(confirmed=False)
+
+
+class CLOTHNEXT_OT_solver_download(_SolverInstallDialog, bpy.types.Operator):
+    """Download the official PPF Contact Solver after explicit confirmation"""
+    bl_idname = "clothnext.solver_download"
+    bl_label = "Download Official Solver"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def invoke(self, context, _event):
+        if self._report_online_access_blocked():
+            return {"CANCELLED"}
+        installer = _session.ensure_installer()
+        if installer is None:
+            self.report({"ERROR"}, "Automatic download is disabled: "
+                        f"{_session.disabled_reason}")
+            return {"CANCELLED"}
+        if _session.worker is not None and _session.worker.is_alive():
+            self.report({"INFO"}, "A solver installation is already running.")
+            return {"CANCELLED"}
+        installer.request_download()
+        return context.window_manager.invoke_props_dialog(self, width=520)
 
 
 class CLOTHNEXT_OT_solver_cancel(bpy.types.Operator):
@@ -299,12 +351,15 @@ class CLOTHNEXT_OT_solver_check_update(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CLOTHNEXT_OT_solver_repair(CLOTHNEXT_OT_solver_download):
+class CLOTHNEXT_OT_solver_repair(_SolverInstallDialog, bpy.types.Operator):
     """Repair the managed installation by reinstalling the verified official release"""
     bl_idname = "clothnext.solver_repair"
     bl_label = "Repair Managed Installation"
+    bl_options = {"REGISTER", "INTERNAL"}
 
     def invoke(self, context, _event):
+        if self._report_online_access_blocked():
+            return {"CANCELLED"}
         installer = _session.ensure_installer()
         if installer is None:
             self.report({"ERROR"}, "Automatic download is disabled: "
@@ -387,13 +442,23 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         box = layout.box()
         box.label(text="PPF Contact Solver")
         _session.load()
-        section = view_model.build_section(_installer_state(), _session.entry,
-                                           _session.disabled_reason, _installed_info())
+        state = _installer_state()
+        installer = _session.installer
+        progress_text = None
+        if installer is not None and state is InstallerState.DOWNLOADING:
+            done, total = installer.download_progress
+            progress_text = view_model.format_download_progress(done, total)
+        section = view_model.build_section(state, _session.entry,
+                                           _session.disabled_reason, _installed_info(),
+                                           download_progress=progress_text)
         for label, value in section.rows:
             row = box.row()
             row.label(text=f"{label}: {value}")
         if section.message:
             box.label(text=section.message)
+        if (installer is not None and installer.error is not None
+                and state is InstallerState.ERROR):
+            box.label(text=installer.error.user_message, icon="ERROR")
         actions = box.column()
         for action in section.actions:
             idname = _ACTION_OPERATORS.get(action)

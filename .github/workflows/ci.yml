@@ -72,6 +72,7 @@ jobs:
       - name: Build extension with the official Blender tooling
         run: |
           set -euo pipefail
+          mkdir -p dist
           "$BLENDER" --command extension build \
             --source-dir=cloth_next --output-filepath=dist/cloth_next-smoke.zip
 

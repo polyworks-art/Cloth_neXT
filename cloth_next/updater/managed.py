@@ -57,6 +57,8 @@ class ManagedSolverInstaller:
         self._cancel = threading.Event()
         self._repair_mode = False
         self._error: ErrorRecord | None = None
+        self._download_done = 0
+        self._download_total = 0
         try:
             self._state = (InstallerState.READY if read_current(paths) is not None
                            else InstallerState.NOT_INSTALLED)
@@ -75,6 +77,15 @@ class ManagedSolverInstaller:
     @property
     def paths(self) -> ManagedSolverPaths:
         return self._paths
+
+    @property
+    def download_progress(self) -> tuple[int, int]:
+        """(bytes downloaded, expected total bytes); read from the UI thread."""
+        return (self._download_done, self._download_total)
+
+    def _note_download_progress(self, done: int, total: int) -> None:
+        self._download_done = done
+        self._download_total = total
 
     def active_installation(self) -> ActiveInstallation | None:
         return read_current(self._paths)
@@ -121,8 +132,10 @@ class ManagedSolverInstaller:
         archive_path = self._paths.downloads_dir / entry.official_asset_name
         staging: Path | None = None
         try:
+            self._note_download_progress(0, entry.download_size)
             self._set_state(InstallerState.DOWNLOADING)
-            self._fetch(entry, archive_path, cancel=self._cancel)
+            self._fetch(entry, archive_path, cancel=self._cancel,
+                        progress=self._note_download_progress)
             self._set_state(InstallerState.VERIFYING)
             download_module.verify_sha256(archive_path, entry.sha256)
             self._set_state(InstallerState.EXTRACTING)
