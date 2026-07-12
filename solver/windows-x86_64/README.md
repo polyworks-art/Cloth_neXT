@@ -2,7 +2,7 @@
 
 This directory is the development location for the official Windows x86-64 PPF
 redistributable. Binary/runtime contents and generated `SOURCE.json` are intentionally
-ignored by Git (distribution strategy B). `.gitkeep` and this guide remain tracked.
+ignored by Git. `.gitkeep` and this guide remain tracked.
 
 Bootstrap an already downloaded official archive or directory explicitly:
 
