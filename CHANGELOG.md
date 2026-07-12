@@ -4,6 +4,29 @@ All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.
 
+## Unreleased
+
+### Fixed
+- Automatic add-on update failed in real Blender 5.1.2 with "Repository not
+  set": the extension operators' `repo_index` parameter counts only enabled
+  repositories with valid settings, so an index into
+  `preferences.extensions.repos` silently shifts when any earlier repository
+  is disabled. The update now identifies the channel repository by its
+  resolved `directory` RNA and uses Blender's own per-package update operator
+  (`extensions.package_install(repo_directory=…, pkg_id=…)`) instead of
+  `package_upgrade_all` + `active_repo`, so only Cloth NeXt is ever updated.
+- Distinct update error states: repository disabled and repository
+  synchronization failed are now reported separately, and the fallback
+  message says the repository was synchronized before pointing to Blender's
+  update view.
+
+### Added
+- Real Blender runtime smoke test for the update path
+  (`tools/blender_update_smoke_test.py`, wired into CI), covering the
+  disabled-repository condition that previously raised "Repository not set",
+  exact-repository synchronization, unrelated repositories staying untouched,
+  and the manual fallback.
+
 ## 0.2.0-beta.5 — 2026-07-12 (beta channel)
 
 ### Fixed

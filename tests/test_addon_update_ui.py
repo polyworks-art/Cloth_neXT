@@ -1,7 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Fake-bpy tests for the Cloth NeXt add-on update UI and operators."""
+"""Fake-bpy tests for the Cloth NeXt add-on update UI and operators.
+
+These tests verify Cloth NeXt's own logic only: repository resolution by
+remote URL, the directory-based operator arguments it passes, call order,
+fallback behavior, and solver/companion separation. They deliberately make
+no claim about real Blender operator context compatibility — that is covered
+by ``tools/blender_update_smoke_test.py`` running inside real Blender 5.1.2.
+"""
 
 from __future__ import annotations
 
@@ -26,10 +33,10 @@ def set_channel(env, channel="BETA"):
         preferences=SimpleNamespace(update_channel=channel))
 
 
-def add_repo(env, url, enabled=True):
+def add_repo(env, url, enabled=True, directory="/fake/extensions/mod"):
     env.bpy.context.preferences.extensions.repos.append(SimpleNamespace(
         name="repo", module="mod", remote_url=url, enabled=enabled,
-        use_remote_url=True))
+        use_remote_url=True, directory=directory))
 
 
 def updater(env):
@@ -171,14 +178,13 @@ def test_check_without_repository_reports_not_configured(blender_env):
     env.registration.unregister()
 
 
-def test_check_with_disabled_repository_reports_not_configured(blender_env):
+def test_check_with_disabled_repository_reports_disabled(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env, "BETA")
     add_repo(env, BETA_URL, enabled=False)
     run_check(env)
-    assert updater(env).session().state is \
-        AddonUpdateState.REPOSITORY_NOT_CONFIGURED
+    assert updater(env).session().state is AddonUpdateState.REPOSITORY_DISABLED
     env.registration.unregister()
 
 
@@ -354,11 +360,72 @@ def test_install_uses_blenders_extension_mechanism(blender_env):
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
     assert "extensions.repo_sync" in names
-    assert "extensions.package_upgrade_all" in names
-    sync_kwargs = dict(env.bpy.ops_log)[("extensions.repo_sync")]
-    assert sync_kwargs == {"repo_index": 0}
-    assert env.bpy.context.preferences.extensions.active_repo == 0
+    assert "extensions.package_install" in names
+    assert names.index("extensions.repo_sync") < names.index(
+        "extensions.package_install")
+    ops = dict(env.bpy.ops_log)
+    # repository identified by its resolved directory, never by an index
+    # (repo_index counts only enabled/valid repositories and silently shifts)
+    assert ops["extensions.repo_sync"] == {
+        "repo_directory": "/fake/extensions/mod"}
+    assert ops["extensions.package_install"] == {
+        "repo_directory": "/fake/extensions/mod", "pkg_id": "cloth_next",
+        "enable_on_install": True}
     assert module.session().state is AddonUpdateState.RESTART_REQUIRED
+    env.registration.unregister()
+
+
+def test_install_never_upgrades_unrelated_extensions(blender_env):
+    env = blender_env
+    env.registration.register()
+    set_channel(env)
+    add_repo(env, "https://example.invalid/other/index.json",
+             directory="/fake/extensions/other")
+    add_repo(env, BETA_URL)
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_install()
+    assert op.execute(env.bpy.context) == {"FINISHED"}
+    names = [name for name, _kw in env.bpy.ops_log]
+    assert "extensions.package_upgrade_all" not in names
+    assert "extensions.repo_sync_all" not in names
+    for name, kwargs in env.bpy.ops_log:
+        if name == "extensions.package_install":
+            assert kwargs["pkg_id"] == "cloth_next"
+        if name in ("extensions.repo_sync", "extensions.package_install"):
+            assert kwargs["repo_directory"] == "/fake/extensions/mod"
+    env.registration.unregister()
+
+
+def test_install_distinguishes_disabled_repository(blender_env):
+    env = blender_env
+    env.registration.register()
+    set_channel(env)
+    add_repo(env, BETA_URL, enabled=False)
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_install()
+    assert op.execute(env.bpy.context) == {"CANCELLED"}
+    assert module.session().state is AddonUpdateState.REPOSITORY_DISABLED
+    assert "enable" in module.session().message.lower()
+    assert all(name != "extensions.repo_sync" for name, _kw in env.bpy.ops_log)
+    env.registration.unregister()
+
+
+def test_install_reports_sync_failure_distinctly(blender_env):
+    env = blender_env
+    env.registration.register()
+    set_channel(env)
+    add_repo(env, BETA_URL)
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    env.bpy.ops.extensions.repo_sync.raises = RuntimeError("connection refused")
+    op = module.CLOTHNEXT_OT_addon_update_install()
+    assert op.execute(env.bpy.context) == {"CANCELLED"}
+    assert module.session().state is AddonUpdateState.SYNC_FAILED
+    assert "connection refused" in module.session().message
+    names = [name for name, _kw in env.bpy.ops_log]
+    assert "extensions.package_install" not in names
     env.registration.unregister()
 
 
@@ -369,12 +436,14 @@ def test_install_falls_back_to_blender_extensions_view(blender_env):
     add_repo(env, BETA_URL)
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    env.bpy.ops.extensions.package_upgrade_all.raises = RuntimeError("no public API")
+    env.bpy.ops.extensions.package_install.raises = RuntimeError("no UI context")
     op = module.CLOTHNEXT_OT_addon_update_install()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
+    assert "extensions.repo_sync" in names  # the exact repo was synchronized
     assert "extensions.userpref_show_for_update" in names
     assert module.session().state is AddonUpdateState.UNAVAILABLE
+    assert "synchronized" in module.session().message.lower()
     assert "click" in module.session().message.lower()
     env.registration.unregister()
 

@@ -55,6 +55,8 @@ class AddonUpdateState(Enum):
     UP_TO_DATE = auto()
     UPDATE_AVAILABLE = auto()
     REPOSITORY_NOT_CONFIGURED = auto()
+    REPOSITORY_DISABLED = auto()
+    SYNC_FAILED = auto()
     ONLINE_ACCESS_DISABLED = auto()
     INSTALL_BLOCKED = auto()
     INSTALLING = auto()
@@ -191,6 +193,8 @@ STATUS_LABELS = {
     AddonUpdateState.UP_TO_DATE: "Up to date",
     AddonUpdateState.UPDATE_AVAILABLE: "Update available",
     AddonUpdateState.REPOSITORY_NOT_CONFIGURED: "Repository not configured",
+    AddonUpdateState.REPOSITORY_DISABLED: "Repository disabled",
+    AddonUpdateState.SYNC_FAILED: "Repository synchronization failed",
     AddonUpdateState.ONLINE_ACCESS_DISABLED: "Offline (online access disabled)",
     AddonUpdateState.INSTALL_BLOCKED: "Install blocked",
     AddonUpdateState.INSTALLING: "Installing…",

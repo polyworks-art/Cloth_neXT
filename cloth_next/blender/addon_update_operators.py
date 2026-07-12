@@ -8,17 +8,28 @@ Public Blender 5.1.2 API used (verified by runtime introspection; see
 docs/LIMITATIONS.md for what is *not* public):
 
 - ``bpy.ops.preferences.extension_repo_add(name=, remote_url=, type='REMOTE')``
-- ``bpy.ops.extensions.repo_sync(repo_index=)``
-- ``bpy.ops.extensions.package_upgrade_all(use_active_only=True)``
+- ``bpy.ops.extensions.repo_sync(repo_directory=)``
+- ``bpy.ops.extensions.package_install(repo_directory=, pkg_id=,
+  enable_on_install=)`` — the operator behind Blender's own per-package
+  "Update" button, so only Cloth NeXt is ever updated
 - ``bpy.ops.extensions.userpref_show_for_update()`` (fallback view)
-- ``bpy.context.preferences.extensions.repos`` RNA (name/module/remote_url/enabled)
+- ``bpy.context.preferences.extensions.repos`` RNA
+  (name/module/remote_url/enabled/directory)
 - ``bpy.app.online_access``
+
+The repository is always identified by its resolved ``directory`` (public
+RNA), never by an index: the ``repo_index`` operator parameters count only
+enabled repositories with valid settings, so an index into
+``preferences.extensions.repos`` silently shifts as soon as any earlier
+repository is disabled — in real Blender 5.1.2 that raised
+"Repository not set". ``active_repo`` is UI state and is not touched.
 
 Blender exposes no public operator or RNA to ask "does package X have an
 update?", so the Check action reads the channel ``index.json`` (official
 Blender-generated format, fixed project URL) in a worker thread. Blender's
-own ``repo_sync`` is invoked on the install path so the actual installation
-is performed and verified by Blender, never by Cloth NeXt itself.
+own ``repo_sync`` + ``package_install`` are invoked on the install path so
+the actual installation is performed and verified by Blender, never by
+Cloth NeXt itself.
 
 Never touched here: the separately installed PPF solver, its files, and its
 installation metadata. Add-on updates and solver updates stay separate.
@@ -129,6 +140,19 @@ def _online_access_enabled() -> bool:
     return bool(getattr(bpy.app, "online_access", True))
 
 
+def _blender_repo_sync(directory: str) -> None:
+    """Synchronize exactly one repository, identified by its directory."""
+    bpy.ops.extensions.repo_sync(repo_directory=directory)
+
+
+def _blender_package_install(directory: str) -> None:
+    """Blender's own per-package update: install the latest Cloth NeXt from
+    exactly one repository. Never touches any other package or repository."""
+    bpy.ops.extensions.package_install(
+        repo_directory=directory, pkg_id=addon_updates.EXTENSION_ID,
+        enable_on_install=True)
+
+
 class CLOTHNEXT_OT_addon_update_check(bpy.types.Operator):
     """Check the selected Cloth NeXt channel repository for an update"""
 
@@ -150,11 +174,19 @@ class CLOTHNEXT_OT_addon_update_check(bpy.types.Operator):
         channel = selected_channel(context)
         repos = context.preferences.extensions.repos
         index = addon_updates.find_channel_repo(repos, channel)
-        if index is None or not getattr(repos[index], "enabled", False):
+        if index is None:
             _session.state = AddonUpdateState.REPOSITORY_NOT_CONFIGURED
             _session.latest = None
             _session.message = (f"The {channel.label} repository is not "
-                                "configured (or disabled) in Blender.")
+                                "configured in Blender.")
+            self.report({"WARNING"}, _session.message)
+            return {"FINISHED"}
+        if not getattr(repos[index], "enabled", False):
+            _session.state = AddonUpdateState.REPOSITORY_DISABLED
+            _session.latest = None
+            _session.message = (f"The {channel.label} repository is disabled "
+                                "in Blender; enable it under Preferences > "
+                                "Get Extensions > Repositories.")
             self.report({"WARNING"}, _session.message)
             return {"FINISHED"}
         _session.state = AddonUpdateState.CHECKING
@@ -247,16 +279,40 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
                                 "configured in Blender.")
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
+        repo = repos[index]
+        if not getattr(repo, "enabled", False):
+            _session.state = AddonUpdateState.REPOSITORY_DISABLED
+            _session.message = (f"The {channel.label} repository is disabled "
+                                "in Blender; enable it under Preferences > "
+                                "Get Extensions > Repositories.")
+            self.report({"WARNING"}, _session.message)
+            return {"CANCELLED"}
+        directory = getattr(repo, "directory", "") or ""
+        if not directory:
+            _session.state = AddonUpdateState.REPOSITORY_NOT_CONFIGURED
+            _session.message = (f"The {channel.label} repository has no valid "
+                                "local directory; check its settings under "
+                                "Preferences > Get Extensions > Repositories.")
+            self.report({"WARNING"}, _session.message)
+            return {"CANCELLED"}
         _session.state = AddonUpdateState.INSTALLING
         try:
-            context.preferences.extensions.active_repo = index
-            bpy.ops.extensions.repo_sync(repo_index=index)
-            bpy.ops.extensions.package_upgrade_all(use_active_only=True)
+            _blender_repo_sync(directory)
+        except Exception as exc:  # noqa: BLE001 — a distinct, honest state
+            _session.state = AddonUpdateState.SYNC_FAILED
+            _session.message = (f"Blender could not synchronize the "
+                                f"{channel.label} repository ({exc}). Check "
+                                "the network connection and try again.")
+            self.report({"ERROR"}, _session.message)
+            return {"CANCELLED"}
+        try:
+            _blender_package_install(directory)
         except Exception as exc:  # noqa: BLE001 — fall back to Blender's own view
             _session.state = AddonUpdateState.UNAVAILABLE
-            _session.message = ("Blender's automatic update could not run "
-                                f"({exc}). Blender's extension update view was "
-                                "opened; click 'Update' on Cloth NeXt there.")
+            _session.message = ("Repository synchronized, but Blender's "
+                                f"automatic update could not run here ({exc}). "
+                                "Blender's extension update view was opened; "
+                                "click 'Update' on Cloth NeXt there.")
             try:
                 bpy.ops.extensions.userpref_show_for_update()
             except Exception:  # noqa: BLE001 — the message still tells the path

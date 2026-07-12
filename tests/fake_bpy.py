@@ -172,10 +172,11 @@ def make_module() -> types.ModuleType:
     extensions_repos: list = []
 
     def _repo_add_side_effect(**kwargs):
+        module = f"repo_{len(extensions_repos)}"
         extensions_repos.append(types.SimpleNamespace(
-            name=kwargs.get("name", ""), module=f"repo_{len(extensions_repos)}",
+            name=kwargs.get("name", ""), module=module,
             remote_url=kwargs.get("remote_url", ""), enabled=True,
-            use_remote_url=True))
+            use_remote_url=True, directory=f"/fake/extensions/{module}"))
 
     repo_add_op = _FakeOp("preferences.extension_repo_add")
     repo_add_op.side_effect = _repo_add_side_effect
@@ -184,6 +185,7 @@ def make_module() -> types.ModuleType:
         extensions=types.SimpleNamespace(
             repo_sync=_FakeOp("extensions.repo_sync"),
             repo_sync_all=_FakeOp("extensions.repo_sync_all"),
+            package_install=_FakeOp("extensions.package_install"),
             package_upgrade_all=_FakeOp("extensions.package_upgrade_all"),
             userpref_show_for_update=_FakeOp("extensions.userpref_show_for_update")),
         preferences=types.SimpleNamespace(extension_repo_add=repo_add_op),

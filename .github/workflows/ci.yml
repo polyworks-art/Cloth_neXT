@@ -81,3 +81,12 @@ jobs:
           set -euo pipefail
           "$BLENDER" --background \
             --python-exit-code 1 --python tools/blender_smoke_test.py
+
+      # Exercises the update operator against Blender's real extension
+      # machinery, including a sync of the live Beta channel repository.
+      - name: Add-on update path smoke test
+        run: |
+          set -euo pipefail
+          BLENDER_USER_RESOURCES="$RUNNER_TEMP/blender-update-profile" \
+            "$BLENDER" --factory-startup --background --online-mode \
+            --python-exit-code 1 --python tools/blender_update_smoke_test.py

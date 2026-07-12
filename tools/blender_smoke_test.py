@@ -121,9 +121,12 @@ def _addon_update_section_check(bpy, module_name: str) -> None:
         assert repo_urls.count(url) == 1 or not url, f"duplicate repository {url}"
     # the public operators this feature relies on exist in this Blender
     assert hasattr(bpy.ops.extensions, "repo_sync")
-    assert hasattr(bpy.ops.extensions, "package_upgrade_all")
+    assert hasattr(bpy.ops.extensions, "package_install")
     assert hasattr(bpy.ops.extensions, "userpref_show_for_update")
     assert hasattr(bpy.ops.preferences, "extension_repo_add")
+    # the repository is identified by its resolved directory (public RNA)
+    assert all(hasattr(repo, "directory")
+               for repo in bpy.context.preferences.extensions.repos)
     assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)
 
 
