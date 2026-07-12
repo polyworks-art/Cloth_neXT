@@ -1,0 +1,36 @@
+{
+  "version": "v1",
+  "blocklist": [],
+  "data": [
+    {
+      "schema_version": "1.0.0",
+      "id": "cloth_next",
+      "name": "Cloth NeXt",
+      "tagline": "Cloth simulation through the external PPF Contact Solver",
+      "version": "0.2.0-beta.1",
+      "type": "add-on",
+      "maintainer": "Tim Christmann",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "5.0.0",
+      "website": "https://github.com/polyworks-art/Cloth_neXT",
+      "copyright": [
+        "2026 Tim Christmann and Cloth NeXt contributors"
+      ],
+      "permissions": {
+        "network": "Download the official PPF solver after explicit confirmation",
+        "files": "Manage the separate solver installation outside the extension"
+      },
+      "tags": [
+        "Physics"
+      ],
+      "platforms": [
+        "windows-x64"
+      ],
+      "archive_url": "./cloth_next-0.2.0-beta.1-windows-x64.zip",
+      "archive_size": 59851,
+      "archive_hash": "sha256:a5278746f1ba1c68dd3d9e05d4edbd2a5977de995608b780169afbc8d7fcbf04"
+    }
+  ]
+}
