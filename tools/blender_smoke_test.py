@@ -138,14 +138,10 @@ def main() -> None:
     # not exposed as `bpy.types.<ClassName>` attributes in Blender 5.x.
     blender_package = importlib.import_module(module_name + ".blender")
     classes = []
-    for submodule, names in (
-            ("preferences", ("CLOTHNEXT_AddonPreferences",)),
-            ("object_properties", ("CLOTHNEXT_PG_object_settings",)),
-            ("physics_operators", ("CLOTHNEXT_OT_add_physics",
-                                   "CLOTHNEXT_OT_remove_physics")),
-            ("physics_ui", ("CLOTHNEXT_PT_physics",))):
+    for submodule in ("preferences", "addon_update_operators", "object_properties",
+                      "physics_operators", "bake_operators", "physics_ui"):
         loaded = importlib.import_module(f"{blender_package.__name__}.{submodule}")
-        classes.extend(getattr(loaded, name) for name in names)
+        classes.extend(loaded.CLASSES)
 
     for _ in range(2):
         extension.register()
@@ -157,12 +153,32 @@ def main() -> None:
         _solver_download_dispatch_check(bpy, module_name)
         _addon_update_section_check(bpy, module_name)
         _phase28_roundtrip(bpy)
+        icons = importlib.import_module(module_name + ".blender.icon_registry")
+        hud = importlib.import_module(module_name + ".blender.hud")
+        physics_ui = importlib.import_module(module_name + ".blender.physics_ui")
+        assert icons._collection is not None and "bake" in icons._collection, \
+            "croissant runtime preview was not loaded"
+        assert hud._handle is not None, "HUD handler was not installed"
+        obj = bpy.context.active_object
+        obj.cloth_next.enabled = True
+        cloth_only = (physics_ui.CLOTHNEXT_PT_quality,
+                      physics_ui.CLOTHNEXT_PT_physical,
+                      physics_ui.CLOTHNEXT_PT_damping,
+                      physics_ui.CLOTHNEXT_PT_pressure,
+                      physics_ui.CLOTHNEXT_PT_shape)
+        obj.cloth_next.role = "CLOTH"
+        assert all(panel.poll(bpy.context) for panel in cloth_only)
+        obj.cloth_next.role = "COLLIDER"
+        assert not any(panel.poll(bpy.context) for panel in cloth_only)
+        assert physics_ui.CLOTHNEXT_PT_collisions.poll(bpy.context)
+        obj.cloth_next.enabled = False
         extension.unregister()
         extension.unregister()
         for cls in classes:
             assert not cls.is_registered, f"{cls.__name__} survived unregister"
         assert "cloth_next" not in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 0
+        assert icons._collection is None and hud._handle is None
         updates = importlib.import_module(
             module_name + ".blender.addon_update_operators")
         assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)

@@ -47,6 +47,12 @@ pure submodules to import in normal Python.
 
 ## Architectural boundary
 
+Phase 2.8B adds a Blender-free, thread-safe bake controller whose immutable
+snapshots are shared by Physics panels, the Viewport HUD and optional companion
+transport. The companion is separately owned from every PPF process; its future
+IPC boundary is authenticated, bounded JSON on localhost only. See
+`UI_ARCHITECTURE.md`.
+
 Cloth NeXt is a Blender client and pipeline for PPF, never a physics engine.
 
 ```text

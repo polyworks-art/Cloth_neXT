@@ -45,6 +45,15 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Stable and beta update channels
 - Open-source Blender extension
 - Clear separation between the add-on and external solver
+- A native, role-aware Physics Properties configuration workflow
+- An optional display-only bake status HUD
+
+> [!NOTE]
+> The current Phase 2.8B interfaces are UI-ready previews. Their settings and
+> bake controls are not connected to the real PPF simulation pipeline yet.
+> The optional external Bake window receives the same preview status through an
+> authenticated localhost session. No companion binary is distributed. Real
+> simulation integration remains Phase 3.
 
 > [!IMPORTANT]
 > The PPF Contact Solver is external software developed and distributed by

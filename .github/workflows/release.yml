@@ -127,7 +127,7 @@ jobs:
           if ! gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
             gh release create "${{ steps.version.outputs.tag }}" --draft $PRERELEASE \
               --title "Cloth NeXt ${{ steps.version.outputs.version }}" \
-              --notes "Cloth NeXt ${{ steps.version.outputs.version }} (${{ steps.channel.outputs.channel }} channel). The external PPF Contact Solver by ST Tech / ZOZO is NOT included; it installs separately from its official source."
+              --notes-file RELEASE_NOTES.md
           fi
           gh release upload "${{ steps.version.outputs.tag }}" \
             "dist/${{ steps.version.outputs.zip }}" \

@@ -24,6 +24,7 @@ if __package__ in (None, ""):
 
 from tools.scan_release_artifact import scan_zip
 from tools.validate_extension import validate_zip
+from tools.build_icons import build as build_icons, validate as validate_icons
 
 _EXCLUDED_DIRECTORIES = frozenset({"__pycache__", "solver", "downloads",
                                    "managed_solver", "staging", "logs"})
@@ -37,11 +38,14 @@ def default_output(source_root: Path) -> Path:
 
 def build_extension(source_root: Path, output: Path, *,
                     blender: str | None = None) -> Path:
+    if (source_root / "blender").is_dir():
+        build_icons()
+        validate_icons()
     source_root = source_root.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     if blender:
         subprocess.run(
-            [blender, "--command", "extension", "build",
+            [blender, "--factory-startup", "--command", "extension", "build",
              f"--source-dir={source_root}", f"--output-filepath={output.resolve()}"],
             check=True, shell=False)
     else:

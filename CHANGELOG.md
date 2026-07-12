@@ -4,6 +4,25 @@ All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.
 
+## 0.2.0-beta.2 — 2026-07-12 (beta channel)
+
+### Added
+- Phase 2.8B role-aware Physics Properties panels for Cloth and Collider.
+- Shared immutable bake status controller used by panels, the display-only
+  Viewport HUD, preview workflow, and optional companion source application.
+- Deterministic monochrome runtime icon system, including the croissant Bake
+  icon, with mandatory build-time generation and validation.
+- Authenticated, bounded localhost IPC and exact-child companion ownership with
+  explicit launch and reload-safe cleanup.
+
+### Important
+- Bake controls remain an unmistakable UI preview. This version does not export
+  PPF scenes, simulate cloth, transfer frames, import results, or generate real
+  caches. The real PPF pipeline remains Phase 3.
+- This beta requests interactive visual QA for panels, icons, HUD layout,
+  viewport resizing, Blender scaling, Windows DPI, and companion behavior.
+- The locally buildable companion EXE is not distributed.
+
 ## 0.2.0-beta.1 — 2026-07-12 (beta channel)
 
 ### Added

@@ -18,14 +18,16 @@ from __future__ import annotations
 
 import bpy
 
-from . import (addon_update_operators, object_properties, physics_operators,
-               physics_ui, preferences)
+from . import (addon_update_operators, bake_operators, bake_preview, companion_manager, hud,
+               icon_registry, object_properties, physics_operators, physics_ui,
+               preferences)
 
 _CLASSES = (
     preferences.CLASSES
     + addon_update_operators.CLASSES
     + object_properties.CLASSES
     + physics_operators.CLASSES
+    + bake_operators.CLASSES
     + physics_ui.CLASSES
 )
 
@@ -43,6 +45,8 @@ def _steps() -> list[tuple]:
                   object_properties.detach_from_object))
     steps.append((physics_ui.append_add_physics_entry,
                   physics_ui.remove_add_physics_entry))
+    steps.append((icon_registry.register, icon_registry.unregister))
+    steps.append((hud.register, hud.unregister))
     return steps
 
 
@@ -69,6 +73,8 @@ def unregister() -> None:
     # Stop installer/update workers, timers, and handles first.
     preferences.shutdown()
     addon_update_operators.shutdown()
+    bake_preview.stop()
+    companion_manager.shutdown()
     for _apply_step, revert_step in reversed(_steps()):
         revert_step()
     _registered = False

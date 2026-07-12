@@ -1,5 +1,15 @@
 # Cloth NeXt implementation plan
 
+## 2.8B Simulation UI shell
+
+Status: automated implementation gates pass under Blender 5.1.2; final interactive
+visual inspection remains open, so the phase is not yet declared complete.
+
+The shared bake status model, role-aware Physics Properties hierarchy,
+display-only HUD, explicit preview provider and optional companion source shell
+form the UI boundary. They do not implement simulation. Phase 3 remains the
+real PPF scene transfer, simulation, result import and cache integration.
+
 Each phase is a gate. Do not start the next phase until tests pass, changed files,
 decisions, limitations and exact manual test steps are reported.
 

@@ -7,10 +7,10 @@
   source/documentation evidence, not a successful GPU solve on this workstation.
 - Phase 2.5 now has a locally bundled official solver and the real health integration
   test passes. The 1.43 GB extracted runtime remains untracked local state.
-- Blender 5.x is not installed or discoverable through `PATH` or the standard
-  `C:\Program Files\Blender Foundation` location on this machine. The Phase-1 Blender
-  registration smoke test therefore cannot run here; this concrete environment cause
-  was recorded before Phase 2 began.
+- Blender 5.1.2 is available through the local Steam installation and the automated
+  registration/RNA smoke test passes. Background mode cannot verify final on-screen
+  HUD contrast, clipping, DPI behavior, or icon appearance; those remain explicit
+  interactive visual checks.
 - PPF 0.11 status responses do not carry schema or package versions. Full verification
   is possible for an owned local executable via `--version`; external servers remain
   protocol-identified but schema-unverified.
@@ -93,3 +93,11 @@ guessing an endpoint, parameter or format.
   fallback. There is also no public per-package upgrade operator;
   `package_upgrade_all(use_active_only=True)` is used instead, which is safe
   because the Cloth NeXt channel repositories only ever contain Cloth NeXt.
+# Phase 2.8B interface limitations
+
+- Physics settings are UI-ready but are not yet mapped to the PPF pipeline.
+- Bake actions are unmistakable UI previews and never claim to run PPF.
+- The Viewport HUD is display-only; cancellation remains an operator action.
+- The optional companion receives preview data through localhost IPC. A local
+  development EXE can be built, but no companion binary or automatic launch is
+  distributed.
