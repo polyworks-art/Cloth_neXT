@@ -19,7 +19,8 @@ from pathlib import Path
 import bpy
 
 from ..ppf.compatibility import parse_executable_version
-from ..updater import view_model
+from ..updater import addon_updates, view_model
+from . import addon_update_operators
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
 from ..updater.modes import InstallationMode
@@ -437,8 +438,46 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Existing PPF Contact Solver installation selected by you; "
                     "Cloth NeXt never modifies it")
 
+    update_channel: bpy.props.EnumProperty(
+        name="Update Channel",
+        items=(("STABLE", "Stable", "Official stable releases only"),
+               ("BETA", "Beta", "Beta and release-candidate prereleases")),
+        default=addon_update_operators.DEFAULT_CHANNEL.name,
+        description="Which Cloth NeXt release channel to check for add-on "
+                    "updates (independent of the PPF solver)")
+
     def draw(self, _context) -> None:
         layout = self.layout
+        self._draw_addon_update_section(layout)
+        self._draw_solver_section(layout)
+
+    def _draw_addon_update_section(self, layout) -> None:
+        """Cloth NeXt's own update status; never performs network work."""
+        box = layout.box()
+        box.label(text="Cloth NeXt")
+        update_session = addon_update_operators.session()
+        view = addon_updates.build_section_view(update_session.state,
+                                                update_session.latest,
+                                                update_session.message)
+        box.label(text="Installed Version: "
+                       f"{addon_update_operators.INSTALLED_VERSION}")
+        box.prop(self, "update_channel")
+        box.label(text=f"Update Status: {view.status_text}")
+        if view.message:
+            box.label(text=view.message)
+        actions = box.column()
+        check = actions.row()
+        check.enabled = view.check_enabled
+        check.operator("clothnext.addon_update_check")
+        if view.show_repo_setup:
+            actions.operator("clothnext.addon_update_repo_setup")
+        if view.show_install:
+            actions.operator("clothnext.addon_update_install")
+        elif view.show_open_extensions:
+            actions.operator("clothnext.addon_open_extensions")
+        actions.operator("clothnext.addon_open_release_notes")
+
+    def _draw_solver_section(self, layout) -> None:
         box = layout.box()
         box.label(text="PPF Contact Solver")
         _session.load()

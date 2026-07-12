@@ -18,6 +18,19 @@ directory of the release being published and never removes the other channel.
 
 ## Adding a channel in Blender
 
+Either through Cloth NeXt (preferred):
+
+1. Edit → Preferences → Add-ons → Cloth NeXt.
+2. Pick the *Update Channel* (Stable or Beta; Beta is preselected while a
+   prerelease is installed).
+3. Click *Add Channel Repository* — this registers the channel URL in
+   Blender's Get Extensions repositories. Setup happens only on this explicit
+   click, never automatically, and never creates a duplicate repository.
+4. Click *Check for Updates*; *Install Update* hands installation to Blender's
+   own extension mechanism. Restart Blender afterwards.
+
+Or manually:
+
 1. Edit → Preferences → Get Extensions → Repositories → `+` → *Add Remote Repository*.
 2. Enter the channel URL above.
 3. Blender then lists Cloth NeXt, offers installation, and shows updates when a

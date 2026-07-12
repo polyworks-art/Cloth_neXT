@@ -106,6 +106,27 @@ def _solver_download_dispatch_check(bpy, module_name: str) -> None:
               "skipping the confirmation roundtrip")
 
 
+def _addon_update_section_check(bpy, module_name: str) -> None:
+    """Phase 2.8B add-on update workflow: RNA dispatch, no auto side effects,
+    no duplicate repositories, correct public-API polls, clean state."""
+    updates = importlib.import_module(module_name + ".blender.addon_update_operators")
+    for cls in updates.CLASSES:
+        resolved = bpy.types.Operator.bl_rna_get_subclass_py(cls.__name__)
+        assert resolved is cls, f"RNA does not resolve {cls.__name__}"
+    # no automatic check, no repository was created merely by registering
+    assert updates.session().state.name == "NOT_CHECKED"
+    repo_urls = [getattr(repo, "remote_url", "")
+                 for repo in bpy.context.preferences.extensions.repos]
+    for url in repo_urls:
+        assert repo_urls.count(url) == 1 or not url, f"duplicate repository {url}"
+    # the public operators this feature relies on exist in this Blender
+    assert hasattr(bpy.ops.extensions, "repo_sync")
+    assert hasattr(bpy.ops.extensions, "package_upgrade_all")
+    assert hasattr(bpy.ops.extensions, "userpref_show_for_update")
+    assert hasattr(bpy.ops.preferences, "extension_repo_add")
+    assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)
+
+
 def main() -> None:
     import bpy
 
@@ -134,6 +155,7 @@ def main() -> None:
         assert "cloth_next" in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 1
         _solver_download_dispatch_check(bpy, module_name)
+        _addon_update_section_check(bpy, module_name)
         _phase28_roundtrip(bpy)
         extension.unregister()
         extension.unregister()
@@ -141,6 +163,9 @@ def main() -> None:
             assert not cls.is_registered, f"{cls.__name__} survived unregister"
         assert "cloth_next" not in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 0
+        updates = importlib.import_module(
+            module_name + ".blender.addon_update_operators")
+        assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)
 
     leftover = [thread.name for thread in threading.enumerate()
                 if thread.name.startswith("clothnext-")]

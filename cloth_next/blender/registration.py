@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import bpy
 
-from . import object_properties, physics_operators, physics_ui, preferences
+from . import (addon_update_operators, object_properties, physics_operators,
+               physics_ui, preferences)
 
 _CLASSES = (
     preferences.CLASSES
+    + addon_update_operators.CLASSES
     + object_properties.CLASSES
     + physics_operators.CLASSES
     + physics_ui.CLASSES
@@ -64,8 +66,9 @@ def unregister() -> None:
     global _registered
     if not _registered:
         return
-    # Stop installer workers, cancel downloads, and release handles first.
+    # Stop installer/update workers, timers, and handles first.
     preferences.shutdown()
+    addon_update_operators.shutdown()
     for _apply_step, revert_step in reversed(_steps()):
         revert_step()
     _registered = False

@@ -35,6 +35,8 @@ def blender_env():
         object_properties=sys.modules["cloth_next.blender.object_properties"],
         physics_operators=sys.modules["cloth_next.blender.physics_operators"],
         physics_ui=sys.modules["cloth_next.blender.physics_ui"],
+        addon_update_operators=sys.modules[
+            "cloth_next.blender.addon_update_operators"],
     )
     try:
         yield env

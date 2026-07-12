@@ -151,6 +151,48 @@ def make_module() -> types.ModuleType:
     utils_module = types.SimpleNamespace(register_class=register_class,
                                          unregister_class=unregister_class)
 
+    ops_log: list = []
+
+    class _FakeOp:
+        """Records calls; tests may set .raises or .side_effect."""
+
+        def __init__(self, fullname):
+            self.fullname = fullname
+            self.raises = None
+            self.side_effect = None
+
+        def __call__(self, **kwargs):
+            if self.raises is not None:
+                raise self.raises
+            ops_log.append((self.fullname, kwargs))
+            if self.side_effect is not None:
+                self.side_effect(**kwargs)
+            return {"FINISHED"}
+
+    extensions_repos: list = []
+
+    def _repo_add_side_effect(**kwargs):
+        extensions_repos.append(types.SimpleNamespace(
+            name=kwargs.get("name", ""), module=f"repo_{len(extensions_repos)}",
+            remote_url=kwargs.get("remote_url", ""), enabled=True,
+            use_remote_url=True))
+
+    repo_add_op = _FakeOp("preferences.extension_repo_add")
+    repo_add_op.side_effect = _repo_add_side_effect
+
+    ops_module = types.SimpleNamespace(
+        extensions=types.SimpleNamespace(
+            repo_sync=_FakeOp("extensions.repo_sync"),
+            repo_sync_all=_FakeOp("extensions.repo_sync_all"),
+            package_upgrade_all=_FakeOp("extensions.package_upgrade_all"),
+            userpref_show_for_update=_FakeOp("extensions.userpref_show_for_update")),
+        preferences=types.SimpleNamespace(extension_repo_add=repo_add_op),
+        clothnext=types.SimpleNamespace())
+
+    context_preferences = types.SimpleNamespace(
+        extensions=types.SimpleNamespace(repos=extensions_repos, active_repo=0),
+        addons={})
+
     timer_functions: list = []
 
     def timers_register(func, first_interval=0.0):
@@ -173,6 +215,9 @@ def make_module() -> types.ModuleType:
     bpy.props = props_module
     bpy.utils = utils_module
     bpy.app = app_module
-    bpy.context = types.SimpleNamespace(window_manager=None)
+    bpy.ops = ops_module
+    bpy.context = types.SimpleNamespace(window_manager=None,
+                                        preferences=context_preferences)
     bpy.registry = registry
+    bpy.ops_log = ops_log
     return bpy

@@ -19,6 +19,15 @@
 
 ---
 
+> [!NOTE]
+> **LLM Transparency:** Cloth NeXt is developed with extensive assistance from
+> LLM-based coding and writing tools under human direction and review.
+> Project direction, architecture, UX decisions, testing requirements, release
+> decisions, and final responsibility remain with the maintainer.
+>
+> Details are documented in
+> [LLM Transparency](docs/LLM_TRANSPARENCY.md).
+
 ## What is Cloth NeXt?
 
 Cloth NeXt brings the external PPF Contact Solver into a workflow that feels familiar to artists who already enjoy Blender’s built-in cloth system.
@@ -95,6 +104,25 @@ After installing the extension:
 
 For manual installation and troubleshooting, see
 [Solver Installation](docs/SOLVER_INSTALLATION.md).
+
+---
+
+## Updates
+
+Cloth NeXt updates install through Blender's own extension system — never
+through a custom self-updater — from two official repositories
+(see [Update Channels](docs/UPDATE_CHANNELS.md)):
+
+- **Stable** — normal releases only.
+- **Beta** — beta and release-candidate prereleases.
+
+In the add-on preferences, the *Cloth NeXt* section shows the installed
+version, lets you pick the update channel, and offers *Check for Updates*.
+*Add Channel Repository* registers the selected channel in Blender's
+Get Extensions repositories (only on explicit click, never automatically);
+*Install Update* hands the installation to Blender. Restart Blender after an
+update. Add-on updates never touch the separately installed PPF solver, and
+solver updates never touch the add-on.
 
 ---
 
@@ -207,4 +235,9 @@ ST Tech / ZOZO under the Apache License 2.0.
 It is not covered by the Cloth NeXt license and is neither included in nor
 distributed with Cloth NeXt.
 
-Crossaint Icon by: <a href="https://thenounproject.com/browse/icons/term/croissant/" target="_blank" title="Croissant Icons">
+Croissant icon by
+<a href="https://thenounproject.com/browse/icons/term/croissant/"
+   target="_blank"
+   rel="noopener noreferrer">
+  Noun Project
+</a>
