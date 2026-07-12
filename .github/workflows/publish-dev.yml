@@ -81,7 +81,7 @@ jobs:
         shell: pwsh
         run: |
           "## Published Cloth NeXt ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
-          "Source: `${{ inputs.ref }}`" >> $env:GITHUB_STEP_SUMMARY
+          "Source commit: ${{ inputs.ref }}" >> $env:GITHUB_STEP_SUMMARY
           "Mandatory packaging, companion, secret, Blender validation, and forbidden-artifact checks passed." >> $env:GITHUB_STEP_SUMMARY
           "Skipped: real PPF integration, interactive Blender acceptance, full release preflight." >> $env:GITHUB_STEP_SUMMARY
           "No tag or GitHub Release was created. Stable and Beta were not modified." >> $env:GITHUB_STEP_SUMMARY
