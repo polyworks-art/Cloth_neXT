@@ -1,0 +1,10 @@
+schema_version = "1.0.0"
+id = "cloth_next"
+version = "0.1.0"
+name = "Cloth NeXt"
+tagline = "Professional Blender workflow for the external PPF Contact Solver"
+maintainer = "Cloth NeXt Contributors"
+type = "add-on"
+blender_version_min = "5.0.0"
+license = ["SPDX:GPL-3.0-or-later"]
+

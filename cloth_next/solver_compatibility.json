@@ -1,0 +1,19 @@
+{
+  "manifest_version": 1,
+  "cloth_next_version": "0.1.0",
+  "platforms": {
+    "windows-x86_64": {
+      "solver_package_version": "0.1.0",
+      "protocol_version": "0.11",
+      "schema_version": "1",
+      "official_repository": "st-tech/ppf-contact-solver",
+      "official_release_tag": "2026-07-09-04-39",
+      "official_asset_name": "ppf-contact-solver-2026-07-09-04-39-win64.zip",
+      "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-09-04-39/ppf-contact-solver-2026-07-09-04-39-win64.zip",
+      "download_size": 450996388,
+      "sha256": "eddac75ed0f3d10d055546ac8ca5e3c625283626a2ad47d5a5e87baab0b2440a",
+      "archive_layout_version": 1,
+      "health_check_required": true
+    }
+  }
+}

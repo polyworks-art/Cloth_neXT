@@ -1,0 +1,23 @@
+{
+  "data": "NO_DATA",
+  "data_hash": "",
+  "error": "",
+  "frame": 0,
+  "git_branch": "unknown",
+  "hardware": {
+    "CPU": "Unknown",
+    "CUDA": "Unknown",
+    "GPU": "Unknown",
+    "RAM": "Unknown",
+    "SM": "Unknown",
+    "VRAM": "Unknown",
+    "emulated": false
+  },
+  "initialized": false,
+  "param_hash": "",
+  "protocol_version": "0.11",
+  "root": "",
+  "status": "NO_DATA",
+  "upload_id": "",
+  "violations": []
+}

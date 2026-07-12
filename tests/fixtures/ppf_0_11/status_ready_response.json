@@ -1,0 +1,24 @@
+{
+  "data": "READY",
+  "data_hash": "deadbeef",
+  "error": "",
+  "frame": 0,
+  "git_branch": "unknown",
+  "hardware": {
+    "CPU": "Unknown",
+    "CUDA": "Unknown",
+    "GPU": "Unknown",
+    "RAM": "Unknown",
+    "SM": "Unknown",
+    "VRAM": "Unknown",
+    "emulated": false
+  },
+  "initialized": false,
+  "param_hash": "",
+  "protocol_version": "0.11",
+  "root": "/tmp/demo",
+  "saved_states": [],
+  "status": "READY",
+  "upload_id": "abc123abc123",
+  "violations": []
+}
