@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Automated enforcement of docs/RELEASE_POLICY.md.
 
 Run before the build (``--phase pre-build``), after the build

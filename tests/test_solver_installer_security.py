@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import shutil
 import stat
 import threading
@@ -410,6 +413,7 @@ def test_addon_update_does_not_delete_managed_solver(tmp_path):
 
 @pytest.mark.parametrize("state", [ApplicationState.STARTING, ApplicationState.READY,
                                    ApplicationState.TRANSFERRING,
+                                   ApplicationState.BUILDING,
                                    ApplicationState.SIMULATING,
                                    ApplicationState.FETCHING_FRAMES,
                                    ApplicationState.CANCELLING])

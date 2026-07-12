@@ -1,0 +1,51 @@
+# Local PPF process lifecycle
+
+Baseline: upstream `7193f158e3843597070f66cb29af19efd9bdcff7`, protocol
+`0.11`, schema `1`, package `0.1.0`.
+
+```text
+validate executable -> probe port
+                         | occupied -> valid TCMD: EXTERNAL
+                         |          -> invalid: PORT CONFLICT
+                         v free (advisory only)
+run executable --version -> Popen argument list, shell=False
+                         -> bounded stdout/stderr readers
+                         -> poll child and unique absolute progress file
+                         -> SERVER_READY marker AND compatible TCMD status
+                         -> OWNED ready
+                         -> terminate -> timed wait -> kill fallback
+                         -> wait/reap -> join readers
+```
+
+`SERVER_STARTING` and `SERVER_READY` are the only verified progress markers. Files are
+unique under the OS temporary directory (`cloth-next/progress-<uuid>.log`), never the
+repository. Missing files are normal during startup; reads and retained tails are
+bounded.
+
+## Ownership and shutdown
+
+`OWNED_PROCESS` is created only after Cloth NeXt calls `Popen`. It may be polled,
+terminated, killed after a shutdown timeout, reaped, and restarted. `EXTERNAL_SERVER`
+holds no child handle, PID, progress-file ownership, or shutdown authority. Calls to
+start, stop, or restart through an external-mode manager raise `PermissionError`.
+
+The audited server has no separate verified administrative server-shutdown request for
+the pre-simulation health state. The owned child therefore uses `Popen.terminate()`,
+waits, then uses `kill()` only after timeout. It never uses `taskkill` or a shell.
+Reader threads are non-daemon, close streams, and must join before cleanup returns.
+
+## Readiness, races, and failure
+
+A free preflight port is advisory; another process can bind before the child. The
+manager therefore continues checking child exit and the real compatibility response.
+A reachable port is not called PPF until valid status JSON with `protocol_version` and
+a known wire status parses. Invalid UTF-8/JSON, missing fields, wrong protocol, and
+timeouts are categorized. An early exit records code plus bounded stderr/progress tails.
+
+Owned startup requires both the marker and successful compatible query. External
+servers do not require or manipulate a progress file.
+
+For bundled deployments, the complete solver tree supplies injected `PATH` and
+`PYTHONPATH` entries. Progress lives in `%TEMP%/ClothNeXt*`; neither repository nor
+extension directories receive mutable runtime files. Phase 2.5 exercised this lifecycle
+against the real official Windows binary and verified no server process remained.

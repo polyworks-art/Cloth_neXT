@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Validate that Cloth NeXt is a Blender extension without a nested package root."""
 
 from __future__ import annotations

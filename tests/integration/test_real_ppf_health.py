@@ -1,4 +1,6 @@
-import os
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import socket
 import tempfile
 from pathlib import Path
@@ -7,7 +9,8 @@ import pytest
 
 from cloth_next.ppf.health import start_owned_and_wait
 from cloth_next.ppf.layout import BundledSolverLayout, PLATFORM_DIRECTORY
-from cloth_next.ppf.resolver import SolverResolutionContext, SolverResolver
+from cloth_next.ppf.resolver import (SolverResolutionContext, SolverResolver,
+                                     development_executable_from_environment)
 from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
 
 
@@ -27,12 +30,14 @@ def _free_port():
 @pytest.mark.integration
 def test_real_pinned_ppf_health():
     repo = Path(__file__).parents[2]
-    extension = repo / "cloth_next"
-    configured = Path(os.environ["CLOTH_NEXT_PPF_EXECUTABLE"]) if os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE") else None
+    development = development_executable_from_environment()
+    if development is None:
+        local_tree = repo / PLATFORM_DIRECTORY / "ppf-cts-server.exe"
+        development = local_tree if local_tree.is_file() else None
     resolved = SolverResolver(_probe).resolve(SolverResolutionContext(
-        extension_root=extension, repository_root=repo, external_path=configured))
+        development_executable=development))
     if resolved is None or resolved.executable_path is None:
-        pytest.skip("no explicit, extension-bundled, or repository-bundled solver")
+        pytest.skip("no CLOTH_NEXT_PPF_EXECUTABLE or local development solver configured")
     layout = BundledSolverLayout.from_root(resolved.root_directory)
     runtime = Path(tempfile.mkdtemp(prefix="ClothNeXt-test-"))
     manager = SolverProcessManager(SolverProcessConfig(resolved.executable_path,

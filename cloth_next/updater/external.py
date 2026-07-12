@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Read-only validation of user-selected external solver installations.
 
 Cloth NeXt may validate, probe versions, health-check, and start/stop only the
@@ -11,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from cloth_next.ppf.layout import EXECUTABLE_NAME, BundledSolverLayout
+from ..ppf.layout import EXECUTABLE_NAME, BundledSolverLayout
 
 from .modes import InstallationMode, permissions_for
 from .solver_manifest import SolverCompatibilityEntry

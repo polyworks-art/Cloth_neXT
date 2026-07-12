@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Guards that keep add-on and solver updates out of active solver work.
 
 Cloth NeXt updates install through Blender's own extension mechanism; solver
@@ -8,7 +11,7 @@ fetch, or cache write is active, or a cancellation is in progress.
 
 from __future__ import annotations
 
-from cloth_next.core.state import ApplicationState
+from ..core.state import ApplicationState
 
 UPDATE_SAFE_STATES = frozenset({
     ApplicationState.NOT_INSTALLED,

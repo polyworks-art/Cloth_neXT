@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Managed installation pipeline for the external PPF Contact Solver.
 
 Pipeline: user confirmation → official download → temporary file → SHA-256
@@ -18,10 +21,10 @@ import threading
 from pathlib import Path
 from typing import Callable
 
-from cloth_next.core.errors import ErrorCategory, ErrorRecord
-from cloth_next.ppf.bootstrap import (atomic_replace_directory, find_single_executable,
-                                      normalize_bundle_root)
-from cloth_next.ppf.layout import EXECUTABLE_NAME
+from ..core.errors import ErrorCategory, ErrorRecord
+from ..ppf.bootstrap import (atomic_replace_directory, find_single_executable,
+                             normalize_bundle_root)
+from ..ppf.layout import EXECUTABLE_NAME
 
 from . import download as download_module
 from .archive import extract_to_staging
@@ -54,8 +57,12 @@ class ManagedSolverInstaller:
         self._cancel = threading.Event()
         self._repair_mode = False
         self._error: ErrorRecord | None = None
-        self._state = (InstallerState.READY if read_current(paths) is not None
-                       else InstallerState.NOT_INSTALLED)
+        try:
+            self._state = (InstallerState.READY if read_current(paths) is not None
+                           else InstallerState.NOT_INSTALLED)
+        except ValueError:
+            # Tampered or corrupted current.json: never trust it, offer repair.
+            self._state = InstallerState.REPAIR_REQUIRED
 
     @property
     def state(self) -> InstallerState:

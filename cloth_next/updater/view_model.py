@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Pure presentation model for the "PPF Contact Solver" preferences section.
 
 No ``bpy`` imports: the Blender preferences panel renders exactly what this

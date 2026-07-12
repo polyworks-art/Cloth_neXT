@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Run the real solver health lifecycle for a candidate executable.
 
 Starts the candidate server on a free ephemeral port, waits for readiness plus
@@ -10,11 +13,11 @@ from __future__ import annotations
 import socket
 from pathlib import Path
 
-from cloth_next.core.errors import ClothNextError
-from cloth_next.ppf.health import start_owned_and_wait
-from cloth_next.ppf.layout import BundledSolverLayout
-from cloth_next.ppf.models import ConnectionOwnership
-from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
+from ..core.errors import ClothNextError
+from ..ppf.health import start_owned_and_wait
+from ..ppf.layout import BundledSolverLayout
+from ..ppf.models import ConnectionOwnership
+from ..ppf.process import SolverProcessConfig, SolverProcessManager
 
 
 def free_port(host: str = "127.0.0.1") -> int:

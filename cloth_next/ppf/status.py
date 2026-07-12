@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Parse verified PPF 0.11 status responses and map only unambiguous states."""
 
 from __future__ import annotations
@@ -5,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from cloth_next.core.state import ApplicationState
+from ..core.state import ApplicationState
 
 
 class WireStatus(Enum):
@@ -45,7 +48,7 @@ def parse_status(response: dict[str, object]) -> ParsedStatus:
 def application_state_hint(status: WireStatus) -> ApplicationState | None:
     """Return a UI hint only where the mapping is operationally unambiguous."""
     return {
-        WireStatus.BUILDING: ApplicationState.STARTING,
+        WireStatus.BUILDING: ApplicationState.BUILDING,
         WireStatus.READY: ApplicationState.READY,
         WireStatus.RESUMABLE: ApplicationState.PAUSED,
         WireStatus.FAILED: ApplicationState.ERROR,

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generate release-manifest.json and SHA256SUMS.txt for a built extension ZIP.
 
 The release manifest never claims that the PPF solver is included:

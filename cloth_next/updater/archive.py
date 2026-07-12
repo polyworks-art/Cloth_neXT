@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Safe inspection and staging extraction of the verified solver archive.
 
 The archive is inspected before extraction: absolute or drive-letter paths,
@@ -14,7 +17,7 @@ import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from cloth_next.ppf.bootstrap import safe_extract_zip
+from ..ppf.bootstrap import safe_extract_zip
 
 MAX_ARCHIVE_MEMBERS = 200_000
 MAX_TOTAL_UNCOMPRESSED = 8 * 1024 ** 3

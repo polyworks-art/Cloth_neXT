@@ -38,6 +38,10 @@ neither included in nor distributed with Cloth NeXt.
 
 ## Documentation
 
+- [Architecture](docs/ARCHITECTURE.md)
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [PPF protocol](docs/PPF_PROTOCOL.md)
+- [Limitations](docs/LIMITATIONS.md)
 - [Release policy](docs/RELEASE_POLICY.md)
 - [Update channels](docs/UPDATE_CHANNELS.md)
 - [Solver installation](docs/SOLVER_INSTALLATION.md)

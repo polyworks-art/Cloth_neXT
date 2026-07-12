@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Managed solver installation layout outside the Blender extension tree.
 
 The add-on and the external solver have separate lifecycles: add-on updates must
@@ -27,7 +30,26 @@ class ActiveInstallation:
     activated_at: str
 
     def executable_path(self, paths: "ManagedSolverPaths") -> Path:
-        return paths.version_dir(self.version) / self.executable_relative
+        version_dir = paths.version_dir(self.version)
+        candidate = (version_dir / self.executable_relative).resolve()
+        resolved_version_dir = version_dir.resolve()
+        if (resolved_version_dir != candidate
+                and resolved_version_dir not in candidate.parents):
+            raise ValueError("current.json executable escapes the managed version "
+                             "directory; the metadata was tampered with")
+        return candidate
+
+
+_EXECUTABLE_NAME = "ppf-cts-server.exe"
+
+
+def _validate_executable_relative(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    parts = normalized.split("/")
+    if (not normalized or normalized.startswith("/") or ".." in parts
+            or (parts and ":" in parts[0]) or parts[-1] != _EXECUTABLE_NAME):
+        raise ValueError(f"current.json names an invalid executable {value!r}")
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,13 +107,21 @@ class ManagedSolverPaths:
 
 
 def read_current(paths: ManagedSolverPaths) -> ActiveInstallation | None:
+    """Load and strictly validate current.json; tampered metadata raises."""
     if not paths.current_json.is_file():
         return None
-    payload = json.loads(paths.current_json.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(paths.current_json.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError(f"current.json is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("current.json must contain an object")
     version = payload.get("active_version")
     executable = payload.get("executable")
     if not isinstance(version, str) or not isinstance(executable, str):
         raise ValueError("current.json is malformed")
+    paths.version_dir(version)  # raises on separators, '..', or empty versions
+    executable = _validate_executable_relative(executable)
     return ActiveInstallation(version, executable,
                               str(payload.get("activated_at", "")))
 

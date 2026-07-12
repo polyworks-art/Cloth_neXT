@@ -1,32 +1,42 @@
-"""Pure priority resolver for local and external PPF deployments."""
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Pure priority resolver for managed, external, and development solvers.
+
+The extension never bundles a solver and the repository tree is never scanned
+implicitly: the only sources are a user-selected external installation, the
+managed installation created by the separate installer, an explicitly
+configured development executable (``CLOTH_NEXT_PPF_EXECUTABLE``), or an
+already-running external server.
+"""
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Callable
 
-from .compatibility import parse_executable_version
-from .layout import BundledSolverLayout, PLATFORM_DIRECTORY
+from .layout import BundledSolverLayout
 from .models import ConnectionOwnership
+
+DEVELOPMENT_EXECUTABLE_ENV = "CLOTH_NEXT_PPF_EXECUTABLE"
 
 
 class SolverMode(Enum):
-    REPOSITORY_BUNDLED = auto()
-    EXTENSION_BUNDLED = auto()
     MANAGED_INSTALLATION = auto()
     EXTERNAL_INSTALLATION = auto()
     EXTERNAL_SERVER = auto()
+    DEVELOPMENT = auto()
 
 
 @dataclass(frozen=True, slots=True)
 class SolverResolutionContext:
-    extension_root: Path
-    repository_root: Path | None = None
     external_path: Path | None = None
-    external_server_available: bool = False
     managed_root: Path | None = None
+    development_executable: Path | None = None
+    external_server_available: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,23 +52,17 @@ class ResolvedSolver:
     writable: bool
 
 
-def extension_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def repository_root(candidate: Path | None = None) -> Path | None:
-    root = (candidate or extension_root().parent).resolve()
-    if ((root / "pyproject.toml").is_file()
-            and (root / "cloth_next" / "blender_manifest.toml").is_file()):
-        return root
-    return None
+def development_executable_from_environment() -> Path | None:
+    value = os.environ.get(DEVELOPMENT_EXECUTABLE_ENV, "").strip()
+    return Path(value) if value else None
 
 
 class SolverResolver:
     def __init__(self, version_probe: Callable[[Path], tuple[str, str, str]]) -> None:
         self._version_probe = version_probe
 
-    def _local(self, mode: SolverMode, layout: BundledSolverLayout, writable: bool) -> ResolvedSolver | None:
+    def _local(self, mode: SolverMode, layout: BundledSolverLayout,
+               writable: bool) -> ResolvedSolver | None:
         if not layout.executable_path.is_file():
             return None
         package, protocol, schema = self._version_probe(layout.executable_path)
@@ -79,17 +83,13 @@ class SolverResolver:
                                 BundledSolverLayout.from_root(context.managed_root), True)
             if found:
                 return found
-        found = self._local(SolverMode.EXTENSION_BUNDLED,
-            BundledSolverLayout.from_root(context.extension_root / PLATFORM_DIRECTORY), False)
-        if found:
-            return found
-        if context.repository_root is not None:
-            found = self._local(SolverMode.REPOSITORY_BUNDLED,
-                BundledSolverLayout.from_root(context.repository_root / PLATFORM_DIRECTORY), True)
+        if context.development_executable is not None:
+            executable = context.development_executable.expanduser().resolve()
+            found = self._local(SolverMode.DEVELOPMENT,
+                                BundledSolverLayout.from_root(executable.parent), True)
             if found:
                 return found
         if context.external_server_available:
             return ResolvedSolver(SolverMode.EXTERNAL_SERVER, None, None, None, None, None,
                 ConnectionOwnership.EXTERNAL_SERVER, None, False)
         return None
-

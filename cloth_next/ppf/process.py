@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Owned local PPF process lifecycle; never controls external servers."""
 
 from __future__ import annotations
@@ -13,8 +16,8 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Mapping
 
-from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
-from cloth_next.core.logging import get_logger, log_with_context
+from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
+from ..core.logging import get_logger, log_with_context
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress

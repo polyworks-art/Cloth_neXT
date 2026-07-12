@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Compose process readiness and the verified PPF status query."""
 
 from __future__ import annotations
@@ -7,8 +10,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
-from cloth_next.core.state import ApplicationState
+from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
+from ..core.state import ApplicationState
 from .compatibility import CompatibilityResult, validate_versions
 from .models import ConnectionOwnership
 from .process import SolverProcessManager
@@ -108,6 +111,20 @@ def start_owned_and_wait(manager: SolverProcessManager, project_name: str = "clo
                     transport=TransportConfig(cfg.connect_timeout, cfg.read_timeout),
                     local_versions=versions, process_running=True, process_id=poll.process_id)
                 if health.reachable:
+                    if not health.compatible:
+                        # An incompatible solver is never reported as started.
+                        raise ClothNextError(health.last_error or ErrorRecord.create(
+                            category=ErrorCategory.PROTOCOL_COMPATIBILITY,
+                            user_message="The solver started but is not compatible "
+                                         "with this Cloth NeXt build.",
+                            technical_message=(
+                                f"protocol={health.protocol_version!r}, "
+                                f"schema={health.schema_version!r}, "
+                                f"package={health.package_version!r}"),
+                            recommended_action="Install the compatible solver version "
+                                               "listed in the compatibility manifest.",
+                            recoverable=True,
+                        ))
                     return health
             time.sleep(poll_interval)
         raise ClothNextError(ErrorRecord.create(

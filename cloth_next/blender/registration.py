@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Reload-safe Blender registration for Cloth NeXt.
 
 Registration performs no downloads, no network access, and no solver
@@ -35,6 +38,8 @@ def unregister() -> None:
     global _registered
     if not _registered:
         return
+    # Stop installer workers, cancel downloads, and release handles first.
+    preferences.shutdown()
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
     _registered = False

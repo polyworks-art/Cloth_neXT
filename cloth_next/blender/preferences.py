@@ -1,6 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Add-on preferences: the "PPF Contact Solver" section and its operators.
 
-The panel only renders what :mod:`cloth_next.updater.view_model` computes.
+The panel only renders what the pure ``updater.view_model`` module computes.
 Downloads never start automatically — not on enable, file open, simulation
 start, Blender start, or in the background. Every download begins with the
 explicit confirmation dialog of ``CLOTHNEXT_OT_solver_download``. Blocking
@@ -15,14 +18,14 @@ from pathlib import Path
 
 import bpy
 
-from cloth_next.ppf.compatibility import parse_executable_version
-from cloth_next.updater import view_model
-from cloth_next.updater.install_paths import ManagedSolverPaths, read_current
-from cloth_next.updater.managed import ManagedSolverInstaller
-from cloth_next.updater.modes import InstallationMode
-from cloth_next.updater.solver_manifest import (SolverCompatibilityEntry,
+from ..ppf.compatibility import parse_executable_version
+from ..updater import view_model
+from ..updater.install_paths import ManagedSolverPaths, read_current
+from ..updater.managed import ManagedSolverInstaller
+from ..updater.modes import InstallationMode
+from ..updater.solver_manifest import (SolverCompatibilityEntry,
                                                 load_bundled_manifest)
-from cloth_next.updater.states import InstallerAction, InstallerState
+from ..updater.states import InstallerAction, InstallerState
 
 _ADDON_ID = __package__.partition(".blender")[0]
 _PLATFORM = "windows-x86_64"
@@ -76,23 +79,33 @@ def _probe_version(executable: Path) -> tuple[str, str, str]:
 
 def _health_check(executable: Path) -> bool:
     """Real health check: start the server, verify readiness plus status, stop it."""
-    from cloth_next.updater.health_runner import run_real_health_check
+    from ..updater.health_runner import run_real_health_check
     return run_real_health_check(executable)
+
+
+def _safe_read_current():
+    """Tampered current.json is treated as a repair case, never trusted."""
+    try:
+        return read_current(ManagedSolverPaths.default()), True
+    except ValueError:
+        return None, False
 
 
 def _installer_state() -> InstallerState:
     installer = _session.installer
     if installer is not None:
         return installer.state
-    if read_current(ManagedSolverPaths.default()) is not None:
+    active, valid = _safe_read_current()
+    if not valid:
+        return InstallerState.REPAIR_REQUIRED
+    if active is not None:
         return InstallerState.READY
     return InstallerState.NOT_INSTALLED
 
 
 def _installed_info() -> view_model.InstalledInfo | None:
     _session.load()
-    paths = ManagedSolverPaths.default()
-    active = read_current(paths)
+    active, _valid = _safe_read_current()
     if active is None or _session.entry is None:
         return None
     return view_model.InstalledInfo(
@@ -107,6 +120,25 @@ def _run_in_worker(target) -> None:
     _session.worker = threading.Thread(target=target, daemon=True,
                                        name="clothnext-solver-installer")
     _session.worker.start()
+
+
+def shutdown(join_timeout: float = 10.0) -> None:
+    """Cancel running downloads and join the worker; called on unregister.
+
+    Leaves no running worker thread, no open download handle, and no partially
+    started installer behind. Safe to call multiple times.
+    """
+    installer = _session.installer
+    if installer is not None:
+        installer.cancel()
+    worker = _session.worker
+    if worker is not None and worker.is_alive():
+        worker.join(timeout=join_timeout)
+    _session.worker = None
+    _session.installer = None
+    _session.entry = None
+    _session.disabled_reason = None
+    _session.loaded = False
 
 
 class CLOTHNEXT_OT_solver_download(bpy.types.Operator):
@@ -175,7 +207,7 @@ class CLOTHNEXT_OT_solver_select_existing(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def execute(self, _context):
-        from cloth_next.updater.external import validate_external_installation
+        from ..updater.external import validate_external_installation
         _session.load()
         if _session.entry is None:
             self.report({"ERROR"}, "No compatibility manifest entry is available.")
@@ -230,11 +262,19 @@ class CLOTHNEXT_OT_solver_health_check(bpy.types.Operator):
 
     def execute(self, _context):
         paths = ManagedSolverPaths.default()
-        active = read_current(paths)
+        active, valid = _safe_read_current()
+        if not valid:
+            self.report({"ERROR"}, "The installation metadata is damaged; "
+                        "repair the managed installation.")
+            return {"CANCELLED"}
         if active is None:
             self.report({"ERROR"}, "No managed solver installation is active.")
             return {"CANCELLED"}
-        executable = active.executable_path(paths)
+        try:
+            executable = active.executable_path(paths)
+        except ValueError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
         _run_in_worker(lambda: _health_check(executable))
         self.report({"INFO"}, "Health check started in the background.")
         return {"FINISHED"}
@@ -289,7 +329,7 @@ class CLOTHNEXT_OT_solver_remove_managed(bpy.types.Operator):
 
     def execute(self, _context):
         installer = _session.ensure_installer()
-        active = read_current(ManagedSolverPaths.default())
+        active, _valid = _safe_read_current()
         if installer is None or active is None:
             self.report({"ERROR"}, "No managed installation to remove.")
             return {"CANCELLED"}

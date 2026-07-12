@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """HTTPS-only download of the verified official solver asset.
 
 Only the manifest-pinned immutable official URL is ever fetched, redirects are
@@ -15,7 +18,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 from urllib.parse import urlsplit
 
-from cloth_next.ppf.bootstrap import sha256_file
+from ..ppf.bootstrap import sha256_file
 from .solver_manifest import SolverCompatibilityEntry
 
 ALLOWED_DOWNLOAD_HOSTS = frozenset({

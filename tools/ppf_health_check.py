@@ -1,9 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Blender-free command-line health check for a local PPF 0.11 server."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -14,18 +16,21 @@ if __package__ in (None, ""):
 from cloth_next.core.errors import ClothNextError
 from cloth_next.core.logging import initialize_logging
 from cloth_next.ppf.health import start_owned_and_wait
-from cloth_next.ppf.layout import BundledSolverLayout
+from cloth_next.ppf.layout import PLATFORM_DIRECTORY, BundledSolverLayout
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
-from cloth_next.ppf.resolver import SolverResolutionContext, SolverResolver, repository_root
+from cloth_next.ppf.resolver import (SolverResolutionContext, SolverResolver,
+                                     development_executable_from_environment)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--executable", type=Path)
-    source.add_argument("--repository-bundled", action="store_true")
-    source.add_argument("--extension-root", type=Path)
+    source.add_argument("--executable", type=Path,
+                        help="Explicit solver executable (external installation)")
+    source.add_argument("--development", action="store_true",
+                        help="Use CLOTH_NEXT_PPF_EXECUTABLE or the local "
+                             "solver/windows-x86_64 development tree")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9090)
     parser.add_argument("--working-directory", type=Path)
@@ -34,19 +39,21 @@ def main() -> int:
     args = parser.parse_args()
     initialize_logging(level=logging.DEBUG if args.verbose else logging.INFO)
     try:
-        repo = repository_root(Path(__file__).resolve().parents[1])
-        extension = (args.extension_root.expanduser().resolve() if args.extension_root
-                     else Path(__file__).resolve().parents[1] / "cloth_next")
-
         def probe(path: Path) -> tuple[str, str, str]:
             layout = BundledSolverLayout.from_root(path.parent)
             return SolverProcessManager(SolverProcessConfig(path, layout.root_directory,
                 environment=layout.process_environment())).executable_version()
 
+        development = None
+        if args.development:
+            development = development_executable_from_environment()
+            if development is None:
+                local = (Path(__file__).resolve().parents[1] / PLATFORM_DIRECTORY
+                         / "ppf-cts-server.exe")
+                development = local if local.is_file() else None
         resolved = SolverResolver(probe).resolve(SolverResolutionContext(
-            extension_root=extension,
-            repository_root=repo if args.repository_bundled else None,
             external_path=args.executable,
+            development_executable=development,
         ))
         if resolved is None or resolved.executable_path is None or resolved.root_directory is None:
             raise ValueError("no solver installation resolved")
@@ -65,7 +72,8 @@ def main() -> int:
         print(f"Ownership: {health.ownership.name.lower()}")
         print(f"Process: {'running' if health.process_running else 'external/unknown'}")
         print(f"Server: {'reachable' if health.reachable else 'unreachable'}")
-        print(f"Protocol: {health.protocol_version or 'unknown'} {'compatible' if health.compatible else 'not fully verified'}")
+        print(f"Protocol: {health.protocol_version or 'unknown'} "
+              f"{'compatible' if health.compatible else 'not fully verified'}")
         print(f"Schema: {health.schema_version or 'unknown'}")
         print(f"Status: {health.wire_status or 'unknown'}")
         print(f"Health: {'ready' if health.compatible else 'limited'}")

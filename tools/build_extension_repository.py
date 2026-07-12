@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Assemble a channel directory and generate the Blender extension index.
 
 The index.json is produced exclusively by the official Blender tooling

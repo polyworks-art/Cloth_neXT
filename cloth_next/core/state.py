@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Table-driven, side-effect-free application state machine."""
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ class ApplicationState(Enum):
     STARTING = auto()
     READY = auto()
     TRANSFERRING = auto()
+    BUILDING = auto()
     SIMULATING = auto()
     PAUSED = auto()
     FETCHING_FRAMES = auto()
@@ -63,6 +67,10 @@ _RULES: Mapping[tuple[ApplicationState, Event], TransitionRule] = MappingProxyTy
     (_T.READY, _E.TRANSFER_REQUESTED): TransitionRule(_T.TRANSFERRING, (_C.TRANSFER_SCENE,)),
     (_T.TRANSFERRING, _E.TRANSFER_SUCCEEDED): TransitionRule(_T.READY),
     (_T.TRANSFERRING, _E.TRANSFER_FAILED): TransitionRule(_T.ERROR),
+    (_T.READY, _E.BUILD_REQUESTED): TransitionRule(_T.BUILDING, (_C.REQUEST_BUILD,)),
+    (_T.BUILDING, _E.BUILD_SUCCEEDED): TransitionRule(_T.READY),
+    (_T.BUILDING, _E.BUILD_FAILED): TransitionRule(_T.ERROR),
+    (_T.BUILDING, _E.CANCEL_REQUESTED): TransitionRule(_T.CANCELLING, (_C.CANCEL_OPERATION,)),
     (_T.READY, _E.SIMULATION_REQUESTED): TransitionRule(_T.SIMULATING, (_C.START_SIMULATION,), False),
     (_T.PAUSED, _E.SIMULATION_REQUESTED): TransitionRule(_T.SIMULATING, (_C.START_SIMULATION,), False),
     (_T.SIMULATING, _E.RESUMABLE_STATE_SAVED): TransitionRule(_T.PAUSED, (), True),

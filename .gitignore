@@ -13,16 +13,9 @@ local/
 .agents/
 Cloth_NeXt_Roadmap.md
 
-# Internal development docs stay local. Only the docs required by the release
-# policy and linked from the README are tracked. tools/ and tests/ must stay
-# tracked: .github/workflows/release.yml runs pytest and the tools/ validators
-# directly from the repository.
-docs/*
-!docs/RELEASE_POLICY.md
-!docs/UPDATE_CHANNELS.md
-!docs/SOLVER_INSTALLATION.md
-!docs/SOLVER_DISTRIBUTION.md
-!docs/SOLVER_COMPATIBILITY_MANIFEST.md
+# Phase 2.7: all architecture, protocol, and policy documents are tracked in
+# Git. tools/ and tests/ stay tracked as well — the CI and release workflows
+# run pytest and the tools/ validators directly from the repository.
 
 # External PPF Contact Solver runtime (ST Tech / ZOZO) — never committed,
 # never versioned through Git LFS. Local development copies stay ignored

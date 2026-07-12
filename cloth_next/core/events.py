@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Pure state-machine inputs and emitted application commands."""
 
 from enum import Enum, auto
@@ -13,6 +16,9 @@ class Event(Enum):
     TRANSFER_REQUESTED = auto()
     TRANSFER_SUCCEEDED = auto()
     TRANSFER_FAILED = auto()
+    BUILD_REQUESTED = auto()
+    BUILD_SUCCEEDED = auto()
+    BUILD_FAILED = auto()
     SIMULATION_REQUESTED = auto()
     RESUMABLE_STATE_SAVED = auto()
     FETCH_REQUESTED = auto()
@@ -31,6 +37,7 @@ class SideEffectCommand(Enum):
     INSTALL_SOLVER = auto()
     START_BACKEND = auto()
     TRANSFER_SCENE = auto()
+    REQUEST_BUILD = auto()
     START_SIMULATION = auto()
     FETCH_FRAMES = auto()
     CANCEL_OPERATION = auto()

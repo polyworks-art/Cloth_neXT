@@ -2,9 +2,16 @@ schema_version = "1.0.0"
 id = "cloth_next"
 version = "0.1.0"
 name = "Cloth NeXt"
-tagline = "Professional Blender workflow for the external PPF Contact Solver"
-maintainer = "Cloth NeXt Contributors"
+tagline = "Cloth simulation through the external PPF Contact Solver"
+maintainer = "Tim Christmann"
 type = "add-on"
+website = "https://github.com/polyworks-art/Cloth_neXT"
+tags = ["Physics"]
 blender_version_min = "5.0.0"
 license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 Tim Christmann and Cloth NeXt contributors"]
+platforms = ["windows-x64"]
 
+[permissions]
+network = "Download the official PPF solver after explicit confirmation"
+files = "Manage the separate solver installation outside the extension"

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Minimal PPF 0.11 TCMD status transport. No other operations live here."""
 
 from __future__ import annotations
@@ -6,7 +9,7 @@ import json
 import socket
 from dataclasses import dataclass
 
-from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
+from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 
 TCMD_HEADER = b"TCMD"
 MAX_STATUS_RESPONSE = 1024 * 1024

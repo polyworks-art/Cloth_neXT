@@ -1,8 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from dataclasses import FrozenInstanceError
 
 import pytest
 
-from cloth_next.core.events import Event
+from cloth_next.core.events import Event, SideEffectCommand
 from cloth_next.core.state import ApplicationState, StateSnapshot, transition, transition_rules
 
 
@@ -30,6 +33,24 @@ def test_invalid_transitions_are_rejected_without_changing_state(state, event):
     assert result.snapshot.current is state
     assert result.snapshot.revision == 7
     assert result.snapshot.error is not None
+
+
+def test_build_is_an_explicit_state_with_cancel_and_failure_paths():
+    started = transition(StateSnapshot(ApplicationState.READY), Event.BUILD_REQUESTED)
+    assert started.snapshot.current is ApplicationState.BUILDING
+    assert SideEffectCommand.REQUEST_BUILD in started.commands
+    succeeded = transition(started.snapshot, Event.BUILD_SUCCEEDED)
+    assert succeeded.snapshot.current is ApplicationState.READY
+    failed = transition(started.snapshot, Event.BUILD_FAILED)
+    assert failed.snapshot.current is ApplicationState.ERROR
+    cancelled = transition(started.snapshot, Event.CANCEL_REQUESTED)
+    assert cancelled.snapshot.current is ApplicationState.CANCELLING
+
+
+def test_simulation_cannot_start_from_building():
+    result = transition(StateSnapshot(ApplicationState.BUILDING),
+                        Event.SIMULATION_REQUESTED)
+    assert not result.accepted
 
 
 def test_paused_requires_explicit_resumable_state_event():

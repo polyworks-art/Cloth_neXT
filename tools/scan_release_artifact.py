@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Reject Cloth NeXt release artifacts that contain any PPF solver material.
 
 Cloth NeXt releases never contain, mirror, repackage, or redistribute the PPF

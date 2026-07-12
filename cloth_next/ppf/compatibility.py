@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Exact PPF baseline validation."""
 
 from __future__ import annotations
@@ -5,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from cloth_next.core.errors import ErrorCategory, ErrorRecord
+from ..core.errors import ErrorCategory, ErrorRecord
 
 EXPECTED_PROTOCOL = "0.11"
 EXPECTED_SCHEMA = "1"
