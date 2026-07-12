@@ -217,7 +217,19 @@ the existing repository content stays unchanged, and existing artifacts are not
 replaced. Diagnose, fix, and release a new version (or the same version only if
 nothing was ever published under it — a draft may be deleted).
 
-## 16. Codex Release Procedure
+## 16. Mandatory Preflight-Before-Tag Procedure
+
+Before creating a release tag, the release manager must commit and push the intended
+release state, run `release-preflight` against that exact commit SHA, inspect the
+uploaded `cloth-next-release-candidate`, and verify every source, Windows companion,
+Blender, package, scanner, and policy gate. Only then may an annotated tag be created
+at that same commit. The tagged workflow rejects a successful preflight from another
+commit or manifest version. `python tools/check_release_preflight.py --commit <sha>
+--version <version>` provides the same mandatory check locally when GitHub CLI is
+authenticated. The preflight never tags, publishes, changes Pages, or modifies the
+Stable or Beta repositories.
+
+## 17. Codex Release Procedure
 
 When instructed "Release Cloth NeXt \<version\>", an AI assistant must:
 
@@ -242,7 +254,7 @@ When instructed "Release Cloth NeXt \<version\>", an AI assistant must:
 It must never pick a version, skip tests, create a stable release without a passed
 beta end-to-end test, replace an existing tag, or upload PPF binaries.
 
-## 17. Prohibited Actions
+## 18. Prohibited Actions
 
 - Any inclusion, mirroring, proxying, or redistribution of PPF solver files
   (section 6).
@@ -256,7 +268,7 @@ beta end-to-end test, replace an existing tag, or upload PPF binaries.
 - Releasing with failing tests; overwriting existing tags or artifacts.
 - Inventing a custom Blender `index.json` schema.
 
-## 18. Emergency Rollback
+## 19. Emergency Rollback
 
 A defective published release is rolled back by publishing a new, higher version and
 optionally marking the defective GitHub release as such in its notes. Channel
@@ -265,7 +277,7 @@ previously downloaded artifacts are never mutated. Tags are never deleted or mov
 If Pages content must be corrected, only the affected channel directory is
 regenerated from verified artifacts.
 
-## 19. Policy Change Procedure
+## 20. Policy Change Procedure
 
 Changes to this policy require an explicit, human-approved commit that modifies this
 file, with the rationale in the commit message. Automation and AI assistants may

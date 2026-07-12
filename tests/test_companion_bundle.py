@@ -29,3 +29,12 @@ def test_arbitrary_filename_in_manifest_is_rejected(tmp_path):
     path=extension/"companion_manifest.json"; payload=json.loads(path.read_text())
     payload["filename"]="other.exe"; path.write_text(json.dumps(payload))
     with pytest.raises(ValueError,match="identity"): validate_bundle(extension,"0.2.0-beta.3")
+
+@pytest.mark.parametrize("kind", ["missing", "directory"])
+def test_stage_rejects_invalid_source(tmp_path, kind):
+    extension=tmp_path/"cloth_next"; extension.mkdir()
+    (extension/"blender_manifest.toml").write_text('version="0.2.0-beta.3"')
+    source=tmp_path/"input.exe"
+    if kind == "directory": source.mkdir()
+    with pytest.raises(FileNotFoundError):
+        stage(source, extension)

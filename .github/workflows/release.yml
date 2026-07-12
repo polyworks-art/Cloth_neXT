@@ -1,11 +1,13 @@
 name: release
+
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag: {description: "Existing release tag", required: true}
-permissions: {contents: write}
+
+permissions: {contents: write, actions: read}
 concurrency: {group: release, cancel-in-progress: false}
 env:
   BLENDER_VERSION: "5.1.2"
@@ -13,82 +15,42 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      version: ${{ steps.version.outputs.version }}
-      zip: ${{ steps.version.outputs.zip }}
-      channel: ${{ steps.channel.outputs.channel }}
-    steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0, ref: "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}"}
-      - id: version
-        shell: bash
-        run: |
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "zip=cloth_next-$VERSION-windows-x64.zip" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v5
-        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
-      - run: pip install -r requirements-build.txt
-      - id: channel
-        run: |
-          python tools/validate_release_policy.py --phase pre-build --tag "${{ steps.version.outputs.tag }}"
-          echo "channel=$(python tools/validate_release_policy.py --phase pre-build --tag '${{ steps.version.outputs.tag }}' --print-channel)" >> "$GITHUB_OUTPUT"
-      - env: {GH_TOKEN: "${{ github.token }}"}
-        run: '! gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1'
-      - run: pytest
-      - run: python tools/build_icons.py --check
-      - run: python tools/validate_extension.py cloth_next
-
-  build-windows-extension:
-    needs: validate
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: {ref: "${{ needs.validate.outputs.tag }}"}
-      - uses: actions/setup-python@v5
-        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
-      - run: pip install -r requirements-build.txt
-      - run: python tools/build_icons.py
-      - run: python companion/build_companion.py
-      - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
-      - run: python tools/scan_companion.py "cloth_next/bin/cloth-next-bake.exe"
-      - shell: pwsh
-        run: |
-          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
-          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
-          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
-          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
-      - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/${{ needs.validate.outputs.zip }}"
-      - run: python tools/validate_extension.py "dist/${{ needs.validate.outputs.zip }}"
-      - run: python tools/scan_release_artifact.py "dist/${{ needs.validate.outputs.zip }}"
-      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}"
-      - run: '& "$env:CLOTH_NEXT_BLENDER" --command extension validate "dist/${{ needs.validate.outputs.zip }}"'
-      - uses: actions/upload-artifact@v4
-        with: {name: windows-extension, path: "dist/${{ needs.validate.outputs.zip }}", if-no-files-found: error}
+  candidate:
+    uses: ./.github/workflows/build-release-candidate.yml
+    with:
+      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
   publish:
-    needs: [validate, build-windows-extension]
+    needs: candidate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, ref: "${{ needs.validate.outputs.tag }}"}
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
       - run: pip install -r requirements-build.txt
       - uses: actions/download-artifact@v4
-        with: {name: windows-extension, path: dist}
-      - run: python tools/release_metadata.py --zip "dist/${{ needs.validate.outputs.zip }}" --tag "${{ needs.validate.outputs.tag }}" --commit "$GITHUB_SHA" --output-dir dist
-      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}"
+        with: {name: cloth-next-release-candidate, path: dist}
+      - name: Require matching unpublished preflight
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: python tools/check_release_preflight.py --commit "$GITHUB_SHA" --version "${{ needs.candidate.outputs.version }}"
+      - name: Enforce immutable tag and release
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          ! gh release view "$TAG" >/dev/null 2>&1
+      - run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "$GITHUB_SHA" --output-dir dist
+      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}"
       - env: {GH_TOKEN: "${{ github.token }}"}
         run: |
-          FLAG=""; [ "${{ needs.validate.outputs.channel }}" = beta ] && FLAG=--prerelease
-          gh release create "${{ needs.validate.outputs.tag }}" --draft $FLAG --title "Cloth NeXt ${{ needs.validate.outputs.version }}" --notes-file RELEASE_NOTES.md
-          gh release upload "${{ needs.validate.outputs.tag }}" "dist/${{ needs.validate.outputs.zip }}" dist/release-manifest.json dist/SHA256SUMS.txt
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          FLAG=""; [ "${{ needs.candidate.outputs.channel }}" = beta ] && FLAG=--prerelease
+          gh release create "$TAG" --draft $FLAG --title "Cloth NeXt ${{ needs.candidate.outputs.version }}" --notes-file RELEASE_NOTES.md
+          gh release upload "$TAG" "dist/${{ needs.candidate.outputs.zip-name }}" dist/release-manifest.json dist/SHA256SUMS.txt
       - shell: bash
         run: |
           curl -fsSL "https://download.blender.org/release/Blender${BLENDER_SERIES}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o blender.tar.xz
@@ -98,14 +60,14 @@ jobs:
           git fetch origin gh-pages || true
           mkdir -p site
           if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then git worktree add site-publish origin/gh-pages; cp -r site-publish/. site/ || true; rm -rf site/.git; fi
-      - run: python tools/build_extension_repository.py --zip "dist/${{ needs.validate.outputs.zip }}" --sha256 "$(sha256sum 'dist/${{ needs.validate.outputs.zip }}' | cut -d' ' -f1)" --channel "${{ needs.validate.outputs.channel }}" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
-      - run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ needs.validate.outputs.tag }}" --zip "dist/${{ needs.validate.outputs.zip }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
+      - run: python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "${{ needs.candidate.outputs.channel }}" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
+      - run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
       - run: |
-          CHANNEL="${{ needs.validate.outputs.channel }}"
+          CHANNEL="${{ needs.candidate.outputs.channel }}"
           if [ ! -d site-publish ]; then git worktree add --detach site-publish; git -C site-publish checkout --orphan gh-pages; git -C site-publish rm -rf --quiet . || true; fi
           rm -rf "site-publish/$CHANNEL"; cp -r "site/$CHANNEL" "site-publish/$CHANNEL"; touch site-publish/.nojekyll
           git -C site-publish add -A
-          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL channel for ${{ needs.validate.outputs.tag }}"
+          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL channel for ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           git -C site-publish push origin HEAD:gh-pages
       - env: {GH_TOKEN: "${{ github.token }}"}
-        run: gh release edit "${{ needs.validate.outputs.tag }}" --draft=false
+        run: gh release edit "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --draft=false

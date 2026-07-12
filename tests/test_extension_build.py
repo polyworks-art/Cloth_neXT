@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import zipfile
+import json
 
 import pytest
 
@@ -15,6 +16,9 @@ def extension_source(tmp_path):
     (source / "blender_manifest.toml").write_text(
         'id="cloth_next"\nversion="0.1.0"\nblender_version_min="5.0.0"\n')
     (source / "solver_compatibility.json").write_text("{}")
+    (source / "bin").mkdir()
+    (source / "bin" / "cloth-next-bake.exe").write_bytes(b"MZfixture")
+    (source / "companion_manifest.json").write_text(json.dumps({}))
     return source
 
 
@@ -42,7 +46,8 @@ def test_build_excludes_runtime_state_directories(tmp_path):
     build_extension(source, output)
     with zipfile.ZipFile(output) as bundle:
         assert bundle.namelist() == sorted(
-            ["__init__.py", "blender_manifest.toml", "solver_compatibility.json"])
+            ["__init__.py", "bin/cloth-next-bake.exe", "blender_manifest.toml",
+             "companion_manifest.json", "solver_compatibility.json"])
 
 
 def test_build_has_no_solver_bundling_mode():

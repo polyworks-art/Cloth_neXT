@@ -32,16 +32,10 @@ jobs:
       # available for explicitly configured local/Windows runs via
       # `pytest -m integration`.
       - name: Unit tests (integration tests excluded)
-        run: pytest -m "not integration"
+        run: pytest -m "not integration and not built_artifact"
 
       - name: Validate extension source structure
-        run: python tools/validate_extension.py cloth_next
-
-      - name: Build solver-free extension ZIP (development fallback build)
-        run: python tools/build_extension.py --output dist/ci-build.zip
-
-      - name: Scan artifact for forbidden PPF solver material
-        run: python tools/scan_release_artifact.py dist/ci-build.zip
+        run: python tools/validate_extension.py cloth_next --phase source
 
   blender-smoke:
     runs-on: ubuntu-latest

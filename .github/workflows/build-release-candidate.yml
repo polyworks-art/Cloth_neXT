@@ -1,0 +1,108 @@
+name: build-release-candidate
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      tag:
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        value: ${{ jobs.validate-source.outputs.version }}
+      channel:
+        value: ${{ jobs.validate-source.outputs.channel }}
+      zip-name:
+        value: ${{ jobs.validate-source.outputs.zip-name }}
+      zip-sha256:
+        value: ${{ jobs.build-windows-extension.outputs.zip-sha256 }}
+
+permissions:
+  contents: read
+
+env:
+  BLENDER_VERSION: "5.1.2"
+  BLENDER_SERIES: "5.1"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  validate-source:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      channel: ${{ steps.metadata.outputs.channel }}
+      zip-name: ${{ steps.metadata.outputs.zip-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - id: metadata
+        shell: bash
+        run: |
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("cloth_next/blender_manifest.toml","rb"))["version"])')"
+          TAG="${{ inputs.tag }}"
+          [ -n "$TAG" ] || TAG="v$VERSION"
+          python tools/validate_release_policy.py --phase pre-build --tag "$TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$(python tools/validate_release_policy.py --phase pre-build --tag "$TAG" --print-channel)" >> "$GITHUB_OUTPUT"
+          echo "zip-name=cloth_next-$VERSION-windows-x64.zip" >> "$GITHUB_OUTPUT"
+      - run: pytest -m "not integration and not built_artifact"
+      - run: python tools/build_icons.py --check
+      - run: python tools/validate_extension.py cloth_next --phase source
+
+  build-windows-extension:
+    needs: validate-source
+    runs-on: windows-latest
+    outputs:
+      zip-sha256: ${{ steps.hash.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - run: python tools/build_icons.py
+      - run: python companion/build_companion.py
+      - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - shell: pwsh
+        run: |
+          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
+          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
+          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
+          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - run: pytest -m built_artifact --extension-zip "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - run: python tools/validate_extension.py "dist/${{ needs.validate-source.outputs.zip-name }}" --phase packaged
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/${{ needs.validate-source.outputs.zip-name }}"'
+      - id: hash
+        shell: pwsh
+        run: "\"sha256=$((Get-FileHash 'dist/${{ needs.validate-source.outputs.zip-name }}' -Algorithm SHA256).Hash.ToLower())\" >> $env:GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: {name: candidate-under-verification, path: "dist/${{ needs.validate-source.outputs.zip-name }}", if-no-files-found: error}
+
+  verify-release-candidate:
+    needs: [validate-source, build-windows-extension]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - uses: actions/download-artifact@v4
+        with: {name: candidate-under-verification, path: dist}
+      - run: pytest -m built_artifact --extension-zip "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - run: python tools/scan_release_artifact.py "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - run: python tools/validate_extension.py "dist/${{ needs.validate-source.outputs.zip-name }}" --phase packaged
+      - run: python tools/validate_release_policy.py --phase post-build --tag "v${{ needs.validate-source.outputs.version }}" --zip "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cloth-next-release-candidate
+          path: "dist/${{ needs.validate-source.outputs.zip-name }}"
+          if-no-files-found: error

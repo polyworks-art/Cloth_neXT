@@ -1,0 +1,28 @@
+name: release-preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact commit SHA or git ref to validate
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "companion/**"
+      - "cloth_next/blender_manifest.toml"
+      - "cloth_next/solver_compatibility.json"
+      - "tools/**"
+      - "tests/**"
+      - "requirements-build.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    uses: ./.github/workflows/build-release-candidate.yml
+    with:
+      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}

@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 from PIL import Image
 
 from companion.build_assets import build
@@ -19,7 +20,8 @@ def test_companion_assets_reuse_approved_identity_and_bake_icons():
         assert (256, 256) in icon.info["sizes"]
 
 
-def test_only_approved_companion_executable_is_staged_in_extension_source():
-    executables=[path.relative_to(ROOT/"cloth_next").as_posix()
-                 for path in (ROOT/"cloth_next").rglob("*.exe")]
-    assert executables == ["bin/cloth-next-bake.exe"]
+def test_generated_companion_executable_is_not_committed():
+    tracked=subprocess.run(["git", "ls-files", "cloth_next"], cwd=ROOT,
+                           check=True, capture_output=True, text=True).stdout.splitlines()
+    executables=[path for path in tracked if path.lower().endswith(".exe")]
+    assert executables == []

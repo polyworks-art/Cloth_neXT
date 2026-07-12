@@ -1,4 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-markers = ["integration: requires an explicitly configured real external dependency"]
+markers = [
+    "integration: requires an explicitly configured real external dependency",
+    "built_artifact: requires an explicitly supplied, fully built extension ZIP",
+]
