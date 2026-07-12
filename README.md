@@ -206,3 +206,5 @@ ST Tech / ZOZO under the Apache License 2.0.
 
 It is not covered by the Cloth NeXt license and is neither included in nor
 distributed with Cloth NeXt.
+
+Crossaint Icon by: <a href="https://thenounproject.com/browse/icons/term/croissant/" target="_blank" title="Croissant Icons">

@@ -13,7 +13,43 @@ real mesh object.
 from __future__ import annotations
 
 import importlib
+import sys
 import threading
+from pathlib import Path
+
+
+def _load_extension():
+    """Import the extension and report how: enabled bl_ext module, explicit
+    enable, or the source checkout.
+
+    The source fallback matters on Linux CI: the extension is Windows-only
+    (``platforms = ["windows-x64"]``), so Blender on Linux installs it but
+    never enables it as a ``bl_ext`` module; registration itself is
+    platform-independent and is still fully exercised from the source tree.
+    """
+    errors: list[str] = []
+    for candidate in ("bl_ext.user_default.cloth_next", "cloth_next"):
+        try:
+            return importlib.import_module(candidate), candidate
+        except ModuleNotFoundError as exc:
+            errors.append(f"{candidate}: {exc}")
+    try:
+        import addon_utils
+        module = addon_utils.enable("bl_ext.user_default.cloth_next",
+                                    default_set=False)
+        if module is not None:
+            return module, "bl_ext.user_default.cloth_next (enabled by smoke test)"
+        errors.append("addon_utils.enable(bl_ext.user_default.cloth_next) "
+                      "returned None")
+    except Exception as exc:  # noqa: BLE001 — diagnostics only
+        errors.append(f"addon_utils.enable: {exc}")
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    try:
+        return importlib.import_module("cloth_next"), f"source tree {repo_root}"
+    except ModuleNotFoundError as exc:
+        errors.append(f"source tree {repo_root}: {exc}")
+    raise SystemExit("cloth_next is not importable:\n  " + "\n  ".join(errors))
 
 
 def _clothnext_draw_callback_count(bpy) -> int:
@@ -58,42 +94,51 @@ def _solver_download_dispatch_check(bpy, module_name: str) -> None:
             f"RNA does not resolve {name} to its Python class")
     installer = preferences._session.ensure_installer()
     assert installer is not None, preferences._session.disabled_reason
-    state = installer.request_download()
-    assert state.name == "AWAITING_CONFIRMATION"
-    state = installer.install(confirmed=False)  # decline: no download starts
-    assert state.name == "DOWNLOAD_AVAILABLE"
+    if installer.state.name in {"NOT_INSTALLED", "DOWNLOAD_AVAILABLE"}:
+        state = installer.request_download()
+        assert state.name == "AWAITING_CONFIRMATION"
+        state = installer.install(confirmed=False)  # decline: no download starts
+        assert state.name == "DOWNLOAD_AVAILABLE"
+    else:
+        # A solver is already installed on this machine; the roundtrip only
+        # applies to the not-installed flow (which CI always exercises).
+        print(f"solver installer is {installer.state.name}; "
+              "skipping the confirmation roundtrip")
 
 
 def main() -> None:
     import bpy
 
-    module_name = None
-    for candidate in ("bl_ext.user_default.cloth_next", "cloth_next"):
-        try:
-            extension = importlib.import_module(candidate)
-            module_name = candidate
-            break
-        except ModuleNotFoundError:
-            continue
-    if module_name is None:
-        raise SystemExit("cloth_next is not importable (bl_ext or source path)")
+    extension, import_origin = _load_extension()
+    module_name = extension.__name__
+    print(f"Cloth NeXt smoke test: importing via {import_origin}")
+
+    # `cls.is_registered` is the reliable signal: AddonPreferences classes are
+    # not exposed as `bpy.types.<ClassName>` attributes in Blender 5.x.
+    blender_package = importlib.import_module(module_name + ".blender")
+    classes = []
+    for submodule, names in (
+            ("preferences", ("CLOTHNEXT_AddonPreferences",)),
+            ("object_properties", ("CLOTHNEXT_PG_object_settings",)),
+            ("physics_operators", ("CLOTHNEXT_OT_add_physics",
+                                   "CLOTHNEXT_OT_remove_physics")),
+            ("physics_ui", ("CLOTHNEXT_PT_physics",))):
+        loaded = importlib.import_module(f"{blender_package.__name__}.{submodule}")
+        classes.extend(getattr(loaded, name) for name in names)
 
     for _ in range(2):
         extension.register()
         extension.register()  # idempotency guard
-        assert hasattr(bpy.types, "CLOTHNEXT_AddonPreferences")
-        assert hasattr(bpy.types, "CLOTHNEXT_PG_object_settings")
-        assert hasattr(bpy.types, "CLOTHNEXT_OT_add_physics")
-        assert hasattr(bpy.types, "CLOTHNEXT_OT_remove_physics")
-        assert hasattr(bpy.types, "CLOTHNEXT_PT_physics")
+        for cls in classes:
+            assert cls.is_registered, f"{cls.__name__} is not registered"
         assert "cloth_next" in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 1
         _solver_download_dispatch_check(bpy, module_name)
         _phase28_roundtrip(bpy)
         extension.unregister()
         extension.unregister()
-        assert not hasattr(bpy.types, "CLOTHNEXT_AddonPreferences")
-        assert not hasattr(bpy.types, "CLOTHNEXT_PT_physics")
+        for cls in classes:
+            assert not cls.is_registered, f"{cls.__name__} survived unregister"
         assert "cloth_next" not in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 0
 
