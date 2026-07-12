@@ -2,63 +2,199 @@
   <img
     src="assets/Cloth_neXt_icon.svg"
     alt="Cloth NeXt Logo"
-    width="220"
+    width="240"
   />
 </p>
 
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
-  Professional Blender workflow powered by the external GPU-based
-  <strong>PPF Contact Solver</strong>.
+  GPU-accelerated cloth simulation for Blender,<br>
+  powered by the external <strong>PPF Contact Solver</strong>.
+</p>
+
+<p align="center">
+  <strong>Stay in Blender. Simulate externally. Keep control of the workflow.</strong>
 </p>
 
 ---
 
-Cloth NeXt replaces Blender's built-in cloth simulation workflow with the
-external GPU-based **PPF Contact Solver**.
+## What is Cloth NeXt?
+
+Cloth NeXt brings the external **PPF Contact Solver** into a Blender-focused
+workflow.
+
+It is made for artists who want powerful GPU-based cloth simulation without
+manually preparing command-line jobs, moving files between tools, or rebuilding
+their setup for every simulation.
+
+Cloth NeXt handles the Blender side of the workflow while the solver remains a
+separate, independently installed application.
+
+### What it provides
+
+- Blender-centered cloth simulation workflow
+- Integration with the GPU-based PPF Contact Solver
+- Guided solver installation and selection
+- Solver version and compatibility checks
+- Stable and beta update channels
+- Open-source Blender extension
+- Clear separation between the add-on and external solver
 
 > [!IMPORTANT]
 > The PPF Contact Solver is external software developed and distributed by
-> ST Tech / ZOZO (`st-tech/ppf-contact-solver`). Cloth NeXt never bundles,
-> mirrors, or redistributes it. The add-on preferences install or select it
-> separately, after explicit confirmation, directly from its official source.
+> ST Tech / ZOZO (`st-tech/ppf-contact-solver`).
+>
+> Cloth NeXt never bundles, mirrors, or redistributes the solver. It is installed
+> or selected separately, after explicit confirmation, directly from its
+> official source.
 
-## Installation and updates
+---
 
-Cloth NeXt installs and updates through Blender's extension system using the
-remote repositories documented in
-[docs/UPDATE_CHANNELS.md](docs/UPDATE_CHANNELS.md), including stable and beta
-channels.
+## What do I need?
 
-The solver is installed separately. See
-[docs/SOLVER_INSTALLATION.md](docs/SOLVER_INSTALLATION.md).
+To use Cloth NeXt, you need:
 
-## Release policy
+- A compatible version of Blender
+- The Cloth NeXt extension
+- A separately installed PPF Contact Solver
+- Compatible hardware and operating system support for the selected solver version
 
-All versioning, tagging, packaging, publishing, and solver compatibility rules
-are governed by the mandatory
-[Cloth NeXt Release Policy](docs/RELEASE_POLICY.md).
+> [!NOTE]
+> Cloth NeXt is the Blender integration layer. The actual simulation is performed
+> by the external PPF Contact Solver.
 
-Read it before changing versions, releases, update channels, or solver metadata.
+---
+
+## Installation
+
+### 1. Install Cloth NeXt
+
+Cloth NeXt is installed through Blender's extension system.
+
+Two update channels are available:
+
+| Channel | Recommended for |
+|---|---|
+| **Stable** | Regular use and tested releases |
+| **Beta** | Early access to newer features and fixes |
+
+> [!TIP]
+> Use the **Stable** channel unless you specifically want to test upcoming
+> features.
+
+Repository setup and update instructions are available in
+[Update Channels](docs/UPDATE_CHANNELS.md).
+
+### 2. Install or select the solver
+
+After installing the extension:
+
+1. Open Blender's preferences.
+2. Open the Cloth NeXt extension settings.
+3. Choose the solver installation or selection option.
+4. Confirm access to the external official source.
+5. Install the solver or select an existing installation.
+6. Let Cloth NeXt verify compatibility.
+
+For manual installation and troubleshooting, see
+[Solver Installation](docs/SOLVER_INSTALLATION.md).
+
+---
+
+## Quick start
+
+Once Cloth NeXt and the solver are installed:
+
+1. Open your project in Blender.
+2. Select or prepare the objects for simulation.
+3. Open the Cloth NeXt interface.
+4. Configure the cloth and collision setup.
+5. Start the simulation through Cloth NeXt.
+6. Continue working with the resulting animation in Blender.
+
+> [!NOTE]
+> The exact workflow and available controls may depend on the installed
+> Cloth NeXt and solver versions.
+
+---
+
+## Why use an external solver?
+
+Cloth NeXt and the PPF Contact Solver are separate projects by design.
+
+This keeps the workflow transparent:
+
+- The solver remains connected to its official source.
+- Third-party binaries are not redistributed.
+- Users explicitly choose which solver installation is used.
+- Solver updates remain independent from add-on updates.
+- Licensing and ownership stay clearly separated.
+- Compatibility can be validated before a simulation is started.
+
+---
+
+## Current limitations
+
+Cloth NeXt is an integration layer around an external simulation system.
+Some limitations may depend on:
+
+- Blender version
+- Cloth NeXt version
+- PPF Contact Solver version
+- Operating system
+- GPU and driver support
+- Features currently exposed through the integration
+
+Known limitations are documented in
+[Limitations](docs/LIMITATIONS.md).
+
+When reporting an issue, please include:
+
+- Blender version
+- Cloth NeXt version
+- Solver version
+- Operating system
+- GPU model
+- Error message or relevant log output
+
+---
 
 ## Documentation
+
+<details>
+<summary><strong>User documentation</strong></summary>
+
+- [Solver installation](docs/SOLVER_INSTALLATION.md)
+- [Update channels](docs/UPDATE_CHANNELS.md)
+- [Limitations](docs/LIMITATIONS.md)
+
+</details>
+
+<details>
+<summary><strong>Developer documentation</strong></summary>
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [PPF protocol](docs/PPF_PROTOCOL.md)
-- [Limitations](docs/LIMITATIONS.md)
 - [Release policy](docs/RELEASE_POLICY.md)
-- [Update channels](docs/UPDATE_CHANNELS.md)
-- [Solver installation](docs/SOLVER_INSTALLATION.md)
 - [Solver distribution](docs/SOLVER_DISTRIBUTION.md)
 - [Solver compatibility manifest](docs/SOLVER_COMPATIBILITY_MANIFEST.md)
+
+</details>
+
+> [!WARNING]
+> Before changing versions, packaging, releases, update channels, or solver
+> metadata, read the mandatory
+> [Cloth NeXt Release Policy](docs/RELEASE_POLICY.md).
+
+---
 
 ## License
 
 Cloth NeXt — Copyright © 2026 Tim Christmann and Cloth NeXt contributors.
 
-This add-on is free software licensed under the
+Cloth NeXt is free software licensed under the
 **GNU General Public License, version 3 or, at your option, any later version**
 (`GPL-3.0-or-later`, matching `blender_manifest.toml`).
 
@@ -67,6 +203,10 @@ See [LICENSE](LICENSE) for the full license text.
 Cloth NeXt is distributed **without any warranty**, including the implied
 warranties of merchantability or fitness for a particular purpose.
 
-The external PPF Contact Solver is **not** covered by the Cloth NeXt license.
-It is separate software developed by ST Tech / ZOZO, licensed under the
-Apache License 2.0, and is neither included in nor distributed with Cloth NeXt.
+### External solver
+
+The PPF Contact Solver is separate software developed and distributed by
+ST Tech / ZOZO under the Apache License 2.0.
+
+It is not covered by the Cloth NeXt license and is neither included in nor
+distributed with Cloth NeXt.
