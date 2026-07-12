@@ -22,6 +22,20 @@ are governed by the mandatory
 [Cloth NeXt Release Policy](docs/RELEASE_POLICY.md). Read it before changing
 versions, releases, update channels, or solver metadata.
 
+## License
+
+Cloth NeXt — Copyright (C) 2026 Tim Christmann and Cloth NeXt contributors.
+
+This add-on is free software, licensed under the
+**GNU General Public License, version 3 or (at your option) any later version**
+(`GPL-3.0-or-later`, matching `blender_manifest.toml`). See [LICENSE](LICENSE)
+for the full text. It is distributed WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+The external PPF Contact Solver is **not** covered by this license: it is
+separate software by ST Tech / ZOZO, licensed under Apache License 2.0, and is
+neither included in nor distributed with Cloth NeXt.
+
 ## Documentation
 
 - [Release policy](docs/RELEASE_POLICY.md)
