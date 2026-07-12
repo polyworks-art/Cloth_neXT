@@ -113,11 +113,24 @@ def selected_channel(context) -> UpdateChannel:
         return DEFAULT_CHANNEL
     name = getattr(preferences, "update_channel", None)
     if name in UpdateChannel.__members__:
-        if name == "DEV" and (not getattr(preferences,"developer_tools",False)
-                              or not getattr(preferences,"dev_channel_acknowledged",False)):
-            return DEFAULT_CHANNEL
         return UpdateChannel[name]
     return DEFAULT_CHANNEL
+
+
+def dev_access_error(context, channel: UpdateChannel) -> str:
+    """Return a visible Dev gating error; never substitute another channel."""
+    if channel is not UpdateChannel.DEV:
+        return ""
+    try:
+        preferences = context.preferences.addons[_ADDON_ID].preferences
+    except (KeyError, AttributeError):
+        return "Developer Tools are required to use the Dev channel."
+    if not getattr(preferences, "developer_tools", False):
+        return "Enable Developer Test Tools before using the Dev channel."
+    if not getattr(preferences, "dev_channel_acknowledged", False):
+        return ("Acknowledge the Development Channel warning before checking, "
+                "adding, or installing Dev updates.")
+    return ""
 
 
 def _tag_redraw_preferences() -> None:
@@ -175,6 +188,11 @@ class CLOTHNEXT_OT_addon_update_check(bpy.types.Operator):
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
         channel = selected_channel(context)
+        if error := dev_access_error(context, channel):
+            _session.state = AddonUpdateState.INSTALL_BLOCKED
+            _session.message = error
+            self.report({"WARNING"}, error)
+            return {"CANCELLED"}
         repos = context.preferences.extensions.repos
         index = addon_updates.find_channel_repo(repos, channel)
         if index is None:
@@ -214,6 +232,9 @@ class CLOTHNEXT_OT_addon_update_repo_setup(bpy.types.Operator):
 
     def execute(self, context):
         channel = selected_channel(context)
+        if error := dev_access_error(context, channel):
+            self.report({"WARNING"}, error)
+            return {"CANCELLED"}
         repos = context.preferences.extensions.repos
         if addon_updates.find_channel_repo(repos, channel) is not None:
             self.report({"INFO"}, f"The {channel.label} repository is already "
@@ -274,6 +295,11 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
         from . import companion_manager
         companion_manager.shutdown()
         channel = selected_channel(context)
+        if error := dev_access_error(context, channel):
+            _session.state = AddonUpdateState.INSTALL_BLOCKED
+            _session.message = error
+            self.report({"WARNING"}, error)
+            return {"CANCELLED"}
         repos = context.preferences.extensions.repos
         index = addon_updates.find_channel_repo(repos, channel)
         if index is None:
