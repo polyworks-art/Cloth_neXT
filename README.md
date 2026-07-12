@@ -86,12 +86,13 @@ To use Cloth NeXt, you need:
 
 Cloth NeXt is installed through Blender's extension system.
 
-Two update channels are available:
+Three update channels are available:
 
 | Channel | Recommended for |
 |---|---|
 | **Stable** | Regular use and tested releases |
 | **Beta** | Early access to newer features and fixes |
+| **Dev** | Unsupported public experimental snapshots for active testing |
 
 > [!TIP]
 > Use the **Stable** channel unless you specifically want to test upcoming

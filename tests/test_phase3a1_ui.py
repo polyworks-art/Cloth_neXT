@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+from __future__ import annotations
+from pathlib import Path
+import inspect
+
+def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypatch):
+    ui=blender_env.physics_ui; requested=[]
+    monkeypatch.setattr(ui.icon_registry,"icon_kwargs",
+                        lambda name,fallback="NONE": requested.append(name) or {"icon":fallback})
+    class Layout:
+        def label(self,**_kwargs): pass
+    expected={ui.CLOTHNEXT_PT_physics:"cloth_next",ui.CLOTHNEXT_PT_overview:"cloth",
+        ui.CLOTHNEXT_PT_solver:"solver",ui.CLOTHNEXT_PT_quality:"quality",
+        ui.CLOTHNEXT_PT_physical:"physical",ui.CLOTHNEXT_PT_damping:"damping",
+        ui.CLOTHNEXT_PT_collisions:"collision",ui.CLOTHNEXT_PT_pressure:"pressure",
+        ui.CLOTHNEXT_PT_shape:"pinning",ui.CLOTHNEXT_PT_cache:"cache",
+        ui.CLOTHNEXT_PT_advanced:"advanced"}
+    for panel,icon in expected.items():
+        instance=panel(); instance.layout=Layout(); instance.draw_header(None)
+        assert requested[-1]==icon
+
+def test_hud_draw_source_has_no_hardware_or_process_calls(blender_env):
+    source=inspect.getsource(__import__("cloth_next.blender.hud",fromlist=["x"])._draw)
+    for forbidden in ("subprocess", "nvidia-smi", "query_nvidia", "Popen(", "open("):
+        assert forbidden not in source
+
+def test_version_remains_beta6():
+    manifest=(Path(__file__).parents[1]/"cloth_next/blender_manifest.toml").read_text()
+    assert 'version = "0.2.0-beta.6"' in manifest

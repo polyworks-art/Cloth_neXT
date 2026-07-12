@@ -109,6 +109,11 @@ frames; clear removes only Cloth NeXt cache; cancellation leaves Blender respons
 
 ## 4. Cache
 
+Phase 3A.1 status: UI/telemetry hardening is implemented for automated testing:
+cached hardware telemetry, responsive real-state HUD, typed job identity,
+automatic companion launch/reuse, panel icons, and Blender-frame progress. It
+remains in progress until Blender 5.1.2 interactive acceptance passes.
+
 Phase 3A status: the bounded developer slice is implemented for one 121-vertex
 cloth, one static collider, and frames 1--8. Independent CBOR encoding, atomic
 upload/build/start/fetch, UUID vertex-map validation, and PC2 playback pass the

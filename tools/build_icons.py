@@ -26,9 +26,18 @@ def _render(source: Path) -> bytes:
                                      height=SIZE[1], skip_system_fonts=True)
     with Image.open(BytesIO(rendered)) as image:
         image = image.convert("RGBA")
-        canvas = Image.new("RGBA", SIZE, (0, 0, 0, 0))
-        canvas.paste(image, ((SIZE[0] - image.width) // 2,
-                             (SIZE[1] - image.height) // 2), image)
+        # Blender does not theme custom preview pixels. Render the single
+        # approved icon family as white so it remains legible in the default
+        # dark UI; antialiasing stays encoded in the original alpha channel.
+        alpha = image.getchannel("A")
+        image = Image.new("RGBA", image.size, (255, 255, 255, 0))
+        image.putalpha(alpha)
+        offset = ((SIZE[0] - image.width) // 2,
+                  (SIZE[1] - image.height) // 2)
+        alpha_canvas = Image.new("L", SIZE, 0)
+        alpha_canvas.paste(alpha, offset)
+        canvas = Image.new("RGBA", SIZE, (255, 255, 255, 0))
+        canvas.putalpha(alpha_canvas)
         output = BytesIO()
         canvas.save(output, format="PNG", optimize=False, compress_level=9)
         return output.getvalue()
@@ -40,9 +49,13 @@ def validate() -> None:
         if not output.is_file(): raise ValueError(f"missing runtime PNG: {output}")
         try:
             with Image.open(output) as image:
+                image.load()
                 if image.format != "PNG" or image.size != SIZE:
                     raise ValueError(f"invalid runtime icon: {output}")
-                image.verify()
+                rgba = image.convert("RGBA")
+                if any(pixel[:3] != (255, 255, 255)
+                       for pixel in rgba.getdata() if pixel[3]):
+                    raise ValueError(f"runtime icon is not white: {output}")
         except OSError as exc: raise ValueError(f"unreadable runtime icon: {output}") from exc
 
 def build() -> None:

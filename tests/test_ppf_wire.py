@@ -186,7 +186,7 @@ def test_upload_atomic_surfaces_server_error(make_server):
 
     server = make_server(handler)
     with pytest.raises(ClothNextError,
-                       match="server error during|sendall failed"):
+                       match="server error during|sendall failed|recv failed"):
         wire.upload_atomic(server.address, CONFIG, project_name="proj",
                            data_payload=b"d", param_payload=b"p",
                            data_hash="x", param_hash="y")

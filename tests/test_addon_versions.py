@@ -15,6 +15,7 @@ from cloth_next.updater.addon_versions import AddonVersion, parse_version
     ("1.0.0", AddonVersion(1, 0, 0)),
     ("10.20.30", AddonVersion(10, 20, 30)),
     ("1.0.0-beta.10", AddonVersion(1, 0, 0, "beta", 10)),
+    ("0.2.0-dev.1", AddonVersion(0, 2, 0, "dev", 1)),
 ])
 def test_accepted_version_formats(text, expected):
     assert parse_version(text) == expected
@@ -25,7 +26,7 @@ def test_accepted_version_formats(text, expected):
     "", "1", "1.2", "1.2.3.4", "01.2.3", "1.02.3", "1.2.03",   # structure/leading zeros
     "v1.2.3", "1.2.3-alpha.1", "1.2.3-beta", "1.2.3-beta.0",   # names/zero prerelease
     "1.2.3-beta.01", "1.2.3-rc", "1.2.3+build.5", "1.2.3-beta.1+meta",
-    "1.2.3-BETA.1", "1.2.3-rc.1.2", "1.2.3-dev.1", "latest", "1.2.3 beta.1",
+    "1.2.3-BETA.1", "1.2.3-rc.1.2", "1.2.3-dev.0", "latest", "1.2.3 beta.1",
 ])
 def test_rejected_malformed_versions(text):
     with pytest.raises(ValueError):
@@ -47,6 +48,10 @@ def test_beta_rc_stable_ordering():
     assert parse_version("0.2.9") < beta1
     assert parse_version("1.0.0-rc.9") < parse_version("1.0.0")
     assert parse_version("0.10.0") > parse_version("0.9.9")
+
+def test_dev_ordering_is_independent_and_monotonic():
+    assert parse_version("0.2.0-dev.1") < parse_version("0.2.0-dev.2")
+    assert parse_version("0.2.0-dev.2") < parse_version("0.2.0-beta.7")
 
 
 def test_is_prerelease():

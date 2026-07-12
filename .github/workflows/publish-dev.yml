@@ -1,0 +1,87 @@
+name: publish-dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref: {description: "Exact 40-character source commit SHA", required: true}
+      version: {description: "Immutable Dev version (0.2.0-dev.N)", required: true}
+      build_note: {description: "Optional public build note", required: false}
+      confirmation: {description: "Type PUBLISH_DEV", required: true}
+
+permissions: {contents: write}
+concurrency: {group: publish-dev, cancel-in-progress: false}
+env:
+  BLENDER_VERSION: "5.1.2"
+  BLENDER_SERIES: "5.1"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Require explicit confirmation and immutable SHA
+        shell: pwsh
+        run: |
+          if ('${{ inputs.confirmation }}' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+          if ('${{ inputs.ref }}' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }
+          if ('${{ inputs.version }}' -notmatch '^0\.2\.0-dev\.[1-9][0-9]*$') { throw 'invalid Dev version' }
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
+      - shell: pwsh
+        run: if ((git rev-parse HEAD) -cne '${{ inputs.ref }}') { throw 'checkout SHA mismatch' }
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - run: python tools/prepare_dev_build.py --version "${{ inputs.version }}" --commit "${{ inputs.ref }}" --run-id "${{ github.run_id }}"
+      - name: Mandatory source and secret checks
+        shell: pwsh
+        run: |
+          python -m compileall -q cloth_next companion
+          python tools/build_icons.py --check
+          python tools/validate_extension.py cloth_next --phase source
+          $hits=Get-ChildItem cloth_next,companion -Recurse -File | Where-Object {$_.Extension -in '.py','.json','.toml'} | Select-String -Pattern '(ghp_|github_pat_|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' -CaseSensitive
+          if ($hits) { throw 'potential secret found in source' }
+      - run: python tools/build_icons.py
+      - run: python companion/build_companion.py
+      - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - shell: pwsh
+        run: |
+          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
+          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
+          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
+          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
+      - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
+      - run: python tools/validate_extension.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip" --phase packaged
+      - run: python tools/scan_release_artifact.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
+      - shell: pwsh
+        run: '& "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"'
+      - name: Publish isolated Dev repository
+        shell: pwsh
+        run: |
+          git fetch origin gh-pages
+          git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
+          $dev=Join-Path "$env:RUNNER_TEMP\pages" dev
+          New-Item -ItemType Directory -Force $dev | Out-Null
+          $zip="dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
+          $destination=Join-Path $dev (Split-Path $zip -Leaf)
+          if (Test-Path $destination) { throw 'Dev version already exists and is immutable' }
+          Copy-Item -LiteralPath $zip -Destination $destination
+          $old=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -Skip 5
+          $old | Remove-Item -Force
+          & "$env:CLOTH_NEXT_BLENDER" --command extension server-generate "--repo-dir=$dev"
+          python tools/scan_release_artifact.py $destination
+          git -C "$env:RUNNER_TEMP\pages" add dev
+          $changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only
+          if ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }
+          git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish Dev ${{ inputs.version }}"
+          git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
+      - name: Summary
+        shell: pwsh
+        run: |
+          "## Published Cloth NeXt ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          "Source: `${{ inputs.ref }}`" >> $env:GITHUB_STEP_SUMMARY
+          "Mandatory packaging, companion, secret, Blender validation, and forbidden-artifact checks passed." >> $env:GITHUB_STEP_SUMMARY
+          "Skipped: real PPF integration, interactive Blender acceptance, full release preflight." >> $env:GITHUB_STEP_SUMMARY
+          "No tag or GitHub Release was created. Stable and Beta were not modified." >> $env:GITHUB_STEP_SUMMARY

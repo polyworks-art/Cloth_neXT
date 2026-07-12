@@ -6,6 +6,25 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Dev channel
+
+- Added the explicit public `0.2.0-dev.N` snapshot channel with permanent risk
+  warnings, exact repository targeting, immutable packages, five-build
+  retention, and a reduced but mandatory safety-validation workflow.
+
+### Added
+
+- Cached hardware telemetry for NVIDIA GPU/VRAM and Windows CPU/RAM metrics,
+  with safe stale/unavailable states and no draw-thread polling.
+- Responsive compact/expanded Bake HUD and custom Physics panel header icons.
+- Automatic, reusable Bake companion launch for explicit real solver tests.
+
+### Fixed
+
+- Real solver runs are typed and no longer labeled as UI previews.
+- Solver-output frames 1--7 display as Blender frames 2--8, and Finished
+  explicitly reports frame/progress 8 of 8.
+
 ## 0.2.0-beta.6 — 2026-07-12 (beta channel)
 
 ### Added

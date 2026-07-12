@@ -45,6 +45,10 @@ def launch():
     if not bpy.app.timers.is_registered(_pulse): bpy.app.timers.register(_pulse,first_interval=.1)
     return True,"Bake window launched"
 
+def ensure_running():
+    if running(): return True, "Bake window reused"
+    return launch()
+
 def shutdown():
     global _process,_server,_unsubscribe
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)

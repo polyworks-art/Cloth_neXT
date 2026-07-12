@@ -106,6 +106,12 @@ guessing an endpoint, parameter or format.
   no claim about real Blender operator context compatibility.
 # Phase 2.8B interface limitations
 
+## Dev channel
+
+The public Dev channel is unsupported and uses reduced validation. Builds may
+be incomplete, unstable, incompatible, removed, or invalidate caches/settings.
+Dev is never automatic; keep backups. Mandatory safety checks still apply.
+
 ## Phase 3A developer slice
 
 - One cloth shell, one static collider, and the eight-frame developer scene.
@@ -114,6 +120,9 @@ guessing an endpoint, parameter or format.
 - Playback is constant-topology PC2. Blender frame 1 is the exported initial
   state; frames 2--8 map to solver `vert_1.bin`--`vert_7.bin`.
 - The UI entry is a developer test, not a claim of production readiness.
+- GPU telemetry depends on available NVIDIA `nvidia-smi` tooling and may be
+  unavailable or temporarily stale. It is system GPU telemetry, not proof that
+  PPF selected that exact CUDA device.
 
 - Physics settings are UI-ready but are not yet mapped to the PPF pipeline.
 - Bake actions are unmistakable UI previews and never claim to run PPF.

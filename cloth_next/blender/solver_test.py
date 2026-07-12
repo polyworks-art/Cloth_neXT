@@ -32,7 +32,7 @@ import bpy
 
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
-from ..bake.status import BakeState
+from ..bake.status import BakeJobKind, BakeState
 from ..core.errors import ClothNextError
 from ..ppf.coordinates import (matrix_is_finite_and_invertible,
                                solver_world_matrix)
@@ -45,6 +45,8 @@ from ..ppf_run import import_result
 from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
                               SolverSession, new_project_name)
 from ..updater.install_paths import ManagedSolverPaths, read_current
+from ..telemetry import shared_telemetry
+from . import companion_manager
 
 REQUIRED_FRAME_START = 1
 REQUIRED_FRAME_END = 8
@@ -389,14 +391,23 @@ def _pump() -> float | None:
         kind = message[0]
         if kind == "event":
             event = message[1]
+            if event.phase == "RUNTIME_METADATA":
+                shared_telemetry.set_solver_pid(event.process_id)
+                shared_controller.update(solver_mode=event.solver_mode,
+                    solver_version=event.package_version or "",
+                    solver_process_id=event.process_id)
+                continue
             state = _EVENT_STATE.get(event.phase)
             if state is not None:
+                current, total = event.frame_current, event.frame_total
+                if event.phase in {"SIMULATING", "FETCHING"} and current is not None:
+                    current, total = min(plan.frame_count, current + 1), plan.frame_count
                 _safe_transition(
                     state, status_message=event.message,
-                    current_frame=event.frame_current,
-                    progress_current=event.frame_current or 0,
+                    current_frame=current,
+                    progress_current=current or 0,
                     progress_total=(None if event.indeterminate
-                                    else event.frame_total))
+                                    else total))
         elif kind == "finished":
             header, _diagnostics = message[1], message[2]
             try:
@@ -406,20 +417,28 @@ def _pump() -> float | None:
                 shared_controller.transition(
                     BakeState.FINISHED,
                     status_message=f"Finished — {header.frame_count} frames "
-                                   f"cached to {plan.pc2_path.name}")
+                                   f"cached to {plan.pc2_path.name}",
+                    progress_current=plan.frame_count,
+                    progress_total=plan.frame_count,
+                    current_frame=REQUIRED_FRAME_END,
+                    frame_start=REQUIRED_FRAME_START,
+                    frame_end=REQUIRED_FRAME_END)
             except (ValueError, RuntimeError, InvalidTransition) as exc:
                 shared_controller.fail("Importing the solver result failed.",
                                        str(exc))
             _worker, _active_plan = None, None
+            shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "cancelled":
             _safe_transition(BakeState.CANCELLED,
                              status_message="Solver test cancelled")
             _worker, _active_plan = None, None
+            shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "error":
             shared_controller.fail(message[1], message[2])
             _worker, _active_plan = None, None
+            shared_telemetry.set_solver_pid(None)
             return None
     if _worker is not None and not _worker.is_alive() and _queue.empty():
         # The worker died without posting a terminal message.
@@ -436,7 +455,7 @@ def run_active() -> bool:
     return _worker is not None and _worker.is_alive()
 
 
-def start_run(context) -> None:
+def start_run(context) -> str:
     """Validate, snapshot, and launch the real solver test (main thread)."""
     global _worker, _active_plan, _run_started_at
     import time as _time
@@ -446,9 +465,19 @@ def start_run(context) -> None:
     if snapshot.state is not BakeState.IDLE:
         shared_controller.reset()
     shared_controller.transition(
-        BakeState.PREPARING, preview=False,
+        BakeState.PREPARING, preview=False, job_kind=BakeJobKind.SOLVER_TEST,
         status_message="Validating Blender scene",
         frame_start=REQUIRED_FRAME_START, frame_end=REQUIRED_FRAME_END)
+    launch_warning = ""
+    try:
+        prefs = context.preferences.addons[__package__.partition(".blender")[0]].preferences
+        auto_launch = bool(prefs.auto_launch_bake_window)
+        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
+    except (KeyError, AttributeError):
+        auto_launch = True
+    if auto_launch:
+        ok, message = companion_manager.ensure_running()
+        if not ok: launch_warning = message
     try:
         plan = build_run_plan(context)
     except (SceneValidationError, ClothNextError) as exc:
@@ -479,6 +508,7 @@ def start_run(context) -> None:
     _worker.start()
     if not bpy.app.timers.is_registered(_pump):
         bpy.app.timers.register(_pump, first_interval=0.1)
+    return launch_warning
 
 
 def request_cancel() -> None:
@@ -498,6 +528,7 @@ def shutdown(join_timeout: float = 30.0) -> None:
     if worker is not None and worker.is_alive():
         worker.join(timeout=join_timeout)
     _worker, _active_plan = None, None
+    shared_telemetry.set_solver_pid(None)
     if _unsubscribe is not None:
         _unsubscribe()
         _unsubscribe = None
@@ -526,13 +557,17 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            start_run(context)
+            warning = start_run(context)
         except (SceneValidationError, ClothNextError) as exc:
             message = (exc.record.user_message
                        if isinstance(exc, ClothNextError) else str(exc))
             self.report({"ERROR"}, message)
             return {"CANCELLED"}
-        self.report({"INFO"}, "Real solver test started.")
+        if warning:
+            self.report({"WARNING"}, "Real solver test started, but the Bake "
+                        f"window could not be opened: {warning}")
+        else:
+            self.report({"INFO"}, "Real solver test started.")
         return {"FINISHED"}
 
 
@@ -584,6 +619,9 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     f"Removed {removed_modifiers} Cloth NeXt test cache "
                     f"modifier(s) and {removed_files} cache file(s); nothing "
                     "else was touched.")
+        if shared_controller.snapshot().state in {
+                BakeState.FINISHED, BakeState.CANCELLED, BakeState.ERROR}:
+            shared_controller.reset()
         return {"FINISHED"}
 
 

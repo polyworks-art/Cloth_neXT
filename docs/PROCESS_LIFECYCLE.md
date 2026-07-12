@@ -36,6 +36,13 @@ Reader threads are non-daemon, close streams, and must join before cleanup retur
 
 ## Readiness, races, and failure
 
+The telemetry worker starts with HUD registration, samples into immutable cache
+at a bounded interval, and is stopped and joined during HUD unregister. The
+owned solver PID is metadata only and is cleared on every terminal path. The
+optional Bake companion is launched only by an explicit real run, reused if
+already open, and remains open after terminal states for inspection. Closing it
+does not imply cancel; unregister shuts down only the exact owned companion.
+
 For a Phase-3A owned solve, Cloth NeXt pins `PPF_CTS_DATA_ROOT` below the run
 work directory, uses a unique `clothnext_<12hex>` project, and deletes only
 that project before stopping and reaping only its owned child. Cancellation

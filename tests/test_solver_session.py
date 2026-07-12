@@ -245,6 +245,15 @@ def test_finished_without_all_frames_is_an_error(monkeypatch):
     with pytest.raises(ClothNextError, match="without producing every frame"):
         session.run()
 
+def test_runtime_metadata_event_is_immutable_and_safe(monkeypatch):
+    scripted=ScriptedWire(monkeypatch)
+    session,_scripted,_frames,events=_run_session(monkeypatch,scripted)
+    session.run()
+    metadata=[event for event in events if event.phase=="RUNTIME_METADATA"]
+    assert len(metadata)==1
+    assert metadata[0].solver_mode=="EXTERNAL_SERVER"
+    assert metadata[0].process_id is None
+
 
 def test_external_server_is_never_stopped(monkeypatch):
     session, scripted, frames, _events = _run_session(monkeypatch)

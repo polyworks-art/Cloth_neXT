@@ -42,6 +42,8 @@ def test_channel_urls_are_the_policy_urls():
         "https://polyworks-art.github.io/Cloth_neXT/stable/index.json"
     assert UpdateChannel.BETA.index_url == \
         "https://polyworks-art.github.io/Cloth_neXT/beta/index.json"
+    assert UpdateChannel.DEV.index_url == \
+        "https://polyworks-art.github.io/Cloth_neXT/dev/index.json"
     for channel in UpdateChannel:
         validate_index_url(channel.index_url)
 
@@ -50,6 +52,7 @@ def test_default_channel_follows_installed_version():
     assert default_channel(parse_version("0.2.0-beta.1")) is UpdateChannel.BETA
     assert default_channel(parse_version("0.3.0-rc.1")) is UpdateChannel.BETA
     assert default_channel(parse_version("0.2.0")) is UpdateChannel.STABLE
+    assert default_channel(parse_version("0.2.0-dev.1")) is UpdateChannel.BETA
 
 
 def test_validate_index_url_rejects_foreign_hosts_and_http():
@@ -97,6 +100,17 @@ def test_beta_channel_never_accepts_stable_releases():
     payload = index_payload("0.2.0")
     with pytest.raises(ValueError, match="stable"):
         parse_index_versions(payload, UpdateChannel.BETA)
+
+def test_dev_channel_accepts_only_dev_versions():
+    versions=parse_index_versions(index_payload("0.2.0-dev.1"),UpdateChannel.DEV)
+    assert str(versions[0])=="0.2.0-dev.1"
+    for invalid in ("0.2.0","0.2.0-beta.7","0.2.0-rc.1"):
+        with pytest.raises(ValueError):
+            parse_index_versions(index_payload(invalid),UpdateChannel.DEV)
+
+def test_beta_rejects_dev_versions():
+    with pytest.raises(ValueError):
+        parse_index_versions(index_payload("0.2.0-dev.1"),UpdateChannel.BETA)
 
 
 def test_parse_index_ignores_other_extensions():

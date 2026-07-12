@@ -79,6 +79,9 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
     bl_region_type = "WINDOW"
     bl_context = "physics"
 
+    def draw_header(self, _context):
+        self.layout.label(text="", **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
+
     @classmethod
     def poll(cls, context):
         obj = getattr(context, "object", None)
@@ -96,9 +99,13 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         snapshot = shared_controller.snapshot()
         box = layout.box()
         col = box.column(align=True)
-        col.label(text="Configured", icon="CHECKMARK")
-        col.label(text="Solver status is available in Add-on Preferences")
-        col.label(text=f"Bake UI: {snapshot.status_title}")
+        role_icon="cloth" if settings.role=="CLOTH" else "collider"
+        col.label(text=f"{context.object.name} · {settings.role.title()}",
+                  **icon_registry.icon_kwargs(role_icon,"OBJECT_DATA"))
+        state_icon=("error" if snapshot.error_summary else "solver" if snapshot.active
+                    else "success" if snapshot.state.value=="FINISHED" else "warning")
+        col.label(text=f"Bake: {snapshot.status_title}",
+                  **icon_registry.icon_kwargs(state_icon,"INFO"))
         if snapshot.preview:
             col.label(text="UI PREVIEW — no PPF simulation", icon="INFO")
         if snapshot.error_summary:
@@ -112,6 +119,10 @@ class _ClothNextSubpanel:
     bl_region_type = "WINDOW"
     bl_context = "physics"
     bl_parent_id = "CLOTHNEXT_PT_physics"
+    header_icon = "info"
+
+    def draw_header(self, _context):
+        self.layout.label(text="", **icon_registry.icon_kwargs(self.header_icon, "DOT"))
 
     @classmethod
     def poll(cls, context):
@@ -121,25 +132,29 @@ class _ClothNextSubpanel:
 
 
 def _mapped_note(layout):
-    layout.label(text="Solver mapping will be enabled with the simulation pipeline.", icon="INFO")
+    return None
 
 
 class CLOTHNEXT_PT_overview(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Overview"; bl_idname = "CLOTHNEXT_PT_overview"
+    header_icon = "cloth"
     def draw(self, context):
         s = context.object.cloth_next
         self.layout.label(text=f"{s.role.title()} · {context.object.name}")
-        self.layout.label(text="Mesh setup ready for UI configuration")
+        self.layout.label(text="Phase 3A uses the fixed developer-test mapping",
+                          **icon_registry.icon_kwargs("info","INFO"))
 
 
 class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Solver"; bl_idname = "CLOTHNEXT_PT_solver"
+    header_icon = "solver"
     def draw(self, _context):
         self.layout.label(text="Installation and compatibility are managed in Add-on Preferences.")
 
 
 class CLOTHNEXT_PT_quality(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Quality"; bl_idname = "CLOTHNEXT_PT_quality"; cloth_only = True
+    header_icon = "quality"
     def draw(self, context):
         s=context.object.cloth_next.quality
         for name in ("preset", "substeps", "solver_iterations", "contact_iterations"): self.layout.prop(s, name)
@@ -148,6 +163,7 @@ class CLOTHNEXT_PT_quality(_ClothNextSubpanel, bpy.types.Panel):
 
 class CLOTHNEXT_PT_physical(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Physical Properties"; bl_idname = "CLOTHNEXT_PT_physical"; cloth_only = True
+    header_icon = "physical"
     def draw(self, context):
         s=context.object.cloth_next.physical
         for name in ("mass_mode", "surface_density", "thickness", "stretch_stiffness", "shear_stiffness", "bend_stiffness"): self.layout.prop(s, name)
@@ -156,6 +172,7 @@ class CLOTHNEXT_PT_physical(_ClothNextSubpanel, bpy.types.Panel):
 
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Damping"; bl_idname = "CLOTHNEXT_PT_damping"; cloth_only = True
+    header_icon = "damping"
     def draw(self, context):
         s=context.object.cloth_next.damping
         for name in ("stretch", "shear", "bend", "velocity"): self.layout.prop(s, name)
@@ -163,6 +180,7 @@ class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
 
 class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Collisions"; bl_idname = "CLOTHNEXT_PT_collisions"
+    header_icon = "collision"
     def draw(self, context):
         s=context.object.cloth_next.collision
         names=("enabled", "distance", "friction")
@@ -172,6 +190,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
 
 class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Pressure"; bl_idname = "CLOTHNEXT_PT_pressure"; cloth_only = True
+    header_icon = "pressure"
     def draw(self, context):
         s=context.object.cloth_next.pressure
         for name in ("enabled", "target", "stiffness", "volume_conservation"): self.layout.prop(s, name)
@@ -180,6 +199,7 @@ class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
 
 class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Shape"; bl_idname = "CLOTHNEXT_PT_shape"; cloth_only = True
+    header_icon = "pinning"
     def draw(self, context):
         s=context.object.cloth_next.shape
         for name in ("pin_group", "pin_stiffness", "use_rest_shape", "rest_shape_source", "rest_scale"): self.layout.prop(s, name)
@@ -210,11 +230,16 @@ def _draw_solver_test_section(layout, context) -> None:
     if running or snapshot.active:
         cancel_row = box.row()
         cancel_row.enabled = snapshot.can_cancel
-        cancel_row.operator("clothnext.solver_test_cancel", icon="CANCEL")
+        cancel_row.operator("clothnext.solver_test_cancel",
+                            **icon_registry.icon_kwargs("cancel","CANCEL"))
     column = box.column(align=True)
     column.label(text=f"State: {snapshot.status_title}")
     if snapshot.status_message:
         column.label(text=snapshot.status_message)
+    progress=getattr(column,"progress",None)
+    if progress is not None and snapshot.progress_total:
+        progress(factor=snapshot.progress_fraction,
+                 text=f"{snapshot.progress_current} / {snapshot.progress_total}")
     if running or snapshot.active:
         from ..bake.status import format_duration
         plan = solver_test._active_plan
@@ -228,27 +253,33 @@ def _draw_solver_test_section(layout, context) -> None:
         column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
     if snapshot.error_summary:
         column.label(text=snapshot.error_summary, icon="ERROR")
-    box.operator("clothnext.solver_test_clear", icon="TRASH")
-    box.operator("clothnext.solver_test_open_logs", icon="FILE_FOLDER")
+    actions=box.row(align=True)
+    actions.operator("clothnext.companion_launch", text="Bake Window",
+                     **icon_registry.icon_kwargs("bake","WINDOW"))
+    actions.operator("clothnext.solver_test_open_logs", text="Logs",
+                     **icon_registry.icon_kwargs("folder","FILE_FOLDER"))
+    actions.operator("clothnext.solver_test_clear", text="Clear", icon="TRASH")
 
 
 class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Cache"; bl_idname = "CLOTHNEXT_PT_cache"
+    header_icon = "cache"
     def draw(self, context):
         s=context.object.cloth_next.cache
         for name in ("frame_start", "frame_end", "directory"): self.layout.prop(s, name)
-        self.layout.label(text="No simulation cache yet")
-        self.layout.operator("clothnext.preview_start", text="Start UI Preview",
-                             **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
-        self.layout.operator("clothnext.companion_launch", text="Launch Bake Window", icon="WINDOW")
-        if shared_controller.snapshot().active:
-            self.layout.operator("clothnext.preview_cancel", text="Cancel UI Preview", icon="CANCEL")
         if _developer_tools_enabled(context):
             _draw_solver_test_section(self.layout, context)
+        diagnostics=self.layout.box(); diagnostics.label(text="UI Diagnostics")
+        diagnostics.operator("clothnext.preview_start", text="Start UI Preview",
+                             **icon_registry.icon_kwargs("play", "PLAY"))
+        if shared_controller.snapshot().preview and shared_controller.snapshot().active:
+            diagnostics.operator("clothnext.preview_cancel", text="Cancel UI Preview",
+                                 **icon_registry.icon_kwargs("cancel","CANCEL"))
 
 
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Advanced PPF"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
+    header_icon = "advanced"
     def draw(self, _context):
         self.layout.label(text="Direct advanced solver mapping is not active yet.", icon="INFO")
 

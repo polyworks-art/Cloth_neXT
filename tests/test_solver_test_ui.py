@@ -47,3 +47,17 @@ def test_unregister_clears_solver_worker_timer_and_subscription(blender_env):
     assert module._worker is None
     assert module._unsubscribe is None
     assert not blender_env.bpy.app.timers.is_registered(module._pump)
+
+def test_run_operator_reports_optional_companion_warning(blender_env, monkeypatch):
+    module=blender_env.solver_test
+    monkeypatch.setattr(module,"start_run",lambda _context:"bundle unavailable")
+    op=module.CLOTHNEXT_OT_solver_test_run()
+    assert op.execute(blender_env.bpy.context)=={"FINISHED"}
+    assert op.reports[-1][0]=={"WARNING"}
+    assert "bundle unavailable" in op.reports[-1][1]
+
+def test_companion_ensure_running_reuses_existing(blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    monkeypatch.setattr(manager,"running",lambda:True)
+    monkeypatch.setattr(manager,"launch",lambda: (_ for _ in ()).throw(AssertionError("duplicate")))
+    assert manager.ensure_running()==(True,"Bake window reused")

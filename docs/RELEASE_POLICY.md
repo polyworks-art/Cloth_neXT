@@ -60,6 +60,7 @@ Cloth NeXt uses Semantic Versioning. Allowed forms:
 MAJOR.MINOR.PATCH               e.g. 0.2.0, 0.2.1, 1.0.0
 MAJOR.MINOR.PATCH-beta.N        e.g. 0.3.0-beta.1
 MAJOR.MINOR.PATCH-rc.N          e.g. 0.3.0-rc.1
+MAJOR.MINOR.PATCH-dev.N         e.g. 0.2.0-dev.1
 ```
 
 No other prerelease identifiers, no build metadata, no leading zeros. Versions are
@@ -68,7 +69,7 @@ version on its own; the version is supplied by the human release manager.
 
 ## 4. Release Channels
 
-Two channels exist: `stable` and `beta`.
+Three channels exist: `stable`, `beta`, and `dev`.
 
 - Stable accepts only plain `MAJOR.MINOR.PATCH` tags (`v0.2.0`, `v1.0.0`).
 - Beta accepts only prerelease tags (`v0.3.0-beta.1`, `v0.3.0-rc.1`).
@@ -76,8 +77,12 @@ Two channels exist: `stable` and `beta`.
 - A stable release requires a previously successful beta end-to-end test.
 - New release infrastructure is exercised in the beta channel first.
 - Automation never promotes beta to stable on its own.
+- Dev accepts only `MAJOR.MINOR.PATCH-dev.N`, is never selected automatically,
+  and is published only by its confirmation-gated manual workflow.
+- Dev creates no tag or GitHub Release, retains at most five immutable ZIPs,
+  and never skips packaging, secret, companion-integrity, or solver scans.
 
-Generated repository paths: `site/stable/` and `site/beta/`, each with its own
+Generated paths: `site/stable/`, `site/beta/`, and `site/dev/`, each with its own
 Blender-generated `index.json`. See `docs/UPDATE_CHANNELS.md`.
 
 ## 5. Required Version Consistency
@@ -278,6 +283,13 @@ If Pages content must be corrected, only the affected channel directory is
 regenerated from verified artifacts.
 
 ## 20. Policy Change Procedure
+
+## Public Dev snapshots
+
+A Dev workflow may derive an authorized `X.Y.Z-dev.N` version only in its
+isolated exact-commit checkout and must update package-internal metadata
+consistently. It may modify only `gh-pages/dev/`; Stable, Beta, tags, GitHub
+Releases, and the canonical source manifest are outside its authority.
 
 Changes to this policy require an explicit, human-approved commit that modifies this
 file, with the rationale in the commit message. Automation and AI assistants may

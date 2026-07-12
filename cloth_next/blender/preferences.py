@@ -441,21 +441,34 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     update_channel: bpy.props.EnumProperty(
         name="Update Channel",
         items=(("STABLE", "Stable", "Official stable releases only"),
-               ("BETA", "Beta", "Beta and release-candidate prereleases")),
+               ("BETA", "Beta", "Beta and release-candidate prereleases"),
+               ("DEV", "Dev", "Unsupported public experimental snapshots")),
         default=addon_update_operators.DEFAULT_CHANNEL.name,
         description="Which Cloth NeXt release channel to check for add-on "
                     "updates (independent of the PPF solver)")
+    dev_channel_acknowledged: bpy.props.BoolProperty(
+        name="I understand the Dev channel risks", default=False)
 
     developer_tools: bpy.props.BoolProperty(
         name="Developer Test Tools", default=False,
         description="Show the Phase-3A developer actions (Create PPF Test "
                     "Scene, Run Real Solver Test) in the Cache panel")
+    auto_launch_bake_window: bpy.props.BoolProperty(name="Open Bake Window Automatically", default=True)
+    show_bake_hud: bpy.props.BoolProperty(name="Show Bake HUD", default=True)
+    bake_hud_mode: bpy.props.EnumProperty(name="HUD Mode", items=(("COMPACT", "Compact", "Compact status card"),("EXPANDED", "Expanded", "Detailed status and telemetry")), default="EXPANDED")
+    bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")
+    bake_hud_scale: bpy.props.FloatProperty(name="HUD Scale", default=1.0, min=0.75, max=2.0)
+    show_hardware_metrics: bpy.props.BoolProperty(name="Hardware Metrics", default=True)
+    telemetry_refresh_seconds: bpy.props.FloatProperty(name="Telemetry Refresh", default=1.0, min=0.25, max=10.0, subtype="TIME")
 
     def draw(self, _context) -> None:
         layout = self.layout
         self._draw_addon_update_section(layout)
         self._draw_solver_section(layout)
         layout.prop(self, "developer_tools")
+        layout.prop(self, "auto_launch_bake_window")
+        hud_box=layout.box(); hud_box.label(text="Bake HUD")
+        for name in ("show_bake_hud","bake_hud_mode","bake_hud_anchor","bake_hud_scale","show_hardware_metrics","telemetry_refresh_seconds"): hud_box.prop(self,name)
 
     def _draw_addon_update_section(self, layout) -> None:
         """Cloth NeXt's own update status; never performs network work."""
@@ -468,6 +481,12 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         box.label(text="Installed Version: "
                        f"{addon_update_operators.INSTALLED_VERSION}")
         box.prop(self, "update_channel")
+        if self.update_channel == "DEV":
+            warning=box.box(); warning.label(text="Development Channel", icon="ERROR")
+            warning.label(text="Experimental public builds; reduced validation.")
+            warning.label(text="Back up your files before updating.")
+            warning.label(text=addon_updates.UpdateChannel.DEV.index_url)
+            warning.prop(self,"dev_channel_acknowledged")
         box.label(text=f"Update Status: {view.status_text}")
         if view.message:
             box.label(text=view.message)

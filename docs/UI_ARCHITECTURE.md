@@ -32,3 +32,17 @@ the explicit developer override. Blender tracks the exact child. Unregister
 stops the preview, authenticates companion shutdown, closes IPC, then terminates
 only that exact child if graceful exit fails. Panel, HUD and companion always
 observe one controller.
+
+## Phase 3A.1 live presentation
+
+The pure `telemetry` package owns one stoppable worker. At a throttled one-second
+default interval it queries `nvidia-smi` with a bounded explicit argument list
+and Windows CPU/RAM APIs, then replaces an immutable cached snapshot. HUD draw
+callbacks only read that snapshot and the shared `BakeSnapshot`; they never
+launch processes, query hardware, access files, or mutate Blender data.
+
+Responsive compact and expanded layouts support four anchors and scaling, with
+a local compact fallback for narrow viewports. Typed job kinds distinguish UI
+previews, solver tests, and future bakes. An explicit real run transitions to
+PREPARING, optionally launches or reuses the authenticated companion, and then
+validates the scene. Launch failure is a visible warning, not a solve failure.

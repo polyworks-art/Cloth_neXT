@@ -34,6 +34,7 @@ MAX_INDEX_SIZE = 4 * 1024 * 1024  # a channel index is tiny; anything larger is 
 class UpdateChannel(Enum):
     STABLE = "https://polyworks-art.github.io/Cloth_neXT/stable/index.json"
     BETA = "https://polyworks-art.github.io/Cloth_neXT/beta/index.json"
+    DEV = "https://polyworks-art.github.io/Cloth_neXT/dev/index.json"
 
     @property
     def index_url(self) -> str:
@@ -146,6 +147,10 @@ def parse_index_versions(payload: dict,
         if channel is UpdateChannel.BETA and not version.is_prerelease:
             raise ValueError(f"the beta channel offers stable release {version}; "
                              "refusing the policy-violating index")
+        if channel is UpdateChannel.BETA and version.stage == "dev":
+            raise ValueError(f"the beta channel offers Dev snapshot {version}; refusing it")
+        if channel is UpdateChannel.DEV and version.stage != "dev":
+            raise ValueError(f"the Dev channel offers non-Dev version {version}; refusing it")
         versions.append(version)
     return tuple(versions)
 

@@ -85,6 +85,13 @@ class SessionEvent:
     frame_current: int | None = None
     frame_total: int | None = None
     indeterminate: bool = False
+    process_id: int | None = None
+    solver_mode: str = ""
+    package_version: str | None = None
+    protocol_version: str | None = None
+    schema_version: str | None = None
+    host: str = ""
+    port: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +182,15 @@ class SolverSession:
 
     def _event(self, phase: str, message: str, **kwargs) -> None:
         self._emit(SessionEvent(phase=phase, message=message, **kwargs))
+
+    def _metadata_event(self) -> None:
+        self._event("RUNTIME_METADATA", "Solver runtime connected",
+                    process_id=self.diagnostics.process_id,
+                    solver_mode=self.diagnostics.solver_mode,
+                    package_version=self.diagnostics.package_version,
+                    protocol_version=self.diagnostics.protocol_version,
+                    schema_version=self.diagnostics.schema_version,
+                    host=self.diagnostics.host, port=self.diagnostics.port)
 
     def _status(self) -> dict:
         assert self._address is not None
@@ -437,6 +453,7 @@ class SolverSession:
                             indeterminate=True)
                 step = time.monotonic()
                 self._start_owned_solver()
+                self._metadata_event()
                 self.diagnostics.timings["start_solver"] = time.monotonic() - step
             else:
                 assert self._address is not None
@@ -445,6 +462,7 @@ class SolverSession:
                 self._event("STARTING_SOLVER", "Connecting to the PPF server",
                             indeterminate=True)
                 self._status()
+                self._metadata_event()
             self._check_cancel()
             self._event("UPLOADING", "Uploading scene", indeterminate=True)
             step = time.monotonic()

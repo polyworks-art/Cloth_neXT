@@ -8,6 +8,7 @@ Accepts exactly the policy-supported forms (docs/RELEASE_POLICY.md section 3):
 - ``X.Y.Z``
 - ``X.Y.Z-beta.N``
 - ``X.Y.Z-rc.N``
+- ``X.Y.Z-dev.N`` (manual public experimental snapshots)
 
 No other prerelease identifiers, no build metadata, no leading zeros, and
 prerelease numbering starts at 1. Ordering: ``beta < rc < stable`` within the
@@ -22,10 +23,10 @@ from functools import total_ordering
 
 _VERSION_PATTERN = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-(beta|rc)\.([1-9]\d*))?$")
+    r"(?:-(beta|rc|dev)\.([1-9]\d*))?$")
 
 # Stable sorts above rc, which sorts above beta, for the same X.Y.Z.
-_STAGE_ORDER = {"beta": 0, "rc": 1, None: 2}
+_STAGE_ORDER = {"dev": 0, "beta": 1, "rc": 2, None: 3}
 
 
 @total_ordering
@@ -64,7 +65,7 @@ def parse_version(text: str) -> AddonVersion:
     match = _VERSION_PATTERN.match(text.strip())
     if match is None:
         raise ValueError(f"{text!r} is not a supported Cloth NeXt version "
-                         "(X.Y.Z, X.Y.Z-beta.N, or X.Y.Z-rc.N)")
+                         "(X.Y.Z, X.Y.Z-dev.N, X.Y.Z-beta.N, or X.Y.Z-rc.N)")
     major, minor, patch, stage, stage_number = match.groups()
     return AddonVersion(int(major), int(minor), int(patch), stage,
                         int(stage_number) if stage_number is not None else 0)

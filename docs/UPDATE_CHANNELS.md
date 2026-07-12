@@ -1,6 +1,6 @@
 # Update channels
 
-Cloth NeXt publishes two Blender-compatible remote extension repositories.
+Cloth NeXt publishes three Blender-compatible remote extension repositories.
 Their `index.json` files are generated exclusively by the official Blender
 tooling (`blender --command extension server-generate`). Governed by
 [RELEASE_POLICY.md](RELEASE_POLICY.md).
@@ -11,6 +11,7 @@ tooling (`blender --command extension server-generate`). Governed by
 |---|---|---|
 | stable | `vX.Y.Z` | `https://polyworks-art.github.io/Cloth_neXT/stable/index.json` |
 | beta | `vX.Y.Z-beta.N`, `vX.Y.Z-rc.N` | `https://polyworks-art.github.io/Cloth_neXT/beta/index.json` |
+| dev | `X.Y.Z-dev.N` (no tag) | `https://polyworks-art.github.io/Cloth_neXT/dev/index.json` |
 
 GitHub Pages must be configured (repository settings → Pages) to serve the
 `gh-pages` branch from its root. The release workflow updates only the channel
@@ -22,7 +23,8 @@ Either through Cloth NeXt (preferred):
 
 1. Edit → Preferences → Add-ons → Cloth NeXt.
 2. Pick the *Update Channel* (Stable or Beta; Beta is preselected while a
-   prerelease is installed).
+   prerelease is installed). Dev is never automatic and requires Developer
+   Tools plus explicit risk acknowledgement.
 3. Click *Add Channel Repository* — this registers the channel URL in
    Blender's Get Extensions repositories. Setup happens only on this explicit
    click, never automatically, and never creates a duplicate repository.

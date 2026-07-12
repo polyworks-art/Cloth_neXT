@@ -27,6 +27,11 @@ class BakeState(str, Enum):
     CANCELLED = "CANCELLED"
     ERROR = "ERROR"
 
+class BakeJobKind(str, Enum):
+    PREVIEW = "PREVIEW"
+    SOLVER_TEST = "SOLVER_TEST"
+    BAKE = "BAKE"
+
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
 _ACTIVE = {BakeState.PREPARING, BakeState.EXPORTING,
@@ -66,6 +71,10 @@ class BakeSnapshot:
     job_id: str = ""
     updated_at: float = 0.0
     preview: bool = False
+    job_kind: BakeJobKind = BakeJobKind.BAKE
+    solver_mode: str = ""
+    solver_version: str = ""
+    solver_process_id: int | None = None
 
     @property
     def progress_fraction(self) -> float:
@@ -80,6 +89,7 @@ class BakeSnapshot:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["state"] = self.state.value
+        data["job_kind"] = self.job_kind.value
         data["progress_fraction"] = self.progress_fraction
         return data
 
@@ -91,6 +101,7 @@ class BakeSnapshot:
         allowed = {field for field in cls.__dataclass_fields__}
         values = {key: value for key, value in data.items() if key in allowed}
         values["state"] = BakeState(values.get("state", "IDLE"))
+        values["job_kind"] = BakeJobKind(values.get("job_kind", "BAKE"))
         return cls(**values)
 
     @classmethod
@@ -106,6 +117,8 @@ def normalized(snapshot: BakeSnapshot, **changes: Any) -> BakeSnapshot:
     changes.setdefault("status_title", _TITLES[state])
     changes.setdefault("can_cancel", state in _ACTIVE - {BakeState.CANCELLING})
     changes.setdefault("updated_at", time.time())
+    if changes.get("preview", snapshot.preview):
+        changes.setdefault("job_kind", BakeJobKind.PREVIEW)
     current = max(0, int(changes.get("progress_current", snapshot.progress_current)))
     total = changes.get("progress_total", snapshot.progress_total)
     if total is not None:

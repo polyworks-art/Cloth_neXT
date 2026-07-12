@@ -113,6 +113,9 @@ def selected_channel(context) -> UpdateChannel:
         return DEFAULT_CHANNEL
     name = getattr(preferences, "update_channel", None)
     if name in UpdateChannel.__members__:
+        if name == "DEV" and (not getattr(preferences,"developer_tools",False)
+                              or not getattr(preferences,"dev_channel_acknowledged",False)):
+            return DEFAULT_CHANNEL
         return UpdateChannel[name]
     return DEFAULT_CHANNEL
 

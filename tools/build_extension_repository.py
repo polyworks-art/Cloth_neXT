@@ -69,7 +69,7 @@ def main() -> int:
     parser.add_argument("--zip", type=Path, required=True)
     parser.add_argument("--sha256", required=True,
                         help="SHA-256 of the tested release artifact")
-    parser.add_argument("--channel", required=True, choices=("stable", "beta"))
+    parser.add_argument("--channel", required=True, choices=("stable", "beta", "dev"))
     parser.add_argument("--site-dir", type=Path, default=Path("site"))
     parser.add_argument("--blender", default=os.environ.get("CLOTH_NEXT_BLENDER", "blender"))
     parser.add_argument("--repository-root", type=Path,
