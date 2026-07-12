@@ -28,8 +28,11 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest
 
-      - name: Unit tests (integration tests self-skip without a local solver)
-        run: pytest
+      # The real PPF integration test is never collected here; it stays
+      # available for explicitly configured local/Windows runs via
+      # `pytest -m integration`.
+      - name: Unit tests (integration tests excluded)
+        run: pytest -m "not integration"
 
       - name: Validate extension source structure
         run: python tools/validate_extension.py cloth_next

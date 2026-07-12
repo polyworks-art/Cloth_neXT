@@ -70,3 +70,11 @@ guessing an endpoint, parameter or format.
   the first CI run.
 - The `BUILDING` state exists in the state machine and wire-status mapping, but
   no code issues real `build` requests yet; that is Phase 3 scope.
+- Phase 2.8A Add-Physics placement: Blender's `PHYSICS_PT_add` panel draws its
+  native Add-Physics buttons inside an internal two-column `grid_flow` that is
+  not exposed to appended draw callbacks. The "Cloth NeXt" entry therefore
+  renders as a full-width native-style button directly below the native button
+  grid, added through the stable `Panel.append`/`Panel.remove` API. Placing it
+  inside the grid (e.g. beside a FLIP-Fluids button) would require replacing or
+  monkey-patching Blender's `PHYSICS_PT_add.draw`, which is deliberately not
+  done. The `MOD_CLOTH` icon is a temporary stand-in for a Cloth NeXt icon.

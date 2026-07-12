@@ -1,0 +1,159 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""A lightweight fake ``bpy`` for pytest — just enough Blender semantics.
+
+Models the pieces Phase 2.8 relies on: class (un)registration with duplicate
+detection, deferred property annotations (including PEP-563 stringized
+annotations), a PointerProperty descriptor that materializes per-object
+PropertyGroup instances with defaults, and ``PHYSICS_PT_add`` append/remove
+draw-callback bookkeeping that mirrors Blender's ``_draw_funcs`` list.
+"""
+
+from __future__ import annotations
+
+import sys
+import types
+
+
+class _PropDef:
+    """Stand-in for a deferred bpy property definition."""
+
+    def __init__(self, kind, **keywords):
+        self.kind = kind
+        self.keywords = keywords
+
+    def default_value(self):
+        if self.kind == "ENUM":
+            items = self.keywords.get("items", ())
+            return self.keywords.get("default", items[0][0] if items else "")
+        return self.keywords.get("default")
+
+    def _name_on(self, owner):
+        for klass in type.mro(owner):
+            for name, value in vars(klass).items():
+                if value is self:
+                    return name
+        raise AttributeError("property definition is not attached")
+
+    def __get__(self, obj, owner):
+        if obj is None:
+            return self
+        if self.kind != "POINTER":
+            return self.default_value()
+        name = self._name_on(owner)
+        instance = _instantiate_group(self.keywords["type"])
+        obj.__dict__[name] = instance
+        return instance
+
+
+def _resolved_props(cls):
+    """Resolve (possibly stringized) property annotations to _PropDef objects."""
+    module = sys.modules.get(cls.__module__)
+    module_globals = vars(module) if module else {}
+    resolved = {}
+    for name, annotation in getattr(cls, "__annotations__", {}).items():
+        value = annotation
+        if isinstance(value, str):
+            value = eval(value, dict(module_globals))  # noqa: S307 — test fake
+        if isinstance(value, _PropDef):
+            resolved[name] = value
+    return resolved
+
+
+def _instantiate_group(group_cls):
+    instance = group_cls()
+    for name, prop in _resolved_props(group_cls).items():
+        setattr(instance, name, prop.default_value())
+    return instance
+
+
+class _Modifiers(list):
+    def new(self, name, type):  # noqa: A002 — mirrors Blender signature
+        modifier = types.SimpleNamespace(name=name, type=type)
+        self.append(modifier)
+        return modifier
+
+
+def make_module() -> types.ModuleType:
+    """Build a fresh fake ``bpy`` module with isolated state."""
+    bpy = types.ModuleType("bpy")
+
+    class PropertyGroup:
+        pass
+
+    class Operator:
+        def __init__(self):
+            self.reports = []
+            self.layout = None
+
+        def report(self, levels, message):
+            self.reports.append((set(levels), message))
+
+    class Panel:
+        pass
+
+    class AddonPreferences:
+        pass
+
+    class Object:
+        def __init__(self, name="Object", type="MESH"):  # noqa: A002
+            self.name = name
+            self.type = type
+            self.modifiers = _Modifiers()
+
+    def _physics_add_draw(self, context):
+        pass
+
+    _physics_add_draw._draw_funcs = []
+
+    class PHYSICS_PT_add:
+        bl_space_type = "PROPERTIES"
+        bl_region_type = "WINDOW"
+        bl_context = "physics"
+        draw = _physics_add_draw
+
+        @classmethod
+        def append(cls, draw_func):
+            cls.draw._draw_funcs.append(draw_func)
+
+        @classmethod
+        def remove(cls, draw_func):
+            cls.draw._draw_funcs.remove(draw_func)
+
+    types_module = types.SimpleNamespace(
+        PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel,
+        AddonPreferences=AddonPreferences, Object=Object,
+        PHYSICS_PT_add=PHYSICS_PT_add)
+
+    props_module = types.SimpleNamespace(
+        BoolProperty=lambda **kw: _PropDef("BOOL", **kw),
+        EnumProperty=lambda **kw: _PropDef("ENUM", **kw),
+        StringProperty=lambda **kw: _PropDef("STRING", **kw),
+        IntProperty=lambda **kw: _PropDef("INT", **kw),
+        FloatProperty=lambda **kw: _PropDef("FLOAT", **kw),
+        PointerProperty=lambda **kw: _PropDef("POINTER", **kw))
+
+    registry: list = []
+
+    def register_class(cls):
+        if cls in registry:
+            raise ValueError(f"register_class(...): already registered {cls}")
+        registry.append(cls)
+        setattr(types_module, cls.__name__, cls)
+
+    def unregister_class(cls):
+        if cls not in registry:
+            raise RuntimeError(f"unregister_class(...): not registered {cls}")
+        registry.remove(cls)
+        delattr(types_module, cls.__name__)
+
+    utils_module = types.SimpleNamespace(register_class=register_class,
+                                         unregister_class=unregister_class)
+
+    bpy.types = types_module
+    bpy.props = props_module
+    bpy.utils = utils_module
+    bpy.context = types.SimpleNamespace()
+    bpy.registry = registry
+    return bpy

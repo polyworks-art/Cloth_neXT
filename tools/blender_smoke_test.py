@@ -4,14 +4,45 @@
 """Run inside Blender: real registration smoke test under the bl_ext namespace.
 
 Enables/disables the extension registration twice, verifies idempotency, and
-verifies that unregister leaves no classes, no installer worker threads, and
-no leaked state behind.
+verifies that unregister leaves no classes, no installer worker threads, no
+``Object.cloth_next`` pointer, no Physics-Add draw callback, and no leaked
+state behind. Also exercises the Phase 2.8 add/remove physics operators on a
+real mesh object.
 """
 
 from __future__ import annotations
 
 import importlib
 import threading
+
+
+def _clothnext_draw_callback_count(bpy) -> int:
+    draw = getattr(bpy.types.PHYSICS_PT_add, "draw", None)
+    funcs = getattr(draw, "_draw_funcs", ())
+    return sum(1 for func in funcs
+               if getattr(func, "_clothnext_add_entry", False))
+
+
+def _phase28_roundtrip(bpy) -> None:
+    """Enable and remove Cloth NeXt on a real mesh through the operators."""
+    mesh_obj = next((obj for obj in bpy.data.objects if obj.type == "MESH"), None)
+    if mesh_obj is None:
+        bpy.ops.mesh.primitive_plane_add()
+        mesh_obj = bpy.context.active_object
+    bpy.context.view_layer.objects.active = mesh_obj
+    modifier_count = len(mesh_obj.modifiers)
+
+    assert not mesh_obj.cloth_next.enabled
+    bpy.ops.clothnext.add_physics()
+    assert mesh_obj.cloth_next.enabled
+    assert mesh_obj.cloth_next.role == "CLOTH"
+    # no native Cloth modifier and no other modifier appears
+    assert len(mesh_obj.modifiers) == modifier_count
+    assert not any(mod.type == "CLOTH" for mod in mesh_obj.modifiers)
+
+    bpy.ops.clothnext.remove_physics()
+    assert not mesh_obj.cloth_next.enabled
+    assert mesh_obj.cloth_next.role == "CLOTH"
 
 
 def main() -> None:
@@ -32,9 +63,19 @@ def main() -> None:
         extension.register()
         extension.register()  # idempotency guard
         assert hasattr(bpy.types, "CLOTHNEXT_AddonPreferences")
+        assert hasattr(bpy.types, "CLOTHNEXT_PG_object_settings")
+        assert hasattr(bpy.types, "CLOTHNEXT_OT_add_physics")
+        assert hasattr(bpy.types, "CLOTHNEXT_OT_remove_physics")
+        assert hasattr(bpy.types, "CLOTHNEXT_PT_physics")
+        assert "cloth_next" in bpy.types.Object.bl_rna.properties
+        assert _clothnext_draw_callback_count(bpy) == 1
+        _phase28_roundtrip(bpy)
         extension.unregister()
         extension.unregister()
         assert not hasattr(bpy.types, "CLOTHNEXT_AddonPreferences")
+        assert not hasattr(bpy.types, "CLOTHNEXT_PT_physics")
+        assert "cloth_next" not in bpy.types.Object.bl_rna.properties
+        assert _clothnext_draw_callback_count(bpy) == 0
 
     leftover = [thread.name for thread in threading.enumerate()
                 if thread.name.startswith("clothnext-")]

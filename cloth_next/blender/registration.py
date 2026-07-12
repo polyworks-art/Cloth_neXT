@@ -6,30 +6,56 @@
 Registration performs no downloads, no network access, and no solver
 discovery side effects; the solver installer only ever runs after an explicit
 user action in the add-on preferences.
+
+Order is deterministic: classes first (preferences, then the object
+PropertyGroup, then operators, then panels), then the ``Object.cloth_next``
+PointerProperty, then the single Physics-Add draw callback. A partial
+registration failure rolls back every step already applied; unregister
+reverts everything in strict reverse order.
 """
 
 from __future__ import annotations
 
 import bpy
 
-from . import preferences
+from . import object_properties, physics_operators, physics_ui, preferences
 
-_CLASSES = preferences.CLASSES
+_CLASSES = (
+    preferences.CLASSES
+    + object_properties.CLASSES
+    + physics_operators.CLASSES
+    + physics_ui.CLASSES
+)
+
 _registered = False
+
+
+def _steps() -> list[tuple]:
+    """Ordered (apply, revert) pairs covering all registration side effects."""
+    steps: list[tuple] = [
+        (lambda cls=cls: bpy.utils.register_class(cls),
+         lambda cls=cls: bpy.utils.unregister_class(cls))
+        for cls in _CLASSES
+    ]
+    steps.append((object_properties.attach_to_object,
+                  object_properties.detach_from_object))
+    steps.append((physics_ui.append_add_physics_entry,
+                  physics_ui.remove_add_physics_entry))
+    return steps
 
 
 def register() -> None:
     global _registered
     if _registered:
         return
-    registered: list[type] = []
+    applied: list = []
     try:
-        for cls in _CLASSES:
-            bpy.utils.register_class(cls)
-            registered.append(cls)
+        for apply_step, revert_step in _steps():
+            apply_step()
+            applied.append(revert_step)
     except Exception:
-        for cls in reversed(registered):
-            bpy.utils.unregister_class(cls)
+        for revert_step in reversed(applied):
+            revert_step()
         raise
     _registered = True
 
@@ -40,6 +66,6 @@ def unregister() -> None:
         return
     # Stop installer workers, cancel downloads, and release handles first.
     preferences.shutdown()
-    for cls in reversed(_CLASSES):
-        bpy.utils.unregister_class(cls)
+    for _apply_step, revert_step in reversed(_steps()):
+        revert_step()
     _registered = False

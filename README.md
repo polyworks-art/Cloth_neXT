@@ -21,15 +21,11 @@
 
 ## What is Cloth NeXt?
 
-Cloth NeXt brings the external **PPF Contact Solver** into a Blender-focused
-workflow.
+Cloth NeXt brings the external PPF Contact Solver into a workflow that feels familiar to artists who already enjoy Blender’s built-in cloth system.
 
-It is made for artists who want powerful GPU-based cloth simulation without
-manually preparing command-line jobs, moving files between tools, or rebuilding
-their setup for every simulation.
+It is designed for users who want powerful GPU-based cloth simulation while keeping a clear, Blender-focused setup with familiar object roles, accessible controls, and sensible defaults.
 
-Cloth NeXt handles the Blender side of the workflow while the solver remains a
-separate, independently installed application.
+Cloth NeXt also provides a more guided and streamlined alternative for artists who find the existing PPF Blender integration too technical or difficult to navigate, while the solver itself remains a separate, independently installed application.
 
 ### What it provides
 
