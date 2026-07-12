@@ -4,6 +4,28 @@ All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.
 
+## 0.2.0-beta.4 — 2026-07-12 (beta channel)
+
+Publishes the Phase 2.8B UI preview through the corrected, preflight-verified
+release pipeline.
+
+### Added
+- Mandatory unpublished release preflight (`release-preflight.yml`) building
+  and validating the exact candidate commit before any tag is created.
+- Exact commit SHA and manifest version verification
+  (`tools/check_release_preflight.py`) gating publication.
+
+### Fixed
+- Build-time Pillow dependency installation order.
+- Companion build and staging order in the release candidate workflow.
+- Clean separation between source tests and built-artifact tests; Windows-only
+  EXE assertions now run only after the Windows build.
+
+### Important
+- The Bake workflow remains a UI preview: no PPF scene export, real cloth
+  simulation, frame transfer, result import, or real cache generation yet.
+- The external PPF Contact Solver remains separate and is not bundled.
+
 ## 0.2.0-beta.3 — 2026-07-12 (beta channel)
 
 ### Added
