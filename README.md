@@ -6,12 +6,6 @@
   />
 </p>
 
-Production Bake supports an artist-selected Bake Start and Bake End (up to
-10,000 cached frames). It captures the evaluated initial state at Bake Start,
-opens the managed foreground Bake window when enabled, and runs as a responsive
-modal workflow: Blender editing is locked, not frozen. The window closes after
-Finished, Cancelled, or Error.
-
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
