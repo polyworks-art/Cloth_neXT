@@ -50,6 +50,7 @@ class SceneObject:
     vertices_local: tuple[tuple[float, float, float], ...]
     triangles: tuple[tuple[int, int, int], ...]
     transform: Mat4  # solver-space world matrix (Z2Y @ matrix_world)
+    pin_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -73,13 +74,16 @@ class SceneObject:
                 if not 0 <= index < count:
                     raise SceneEncodeError(
                         f"{self.name}: triangle index {index} out of range")
+        if tuple(sorted(set(self.pin_indices))) != self.pin_indices or any(
+                not 0 <= index < count for index in self.pin_indices):
+            raise SceneEncodeError(f"{self.name}: invalid pin indices")
         if len(self.transform) != 4 or any(len(r) != 4 for r in self.transform):
             raise SceneEncodeError(f"{self.name}: transform must be 4x4")
         if any(not math.isfinite(c) for row in self.transform for c in row):
             raise SceneEncodeError(f"{self.name}: non-finite transform")
 
     def info_dict(self) -> dict:
-        return {
+        info = {
             "name": self.name,
             "uuid": self.uuid,
             "vert": [[_float32(c) for c in vertex]
@@ -87,6 +91,9 @@ class SceneObject:
             "transform": [list(row) for row in self.transform],
             "face": [list(tri) for tri in self.triangles],
         }
+        if self.pin_indices:
+            info["pin"] = list(self.pin_indices)
+        return info
 
 
 def build_scene_payload(cloth: SceneObject, collider: SceneObject) -> list:

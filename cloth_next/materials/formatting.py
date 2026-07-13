@@ -91,7 +91,8 @@ def settings_fingerprint(shell: ShellMaterialSettings,
                          contact_enabled: bool,
                          preset_identifier: str,
                          *, bake_start: int | None = None,
-                         bake_end: int | None = None) -> str:
+                         bake_end: int | None = None,
+                         pinning_fingerprint: str = "") -> str:
     """Deterministic digest of every solver-visible material setting.
 
     Any change to a mapped value produces a different digest, which marks
@@ -110,6 +111,7 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "bake_range": ([int(bake_start), int(bake_end)]
                        if bake_start is not None and bake_end is not None
                        else None),
+        "pinning": pinning_fingerprint,
     }
     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

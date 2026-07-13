@@ -6,6 +6,12 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Added — static vertex-group Pinning
+
+- Added static hard Pinning through Blender vertex groups.
+- Added binary Pin membership to cache fingerprints.
+- Added source/evaluated topology-safety validation for Pin indices.
+
 ### Fixed — companion-gated modal startup
 
 - Fixed production Bake locking Blender before the Bake companion window

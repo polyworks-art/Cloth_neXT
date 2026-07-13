@@ -22,6 +22,7 @@ the same :func:`start_run` service.
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 import queue
@@ -40,6 +41,8 @@ from ..bake.status import BakeJobKind, BakeState
 from ..core.errors import ClothNextError
 from ..materials import MaterialValidationError
 from ..materials import formatting as material_formatting
+from ..pinning import (STATIC_PIN_WEIGHT_THRESHOLD, StaticPinError,
+                       StaticPinSnapshot, static_pin_config)
 from ..ppf.coordinates import (matrix_is_finite_and_invertible,
                                solver_world_matrix)
 from ..ppf.resolver import (ResolvedSolver, SolverResolutionContext,
@@ -185,11 +188,6 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
         raise SceneValidationError(
             f"{obj.name} carries a native Blender Cloth modifier; remove it — "
             "Cloth NeXt never uses native cloth.")
-    if obj.modifiers:
-        raise SceneValidationError(
-            f"{obj.name} has modifiers; the Phase-3A test requires plain "
-            "meshes (constant topology is not verifiable through modifiers "
-            "yet).")
     evaluated = obj.evaluated_get(depsgraph)
     mesh = evaluated.to_mesh()
     try:
@@ -256,6 +254,50 @@ def _snapshot_materials(cloth_obj, collider_obj):
     return shell, static, contact_enabled, preset_identifier
 
 
+def _snapshot_static_pin(cloth_obj) -> StaticPinSnapshot:
+    """Capture binary vertex-group membership on Blender's main thread."""
+    settings = cloth_obj.cloth_next
+    enabled = bool(getattr(settings, "pinning_enabled", False))
+    group_name = str(getattr(settings, "pin_group", "") or "")
+    vertex_count = len(getattr(getattr(cloth_obj, "data", None), "vertices", ()))
+    object_id = str(getattr(cloth_obj, "name_full",
+                            getattr(cloth_obj, "name", "")))
+    mesh = getattr(cloth_obj, "data", None)
+    topology_record = {
+        "vertices": vertex_count,
+        "edges": [tuple(int(i) for i in edge.vertices)
+                  for edge in getattr(mesh, "edges", ())],
+        "polygons": [tuple(int(i) for i in polygon.vertices)
+                     for polygon in getattr(mesh, "polygons", ())],
+    }
+    topology_signature = hashlib.sha256(json.dumps(
+        topology_record, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    if not enabled:
+        return StaticPinSnapshot(False, group_name, object_id, vertex_count, (),
+                                 source_topology_signature=topology_signature)
+    if not group_name:
+        raise SceneValidationError("Select a Pin Group.")
+    groups = getattr(cloth_obj, "vertex_groups", None)
+    group = groups.get(group_name) if groups is not None else None
+    if group is None:
+        raise SceneValidationError("The selected Pin Group no longer exists.")
+    group_index = int(group.index)
+    indices = []
+    for vertex in cloth_obj.data.vertices:
+        for membership in vertex.groups:
+            if (int(membership.group) == group_index
+                    and float(membership.weight) > STATIC_PIN_WEIGHT_THRESHOLD):
+                indices.append(int(vertex.index))
+                break
+    try:
+        return StaticPinSnapshot(True, group_name, object_id, vertex_count,
+                                 tuple(indices),
+                                 source_topology_signature=topology_signature)
+    except StaticPinError as exc:
+        raise SceneValidationError(str(exc)) from exc
+
+
 def build_run_plan(context) -> RunPlan:
     """Validate the scene on the main thread and freeze the run inputs."""
     scene = context.scene
@@ -273,6 +315,23 @@ def build_run_plan(context) -> RunPlan:
     # must fail before resolution can launch it.
     shell, static, contact_enabled, preset_identifier = _snapshot_materials(
         cloth_obj, collider_obj)
+    pin_snapshot = _snapshot_static_pin(cloth_obj)
+    modifiers = tuple(getattr(cloth_obj, "modifiers", ()))
+    topology_preserving = {
+        "ARMATURE", "CAST", "CORRECTIVE_SMOOTH", "DISPLACE", "HOOK",
+        "LAPLACIANDEFORM", "LAPLACIANSMOOTH", "LATTICE", "MESH_DEFORM",
+        "SHRINKWRAP", "SIMPLE_DEFORM", "SMOOTH", "SURFACE_DEFORM",
+        "WARP", "WAVE",
+    }
+    if modifiers and (not pin_snapshot.enabled or any(
+            str(mod.type) not in topology_preserving for mod in modifiers)):
+        if pin_snapshot.enabled:
+            raise SceneValidationError(
+                "The evaluated Cloth topology does not match the source mesh. "
+                "Static Pinning currently requires topology-preserving modifiers.")
+        raise SceneValidationError(
+            f"{cloth_obj.name} has modifiers; the current unpinned solver "
+            "slice requires a plain mesh.")
     original_frame = int(scene.frame_current)
     try:
         scene.frame_set(bake_range.start)
@@ -298,12 +357,18 @@ def build_run_plan(context) -> RunPlan:
         if not matrix_is_finite_and_invertible(world):
             raise SceneValidationError(
                 f"{obj.name} has a non-finite or non-invertible world matrix.")
+    if pin_snapshot.enabled and len(cloth_vertices) != pin_snapshot.source_vertex_count:
+        raise SceneValidationError(
+            "The evaluated Cloth topology does not match the source mesh. "
+            "Static Pinning currently requires topology-preserving modifiers.")
+    pin_config = static_pin_config(pin_snapshot)
     resolved = resolve_solver(context)
 
     cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
     collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
-                              cloth_triangles, solver_world_matrix(cloth_world))
+                              cloth_triangles, solver_world_matrix(cloth_world),
+                              pin_snapshot.vertex_indices)
     scene_collider = SceneObject(collider_obj.name, collider_uuid,
                                  collider_vertices, collider_triangles,
                                  solver_world_matrix(collider_world))
@@ -316,10 +381,11 @@ def build_run_plan(context) -> RunPlan:
     param_payload, param_hash = encode_param(
         settings, cloth_obj.name, cloth_uuid, collider_obj.name,
         collider_uuid, shell=shell, static=static,
-        contact_enabled=contact_enabled)
+        contact_enabled=contact_enabled, static_pin=pin_config)
     fingerprint = material_formatting.settings_fingerprint(
         shell, static, contact_enabled, preset_identifier,
-        bake_start=bake_range.start, bake_end=bake_range.end)
+        bake_start=bake_range.start, bake_end=bake_range.end,
+        pinning_fingerprint=pin_snapshot.fingerprint)
     material_meta = {
         "version": 1,
         "fingerprint": fingerprint,
@@ -334,6 +400,13 @@ def build_run_plan(context) -> RunPlan:
         "fps": int(scene.render.fps),
         "pc2_sample_count": frame_count,
         "completion_state": "complete",
+        "pinning": {
+            "enabled": pin_snapshot.enabled,
+            "group": pin_snapshot.group_name,
+            "count": len(pin_snapshot.vertex_indices),
+            "threshold": pin_snapshot.threshold,
+            "fingerprint": pin_snapshot.fingerprint,
+        },
     }
 
     project_name = new_project_name()
@@ -784,12 +857,14 @@ def current_settings_fingerprint(context) -> str | None:
         cloth_obj, collider_obj = _enabled_objects_by_role(context)
         shell, static, contact_enabled, preset = _snapshot_materials(
             cloth_obj, collider_obj)
+        pin_fingerprint = _snapshot_static_pin(cloth_obj).fingerprint
     except SceneValidationError:
         return None
     return material_formatting.settings_fingerprint(
         shell, static, contact_enabled, preset,
         bake_start=int(cloth_obj.cloth_next.bake_start),
-        bake_end=int(cloth_obj.cloth_next.bake_end))
+        bake_end=int(cloth_obj.cloth_next.bake_end),
+        pinning_fingerprint=pin_fingerprint)
 
 
 def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
@@ -803,6 +878,8 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     cloth_obj, collider_obj = _enabled_objects_by_role(context)
     shell, static, contact_enabled, preset = _snapshot_materials(
         cloth_obj, collider_obj)
+    pin_snapshot = _snapshot_static_pin(cloth_obj)
+    pin_config = static_pin_config(pin_snapshot)
     scene = context.scene
     try:
         bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
@@ -817,7 +894,8 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     payload = build_param_payload(
         settings, cloth_obj.name, "inspect-cloth",
         collider_obj.name, "inspect-collider",
-        shell=shell, static=static, contact_enabled=contact_enabled)
+        shell=shell, static=static, contact_enabled=contact_enabled,
+        static_pin=pin_config)
     lines: list[str] = [f"Material Preset: {preset}",
                         f"Cloth: {cloth_obj.name} (SHELL)"]
     for artist_label, ppf_key, value in \
@@ -832,6 +910,13 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
                  f"fps: {wire_scene['fps']}, "
                  f"friction-mode: {wire_scene['friction-mode']}, "
                  f"disable-contact: {wire_scene['disable-contact']}")
+    if pin_snapshot.enabled:
+        lines.extend(("Pinning: Static", f"Group: {pin_snapshot.group_name}",
+                      f"Pinned vertices: {len(pin_snapshot.vertex_indices)}",
+                      f"Index range: {pin_snapshot.vertex_indices[0]}–{pin_snapshot.vertex_indices[-1]}",
+                      "Operations: 0", "Pull: Disabled", "Release: Never"))
+    else:
+        lines.append("Pinning: Disabled")
     return tuple(lines), payload
 
 

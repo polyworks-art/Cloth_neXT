@@ -146,6 +146,10 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   that single representation everywhere.
 - The built-in fabric presets are calibrated upstream starting points, not
   guarantees for every mesh scale, resolution, or scene setup.
+- Static hard Pinning through one Blender vertex group is supported. Pin
+  indices require topology-preserving evaluated Cloth geometry. Animated pins,
+  timed release, soft Pull, multiple pin groups, animated colliders, Pressure,
+  and native Blender Cloth remain unsupported.
 - Cache invalidation is a minimal versioned material fingerprint (object
   property + `*.meta.json` sidecar) that marks a result stale; the full
   production cache metadata system remains Phase-4 work.

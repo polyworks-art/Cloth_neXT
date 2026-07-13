@@ -315,6 +315,7 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
             BakeFrameRange(int(cloths[0].cloth_next.bake_start),
                            int(cloths[0].cloth_next.bake_end))
             solver_test._snapshot_materials(cloths[0], colliders[0])
+            solver_test._snapshot_static_pin(cloths[0])
         except Exception as exc:
             reason = str(exc) or "Material settings are invalid."
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
@@ -364,6 +365,31 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         row = protection.row()
         row.enabled = material.stretch_limit_enabled
         row.prop(material, "maximum_stretch_percent")
+
+
+class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Pinning"; bl_idname = "CLOTHNEXT_PT_pinning"; cloth_only = True
+    header_icon = "pinning"
+
+    def draw(self, context):
+        from . import solver_test
+        layout = self.layout
+        settings = context.object.cloth_next
+        controls = layout.column(align=True)
+        controls.enabled = not shared_controller.snapshot().active
+        controls.prop(settings, "pinning_enabled")
+        group_row = controls.row()
+        group_row.enabled = bool(settings.pinning_enabled)
+        group_row.prop_search(settings, "pin_group", context.object,
+                              "vertex_groups", text="Pin Group")
+        if settings.pinning_enabled:
+            try:
+                snapshot = solver_test._snapshot_static_pin(context.object)
+                layout.label(text=f"Pinned Vertices: {len(snapshot.vertex_indices)}")
+            except solver_test.SceneValidationError as exc:
+                layout.label(text=str(exc), icon="ERROR")
+        else:
+            layout.label(text="Static hard Pinning is disabled")
 
 
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
@@ -556,6 +582,6 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 
 CLASSES = (CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
-           CLOTHNEXT_PT_material, CLOTHNEXT_PT_damping,
+           CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_advanced)

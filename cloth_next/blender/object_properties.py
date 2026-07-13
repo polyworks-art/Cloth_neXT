@@ -264,6 +264,13 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
+    pinning_enabled: bpy.props.BoolProperty(
+        name="Enable Pinning", default=False,
+        description="Hold vertices in the selected Blender vertex group at "
+                    "their evaluated Bake Start positions")
+    pin_group: bpy.props.StringProperty(
+        name="Pin Group", default="",
+        description="Vertex group on this Cloth object used for static hard Pinning")
     bake_start: bpy.props.IntProperty(
         name="Bake Start", default=1, min=-1048574, max=1048574,
         description="First Blender frame captured into the solver cache")

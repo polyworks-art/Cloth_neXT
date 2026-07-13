@@ -82,7 +82,7 @@ def test_old_placeholder_properties_are_gone():
     for forbidden in ("stretch_stiffness", "shear_stiffness",
                       "bend_stiffness", "thickness:", "mass_mode",
                       "self_collision", "self_distance",
-                      "volume_conservation", "pin_group", "rest_shape",
+                      "volume_conservation", "rest_shape",
                       "CLOTHNEXT_PG_quality_settings",
                       "CLOTHNEXT_PG_physical_settings",
                       "CLOTHNEXT_PG_pressure_settings",
@@ -355,7 +355,7 @@ def test_no_fake_editable_controls_remain_in_ui_source():
     source = (BLENDER_PACKAGE / "physics_ui.py").read_text(encoding="utf-8")
     for forbidden in ("substeps", "solver_iterations", "contact_iterations",
                       "thickness", "stretch_stiffness", "shear",
-                      "self_collision", "pin_group", "rest_scale",
+                      "self_collision", "rest_scale",
                       "volume_conservation", '"frame_start"',
                       '"frame_end"'):
         assert forbidden not in source, forbidden

@@ -49,6 +49,7 @@ from ...materials import (ShellMaterialSettings, StaticMaterialSettings,
                           WIRE_MODEL_NAMES)
 from ...materials.validation import (validate_shell_values,
                                      validate_static_values)
+from ...pinning import StaticPinConfig
 from ..coordinates import blender_vector_to_ppf
 from . import envelope
 
@@ -132,7 +133,8 @@ def build_param_payload(settings: SimulationSettings,
                         collider_name: str, collider_uuid: str, *,
                         shell: ShellMaterialSettings,
                         static: StaticMaterialSettings,
-                        contact_enabled: bool = True) -> dict:
+                        contact_enabled: bool = True,
+                        static_pin: StaticPinConfig | None = None) -> dict:
     for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
                          ("collider name", collider_name),
                          ("collider uuid", collider_uuid)):
@@ -152,7 +154,17 @@ def build_param_payload(settings: SimulationSettings,
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
     ]
-    return {"scene": scene, "group": group, "pin_config": {}}
+    # A plain hard hold is established by SceneObject.pin.  Upstream's
+    # pin_config is optional behavior; retaining only the deterministic group
+    # identity avoids turning pull_strength=0 into the soft-pull code path.
+    pin_config = {}
+    if static_pin is not None:
+        pin_config[cloth_uuid] = {
+            index: {"pin_group_id": static_pin.pin_group_id,
+                    "operations": []}
+            for index in static_pin.indices
+        }
+    return {"scene": scene, "group": group, "pin_config": pin_config}
 
 
 def encode_param(settings: SimulationSettings,
@@ -160,10 +172,12 @@ def encode_param(settings: SimulationSettings,
                  collider_name: str, collider_uuid: str, *,
                  shell: ShellMaterialSettings,
                  static: StaticMaterialSettings,
-                 contact_enabled: bool = True) -> tuple[bytes, str]:
+                 contact_enabled: bool = True,
+                 static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
     payload = build_param_payload(settings, cloth_name, cloth_uuid,
                                   collider_name, collider_uuid,
                                   shell=shell, static=static,
-                                  contact_enabled=contact_enabled)
+                                  contact_enabled=contact_enabled,
+                                  static_pin=static_pin)
     blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
     return blob, envelope.payload_sha256(blob)

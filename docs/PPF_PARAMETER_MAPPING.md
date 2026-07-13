@@ -1,5 +1,22 @@
 # PPF parameter mapping
 
+## Static vertex-group Pinning (Phase 3C.1)
+
+Audited against official PPF commit
+`7193f158e3843597070f66cb29af19efd9bdcff7`, specifically
+`blender_addon/core/encoder/mesh.py`, `core/encoder/pin.py`,
+`frontend/_decoder_.py`, and `frontend/_scene_.py`. Selected indices are the
+SHELL object's `pin` array. Matching per-vertex `pin_config` entries carry a
+deterministic `pin_group_id` and zero operations; the frontend creates one hard
+holder and writes `bin/pin-ind-0.bin` as native `uint64`. It writes no Pull or
+operation binary for this static contract.
+
+Membership is binary at `STATIC_PIN_WEIGHT_THRESHOLD = 1e-6`. Targets are the
+same evaluated local positions uploaded at Bake Start. The immutable Cloth NeXt
+domain config records no operations or release, linear transition, zero Pull,
+stiffness 1.0, no pull weights, and no rest-shape tracking. Animated operations,
+Pull, and timed release remain unsupported.
+
 ## Bake frame mapping
 
 For Blender range `S–E`, frame `S` is uploaded as the initial state. PPF

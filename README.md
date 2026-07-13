@@ -67,6 +67,13 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
   Apache-2.0 upstream notice preserved
 - An optional display-only bake status HUD
 
+### Static Pinning
+
+On a Cloth object, enable **Pinning** and choose one ordinary Blender vertex
+group. Vertices with weight greater than `0.000001` are hard-held at their
+evaluated Bake Start positions. This phase supports one static pin group only;
+animated pins, timed release, and soft Pull are not exposed.
+
 > [!NOTE]
 > Phase 3B connects the Material, Damping, and Collision properties to the
 > real PPF solver: every visible, editable value is actually encoded and

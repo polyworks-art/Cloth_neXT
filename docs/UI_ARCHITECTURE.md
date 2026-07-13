@@ -38,6 +38,14 @@ worker creation, sockets, or PPF startup. The worker receives only the
 immutable `RunPlan`. The optional companion subscribes to the shared
 `BakeController`; it is never a second simulation authority.
 
+`CLOTHNEXT_PT_pinning` is a Cloth-only Physics subpanel with Enable Pinning,
+the active Cloth object's native vertex-group selector, and a bounded pinned
+vertex count. Controls lock during startup and active runs. Bake validation
+freezes an immutable `StaticPinSnapshot` on Blender's main thread at Bake Start,
+validates binary membership and source/evaluated topology, restores the user's
+timeline frame, and only then may resolve PPF or open the companion. No Blender
+RNA object crosses the worker boundary.
+
 ## Phase 3B material UI
 
 Honest-controls policy: every visible, editable property maps to a real PPF
