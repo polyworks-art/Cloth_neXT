@@ -5,30 +5,37 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import sys
-from PIL import Image, ImageDraw, ImageFilter
+import math
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "cloth_next" / "assets" / "icons"
 TARGET = ROOT / "companion" / "assets"
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
              (128, 128), (256, 256))
-MIST_ASSETS={"mist_small.png":28,"mist_medium.png":38,"mist_large.png":48,
-             "mist_core.png":34,"mist_glow.png":58,"mist_fallback.png":76}
+FOG_SIZE=(76,72); FOG_FRAME_COUNT=32
+FOG_ASSETS=tuple(f"mist_frame_{index:02d}.png" for index in range(FOG_FRAME_COUNT))
+MIST_ASSETS={name:FOG_SIZE for name in FOG_ASSETS} | {"mist_fallback.png":FOG_SIZE}
 
-def _mist(size: int, *, amber: bool, seed: int) -> Image.Image:
-    import random
-    rng=random.Random(seed); scale=4
-    layer=Image.new("RGBA",(size*scale,size*scale),(0,0,0,0)); draw=ImageDraw.Draw(layer)
-    color=(217,154,50) if amber else (244,239,225)
-    for _ in range(9):
-        radius=rng.uniform(.18,.38)*size*scale
-        x=size*scale/2+rng.uniform(-.17,.17)*size*scale
-        y=size*scale/2+rng.uniform(-.14,.14)*size*scale
-        draw.ellipse((x-radius,y-radius*.72,x+radius,y+radius*.72),fill=(*color,rng.randint(25,58)))
-    layer=layer.filter(ImageFilter.GaussianBlur(size*scale*.09))
-    result=layer.resize((size,size),Image.Resampling.LANCZOS)
-    for point in ((0,0),(size-1,0),(0,size-1),(size-1,size-1)): result.putpixel(point,(0,0,0,0))
-    return result
+def _fog_frame(index: int) -> Image.Image:
+    """Seamless, deterministic amber/charcoal turbulence with no alpha margin."""
+    width,height=FOG_SIZE; scale=2; phase=math.tau*index/FOG_FRAME_COUNT
+    image=Image.new("RGB",(width*scale,height*scale)); pixels=image.load()
+    dark=(24,23,22); amber=(190,118,31); bright=(217,154,50)
+    for py in range(height*scale):
+        y=py/(height*scale-1)
+        for px in range(width*scale):
+            x=px/(width*scale-1)
+            n=(.34*math.sin(math.tau*(1.15*x+.72*y)+phase)
+               +.20*math.sin(math.tau*(2.05*x-1.28*y)-phase)
+               +.12*math.sin(math.tau*(3.1*x+2.3*y)+phase*2))
+            boundary=.55-x+.20*math.sin(math.tau*y+phase)+n*.30
+            mix=max(0.,min(1.,.5+boundary*1.15))
+            detail=.88+.12*math.sin(math.tau*(1.7*x+1.35*y)-phase)
+            base=tuple(int(dark[c]*(1-mix)+amber[c]*mix) for c in range(3))
+            glow=max(0.,mix-.55)*.55
+            pixels[px,py]=tuple(max(0,min(255,int((base[c]*(1-glow)+bright[c]*glow)*detail))) for c in range(3))
+    return image.resize(FOG_SIZE,Image.Resampling.LANCZOS)
 
 def build() -> None:
     app_source, bake_source = SOURCE / "cloth_next.png", SOURCE / "bake.png"
@@ -44,11 +51,9 @@ def build() -> None:
         master = image.convert("RGBA").resize((256, 256), Image.Resampling.LANCZOS)
         master.save(TARGET / "cloth_next.ico", format="ICO", sizes=ICO_SIZES,
                     bitmap_format="png")
-    for index,(name,size) in enumerate(MIST_ASSETS.items()):
-        image=_mist(size,amber=name in {"mist_core.png","mist_small.png","mist_fallback.png"},seed=9100+index)
-        if name=="mist_fallback.png":
-            neutral=_mist(size,amber=False,seed=9200); image=Image.alpha_composite(neutral,image)
-        image.save(TARGET/name,format="PNG",optimize=False,compress_level=9)
+    for index,name in enumerate(FOG_ASSETS):
+        _fog_frame(index).save(TARGET/name,format="PNG",optimize=False,compress_level=9)
+    _fog_frame(2).save(TARGET/"mist_fallback.png",format="PNG",optimize=False,compress_level=9)
     validate()
 
 def validate() -> None:
@@ -62,10 +67,8 @@ def validate() -> None:
             image.verify()
         if name in MIST_ASSETS:
             with Image.open(path) as image:
-                if image.mode!="RGBA" or image.size!=(MIST_ASSETS[name],)*2: raise ValueError(f"invalid mist asset: {name}")
-                alpha=image.getchannel("A")
-                if alpha.getbbox() is None or any(alpha.getpixel(p) for p in ((0,0),(image.width-1,0),(0,image.height-1),(image.width-1,image.height-1))):
-                    raise ValueError(f"invalid mist alpha: {name}")
+                if image.mode!="RGB" or image.size!=MIST_ASSETS[name]: raise ValueError(f"invalid mist asset: {name}")
+                if path.stat().st_size>64*1024: raise ValueError(f"oversized mist asset: {name}")
 
 if __name__ == "__main__":
     try:

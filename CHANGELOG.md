@@ -285,5 +285,6 @@ release pipeline.
   Stable/Beta Blender extension repositories, Phase 2.7 hardening.
 # Unreleased
 
+- Reworked the companion mist into a full rectangular amber-and-anthracite fog field with seamless build-generated animation frames.
 - Replaced the static Bake companion icon with a lightweight animated mist visualization and added live solver activity to the lower status bar.
 - Matched the packaged Windows companion title bar to the main window's dark gray background.

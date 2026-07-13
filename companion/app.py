@@ -6,8 +6,6 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-import math
-import random
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -56,41 +54,38 @@ def _match_windows_title_bar(root):
     except (AttributeError,OSError): pass
 
 class MistAnimation:
-    SIZE=76; FRAME_MS=45
+    WIDTH=76; HEIGHT=72; FRAME_COUNT=32; FRAME_MS=45
     def __init__(self,parent,reduced_motion=False):
-        self.canvas=tk.Canvas(parent,width=76,height=76,bg=PANEL,highlightthickness=0,borderwidth=0)
+        self.canvas=tk.Canvas(parent,width=self.WIDTH,height=self.HEIGHT,bg=PANEL,highlightthickness=0,borderwidth=0)
         self.reduced_motion=reduced_motion; self._after=None; self._running=False; self._closed=False
-        self._rng=random.Random(81273); self._motion=.12; self._target=.12; self._start=0.; self._layers=[]; self._images=[]
-        names=("mist_glow.png","mist_large.png","mist_medium.png","mist_small.png","mist_medium.png","mist_core.png","mist_small.png","mist_core.png")
+        self._rate=.18; self._target=.18; self._position=0.; self._images=[]; self._item=None
         try:
-            for name in names:
-                image=tk.PhotoImage(file=str(_asset(name))); self._images.append(image)
-                phase=self._rng.random()*math.tau; radius=self._rng.uniform(2.5,8.)
-                self._layers.append((self.canvas.create_image(38,38,image=image),phase,radius,self._rng.uniform(.11,.24)))
+            for index in range(self.FRAME_COUNT):
+                self._images.append(tk.PhotoImage(file=str(_asset(f"mist_frame_{index:02d}.png"))))
+            self._item=self.canvas.create_image(0,0,image=self._images[0],anchor="nw")
             self.available=True
         except Exception:
             LOG.warning("Mist animation unavailable; using static fallback."); self.available=False
             self.canvas.delete("all"); self._images=[]
             try:
-                image=tk.PhotoImage(file=str(_asset("mist_fallback.png"))); self._images=[image]; self.canvas.create_image(38,38,image=image)
+                image=tk.PhotoImage(file=str(_asset("mist_fallback.png"))); self._images=[image]
+                self._item=self.canvas.create_image(0,0,image=image,anchor="nw")
             except Exception: pass
     def start(self):
         if self._running or self._closed or not self.available:return
-        import time
-        self._running=True; self._start=time.monotonic(); self._tick()
+        self._running=True; self._tick()
     def set_state(self,state,activity=BakeActivity.IDLE):
-        self._target={BakeState.IDLE:.12,BakeState.PREPARING:.35,BakeState.SIMULATING:.65,
-            BakeState.FETCHING:.3,BakeState.IMPORTING:.22,BakeState.FINISHED:.18,
-            BakeState.CANCELLED:.03,BakeState.ERROR:.04}.get(state,.42)
-        if activity is BakeActivity.SOLVING_CONSTRAINTS:self._target=.72
-        elif activity in {BakeActivity.BUILDING_PC2,BakeActivity.APPLYING_PLAYBACK}:self._target=.18
+        self._target={BakeState.IDLE:.16,BakeState.PREPARING:.52,BakeState.SIMULATING:1.,
+            BakeState.FETCHING:.42,BakeState.IMPORTING:.30,BakeState.FINISHED:.24,
+            BakeState.CANCELLED:.05,BakeState.ERROR:.08}.get(state,.58)
+        if activity is BakeActivity.WRITING_FRAME:self._target=.82
+        elif activity in {BakeActivity.BUILDING_PC2,BakeActivity.APPLYING_PLAYBACK}:self._target=.24
     def _tick(self):
         if self._closed or not self._running:return
-        import time
-        t=time.monotonic()-self._start; self._motion+=(self._target-self._motion)*.08
-        for item,phase,radius,speed in self._layers:
-            orbit=0 if self.reduced_motion else radius*self._motion
-            self.canvas.coords(item,38+math.cos(t*speed+phase)*orbit,38+math.sin(t*speed*.77+phase)*orbit*.62)
+        self._rate+=(self._target-self._rate)*.08
+        if not self.reduced_motion:
+            self._position=(self._position+self._rate)%self.FRAME_COUNT
+            self.canvas.itemconfigure(self._item,image=self._images[int(self._position)])
         try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
         except tk.TclError:self._running=False
     def close(self):
@@ -169,7 +164,7 @@ class BakeWindow:
         outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
         outer.columnconfigure(0,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
-        icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=82,height=76)
+        icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=78,height=74)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
         self.mist=MistAnimation(icon_box,os.environ.get("CLOTH_NEXT_REDUCED_MOTION")=="1")
         self.mist.canvas.place(relx=.5,rely=.5,anchor="center")
