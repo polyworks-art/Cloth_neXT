@@ -70,7 +70,12 @@ jobs:
           Copy-Item -LiteralPath $zip -Destination $destination
           $old=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -Skip 5
           $old | Remove-Item -Force
-          & "$env:CLOTH_NEXT_BLENDER" --command extension server-generate "--repo-dir=$dev"
+          $indexStage=Join-Path "$env:RUNNER_TEMP" "dev-index-current"
+          python -c "from pathlib import Path; from tools.build_extension_repository import generate_single_candidate_index; generate_single_candidate_index(r'$env:CLOTH_NEXT_BLENDER', Path(r'$dev'), Path(r'$destination'), Path(r'$indexStage'))"
+          $index=Get-Content (Join-Path $dev 'index.json') -Raw | ConvertFrom-Json
+          $candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})
+          if ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }
+          if ($candidates[0].version -cne '${{ inputs.version }}') { throw 'Dev index candidate version mismatch' }
           python tools/scan_release_artifact.py $destination
           git -C "$env:RUNNER_TEMP\pages" add dev
           $changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only

@@ -53,6 +53,33 @@ def generate_index(blender: str, channel_dir: Path) -> Path:
     return index
 
 
+def generate_single_candidate_index(blender: str, repository_dir: Path,
+                                    archive: Path, staging_dir: Path) -> Path:
+    """Generate an official index exposing exactly one package candidate.
+
+    Retained immutable archives may share one package id. Passing their common
+    directory to ``server-generate`` creates duplicate-id records whose active
+    candidate is ambiguous in Blender. Generate in an empty staging directory
+    containing only the current archive, validate the result, then copy only
+    the official index beside the retained archives.
+    """
+    if archive.parent.resolve() != repository_dir.resolve():
+        raise ValueError("current archive must already be in repository_dir")
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    staging_dir.mkdir(parents=True)
+    staged_archive = staging_dir / archive.name
+    shutil.copyfile(archive, staged_archive)
+    staged_index = generate_index(blender, staging_dir)
+    payload = json.loads(staged_index.read_text(encoding="utf-8"))
+    entries = payload.get("data")
+    if not isinstance(entries, list) or len(entries) != 1:
+        raise ValueError("staged repository index must contain one candidate")
+    destination = repository_dir / "index.json"
+    shutil.copyfile(staged_index, destination)
+    return destination
+
+
 def validate_index(channel_dir: Path, extension_id: str, version: str) -> None:
     payload = json.loads((channel_dir / "index.json").read_text(encoding="utf-8"))
     entries = payload.get("data")

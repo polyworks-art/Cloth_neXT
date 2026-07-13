@@ -42,6 +42,22 @@ self-replaces while it is running — replacing the active extension from its
 own code can crash Blender at native level, which is why no in-add-on
 install button exists.
 
+### Dev repository cache repair
+
+The Dev repository exposes exactly one active `cloth_next` candidate: the
+newest immutable Dev build. Older retained ZIPs remain downloadable, but are
+not repeated as package records in `index.json`; duplicate package IDs make
+Blender's displayed and installed candidate ambiguous.
+
+Profiles that synchronized the earlier duplicate-entry Dev index may keep that
+metadata in the repository's local `.blender_ext` cache. After the public index
+is repaired, refresh the Dev repository in Get Extensions. If Blender still
+shows the old version or repeatedly offers the same update, remove and re-add
+the Cloth NeXt Dev repository (or remove its local repository cache while
+Blender is closed), synchronize again, reinstall Dev 5, and restart Blender.
+Changing the public index does not retroactively replace an already cached
+repository index.
+
 Or manually:
 
 1. Edit → Preferences → Get Extensions → Repositories → `+` → *Add Remote Repository*.

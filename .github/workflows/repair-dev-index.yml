@@ -1,0 +1,68 @@
+name: repair-dev-index
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref: {description: "Exact 40-character hotfix commit SHA", required: true}
+      version: {description: "Existing immutable Dev version", required: true}
+      confirmation: {description: "Type REPAIR_DEV_INDEX", required: true}
+
+permissions: {contents: write}
+concurrency: {group: publish-dev, cancel-in-progress: false}
+env:
+  BLENDER_VERSION: "5.1.2"
+  BLENDER_SERIES: "5.1"
+
+jobs:
+  repair:
+    runs-on: windows-latest
+    steps:
+      - name: Require exact repair request
+        shell: pwsh
+        run: |
+          if ('${{ inputs.confirmation }}' -cne 'REPAIR_DEV_INDEX') { throw 'confirmation mismatch' }
+          if ('${{ inputs.ref }}' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact SHA' }
+          if ('${{ inputs.version }}' -notmatch '^0\.2\.0-dev\.[1-9][0-9]*$') { throw 'invalid Dev version' }
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
+      - shell: pwsh
+        run: if ((git rev-parse HEAD) -cne '${{ inputs.ref }}') { throw 'checkout SHA mismatch' }
+      - name: Download Blender 5.1.2
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
+          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
+          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
+          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - name: Build fixtures and run real Blender repository regression
+        shell: pwsh
+        run: |
+          git fetch origin gh-pages
+          git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
+          $dev=Join-Path "$env:RUNNER_TEMP\pages" dev
+          $duplicate=Join-Path "$env:RUNNER_TEMP" duplicate-dev
+          $repaired=Join-Path "$env:RUNNER_TEMP" repaired-dev
+          Copy-Item -LiteralPath $dev -Destination $duplicate -Recurse
+          New-Item -ItemType Directory -Force $repaired | Out-Null
+          $name="cloth_next-${{ inputs.version }}-windows-x64.zip"
+          Copy-Item -LiteralPath (Join-Path $dev $name) -Destination (Join-Path $repaired $name)
+          & "$env:CLOTH_NEXT_BLENDER" --command extension server-generate "--repo-dir=$repaired"
+          python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected "${{ inputs.version }}" --report "$env:RUNNER_TEMP\dev-index-regression.json"
+          Copy-Item -LiteralPath (Join-Path $repaired 'index.json') -Destination (Join-Path $dev 'index.json') -Force
+          $index=Get-Content (Join-Path $dev 'index.json') -Raw | ConvertFrom-Json
+          $candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})
+          if ($candidates.Count -ne 1 -or $candidates[0].version -cne '${{ inputs.version }}') { throw 'repaired index is ambiguous' }
+      - name: Publish index-only repair
+        shell: pwsh
+        run: |
+          git -C "$env:RUNNER_TEMP\pages" add dev/index.json
+          $changed=@(git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only)
+          if ($changed.Count -ne 1 -or $changed[0] -cne 'dev/index.json') { throw 'repair must change only dev/index.json' }
+          git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Repair Dev repository candidate ${{ inputs.version }}"
+          git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
+      - name: Summary
+        shell: pwsh
+        run: |
+          "Dev index repaired to one cloth_next candidate: ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          "Real Blender 5.1.2 duplicate/repaired repository regression passed." >> $env:GITHUB_STEP_SUMMARY
+          "Only dev/index.json changed; immutable ZIPs, Beta, and Stable were untouched." >> $env:GITHUB_STEP_SUMMARY

@@ -6,6 +6,14 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Fixed — Dev repository duplicate package metadata
+
+- Dev repository generation now exposes only the newest `cloth_next`
+  candidate in the official Blender index while retaining older immutable ZIPs.
+  This prevents duplicate package IDs from making Blender display Dev 1 after
+  downloading Dev 5 or continuously offering the same update. Existing
+  Blender repository caches may need an explicit refresh or removal.
+
 ### Fixed — critical updater self-install crash
 
 - Blender could crash when clicking the add-on update install button:
