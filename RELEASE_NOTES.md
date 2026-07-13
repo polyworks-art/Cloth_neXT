@@ -1,4 +1,4 @@
-# Cloth NeXt 0.3.0-dev.4 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.5 — experimental Dev test build
 
 ## Streaming cache update
 
@@ -16,6 +16,14 @@ The importer validates path containment and final frame sizes, closes each
 memory mapping explicitly, reuses extraction buffers, and writes PC2 frame
 payloads without an additional Python `bytes` copy. Cache finalization timings
 now separate flush, filesystem sync, replacement, and validation.
+
+Playback attachment now reuses the existing Cloth NeXt Mesh Cache modifier
+instead of removing and reconstructing it. All inactive settings are applied
+before the new cache filepath is switched in one final operation. This avoids
+repeated Blender dependency-graph rebuilds that could leave complex scenes
+apparently blocked on “Importing PC2 cache” long after the PC2 file was ready.
+Attach, filepath-switch, ownership, and old-cache cleanup timings are recorded
+separately for real-scene diagnosis.
 
 ## Solver Quality presets
 

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -120,6 +121,56 @@ def test_cache_replacement_is_object_scoped_and_idempotent(blender_env,
     assert any(m.name=="User Cache" for m in cloth.modifiers)
     assert any(m.name==module.import_result.MODIFIER_NAME for m in other.modifiers)
     env.registration.unregister()
+
+
+def test_attach_reuses_owned_modifier_and_activates_filepath_last(
+        blender_env, tmp_path):
+    env = blender_env
+    module = env.solver_test
+    cloth = env.bpy.types.Object(name="Cloth", type="MESH")
+    cloth.cloth_next = SimpleNamespace(baked_settings_fingerprint="")
+    env.bpy.data.objects[cloth.name] = cloth
+    old_path = tmp_path / "cn_test_cloth_old.pc2"
+    old_path.write_bytes(b"old")
+    old = cloth.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    old.filepath = str(old_path)
+    module.mark_owned_playback(cloth, old, str(old_path))
+    new_path = tmp_path / "cn_test_cloth_new.pc2"
+    writer = module.pc2.StreamingPc2Writer(
+        new_path, vertex_count=1, frame_count=1)
+    writer.write_frame([[0, 0, 0]])
+    header = writer.finalize()
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        "Cloth", tmp_path, new_path, 1, frame_start=7,
+        settings_fingerprint="new-fingerprint")
+
+    timings = module._attach_playback(plan, header)
+
+    assert list(cloth.modifiers) == [old]
+    assert old.filepath == str(new_path)
+    assert old.frame_start == 7.0
+    assert cloth.cloth_next.baked_settings_fingerprint == "new-fingerprint"
+    assert not old_path.exists()
+    assert "modifier_create" not in timings
+    assert timings["modifier_filepath"] >= 0
+    sidecar = new_path.with_suffix(".meta.json")
+    sidecar.write_text('{"timings": {"pc2_write": 0.1}}', encoding="utf-8")
+    module._publish_attach_timings(plan, timings)
+    recorded = json.loads(sidecar.read_text(encoding="utf-8"))["timings"]
+    assert recorded["pc2_write"] == 0.1
+    assert recorded["modifier_filepath"] >= 0
+
+
+def test_attach_configures_settings_before_filepath_switch():
+    source = Path("cloth_next/blender/solver_test.py").read_text(encoding="utf-8")
+    attach = source.split("def _attach_playback", 1)[1].split(
+        "def _configure_playback_modifier", 1)[0]
+    assert attach.index('measured("modifier_settings"') < attach.index(
+        'measured("modifier_filepath"')
+    assert "obj.modifiers.remove(mod)" not in attach
 
 def test_playback_ownership_requires_marker_or_result_metadata(blender_env,tmp_path):
     module=blender_env.solver_test; obj=blender_env.bpy.types.Object("Cloth","MESH")

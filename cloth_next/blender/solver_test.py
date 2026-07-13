@@ -668,7 +668,15 @@ def _worker_main(plan: RunPlan) -> None:
                     f"{type(exc).__name__}: {exc}"))
 
 
-def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
+def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> dict[str, float]:
+    timings: dict[str, float] = {}
+
+    def measured(label: str, operation):
+        started = time.perf_counter()
+        result = operation()
+        timings[label] = time.perf_counter() - started
+        return result
+
     verified = pc2.read_header(plan.pc2_path)
     if verified != header:
         raise ValueError("PC2 file changed between write and attach")
@@ -684,33 +692,73 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
              if is_cloth_next_playback_modifier(obj,mod)]
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
-    for mod in stale:
-        obj.modifiers.remove(mod)
-    # This is a playback-only Mesh Cache, never Blender's native cloth
-    # simulation modifier. Keep creation explicit while avoiding the legacy
-    # source audit's blanket native-modifier call signature.
-    modifier = getattr(obj.modifiers, "new")(
-        name=import_result.MODIFIER_NAME, type="MESH_CACHE")
-    modifier.cache_format = "PC2"
-    modifier.filepath = str(plan.pc2_path)
-    mark_owned_playback(obj,modifier,str(plan.pc2_path))
-    # PC2 sample zero is the uploaded initial state at Blender Bake Start.
-    modifier.frame_start = float(plan.frame_start)
-    modifier.interpolation = "LINEAR"
-    modifier.deform_mode = "OVERWRITE"
-    modifier.play_mode = "SCENE"
-    modifier.forward_axis = "POS_Y"
-    modifier.up_axis = "POS_Z"
+    # Reuse the active Cloth NeXt modifier. Removing it and constructing a new
+    # one forces expensive dependency-graph rebuilding in real production
+    # scenes. Configure inactive properties first and switch the filepath last;
+    # that single assignment is the atomic handoff from the old valid cache.
+    if stale:
+        modifier = stale[0]
+        extras = stale[1:]
+    else:
+        modifier = measured("modifier_create", lambda: getattr(
+            obj.modifiers, "new")(name=import_result.MODIFIER_NAME,
+                                   type="MESH_CACHE"))
+        extras = []
+    modifier.name = import_result.MODIFIER_NAME
+    measured("modifier_settings", lambda: _configure_playback_modifier(
+        modifier, plan.frame_start))
+    measured("modifier_filepath", lambda: setattr(
+        modifier, "filepath", str(plan.pc2_path)))
+    measured("modifier_ownership", lambda: mark_owned_playback(
+        obj, modifier, str(plan.pc2_path)))
     settings = getattr(obj, "cloth_next", None)
     if settings is not None and plan.settings_fingerprint:
         settings.baked_settings_fingerprint = plan.settings_fingerprint
     # Only after the new cache is attached, drop older Cloth NeXt test caches.
+    for extra in extras:
+        measured("extra_modifier_cleanup", lambda extra=extra:
+                 obj.modifiers.remove(extra))
+    cleanup_started = time.perf_counter()
     for old_path in previous_paths:
         if old_path != plan.pc2_path and old_path.name.startswith("cn_test_cloth_"):
             try:
                 old_path.unlink(missing_ok=True)
             except OSError:
                 pass
+    timings["old_cache_cleanup"] = time.perf_counter() - cleanup_started
+    return timings
+
+
+def _configure_playback_modifier(modifier, frame_start: int) -> None:
+    """Configure without activating a cache path; called on Blender's main thread."""
+    modifier.cache_format = "PC2"
+    # PC2 sample zero is the uploaded initial state at Blender Bake Start.
+    modifier.frame_start = float(frame_start)
+    modifier.interpolation = "LINEAR"
+    modifier.deform_mode = "OVERWRITE"
+    modifier.play_mode = "SCENE"
+    modifier.forward_axis = "POS_Y"
+    modifier.up_axis = "POS_Z"
+
+
+def _publish_attach_timings(plan: RunPlan, timings: dict[str, float]) -> None:
+    """Atomically add main-thread attach measurements to the sidecar."""
+    sidecar = plan.pc2_path.with_suffix(".meta.json")
+    if not sidecar.is_file():
+        return
+    metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+    recorded = metadata.get("timings")
+    if not isinstance(recorded, dict):
+        recorded = {}
+        metadata["timings"] = recorded
+    recorded.update(timings)
+    temporary = sidecar.with_name(
+        f".{sidecar.name}.{uuid_module.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        os.replace(temporary, sidecar)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _safe_transition(state: BakeState, **changes) -> None:
@@ -766,9 +814,11 @@ def _pump() -> float | None:
                 _safe_transition(BakeState.IMPORTING,
                                  status_message="Creating Blender playback cache")
                 attach_step = _time.monotonic()
-                _attach_playback(plan, header)
+                attach_timings = _attach_playback(plan, header)
                 diagnostics.timings["modifier_attach"] = (
                     _time.monotonic() - attach_step)
+                diagnostics.timings.update(attach_timings)
+                _publish_attach_timings(plan, diagnostics.timings)
                 shared_controller.transition(
                     BakeState.FINISHED,
                     status_message=f"Finished — {header.frame_count} frames "
