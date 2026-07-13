@@ -23,6 +23,32 @@ def _active_mesh(context):
     return obj
 
 
+class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
+    """Choose a supported Cloth NeXt object type"""
+
+    bl_idname = "clothnext.set_object_type"
+    bl_label = "Set Cloth NeXt Object Type"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    role: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        obj = _active_mesh(context)
+        settings = getattr(obj, "cloth_next", None) if obj else None
+        return bool(settings is not None and settings.enabled
+                    and not shared_controller.snapshot().active)
+
+    def execute(self, context):
+        # Keep this allow-list here as well as in the menu.  Invoking the
+        # operator directly must never put a future type into stored state.
+        if self.role not in {item[0] for item in object_properties.ROLE_ITEMS}:
+            self.report({"WARNING"}, "This Cloth NeXt object type is not supported yet.")
+            return {"CANCELLED"}
+        context.active_object.cloth_next.role = self.role
+        return {"FINISHED"}
+
+
 class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
     """Enable Cloth NeXt physics on the active mesh object"""
 
@@ -96,5 +122,6 @@ class CLOTHNEXT_OT_use_scene_range(bpy.types.Operator):
         return {"FINISHED"}
 
 
-CLASSES = (CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
+CLASSES = (CLOTHNEXT_OT_set_object_type,
+           CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
            CLOTHNEXT_OT_use_scene_range)

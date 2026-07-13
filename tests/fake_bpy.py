@@ -95,6 +95,9 @@ def make_module() -> types.ModuleType:
     class Panel:
         pass
 
+    class Menu:
+        pass
+
     class AddonPreferences:
         pass
 
@@ -124,7 +127,7 @@ def make_module() -> types.ModuleType:
             cls.draw._draw_funcs.remove(draw_func)
 
     types_module = types.SimpleNamespace(
-        PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel,
+        PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel, Menu=Menu,
         AddonPreferences=AddonPreferences, Object=Object,
         PHYSICS_PT_add=PHYSICS_PT_add)
 

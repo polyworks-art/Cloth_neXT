@@ -34,6 +34,67 @@ from . import object_properties
 
 _add_entry_appended = False
 
+UNAVAILABLE_OBJECT_TYPES = (
+    ("SOFT_BODY", "Soft Body",
+     "Coming soon. Volumetric deformable bodies are not supported yet."),
+    ("ROPE_CABLE", "Rope / Cable",
+     "Coming soon. PPF Rod simulation is not supported yet."),
+    ("RIGID_BODY", "Rigid Body",
+     "Coming soon. PPF PDRD rigid bodies are not supported yet."),
+    ("SAND", "Sand",
+     "Coming soon. Granular simulation is not supported yet."),
+)
+
+
+class CLOTHNEXT_OT_unavailable_object_type(bpy.types.Operator):
+    """Coming soon. This PPF object type is not supported by Cloth NeXt yet."""
+
+    bl_idname = "clothnext.unavailable_object_type"
+    bl_label = "Coming Soon"
+    bl_options = {"INTERNAL"}
+
+    tooltip: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def description(cls, _context, properties):
+        return properties.tooltip or cls.__doc__
+
+    def execute(self, _context):
+        return {"CANCELLED"}
+
+
+class CLOTHNEXT_MT_object_type(bpy.types.Menu):
+    """Presentation-only selector for the authoritative settings.role enum."""
+
+    bl_idname = "CLOTHNEXT_MT_object_type"
+    bl_label = "Object Type"
+
+    def draw(self, _context):
+        layout = self.layout
+        for identifier, label, _description in object_properties.ROLE_ITEMS:
+            operator = layout.operator(
+                physics_operators.CLOTHNEXT_OT_set_object_type.bl_idname,
+                text=label, icon="CHECKMARK" if identifier == "CLOTH" else "OBJECT_DATA")
+            operator.role = identifier
+        layout.separator()
+        for _identifier, label, description in UNAVAILABLE_OBJECT_TYPES:
+            row = layout.row()
+            row.alert = True
+            row.enabled = False
+            operator = row.operator(
+                CLOTHNEXT_OT_unavailable_object_type.bl_idname,
+                text=label, icon="LOCKED")
+            operator.tooltip = description
+
+
+def _draw_object_type_selector(layout, settings) -> None:
+    """Draw a compact menu without introducing any duplicate state."""
+    labels = {identifier: label for identifier, label, _ in object_properties.ROLE_ITEMS}
+    row = layout.row(align=True)
+    row.label(text="Object Type")
+    row.menu(CLOTHNEXT_MT_object_type.bl_idname,
+             text=labels.get(settings.role, settings.role.title()))
+
 
 def _draw_add_physics_entry(panel, context) -> None:
     """Appended to PHYSICS_PT_add; draws the Cloth NeXt add/remove entry."""
@@ -107,7 +168,7 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         settings = context.object.cloth_next
         layout.use_property_split = True
         layout.use_property_decorate = False
-        layout.prop(settings, "role")
+        _draw_object_type_selector(layout, settings)
         snapshot = shared_controller.snapshot()
         box = layout.box()
         col = box.column(align=True)
@@ -581,7 +642,8 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
                    icon="EXPERIMENTAL")
 
 
-CLASSES = (CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
+CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
+           CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_advanced)

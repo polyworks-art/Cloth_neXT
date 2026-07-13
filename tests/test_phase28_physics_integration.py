@@ -64,6 +64,80 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     assert props["enabled"].keywords["default"] is False
 
 
+def test_object_type_menu_does_not_create_duplicate_stored_state(blender_env):
+    env = blender_env
+    props = fake_bpy._resolved_props(env.object_properties.CLOTHNEXT_PG_object_settings)
+    assert "role" in props
+    assert not ({"object_type", "selected_object_type", "menu_role"} & props.keys())
+
+
+@pytest.mark.parametrize("role", ["CLOTH", "COLLIDER"])
+def test_supported_object_types_set_authoritative_role(blender_env, role):
+    env = blender_env
+    env.registration.register()
+    obj = make_mesh(env)
+    obj.cloth_next.enabled = True
+    context = make_context(obj)
+    operator = env.physics_operators.CLOTHNEXT_OT_set_object_type()
+    operator.role = role
+    assert operator.execute(context) == {"FINISHED"}
+    assert obj.cloth_next.role == role
+    env.registration.unregister()
+
+
+@pytest.mark.parametrize("role", ["SOFT_BODY", "ROPE_CABLE", "RIGID_BODY", "SAND"])
+def test_unsupported_object_types_cannot_change_stored_role(blender_env, role):
+    env = blender_env
+    env.registration.register()
+    obj = make_mesh(env)
+    obj.cloth_next.enabled = True
+    obj.cloth_next.role = "COLLIDER"
+    operator = env.physics_operators.CLOTHNEXT_OT_set_object_type()
+    operator.role = role
+    assert operator.execute(make_context(obj)) == {"CANCELLED"}
+    assert obj.cloth_next.role == "COLLIDER"
+    env.registration.unregister()
+
+
+def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(blender_env):
+    env = blender_env
+
+    class Layout:
+        def __init__(self):
+            self.rows = []
+        def operator(self, *_args, **kwargs):
+            op = SimpleNamespace(kwargs=kwargs)
+            self.operator_value = op
+            return op
+        def separator(self):
+            pass
+        def row(self):
+            row = Layout()
+            row.alert = False
+            row.enabled = True
+            self.rows.append(row)
+            return row
+
+    menu = env.physics_ui.CLOTHNEXT_MT_object_type()
+    menu.layout = Layout()
+    menu.draw(None)
+    assert len(menu.layout.rows) == 4
+    assert all(row.alert and not row.enabled for row in menu.layout.rows)
+    assert all(row.operator_value.kwargs["icon"] == "LOCKED" for row in menu.layout.rows)
+    tooltips = [row.operator_value.tooltip for row in menu.layout.rows]
+    assert all(tooltip.startswith("Coming soon.") for tooltip in tooltips)
+    assert {"Volumetric", "PPF Rod", "PPF PDRD", "Granular"} == {
+        next(word for word in ("Volumetric", "PPF Rod", "PPF PDRD", "Granular")
+             if word in tooltip) for tooltip in tooltips}
+
+
+def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
+    role = fake_bpy._resolved_props(
+        blender_env.object_properties.CLOTHNEXT_PG_object_settings)["role"]
+    assert role.keywords["items"] == blender_env.object_properties.ROLE_ITEMS
+    assert tuple(item[0] for item in role.keywords["items"]) == ("CLOTH", "COLLIDER")
+
+
 # --- 3+4: add operator ------------------------------------------------------------
 
 def test_add_operator_rejects_missing_and_non_mesh_objects(blender_env):
