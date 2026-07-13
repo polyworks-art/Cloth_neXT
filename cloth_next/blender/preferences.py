@@ -496,8 +496,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         check.operator("clothnext.addon_update_check")
         if view.show_repo_setup:
             actions.operator("clothnext.addon_update_repo_setup")
-        if view.show_install:
-            actions.operator("clothnext.addon_update_install")
+        if view.show_update_handoff:
+            actions.operator("clothnext.addon_update_through_blender")
         elif view.show_open_extensions:
             actions.operator("clothnext.addon_open_extensions")
         actions.operator("clothnext.addon_open_release_notes")

@@ -138,10 +138,13 @@ through a custom self-updater — from two official repositories
 In the add-on preferences, the *Cloth NeXt* section shows the installed
 version, lets you pick the update channel, and offers *Check for Updates*.
 *Add Channel Repository* registers the selected channel in Blender's
-Get Extensions repositories (only on explicit click, never automatically);
-*Install Update* hands the installation to Blender. Restart Blender after an
-update. Add-on updates never touch the separately installed PPF solver, and
-solver updates never touch the add-on.
+Get Extensions repositories (only on explicit click, never automatically).
+*Update through Blender* synchronizes the selected repository and opens
+Blender's native extension update view; the installation itself is completed
+there by clicking Blender's own **Update** button — Cloth NeXt never replaces
+its own files while running. Restart Blender when Blender prompts for it
+after the native update. Add-on updates never touch the separately installed
+PPF solver, and solver updates never touch the add-on.
 
 ---
 

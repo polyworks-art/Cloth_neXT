@@ -63,3 +63,19 @@ For bundled deployments, the complete solver tree supplies injected `PATH` and
 `PYTHONPATH` entries. Progress lives in `%TEMP%/ClothNeXt*`; neither repository nor
 extension directories receive mutable runtime files. Phase 2.5 exercised this lifecycle
 against the real official Windows binary and verified no server process remained.
+
+## Add-on update handoff
+
+Before the "Update through Blender" handoff, Cloth NeXt stops only the PPF
+solver processes it started itself (never an external server), quiesces UI
+preview jobs, and shuts down only the owned Bake companion. It then
+synchronizes the exact selected channel repository and opens Blender's
+native extension update view. The actual package replacement — including
+disabling and re-enabling the extension — happens exclusively inside
+Blender's own extension manager after the Cloth NeXt operator has returned.
+Cloth NeXt never installs, replaces, reloads, or unregisters its own running
+package from its own Python stack: doing so is a native module-lifetime
+hazard that can crash Blender and cannot be made safe with try/except or a
+deferred timer. Update checks and package installation are therefore two
+separate lifecycles. Caches, PC2 modifiers, and scene data are never touched
+by the handoff.

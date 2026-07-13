@@ -6,6 +6,26 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Fixed — critical updater self-install crash
+
+- Blender could crash when clicking the add-on update install button:
+  Cloth NeXt invoked `bpy.ops.extensions.package_install` for its own
+  package from its own running operator, letting Blender disable, replace,
+  and reload the extension while its code was still executing on the
+  Python stack — a native module-lifetime hazard no try/except can catch.
+  The self-install call path was removed entirely. The button is now
+  *Update through Blender*: it stops only Cloth NeXt-owned solver
+  processes, closes the owned Bake companion, synchronizes the exact
+  selected Stable/Beta/Dev repository, and opens Blender's native
+  extension update view where the user completes the installation.
+  The misleading `INSTALLING`/`RESTART_REQUIRED` session states were
+  replaced by `READY_IN_BLENDER` (opening the update view proves no
+  installation). A structural policy test
+  (`tests/test_update_selfinstall_policy.py`) fails the suite if any
+  production code calls `package_install`, replaces the active extension
+  directory, extracts an update ZIP, or schedules a timer-deferred
+  self-install.
+
 ### Phase 3B — real material parameters
 
 - Real Shell/Static material mapping: Material, Damping, and Collision

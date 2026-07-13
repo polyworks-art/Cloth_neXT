@@ -183,11 +183,19 @@ def test_release_notes_url():
 def test_section_view_state_mapping():
     view = build_section_view(AddonUpdateState.UPDATE_AVAILABLE,
                               parse_version("0.2.0-beta.1"), "")
-    assert view.show_install and not view.show_open_extensions
+    assert view.show_update_handoff and not view.show_open_extensions
     assert "0.2.0-beta.1" in view.status_text
+    # honest wording: the update completes in Blender, not in Cloth NeXt
+    assert "native extension manager" in view.message
+    assert "0.2.0-beta.1 is available" in view.message
 
     view = build_section_view(AddonUpdateState.UP_TO_DATE, None, "")
-    assert not view.show_install and view.show_open_extensions
+    assert not view.show_update_handoff and view.show_open_extensions
+
+    view = build_section_view(AddonUpdateState.READY_IN_BLENDER, None, "m")
+    # opening the update view proves no installation: never claim one
+    assert "install" not in view.status_text.lower()
+    assert "restart" not in view.status_text.lower()
 
     view = build_section_view(AddonUpdateState.REPOSITORY_NOT_CONFIGURED, None, "x")
     assert view.show_repo_setup and view.message == "x"

@@ -60,8 +60,11 @@ class AddonUpdateState(Enum):
     SYNC_FAILED = auto()
     ONLINE_ACCESS_DISABLED = auto()
     INSTALL_BLOCKED = auto()
-    INSTALLING = auto()
-    RESTART_REQUIRED = auto()
+    # The handoff synchronized the repository and pointed the user at
+    # Blender's native update UI. Deliberately NOT named "installing" or
+    # "restart required": opening the update view proves nothing about an
+    # installation — only Blender's own UI completes it.
+    READY_IN_BLENDER = auto()
     UNAVAILABLE = auto()
     ERROR = auto()
 
@@ -201,9 +204,9 @@ STATUS_LABELS = {
     AddonUpdateState.REPOSITORY_DISABLED: "Repository disabled",
     AddonUpdateState.SYNC_FAILED: "Repository synchronization failed",
     AddonUpdateState.ONLINE_ACCESS_DISABLED: "Offline (online access disabled)",
-    AddonUpdateState.INSTALL_BLOCKED: "Install blocked",
-    AddonUpdateState.INSTALLING: "Installing…",
-    AddonUpdateState.RESTART_REQUIRED: "Restart Blender required",
+    AddonUpdateState.INSTALL_BLOCKED: "Update blocked",
+    AddonUpdateState.READY_IN_BLENDER: "Finish the update in Blender's "
+                                       "extension manager",
     AddonUpdateState.UNAVAILABLE: "No update information",
     AddonUpdateState.ERROR: "Error",
 }
@@ -213,7 +216,7 @@ STATUS_LABELS = {
 class UpdateSectionView:
     status_text: str
     message: str
-    show_install: bool
+    show_update_handoff: bool  # "Update through Blender" — never a self-install
     show_open_extensions: bool
     show_repo_setup: bool
     check_enabled: bool
@@ -224,12 +227,15 @@ def build_section_view(state: AddonUpdateState, latest: AddonVersion | None,
     status_text = STATUS_LABELS[state]
     if state is AddonUpdateState.UPDATE_AVAILABLE and latest is not None:
         status_text = f"{status_text}: {latest}"
-    show_install = state is AddonUpdateState.UPDATE_AVAILABLE
+    show_update_handoff = state is AddonUpdateState.UPDATE_AVAILABLE
+    if show_update_handoff and latest is not None and not message:
+        message = (f"Version {latest} is available. Updates are completed "
+                   "through Blender's native extension manager to avoid "
+                   "replacing the running add-on.")
     return UpdateSectionView(
         status_text=status_text,
         message=message,
-        show_install=show_install,
-        show_open_extensions=not show_install,
+        show_update_handoff=show_update_handoff,
+        show_open_extensions=not show_update_handoff,
         show_repo_setup=state is AddonUpdateState.REPOSITORY_NOT_CONFIGURED,
-        check_enabled=state not in (AddonUpdateState.CHECKING,
-                                    AddonUpdateState.INSTALLING))
+        check_enabled=state is not AddonUpdateState.CHECKING)

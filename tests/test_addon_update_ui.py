@@ -134,7 +134,7 @@ def test_install_blocked_when_online_access_disabled(blender_env):
     set_channel(env)
     add_repo(env, BETA_URL)
     updater(env).session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = updater(env).CLOTHNEXT_OT_addon_update_install()
+    op = updater(env).CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert updater(env).session().state is AddonUpdateState.ONLINE_ACCESS_DISABLED
     env.registration.unregister()
@@ -270,7 +270,7 @@ def test_install_blocked_in_every_unsafe_application_state(blender_env, monkeypa
             continue
         module.session().state = AddonUpdateState.UPDATE_AVAILABLE
         monkeypatch.setattr(module, "application_state_provider", lambda s=state: s)
-        op = module.CLOTHNEXT_OT_addon_update_install()
+        op = module.CLOTHNEXT_OT_addon_update_through_blender()
         assert op.execute(env.bpy.context) == {"CANCELLED"}, state
         assert module.session().state is AddonUpdateState.INSTALL_BLOCKED
         assert state.name in module.session().message
@@ -312,13 +312,32 @@ def test_owned_solver_stopped_before_blender_update_external_never(blender_env, 
     monkeypatch.setattr(module, "application_state_provider",
                         lambda: ApplicationState.STOPPED)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
     assert "owned.stop" in names
     assert "external.stop" not in names
     assert not external.log or all(n != "external.stop" for n, _ in external.log)
     assert names.index("owned.stop") < names.index("extensions.repo_sync")
+    env.registration.unregister()
+
+
+def test_handoff_quiesces_preview_and_companion_safely(blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    set_channel(env)
+    add_repo(env, BETA_URL)
+    module = updater(env)
+    import cloth_next.blender.bake_preview as bake_preview
+    import cloth_next.blender.companion_manager as companion_manager
+    calls = []
+    monkeypatch.setattr(bake_preview, "stop", lambda: calls.append("preview"))
+    monkeypatch.setattr(companion_manager, "shutdown",
+                        lambda: calls.append("companion"))
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"FINISHED"}
+    assert calls == ["preview", "companion"]
     env.registration.unregister()
 
 
@@ -340,60 +359,118 @@ def test_install_aborts_when_owned_solver_does_not_exit(blender_env):
     module.register_owned_process_manager(StuckManager(),
                                           ConnectionOwnership.OWNED_PROCESS)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is AddonUpdateState.INSTALL_BLOCKED
     assert all(name != "extensions.repo_sync" for name, _kw in env.bpy.ops_log)
     env.registration.unregister()
 
 
-# --- Blender mechanism and fallback (items 19, 20, 21) -------------------------------
+# --- safe handoff: sync + native view, never a self-install (items 19-21) ------------
 
-def test_install_uses_blenders_extension_mechanism(blender_env):
+def test_handoff_syncs_exact_repo_and_opens_update_view(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env)
     add_repo(env, BETA_URL)
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    registry_before = list(env.bpy.registry)
+    timers_before = list(env.bpy.app.timers.functions)
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
+    # THE crash-hotfix invariant: Cloth NeXt never installs itself
+    assert "extensions.package_install" not in names
     assert "extensions.repo_sync" in names
-    assert "extensions.package_install" in names
+    assert "extensions.userpref_show_for_update" in names
     assert names.index("extensions.repo_sync") < names.index(
-        "extensions.package_install")
+        "extensions.userpref_show_for_update")
     ops = dict(env.bpy.ops_log)
     # repository identified by its resolved directory, never by an index
     # (repo_index counts only enabled/valid repositories and silently shifts)
     assert ops["extensions.repo_sync"] == {
         "repo_directory": "/fake/extensions/mod"}
-    assert ops["extensions.package_install"] == {
-        "repo_directory": "/fake/extensions/mod", "pkg_id": "cloth_next",
-        "enable_on_install": True}
-    assert module.session().state is AddonUpdateState.RESTART_REQUIRED
+    assert module.session().state is AddonUpdateState.READY_IN_BLENDER
+    # session wording never claims an installation happened
+    message = module.session().message.lower()
+    assert "synchronized" in message and "click update" in message
+    assert "was installed" not in message and "handed" not in message
+    # the operator returned without unregistering Cloth NeXt or scheduling
+    # any timer that could install later
+    assert env.bpy.registry == registry_before
+    assert env.bpy.app.timers.functions == timers_before
     env.registration.unregister()
 
 
-def test_install_never_upgrades_unrelated_extensions(blender_env):
+@pytest.mark.parametrize("channel,url", [
+    ("STABLE", STABLE_URL), ("BETA", BETA_URL),
+])
+def test_each_channel_syncs_only_its_exact_repository(blender_env, channel, url):
+    env = blender_env
+    env.registration.register()
+    set_channel(env, channel)
+    add_repo(env, STABLE_URL, directory="/fake/extensions/stable")
+    add_repo(env, BETA_URL, directory="/fake/extensions/beta")
+    add_repo(env, "https://example.invalid/other/index.json",
+             directory="/fake/extensions/other")
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"FINISHED"}
+    expected = ("/fake/extensions/stable" if channel == "STABLE"
+                else "/fake/extensions/beta")
+    synced = [kwargs for name, kwargs in env.bpy.ops_log
+              if name == "extensions.repo_sync"]
+    assert synced == [{"repo_directory": expected}]
+    names = [name for name, _kw in env.bpy.ops_log]
+    assert "extensions.package_install" not in names
+    assert "extensions.package_upgrade_all" not in names
+    assert "extensions.repo_sync_all" not in names
+    env.registration.unregister()
+
+
+def test_dev_channel_syncs_dev_repo_and_never_falls_back_to_beta(blender_env):
+    env = blender_env
+    env.registration.register()
+    env.bpy.context.preferences.addons["cloth_next"] = SimpleNamespace(
+        preferences=SimpleNamespace(update_channel="DEV",
+                                    developer_tools=True,
+                                    dev_channel_acknowledged=True))
+    add_repo(env, BETA_URL, directory="/fake/extensions/beta")
+    module = updater(env)
+    # Dev repo missing: visible failure, never the Beta repository
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"CANCELLED"}
+    assert module.session().state is \
+        AddonUpdateState.REPOSITORY_NOT_CONFIGURED
+    assert all(name != "extensions.repo_sync" for name, _kw in env.bpy.ops_log)
+    # Dev repo present: exactly the Dev directory is synchronized
+    add_repo(env, UpdateChannel.DEV.index_url,
+             directory="/fake/extensions/dev")
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"FINISHED"}
+    synced = [kwargs for name, kwargs in env.bpy.ops_log
+              if name == "extensions.repo_sync"]
+    assert synced == [{"repo_directory": "/fake/extensions/dev"}]
+    env.registration.unregister()
+
+
+def test_missing_repository_directory_is_handled_visibly(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env)
-    add_repo(env, "https://example.invalid/other/index.json",
-             directory="/fake/extensions/other")
-    add_repo(env, BETA_URL)
+    add_repo(env, BETA_URL, directory="")
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = module.CLOTHNEXT_OT_addon_update_install()
-    assert op.execute(env.bpy.context) == {"FINISHED"}
-    names = [name for name, _kw in env.bpy.ops_log]
-    assert "extensions.package_upgrade_all" not in names
-    assert "extensions.repo_sync_all" not in names
-    for name, kwargs in env.bpy.ops_log:
-        if name == "extensions.package_install":
-            assert kwargs["pkg_id"] == "cloth_next"
-        if name in ("extensions.repo_sync", "extensions.package_install"):
-            assert kwargs["repo_directory"] == "/fake/extensions/mod"
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"CANCELLED"}
+    assert module.session().state is \
+        AddonUpdateState.REPOSITORY_NOT_CONFIGURED
+    assert "directory" in module.session().message.lower()
+    assert all(name != "extensions.repo_sync" for name, _kw in env.bpy.ops_log)
     env.registration.unregister()
 
 
@@ -404,7 +481,7 @@ def test_install_distinguishes_disabled_repository(blender_env):
     add_repo(env, BETA_URL, enabled=False)
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is AddonUpdateState.REPOSITORY_DISABLED
     assert "enable" in module.session().message.lower()
@@ -412,7 +489,7 @@ def test_install_distinguishes_disabled_repository(blender_env):
     env.registration.unregister()
 
 
-def test_install_reports_sync_failure_distinctly(blender_env):
+def test_sync_failure_never_attempts_installation_or_opens_a_view(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env)
@@ -420,31 +497,35 @@ def test_install_reports_sync_failure_distinctly(blender_env):
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
     env.bpy.ops.extensions.repo_sync.raises = RuntimeError("connection refused")
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is AddonUpdateState.SYNC_FAILED
     assert "connection refused" in module.session().message
+    assert "unchanged" in module.session().message  # installation preserved
     names = [name for name, _kw in env.bpy.ops_log]
     assert "extensions.package_install" not in names
+    assert "extensions.userpref_show_for_update" not in names
     env.registration.unregister()
 
 
-def test_install_falls_back_to_blender_extensions_view(blender_env):
+def test_update_view_failure_shows_manual_path_without_self_install(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env)
     add_repo(env, BETA_URL)
     module = updater(env)
     module.session().state = AddonUpdateState.UPDATE_AVAILABLE
-    env.bpy.ops.extensions.package_install.raises = RuntimeError("no UI context")
-    op = module.CLOTHNEXT_OT_addon_update_install()
+    env.bpy.ops.extensions.userpref_show_for_update.raises = \
+        RuntimeError("no UI context")
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
     assert "extensions.repo_sync" in names  # the exact repo was synchronized
-    assert "extensions.userpref_show_for_update" in names
-    assert module.session().state is AddonUpdateState.UNAVAILABLE
-    assert "synchronized" in module.session().message.lower()
-    assert "click" in module.session().message.lower()
+    assert "extensions.package_install" not in names  # no fallback install
+    assert module.session().state is AddonUpdateState.READY_IN_BLENDER
+    message = module.session().message
+    assert "Get Extensions" in message  # the manual path
+    assert BETA_URL in message  # the selected channel URL
     env.registration.unregister()
 
 

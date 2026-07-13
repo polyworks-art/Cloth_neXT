@@ -120,8 +120,9 @@ def _addon_update_section_check(bpy, module_name: str) -> None:
     for url in repo_urls:
         assert repo_urls.count(url) == 1 or not url, f"duplicate repository {url}"
     # the public operators this feature relies on exist in this Blender
+    # (package_install is deliberately NOT relied upon: Cloth NeXt never
+    # installs its own package — see tests/test_update_selfinstall_policy.py)
     assert hasattr(bpy.ops.extensions, "repo_sync")
-    assert hasattr(bpy.ops.extensions, "package_install")
     assert hasattr(bpy.ops.extensions, "userpref_show_for_update")
     assert hasattr(bpy.ops.preferences, "extension_repo_add")
     # the repository is identified by its resolved directory (public RNA)

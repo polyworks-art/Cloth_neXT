@@ -2,17 +2,28 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Add-on update operators: status from the policy-defined channel index,
-installation exclusively through Blender's own extension mechanism.
+package replacement exclusively inside Blender's own extension manager.
+
+SELF-UPDATE SAFETY (the Phase-3B hotfix invariant): Cloth NeXt never
+installs, replaces, disables, reloads, or unregisters its own running
+extension package from its own Python stack. Invoking
+``bpy.ops.extensions.package_install(pkg_id="cloth_next")`` from a Cloth
+NeXt operator makes Blender disable/replace/re-enable the very extension
+whose code is still executing — a native-level module-lifetime hazard that
+can crash Blender and cannot be caught with try/except. Deferring the call
+through ``bpy.app.timers`` does not help: the extension is still enabled
+and loaded when the timer fires. The update action here is therefore a
+*handoff*: synchronize the exact channel repository, then open Blender's
+native extension update view where the user clicks Blender's own Update
+button. A structural policy test fails the suite if any production Cloth
+NeXt code calls ``package_install`` again.
 
 Public Blender 5.1.2 API used (verified by runtime introspection; see
 docs/LIMITATIONS.md for what is *not* public):
 
 - ``bpy.ops.preferences.extension_repo_add(name=, remote_url=, type='REMOTE')``
 - ``bpy.ops.extensions.repo_sync(repo_directory=)``
-- ``bpy.ops.extensions.package_install(repo_directory=, pkg_id=,
-  enable_on_install=)`` — the operator behind Blender's own per-package
-  "Update" button, so only Cloth NeXt is ever updated
-- ``bpy.ops.extensions.userpref_show_for_update()`` (fallback view)
+- ``bpy.ops.extensions.userpref_show_for_update()`` (the native update view)
 - ``bpy.context.preferences.extensions.repos`` RNA
   (name/module/remote_url/enabled/directory)
 - ``bpy.app.online_access``
@@ -22,14 +33,13 @@ RNA), never by an index: the ``repo_index`` operator parameters count only
 enabled repositories with valid settings, so an index into
 ``preferences.extensions.repos`` silently shifts as soon as any earlier
 repository is disabled — in real Blender 5.1.2 that raised
-"Repository not set". ``active_repo`` is UI state and is not touched.
+"Repository not set". The directory string is copied out of the RNA before
+any Blender operator runs; no RNA reference is retained across operator
+calls. ``active_repo`` is UI state and is not touched.
 
 Blender exposes no public operator or RNA to ask "does package X have an
 update?", so the Check action reads the channel ``index.json`` (official
-Blender-generated format, fixed project URL) in a worker thread. Blender's
-own ``repo_sync`` + ``package_install`` are invoked on the install path so
-the actual installation is performed and verified by Blender, never by
-Cloth NeXt itself.
+Blender-generated format, fixed project URL) in a worker thread.
 
 Never touched here: the separately installed PPF solver, its files, and its
 installation metadata. Add-on updates and solver updates stay separate.
@@ -161,12 +171,9 @@ def _blender_repo_sync(directory: str) -> None:
     bpy.ops.extensions.repo_sync(repo_directory=directory)
 
 
-def _blender_package_install(directory: str) -> None:
-    """Blender's own per-package update: install the latest Cloth NeXt from
-    exactly one repository. Never touches any other package or repository."""
-    bpy.ops.extensions.package_install(
-        repo_directory=directory, pkg_id=addon_updates.EXTENSION_ID,
-        enable_on_install=True)
+def _blender_show_update_view() -> None:
+    """Open Blender's native extension update view (never installs)."""
+    bpy.ops.extensions.userpref_show_for_update()
 
 
 class CLOTHNEXT_OT_addon_update_check(bpy.types.Operator):
@@ -259,11 +266,11 @@ class CLOTHNEXT_OT_addon_update_repo_setup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
-    """Install the available Cloth NeXt update through Blender's own extension system"""
+class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
+    """Synchronizes the selected Cloth NeXt repository and opens Blender's native extension update view. Cloth NeXt never replaces its own files while running"""
 
-    bl_idname = "clothnext.addon_update_install"
-    bl_label = "Install Update"
+    bl_idname = "clothnext.addon_update_through_blender"
+    bl_label = "Update through Blender"
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -271,6 +278,8 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
         return _session.state is AddonUpdateState.UPDATE_AVAILABLE
 
     def execute(self, context):
+        # 1-3: an update must be available (poll), the application must be in
+        # a safe state, and online access must be enabled.
         state = application_state_provider()
         if not can_start_addon_update(state):
             _session.state = AddonUpdateState.INSTALL_BLOCKED
@@ -282,17 +291,21 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
         if not _online_access_enabled():
             _session.state = AddonUpdateState.ONLINE_ACCESS_DISABLED
             _session.message = ("Enable 'Allow Online Access' in "
-                                "Preferences > System to install the update.")
+                                "Preferences > System to update.")
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
+        # 4-5: stop only Cloth NeXt-owned processes; never external servers.
+        # Caches, PC2 modifiers, and scene data are never touched.
         if not _shutdown_owned_solvers():
             _session.state = AddonUpdateState.INSTALL_BLOCKED
             _session.message = ("The Cloth NeXt solver process did not exit; "
                                 "stop it before updating.")
             self.report({"ERROR"}, _session.message)
             return {"CANCELLED"}
+        # Quiesce UI preview jobs and close the owned Bake companion.
         # Companion ownership is deliberately separate from solver ownership.
-        from . import companion_manager
+        from . import bake_preview, companion_manager
+        bake_preview.stop()
         companion_manager.shutdown()
         channel = selected_channel(context)
         if error := dev_access_error(context, channel):
@@ -300,6 +313,7 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
             _session.message = error
             self.report({"WARNING"}, error)
             return {"CANCELLED"}
+        # 6-7: the exact selected channel repository, never a substitute.
         repos = context.preferences.extensions.repos
         index = addon_updates.find_channel_repo(repos, channel)
         if index is None:
@@ -308,15 +322,16 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
                                 "configured in Blender.")
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
-        repo = repos[index]
-        if not getattr(repo, "enabled", False):
+        if not getattr(repos[index], "enabled", False):
             _session.state = AddonUpdateState.REPOSITORY_DISABLED
             _session.message = (f"The {channel.label} repository is disabled "
                                 "in Blender; enable it under Preferences > "
                                 "Get Extensions > Repositories.")
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
-        directory = getattr(repo, "directory", "") or ""
+        # Copy the directory string out of the RNA now; repository RNA may be
+        # mutated by the Blender operators below and is not referenced again.
+        directory = str(getattr(repos[index], "directory", "") or "")
         if not directory:
             _session.state = AddonUpdateState.REPOSITORY_NOT_CONFIGURED
             _session.message = (f"The {channel.label} repository has no valid "
@@ -324,33 +339,35 @@ class CLOTHNEXT_OT_addon_update_install(bpy.types.Operator):
                                 "Preferences > Get Extensions > Repositories.")
             self.report({"WARNING"}, _session.message)
             return {"CANCELLED"}
-        _session.state = AddonUpdateState.INSTALLING
+        # 8: synchronize exactly this repository through Blender.
         try:
             _blender_repo_sync(directory)
         except Exception as exc:  # noqa: BLE001 — a distinct, honest state
             _session.state = AddonUpdateState.SYNC_FAILED
             _session.message = (f"Blender could not synchronize the "
                                 f"{channel.label} repository ({exc}). Check "
-                                "the network connection and try again.")
+                                "the network connection and try again. The "
+                                "installed version is unchanged.")
             self.report({"ERROR"}, _session.message)
             return {"CANCELLED"}
+        # 9-11: open Blender's native update view and hand off. Installation,
+        # package replacement, and any disable/re-enable of Cloth NeXt happen
+        # exclusively inside Blender's own extension manager — never here.
         try:
-            _blender_package_install(directory)
-        except Exception as exc:  # noqa: BLE001 — fall back to Blender's own view
-            _session.state = AddonUpdateState.UNAVAILABLE
-            _session.message = ("Repository synchronized, but Blender's "
-                                f"automatic update could not run here ({exc}). "
-                                "Blender's extension update view was opened; "
-                                "click 'Update' on Cloth NeXt there.")
-            try:
-                bpy.ops.extensions.userpref_show_for_update()
-            except Exception:  # noqa: BLE001 — the message still tells the path
-                pass
+            _blender_show_update_view()
+        except Exception as exc:  # noqa: BLE001 — manual path, no self-install
+            _session.state = AddonUpdateState.READY_IN_BLENDER
+            _session.message = ("Repository synchronized, but the update view "
+                                f"could not be opened here ({exc}). Open "
+                                "Edit > Preferences > Get Extensions and "
+                                "click Update on Cloth NeXt. Channel URL: "
+                                f"{channel.index_url}")
             self.report({"WARNING"}, _session.message)
             return {"FINISHED"}
-        _session.state = AddonUpdateState.RESTART_REQUIRED
-        _session.message = ("The update was handed to Blender's extension "
-                            "system. Restart Blender to complete it.")
+        _session.state = AddonUpdateState.READY_IN_BLENDER
+        _session.message = ("Repository synchronized. Click Update on Cloth "
+                            "NeXt in Blender's Get Extensions view, then "
+                            "restart Blender when prompted.")
         self.report({"INFO"}, _session.message)
         return {"FINISHED"}
 
@@ -406,7 +423,7 @@ def shutdown(join_timeout: float = 5.0) -> None:
 CLASSES = (
     CLOTHNEXT_OT_addon_update_check,
     CLOTHNEXT_OT_addon_update_repo_setup,
-    CLOTHNEXT_OT_addon_update_install,
+    CLOTHNEXT_OT_addon_update_through_blender,
     CLOTHNEXT_OT_addon_open_extensions,
     CLOTHNEXT_OT_addon_open_release_notes,
 )

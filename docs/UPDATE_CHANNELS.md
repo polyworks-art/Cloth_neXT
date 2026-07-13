@@ -28,8 +28,19 @@ Either through Cloth NeXt (preferred):
 3. Click *Add Channel Repository* — this registers the channel URL in
    Blender's Get Extensions repositories. Setup happens only on this explicit
    click, never automatically, and never creates a duplicate repository.
-4. Click *Check for Updates*; *Install Update* hands installation to Blender's
-   own extension mechanism. Restart Blender afterwards.
+4. Click *Check for Updates*; when an update is available, click *Update
+   through Blender*. This synchronizes the selected channel repository and
+   opens Blender's native extension update view — Cloth NeXt itself never
+   downloads, installs, or replaces its own package. Complete the update by
+   clicking **Update** on Cloth NeXt in Blender's Get Extensions view, then
+   restart Blender when Blender prompts for it.
+
+Update checks and package installation are two separate lifecycles: Cloth
+NeXt only reads the channel `index.json` to *report* status; Blender's own
+extension manager performs the actual package replacement. Cloth NeXt never
+self-replaces while it is running — replacing the active extension from its
+own code can crash Blender at native level, which is why no in-add-on
+install button exists.
 
 Or manually:
 

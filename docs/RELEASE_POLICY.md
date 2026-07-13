@@ -180,7 +180,13 @@ solver files. URLs are documented in `docs/UPDATE_CHANNELS.md`.
 
 Cloth NeXt updates are installed exclusively through Blender's own extension update
 mechanism against the channel repositories. The add-on never replaces its own loaded
-extension directory. An add-on update must not start while the solver is starting or
+extension directory, and it never invokes
+`bpy.ops.extensions.package_install` for its own package id — installing the
+running extension from its own Python stack is a native module-lifetime hazard
+that can crash Blender (enforced by `tests/test_update_selfinstall_policy.py`).
+The in-add-on action is a handoff only: it synchronizes the exact selected
+channel repository and opens Blender's native extension update view, where the
+user completes the installation. An add-on update must not start while the solver is starting or
 running, a scene transfer, build, simulation, frame fetch, or cache write is active,
 or a cancellation is in progress (see `cloth_next/updater/addon_update_guard.py`).
 Before updating: finish or cancel the active solve, stop the owned solver process,
