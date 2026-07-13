@@ -221,6 +221,27 @@ def test_production_bake_is_responsive_modal_and_cleans_timer_once(
     assert manager.removed == 1
 
 
+def test_production_modal_timer_drains_results_if_app_timer_is_lost(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    calls = []
+    module._active_plan = SimpleNamespace()
+    monkeypatch.setattr(module, "_pump", lambda: calls.append("pump") or 0.2)
+    module.modal_lock.acquire("job", companion_ready_job_id="job")
+    operator = module.CLOTHNEXT_OT_bake_modal()
+    operator.job_id = "job"
+    operator._timer = object()
+    context = SimpleNamespace(
+        window_manager=SimpleNamespace(event_timer_remove=lambda _timer: None),
+        screen=SimpleNamespace(areas=[]))
+
+    assert operator.modal(context, SimpleNamespace(type="TIMER")) == {
+        "RUNNING_MODAL"}
+    assert calls == ["pump"]
+    module._active_plan = None
+    module.modal_lock.release("job")
+
+
 def test_cotton_and_custom_materials_reach_shared_payload(blender_env):
     env = blender_env; env.registration.register()
     cloth, collider = _objects(env)

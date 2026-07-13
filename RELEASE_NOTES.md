@@ -1,4 +1,14 @@
-# Cloth NeXt 0.3.0-dev.9 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.10 — experimental Dev test build
+
+## Build-worker failure delivery and diagnostics
+
+Production Bake now drains solver-worker results from its independent modal
+timer as well as Blender's application timer. If the PPF build worker exits
+early, the UI can no longer remain indefinitely on the last `BUILDING`
+snapshot after Blender silently removes an application timer. The terminal
+error is delivered through the shared controller, and its technical details
+are persisted as `worker-error.json` in the run directory before solver
+project cleanup removes the upstream logs.
 
 ## Visible and verified Pressure controls
 

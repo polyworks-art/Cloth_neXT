@@ -553,6 +553,20 @@ def _discard_incomplete(plan: RunPlan | None) -> None:
             try: target.unlink(missing_ok=True)
             except OSError: pass
 
+def _persist_worker_error(plan: RunPlan, summary: str, details: str) -> None:
+    """Keep the terminal cause after PPF project cleanup removes its logs."""
+    try:
+        plan.work_directory.mkdir(parents=True, exist_ok=True)
+        target = plan.work_directory / "worker-error.json"
+        temporary = target.with_name(
+            f".{target.name}.{uuid_module.uuid4().hex}.tmp")
+        temporary.write_text(json.dumps({
+            "summary": summary, "details": details, "time": time.time(),
+        }, indent=2), encoding="utf-8")
+        os.replace(temporary, target)
+    except OSError:
+        pass
+
 def _worker_main(plan: RunPlan) -> None:
     def emit(event) -> None:
         _queue.put(("event", event))
@@ -658,15 +672,18 @@ def _worker_main(plan: RunPlan) -> None:
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan)
-        _queue.put(("error", exc.record.user_message,
-                    f"{exc.record.technical_message}\n"
-                    f"Recommended: {exc.record.recommended_action}"))
+        details = (f"{exc.record.technical_message}\n"
+                   f"Recommended: {exc.record.recommended_action}")
+        _persist_worker_error(plan, exc.record.user_message, details)
+        _queue.put(("error", exc.record.user_message, details))
     except Exception as exc:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan)
-        _queue.put(("error", "The solver test failed unexpectedly.",
-                    f"{type(exc).__name__}: {exc}"))
+        details = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+        _persist_worker_error(plan, "The solver test failed unexpectedly.",
+                              details)
+        _queue.put(("error", "The solver test failed unexpectedly.", details))
 
 
 def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> dict[str, float]:
@@ -1391,6 +1408,9 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             request_cancel()
             return {"RUNNING_MODAL"}
         if event.type == "TIMER":
+            if _active_plan is not None:
+                _pump()
+                snapshot = shared_controller.snapshot()
             for area in getattr(context.screen, "areas", ()):
                 area.tag_redraw()
         if snapshot.state in {BakeState.FINISHED, BakeState.CANCELLED,
