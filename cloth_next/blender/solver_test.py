@@ -422,10 +422,14 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
                                  solver_world_matrix(collider_world))
     data_payload, data_hash = encode_scene(scene_cloth, scene_collider)
     frame_count = bake_range.output_count
+    try:
+        quality = object_properties.solver_quality_from(scene)
+    except ValueError as exc:
+        raise SceneValidationError(str(exc)) from exc
     settings = SimulationSettings(
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
-        else (0.0, 0.0, 0.0))
+        else (0.0, 0.0, 0.0), quality=quality)
     param_payload, param_hash = encode_param(
         settings, cloth_obj.name, cloth_uuid, collider_obj.name,
         collider_uuid, shell=shell, static=static,
@@ -433,7 +437,7 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
     fingerprint = material_formatting.settings_fingerprint(
         shell, static, contact_enabled, preset_identifier,
         bake_start=bake_range.start, bake_end=bake_range.end,
-        pinning_fingerprint=pin_snapshot.fingerprint)
+        pinning_fingerprint=pin_snapshot.fingerprint, quality=quality)
     material_meta = {
         "version": 1,
         "fingerprint": fingerprint,
@@ -441,6 +445,15 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
         "contact_enabled": contact_enabled,
         "shell": shell_wire_params(shell),
         "static": static_wire_params(static),
+        "quality": {
+            "dt": settings.quality.time_step,
+            "min-newton-steps": settings.quality.min_newton_steps,
+            "cg-max-iter": settings.quality.cg_max_iter,
+            "cg-tol": settings.quality.cg_tol,
+        },
+        "pressure": {"enabled": shell.enable_inflate,
+                     "stored": shell.inflate_pressure,
+                     "wire": shell_wire_params(shell)["pressure"]},
         "blender_start_frame": bake_range.start,
         "blender_end_frame": bake_range.end,
         "output_frame_count": frame_count,
@@ -964,16 +977,17 @@ def current_settings_fingerprint(context) -> str | None:
         shell, static, contact_enabled, preset = _snapshot_materials(
             cloth_obj, collider_obj)
         pin_snapshot=_snapshot_static_pin(cloth_obj)
+        quality=object_properties.solver_quality_from(context.scene)
         pin_mode=str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))
         pin_fingerprint=hashlib.sha256(
             f"{pin_snapshot.fingerprint}\0{pin_mode}".encode("utf-8")).hexdigest()
-    except SceneValidationError:
+    except (SceneValidationError, ValueError):
         return None
     return material_formatting.settings_fingerprint(
         shell, static, contact_enabled, preset,
         bake_start=int(cloth_obj.cloth_next.bake_start),
         bake_end=int(cloth_obj.cloth_next.bake_end),
-        pinning_fingerprint=pin_fingerprint)
+        pinning_fingerprint=pin_fingerprint, quality=quality)
 
 
 def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
@@ -999,7 +1013,8 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
         frame_count=bake_range.output_count,
         fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
-        else (0.0, 0.0, 0.0))
+        else (0.0, 0.0, 0.0),
+        quality=object_properties.solver_quality_from(scene))
     payload = build_param_payload(
         settings, cloth_obj.name, "inspect-cloth",
         collider_obj.name, "inspect-collider",
@@ -1015,6 +1030,10 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
             material_formatting.static_wire_rows(static):
         lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
     wire_scene = payload["scene"]
+    lines.append(f"Solver Quality — PPF dt: {wire_scene['dt']}, "
+                 f"min-newton-steps: {wire_scene['min-newton-steps']}, "
+                 f"cg-max-iter: {wire_scene['cg-max-iter']}, "
+                 f"cg-tol: {wire_scene['cg-tol']}")
     lines.append(f"Scene — frames: {wire_scene['frames']}, "
                  f"fps: {wire_scene['fps']}, "
                  f"friction-mode: {wire_scene['friction-mode']}, "

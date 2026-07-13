@@ -33,6 +33,6 @@ def test_release_versions_remain_consistent_beta_or_rc():
     compatibility=json.loads((package/"solver_compatibility.json").read_text("utf-8"))
     version=manifest["version"]
     assert re.fullmatch(
-        r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:beta|rc)\.[1-9]\d*",
+        r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:dev|beta|rc)\.[1-9]\d*",
         version)
     assert compatibility["cloth_next_version"] == version

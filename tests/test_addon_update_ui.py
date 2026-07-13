@@ -43,6 +43,12 @@ def updater(env):
     return env.addon_update_operators
 
 
+def mark_update_available(module):
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    module.session().latest = parse_version("99.0.0-beta.1")
+    module.refresh_update_session = lambda *_args: None
+
+
 def run_check(env):
     op = updater(env).CLOTHNEXT_OT_addon_update_check()
     result = op.execute(env.bpy.context)
@@ -133,7 +139,7 @@ def test_install_blocked_when_online_access_disabled(blender_env):
     env.bpy.app.online_access = False
     set_channel(env)
     add_repo(env, BETA_URL)
-    updater(env).session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(updater(env))
     op = updater(env).CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert updater(env).session().state is AddonUpdateState.ONLINE_ACCESS_DISABLED
@@ -268,7 +274,7 @@ def test_install_blocked_in_every_unsafe_application_state(blender_env, monkeypa
     for state in ApplicationState:
         if state in UPDATE_SAFE_STATES:
             continue
-        module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+        mark_update_available(module)
         monkeypatch.setattr(module, "application_state_provider", lambda s=state: s)
         op = module.CLOTHNEXT_OT_addon_update_through_blender()
         assert op.execute(env.bpy.context) == {"CANCELLED"}, state
@@ -311,7 +317,7 @@ def test_owned_solver_stopped_before_blender_update_external_never(blender_env, 
     # still be stopped (defense in depth), an external server never.
     monkeypatch.setattr(module, "application_state_provider",
                         lambda: ApplicationState.STOPPED)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     names = [name for name, _kw in env.bpy.ops_log]
@@ -334,7 +340,7 @@ def test_handoff_quiesces_preview_and_companion_safely(blender_env, monkeypatch)
     monkeypatch.setattr(bake_preview, "stop", lambda: calls.append("preview"))
     monkeypatch.setattr(companion_manager, "shutdown",
                         lambda: calls.append("companion"))
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     assert calls == ["preview", "companion"]
@@ -358,7 +364,7 @@ def test_install_aborts_when_owned_solver_does_not_exit(blender_env):
 
     module.register_owned_process_manager(StuckManager(),
                                           ConnectionOwnership.OWNED_PROCESS)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is AddonUpdateState.INSTALL_BLOCKED
@@ -374,7 +380,7 @@ def test_handoff_syncs_exact_repo_and_opens_update_view(blender_env):
     set_channel(env)
     add_repo(env, BETA_URL)
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     registry_before = list(env.bpy.registry)
     timers_before = list(env.bpy.app.timers.functions)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
@@ -415,7 +421,7 @@ def test_each_channel_syncs_only_its_exact_repository(blender_env, channel, url)
     add_repo(env, "https://example.invalid/other/index.json",
              directory="/fake/extensions/other")
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     expected = ("/fake/extensions/stable" if channel == "STABLE"
@@ -440,7 +446,7 @@ def test_dev_channel_syncs_dev_repo_and_never_falls_back_to_beta(blender_env):
     add_repo(env, BETA_URL, directory="/fake/extensions/beta")
     module = updater(env)
     # Dev repo missing: visible failure, never the Beta repository
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is \
@@ -449,7 +455,7 @@ def test_dev_channel_syncs_dev_repo_and_never_falls_back_to_beta(blender_env):
     # Dev repo present: exactly the Dev directory is synchronized
     add_repo(env, UpdateChannel.DEV.index_url,
              directory="/fake/extensions/dev")
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     synced = [kwargs for name, kwargs in env.bpy.ops_log
@@ -464,7 +470,7 @@ def test_missing_repository_directory_is_handled_visibly(blender_env):
     set_channel(env)
     add_repo(env, BETA_URL, directory="")
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is \
@@ -480,7 +486,7 @@ def test_install_distinguishes_disabled_repository(blender_env):
     set_channel(env)
     add_repo(env, BETA_URL, enabled=False)
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
     assert module.session().state is AddonUpdateState.REPOSITORY_DISABLED
@@ -495,7 +501,7 @@ def test_sync_failure_never_attempts_installation_or_opens_a_view(blender_env):
     set_channel(env)
     add_repo(env, BETA_URL)
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     env.bpy.ops.extensions.repo_sync.raises = RuntimeError("connection refused")
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"CANCELLED"}
@@ -514,7 +520,7 @@ def test_update_view_failure_shows_manual_path_without_self_install(blender_env)
     set_channel(env)
     add_repo(env, BETA_URL)
     module = updater(env)
-    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    mark_update_available(module)
     env.bpy.ops.extensions.userpref_show_for_update.raises = \
         RuntimeError("no UI context")
     op = module.CLOTHNEXT_OT_addon_update_through_blender()

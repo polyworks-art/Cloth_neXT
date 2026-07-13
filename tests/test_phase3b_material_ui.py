@@ -85,7 +85,6 @@ def test_old_placeholder_properties_are_gone():
                       "volume_conservation", "rest_shape",
                       "CLOTHNEXT_PG_quality_settings",
                       "CLOTHNEXT_PG_physical_settings",
-                      "CLOTHNEXT_PG_pressure_settings",
                       "CLOTHNEXT_PG_shape_settings",
                       "CLOTHNEXT_PG_cache_settings"):
         assert forbidden not in source, forbidden
@@ -291,7 +290,8 @@ def test_material_panel_displays_artist_facing_names(blender_env):
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
                                   "stretch_limit_enabled",
-                                  "maximum_stretch_percent"]
+                                  "maximum_stretch_percent",
+                                  "enable_inflate", "inflate_pressure"]
     assert "Fabric Behavior" in panel.layout.labels
     assert "Stretch Protection" in panel.layout.labels
     env.registration.unregister()

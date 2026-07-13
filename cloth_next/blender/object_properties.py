@@ -25,6 +25,13 @@ import bpy
 from ..materials import (MODEL_FABRIC, MODEL_SHAPE_PRESERVING,
                          ShellMaterialSettings, StaticMaterialSettings)
 from ..materials import presets as material_presets
+from ..solver_quality import (DEFAULT_CG_MAX_ITER, DEFAULT_CG_TOL,
+                              DEFAULT_MIN_NEWTON_STEPS, DEFAULT_TIME_STEP,
+                              MAX_CG_MAX_ITER, MAX_CG_TOL,
+                              MAX_NEWTON_STEPS, MAX_TIME_STEP,
+                              MIN_CG_MAX_ITER, MIN_CG_TOL,
+                              MIN_NEWTON_STEPS, MIN_TIME_STEP,
+                              SolverQualitySettings)
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
@@ -216,6 +223,37 @@ class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
                     "seconds. Technical PPF parameter: bending-damping")
 
 
+class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
+    enable_inflate: bpy.props.BoolProperty(
+        name="Enable Pressure", default=False,
+        description="Apply uniform pressure along the Cloth mesh surface "
+                    "normals. Consistent normals and a closed mesh are "
+                    "recommended for balloon-like results")
+    inflate_pressure: bpy.props.FloatProperty(
+        name="Pressure", default=0.0, min=0.0, soft_max=100.0, precision=3,
+        description="Uniform pressure along the Cloth surface normals. "
+                    "Technical PPF parameter: pressure")
+
+
+class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
+    time_step: bpy.props.FloatProperty(
+        name="Time Step", default=DEFAULT_TIME_STEP,
+        min=MIN_TIME_STEP, max=MAX_TIME_STEP, precision=5,
+        description="Scene-wide solver time step in seconds; technical PPF parameter: dt")
+    min_newton_steps: bpy.props.IntProperty(
+        name="Minimum Newton Steps", default=DEFAULT_MIN_NEWTON_STEPS,
+        min=MIN_NEWTON_STEPS, max=MAX_NEWTON_STEPS,
+        description="Scene-wide minimum nonlinear solver steps; technical PPF parameter: min-newton-steps")
+    cg_max_iter: bpy.props.IntProperty(
+        name="PCG Max Iterations", default=DEFAULT_CG_MAX_ITER,
+        min=MIN_CG_MAX_ITER, max=MAX_CG_MAX_ITER,
+        description="Scene-wide PCG iteration limit; technical PPF parameter: cg-max-iter")
+    cg_tol: bpy.props.FloatProperty(
+        name="PCG Tolerance", default=DEFAULT_CG_TOL,
+        min=MIN_CG_TOL, max=MAX_CG_TOL, precision=5,
+        description="Scene-wide PCG convergence tolerance; technical PPF parameter: cg-tol")
+
+
 class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
     """Contact values; on a Collider these are the STATIC group values."""
 
@@ -263,6 +301,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         description="How Cloth NeXt treats this object in a simulation")
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
+    pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False,
@@ -311,7 +350,20 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
         collision_gap=float(collision.collision_gap),
         surface_offset=float(collision.surface_offset),
         stretch_limit_enabled=bool(material.stretch_limit_enabled),
-        maximum_stretch_percent=float(material.maximum_stretch_percent))
+        maximum_stretch_percent=float(material.maximum_stretch_percent),
+        enable_inflate=bool(settings.pressure.enable_inflate),
+        inflate_pressure=float(settings.pressure.inflate_pressure))
+
+
+def solver_quality_from(scene) -> SolverQualitySettings:
+    quality = getattr(scene, "cloth_next_quality", None)
+    if quality is None:
+        return SolverQualitySettings()
+    return SolverQualitySettings(
+        time_step=float(quality.time_step),
+        min_newton_steps=int(quality.min_newton_steps),
+        cg_max_iter=int(quality.cg_max_iter),
+        cg_tol=float(quality.cg_tol))
 
 
 def static_settings_from(settings) -> StaticMaterialSettings:
@@ -337,12 +389,19 @@ def attach_to_object() -> None:
     """Attach the settings to every object; requires the class registered."""
     bpy.types.Object.cloth_next = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_object_settings)
+    bpy.types.Scene.cloth_next_quality = bpy.props.PointerProperty(
+        type=CLOTHNEXT_PG_solver_quality_settings)
 
 
 def detach_from_object() -> None:
+    if hasattr(bpy.types.Scene, "cloth_next_quality"):
+        del bpy.types.Scene.cloth_next_quality
     if hasattr(bpy.types.Object, "cloth_next"):
         del bpy.types.Object.cloth_next
 
 
 CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
-           CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_object_settings)
+           CLOTHNEXT_PG_pressure_settings,
+           CLOTHNEXT_PG_collision_settings,
+           CLOTHNEXT_PG_solver_quality_settings,
+           CLOTHNEXT_PG_object_settings)

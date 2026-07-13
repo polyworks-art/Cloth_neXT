@@ -126,9 +126,12 @@ def make_module() -> types.ModuleType:
         def remove(cls, draw_func):
             cls.draw._draw_funcs.remove(draw_func)
 
+    class Scene:
+        pass
+
     types_module = types.SimpleNamespace(
         PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel, Menu=Menu,
-        AddonPreferences=AddonPreferences, Object=Object,
+        AddonPreferences=AddonPreferences, Object=Object, Scene=Scene,
         PHYSICS_PT_add=PHYSICS_PT_add)
 
     props_module = types.SimpleNamespace(

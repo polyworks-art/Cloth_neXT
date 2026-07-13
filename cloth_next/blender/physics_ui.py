@@ -260,6 +260,20 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                                f"frames · {model.cache_label}")
         except solver_test.SceneValidationError:
             summary.label(text=model.cache_label)
+        quality_box = layout.column(align=True)
+        quality_box.label(text="Solver Quality · Scene-wide")
+        quality_box.use_property_split = True
+        quality_box.use_property_decorate = False
+        quality = getattr(context.scene, "cloth_next_quality", None)
+        if quality is None:
+            return
+        quality_box.label(text="Basic")
+        quality_box.prop(quality, "time_step")
+        quality_box.prop(quality, "min_newton_steps")
+        advanced = quality_box.column(align=True)
+        advanced.label(text="Advanced")
+        advanced.prop(quality, "cg_max_iter")
+        advanced.prop(quality, "cg_tol")
 
 
 @dataclass(frozen=True, slots=True)
@@ -426,6 +440,16 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         row = protection.row()
         row.enabled = material.stretch_limit_enabled
         row.prop(material, "maximum_stretch_percent")
+        pressure = context.object.cloth_next.pressure
+        pressure_box = layout.box()
+        pressure_box.label(text="Pressure")
+        pressure_box.prop(pressure, "enable_inflate")
+        pressure_row = pressure_box.row()
+        pressure_row.enabled = pressure.enable_inflate
+        pressure_row.prop(pressure, "inflate_pressure")
+        pressure_box.label(text="Use consistent normals; closed meshes are "
+                                "recommended for balloon-like results.",
+                           icon="INFO")
 
 
 class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):

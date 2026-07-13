@@ -31,7 +31,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 
 SHELL_KEYS = ["model", "density", "young-mod", "poiss-rat", "bend",
               "deformation-damping", "bending-damping", "friction",
-              "contact-gap", "contact-offset", "strain-limit"]
+              "contact-gap", "contact-offset", "strain-limit", "pressure"]
 STATIC_KEYS = ["friction", "contact-gap", "contact-offset"]
 
 
@@ -96,7 +96,10 @@ def test_param_payload_structure_and_values():
     scene = payload["scene"]
     assert scene["frames"] == 7  # Blender 1..8 -> solver 0..7
     assert scene["fps"] == 24
-    assert scene["dt"] == 1e-3
+    assert scene["dt"] == float32_wire(1e-3)
+    assert scene["min-newton-steps"] == 1
+    assert scene["cg-max-iter"] == 10000
+    assert scene["cg-tol"] == float32_wire(0.001)
     assert scene["gravity"] == [0.0, -9.81, -0.0]
     assert scene["friction-mode"] == "min"
     assert scene["disable-contact"] is False
@@ -211,7 +214,7 @@ def test_no_unsupported_ui_property_enters_the_payload():
     payload = _micro_payload()
     assert list(payload["group"][0][0]) == SHELL_KEYS
     assert list(payload["group"][1][0]) == STATIC_KEYS
-    for forbidden in ("stretch", "shear", "thickness", "pressure",
+    for forbidden in ("stretch", "shear", "thickness",
                       "velocity", "self-collision", "stitch-stiffness",
                       "shrink", "plasticity"):
         assert forbidden not in payload["group"][0][0]

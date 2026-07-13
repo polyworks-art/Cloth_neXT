@@ -3,7 +3,8 @@
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
 Current production scope is one Cloth and one static Collider. Animated
-colliders, pressure, and pinning are unsupported. Bake ranges are limited to
+colliders and animated pressure are unsupported. Uniform object-local shell
+pressure and pinning are supported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
 
 When automatic Bake-window launch is enabled, inability to create a visible,
@@ -40,7 +41,7 @@ into Blender-only progress without a global workflow lock.
   delivery or a stable frame cadence; UI wording remains Buffered Live/Follow Solver.
 - PC2 is proven by the official client for constant topology, not yet selected through
   a Cloth NeXt integration test. It cannot represent topology-changing tearing.
-- Pressure is verified as a uniform shell parameter. Target volume, compressibility,
+- Pressure is implemented as a uniform shell parameter. Target volume, compressibility,
   gas behavior and pressure animation are not yet verified and must not be exposed.
 - Independent Blender-style self-collision controls and tension/compression/shear
   stiffness mappings are not established. PPF contact is unified; fake mappings are
@@ -134,8 +135,9 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   range with a 10,000-output-frame safety limit.
 - No pins, pressure, shrink, stitching, plasticity, tearing, animated
   colliders, multiple cloths/colliders, solids, rods, sand, PDRD, dynamic
-  parameter animation, or Quality (substeps/iterations) mapping yet; those
-  controls are hidden rather than shown as fake settings.
+  parameter animation, or a separate substeps control. Time Step/Newton/PCG
+  Quality and uniform Pressure use their verified PPF keys; unsupported
+  controls remain hidden rather than shown as fake settings.
 - Playback is constant-topology PC2. Bake Start is the exported initial state;
   solver step `n` maps to Blender frame `Bake Start + n`.
 - GPU telemetry depends on available NVIDIA `nvidia-smi` tooling and may be
@@ -150,7 +152,7 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   guarantees for every mesh scale, resolution, or scene setup.
 - Static hard Pinning through one Blender vertex group is supported. Pin
   indices require topology-preserving evaluated Cloth geometry. Animated pins,
-  timed release, soft Pull, multiple pin groups, animated colliders, Pressure,
+  timed release, soft Pull, multiple pin groups, animated colliders, animated Pressure,
   and native Blender Cloth remain unsupported.
 - Cache invalidation is a minimal versioned material fingerprint (object
   property + `*.meta.json` sidecar) that marks a result stale; the full

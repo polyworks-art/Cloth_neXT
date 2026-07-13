@@ -42,6 +42,7 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
               "world units"),
     FieldInfo("surface_offset", "Surface Offset", "contact-offset",
               "world units"),
+    FieldInfo("inflate_pressure", "Pressure", "pressure", "solver pressure"),
 )
 
 STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (
@@ -66,6 +67,8 @@ def shell_wire_rows(shell: ShellMaterialSettings) \
     rows: list[tuple[str, str, str]] = []
     for info in SHELL_FIELD_INFO:
         value = getattr(shell, info.field)
+        if info.field == "inflate_pressure" and not shell.enable_inflate:
+            value = 0.0
         if info.field == "model":
             display = WIRE_MODEL_NAMES[shell.model]
         else:
@@ -83,7 +86,7 @@ def static_wire_rows(static: StaticMaterialSettings) \
                  for info in STATIC_FIELD_INFO)
 
 
-FINGERPRINT_VERSION = 1
+FINGERPRINT_VERSION = 2
 
 
 def settings_fingerprint(shell: ShellMaterialSettings,
@@ -92,7 +95,8 @@ def settings_fingerprint(shell: ShellMaterialSettings,
                          preset_identifier: str,
                          *, bake_start: int | None = None,
                          bake_end: int | None = None,
-                         pinning_fingerprint: str = "") -> str:
+                         pinning_fingerprint: str = "",
+                         quality=None) -> str:
     """Deterministic digest of every solver-visible material setting.
 
     Any change to a mapped value produces a different digest, which marks
@@ -106,12 +110,19 @@ def settings_fingerprint(shell: ShellMaterialSettings,
                   for info in SHELL_FIELD_INFO},
         "shell_stretch_limit_enabled": shell.stretch_limit_enabled,
         "shell_maximum_stretch_percent": shell.maximum_stretch_percent,
+        "shell_enable_inflate": shell.enable_inflate,
         "static": {info.field: getattr(static, info.field)
                    for info in STATIC_FIELD_INFO},
         "bake_range": ([int(bake_start), int(bake_end)]
                        if bake_start is not None and bake_end is not None
                        else None),
         "pinning": pinning_fingerprint,
+        "quality": ({
+            "dt": quality.time_step,
+            "min-newton-steps": quality.min_newton_steps,
+            "cg-max-iter": quality.cg_max_iter,
+            "cg-tol": quality.cg_tol,
+        } if quality is not None else None),
     }
     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

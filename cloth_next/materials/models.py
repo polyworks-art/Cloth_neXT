@@ -55,6 +55,8 @@ class ShellMaterialSettings:
     surface_offset: float = 0.0           # world units -> PPF contact-offset
     stretch_limit_enabled: bool = False   # -> PPF strain-limit on/off
     maximum_stretch_percent: float = 5.0  # % -> PPF strain-limit fraction
+    enable_inflate: bool = False          # object-specific pressure toggle
+    inflate_pressure: float = 0.0         # -> PPF pressure
 
     def __post_init__(self) -> None:
         validate_shell_values(self)

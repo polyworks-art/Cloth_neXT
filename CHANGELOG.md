@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0-dev.2 — 2026-07-13 (Dev test channel)
+
+- Prevent older, equal, invalid, or ambiguous channel candidates from enabling
+  the update handoff; revalidate the channel index after repository sync.
+- Add object-local Cloth Pressure through properties, immutable model, SHELL
+  `pressure` encoding, diagnostics, metadata, and cache fingerprints.
+- Add scene-wide Time Step, Newton, and PCG Quality with verified PPF mappings.
+  `dt = 0.001` preserves existing Cloth NeXt behavior; no `substeps` key exists.
+
 All notable Cloth NeXt changes. Versioning follows
 [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md); the canonical version lives in
 `cloth_next/blender_manifest.toml`.

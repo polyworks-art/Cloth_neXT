@@ -95,7 +95,11 @@ each carry their own friction/gap/offset.
 
 | Value | PPF key | Source | Notes |
 |---|---|---|---|
-| Time step | `dt` | fixed `1e-3` s | solver default; not user-mapped |
+| Time Step | Scene `cloth_next_quality.time_step` | `dt` | float32 seconds; default `0.001`, range `0.001..0.01` |
+| Minimum Newton Steps | Scene `cloth_next_quality.min_newton_steps` | `min-newton-steps` | int; default `1`, range `1..64` |
+| PCG Max Iterations | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
+| PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
+| Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Gravity | `gravity` | Blender scene gravity | axis-swapped to solver Y-up |
 | Wind | `wind` | fixed `(0,0,0)` | no wind this phase |
 | Frame count | `frames` | Blender frames `N-1` | Blender 1..N → solver 0..N-1; development slice N=8 |
@@ -151,10 +155,11 @@ metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
-Pressure/inflate, pinning, shrink, stitching, plasticity, dynamic parameter
+Target volume/compressibility/gas pressure, shrink, stitching, plasticity, dynamic parameter
 animation, collision windows, multiple cloths/collider groups, solids,
 rods, sand, PDRD, arbitrary frame ranges, tearing, live preview, animated
-colliders, and Quality (substeps/iterations) mapping. No placeholder
+colliders. No stored or wire-level `substeps` value exists: `dt` is the sole
+authoritative time-resolution setting. No placeholder
 Stretch/Shear keys are ever emitted; the encoder sends exactly the audited
 key set and nothing else.
 

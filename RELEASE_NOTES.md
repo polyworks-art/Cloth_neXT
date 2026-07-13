@@ -1,3 +1,16 @@
+# Cloth NeXt 0.3.0-dev.2 — experimental Dev test build
+
+This Dev-only snapshot is for practical Blender 5.1.2 testing. It adds guarded
+no-downgrade update handoff, object-local uniform Pressure, and scene-wide
+Solver Quality (`dt`, Newton, and PCG controls). Pressure and all quality values
+participate in bake metadata and stale detection. `dt` defaults to `0.001` to
+preserve Cloth NeXt's established behavior; Newton/PCG defaults come from the
+pinned official PPF source at commit `7193f158`. No solver values were invented.
+
+It is not a Beta or Stable release. Back up scenes and caches before testing.
+
+## Previous beta notes
+
 # Cloth NeXt 0.3.0-beta.1
 
 This beta advances the real PPF workflow from the initial vertical slice to a

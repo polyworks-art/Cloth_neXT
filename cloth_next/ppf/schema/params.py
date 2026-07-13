@@ -43,17 +43,18 @@ from __future__ import annotations
 
 import math
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ...materials import (ShellMaterialSettings, StaticMaterialSettings,
                           WIRE_MODEL_NAMES)
 from ...materials.validation import (validate_shell_values,
                                      validate_static_values)
 from ...pinning import StaticPinConfig
+from ...solver_quality import (DEFAULT_SOLVER_QUALITY, SolverQualitySettings)
 from ..coordinates import blender_vector_to_ppf
 from . import envelope
 
-FIXED_TIME_STEP = 1e-3  # seconds; upstream solver default
+FIXED_TIME_STEP = DEFAULT_SOLVER_QUALITY.time_step  # compatibility export
 
 FRICTION_MODE = "min"  # fixed this phase; surfaced read-only in Advanced PPF
 
@@ -93,6 +94,8 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
         "contact-gap": float32_wire(shell.collision_gap),
         "contact-offset": float32_wire(shell.surface_offset),
         "strain-limit": float32_wire(strain_limit),
+        "pressure": float32_wire(shell.inflate_pressure
+                                 if shell.enable_inflate else 0.0),
     }
 
 
@@ -114,15 +117,13 @@ class SimulationSettings:
     frame_count: int  # Blender frames 1..frame_count
     fps: int
     gravity_blender: tuple[float, float, float]
-    time_step: float = FIXED_TIME_STEP
+    quality: SolverQualitySettings = field(default_factory=SolverQualitySettings)
 
     def __post_init__(self) -> None:
         if self.frame_count < 2:
             raise ParamEncodeError("frame_count must be at least 2")
         if self.fps < 1:
             raise ParamEncodeError("fps must be at least 1")
-        if not (self.time_step > 0 and math.isfinite(self.time_step)):
-            raise ParamEncodeError("time_step must be positive and finite")
         if len(self.gravity_blender) != 3 or any(
                 not math.isfinite(c) for c in self.gravity_blender):
             raise ParamEncodeError("gravity must be a finite 3-vector")
@@ -141,7 +142,10 @@ def build_param_payload(settings: SimulationSettings,
         if not value.strip():
             raise ParamEncodeError(f"{label} must not be empty")
     scene = {
-        "dt": float(settings.time_step),
+        "dt": float32_wire(settings.quality.time_step),
+        "min-newton-steps": int(settings.quality.min_newton_steps),
+        "cg-max-iter": int(settings.quality.cg_max_iter),
+        "cg-tol": float32_wire(settings.quality.cg_tol),
         "gravity": list(blender_vector_to_ppf(settings.gravity_blender)),
         "wind": [0.0, 0.0, 0.0],
         # Blender frames 1..N map to solver frames 0..N-1 (upstream contract).

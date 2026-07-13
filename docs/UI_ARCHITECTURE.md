@@ -28,6 +28,12 @@ Solver, Material, Damping, Collisions, Cache and Advanced PPF. Colliders show
 only Overview, Solver, Collisions, Cache and Advanced PPF. No N-panel is
 registered.
 
+Solver contains a scene-wide Solver Quality section: Time Step and Minimum
+Newton Steps (Basic), then PCG Max Iterations and PCG Tolerance (Advanced).
+They map directly to `dt`, `min-newton-steps`, `cg-max-iter`, and `cg-tol`;
+there is no stored `substeps` property. Material contains object-local Pressure
+for Cloth/SHELL only. Disabled Pressure encodes `pressure = 0.0`.
+
 Explicit Dev snapshots may also show one collapsed, Cloth-only Developer Tools
 subpanel under Cache. It is hidden by default and requires the existing
 Developer Tools preference. Real Solver Test and UI Diagnostics share one

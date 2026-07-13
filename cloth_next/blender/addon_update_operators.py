@@ -100,6 +100,7 @@ def _default_application_state() -> ApplicationState:
 
 # Replaceable provider so the future session state machine can plug in.
 application_state_provider = _default_application_state
+refresh_update_session = addon_updates.run_update_check
 
 
 def _shutdown_owned_solvers() -> bool:
@@ -275,9 +276,18 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session.state is AddonUpdateState.UPDATE_AVAILABLE
+        return (_session.state is AddonUpdateState.UPDATE_AVAILABLE
+                and _session.latest is not None
+                and _session.latest > INSTALLED_VERSION)
 
     def execute(self, context):
+        if not self.poll(context):
+            _session.state = AddonUpdateState.UP_TO_DATE
+            _session.message = ("No version newer than the installed "
+                                f"{INSTALLED_VERSION} is available; Blender's "
+                                "update view was not opened.")
+            self.report({"INFO"}, _session.message)
+            return {"CANCELLED"}
         # 1-3: an update must be available (poll), the application must be in
         # a safe state, and online access must be enabled.
         state = application_state_provider()
@@ -349,6 +359,21 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
                                 "the network connection and try again. The "
                                 "installed version is unchanged.")
             self.report({"ERROR"}, _session.message)
+            return {"CANCELLED"}
+        # The repository may have changed since the asynchronous status check.
+        # Re-read its authoritative index after sync and refuse a stale,
+        # equal, older, invalid, or ambiguous candidate before native handoff.
+        refresh_update_session(_session, channel, INSTALLED_VERSION)
+        if (_session.state is not AddonUpdateState.UPDATE_AVAILABLE
+                or _session.latest is None
+                or _session.latest <= INSTALLED_VERSION):
+            if _session.state is AddonUpdateState.UP_TO_DATE:
+                _session.message = ("Repository synchronized; it contains no "
+                                    "version newer than the installed "
+                                    f"{INSTALLED_VERSION}. Blender's update "
+                                    "view was not opened.")
+            self.report({"ERROR"} if _session.state is AddonUpdateState.ERROR
+                        else {"INFO"}, _session.message)
             return {"CANCELLED"}
         # 9-11: open Blender's native update view and hand off. Installation,
         # package replacement, and any disable/re-enable of Cloth NeXt happen

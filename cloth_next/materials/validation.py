@@ -95,6 +95,8 @@ SHELL_RULES: dict[str, NumericRule] = {
                                   _COLLISION_PANEL),
     "maximum_stretch_percent": NumericRule(0.0, True, 100.0, "%",
                                            _MATERIAL_PANEL),
+    "inflate_pressure": NumericRule(0.0, False, None, "solver pressure",
+                                     _MATERIAL_PANEL),
 }
 
 STATIC_RULES: dict[str, NumericRule] = {
@@ -117,6 +119,10 @@ def validate_shell_values(values) -> None:
         raise MaterialValidationError(
             "stretch_limit_enabled", values.stretch_limit_enabled,
             "True or False", _MATERIAL_PANEL)
+    if not isinstance(values.enable_inflate, bool):
+        raise MaterialValidationError(
+            "enable_inflate", values.enable_inflate, "True or False",
+            _MATERIAL_PANEL)
     for name, rule in SHELL_RULES.items():
         rule.check(name, getattr(values, name))
 

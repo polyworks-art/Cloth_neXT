@@ -140,6 +140,7 @@ def parse_index_versions(payload: dict,
     if not isinstance(data, list):
         raise ValueError("channel index has no 'data' package list")
     versions: list[AddonVersion] = []
+    seen: set[AddonVersion] = set()
     for entry in data:
         if not isinstance(entry, dict) or entry.get("id") != EXTENSION_ID:
             continue
@@ -154,6 +155,14 @@ def parse_index_versions(payload: dict,
             raise ValueError(f"the beta channel offers Dev snapshot {version}; refusing it")
         if channel is UpdateChannel.DEV and version.stage != "dev":
             raise ValueError(f"the Dev channel offers non-Dev version {version}; refusing it")
+        if version in seen:
+            raise ValueError(f"ambiguous channel index: Cloth NeXt {version} "
+                             "is listed more than once")
+        archive_url = entry.get("archive_url")
+        if archive_url is not None and str(version) not in str(archive_url):
+            raise ValueError(f"index/archive version mismatch for Cloth NeXt "
+                             f"{version}: {archive_url!r}")
+        seen.add(version)
         versions.append(version)
     return tuple(versions)
 

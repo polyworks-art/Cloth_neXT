@@ -139,8 +139,33 @@ def test_evaluate_update_states():
     assert str(latest) == "0.2.0-beta.2"
     state, latest = evaluate_update(installed, (parse_version("0.2.0-beta.1"),))
     assert state is AddonUpdateState.UP_TO_DATE
-    state, _latest = evaluate_update(installed, (parse_version("0.1.0-beta.1"),))
-    assert state is AddonUpdateState.UP_TO_DATE
+
+
+def test_no_downgrade_across_required_beta_and_dev_regressions():
+    cases = [
+        ("0.3.0-beta.1", ("0.2.0-beta.5",), AddonUpdateState.UP_TO_DATE),
+        ("0.3.0-beta.1", ("0.3.0-beta.2",), AddonUpdateState.UPDATE_AVAILABLE),
+        ("0.3.0-beta.2", ("0.3.0-beta.1",), AddonUpdateState.UP_TO_DATE),
+        ("0.3.0-dev.9", ("0.2.0-beta.5", "0.3.0-dev.1"),
+         AddonUpdateState.UP_TO_DATE),
+    ]
+    for installed, available, expected in cases:
+        state, _latest = evaluate_update(
+            parse_version(installed), tuple(map(parse_version, available)))
+        assert state is expected
+
+
+def test_ambiguous_and_archive_mismatched_index_is_visible_error():
+    duplicate = {"data": [
+        {"id": "cloth_next", "version": "0.3.0-beta.2"},
+        {"id": "cloth_next", "version": "0.3.0-beta.2"},
+    ]}
+    with pytest.raises(ValueError, match="ambiguous"):
+        parse_index_versions(duplicate, UpdateChannel.BETA)
+    mismatch = {"data": [{"id": "cloth_next", "version": "0.3.0-beta.2",
+                           "archive_url": "./cloth_next-0.2.0-beta.5.zip"}]}
+    with pytest.raises(ValueError, match="mismatch"):
+        parse_index_versions(mismatch, UpdateChannel.BETA)
 
 
 def test_run_update_check_success_and_error_paths():
