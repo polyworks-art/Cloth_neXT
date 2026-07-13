@@ -1,4 +1,14 @@
-# Cloth NeXt 0.3.0-dev.8 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.9 — experimental Dev test build
+
+## Visible and verified Pressure controls
+
+Pressure now has a dedicated Cloth-only Physics subpanel instead of being
+embedded at the bottom of Material. Enable Pressure and its numeric value are
+disabled during an active Bake, participate in material-change and cache-stale
+tracking, and are explicitly identified as PPF's SHELL `pressure` parameter.
+End-to-end payload coverage verifies that enabled values reach the complete PPF
+parameter payload with the official Float32 conversion; disabling Pressure
+sends zero.
 
 ## Blender 5.1 playback ownership fix
 

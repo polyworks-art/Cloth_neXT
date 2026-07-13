@@ -29,6 +29,18 @@ def test_pressure_defaults_and_exact_effective_wire_value():
     assert "pressure" not in static_wire_params(DEFAULT_STATIC_SETTINGS)
 
 
+def test_pressure_reaches_complete_ppf_parameter_payload():
+    shell = replace(DEFAULT_SHELL_SETTINGS, enable_inflate=True,
+                    inflate_pressure=12.5)
+    payload = build_param_payload(
+        SimulationSettings(2, 24, (0.0, 0.0, -9.81)),
+        "cloth", "cloth-id", "static", "static-id",
+        shell=shell, static=DEFAULT_STATIC_SETTINGS)
+    shell_params, names, uuids = payload["group"][0]
+    assert names == ["cloth"] and uuids == ["cloth-id"]
+    assert shell_params["pressure"] == float32_wire(12.5)
+
+
 def test_pressure_is_object_local_and_rejects_invalid_values():
     first = ShellMaterialSettings(enable_inflate=True, inflate_pressure=4.0)
     second = ShellMaterialSettings(enable_inflate=True, inflate_pressure=9.0)

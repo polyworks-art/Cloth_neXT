@@ -226,11 +226,13 @@ class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
 class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
     enable_inflate: bpy.props.BoolProperty(
         name="Enable Pressure", default=False,
+        update=_on_material_value_update,
         description="Apply uniform pressure along the Cloth mesh surface "
                     "normals. Consistent normals and a closed mesh are "
                     "recommended for balloon-like results")
     inflate_pressure: bpy.props.FloatProperty(
         name="Pressure", default=0.0, min=0.0, soft_max=100.0, precision=3,
+        update=_on_material_value_update,
         description="Uniform pressure along the Cloth surface normals. "
                     "Technical PPF parameter: pressure")
 

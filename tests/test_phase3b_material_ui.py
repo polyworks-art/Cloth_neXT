@@ -290,10 +290,22 @@ def test_material_panel_displays_artist_facing_names(blender_env):
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
                                   "stretch_limit_enabled",
-                                  "maximum_stretch_percent",
-                                  "enable_inflate", "inflate_pressure"]
+                                  "maximum_stretch_percent"]
     assert "Fabric Behavior" in panel.layout.labels
     assert "Stretch Protection" in panel.layout.labels
+    env.registration.unregister()
+
+
+def test_pressure_has_dedicated_cloth_panel(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, _unused = _settings(env)
+    panel = env.physics_ui.CLOTHNEXT_PT_pressure_controls()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.props == ["enable_inflate", "inflate_pressure"]
+    assert "Uniform Pressure" in panel.layout.labels
+    assert "Sent to PPF as the SHELL pressure parameter." in panel.layout.labels
     env.registration.unregister()
 
 

@@ -469,16 +469,31 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         row = protection.row()
         row.enabled = material.stretch_limit_enabled
         row.prop(material, "maximum_stretch_percent")
+
+
+class CLOTHNEXT_PT_pressure_controls(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Pressure"
+    bl_idname = "CLOTHNEXT_PT_pressure_controls"
+    cloth_only = True
+    header_icon = "pressure"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.label(text="Uniform Pressure",
+                     **icon_registry.icon_kwargs("pressure", "MOD_FLUIDSIM"))
         pressure = context.object.cloth_next.pressure
-        pressure_box = layout.box()
-        pressure_box.label(text="Pressure")
-        pressure_box.prop(pressure, "enable_inflate")
-        pressure_row = pressure_box.row()
-        pressure_row.enabled = pressure.enable_inflate
-        pressure_row.prop(pressure, "inflate_pressure")
-        pressure_box.label(text="Use consistent normals; closed meshes are "
-                                "recommended for balloon-like results.",
-                           icon="INFO")
+        controls = layout.column(align=True)
+        controls.enabled = not shared_controller.snapshot().active
+        controls.prop(pressure, "enable_inflate")
+        value = controls.row()
+        value.enabled = pressure.enable_inflate
+        value.prop(pressure, "inflate_pressure")
+        layout.label(text="Sent to PPF as the SHELL pressure parameter.")
+        layout.label(text="Use consistent normals; closed meshes are "
+                          "recommended for balloon-like results.",
+                     icon="INFO")
 
 
 class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
@@ -730,7 +745,8 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
-           CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
+           CLOTHNEXT_PT_material, CLOTHNEXT_PT_pressure_controls,
+           CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_advanced)
