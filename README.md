@@ -34,6 +34,13 @@ Cloth NeXt brings the external PPF Contact Solver into a workflow that feels fam
 
 It is designed for users who want powerful GPU-based cloth simulation while keeping a clear, Blender-focused setup with familiar object roles, accessible controls, and sensible defaults.
 
+The Physics Properties **Solver** panel is the normal artist-facing entry
+point: it reports solver readiness and provides Bake/Rebake/Cancel controls,
+material/cache summary, and synchronized progress. When enabled in Add-on
+Preferences, the reusable Bake companion opens automatically; Blender's HUD
+and Physics UI remain functional when that optional window is disabled or
+cannot be opened.
+
 Cloth NeXt also provides a more guided and streamlined alternative for artists who find the existing PPF Blender integration too technical or difficult to navigate, while the solver itself remains a separate, independently installed application.
 
 ### What it provides

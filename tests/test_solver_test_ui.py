@@ -50,7 +50,7 @@ def test_unregister_clears_solver_worker_timer_and_subscription(blender_env):
 
 def test_run_operator_reports_optional_companion_warning(blender_env, monkeypatch):
     module=blender_env.solver_test
-    monkeypatch.setattr(module,"start_run",lambda _context:"bundle unavailable")
+    monkeypatch.setattr(module,"start_run",lambda _context, **_kw:"bundle unavailable")
     op=module.CLOTHNEXT_OT_solver_test_run()
     assert op.execute(blender_env.bpy.context)=={"FINISHED"}
     assert op.reports[-1][0]=={"WARNING"}
@@ -61,3 +61,16 @@ def test_companion_ensure_running_reuses_existing(blender_env, monkeypatch):
     monkeypatch.setattr(manager,"running",lambda:True)
     monkeypatch.setattr(manager,"launch",lambda: (_ for _ in ()).throw(AssertionError("duplicate")))
     assert manager.ensure_running()==(True,"Bake window reused")
+
+def test_companion_replaces_exited_session_without_leaking(blender_env,
+                                                            monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    manager._process=SimpleNamespace(poll=lambda:1)
+    manager._server=SimpleNamespace()
+    manager._unsubscribe=lambda:None
+    calls=[]
+    monkeypatch.setattr(manager,"shutdown",lambda:calls.append("shutdown"))
+    monkeypatch.setattr(manager,"launch",lambda:calls.append("launch") or
+                        (True,"Bake window launched"))
+    assert manager.ensure_running()==(True,"Bake window launched")
+    assert calls==["shutdown","launch"]

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Run Real Solver Test: the Phase-3A end-to-end PPF run from Blender.
+"""Shared material-aware real PPF run service for Bake and diagnostics.
 
 Threading contract:
 - Blender's main thread validates the scene, builds the immutable
@@ -15,7 +15,8 @@ Threading contract:
   Mesh Cache modifier and sets the timeline — all on the main thread.
 
 This is a real simulation: no sleeps, no fake progress, no mocked solver.
-The production Bake workflow is unchanged; these are developer test actions.
+The production Bake operator and Developer Real Solver Test deliberately call
+the same :func:`start_run` service.
 """
 
 from __future__ import annotations
@@ -271,6 +272,11 @@ def build_run_plan(context) -> RunPlan:
             f"{REQUIRED_FRAME_START}-{REQUIRED_FRAME_END}; the scene has "
             f"{scene.frame_start}-{scene.frame_end}.")
     cloth_obj, collider_obj = _enabled_objects_by_role(context)
+    # Material validation is deliberately first after role/scope validation:
+    # even the solver version probe is a subprocess, so invalid mapped values
+    # must fail before resolution can launch it.
+    shell, static, contact_enabled, preset_identifier = _snapshot_materials(
+        cloth_obj, collider_obj)
     depsgraph = context.evaluated_depsgraph_get()
     cloth_vertices, cloth_triangles = _extract_mesh(cloth_obj, depsgraph,
                                                     needs_edges=True)
@@ -303,8 +309,6 @@ def build_run_plan(context) -> RunPlan:
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0))
-    shell, static, contact_enabled, preset_identifier = _snapshot_materials(
-        cloth_obj, collider_obj)
     param_payload, param_hash = encode_param(
         settings, cloth_obj.name, cloth_uuid, collider_obj.name,
         collider_uuid, shell=shell, static=static,
@@ -516,30 +520,23 @@ def run_active() -> bool:
     return _worker is not None and _worker.is_alive()
 
 
-def start_run(context) -> str:
-    """Validate, snapshot, and launch the real solver test (main thread)."""
+def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.BAKE) -> str:
+    """Validate, snapshot, and launch one real solver run (main thread)."""
     global _worker, _active_plan, _run_started_at
     import time as _time
     if run_active():
-        raise SceneValidationError("A solver test run is already active.")
+        raise SceneValidationError("A Cloth NeXt bake is already active.")
     snapshot = shared_controller.snapshot()
     if snapshot.state is not BakeState.IDLE:
         shared_controller.reset()
     shared_controller.transition(
-        BakeState.PREPARING, preview=False, job_kind=BakeJobKind.SOLVER_TEST,
+        BakeState.PREPARING, preview=False, job_kind=job_kind,
         status_message="Validating Blender scene",
         frame_start=REQUIRED_FRAME_START, frame_end=REQUIRED_FRAME_END)
     launch_warning = ""
     try:
-        prefs = context.preferences.addons[__package__.partition(".blender")[0]].preferences
-        auto_launch = bool(prefs.auto_launch_bake_window)
-        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
-    except (KeyError, AttributeError):
-        auto_launch = True
-    if auto_launch:
-        ok, message = companion_manager.ensure_running()
-        if not ok: launch_warning = message
-    try:
+        # Complete scene, scope, solver, and immutable material validation
+        # occurs before any companion, worker, socket, or PPF process starts.
         plan = build_run_plan(context)
     except (SceneValidationError, ClothNextError) as exc:
         message = (exc.record.user_message if isinstance(exc, ClothNextError)
@@ -548,6 +545,20 @@ def start_run(context) -> str:
                    if isinstance(exc, ClothNextError) else "")
         shared_controller.fail(message, details)
         raise
+    try:
+        prefs = context.preferences.addons[__package__.partition(".blender")[0]].preferences
+        auto_launch = bool(prefs.auto_launch_bake_window)
+        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
+    except (KeyError, AttributeError):
+        auto_launch = True
+    if auto_launch:
+        try:
+            ok, _message = companion_manager.ensure_running()
+        except Exception:  # noqa: BLE001 — optional window must never abort Bake
+            ok = False
+        if not ok:
+            launch_warning = ("Bake window could not be opened; simulation "
+                              "continues in Blender.")
     global _last_work_directory
     _last_work_directory = plan.work_directory
     shared_controller.transition(
@@ -565,8 +576,15 @@ def start_run(context) -> str:
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
     _worker = threading.Thread(target=_worker_main, args=(plan,),
-                               name="clothnext-solver-test", daemon=False)
-    _worker.start()
+                               name="clothnext-bake-worker", daemon=False)
+    try:
+        _worker.start()
+    except Exception as exc:  # noqa: BLE001 — no PPF process exists yet
+        _worker, _active_plan = None, None
+        shared_controller.fail("The Bake worker could not be started.", str(exc))
+        raise SceneValidationError(
+            "The Bake worker could not be started; no solver process was launched.") \
+            from exc
     if not bpy.app.timers.is_registered(_pump):
         bpy.app.timers.register(_pump, first_interval=0.1)
     return launch_warning
@@ -711,7 +729,7 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            warning = start_run(context)
+            warning = start_run(context, job_kind=BakeJobKind.SOLVER_TEST)
         except (SceneValidationError, ClothNextError) as exc:
             message = (exc.record.user_message
                        if isinstance(exc, ClothNextError) else str(exc))
@@ -722,6 +740,64 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
                         f"window could not be opened: {warning}")
         else:
             self.report({"INFO"}, "Real solver test started.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_bake(bpy.types.Operator):
+    """Bake the supported scene through the real external PPF solver"""
+
+    bl_idname = "clothnext.bake"
+    bl_label = "Bake"
+
+    @classmethod
+    def poll(cls, _context):
+        return not run_active() and not shared_controller.snapshot().active
+
+    def execute(self, context):
+        try:
+            warning = start_run(context, job_kind=BakeJobKind.BAKE)
+        except (SceneValidationError, ClothNextError) as exc:
+            message = (exc.record.user_message
+                       if isinstance(exc, ClothNextError) else str(exc))
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+        if warning:
+            self.report({"WARNING"}, warning)
+        else:
+            self.report({"INFO"}, "Cloth NeXt bake started.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_bake_cancel(bpy.types.Operator):
+    """Cancel the active Cloth NeXt bake"""
+
+    bl_idname = "clothnext.bake_cancel"
+    bl_label = "Cancel"
+
+    @classmethod
+    def poll(cls, _context):
+        return run_active() and shared_controller.snapshot().can_cancel
+
+    def execute(self, _context):
+        request_cancel()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_open_preferences(bpy.types.Operator):
+    """Open Blender preferences for Cloth NeXt solver configuration"""
+
+    bl_idname = "clothnext.open_preferences"
+    bl_label = "Open Add-on Preferences"
+
+    def execute(self, _context):
+        try:
+            bpy.ops.screen.userpref_show()
+            bpy.context.preferences.active_section = "ADDONS"
+            addon_show = getattr(bpy.ops.preferences, "addon_show", None)
+            if addon_show is not None:
+                addon_show(module=__package__.partition(".blender")[0])
+        except (AttributeError, RuntimeError):
+            self.report({"WARNING"}, "Open Edit > Preferences > Add-ons > Cloth NeXt.")
         return {"FINISHED"}
 
 
@@ -802,6 +878,8 @@ class CLOTHNEXT_OT_solver_test_open_logs(bpy.types.Operator):
         return {"FINISHED"}
 
 
-CLASSES = (CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
+CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_cancel,
+           CLOTHNEXT_OT_open_preferences,
+           CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
            CLOTHNEXT_OT_inspect_parameters)

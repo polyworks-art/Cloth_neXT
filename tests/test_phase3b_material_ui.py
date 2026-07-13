@@ -418,6 +418,24 @@ def test_validation_failure_starts_no_solver_worker(blender_env, monkeypatch):
     env.registration.unregister()
 
 
+def test_invalid_material_precedes_solver_resolution_process(blender_env,
+                                                              monkeypatch):
+    env = blender_env
+    env.registration.register()
+    cloth_obj, cloth_settings = _settings(env)
+    collider_obj, collider_settings = _settings(env)
+    cloth_settings.enabled = collider_settings.enabled = True
+    collider_settings.role = "COLLIDER"
+    cloth_settings.material.sideways_response = 0.75
+    context = _scene_context(env, cloth_obj, collider_obj)
+    monkeypatch.setattr(env.solver_test, "resolve_solver",
+                        lambda _context: (_ for _ in ()).throw(
+                            AssertionError("solver process probed first")))
+    with pytest.raises(env.solver_test.SceneValidationError):
+        env.solver_test.build_run_plan(context)
+    env.registration.unregister()
+
+
 def test_run_plan_carries_fingerprint_and_material_meta(blender_env):
     env = blender_env
     env.registration.register()

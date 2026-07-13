@@ -10,6 +10,20 @@ Solver, Material, Damping, Collisions, Cache and Advanced PPF. Colliders show
 only Overview, Solver, Collisions, Cache and Advanced PPF. No N-panel is
 registered.
 
+## Production Bake entry point
+
+`CLOTHNEXT_PT_solver` shows solver readiness without executable paths, the
+primary Bake/Rebake/Bake Again action, typed progress, Cancel, selected preset,
+supported counts, frames 1–8, and cache state. Unsupported scope disables Bake
+with an explicit reason; installation details remain in Add-on Preferences.
+
+Production Bake and Developer Real Solver Test call the same material-aware
+`solver_test.start_run` application service. The main thread validates scope
+and freezes Shell/Static settings before solver resolution, companion launch,
+worker creation, sockets, or PPF startup. The worker receives only the
+immutable `RunPlan`. The optional companion subscribes to the shared
+`BakeController`; it is never a second simulation authority.
+
 ## Phase 3B material UI
 
 Honest-controls policy: every visible, editable property maps to a real PPF

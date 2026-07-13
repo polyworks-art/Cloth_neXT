@@ -1,5 +1,14 @@
 # Cloth NeXt implementation plan
 
+## Phase 3B.1 production Bake entry — complete
+
+- Solver readiness, Bake/Rebake/Bake Again, typed progress, cancellation,
+  supported-scope summary, and cache state are implemented in Physics.
+- Production and developer actions share the immutable material-aware run
+  service and idempotent companion manager.
+- General production baking remains incomplete: the development slice is
+  still exactly one cloth, one static collider, and frames 1–8.
+
 ## 2.8B Simulation UI shell
 
 Status: automated implementation gates pass under Blender 5.1.2; final interactive

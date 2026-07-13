@@ -6,6 +6,16 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Added — production-facing Bake workflow
+
+- The Physics Properties Solver panel now provides the main Bake/Rebake/Bake
+  Again action, solver readiness, supported scene summary, typed progress,
+  cancellation, and cache state using the existing custom icon family.
+- Bake uses the same validated immutable Phase-3B material `RunPlan` as the
+  developer real-solver diagnostics. The optional Bake companion launches or
+  reuses according to Add-on Preferences; launch failure is a warning and the
+  simulation continues through Blender's HUD and Physics UI.
+
 ### Fixed — Dev repository duplicate package metadata
 
 - Dev repository generation now exposes only the newest `cloth_next`

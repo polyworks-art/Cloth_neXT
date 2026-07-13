@@ -22,6 +22,9 @@ once at import time — no Panel.draw ever reads the preset file.
 from __future__ import annotations
 
 import bpy
+import os
+from dataclasses import dataclass
+from pathlib import Path
 
 from . import icon_registry, physics_operators
 from ..bake.controller import shared_controller
@@ -154,8 +157,163 @@ class CLOTHNEXT_PT_overview(_ClothNextSubpanel, bpy.types.Panel):
 class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Solver"; bl_idname = "CLOTHNEXT_PT_solver"
     header_icon = "solver"
-    def draw(self, _context):
-        self.layout.label(text="Installation and compatibility are managed in Add-on Preferences.")
+    def draw(self, context):
+        from . import solver_test
+        layout = self.layout
+        status = _solver_status(context)
+        header = layout.column(align=True)
+        header.label(text="PPF Contact Solver",
+                     **icon_registry.icon_kwargs("solver", "SETTINGS"))
+        header.label(text=status.title)
+        for detail in status.details:
+            header.label(text=detail)
+        if not status.ready:
+            layout.operator("clothnext.open_preferences",
+                            text="Open Add-on Preferences")
+
+        model = _bake_panel_model(context, status)
+        snapshot = shared_controller.snapshot()
+        action = layout.row()
+        action.scale_y = 1.6
+        action.enabled = model.enabled and not snapshot.active
+        action.operator("clothnext.bake", text=model.action,
+                        **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
+        if snapshot.active:
+            progress_text = _run_state_text(snapshot)
+            layout.label(text=progress_text)
+            if snapshot.can_cancel:
+                layout.operator("clothnext.bake_cancel", text="Cancel",
+                                **icon_registry.icon_kwargs("cancel", "CANCEL"))
+        elif model.reason:
+            layout.label(text=model.reason, icon="ERROR")
+        summary = layout.column(align=True)
+        summary.label(text=model.summary_line)
+        summary.label(text=f"Frames 1–8 · {model.cache_label}")
+
+
+@dataclass(frozen=True, slots=True)
+class _SolverStatus:
+    ready: bool
+    title: str
+    details: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _BakePanelModel:
+    enabled: bool
+    action: str
+    reason: str
+    summary_line: str
+    cache_label: str
+
+
+def _solver_status(context) -> _SolverStatus:
+    """Non-blocking readiness view; never probes or displays a local path."""
+    from . import solver_test
+    plan = solver_test._active_plan
+    if plan is not None:
+        resolved = plan.resolved
+        details = tuple(value for value in (
+            f"Package {resolved.package_version}" if resolved.package_version else "",
+            f"Protocol {resolved.protocol_version}" if resolved.protocol_version else "",
+            f"Schema {resolved.schema_version}" if resolved.schema_version else "",
+            resolved.mode.name.replace("_", " ").title(),
+        ) if value)
+        protocol = resolved.protocol_version or "unknown"
+        return _SolverStatus(True, f"Ready · Protocol {protocol}", details)
+    addon_id = __package__.partition(".blender")[0]
+    try:
+        prefs = context.preferences.addons[addon_id].preferences
+        raw = str(prefs.external_solver_path or "").strip()
+    except (KeyError, AttributeError):
+        raw = ""
+    if raw:
+        root = Path(raw)
+        configured = root.is_file() or root.is_dir()
+        return _SolverStatus(configured,
+                             "External installation" if configured
+                             else "Solver unavailable")
+    try:
+        from ..updater.install_paths import ManagedSolverPaths, read_current
+        paths = ManagedSolverPaths.default()
+        active = read_current(paths)
+        if active is not None and active.executable_path(paths).is_file():
+            from ..updater.solver_manifest import load_bundled_manifest
+            entry = load_bundled_manifest().entry_for("windows-x86_64")
+            details = (f"Package {active.version}",
+                       f"Protocol {entry.protocol_version}",
+                       f"Schema {entry.schema_version}",
+                       "Managed installation") if entry else (
+                           f"Package {active.version}", "Managed installation")
+            protocol = entry.protocol_version if entry else "unknown"
+            return _SolverStatus(True, f"Ready · Protocol {protocol}", details)
+    except (OSError, ValueError):
+        return _SolverStatus(False, "Solver unavailable")
+    development = os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE", "").strip()
+    if development and Path(development).is_file():
+        return _SolverStatus(True, "External installation",
+                             ("Development configuration",))
+    return _SolverStatus(False, "Not configured")
+
+
+def _cache_state(context) -> tuple[str, str]:
+    from . import solver_test
+    from ..ppf_run import import_result
+    try:
+        cloth, _collider = solver_test._enabled_objects_by_role(context)
+    except solver_test.SceneValidationError:
+        return "EMPTY", "Cache empty"
+    modifier = next((mod for mod in cloth.modifiers
+                     if mod.name == import_result.MODIFIER_NAME), None)
+    baked = getattr(cloth.cloth_next, "baked_settings_fingerprint", "")
+    if modifier is None or not baked:
+        return "EMPTY", "Cache empty"
+    current = solver_test.current_settings_fingerprint(context)
+    if current != baked:
+        return "STALE", "Cache stale"
+    return "MATCHING", "Cache ready"
+
+
+def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
+        -> _BakePanelModel:
+    from . import solver_test
+    status = solver_status or _solver_status(context)
+    objects = getattr(getattr(context, "scene", None), "objects", ())
+    cloths = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
+                                                "enabled", False)
+              and obj.cloth_next.role == "CLOTH"]
+    colliders = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
+                                                   "enabled", False)
+                 and obj.cloth_next.role == "COLLIDER"]
+    preset = (cloths[0].cloth_next.material.preset.replace("_", " ").title()
+              if len(cloths) == 1 else "No material")
+    summary = f"{preset} · {len(cloths)} Cloth · {len(colliders)} Collider"
+    cache_state, cache_label = _cache_state(context)
+    action = {"STALE": "REBAKE", "MATCHING": "BAKE AGAIN"}.get(
+        cache_state, "BAKE")
+    reason = ""
+    if not status.ready:
+        reason = "PPF is not configured."
+    elif len(cloths) != 1:
+        reason = "Exactly one Cloth object is currently supported."
+    elif len(colliders) != 1:
+        reason = "Exactly one static Collider is currently supported."
+    elif getattr(colliders[0], "animation_data", None) is not None:
+        reason = "Animated colliders are not supported yet."
+    else:
+        try:
+            solver_test._snapshot_materials(cloths[0], colliders[0])
+        except solver_test.SceneValidationError:
+            reason = "Material settings are invalid."
+    return _BakePanelModel(not reason, action, reason, summary, cache_label)
+
+
+def _run_state_text(snapshot) -> str:
+    if snapshot.state.value == "SIMULATING" and snapshot.current_frame is not None:
+        return f"Simulating {snapshot.current_frame} / {snapshot.frame_end or 8}"
+    title = snapshot.status_title
+    return title if snapshot.state.value in {"FINISHED", "CANCELLED", "ERROR"} \
+        else title + "…"
 
 
 def _preset_description(identifier: str) -> str:

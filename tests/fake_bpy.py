@@ -190,7 +190,10 @@ def make_module() -> types.ModuleType:
             package_install=_FakeOp("extensions.package_install"),
             package_upgrade_all=_FakeOp("extensions.package_upgrade_all"),
             userpref_show_for_update=_FakeOp("extensions.userpref_show_for_update")),
-        preferences=types.SimpleNamespace(extension_repo_add=repo_add_op),
+        preferences=types.SimpleNamespace(
+            extension_repo_add=repo_add_op,
+            addon_show=_FakeOp("preferences.addon_show")),
+        screen=types.SimpleNamespace(userpref_show=_FakeOp("screen.userpref_show")),
         clothnext=types.SimpleNamespace())
 
     context_preferences = types.SimpleNamespace(

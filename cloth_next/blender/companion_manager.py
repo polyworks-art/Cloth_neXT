@@ -47,6 +47,12 @@ def launch():
 
 def ensure_running():
     if running(): return True, "Bake window reused"
+    # A previous window may have exited while its socket/subscription/timer
+    # remained until Blender's next lifecycle callback. Dispose that stale
+    # session before creating the replacement so repeated bakes can never
+    # accumulate transports or callbacks.
+    if _process is not None or _server is not None or _unsubscribe is not None:
+        shutdown()
     return launch()
 
 def shutdown():
