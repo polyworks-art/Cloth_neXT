@@ -9,6 +9,7 @@ def workflow(name):
 
 def test_shared_build_dependencies_cover_ci_and_candidate():
     requirements=(ROOT/"requirements-build.txt").read_text("utf-8").lower()
+    assert "numpy==" in requirements
     assert "pillow==" in requirements and "resvg-py==" in requirements and "pyinstaller==" in requirements
     for name in ("ci.yml", "build-release-candidate.yml"):
         assert "pip install -r requirements-build.txt" in workflow(name)

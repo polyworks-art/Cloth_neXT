@@ -1,4 +1,5 @@
 pytest==9.1.1
+numpy==1.26.4
 pillow==12.2.0
 resvg-py==0.3.3
 pyinstaller==6.21.0
