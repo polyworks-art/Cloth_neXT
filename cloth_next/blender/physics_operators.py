@@ -13,6 +13,7 @@ from __future__ import annotations
 import bpy
 
 from . import object_properties
+from ..bake.controller import shared_controller
 
 
 def _active_mesh(context):
@@ -31,6 +32,8 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        if shared_controller.snapshot().active:
+            return False
         obj = _active_mesh(context)
         if obj is None:
             return False
@@ -42,6 +45,10 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
         settings = obj.cloth_next
         settings.enabled = True
         settings.role = object_properties.DEFAULT_ROLE
+        scene = getattr(context, "scene", getattr(bpy.context, "scene", None))
+        if scene is not None:
+            settings.bake_start = int(scene.frame_start)
+            settings.bake_end = int(scene.frame_end)
         self.report({"INFO"}, f"Cloth NeXt enabled on '{obj.name}'.")
         return {"FINISHED"}
 
@@ -55,6 +62,8 @@ class CLOTHNEXT_OT_remove_physics(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        if shared_controller.snapshot().active:
+            return False
         obj = _active_mesh(context)
         if obj is None:
             return False
@@ -68,4 +77,24 @@ class CLOTHNEXT_OT_remove_physics(bpy.types.Operator):
         return {"FINISHED"}
 
 
-CLASSES = (CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics)
+class CLOTHNEXT_OT_use_scene_range(bpy.types.Operator):
+    bl_idname = "clothnext.use_scene_range"
+    bl_label = "Use Scene Range"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = _active_mesh(context)
+        return (obj is not None and getattr(obj, "cloth_next", None) is not None
+                and obj.cloth_next.enabled
+                and not shared_controller.snapshot().active)
+
+    def execute(self, context):
+        settings = context.active_object.cloth_next
+        settings.bake_start = int(context.scene.frame_start)
+        settings.bake_end = int(context.scene.frame_end)
+        return {"FINISHED"}
+
+
+CLASSES = (CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
+           CLOTHNEXT_OT_use_scene_range)

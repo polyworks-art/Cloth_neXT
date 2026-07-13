@@ -1,5 +1,11 @@
 # Local PPF process lifecycle
 
+The optional owned companion is started or reused by Bake. Terminal snapshots
+request graceful close after 1.5 seconds (Finished), 1 second (Cancelled), or
+2.5 seconds (Error); only that owned process is terminated after the additional
+bounded timeout. A crash during simulation warns `Bake window closed
+unexpectedly.` while Blender-side progress and Cancel remain operational.
+
 Baseline: upstream `7193f158e3843597070f66cb29af19efd9bdcff7`, protocol
 `0.11`, schema `1`, package `0.1.0`.
 

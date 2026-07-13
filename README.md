@@ -6,6 +6,12 @@
   />
 </p>
 
+Production Bake supports an artist-selected Bake Start and Bake End (up to
+10,000 cached frames). It captures the evaluated initial state at Bake Start,
+opens the managed foreground Bake window when enabled, and runs as a responsive
+modal workflow: Blender editing is locked, not frozen. The window closes after
+Finished, Cancelled, or Error.
+
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
@@ -64,9 +70,9 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 > [!NOTE]
 > Phase 3B connects the Material, Damping, and Collision properties to the
 > real PPF solver: every visible, editable value is actually encoded and
-> sent. The end-to-end run remains an experimental developer slice for one
-> cloth, one static collider, and eight frames. Enable Developer Test Tools
-> to create and run its fixed test scene. Note that PPF's stiffness is a
+> sent. The current scope is one cloth and one static collider, with an
+> artist-selected Bake range. Developer Test Tools retain diagnostics and
+> test-scene creation. Note that PPF's stiffness is a
 > density-normalized value, not a textbook Young's modulus in pascals (see
 > [PPF parameter mapping](docs/PPF_PARAMETER_MAPPING.md)). PPF itself
 > remains separate, independently installed software.

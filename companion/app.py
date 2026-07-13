@@ -7,7 +7,8 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from cloth_next.bake.status import BakeSnapshot, BakeState, format_duration
+from cloth_next.bake.status import (BakeJobKind, BakeSnapshot, BakeState,
+                                    format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
@@ -39,6 +40,7 @@ class BakeWindow:
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
         self._progress_fraction=0.0
+        self._job_modal=False
         self._configure_style(); self._build(); self.show(BakeSnapshot())
         self.root.protocol("WM_DELETE_WINDOW",self.close)
 
@@ -91,8 +93,17 @@ class BakeWindow:
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
-        if snapshot.current_frame is not None and snapshot.frame_end is not None:
-            self.progress_text.set(f"render frame {snapshot.current_frame} / {snapshot.frame_end}")
+        modal = snapshot.job_kind is BakeJobKind.BAKE and snapshot.active
+        if modal != self._job_modal:
+            self._job_modal=modal
+            self.root.attributes("-topmost", modal)
+            if modal:
+                self.root.lift()
+                self.root.after_idle(self.root.focus_force)
+        if snapshot.current_frame is not None and snapshot.progress_total:
+            self.progress_text.set(
+                f"Frame {snapshot.current_frame} · {snapshot.progress_current} / "
+                f"{snapshot.progress_total}")
         elif snapshot.progress_total:
             self.progress_text.set(f"{snapshot.progress_fraction:.0%}")
         else: self.progress_text.set(snapshot.status_title or "Ready")
@@ -108,6 +119,8 @@ class BakeWindow:
         self.pause.configure(text="Resume" if snapshot.is_paused else "Pause")
 
     def disconnected(self):
+        self._job_modal=False
+        self.root.attributes("-topmost",False)
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
         self.cancel.state(["disabled"]); self.pause.state(["disabled"])
 

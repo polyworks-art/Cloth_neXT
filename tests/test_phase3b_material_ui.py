@@ -297,14 +297,16 @@ def test_material_panel_displays_artist_facing_names(blender_env):
     env.registration.unregister()
 
 
-def test_cache_panel_shows_readonly_development_slice(blender_env):
+def test_cache_panel_shows_editable_bake_range(blender_env):
     env = blender_env
     env.registration.register()
     obj, _unused = _settings(env)
     panel = env.physics_ui.CLOTHNEXT_PT_cache()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert any("frames 1–8" in label for label in panel.layout.labels)
+    assert "bake_start" in panel.layout.props
+    assert "bake_end" in panel.layout.props
+    assert "cache_directory" in panel.layout.props
     assert "frame_start" not in panel.layout.props
     assert "frame_end" not in panel.layout.props
     env.registration.unregister()

@@ -33,6 +33,7 @@ from pathlib import Path
 import bpy
 
 from ..bake import pc2
+from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.status import BakeJobKind, BakeState
 from ..core.errors import ClothNextError
@@ -53,9 +54,6 @@ from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..telemetry import shared_telemetry
 from . import companion_manager, object_properties
-
-REQUIRED_FRAME_START = 1
-REQUIRED_FRAME_END = 8
 
 _EVENT_STATE = {
     "STARTING_SOLVER": BakeState.STARTING_SOLVER,
@@ -97,6 +95,9 @@ class RunPlan:
     work_directory: Path
     pc2_path: Path
     frame_count: int
+    frame_start: int = 1
+    frame_end: int = 1
+    fps: int = 24
     # Immutable pure material snapshot metadata (Phase 3B): the fingerprint
     # marks the finished result, and the JSON-safe meta dict is written next
     # to the PC2 cache so a stale result stays detectable.
@@ -265,37 +266,47 @@ def _snapshot_materials(cloth_obj, collider_obj):
 def build_run_plan(context) -> RunPlan:
     """Validate the scene on the main thread and freeze the run inputs."""
     scene = context.scene
-    if (scene.frame_start, scene.frame_end) != (REQUIRED_FRAME_START,
-                                                REQUIRED_FRAME_END):
-        raise SceneValidationError(
-            f"The Phase-3A test requires the frame range "
-            f"{REQUIRED_FRAME_START}-{REQUIRED_FRAME_END}; the scene has "
-            f"{scene.frame_start}-{scene.frame_end}.")
     cloth_obj, collider_obj = _enabled_objects_by_role(context)
+    try:
+        bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
+                                    int(cloth_obj.cloth_next.bake_end))
+    except (BakeRangeError, TypeError, ValueError) as exc:
+        raise SceneValidationError(str(exc)) from exc
+    if (getattr(collider_obj, "animation_data", None) is not None
+            or len(getattr(collider_obj, "constraints", ())) > 0):
+        raise SceneValidationError("Animated colliders are not supported yet.")
     # Material validation is deliberately first after role/scope validation:
     # even the solver version probe is a subprocess, so invalid mapped values
     # must fail before resolution can launch it.
     shell, static, contact_enabled, preset_identifier = _snapshot_materials(
         cloth_obj, collider_obj)
-    depsgraph = context.evaluated_depsgraph_get()
-    cloth_vertices, cloth_triangles = _extract_mesh(cloth_obj, depsgraph,
-                                                    needs_edges=True)
-    collider_vertices, collider_triangles = _extract_mesh(
-        collider_obj, depsgraph, needs_edges=False)
+    original_frame = int(scene.frame_current)
+    try:
+        scene.frame_set(bake_range.start)
+        view_layer = getattr(context, "view_layer", None)
+        if view_layer is not None and hasattr(view_layer, "update"):
+            view_layer.update()
+        depsgraph = context.evaluated_depsgraph_get()
+        cloth_vertices, cloth_triangles = _extract_mesh(
+            cloth_obj, depsgraph, needs_edges=True)
+        collider_vertices, collider_triangles = _extract_mesh(
+            collider_obj, depsgraph, needs_edges=False)
+        cloth_world = tuple(tuple(row) for row in cloth_obj.matrix_world)
+        collider_world = tuple(tuple(row) for row in collider_obj.matrix_world)
+    finally:
+        scene.frame_set(original_frame)
     degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
     if degenerate:
         raise SceneValidationError(
             f"{cloth_obj.name} has {len(degenerate)} zero-area triangle(s) "
             f"(first index {degenerate[0]}); clean the mesh before running.")
-    for obj in (cloth_obj, collider_obj):
-        world = tuple(tuple(row) for row in obj.matrix_world)
+    for obj, world in ((cloth_obj, cloth_world),
+                       (collider_obj, collider_world)):
         if not matrix_is_finite_and_invertible(world):
             raise SceneValidationError(
                 f"{obj.name} has a non-finite or non-invertible world matrix.")
     resolved = resolve_solver(context)
 
-    cloth_world = tuple(tuple(row) for row in cloth_obj.matrix_world)
-    collider_world = tuple(tuple(row) for row in collider_obj.matrix_world)
     cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
     collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
@@ -304,7 +315,7 @@ def build_run_plan(context) -> RunPlan:
                                  collider_vertices, collider_triangles,
                                  solver_world_matrix(collider_world))
     data_payload, data_hash = encode_scene(scene_cloth, scene_collider)
-    frame_count = REQUIRED_FRAME_END - REQUIRED_FRAME_START + 1
+    frame_count = bake_range.output_count
     settings = SimulationSettings(
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
@@ -314,7 +325,8 @@ def build_run_plan(context) -> RunPlan:
         collider_uuid, shell=shell, static=static,
         contact_enabled=contact_enabled)
     fingerprint = material_formatting.settings_fingerprint(
-        shell, static, contact_enabled, preset_identifier)
+        shell, static, contact_enabled, preset_identifier,
+        bake_start=bake_range.start, bake_end=bake_range.end)
     material_meta = {
         "version": 1,
         "fingerprint": fingerprint,
@@ -322,8 +334,13 @@ def build_run_plan(context) -> RunPlan:
         "contact_enabled": contact_enabled,
         "shell": shell_wire_params(shell),
         "static": static_wire_params(static),
-        "development_slice": f"blender frames {REQUIRED_FRAME_START}-"
-                             f"{REQUIRED_FRAME_END}",
+        "blender_start_frame": bake_range.start,
+        "blender_end_frame": bake_range.end,
+        "output_frame_count": frame_count,
+        "solver_step_count": bake_range.solver_steps,
+        "fps": int(scene.render.fps),
+        "pc2_sample_count": frame_count,
+        "completion_state": "complete",
     }
 
     project_name = new_project_name()
@@ -336,7 +353,11 @@ def build_run_plan(context) -> RunPlan:
         data_payload=data_payload, param_payload=param_payload,
         data_hash=data_hash, param_hash=param_hash)
 
-    cache_directory = _writable_cache_directory()
+    configured_cache = str(getattr(cloth_obj.cloth_next,
+                                   "cache_directory", "") or "").strip()
+    cache_directory = (Path(bpy.path.abspath(configured_cache))
+                       if configured_cache else _writable_cache_directory())
+    cache_directory.mkdir(parents=True, exist_ok=True)
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     work_directory.mkdir(parents=True, exist_ok=True)
     pc2_path = cache_directory / f"cn_test_cloth_{project_name[10:]}.pc2"
@@ -345,6 +366,8 @@ def build_run_plan(context) -> RunPlan:
                    cloth_object_name=cloth_obj.name,
                    work_directory=work_directory, pc2_path=pc2_path,
                    frame_count=frame_count,
+                   frame_start=bake_range.start, frame_end=bake_range.end,
+                   fps=int(scene.render.fps),
                    settings_fingerprint=fingerprint,
                    preset_identifier=preset_identifier,
                    material_meta=material_meta)
@@ -411,7 +434,8 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
         name=import_result.MODIFIER_NAME, type="MESH_CACHE")
     modifier.cache_format = "PC2"
     modifier.filepath = str(plan.pc2_path)
-    modifier.frame_start = 1.0
+    # PC2 sample zero is the uploaded initial state at Blender Bake Start.
+    modifier.frame_start = float(plan.frame_start)
     modifier.interpolation = "LINEAR"
     modifier.deform_mode = "OVERWRITE"
     modifier.play_mode = "SCENE"
@@ -420,10 +444,6 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     settings = getattr(obj, "cloth_next", None)
     if settings is not None and plan.settings_fingerprint:
         settings.baked_settings_fingerprint = plan.settings_fingerprint
-    scene = bpy.context.scene
-    scene.frame_start = REQUIRED_FRAME_START
-    scene.frame_end = REQUIRED_FRAME_END
-    scene.frame_set(REQUIRED_FRAME_START)
     # Only after the new cache is attached, drop older Cloth NeXt test caches.
     for old_path in previous_paths:
         if old_path != plan.pc2_path and old_path.name.startswith("cn_test_cloth_"):
@@ -466,11 +486,14 @@ def _pump() -> float | None:
             if state is not None:
                 current, total = event.frame_current, event.frame_total
                 if event.phase in {"SIMULATING", "FETCHING"} and current is not None:
-                    current, total = min(plan.frame_count, current + 1), plan.frame_count
+                    solver_step = min(plan.frame_count - 1, int(current))
+                    current = plan.frame_start + solver_step
+                    total = plan.frame_count
                 _safe_transition(
                     state, status_message=event.message,
                     current_frame=current,
-                    progress_current=current or 0,
+                    progress_current=(current - plan.frame_start + 1
+                                      if current is not None else 0),
                     progress_total=(None if event.indeterminate
                                     else total))
         elif kind == "finished":
@@ -485,9 +508,9 @@ def _pump() -> float | None:
                                    f"cached to {plan.pc2_path.name}",
                     progress_current=plan.frame_count,
                     progress_total=plan.frame_count,
-                    current_frame=REQUIRED_FRAME_END,
-                    frame_start=REQUIRED_FRAME_START,
-                    frame_end=REQUIRED_FRAME_END)
+                    current_frame=plan.frame_end,
+                    frame_start=plan.frame_start,
+                    frame_end=plan.frame_end)
             except (ValueError, RuntimeError, InvalidTransition) as exc:
                 shared_controller.fail("Importing the solver result failed.",
                                        str(exc))
@@ -532,7 +555,7 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.BAKE) -> str:
     shared_controller.transition(
         BakeState.PREPARING, preview=False, job_kind=job_kind,
         status_message="Validating Blender scene",
-        frame_start=REQUIRED_FRAME_START, frame_end=REQUIRED_FRAME_END)
+        frame_start=None, frame_end=None)
     launch_warning = ""
     try:
         # Complete scene, scope, solver, and immutable material validation
@@ -563,7 +586,11 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.BAKE) -> str:
     _last_work_directory = plan.work_directory
     shared_controller.transition(
         BakeState.EXPORTING, status_message="Exporting cloth mesh",
-        active_object_name=plan.cloth_object_name)
+        active_object_name=plan.cloth_object_name,
+        frame_start=getattr(plan, "frame_start", 1),
+        frame_end=getattr(plan, "frame_end", getattr(plan, "frame_count", 1)),
+        current_frame=getattr(plan, "frame_start", 1),
+        progress_current=1, progress_total=getattr(plan, "frame_count", 1))
     _cancel_event.clear()
     while not _queue.empty():
         try:
@@ -636,7 +663,9 @@ def current_settings_fingerprint(context) -> str | None:
     except SceneValidationError:
         return None
     return material_formatting.settings_fingerprint(
-        shell, static, contact_enabled, preset)
+        shell, static, contact_enabled, preset,
+        bake_start=int(cloth_obj.cloth_next.bake_start),
+        bake_end=int(cloth_obj.cloth_next.bake_end))
 
 
 def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
@@ -651,8 +680,13 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     shell, static, contact_enabled, preset = _snapshot_materials(
         cloth_obj, collider_obj)
     scene = context.scene
+    try:
+        bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
+                                    int(cloth_obj.cloth_next.bake_end))
+    except BakeRangeError as exc:
+        raise SceneValidationError(str(exc)) from exc
     settings = SimulationSettings(
-        frame_count=REQUIRED_FRAME_END - REQUIRED_FRAME_START + 1,
+        frame_count=bake_range.output_count,
         fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0))
@@ -717,7 +751,7 @@ class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
 # Operators
 
 class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
-    """Run the real 8-frame PPF solver test on the current test scene"""
+    """Run the real PPF solver diagnostic on the current scene"""
 
     bl_idname = "clothnext.solver_test_run"
     bl_label = "Run Real Solver Test"
@@ -748,12 +782,22 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     bl_idname = "clothnext.bake"
     bl_label = "Bake"
+    _timer = None
+    _modal_cleaned = False
 
     @classmethod
     def poll(cls, _context):
         return not run_active() and not shared_controller.snapshot().active
 
-    def execute(self, context):
+    def _cleanup_modal(self, context) -> None:
+        if self._modal_cleaned:
+            return
+        self._modal_cleaned = True
+        if self._timer is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+
+    def invoke(self, context, _event):
         try:
             warning = start_run(context, job_kind=BakeJobKind.BAKE)
         except (SceneValidationError, ClothNextError) as exc:
@@ -765,7 +809,38 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             self.report({"WARNING"}, warning)
         else:
             self.report({"INFO"}, "Cloth NeXt bake started.")
-        return {"FINISHED"}
+        manager = getattr(context, "window_manager", None)
+        if manager is None or not hasattr(manager, "event_timer_add"):
+            return {"FINISHED"}  # non-Blender test/automation context
+        self._modal_cleaned = False
+        self._timer = manager.event_timer_add(
+            0.1, window=getattr(context, "window", None))
+        manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        return self.invoke(context, None)
+
+    def modal(self, context, event):
+        snapshot = shared_controller.snapshot()
+        if event.type == "ESC" and snapshot.can_cancel:
+            request_cancel()
+            return {"RUNNING_MODAL"}
+        if event.type == "TIMER":
+            for area in getattr(context.screen, "areas", ()):
+                area.tag_redraw()
+        if snapshot.state in {BakeState.FINISHED, BakeState.CANCELLED,
+                              BakeState.ERROR}:
+            self._cleanup_modal(context)
+            return ({"CANCELLED"} if snapshot.state is BakeState.CANCELLED
+                    else {"FINISHED"})
+        # Consume scene-editing input while keeping Blender's event loop,
+        # redraw, native window management and this timer alive.
+        return {"RUNNING_MODAL"}
+
+    def cancel(self, context):
+        request_cancel()
+        self._cleanup_modal(context)
 
 
 class CLOTHNEXT_OT_bake_cancel(bpy.types.Operator):
@@ -828,10 +903,12 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
     def poll(cls, _context):
         return not run_active()
 
-    def execute(self, _context):
+    def execute(self, context):
         removed_modifiers = 0
         removed_files = 0
-        for obj in bpy.data.objects:
+        target = getattr(context, "object", None)
+        objects = (target,) if target is not None else bpy.data.objects
+        for obj in objects:
             for mod in list(obj.modifiers):
                 if mod.name == import_result.MODIFIER_NAME:
                     filepath = getattr(mod, "filepath", "")

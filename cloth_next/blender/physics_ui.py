@@ -188,7 +188,13 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
             layout.label(text=model.reason, icon="ERROR")
         summary = layout.column(align=True)
         summary.label(text=model.summary_line)
-        summary.label(text=f"Frames 1–8 · {model.cache_label}")
+        try:
+            cloth, _ = solver_test._enabled_objects_by_role(context)
+            start, end = cloth.cloth_next.bake_start, cloth.cloth_next.bake_end
+            summary.label(text=f"Frames {start}–{end} · {end-start+1} cached "
+                               f"frames · {model.cache_label}")
+        except solver_test.SceneValidationError:
+            summary.label(text=model.cache_label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,15 +308,18 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
         reason = "Animated colliders are not supported yet."
     else:
         try:
+            from ..bake.frame_range import BakeFrameRange
+            BakeFrameRange(int(cloths[0].cloth_next.bake_start),
+                           int(cloths[0].cloth_next.bake_end))
             solver_test._snapshot_materials(cloths[0], colliders[0])
-        except solver_test.SceneValidationError:
-            reason = "Material settings are invalid."
+        except Exception as exc:
+            reason = str(exc) or "Material settings are invalid."
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 
 
 def _run_state_text(snapshot) -> str:
     if snapshot.state.value == "SIMULATING" and snapshot.current_frame is not None:
-        return f"Simulating {snapshot.current_frame} / {snapshot.frame_end or 8}"
+        return f"Simulating {snapshot.current_frame} / {snapshot.frame_end}"
     title = snapshot.status_title
     return title if snapshot.state.value in {"FINISHED", "CANCELLED", "ERROR"} \
         else title + "…"
@@ -471,12 +480,30 @@ def _draw_stale_result_notice(layout, context) -> None:
 
 class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Cache"; bl_idname = "CLOTHNEXT_PT_cache"
+    cloth_only = True
     header_icon = "cache"
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Development slice: Blender frames 1–8",
-                     **icon_registry.icon_kwargs("info", "INFO"))
+        settings = context.object.cloth_next
+        controls = layout.column(align=True)
+        controls.enabled = not shared_controller.snapshot().active
+        controls.prop(settings, "bake_start")
+        controls.prop(settings, "bake_end")
+        controls.operator("clothnext.use_scene_range", text="Use Scene Range")
+        controls.prop(settings, "cache_directory")
+        try:
+            from ..bake.frame_range import BakeFrameRange
+            selected = BakeFrameRange(int(settings.bake_start),
+                                      int(settings.bake_end))
+            layout.label(text=f"Frames {selected.start}–{selected.end} · "
+                              f"{selected.output_count} cached frames")
+        except Exception as exc:
+            layout.label(text=str(exc), icon="ERROR")
         _draw_stale_result_notice(layout, context)
+        clear_row = layout.row()
+        clear_row.enabled = not shared_controller.snapshot().active
+        clear_row.operator("clothnext.solver_test_clear", text="Clear Result",
+                           icon="TRASH")
         if _developer_tools_enabled(context):
             _draw_solver_test_section(layout, context)
         diagnostics=layout.box(); diagnostics.label(text="UI Diagnostics")
@@ -521,8 +548,8 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
             contact = ("enabled" if settings.collision.enabled
                        else "DISABLED (disable-contact: true)")
             info.label(text=f"Contact: {contact}")
-        info.label(text="Experimental development slice: one cloth, one "
-                        "static collider, frames 1–8", icon="EXPERIMENTAL")
+        info.label(text="Current scope: one cloth and one static collider",
+                   icon="EXPERIMENTAL")
 
 
 CLASSES = (CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,

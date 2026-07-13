@@ -1,5 +1,13 @@
 # PPF parameter mapping
 
+## Bake frame mapping
+
+For Blender range `S–E`, frame `S` is uploaded as the initial state. PPF
+receives `frames = E - S`; solver step `n` maps to Blender frame `S+n`.
+Playback contains `E-S+1` samples and Mesh Cache sample zero is placed at `S`.
+Zero-step runs are not verified by the pinned PPF build, so End must exceed
+Start.
+
 Status: Phase 3B. Every mapped field below is implemented, validated, and
 covered by exact encoder tests plus real pinned-solver integration runs.
 Everything not listed as **mapped** is unsupported and is not shown as an

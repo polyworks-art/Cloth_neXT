@@ -67,10 +67,13 @@ def _resolve_shell_material(preset_identifier: str) -> ShellMaterialSettings:
 
 def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         preset: str = material_presets.DEFAULT_PRESET_ID,
-        contact_enabled: bool = True) -> dict:
+        contact_enabled: bool = True, frame_count: int | None = None) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cloth, collider = fixture.vertical_slice_fixture()
-    frame_count = fixture.FRAME_END - fixture.FRAME_START + 1
+    frame_count = (fixture.FRAME_END - fixture.FRAME_START + 1
+                   if frame_count is None else int(frame_count))
+    if frame_count < 2:
+        raise ValueError("real PPF runs require at least two playback frames")
     shell_material = _resolve_shell_material(preset)
     static_material = DEFAULT_STATIC_SETTINGS
 

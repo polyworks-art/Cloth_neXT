@@ -1,5 +1,9 @@
 # Audit limitations and unsupported claims
 
+Current production scope is one Cloth and one static Collider. Animated
+colliders, pressure, and pinning are unsupported. Bake ranges are limited to
+10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
+
 - The Cloth NeXt repository contained no implementation to execute or compare.
 - Upstream was audited at commit `7193f158` on 2026-07-12. Protocol/schema and docs can
   change; implementation must pin a compatible solver release.
@@ -117,18 +121,16 @@ The public Dev channel is unsupported and uses reduced validation. Builds may
 be incomplete, unstable, incompatible, removed, or invalidate caches/settings.
 Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
-## Phase 3A/3B developer slice
+## Phase 3B production slice
 
-- One cloth shell, one static collider, and the eight-frame developer scene
-  (the Cache panel shows the read-only notice "Development slice: Blender
-  frames 1–8"; editable Start/End range controls are deliberately absent).
+- One cloth shell, one static collider, and an artist-selected Bake Start/End
+  range with a 10,000-output-frame safety limit.
 - No pins, pressure, shrink, stitching, plasticity, tearing, animated
   colliders, multiple cloths/colliders, solids, rods, sand, PDRD, dynamic
   parameter animation, or Quality (substeps/iterations) mapping yet; those
   controls are hidden rather than shown as fake settings.
-- Playback is constant-topology PC2. Blender frame 1 is the exported initial
-  state; frames 2--8 map to solver `vert_1.bin`--`vert_7.bin`.
-- The UI entry is a developer test, not a claim of production readiness.
+- Playback is constant-topology PC2. Bake Start is the exported initial state;
+  solver step `n` maps to Blender frame `Bake Start + n`.
 - GPU telemetry depends on available NVIDIA `nvidia-smi` tooling and may be
   unavailable or temporarily stale. It is system GPU telemetry, not proof that
   PPF selected that exact CUDA device.

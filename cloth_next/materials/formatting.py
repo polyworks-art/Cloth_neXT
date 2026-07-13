@@ -89,7 +89,9 @@ FINGERPRINT_VERSION = 1
 def settings_fingerprint(shell: ShellMaterialSettings,
                          static: StaticMaterialSettings,
                          contact_enabled: bool,
-                         preset_identifier: str) -> str:
+                         preset_identifier: str,
+                         *, bake_start: int | None = None,
+                         bake_end: int | None = None) -> str:
     """Deterministic digest of every solver-visible material setting.
 
     Any change to a mapped value produces a different digest, which marks
@@ -105,6 +107,9 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "shell_maximum_stretch_percent": shell.maximum_stretch_percent,
         "static": {info.field: getattr(static, info.field)
                    for info in STATIC_FIELD_INFO},
+        "bake_range": ([int(bake_start), int(bake_end)]
+                       if bake_start is not None and bake_end is not None
+                       else None),
     }
     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

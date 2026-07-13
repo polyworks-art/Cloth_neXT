@@ -264,6 +264,15 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
+    bake_start: bpy.props.IntProperty(
+        name="Bake Start", default=1, min=-1048574, max=1048574,
+        description="First Blender frame captured into the solver cache")
+    bake_end: bpy.props.IntProperty(
+        name="Bake End", default=250, min=-1048574, max=1048574,
+        description="Last Blender frame produced by the solver cache")
+    cache_directory: bpy.props.StringProperty(
+        name="Cache Directory", default="", subtype="DIR_PATH",
+        description="Optional directory for this object's Cloth NeXt result")
     baked_settings_fingerprint: bpy.props.StringProperty(
         name="Baked Settings Fingerprint", default="", options={"HIDDEN"},
         description="Material fingerprint of the last completed solver "

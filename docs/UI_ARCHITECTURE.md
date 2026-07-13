@@ -1,5 +1,10 @@
 # Phase 2.8B UI architecture
 
+Production Bake is a Blender modal operator backed by an event timer. It
+consumes editing events while active, keeps redraw and Cancel responsive, and
+removes its timer once at terminal state. The companion reads the same shared
+snapshots and enters Tk `-topmost` mode once when a Bake begins.
+
 All three presentation surfaces consume `BakeSnapshot` values from the one
 thread-safe `BakeController`. The pure `cloth_next.bake` package imports no
 Blender API and owns transitions, progress, formatting and the bounded JSON
@@ -14,7 +19,7 @@ registered.
 
 `CLOTHNEXT_PT_solver` shows solver readiness without executable paths, the
 primary Bake/Rebake/Bake Again action, typed progress, Cancel, selected preset,
-supported counts, frames 1–8, and cache state. Unsupported scope disables Bake
+supported counts, the selected Bake range, and cache state. Unsupported scope disables Bake
 with an explicit reason; installation details remain in Add-on Preferences.
 
 Production Bake and Developer Real Solver Test call the same material-aware

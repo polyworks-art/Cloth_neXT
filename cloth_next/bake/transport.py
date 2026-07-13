@@ -146,7 +146,7 @@ class LocalSocketServer:
     def poll_request(self):
         try: return self.requests.get_nowait()
         except Empty: return None
-    def close(self):
+    def close(self, *, join: bool = True):
         self._stop.set(); self.shutdown_companion()
         try: self._server.close()
         except OSError: pass
@@ -154,7 +154,8 @@ class LocalSocketServer:
         if client:
             try: client.close()
             except OSError: pass
-        self._thread.join(timeout=1)
+        if join:
+            self._thread.join(timeout=1)
 
 
 class LocalSocketClient:

@@ -211,6 +211,42 @@ def test_production_and_developer_operators_share_run_service(blender_env,
     assert kinds == [BakeJobKind.BAKE, BakeJobKind.SOLVER_TEST]
 
 
+def test_production_bake_is_responsive_modal_and_cleans_timer_once(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    def start(*_a, **_kw):
+        shared_controller.transition(BakeState.PREPARING)
+        return ""
+    monkeypatch.setattr(module, "start_run", start)
+
+    class Manager:
+        def __init__(self):
+            self.added = self.removed = self.handlers = 0
+        def event_timer_add(self, *_a, **_kw):
+            self.added += 1
+            return object()
+        def event_timer_remove(self, _timer):
+            self.removed += 1
+        def modal_handler_add(self, _operator):
+            self.handlers += 1
+
+    manager = Manager()
+    context = SimpleNamespace(window_manager=manager, window=object(),
+                              screen=SimpleNamespace(areas=[]))
+    operator = module.CLOTHNEXT_OT_bake()
+    assert operator.invoke(context, None) == {"RUNNING_MODAL"}
+    assert (manager.added, manager.handlers) == (1, 1)
+    for state in (BakeState.EXPORTING, BakeState.STARTING_SOLVER,
+                  BakeState.UPLOADING, BakeState.BUILDING,
+                  BakeState.SIMULATING, BakeState.FETCHING,
+                  BakeState.IMPORTING, BakeState.FINISHED):
+        shared_controller.transition(state)
+    event = SimpleNamespace(type="TIMER")
+    assert operator.modal(context, event) == {"FINISHED"}
+    assert operator.modal(context, event) == {"FINISHED"}
+    assert manager.removed == 1
+
+
 def test_cotton_and_custom_materials_reach_shared_payload(blender_env):
     env = blender_env; env.registration.register()
     cloth, collider = _objects(env)

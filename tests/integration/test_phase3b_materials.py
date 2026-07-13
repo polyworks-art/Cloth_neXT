@@ -70,3 +70,12 @@ def test_no_contact_case_encodes_disable_contact_true(tmp_path):
     # with contact disabled the cloth free-falls: it must move farther than
     # the contact run would allow at the collider surface
     assert report["max_cloth_displacement_m"] > 0.05
+
+
+@pytest.mark.integration
+def test_real_ppf_produces_more_than_eight_frames(tmp_path):
+    report = run(_solver(), tmp_path / "twenty_frames", frame_count=20)
+    assert report["result"] == "PASS"
+    assert report["blender_frames"] == 20
+    assert report["solver_frames_fetched"] == list(range(1, 20))
+    assert report["pc2_header"]["frame_count"] == 20

@@ -6,6 +6,12 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Added — arbitrary ranges and modal Bake companion
+
+- Added arbitrary Bake ranges and corrected non-frame-one PC2 mapping.
+- Added a responsive modal Blender workflow and foreground Bake window.
+- Added automatic companion shutdown and companion crash recovery.
+
 ### Added — production-facing Bake workflow
 
 - The Physics Properties Solver panel now provides the main Bake/Rebake/Bake
