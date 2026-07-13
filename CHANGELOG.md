@@ -6,6 +6,8 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+## 0.3.0-beta.1 — 2026-07-13 (beta channel)
+
 ### Changed — gated developer interface
 
 - Grouped Real Solver Test and UI Diagnostics into one preference-gated

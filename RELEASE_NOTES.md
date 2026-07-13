@@ -1,38 +1,37 @@
-# Cloth NeXt 0.2.0-beta.6
+# Cloth NeXt 0.3.0-beta.1
 
-This beta introduces Cloth NeXt's first real PPF solver vertical slice for
-interactive Blender testing.
+This beta advances the real PPF workflow from the initial vertical slice to a
+production-facing Bake flow with arbitrary frame ranges, cache-safe Rebake,
+material controls, vertex-group Pinning, and a reusable Bake companion.
 
-## First real simulation test
+## Production-facing Bake workflow
 
-The new developer workflow can:
+Cloth NeXt can now:
 
-- snapshot one Cloth NeXt cloth object
-- snapshot one static collider
-- encode and upload a PPF 0.11 scene
-- start the real external solver
-- build and simulate eight frames
-- retrieve and validate completed frames
-- create constant-topology playback in Blender
-- display real progress in the panel, HUD, and companion window
-- cancel and clean up owned solver sessions
+- bake one Cloth NeXt cloth object against one static collider
+- use artist-selected Bake ranges instead of a fixed eight-frame slice
+- preserve the previous valid cache until replacement startup succeeds
+- Rebake without Cloth NeXt's own Mesh Cache causing false topology errors
+- use static or animated hard Pin targets from a Blender vertex group
+- encode the documented PPF material, damping, and collision parameters
+- show synchronized progress in Physics Properties, the HUD, and the companion
+- cancel and clean up Cloth NeXt-owned solver sessions
 
-## Also fixed
+## Stability and release hardening
 
-- Blender's automatic update path no longer fails because disabled extension
-  repositories shift the repository index
-- Cloth NeXt now targets its exact repository and package through Blender's own
-  extension system
-- incomplete solver frames are rejected instead of imported
-- worker, timer, subscription, and companion-cancellation cleanup was hardened
+- Developer Tools fail closed outside explicitly prepared Dev snapshots.
+- The normal Pytest command excludes tests that require an explicit built ZIP;
+  release workflows still run those artifact tests against the real candidate.
+- Dev publishing accepts policy-valid release lines and retains builds by full
+  semantic version rather than only the trailing Dev counter.
+- The known `cloth_next.ppf.health` import is verified in the source tree,
+  installed package, and extracted release ZIP.
 
-## Experimental scope
+## Beta scope
 
-This is a Phase 3A test build. It currently supports only one cloth, one static
-collider, eight frames, constant topology, and a limited verified material
-configuration. The interactive Blender 5.1.2 timeline, collision, cancellation,
-and cache test is the primary purpose of this beta. It is not production ready,
-and interactive acceptance has not yet passed.
+The current scope remains one cloth, one static collider, constant topology,
+and the verified PPF 0.11 protocol. It is a prerelease intended for Blender
+5.1.2 testing and is not a Stable release.
 
 ## External solver
 

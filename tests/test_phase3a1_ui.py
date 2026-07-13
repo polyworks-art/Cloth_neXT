@@ -3,6 +3,9 @@
 from __future__ import annotations
 from pathlib import Path
 import inspect
+import json
+import re
+import tomllib
 
 def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypatch):
     ui=blender_env.physics_ui; requested=[]
@@ -24,6 +27,12 @@ def test_hud_draw_source_has_no_hardware_or_process_calls(blender_env):
     for forbidden in ("subprocess", "nvidia-smi", "query_nvidia", "Popen(", "open("):
         assert forbidden not in source
 
-def test_version_remains_beta6():
-    manifest=(Path(__file__).parents[1]/"cloth_next/blender_manifest.toml").read_text()
-    assert 'version = "0.2.0-beta.6"' in manifest
+def test_release_versions_remain_consistent_beta_or_rc():
+    package=Path(__file__).parents[1]/"cloth_next"
+    manifest=tomllib.loads((package/"blender_manifest.toml").read_text("utf-8"))
+    compatibility=json.loads((package/"solver_compatibility.json").read_text("utf-8"))
+    version=manifest["version"]
+    assert re.fullmatch(
+        r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:beta|rc)\.[1-9]\d*",
+        version)
+    assert compatibility["cloth_next_version"] == version
