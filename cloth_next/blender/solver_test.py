@@ -28,6 +28,7 @@ import os
 import queue
 import threading
 import time
+import traceback
 import uuid as uuid_module
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -768,7 +769,7 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
-def _pump() -> float | None:
+def _pump_once() -> float | None:
     global _worker, _active_plan
     plan = _active_plan
     if plan is None:
@@ -863,6 +864,44 @@ def _pump() -> float | None:
     return 0.2
 
 
+def _abort_failed_pump(details: str) -> None:
+    """Make timer failures terminal instead of leaving stale active UI."""
+    global _worker, _active_plan
+    try:
+        shared_controller.fail(
+            "Importing the solver result failed.", details)
+    except Exception:
+        # Controller listeners are third-party boundaries too. Cleanup must
+        # still happen if one of them caused the original timer failure.
+        pass
+    modal_lock.release()
+    shared_telemetry.set_solver_pid(None)
+    _worker, _active_plan = None, None
+
+
+def _pump() -> float | None:
+    """Exception boundary required by Blender's timer API.
+
+    Blender silently unregisters a timer callback that raises. Without this
+    boundary all three UIs retain the last IMPORTING snapshot forever even
+    though the worker and PC2 writer have completed.
+    """
+    try:
+        return _pump_once()
+    except Exception:  # noqa: BLE001 -- surface the complete Blender traceback
+        _abort_failed_pump(traceback.format_exc())
+        return None
+
+
+def _pump_watchdog() -> float | None:
+    """Restore the result pump if Blender removed it during an active run."""
+    if _active_plan is None:
+        return None
+    if not bpy.app.timers.is_registered(_pump):
+        bpy.app.timers.register(_pump, first_interval=0.0)
+    return 0.5
+
+
 def run_active() -> bool:
     return _worker is not None and _worker.is_alive()
 
@@ -900,6 +939,8 @@ def _start_prepared_run(plan: RunPlan) -> None:
             "The Bake worker could not be started; no solver process was launched.") from exc
     if not bpy.app.timers.is_registered(_pump):
         bpy.app.timers.register(_pump, first_interval=.1)
+    if not bpy.app.timers.is_registered(_pump_watchdog):
+        bpy.app.timers.register(_pump_watchdog, first_interval=.5)
 
 
 def _begin_controller(job_kind: BakeJobKind) -> str:
@@ -1085,6 +1126,8 @@ def shutdown(join_timeout: float = 30.0) -> None:
         _unsubscribe = None
     if bpy.app.timers.is_registered(_pump):
         bpy.app.timers.unregister(_pump)
+    if bpy.app.timers.is_registered(_pump_watchdog):
+        bpy.app.timers.unregister(_pump_watchdog)
     if bpy.app.timers.is_registered(_startup_pump):
         bpy.app.timers.unregister(_startup_pump)
     if bpy.app.timers.is_registered(_pin_capture_pump):

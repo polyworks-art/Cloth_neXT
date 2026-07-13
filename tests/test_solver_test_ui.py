@@ -51,6 +51,41 @@ def test_unregister_clears_solver_worker_timer_and_subscription(blender_env):
     assert module._unsubscribe is None
     assert not blender_env.bpy.app.timers.is_registered(module._pump)
 
+def test_pump_exception_becomes_visible_terminal_error(blender_env, monkeypatch,
+                                                       tmp_path):
+    module = blender_env.solver_test
+    controller = module.shared_controller
+    if controller.snapshot().state is not BakeState.IDLE:
+        controller.reset()
+    controller.transition(BakeState.PREPARING)
+    controller.transition(BakeState.EXPORTING)
+    controller.transition(BakeState.STARTING_SOLVER)
+    controller.transition(BakeState.SIMULATING)
+    controller.transition(BakeState.IMPORTING)
+    module._active_plan = SimpleNamespace(pc2_path=tmp_path / "result.pc2")
+    module._worker = SimpleNamespace(is_alive=lambda: False)
+    monkeypatch.setattr(module, "_pump_once",
+                        lambda: (_ for _ in ()).throw(TypeError("attach boom")))
+
+    assert module._pump() is None
+    snapshot = controller.snapshot()
+    assert snapshot.state is BakeState.ERROR
+    assert "TypeError: attach boom" in snapshot.error_details
+    assert module._active_plan is None
+    assert module._worker is None
+
+def test_pump_watchdog_restores_missing_timer(blender_env):
+    module = blender_env.solver_test
+    module._active_plan = SimpleNamespace()
+    timers = blender_env.bpy.app.timers
+    if timers.is_registered(module._pump):
+        timers.unregister(module._pump)
+
+    assert module._pump_watchdog() == 0.5
+    assert timers.is_registered(module._pump)
+    module._active_plan = None
+    timers.unregister(module._pump)
+
 def test_run_operator_reports_optional_companion_warning(blender_env, monkeypatch):
     module=blender_env.solver_test
     monkeypatch.setattr(module,"start_run",lambda _context, **_kw:"bundle unavailable")

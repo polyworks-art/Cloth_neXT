@@ -1,4 +1,13 @@
-# Cloth NeXt 0.3.0-dev.6 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.7 — experimental Dev test build
+
+## Blender result-pump recovery
+
+The Blender result timer now has a top-level exception boundary and a separate
+active-run watchdog. If Blender removes the timer after a Python exception,
+the failure is reported with its traceback instead of leaving the companion,
+HUD, and Physics panel indefinitely on `IMPORTING`. If the timer disappears
+without a terminal error while a run is still active, the watchdog restores it
+so the completed worker result can be consumed and attached.
 
 ## Non-blocking Blender status delivery
 
