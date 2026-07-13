@@ -20,7 +20,7 @@ from cloth_next.updater.download import (DownloadCancelled, stream_to_file,
                                          validate_download_url, verify_sha256)
 from cloth_next.updater.external import validate_external_installation
 from cloth_next.updater.install_paths import (ManagedSolverPaths, read_current,
-                                              write_current)
+                                              write_legacy_current)
 from cloth_next.updater.managed import ManagedSolverInstaller
 from cloth_next.updater.modes import InstallationMode, permissions_for
 from cloth_next.updater.solver_manifest import (OFFICIAL_DOWNLOAD_PREFIX,
@@ -291,14 +291,14 @@ def test_previous_version_stays_active_on_failed_update(tmp_path):
     old_dir = paths.version_dir("0.0.9")
     old_dir.mkdir(parents=True)
     (old_dir / "ppf-cts-server.exe").write_bytes(b"old")
-    write_current(paths, "0.0.9", "ppf-cts-server.exe")
+    write_legacy_current(paths, "0.0.9", "ppf-cts-server.exe")
 
     archive = make_solver_zip(tmp_path)
     installer = ManagedSolverInstaller(
         paths, make_entry(archive), probe_version=lambda _p: VERSIONS,
         health_check=lambda _p: False, fetch=FetchSpy(archive))
-    assert installer.state is InstallerState.READY
-    installer._state = InstallerState.UPDATE_AVAILABLE  # noqa: SLF001 — direct setup
+    # a legacy installation has no release identity: immediately updatable
+    assert installer.state is InstallerState.UPDATE_AVAILABLE
     installer.request_download()
     assert installer.install(confirmed=True) is InstallerState.ERROR
     active = read_current(paths)
@@ -317,7 +317,7 @@ def test_successful_pipeline_activates_version(tmp_path):
 
 def test_never_installs_in_place_over_existing_version(tmp_path):
     installer, _ = make_installer(tmp_path)
-    installer.paths.version_dir("0.1.0").mkdir(parents=True)
+    installer.paths.version_dir("2026-07-09-04-39").mkdir(parents=True)
     assert run_pipeline(installer) is InstallerState.ERROR
     assert "never install in place" in installer.error.technical_message
 
@@ -327,9 +327,9 @@ def test_never_installs_in_place_over_existing_version(tmp_path):
 def test_managed_installation_can_be_removed(tmp_path):
     installer, _ = make_installer(tmp_path)
     run_pipeline(installer)
-    installer.remove("0.1.0")
+    installer.remove("2026-07-09-04-39")
     assert read_current(installer.paths) is None
-    assert not installer.paths.version_dir("0.1.0").exists()
+    assert not installer.paths.version_dir("2026-07-09-04-39").exists()
     assert installer.state is InstallerState.NOT_INSTALLED
 
 
@@ -444,7 +444,7 @@ def test_check_for_update_offers_only_manifest_versions(tmp_path):
     paths = ManagedSolverPaths(tmp_path / "managed")
     paths.ensure_layout()
     paths.version_dir("0.1.0").mkdir(parents=True)
-    write_current(paths, "0.1.0", "ppf-cts-server.exe")
+    write_legacy_current(paths, "0.1.0", "ppf-cts-server.exe")
     installer = ManagedSolverInstaller(paths, entry,
                                        probe_version=lambda _p: VERSIONS,
                                        health_check=lambda _p: True,

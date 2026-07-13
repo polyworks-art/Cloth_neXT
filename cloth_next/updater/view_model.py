@@ -36,6 +36,23 @@ class InstalledInfo:
     package_version: str
     protocol_version: str
     schema_version: str
+    #: Immutable official release tag of the installed managed release, or a
+    #: "Legacy installation …" label when the identity is unknown.
+    release_label: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateAlert:
+    """Content of the red preferences warning box.
+
+    Present only when a managed installation exists and the bundled manifest
+    pins a verified download whose immutable release identity differs from
+    the installed one. Rendering it never starts any download.
+    """
+    title: str
+    lines: tuple[str, ...]
+    action: InstallerAction
+    action_text: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +61,7 @@ class SolverSection:
     rows: tuple[tuple[str, str], ...]
     actions: tuple[InstallerAction, ...]
     message: str
+    update_alert: UpdateAlert | None = None
 
 
 _BUSY_STATES = frozenset({
@@ -112,7 +130,31 @@ def build_section(installer_state: InstallerState,
             ("Installation",
              "Managed" if installed.mode is InstallationMode.MANAGED_INSTALLATION
              else "External"))
-    return SolverSection(status, rows, actions, descriptor.ui_message)
+    if installed.release_label:
+        rows += (("Installed Release", installed.release_label),)
+    alert = None
+    if (status is SectionStatus.UPDATE_AVAILABLE and entry is not None
+            and installed.mode is InstallationMode.MANAGED_INSTALLATION):
+        alert = build_update_alert(installed.release_label or "Unknown release",
+                                   entry)
+    return SolverSection(status, rows, actions, descriptor.ui_message, alert)
+
+
+def build_update_alert(installed_release: str,
+                       entry: SolverCompatibilityEntry) -> UpdateAlert:
+    """The artist-facing red warning shown when a verified update exists."""
+    return UpdateAlert(
+        title="Solver Update Available",
+        lines=(
+            "A newer verified PPF Contact Solver is available for Cloth NeXt.",
+            f"Installed: {installed_release}",
+            f"Available: {entry.official_release_tag}",
+            "The new version will be installed alongside the current one.",
+            "Your existing solver remains active until the download and "
+            "health check succeed.",
+        ),
+        action=InstallerAction.INSTALL_COMPATIBLE_VERSION,
+        action_text="Install Compatible Solver Update")
 
 
 def confirmation_lines(entry: SolverCompatibilityEntry,

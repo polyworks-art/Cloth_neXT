@@ -6,6 +6,36 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Fixed — solver update detection uses the immutable release identity
+
+- A managed PPF Contact Solver installation is now identified by the immutable
+  official release tag plus the asset SHA-256 (`current.json` metadata
+  version 2), no longer by the internal solver package version alone: a new
+  official release that still reports package `0.1.0` is now correctly
+  detected as an available update.
+- New managed installations live under `versions/<official-release-tag>/`, so
+  official releases sharing one internal package version install side by side.
+  The previously active installation stays untouched and active until the new
+  release passed SHA-256, version-probe, protocol, schema, and the real health
+  check.
+- Legacy `current.json` files (only `active_version`) stay readable and
+  startable, are never rewritten just by reading them, and are offered the
+  manifest-pinned release as a compatible update because their exact official
+  release identity is unknown.
+- The same release tag appearing with a different manifest hash is logged and
+  handled as an integrity/manifest problem, never as a silent release switch.
+
+### Added — solver update notice in the add-on preferences
+
+- The preferences show a red alert box ("Solver Update Available") immediately
+  when a managed installation is older than the manifest-pinned verified
+  release. The comparison is purely local against the bundled
+  `solver_compatibility.json` — no network request, no thread, no download.
+- The alert's "Install Compatible Solver Update" button opens the existing
+  confirmation-gated installer dialog; downloads never start automatically.
+- External installations are never modified and never falsely reported as
+  outdated.
+
 ## 0.3.0-beta.1 — 2026-07-13 (beta channel)
 
 ### Changed — gated developer interface

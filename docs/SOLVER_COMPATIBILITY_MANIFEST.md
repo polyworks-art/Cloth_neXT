@@ -43,6 +43,18 @@ and `tests/test_solver_compatibility_manifest.py`.
 - Unknown solver versions are never assumed compatible. A new upstream release
   is offered only after it has been tested and added here in a reviewed change.
 
+## Release identity
+
+The pair `official_release_tag` + `sha256` is the immutable identity of a
+verified release. Managed installations store this identity in `current.json`
+and compare it against the manifest to decide whether an update is available;
+`solver_package_version` is a compatibility check of the downloaded
+executable, never a sufficient release identity (different official releases
+may report the same internal package version). Changing the `sha256` of an
+already published `official_release_tag` is an integrity/manifest problem —
+published official releases are immutable — and is logged as such by the
+update check instead of being treated as a silent release switch.
+
 ## Current verified entry
 
 The `windows-x86_64` entry pins official release tag `2026-07-09-04-39`

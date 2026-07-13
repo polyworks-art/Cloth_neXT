@@ -29,9 +29,11 @@ from ..ppf.layout import EXECUTABLE_NAME
 from . import download as download_module
 from .archive import extract_to_staging
 from .install_paths import (ActiveInstallation, ManagedSolverPaths, clear_current,
-                            read_current, write_current)
+                            make_current_record, read_current,
+                            validate_installation_id, write_current)
 from .solver_manifest import SolverCompatibilityEntry
 from .states import InstallerState, can_transition
+from .update_check import solver_update_available
 
 VersionProbe = Callable[[Path], tuple[str, str, str]]
 HealthCheck = Callable[[Path], bool]
@@ -59,12 +61,23 @@ class ManagedSolverInstaller:
         self._error: ErrorRecord | None = None
         self._download_done = 0
         self._download_total = 0
+        self._decline_state = InstallerState.DOWNLOAD_AVAILABLE
         try:
-            self._state = (InstallerState.READY if read_current(paths) is not None
-                           else InstallerState.NOT_INSTALLED)
+            self._state = self._resolve_local_state(read_current(paths))
         except ValueError:
             # Tampered or corrupted current.json: never trust it, offer repair.
             self._state = InstallerState.REPAIR_REQUIRED
+
+    def _resolve_local_state(self,
+                             active: ActiveInstallation | None) -> InstallerState:
+        """Purely local session-initialization state: compares the installed
+        release identity with the bundled manifest. No download, no network
+        request, no solver process, no thread, no installation change."""
+        if active is None:
+            return InstallerState.NOT_INSTALLED
+        if solver_update_available(active, self._entry):
+            return InstallerState.UPDATE_AVAILABLE
+        return InstallerState.READY
 
     @property
     def state(self) -> InstallerState:
@@ -107,6 +120,9 @@ class ManagedSolverInstaller:
 
     def request_download(self) -> InstallerState:
         """Move to the explicit confirmation step; never starts any download."""
+        self._decline_state = (self._state
+                               if self._state is not InstallerState.NOT_INSTALLED
+                               else InstallerState.DOWNLOAD_AVAILABLE)
         self._set_state(InstallerState.AWAITING_CONFIRMATION)
         return self._state
 
@@ -121,8 +137,10 @@ class ManagedSolverInstaller:
         if self._state is not InstallerState.AWAITING_CONFIRMATION:
             raise ValueError("install() requires the AWAITING_CONFIRMATION state")
         if not confirmed:
+            # A cancelled confirmation returns to the pre-dialog state, so a
+            # pending update keeps being shown as available.
             self._repair_mode = False
-            self._set_state(InstallerState.DOWNLOAD_AVAILABLE)
+            self._set_state(self._decline_state)
             return self._state
         previous = read_current(self._paths)
         self._cancel.clear()
@@ -161,26 +179,37 @@ class ManagedSolverInstaller:
                 raise _HealthCheckFailure("the real solver health check failed")
             bundle_root = normalize_bundle_root(staging)
             relative = executable.relative_to(bundle_root).as_posix()
-            version_dir = self._paths.version_dir(entry.solver_package_version)
+            # The installation directory is named after the immutable official
+            # release tag, never after the internal package version alone:
+            # different official releases may report the same package version
+            # and must install side by side.
+            installation_id = validate_installation_id(entry.official_release_tag)
+            version_dir = self._paths.version_dir(installation_id)
             if version_dir.exists():
                 if not self._repair_mode:
                     raise ValueError(
-                        f"managed version {entry.solver_package_version} already "
-                        "exists; never install in place — remove or repair it "
+                        f"managed release {installation_id} already exists; "
+                        "never install in place — remove or repair it "
                         "explicitly")
                 atomic_replace_directory(Path(bundle_root), version_dir)
             else:
                 version_dir.parent.mkdir(parents=True, exist_ok=True)
                 Path(bundle_root).replace(version_dir)
             self._repair_mode = False
-            write_current(self._paths, entry.solver_package_version, relative)
+            write_current(self._paths, make_current_record(
+                installation_id=installation_id,
+                solver_package_version=entry.solver_package_version,
+                executable_relative=relative,
+                official_release_tag=entry.official_release_tag,
+                official_asset_name=entry.official_asset_name,
+                asset_sha256=entry.sha256))
             self._set_state(InstallerState.READY)
         except download_module.DownloadCancelled:
             self._state = InstallerState.CANCELLING
             archive_path.unlink(missing_ok=True)
             self._restore_after_failure(previous)
-            self._set_state(InstallerState.READY if previous
-                            else InstallerState.DOWNLOAD_AVAILABLE)
+            self._set_state(self._resolve_local_state(previous)
+                            if previous else InstallerState.DOWNLOAD_AVAILABLE)
         except _CompatibilityFailure as exc:
             self._fail("The downloaded solver is not compatible with this "
                        "Cloth NeXt version.", str(exc),
@@ -201,26 +230,33 @@ class ManagedSolverInstaller:
         return self._state
 
     def _restore_after_failure(self, previous: ActiveInstallation | None) -> None:
-        """The pipeline never touched current.json before success; assert that."""
-        current = read_current(self._paths)
+        """The pipeline never touched current.json before success; assert that.
+
+        Restoring writes back the previous record unchanged — a legacy record
+        stays in the legacy format and is never migrated by a failed update.
+        """
+        try:
+            current = read_current(self._paths)
+        except ValueError:
+            current = None
         if previous is None:
             if current is not None:
                 clear_current(self._paths)
-        elif current is None or current.version != previous.version:
-            write_current(self._paths, previous.version, previous.executable_relative)
+        elif current != previous:
+            write_current(self._paths, previous)
 
-    def remove(self, version: str) -> None:
-        """Remove a managed version; external installations are never touched."""
+    def remove(self, installation_id: str) -> None:
+        """Remove a managed installation; external installations are never touched."""
         if self._is_solver_running():
             raise ValueError("stop the solver before removing a managed installation")
-        version_dir = self._paths.version_dir(version)
+        version_dir = self._paths.version_dir(installation_id)
         resolved = version_dir.resolve()
         if self._paths.versions_dir.resolve() not in resolved.parents:
             raise ValueError("refusing to remove a directory outside the managed root")
         active = read_current(self._paths)
         if version_dir.exists():
             shutil.rmtree(version_dir)
-        if active is not None and active.version == version:
+        if active is not None and active.installation_id == installation_id:
             clear_current(self._paths)
             self._state = InstallerState.NOT_INSTALLED
 
@@ -229,22 +265,36 @@ class ManagedSolverInstaller:
         replaced after confirmation, download, verification, and health check."""
         if self._is_solver_running():
             raise ValueError("stop the solver before repairing a managed installation")
-        if read_current(self._paths) is None:
-            raise ValueError("no managed installation to repair")
+        try:
+            if read_current(self._paths) is None:
+                raise ValueError("no managed installation to repair")
+        except ValueError:
+            if self._state is not InstallerState.REPAIR_REQUIRED:
+                raise
+            # Corrupt or tampered metadata is exactly what repair replaces.
+        origin = self._state
         if self._state is not InstallerState.REPAIR_REQUIRED:
             self._set_state(InstallerState.REPAIR_REQUIRED)
+        self._decline_state = (origin if origin in (InstallerState.READY,
+                                                    InstallerState.UPDATE_AVAILABLE)
+                               else InstallerState.REPAIR_REQUIRED)
         self._set_state(InstallerState.AWAITING_CONFIRMATION)
         self._repair_mode = True
         return self._state
 
     def check_for_update(self) -> InstallerState:
-        """Offer only the manifest-pinned version; unknown versions are never offered."""
-        active = read_current(self._paths)
-        if active is None:
-            self._state = InstallerState.NOT_INSTALLED
+        """Re-run the central identity comparison; only the manifest-pinned
+        release is ever offered, unknown versions never. The decision compares
+        the immutable official release tag and asset hash — the internal
+        package version alone never decides it."""
+        try:
+            active = read_current(self._paths)
+        except ValueError:
+            self._state = InstallerState.REPAIR_REQUIRED
             return self._state
-        if active.version != self._entry.solver_package_version:
-            self._set_state(InstallerState.UPDATE_AVAILABLE)
+        target = self._resolve_local_state(active)
+        if target is not self._state:
+            self._set_state(target)
         return self._state
 
 

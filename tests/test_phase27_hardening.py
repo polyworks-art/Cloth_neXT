@@ -17,7 +17,7 @@ from cloth_next.ppf import health as health_module
 from cloth_next.ppf.health import HealthSnapshot, start_owned_and_wait
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.updater.install_paths import (ManagedSolverPaths, read_current,
-                                              write_current)
+                                              write_legacy_current)
 from cloth_next.updater.managed import ManagedSolverInstaller
 from cloth_next.updater.solver_manifest import SolverCompatibilityEntry
 from cloth_next.updater.states import InstallerState
@@ -166,7 +166,7 @@ def test_tampered_metadata_puts_installer_into_repair(tmp_path):
 def test_valid_current_json_still_loads(tmp_path):
     paths = ManagedSolverPaths(tmp_path / "managed")
     paths.root.mkdir(parents=True)
-    write_current(paths, "0.1.0", "ppf-cts-server.exe")
+    write_legacy_current(paths, "0.1.0", "ppf-cts-server.exe")
     active = read_current(paths)
     assert active.version == "0.1.0"
     expected = (paths.version_dir("0.1.0") / "ppf-cts-server.exe").resolve()
@@ -176,7 +176,10 @@ def test_valid_current_json_still_loads(tmp_path):
 def test_executable_path_containment_is_enforced(tmp_path):
     from cloth_next.updater.install_paths import ActiveInstallation
     paths = ManagedSolverPaths(tmp_path / "managed")
-    tampered = ActiveInstallation("0.1.0", "sub/../../../ppf-cts-server.exe", "")
+    tampered = ActiveInstallation(
+        metadata_version=1, installation_id="0.1.0",
+        solver_package_version="0.1.0",
+        executable_relative="sub/../../../ppf-cts-server.exe", activated_at="")
     with pytest.raises(ValueError, match="tampered"):
         tampered.executable_path(paths)
 

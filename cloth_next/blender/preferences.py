@@ -29,6 +29,7 @@ from ..updater.modes import InstallationMode
 from ..updater.solver_manifest import (SolverCompatibilityEntry,
                                                 load_bundled_manifest)
 from ..updater.states import InstallerAction, InstallerState
+from ..updater.update_check import solver_update_available
 
 _ADDON_ID = __package__.partition(".blender")[0]
 _PLATFORM = "windows-x86_64"
@@ -95,6 +96,12 @@ def _safe_read_current():
 
 
 def _installer_state() -> InstallerState:
+    """Local session state; never touches the network or starts anything.
+
+    An older or legacy managed installation is reported as UPDATE_AVAILABLE
+    immediately — comparing ``current.json`` with the bundled compatibility
+    manifest needs no GitHub request, no solver process, and no thread.
+    """
     installer = _session.installer
     if installer is not None:
         return installer.state
@@ -102,6 +109,8 @@ def _installer_state() -> InstallerState:
     if not valid:
         return InstallerState.REPAIR_REQUIRED
     if active is not None:
+        if solver_update_available(active, _session.entry):
+            return InstallerState.UPDATE_AVAILABLE
         return InstallerState.READY
     return InstallerState.NOT_INSTALLED
 
@@ -114,7 +123,7 @@ def _installed_info() -> view_model.InstalledInfo | None:
     return view_model.InstalledInfo(
         InstallationMode.MANAGED_INSTALLATION,
         active.version, _session.entry.protocol_version,
-        _session.entry.schema_version)
+        _session.entry.schema_version, release_label=active.release_label)
 
 
 def _tag_redraw_preferences() -> None:
@@ -392,7 +401,7 @@ class CLOTHNEXT_OT_solver_remove_managed(bpy.types.Operator):
             self.report({"ERROR"}, "No managed installation to remove.")
             return {"CANCELLED"}
         try:
-            installer.remove(active.version)
+            installer.remove(active.installation_id)
         except (OSError, ValueError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
@@ -522,6 +531,19 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         section = view_model.build_section(state, _session.entry,
                                            _session.disabled_reason, _installed_info(),
                                            download_progress=progress_text)
+        if section.update_alert is not None:
+            # The primary visual message: a real Blender alert (red) box.
+            # Drawing it never starts a download — the button below opens the
+            # existing confirmation-gated installer dialog.
+            warning = box.box()
+            warning.alert = True
+            warning.label(text=section.update_alert.title, icon="ERROR")
+            for line in section.update_alert.lines:
+                warning.label(text=line)
+            install_row = warning.row()
+            install_row.operator(
+                _ACTION_OPERATORS[section.update_alert.action],
+                text=section.update_alert.action_text)
         for label, value in section.rows:
             row = box.row()
             row.label(text=f"{label}: {value}")
@@ -532,6 +554,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=installer.error.user_message, icon="ERROR")
         actions = box.column()
         for action in section.actions:
+            if (section.update_alert is not None
+                    and action is section.update_alert.action):
+                continue  # the alert box already offers this action once
             idname = _ACTION_OPERATORS.get(action)
             if idname is not None:
                 actions.operator(idname)

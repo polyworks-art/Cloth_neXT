@@ -17,12 +17,66 @@ not include it; the add-on preferences install or select it separately. See
 
 ```text
 %LOCALAPPDATA%\ClothNeXt\solver\
-├─ versions\<official-version>\   # side-by-side installations
-├─ current.json                   # active version pointer
-├─ downloads\                     # verified archives
-├─ staging\                       # extraction sandbox
+├─ versions\<official-release-tag>\   # side-by-side installations
+├─ current.json                       # active installation identity
+├─ downloads\                         # verified archives
+├─ staging\                           # extraction sandbox
 └─ logs\
 ```
+
+New managed installations are stored under the immutable official release tag
+(e.g. `versions/2026-07-09-04-39/`), never under the internal solver package
+version alone: multiple official releases may report the same internal package
+version and must install side by side. The release id is strictly validated
+(no separators, no traversal). Legacy installations under
+`versions/<package-version>/` (e.g. `versions/0.1.0/`) remain valid and
+startable and are never touched by an update.
+
+## Installation identity (`current.json`)
+
+`current.json` metadata version 2 records the full immutable release identity:
+
+```json
+{
+  "metadata_version": 2,
+  "installation_id": "2026-07-09-04-39",
+  "official_release_tag": "2026-07-09-04-39",
+  "official_asset_name": "ppf-contact-solver-2026-07-09-04-39-win64.zip",
+  "asset_sha256": "<64 lowercase hex>",
+  "solver_package_version": "0.1.0",
+  "executable": "target/release/ppf-cts-server.exe",
+  "activated_at": "<ISO-8601 UTC>"
+}
+```
+
+The legacy version-1 format (`active_version` + `executable`) stays readable;
+such installations keep working, are never destructively rewritten just by
+reading them, and — because their exact official release identity is unknown —
+are offered the current manifest-pinned release as a compatible update. The
+new format is written only after a successful installation and health check.
+Corrupted or tampered metadata is never trusted and leads to the repair flow.
+
+## Update detection and the preferences notice
+
+Whether a solver update exists is decided by one central, pure comparison
+(`cloth_next/updater/update_check.py`): a managed installation is outdated
+when its official release tag or asset SHA-256 differs from the bundled
+`solver_compatibility.json` entry, or when the release identity is unknown
+(legacy metadata). The internal solver package version alone never decides it;
+package, protocol, and schema remain mandatory checks of the actually
+downloaded executable. The same release tag with a different manifest hash is
+logged and treated as an integrity/manifest problem, never as a silent release
+switch.
+
+The comparison runs locally when the preferences are drawn — no network
+request, no thread, no process start. When an update is available for a
+managed installation, the PPF Contact Solver section shows a red alert box
+("Solver Update Available") naming the installed and the available release,
+with an "Install Compatible Solver Update" button that opens the existing
+confirmation dialog. Downloads never start automatically. External
+installations are never modified and never reported as outdated when their
+exact official release cannot be determined. Solver updates and Cloth NeXt
+add-on updates remain separate lifecycles.
 
 Never used: the Blender extension root, the Cloth NeXt repository, Program
 Files, the current working directory, or a temp directory. Add-on updates
