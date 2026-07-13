@@ -267,13 +267,12 @@ def _solver_status(context) -> _SolverStatus:
 
 def _cache_state(context) -> tuple[str, str]:
     from . import solver_test
-    from ..ppf_run import import_result
     try:
         cloth, _collider = solver_test._enabled_objects_by_role(context)
     except solver_test.SceneValidationError:
         return "EMPTY", "Cache empty"
     modifier = next((mod for mod in cloth.modifiers
-                     if mod.name == import_result.MODIFIER_NAME), None)
+                     if solver_test.is_cloth_next_playback_modifier(cloth,mod)), None)
     baked = getattr(cloth.cloth_next, "baked_settings_fingerprint", "")
     if modifier is None or not baked:
         return "EMPTY", "Cache empty"
@@ -382,6 +381,8 @@ class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
         group_row.enabled = bool(settings.pinning_enabled)
         group_row.prop_search(settings, "pin_group", context.object,
                               "vertex_groups", text="Pin Group")
+        mode_row=controls.row(); mode_row.enabled=bool(settings.pinning_enabled)
+        mode_row.prop(settings,"pin_mode",text="Pin Mode")
         if settings.pinning_enabled:
             try:
                 snapshot = solver_test._snapshot_static_pin(context.object)
@@ -488,13 +489,12 @@ def _draw_stale_result_notice(layout, context) -> None:
     preset access happens here.
     """
     from . import solver_test
-    from ..ppf_run import import_result
     obj = context.object
     settings = obj.cloth_next
     baked = getattr(settings, "baked_settings_fingerprint", "")
     if not baked:
         return
-    if not any(mod.name == import_result.MODIFIER_NAME
+    if not any(solver_test.is_cloth_next_playback_modifier(obj,mod)
                for mod in obj.modifiers):
         return
     try:

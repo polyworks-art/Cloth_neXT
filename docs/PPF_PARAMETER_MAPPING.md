@@ -2,6 +2,8 @@
 
 ## Static vertex-group Pinning (Phase 3C.1)
 
+Phase 3C.2 adds Follow Animation using the pinned PPF 0.11 contract at upstream revision `7193f158e3843597070f66cb29af19efd9bdcff7`. Each pinned vertex receives its own `pin_anim` track containing continuous solver-world positions and times `(BlenderFrame - BakeStart) / FPS`. The PPF frontend converts consecutive samples into per-vertex `MoveByOperation` segments. Cloth NeXt emits no Pull, release, Torque, Spin, Scale, or explicit operation entry.
+
 Audited against official PPF commit
 `7193f158e3843597070f66cb29af19efd9bdcff7`, specifically
 `blender_addon/core/encoder/mesh.py`, `core/encoder/pin.py`,

@@ -1,5 +1,7 @@
 # Local PPF process lifecycle
 
+For Rebake, Cloth NeXt identifies playback through a Mesh Cache type plus an ownership marker and matching recorded cache path (with result-metadata migration for older owned caches). It disables viewport/render evaluation only while capturing, restores both flags in `finally`, and retains the old cache until scene validation, animated target capture, and companion readiness have succeeded. Only then does the existing object-scoped replacement service remove the prior owned result and start PPF.
+
 The mist Canvas is constructed before readiness, but animation success is not part of the matching-job, visibility, mapping, topmost, or transport-ready contract. Its one `after()` chain starts once and is cancelled idempotently before `root.destroy`, preserving polling, Cancel, disconnect, and terminal auto-close behavior.
 
 The optional owned companion is started or reused by Bake. Terminal snapshots

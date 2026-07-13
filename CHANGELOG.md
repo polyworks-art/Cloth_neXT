@@ -285,6 +285,8 @@ release pipeline.
   Stable/Beta Blender extension repositories, Phase 2.7 hardening.
 # Unreleased
 
+- Fixed false Pinning topology errors caused by Cloth NeXt-owned Mesh Cache playback.
+- Added animated vertex-group Pin targets and cancellable per-frame target capture.
 - Reworked the companion mist into a full rectangular amber-and-anthracite fog field with seamless build-generated animation frames.
 - Replaced the static Bake companion icon with a lightweight animated mist visualization and added live solver activity to the lower status bar.
 - Matched the packaged Windows companion title bar to the main window's dark gray background.

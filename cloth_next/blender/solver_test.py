@@ -37,12 +37,13 @@ from ..bake import pc2
 from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.transport import EnterBakeMode
 from ..bake.controller import InvalidTransition, shared_controller
-from ..bake.status import BakeJobKind, BakeState
+from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..core.errors import ClothNextError
 from ..materials import MaterialValidationError
 from ..materials import formatting as material_formatting
-from ..pinning import (STATIC_PIN_WEIGHT_THRESHOLD, StaticPinError,
-                       StaticPinSnapshot, static_pin_config)
+from ..pinning import (STATIC_PIN_WEIGHT_THRESHOLD, AnimatedPinTargetSample,
+                       PinMode, StaticPinError, StaticPinSnapshot,
+                       static_pin_config)
 from ..ppf.coordinates import (matrix_is_finite_and_invertible,
                                solver_world_matrix)
 from ..ppf.resolver import (ResolvedSolver, SolverResolutionContext,
@@ -58,6 +59,8 @@ from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..telemetry import shared_telemetry
 from . import companion_manager, modal_lock, object_properties
+from .playback_cache import (is_cloth_next_playback_modifier,
+                             mark_owned_playback, without_owned_playback)
 
 _EVENT_STATE = {
     "STARTING_SOLVER": BakeState.STARTING_SOLVER,
@@ -76,6 +79,7 @@ _run_started_at: float = 0.0
 _unsubscribe = None
 _pending_plan: "RunPlan | None" = None
 _pending_job_id = ""
+_pin_capture = None
 
 
 def _on_controller_snapshot(snapshot) -> None:
@@ -196,9 +200,9 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
             raise SceneValidationError(f"{obj.name} has no vertices.")
         if vertex_count != len(obj.data.vertices):
             raise SceneValidationError(
-                f"{obj.name}: evaluated vertex count {vertex_count} differs "
-                f"from the base mesh ({len(obj.data.vertices)}); topology "
-                "changes are unsupported in Phase 3A.")
+                f"{obj.name}: {len(obj.data.vertices)} source vertices and "
+                f"{vertex_count} evaluated vertices; topology-changing "
+                "modifiers are unsupported.")
         if needs_edges and len(mesh.edges) == 0:
             raise SceneValidationError(f"{obj.name} has no edges.")
         if len(mesh.polygons) == 0:
@@ -297,8 +301,53 @@ def _snapshot_static_pin(cloth_obj) -> StaticPinSnapshot:
     except StaticPinError as exc:
         raise SceneValidationError(str(exc)) from exc
 
+def _depsgraph_update(context):
+    view_layer=getattr(context,"view_layer",None)
+    if view_layer is not None and hasattr(view_layer,"update"):view_layer.update()
 
-def build_run_plan(context) -> RunPlan:
+def _solver_position(matrix,position):
+    x,y,z=position
+    return tuple(sum(float(matrix[row][column])*value for column,value in
+                     enumerate((x,y,z,1.0))) for row in range(3))
+
+def _capture_animated_pin(context,cloth_obj,bake_range,membership,
+                          precomputed=None):
+    mode=PinMode(str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC")))
+    common=dict(source_topology_signature=membership.source_topology_signature,
+                mode=mode,bake_start=bake_range.start,bake_end=bake_range.end,
+                fps=int(context.scene.render.fps))
+    if not membership.enabled or mode is PinMode.STATIC:
+        return StaticPinSnapshot(membership.enabled,membership.group_name,
+            membership.source_object_id,membership.source_vertex_count,
+            membership.vertex_indices,**common)
+    if precomputed is not None:
+        return StaticPinSnapshot(True,membership.group_name,membership.source_object_id,
+            membership.source_vertex_count,membership.vertex_indices,
+            samples=tuple(precomputed),**common)
+    scene=context.scene; original=int(scene.frame_current); samples=[]
+    try:
+        for frame in range(bake_range.start,bake_range.end+1):
+            scene.frame_set(frame); _depsgraph_update(context)
+            evaluated=cloth_obj.evaluated_get(context.evaluated_depsgraph_get())
+            mesh=evaluated.to_mesh()
+            try:
+                if len(mesh.vertices)!=membership.source_vertex_count:
+                    raise SceneValidationError(
+                        f"Animated Pinning changed Cloth topology at frame {frame}: "
+                        f"{membership.source_vertex_count} source vertices and {len(mesh.vertices)} evaluated vertices.")
+                matrix=solver_world_matrix(tuple(tuple(row) for row in evaluated.matrix_world))
+                positions=tuple(_solver_position(matrix,tuple(mesh.vertices[index].co))
+                                for index in membership.vertex_indices)
+                samples.append(AnimatedPinTargetSample(frame,positions))
+            finally:evaluated.to_mesh_clear()
+    finally:
+        scene.frame_set(original); _depsgraph_update(context)
+    return StaticPinSnapshot(True,membership.group_name,membership.source_object_id,
+        membership.source_vertex_count,membership.vertex_indices,
+        samples=tuple(samples),**common)
+
+
+def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
     """Validate the scene on the main thread and freeze the run inputs."""
     scene = context.scene
     cloth_obj, collider_obj = _enabled_objects_by_role(context)
@@ -315,32 +364,23 @@ def build_run_plan(context) -> RunPlan:
     # must fail before resolution can launch it.
     shell, static, contact_enabled, preset_identifier = _snapshot_materials(
         cloth_obj, collider_obj)
-    pin_snapshot = _snapshot_static_pin(cloth_obj)
+    pin_membership = _snapshot_static_pin(cloth_obj)
     modifiers = tuple(getattr(cloth_obj, "modifiers", ()))
-    topology_preserving = {
-        "ARMATURE", "CAST", "CORRECTIVE_SMOOTH", "DISPLACE", "HOOK",
-        "LAPLACIANDEFORM", "LAPLACIANSMOOTH", "LATTICE", "MESH_DEFORM",
-        "SHRINKWRAP", "SIMPLE_DEFORM", "SMOOTH", "SURFACE_DEFORM",
-        "WARP", "WAVE",
-    }
-    if modifiers and (not pin_snapshot.enabled or any(
-            str(mod.type) not in topology_preserving for mod in modifiers)):
-        if pin_snapshot.enabled:
-            raise SceneValidationError(
-                "The evaluated Cloth topology does not match the source mesh. "
-                "Static Pinning currently requires topology-preserving modifiers.")
+    relevant_modifiers=tuple(mod for mod in modifiers
+                             if not is_cloth_next_playback_modifier(cloth_obj,mod))
+    if relevant_modifiers and not pin_membership.enabled:
         raise SceneValidationError(
             f"{cloth_obj.name} has modifiers; the current unpinned solver "
             "slice requires a plain mesh.")
     original_frame = int(scene.frame_current)
     try:
-        scene.frame_set(bake_range.start)
-        view_layer = getattr(context, "view_layer", None)
-        if view_layer is not None and hasattr(view_layer, "update"):
-            view_layer.update()
-        depsgraph = context.evaluated_depsgraph_get()
-        cloth_vertices, cloth_triangles = _extract_mesh(
-            cloth_obj, depsgraph, needs_edges=True)
+        with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
+            scene.frame_set(bake_range.start); _depsgraph_update(context)
+            depsgraph = context.evaluated_depsgraph_get()
+            cloth_vertices, cloth_triangles = _extract_mesh(
+                cloth_obj, depsgraph, needs_edges=True)
+            pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
+                                               pin_membership,animated_pin_samples)
         collider_vertices, collider_triangles = _extract_mesh(
             collider_obj, depsgraph, needs_edges=False)
         cloth_world = tuple(tuple(row) for row in cloth_obj.matrix_world)
@@ -359,8 +399,16 @@ def build_run_plan(context) -> RunPlan:
                 f"{obj.name} has a non-finite or non-invertible world matrix.")
     if pin_snapshot.enabled and len(cloth_vertices) != pin_snapshot.source_vertex_count:
         raise SceneValidationError(
-            "The evaluated Cloth topology does not match the source mesh. "
-            "Static Pinning currently requires topology-preserving modifiers.")
+            f"Pinning found {pin_snapshot.source_vertex_count} source vertices "
+            f"and {len(cloth_vertices)} evaluated vertices.")
+    if pin_snapshot.samples:
+        matrix=solver_world_matrix(cloth_world)
+        initial=tuple(_solver_position(matrix,cloth_vertices[index])
+                      for index in pin_snapshot.vertex_indices)
+        if any(any(abs(a-b)>1e-6 for a,b in zip(expected,captured))
+               for expected,captured in zip(initial,pin_snapshot.samples[0].positions)):
+            raise SceneValidationError(
+                "Animated Pin targets at Bake Start do not match the exported Cloth positions.")
     pin_config = static_pin_config(pin_snapshot)
     resolved = resolve_solver(context)
 
@@ -402,6 +450,7 @@ def build_run_plan(context) -> RunPlan:
         "completion_state": "complete",
         "pinning": {
             "enabled": pin_snapshot.enabled,
+            "mode": pin_snapshot.mode.value,
             "group": pin_snapshot.group_name,
             "count": len(pin_snapshot.vertex_indices),
             "threshold": pin_snapshot.threshold,
@@ -454,7 +503,7 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
     if obj is None:
         raise SceneValidationError("The Cloth object no longer exists.")
     owned = [mod for mod in obj.modifiers
-             if mod.name == import_result.MODIFIER_NAME]
+             if is_cloth_next_playback_modifier(obj,mod)]
     targets: list[Path] = []
     cache_root = plan.pc2_path.parent.resolve()
     for mod in owned:
@@ -543,7 +592,7 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
         raise ValueError(f"cloth object {plan.cloth_object_name!r} no longer "
                          "exists")
     stale = [mod for mod in obj.modifiers
-             if mod.name == import_result.MODIFIER_NAME]
+             if is_cloth_next_playback_modifier(obj,mod)]
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
     for mod in stale:
@@ -555,6 +604,7 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
         name=import_result.MODIFIER_NAME, type="MESH_CACHE")
     modifier.cache_format = "PC2"
     modifier.filepath = str(plan.pc2_path)
+    mark_owned_playback(obj,modifier,str(plan.pc2_path))
     # PC2 sample zero is the uploaded initial state at Blender Bake Start.
     modifier.frame_start = float(plan.frame_start)
     modifier.interpolation = "LINEAR"
@@ -731,48 +781,94 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
     return ""
 
 
+def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
+    global _pending_plan,_pending_job_id
+    try:
+        prefs=context.preferences.addons[__package__.partition(".blender")[0]].preferences
+        auto_launch=bool(prefs.auto_launch_bake_window)
+        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
+    except (KeyError,AttributeError):auto_launch=True
+    _pending_plan=plan; _pending_job_id=job_id
+    if not auto_launch:
+        shared_controller.transition(BakeState.STARTING_RUN,status_message="Starting Bake in Blender")
+        try:prepare_cache_for_new_run(plan); _start_prepared_run(plan)
+        finally:_pending_plan=None; _pending_job_id=""
+        return job_id,False
+    shared_controller.transition(BakeState.STARTING_COMPANION,status_message="Starting Bake window")
+    request=EnterBakeMode(job_id=job_id,blender_process_id=os.getpid(),
+        frame_start=plan.frame_start,frame_end=plan.frame_end,preset_label=plan.preset_identifier)
+    ok,message=companion_manager.begin_bake_mode(request)
+    if not ok:
+        _pending_plan=None; _pending_job_id=""; shared_controller.fail(message)
+        raise SceneValidationError(message)
+    shared_controller.transition(BakeState.WAITING_FOR_COMPANION,
+        status_message="Opening Bake window…",frame_start=plan.frame_start,frame_end=plan.frame_end)
+    if not bpy.app.timers.is_registered(_startup_pump):bpy.app.timers.register(_startup_pump,first_interval=.05)
+    return job_id,True
+
 def begin_production_bake(context) -> tuple[str, bool]:
     """Validate and reserve production Bake without worker or modal lock."""
-    global _pending_plan, _pending_job_id
-    if run_active() or _pending_plan is not None:
+    global _pending_plan, _pending_job_id, _pin_capture
+    if run_active() or _pending_plan is not None or _pin_capture is not None:
         raise SceneValidationError("A Cloth NeXt bake is already active.")
     job_id = _begin_controller(BakeJobKind.BAKE)
     try:
-        plan = build_run_plan(context)
+        objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
+        cloth_obj=None
+        if objects:cloth_obj,_=_enabled_objects_by_role(context)
+        membership=_snapshot_static_pin(cloth_obj) if cloth_obj is not None else None
+        bake_range=(BakeFrameRange(int(cloth_obj.cloth_next.bake_start),int(cloth_obj.cloth_next.bake_end))
+                    if cloth_obj is not None else None)
+        if (membership is not None and membership.enabled
+                and str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))=="FOLLOW_ANIMATION"):
+            _pin_capture={"context":context,"object_name":cloth_obj.name,"membership":membership,
+                "range":bake_range,"next":bake_range.start,"samples":[],
+                "original":int(context.scene.frame_current),"job_id":job_id}
+            _pending_job_id=job_id
+            shared_controller.update(status_message="Capturing animated Pin targets",
+                activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
+                progress_current=0,progress_total=bake_range.output_count)
+            if not bpy.app.timers.is_registered(_pin_capture_pump):
+                bpy.app.timers.register(_pin_capture_pump,first_interval=.01)
+            return job_id,True
+        plan=build_run_plan(context)
     except (SceneValidationError, ClothNextError) as exc:
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
         shared_controller.fail(message); raise
+    return _continue_production_bake(context,job_id,plan)
+
+def _pin_capture_pump():
+    global _pin_capture,_pending_job_id
+    state=_pin_capture
+    if state is None:return None
+    context=state["context"]; scene=context.scene; obj=bpy.data.objects.get(state["object_name"])
     try:
-        prefs = context.preferences.addons[
-            __package__.partition(".blender")[0]].preferences
-        auto_launch = bool(prefs.auto_launch_bake_window)
-        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
-    except (KeyError, AttributeError):
-        auto_launch = True
-    _pending_plan = plan; _pending_job_id = job_id
-    if not auto_launch:
-        shared_controller.transition(BakeState.STARTING_RUN,
-                                     status_message="Starting Bake in Blender")
-        try:
-            prepare_cache_for_new_run(plan); _start_prepared_run(plan)
-        finally:
-            _pending_plan = None; _pending_job_id = ""
-        return job_id, False
-    shared_controller.transition(BakeState.STARTING_COMPANION,
-                                 status_message="Starting Bake window")
-    request = EnterBakeMode(job_id=job_id, blender_process_id=os.getpid(),
-        frame_start=plan.frame_start, frame_end=plan.frame_end,
-        preset_label=plan.preset_identifier)
-    ok, message = companion_manager.begin_bake_mode(request)
-    if not ok:
-        _pending_plan = None; _pending_job_id = ""
-        shared_controller.fail(message); raise SceneValidationError(message)
-    shared_controller.transition(BakeState.WAITING_FOR_COMPANION,
-        status_message="Opening Bake window…", frame_start=plan.frame_start,
-        frame_end=plan.frame_end)
-    if not bpy.app.timers.is_registered(_startup_pump):
-        bpy.app.timers.register(_startup_pump, first_interval=.05)
-    return job_id, True
+        if obj is None:raise SceneValidationError("The Cloth object no longer exists.")
+        frame=state["next"]
+        with without_owned_playback(obj,lambda:_depsgraph_update(context)):
+            scene.frame_set(frame); _depsgraph_update(context)
+            evaluated=obj.evaluated_get(context.evaluated_depsgraph_get()); mesh=evaluated.to_mesh()
+            try:
+                membership=state["membership"]
+                if len(mesh.vertices)!=membership.source_vertex_count:
+                    raise SceneValidationError(f"Animated Pinning changed Cloth topology at frame {frame}.")
+                matrix=solver_world_matrix(tuple(tuple(row) for row in evaluated.matrix_world))
+                positions=tuple(_solver_position(matrix,tuple(mesh.vertices[i].co)) for i in membership.vertex_indices)
+                state["samples"].append(AnimatedPinTargetSample(frame,positions))
+            finally:evaluated.to_mesh_clear()
+        scene.frame_set(state["original"]); _depsgraph_update(context)
+        shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",
+            activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
+            progress_current=frame-state["range"].start+1)
+        if frame<state["range"].end:
+            state["next"]=frame+1; return .01
+        job_id=state["job_id"]; samples=tuple(state["samples"]); _pin_capture=None
+        plan=build_run_plan(context,animated_pin_samples=samples)
+        _continue_production_bake(context,job_id,plan); return None
+    except Exception as exc:
+        try:scene.frame_set(state["original"]); _depsgraph_update(context)
+        except Exception:pass
+        _pin_capture=None; _pending_job_id=""; shared_controller.fail(str(exc)); return None
 
 
 def _startup_pump() -> float | None:
@@ -796,10 +892,18 @@ def _startup_pump() -> float | None:
 
 
 def cancel_pending_startup() -> None:
-    global _pending_plan, _pending_job_id
+    global _pending_plan, _pending_job_id, _pin_capture
     if not _pending_job_id: return
     job_id = _pending_job_id
     companion_manager.cancel_startup(job_id)
+    if _pin_capture is not None:
+        try:
+            context=_pin_capture["context"]
+            context.scene.frame_set(_pin_capture["original"]); _depsgraph_update(context)
+        except Exception:pass
+        _pin_capture=None
+        if bpy.app.timers.is_registered(_pin_capture_pump):
+            bpy.app.timers.unregister(_pin_capture_pump)
     _pending_plan = None; _pending_job_id = ""
     if shared_controller.snapshot().state is not BakeState.CANCELLING:
         shared_controller.request_cancel()
@@ -820,10 +924,10 @@ def shutdown(join_timeout: float = 30.0) -> None:
     """Unregister/exit path: cancel, join the worker, drop the timer. The
     session's own cleanup stops the exact owned solver process and never an
     external server."""
-    global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id
+    global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
-    _pending_plan = None; _pending_job_id = ""; modal_lock.release()
+    _pending_plan = None; _pending_job_id = ""; _pin_capture=None; modal_lock.release()
     _cancel_event.set()
     worker = _worker
     if worker is not None and worker.is_alive():
@@ -837,6 +941,8 @@ def shutdown(join_timeout: float = 30.0) -> None:
         bpy.app.timers.unregister(_pump)
     if bpy.app.timers.is_registered(_startup_pump):
         bpy.app.timers.unregister(_startup_pump)
+    if bpy.app.timers.is_registered(_pin_capture_pump):
+        bpy.app.timers.unregister(_pin_capture_pump)
     while not _queue.empty():
         try:
             _queue.get_nowait()
@@ -857,7 +963,10 @@ def current_settings_fingerprint(context) -> str | None:
         cloth_obj, collider_obj = _enabled_objects_by_role(context)
         shell, static, contact_enabled, preset = _snapshot_materials(
             cloth_obj, collider_obj)
-        pin_fingerprint = _snapshot_static_pin(cloth_obj).fingerprint
+        pin_snapshot=_snapshot_static_pin(cloth_obj)
+        pin_mode=str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))
+        pin_fingerprint=hashlib.sha256(
+            f"{pin_snapshot.fingerprint}\0{pin_mode}".encode("utf-8")).hexdigest()
     except SceneValidationError:
         return None
     return material_formatting.settings_fingerprint(
@@ -911,7 +1020,8 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
                  f"friction-mode: {wire_scene['friction-mode']}, "
                  f"disable-contact: {wire_scene['disable-contact']}")
     if pin_snapshot.enabled:
-        lines.extend(("Pinning: Static", f"Group: {pin_snapshot.group_name}",
+        mode=str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))
+        lines.extend((f"Pinning: {'Follow Animation' if mode=='FOLLOW_ANIMATION' else 'Static'}", f"Group: {pin_snapshot.group_name}",
                       f"Pinned vertices: {len(pin_snapshot.vertex_indices)}",
                       f"Index range: {pin_snapshot.vertex_indices[0]}–{pin_snapshot.vertex_indices[-1]}",
                       "Operations: 0", "Pull: Disabled", "Release: Never"))
@@ -1150,7 +1260,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         objects = (target,) if target is not None else bpy.data.objects
         for obj in objects:
             for mod in list(obj.modifiers):
-                if mod.name == import_result.MODIFIER_NAME:
+                if is_cloth_next_playback_modifier(obj,mod):
                     filepath = getattr(mod, "filepath", "")
                     obj.modifiers.remove(mod)
                     removed_modifiers += 1

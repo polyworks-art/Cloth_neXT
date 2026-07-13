@@ -46,6 +46,9 @@ class BakeActivity(str, Enum):
     BUILDING_PC2="BUILDING_PC2"; APPLYING_PLAYBACK="APPLYING_PLAYBACK"
     CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; FINISHED="FINISHED"
     ERROR="ERROR"; UNKNOWN="UNKNOWN"
+    CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
+    VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
+    ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
 
 ACTIVITY_LABELS = {
     BakeActivity.IDLE:"Waiting for a Bake", BakeActivity.VALIDATING:"Validating Blender scene",
@@ -60,6 +63,9 @@ ACTIVITY_LABELS = {
     BakeActivity.CLEANING_UP:"Cleaning temporary files", BakeActivity.CANCELLING:"Cancelling solver",
     BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
     BakeActivity.UNKNOWN:"Running solver",
+    BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
+    BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
+    BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
 }
 
 PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":BakeActivity.ENCODING_SCENE,

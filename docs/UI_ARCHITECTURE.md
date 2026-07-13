@@ -1,5 +1,7 @@
 # Phase 2.8B UI architecture
 
+The Pinning panel exposes Static and Follow Animation modes. Follow Animation reserves the run, captures one evaluated frame per bounded main-thread timer tick, reports dedicated capture activity, remains cancellable, and completes companion readiness only after the immutable target snapshot is valid.
+
 The Bake companion separates overall progress from typed solver activity and never parses logs in Tk. Its rectangular mist preloads 32 seamless build-generated fog frames and swaps one full-Canvas image through a 45 ms timer. Broad state and activity adjust playback speed; reduced-motion and static fallback paths remain decorative. The packaged Windows DWM caption matches the `#303030` main-window background.
 
 Production Bake is a Blender modal operator backed by an event timer. It

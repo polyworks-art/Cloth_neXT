@@ -91,6 +91,7 @@ def test_cache_replacement_rejects_external_path_and_preserves_result(
     mod=obj.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE")
     external=tmp_path.parent/"user.pc2"; external.write_bytes(b"user")
     mod.filepath=str(external)
+    module.mark_owned_playback(obj,mod,str(external))
     plan=SimpleNamespace(cloth_object_name="Cloth",
                          pc2_path=tmp_path/"cn_test_cloth_new.pc2")
     with pytest.raises(module.SceneValidationError,match="could not be removed"):
@@ -107,7 +108,8 @@ def test_cache_replacement_is_object_scoped_and_idempotent(blender_env,
     env.bpy.data.objects[cloth.name]=cloth; env.bpy.data.objects[other.name]=other
     owned=tmp_path/"cn_test_cloth_old.pc2"; owned.write_bytes(b"old")
     unrelated=tmp_path/"user.pc2"; unrelated.write_bytes(b"user")
-    cloth.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE").filepath=str(owned)
+    owned_mod=cloth.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE")
+    owned_mod.filepath=str(owned); module.mark_owned_playback(cloth,owned_mod,str(owned))
     cloth.modifiers.new("User Cache","MESH_CACHE").filepath=str(unrelated)
     other.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE").filepath=str(owned)
     plan=SimpleNamespace(cloth_object_name="Cloth",
@@ -117,6 +119,25 @@ def test_cache_replacement_is_object_scoped_and_idempotent(blender_env,
     assert any(m.name=="User Cache" for m in cloth.modifiers)
     assert any(m.name==module.import_result.MODIFIER_NAME for m in other.modifiers)
     env.registration.unregister()
+
+def test_playback_ownership_requires_marker_or_result_metadata(blender_env,tmp_path):
+    module=blender_env.solver_test; obj=blender_env.bpy.types.Object("Cloth","MESH")
+    path=tmp_path/"cn_test_cloth_owned.pc2"
+    user=obj.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE"); user.filepath=str(path)
+    assert not module.is_cloth_next_playback_modifier(obj,user)
+    module.mark_owned_playback(obj,user,str(path))
+    assert module.is_cloth_next_playback_modifier(obj,user)
+
+def test_owned_playback_exclusion_restores_exact_state(blender_env,tmp_path):
+    module=blender_env.solver_test; obj=blender_env.bpy.types.Object("Cloth","MESH")
+    path=tmp_path/"cn_test_cloth_owned.pc2"
+    mod=obj.modifiers.new(module.import_result.MODIFIER_NAME,"MESH_CACHE"); mod.filepath=str(path)
+    mod.show_viewport=True; mod.show_render=False; module.mark_owned_playback(obj,mod,str(path))
+    with pytest.raises(RuntimeError):
+        with module.without_owned_playback(obj):
+            assert not mod.show_viewport and not mod.show_render
+            raise RuntimeError("capture failed")
+    assert mod.show_viewport and not mod.show_render
 
 
 def test_structural_ready_gate_precedes_lock_and_worker():

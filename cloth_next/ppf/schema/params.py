@@ -159,11 +159,14 @@ def build_param_payload(settings: SimulationSettings,
     # identity avoids turning pull_strength=0 into the soft-pull code path.
     pin_config = {}
     if static_pin is not None:
-        pin_config[cloth_uuid] = {
-            index: {"pin_group_id": static_pin.pin_group_id,
-                    "operations": []}
-            for index in static_pin.indices
-        }
+        pin_config[cloth_uuid] = {}
+        for offset,index in enumerate(static_pin.indices):
+            config={"pin_group_id":static_pin.pin_group_id,"operations":[]}
+            if static_pin.times:
+                config["embedded_move_index"]=0
+                config["pin_anim"]={index:{"time":list(static_pin.times),
+                    "position":[list(frame[offset]) for frame in static_pin.positions]}}
+            pin_config[cloth_uuid][index]=config
     return {"scene": scene, "group": group, "pin_config": pin_config}
 
 

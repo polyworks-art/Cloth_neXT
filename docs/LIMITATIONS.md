@@ -1,5 +1,7 @@
 # Audit limitations and unsupported claims
 
+- Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
+
 Current production scope is one Cloth and one static Collider. Animated
 colliders, pressure, and pinning are unsupported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
