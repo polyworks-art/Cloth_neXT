@@ -194,6 +194,29 @@ The extension root is derived from `ppf/resolver.py`'s module path. A repository
 accepted only when both `pyproject.toml` and `cloth_next/blender_manifest.toml` exist;
 there is no open-ended parent search or developer-specific absolute path.
 
+## Streaming playback cache
+
+The production PPF result path is bounded-memory and single-path:
+
+```text
+complete solver frame -> bounded TCP buffer -> NumPy <f4 view
+ -> precomputed cloth index array -> vectorized (Z2Y @ world)^-1
+ -> one-frame PC2 write -> release frame storage
+```
+
+`StreamingPc2Writer` writes the final 32-byte header and initial pose into a
+private temporary file, accepts exactly one finite `(vertex_count, 3)` frame at
+a time, flushes and fsyncs once, validates size/header, and publishes with
+`os.replace`. Cancellation or failure removes only the temporary replacement;
+the prior valid playback remains attached until the new cache is complete.
+Peak animation storage is `O(vertex_count)`, not `O(vertex_count * frame_count)`.
+The sidecar is also published through a temporary file after PC2 success.
+
+External servers always use bounded TCP. Owned local solvers currently use the
+same tested transfer path: the pinned source establishes incremental complete
+frames, but the exact direct-disk project path and publication guarantee have
+not been accepted as a safe public contract, so Cloth NeXt does not guess it.
+
 ## Sources
 
 ## Phase 3A vertical slice

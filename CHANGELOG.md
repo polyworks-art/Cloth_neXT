@@ -15,6 +15,20 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Changed — bounded-memory PC2 playback generation
+
+- Stream complete PPF frames directly through NumPy extraction and vectorized
+  coordinate conversion into a transactional PC2 writer.
+- Publish PC2 and metadata atomically, retain the previous valid cache on a
+  failed Rebake, and expose per-frame cache creation/finalization progress.
+- Replace TCP chunk accumulation with one bounded preallocated receive buffer
+  and split transfer, decode, extraction, transform, write, and finalization
+  diagnostics.
+- Add reproducible 10k/50 and 50k/250 synthetic benchmarks. The measured
+  medium baseline fell from 77.853 s and 2.115 GB peak Python allocation to
+  0.385 s and 4.28 MB on the same workstation. Solver parameters, including
+  the `dt = 0.001` default, are unchanged.
+
 ### Fixed — solver update detection uses the immutable release identity
 
 - A managed PPF Contact Solver installation is now identified by the immutable

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
+import numpy as np
+
 Vec3 = tuple[float, float, float]
 Mat4 = tuple[tuple[float, float, float, float], ...]
 
@@ -122,3 +124,16 @@ def solver_world_to_object_local(blender_world: Sequence[Sequence[float]]) -> Ma
 
 def transform_points(m: Mat4, points: Iterable[Sequence[float]]) -> list[Vec3]:
     return [transform_point(m, p) for p in points]
+
+
+def transform_points_numpy(m: Sequence[Sequence[float]], positions) -> np.ndarray:
+    """Vectorized affine transform, equivalent to transform_points()."""
+    matrix = np.asarray(m, dtype=np.float64)
+    if matrix.shape != (4, 4) or not np.isfinite(matrix).all():
+        raise ValueError("transform matrix must be finite and 4x4")
+    points = np.asarray(positions)
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError("positions must have shape (vertex_count, 3)")
+    # Keep the matrix computation in float64 like the prior Python-float path;
+    # the PC2 writer performs the single final float32 rounding.
+    return points @ matrix[:3, :3].T + matrix[:3, 3]

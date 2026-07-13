@@ -22,6 +22,8 @@ import math
 import struct
 from dataclasses import dataclass
 
+import numpy as np
+
 from .schema import envelope
 
 MAP_PATH = "session/map.pickle"
@@ -90,6 +92,52 @@ def decode_frame_payload(blob: bytes) -> tuple[tuple[float, float, float], ...]:
     flat = struct.unpack(f"<{count * 3}f", blob)
     return tuple((flat[i * 3], flat[i * 3 + 1], flat[i * 3 + 2])
                  for i in range(count))
+
+
+def decode_frame_payload_numpy(blob: bytes) -> np.ndarray:
+    """Zero-copy view of one raw frame for the production import path."""
+    if not blob:
+        raise ResultValidationError("frame payload is empty")
+    if len(blob) % 12 != 0:
+        raise ResultValidationError(
+            f"frame payload size {len(blob)} is not a multiple of 12 bytes "
+            "(float32 XYZ)")
+    positions = np.frombuffer(blob, dtype=np.dtype("<f4")).reshape((-1, 3))
+    if not np.isfinite(positions).all():
+        raise ResultValidationError("frame payload contains non-finite positions")
+    return positions
+
+
+def object_index_array(indices: tuple[int, ...], *, total_vertices: int,
+                       uuid: str) -> np.ndarray:
+    result = np.asarray(indices, dtype=np.intp)
+    if result.ndim != 1 or result.size == 0:
+        raise ResultValidationError(f"output map for {uuid} has no indices")
+    if np.any(result < 0) or np.any(result >= total_vertices):
+        bad = int(result[(result < 0) | (result >= total_vertices)][0])
+        raise ResultValidationError(
+            f"vertex index {bad} for {uuid} exceeds the frame's "
+            f"{total_vertices} vertices")
+    return result
+
+
+def extract_object_frame_numpy(frame_positions: np.ndarray,
+                               indices: np.ndarray, *, frame: int,
+                               uuid: str, expected_count: int) -> np.ndarray:
+    if frame_positions.ndim != 2 or frame_positions.shape[1] != 3:
+        raise ResultValidationError(f"frame {frame} has invalid position shape")
+    if indices.shape != (expected_count,):
+        raise ResultValidationError(
+            f"output map for {uuid} has {indices.size} vertices, expected "
+            f"{expected_count}")
+    if np.any(indices < 0) or np.any(indices >= frame_positions.shape[0]):
+        raise ResultValidationError(
+            f"frame {frame}: output map for {uuid} is outside the frame")
+    result = frame_positions[indices]
+    if not np.isfinite(result).all():
+        raise ResultValidationError(
+            f"frame {frame}: non-finite position for {uuid}")
+    return result
 
 
 def extract_object_frame(

@@ -27,6 +27,7 @@ import math
 import os
 import queue
 import threading
+import time
 import uuid as uuid_module
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,13 +40,16 @@ from ..bake.transport import EnterBakeMode
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..core.errors import ClothNextError
+from ..core.logging import get_logger, log_with_context
 from ..materials import MaterialValidationError
 from ..materials import formatting as material_formatting
 from ..pinning import (STATIC_PIN_WEIGHT_THRESHOLD, AnimatedPinTargetSample,
                        PinMode, StaticPinError, StaticPinSnapshot,
                        static_pin_config)
 from ..ppf.coordinates import (matrix_is_finite_and_invertible,
-                               solver_world_matrix)
+                               solver_world_matrix,
+                               solver_world_to_object_local,
+                               transform_points_numpy)
 from ..ppf.resolver import (ResolvedSolver, SolverResolutionContext,
                             SolverResolver,
                             development_executable_from_environment)
@@ -511,7 +515,7 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def prepare_cache_for_new_run(plan: RunPlan) -> None:
-    """Idempotently replace only this object's validated Cloth NeXt result."""
+    """Validate old ownership; preserve the old result until attach succeeds."""
     obj = bpy.data.objects.get(plan.cloth_object_name)
     if obj is None:
         raise SceneValidationError("The Cloth object no longer exists.")
@@ -531,24 +535,13 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
                 "The previous Cloth NeXt cache could not be removed. "
                 "Rebake was not started.")
         targets.extend((path, path.with_suffix(".meta.json")))
-    # Validate every target before mutating Blender or disk.
+    # Validate every target without mutating Blender or disk. The old cache
+    # remains active until the new transactional cache is attached.
     for target in targets:
         if not _is_within(target, cache_root):
             raise SceneValidationError(
                 "The previous Cloth NeXt cache could not be removed. "
                 "Rebake was not started.")
-    try:
-        for target in targets:
-            target.unlink(missing_ok=True)
-    except OSError as exc:
-        raise SceneValidationError(
-            "The previous Cloth NeXt cache could not be removed. "
-            "Rebake was not started.") from exc
-    for mod in owned:
-        obj.modifiers.remove(mod)
-    settings = getattr(obj, "cloth_next", None)
-    if settings is not None:
-        settings.baked_settings_fingerprint = ""
 
 
 def _discard_incomplete(plan: RunPlan | None) -> None:
@@ -560,34 +553,103 @@ def _discard_incomplete(plan: RunPlan | None) -> None:
             except OSError: pass
 
 def _worker_main(plan: RunPlan) -> None:
-    frames: list[SolverFrame] = []
-
     def emit(event) -> None:
         _queue.put(("event", event))
 
+    writer = None
     try:
+        writer = pc2.StreamingPc2Writer(
+            plan.pc2_path, vertex_count=len(plan.initial_local),
+            frame_count=plan.frame_count,
+            start_frame=import_result.PC2_START_FRAME,
+            sample_rate=import_result.PC2_SAMPLE_RATE)
+        step = time.monotonic()
+        writer.write_frame(plan.initial_local)
+        write_seconds = time.monotonic() - step
+        transform_seconds = 0.0
+        to_local = solver_world_to_object_local(plan.world_matrix)
+
+        def consume(frame: SolverFrame) -> None:
+            nonlocal transform_seconds, write_seconds
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            emit(type("CacheEvent", (), {
+                "phase": "TRANSFORMING_FRAME",
+                "message": (f"Creating playback cache · frame "
+                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
+                "frame_current": frame.solver_frame,
+                "frame_total": plan.frame_count,
+                "indeterminate": False,
+            })())
+            step = time.monotonic()
+            local = transform_points_numpy(to_local,
+                                           frame.positions_solver_world)
+            transform_seconds += time.monotonic() - step
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            step = time.monotonic()
+            writer.write_frame(local)
+            write_seconds += time.monotonic() - step
+
         session = SolverSession(resolved=plan.resolved, scene=plan.scene,
                                 work_directory=plan.work_directory,
                                 emit=emit, cancel_event=_cancel_event,
-                                frame_sink=frames.append)
+                                frame_sink=consume)
         diagnostics = session.run()
-        playback = import_result.build_playback_frames(
-            plan.initial_local, frames, plan.world_matrix,
-            expected_frame_count=plan.frame_count)
-        header = import_result.write_playback_cache(plan.pc2_path, playback)
+        if not hasattr(diagnostics, "timings"):
+            diagnostics.timings = {}
+        diagnostics.timings["coordinate_transform"] = transform_seconds
+        diagnostics.timings["pc2_write"] = write_seconds
+        emit(type("CacheEvent", (), {
+            "phase": "FINALIZING_CACHE", "message": "Finalizing playback cache",
+            "frame_current": None, "frame_total": plan.frame_count,
+            "indeterminate": True,
+        })())
+        step = time.monotonic()
+        header = writer.finalize()
+        diagnostics.timings["pc2_finalize"] = time.monotonic() - step
+        diagnostics.timings["pc2_flush"] = writer.flush_seconds
+        diagnostics.timings["pc2_validate"] = writer.validation_seconds
+        diagnostics.timings["total"] = time.monotonic() - _run_started_at
         if plan.material_meta:
-            # Sidecar for cache invalidation: records which material
-            # settings produced this PC2 (pure values only; see RunPlan).
-            plan.pc2_path.with_suffix(".meta.json").write_text(
-                json.dumps(plan.material_meta, indent=2), encoding="utf-8")
+            metadata = dict(plan.material_meta)
+            metadata.update({"cache_format": "POINTCACHE2",
+                "vertex_count": header.vertex_count, "frame_count": header.frame_count,
+                "expected_bytes": writer.expected_size,
+                "actual_bytes": plan.pc2_path.stat().st_size,
+                "writer_version": pc2.PC2_WRITER_VERSION,
+                "timings": dict(diagnostics.timings),
+                "solver_mode": diagnostics.solver_mode,
+                "solver_release_identity": diagnostics.package_version or "unknown"})
+            sidecar = plan.pc2_path.with_suffix(".meta.json")
+            temporary = sidecar.with_name(f".{sidecar.name}.{uuid_module.uuid4().hex}.tmp")
+            temporary.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+            os.replace(temporary, sidecar)
+        log_with_context(get_logger("playback.cache"), 20,
+                         "streaming PC2 completed", {
+            "vertices": header.vertex_count, "frames": header.frame_count,
+            "expected_bytes": writer.expected_size,
+            "bytes_transferred": getattr(diagnostics, "bytes_transferred", 0),
+            "bytes_written": writer.bytes_written,
+            "timings": diagnostics.timings,
+        })
         _queue.put(("finished", header, diagnostics))
     except SessionCancelled:
+        if writer is not None:
+            writer.abort()
+        _discard_incomplete(plan)
         _queue.put(("cancelled", None, None))
     except ClothNextError as exc:
+        if writer is not None:
+            writer.abort()
+        _discard_incomplete(plan)
         _queue.put(("error", exc.record.user_message,
                     f"{exc.record.technical_message}\n"
                     f"Recommended: {exc.record.recommended_action}"))
     except Exception as exc:  # noqa: BLE001 — surfaced as a visible ERROR state
+        if writer is not None:
+            writer.abort()
+        _discard_incomplete(plan)
         _queue.put(("error", "The solver test failed unexpectedly.",
                     f"{type(exc).__name__}: {exc}"))
 
@@ -667,9 +729,13 @@ def _pump() -> float | None:
                     solver_process_id=event.process_id)
                 continue
             state = _EVENT_STATE.get(event.phase)
+            if event.phase == "TRANSFORMING_FRAME":
+                state = BakeState.FETCHING
+            elif event.phase == "FINALIZING_CACHE":
+                state = BakeState.IMPORTING
             if state is not None:
                 current, total = event.frame_current, event.frame_total
-                if event.phase in {"SIMULATING", "FETCHING"} and current is not None:
+                if event.phase in {"SIMULATING", "FETCHING", "TRANSFORMING_FRAME"} and current is not None:
                     solver_step = min(plan.frame_count - 1, int(current))
                     current = plan.frame_start + solver_step
                     total = plan.frame_count
@@ -681,11 +747,14 @@ def _pump() -> float | None:
                     progress_total=(None if event.indeterminate
                                     else total))
         elif kind == "finished":
-            header, _diagnostics = message[1], message[2]
+            header, diagnostics = message[1], message[2]
             try:
                 _safe_transition(BakeState.IMPORTING,
                                  status_message="Creating Blender playback cache")
+                attach_step = _time.monotonic()
                 _attach_playback(plan, header)
+                diagnostics.timings["modifier_attach"] = (
+                    _time.monotonic() - attach_step)
                 shared_controller.transition(
                     BakeState.FINISHED,
                     status_message=f"Finished — {header.frame_count} frames "

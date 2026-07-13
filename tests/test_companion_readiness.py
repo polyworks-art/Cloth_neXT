@@ -115,7 +115,8 @@ def test_cache_replacement_is_object_scoped_and_idempotent(blender_env,
     plan=SimpleNamespace(cloth_object_name="Cloth",
                          pc2_path=tmp_path/"cn_test_cloth_new.pc2")
     module.prepare_cache_for_new_run(plan); module.prepare_cache_for_new_run(plan)
-    assert not owned.exists() and unrelated.exists()
+    assert owned.exists() and unrelated.exists()
+    assert any(m is owned_mod for m in cloth.modifiers)
     assert any(m.name=="User Cache" for m in cloth.modifiers)
     assert any(m.name==module.import_result.MODIFIER_NAME for m in other.modifiers)
     env.registration.unregister()

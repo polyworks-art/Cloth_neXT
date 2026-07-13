@@ -7,6 +7,16 @@ colliders and animated pressure are unsupported. Uniform object-local shell
 pressure and pinning are supported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
 
+PC2 creation is frame-streamed with `O(vertex_count)` animation memory.
+Simulation acceleration affects only the solver phase; frame transfer, NumPy
+coordinate conversion, PC2 writing, final disk flush, and modifier attachment
+remain CPU/RAM/I/O work. Solver performance depends on the selected time step.
+This optimization did not change the `dt = 0.001` default or any solver,
+material, pressure, collision, quality, frame-range, or FPS value. Owned and
+external solvers currently both use TCP result transfer; direct local reads are
+disabled until the pinned server's exact path and atomic publication contract
+can be proved without guessing.
+
 When automatic Bake-window launch is enabled, inability to create a visible,
 topmost, responsive companion is a fatal startup error. Blender remains
 editable and the previous cache is preserved. Disabling automatic launch opts

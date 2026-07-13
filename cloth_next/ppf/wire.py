@@ -213,7 +213,7 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
 
 def data_receive(address: ServerAddress, config: TransportConfig, *,
                  project_name: str, path: str,
-                 max_bytes: int = MAX_RECEIVE_BYTES) -> bytes:
+                 max_bytes: int = MAX_RECEIVE_BYTES) -> bytearray:
     """Fetch one project-relative file (``session/map.pickle``,
     ``session/output/vert_<N>.bin``) with bounded size."""
     _validate_project_name(project_name)
@@ -236,11 +236,15 @@ def data_receive(address: ServerAddress, config: TransportConfig, *,
         if size > max_bytes:
             raise _error("The solver response was too large.",
                          f"declared size {size} exceeds bound {max_bytes}")
-        chunks = [remainder[:size]]
-        received = len(chunks[0])
+        payload = bytearray(size)
+        initial = remainder[:size]
+        payload[:len(initial)] = initial
+        received = len(initial)
+        view = memoryview(payload)
         while received < size:
             try:
-                chunk = connection.recv(min(CHUNK_SIZE, size - received))
+                count = connection.recv_into(
+                    view[received:], min(CHUNK_SIZE, size - received))
             except (TimeoutError, socket.timeout) as exc:
                 raise _error("The solver did not respond in time.",
                              f"timed out mid-transfer of {path} "
@@ -249,10 +253,10 @@ def data_receive(address: ServerAddress, config: TransportConfig, *,
                 raise _error("The connection to the solver broke.",
                              f"recv failed mid-transfer of {path}: {exc}",
                              exc) from exc
-            if not chunk:
+            if not count:
                 raise _error("The solver closed the connection mid-transfer.",
                              f"truncated transfer of {path}: "
                              f"{received} of {size} bytes")
-            chunks.append(chunk)
-            received += len(chunk)
-    return b"".join(chunks)
+            received += count
+        view.release()
+    return payload

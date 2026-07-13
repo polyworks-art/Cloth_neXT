@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
+
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.logging import get_logger, log_with_context
 from ..ppf import results, wire
@@ -99,7 +101,7 @@ class SolverFrame:
     """One validated solver frame for one object, solver world space."""
 
     solver_frame: int  # 1-based solver frame index (vert_<N>.bin)
-    positions_solver_world: tuple[tuple[float, float, float], ...]
+    positions_solver_world: object
 
 
 @dataclass(slots=True)
@@ -122,6 +124,7 @@ class SessionDiagnostics:
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
     cancelled: bool = False
+    bytes_transferred: int = 0
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -164,6 +167,7 @@ class SolverSession:
         self._manager: SolverProcessManager | None = None
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
+        self._cloth_indices: np.ndarray | None = None
         self.diagnostics = SessionDiagnostics(project_name=scene.project_name,
                                               solver_mode=resolved.mode.name,
                                               data_hash=scene.data_hash,
@@ -320,23 +324,42 @@ class SolverSession:
                                  project_name=self.scene.project_name,
                                  path=results.MAP_PATH)
         output_map = results.parse_output_map(blob)
+        self.diagnostics.bytes_transferred += len(blob)
         # The cloth must map back onto the original vertex order/count.
-        output_map.indices_for(self.scene.cloth_uuid,
-                               self.scene.cloth_vertex_count)
+        raw_indices = output_map.indices_for(self.scene.cloth_uuid,
+                                             self.scene.cloth_vertex_count)
+        total_vertices = max(index for values in output_map.indices_by_uuid.values()
+                             for index in values) + 1
+        self._cloth_indices = results.object_index_array(
+            raw_indices, total_vertices=total_vertices,
+            uuid=self.scene.cloth_uuid)
         return output_map
 
     def _fetch_frame(self, output_map: results.OutputMap,
                      frame: int) -> SolverFrame:
         assert self._address is not None
+        step = time.monotonic()
         blob = wire.data_receive(self._address, self.transport,
                                  project_name=self.scene.project_name,
                                  path=results.frame_file_path(frame))
-        positions = results.decode_frame_payload(blob)
-        cloth = results.extract_object_frame(
-            positions,
-            output_map.indices_for(self.scene.cloth_uuid,
-                                   self.scene.cloth_vertex_count),
-            frame=frame, uuid=self.scene.cloth_uuid)
+        self.diagnostics.timings["frame_transfer"] = (
+            self.diagnostics.timings.get("frame_transfer", 0.0)
+            + time.monotonic() - step)
+        self.diagnostics.bytes_transferred += len(blob)
+        step = time.monotonic()
+        positions = results.decode_frame_payload_numpy(blob)
+        self.diagnostics.timings["frame_decode"] = (
+            self.diagnostics.timings.get("frame_decode", 0.0)
+            + time.monotonic() - step)
+        step = time.monotonic()
+        assert self._cloth_indices is not None
+        cloth = results.extract_object_frame_numpy(
+            positions, self._cloth_indices, frame=frame,
+            uuid=self.scene.cloth_uuid,
+            expected_count=self.scene.cloth_vertex_count)
+        self.diagnostics.timings["frame_extract"] = (
+            self.diagnostics.timings.get("frame_extract", 0.0)
+            + time.monotonic() - step)
         return SolverFrame(frame, cloth)
 
     def _simulate_and_fetch(self) -> None:
@@ -348,7 +371,11 @@ class SolverSession:
         finished_status: str | None = None
         while len(fetched) < total:
             self._check_cancel()
+            wait_step = time.monotonic()
             response = self._status()
+            self.diagnostics.timings["simulation_wait"] = (
+                self.diagnostics.timings.get("simulation_wait", 0.0)
+                + time.monotonic() - wait_step)
             status = str(response.get("status", ""))
             solver_frame = response.get("frame")
             available = solver_frame if isinstance(solver_frame, int) else 0
@@ -405,7 +432,11 @@ class SolverSession:
                     "The simulation stalled.",
                     f"no new frame within {self._simulate_timeout}s "
                     f"(status={status}, fetched={sorted(fetched)})")
+            wait_step = time.monotonic()
             time.sleep(self._poll_interval)
+            self.diagnostics.timings["simulation_wait"] = (
+                self.diagnostics.timings.get("simulation_wait", 0.0)
+                + time.monotonic() - wait_step)
 
     def _cancel_server_side(self) -> None:
         """State-aware cancellation: cancel_build during builds, terminate
@@ -478,7 +509,7 @@ class SolverSession:
             self._check_cancel()
             step = time.monotonic()
             self._simulate_and_fetch()
-            self.diagnostics.timings["simulate_fetch"] = time.monotonic() - step
+            self.diagnostics.timings["simulation_and_import"] = time.monotonic() - step
             return self.diagnostics
         except SessionCancelled:
             self.diagnostics.cancelled = True

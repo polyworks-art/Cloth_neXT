@@ -1,5 +1,14 @@
 # Cloth NeXt 0.3.0-dev.2 — experimental Dev test build
 
+## Streaming cache update
+
+The next Dev snapshot replaces the memory-heavy playback-cache post-process
+with incremental PC2 streaming. Large bakes no longer retain or duplicate the
+complete animation in Python memory; cache files and sidecars publish
+atomically, cancellation preserves the previous valid result, and the UI
+reports real cache-frame and finalization progress. No solver or quality
+parameter changed.
+
 This Dev-only snapshot is for practical Blender 5.1.2 testing. It adds guarded
 no-downgrade update handoff, object-local uniform Pressure, and scene-wide
 Solver Quality (`dt`, Newton, and PCG controls). Pressure and all quality values

@@ -167,8 +167,9 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         "static_params": param_tree["group"][1][0],
         "scene_disable_contact": param_tree["scene"]["disable-contact"],
         "frame_sequence_sha256": frame_sequence_sha256,
-        "final_frame_positions": [list(p) for p in
-                                  last.positions_solver_world[:4]],
+        "final_frame_positions": [
+            [float(value) for value in position]
+            for position in last.positions_solver_world[:4]],
         "run_id": diagnostics.run_id,
         "project_name": diagnostics.project_name,
         "solver_executable": str(resolved.executable_path),

@@ -28,7 +28,10 @@ def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     thread = threading.Thread(target=module._worker_main, args=(plan,))
     thread.start(); thread.join(2)
     assert not thread.is_alive()
-    assert module._queue.get_nowait()[0] == "finished"
+    messages = []
+    while not module._queue.empty():
+        messages.append(module._queue.get_nowait()[0])
+    assert messages[-1] == "finished"
 
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test

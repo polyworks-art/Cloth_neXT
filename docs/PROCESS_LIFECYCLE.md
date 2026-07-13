@@ -82,6 +82,18 @@ For bundled deployments, the complete solver tree supplies injected `PATH` and
 extension directories receive mutable runtime files. Phase 2.5 exercised this lifecycle
 against the real official Windows binary and verified no server process remained.
 
+## Result streaming and cancellation
+
+The worker opens a transactional PC2 writer before simulation and writes the
+captured initial pose. Each complete solver frame is transferred, decoded,
+extracted, transformed, and written immediately. Queue events expose per-frame
+`Creating playback cache` progress and a distinct `Finalizing playback cache`
+phase; only the main-thread pump changes Blender UI or modifiers. Cancel checks
+bracket transformation and writing. All failure, cancel, and shutdown paths
+abort the temporary writer, publish no sidecar, create no modifier, and leave a
+previous valid cache untouched. Modifier attach remains a short main-thread
+operation after final cache validation.
+
 ## Add-on update handoff
 
 Before the "Update through Blender" handoff, Cloth NeXt stops only the PPF
