@@ -9,9 +9,8 @@
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
-  Cloth NeXt brings the external <strong>PPF Contact Solver</strong> into a streamlined Blender workflow.
-
-  It does not include or develop the solver itself, it acts as a bridge between Blender and the separately installed PPF Contact Solver.
+  Cloth NeXt acts as a Blender bridge for the separately installed
+  <strong>PPF Contact Solver</strong>, which is developed and distributed by ST Tech / ZOZO.
 </p>
 
 
