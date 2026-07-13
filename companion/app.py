@@ -6,14 +6,16 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import math
+import random
 from pathlib import Path
 import sys
 import tkinter as tk
 import traceback
 from tkinter import messagebox, ttk
 
-from cloth_next.bake.status import (BakeJobKind, BakeSnapshot, BakeState,
-                                    format_duration)
+from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
+                                    BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
@@ -44,33 +46,90 @@ def _windows_identity():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Polyworks.ClothNeXt.Bake")
         except (AttributeError,OSError): pass
 
+def _match_windows_title_bar(root):
+    if sys.platform!="win32": return
+    try:
+        root.update_idletasks(); hwnd=ctypes.windll.user32.GetParent(root.winfo_id()) or root.winfo_id()
+        color=ctypes.c_int(0x00303030); light=ctypes.c_int(0x00F0F0F0)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,35,ctypes.byref(color),ctypes.sizeof(color))
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(light),ctypes.sizeof(light))
+    except (AttributeError,OSError): pass
+
+class MistAnimation:
+    SIZE=76; FRAME_MS=45
+    def __init__(self,parent,reduced_motion=False):
+        self.canvas=tk.Canvas(parent,width=76,height=76,bg=PANEL,highlightthickness=0,borderwidth=0)
+        self.reduced_motion=reduced_motion; self._after=None; self._running=False; self._closed=False
+        self._rng=random.Random(81273); self._motion=.12; self._target=.12; self._start=0.; self._layers=[]; self._images=[]
+        names=("mist_glow.png","mist_large.png","mist_medium.png","mist_small.png","mist_medium.png","mist_core.png","mist_small.png","mist_core.png")
+        try:
+            for name in names:
+                image=tk.PhotoImage(file=str(_asset(name))); self._images.append(image)
+                phase=self._rng.random()*math.tau; radius=self._rng.uniform(2.5,8.)
+                self._layers.append((self.canvas.create_image(38,38,image=image),phase,radius,self._rng.uniform(.11,.24)))
+            self.available=True
+        except Exception:
+            LOG.warning("Mist animation unavailable; using static fallback."); self.available=False
+            self.canvas.delete("all"); self._images=[]
+            try:
+                image=tk.PhotoImage(file=str(_asset("mist_fallback.png"))); self._images=[image]; self.canvas.create_image(38,38,image=image)
+            except Exception: pass
+    def start(self):
+        if self._running or self._closed or not self.available:return
+        import time
+        self._running=True; self._start=time.monotonic(); self._tick()
+    def set_state(self,state,activity=BakeActivity.IDLE):
+        self._target={BakeState.IDLE:.12,BakeState.PREPARING:.35,BakeState.SIMULATING:.65,
+            BakeState.FETCHING:.3,BakeState.IMPORTING:.22,BakeState.FINISHED:.18,
+            BakeState.CANCELLED:.03,BakeState.ERROR:.04}.get(state,.42)
+        if activity is BakeActivity.SOLVING_CONSTRAINTS:self._target=.72
+        elif activity in {BakeActivity.BUILDING_PC2,BakeActivity.APPLYING_PLAYBACK}:self._target=.18
+    def _tick(self):
+        if self._closed or not self._running:return
+        import time
+        t=time.monotonic()-self._start; self._motion+=(self._target-self._motion)*.08
+        for item,phase,radius,speed in self._layers:
+            orbit=0 if self.reduced_motion else radius*self._motion
+            self.canvas.coords(item,38+math.cos(t*speed+phase)*orbit,38+math.sin(t*speed*.77+phase)*orbit*.62)
+        try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
+        except tk.TclError:self._running=False
+    def close(self):
+        if self._closed:return
+        self._closed=True; self._running=False
+        if self._after is not None:
+            try:self.canvas.after_cancel(self._after)
+            except tk.TclError:pass
+            self._after=None
+
 class BakeWindow:
     def __init__(self,transport=None,root=None):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
-        self.root.geometry("370x108"); self.root.minsize(370,108)
+        self.root.geometry("390x118"); self.root.minsize(390,118)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
-        self._bake_icon=tk.PhotoImage(file=str(_asset("bake.png"))).subsample(2,2)
         self.root.iconphoto(True,self._app_icon)
         self.primary=tk.StringVar(value="Ready")
         self.secondary=tk.StringVar(value="No PPF simulation is running.")
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self.activity_text=tk.StringVar(value="Waiting for a Bake")
+        self._activity_pending=None; self._activity_after=None; self._closed=False
         self._progress_fraction=0.0
         self._job_modal=False
-        self._configure_style(); self._build(); self.show(BakeSnapshot())
+        self._configure_style(); self._build(); _match_windows_title_bar(self.root)
+        self.show(BakeSnapshot()); self.mist.start()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
 
     def enter_bake_mode(self,payload):
         job_id=str(payload.get("job_id", ""))
         try:
-            self.root.deiconify(); self.root.minsize(370,108)
+            self.root.deiconify(); self.root.minsize(390,118)
             self.root.update_idletasks()
             if self.root.winfo_width()<100 or self.root.winfo_height()<80:
-                self.root.geometry("370x108"); self.root.update_idletasks()
-            width=max(370,self.root.winfo_width()); height=max(108,self.root.winfo_height())
+                self.root.geometry("390x118"); self.root.update_idletasks()
+            width=max(390,self.root.winfo_width()); height=max(118,self.root.winfo_height())
             x=max(0,(self.root.winfo_screenwidth()-width)//2)
             y=max(0,(self.root.winfo_screenheight()-height)//2)
             self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -110,16 +169,17 @@ class BakeWindow:
         outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
         outer.columnconfigure(0,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
-        icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=66,height=65)
+        icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=82,height=76)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
-        tk.Label(icon_box,image=self._bake_icon,bg=PANEL).place(relx=.5,rely=.5,anchor="center")
+        self.mist=MistAnimation(icon_box,os.environ.get("CLOTH_NEXT_REDUCED_MOTION")=="1")
+        self.mist.canvas.place(relx=.5,rely=.5,anchor="center")
         right=ttk.Frame(body,style="CN.TFrame"); right.grid(row=0,column=1,sticky="ew"); body.columnconfigure(1,weight=1)
         self.progress=tk.Canvas(right,width=270,height=22,bg=PANEL,highlightbackground="#777777",highlightthickness=1,borderwidth=0)
         self.progress.grid(row=0,column=0,sticky="ew"); right.columnconfigure(0,weight=1)
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
         self.progress.bind("<Configure>",self._resize_progress)
-        status=tk.Label(right,textvariable=self.secondary,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
+        status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
                         highlightbackground="#777777",highlightthickness=1,height=1)
         status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=1,column=0,sticky="ew",pady=(5,0))
@@ -139,6 +199,19 @@ class BakeWindow:
     def _pause(self): pass
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
+
+    def _set_activity(self,value,immediate=False):
+        value=" ".join(str(value).replace("\\","/").split())
+        if ":/" in value or "0x" in value:value="Running solver"
+        value=value[:52]
+        if not value or value==self.progress_text.get():value="Running solver"
+        self._activity_pending=value
+        if immediate:self.activity_text.set(value); return
+        if self._activity_after is None:
+            def apply():
+                self._activity_after=None
+                if not self._closed and self._activity_pending:self.activity_text.set(self._activity_pending)
+            self._activity_after=self.root.after(180,apply)
 
     def show(self,snapshot: BakeSnapshot):
         self.root.update_idletasks()
@@ -164,6 +237,11 @@ class BakeWindow:
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
         self.secondary.set(snapshot.error_details or snapshot.status_message or "No PPF simulation is running.")
+        label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
+        if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
+        if snapshot.state is BakeState.ERROR and snapshot.activity_detail:label=f"Failed while {snapshot.activity_detail}"
+        self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
+        self.mist.set_state(snapshot.state,snapshot.activity_code)
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
         self.remaining_text.set("" if remaining=="Unknown" else f"remaining {remaining}")
@@ -177,7 +255,13 @@ class BakeWindow:
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
         self.cancel.state(["disabled"]); self.pause.state(["disabled"])
 
-    def close(self): self.transport.close(); self.root.destroy()
+    def close(self):
+        if self._closed:return
+        self._closed=True; self.mist.close()
+        if self._activity_after is not None:
+            try:self.root.after_cancel(self._activity_after)
+            except tk.TclError:pass
+        self.transport.close(); self.root.destroy()
     def run(self):
         def poll():
             try:

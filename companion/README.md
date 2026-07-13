@@ -1,5 +1,7 @@
 # Cloth NeXt Bake companion (source preview)
 
+The compact window uses a 76 px, eight-sprite mist Canvas at roughly 22 FPS. Pillow creates deterministic RGBA sprites only during the build; runtime motion uses preloaded Tk `PhotoImage` objects. Reduced motion disables orbiting, and asset/animation failure uses `mist_fallback.png` without affecting readiness. The upper bar shows overall progress while the lower bar consumes the dedicated typed solver-activity channel with a short debounce. `MistAnimation` owns and cancels its single `after()` timer on close.
+
 This optional source application visualizes the same immutable bake snapshots as
 the Blender panels and HUD. It is a UI preview only; it does not run PPF.
 

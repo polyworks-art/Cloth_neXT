@@ -36,6 +36,37 @@ class BakeJobKind(str, Enum):
     SOLVER_TEST = "SOLVER_TEST"
     BAKE = "BAKE"
 
+class BakeActivity(str, Enum):
+    IDLE="IDLE"; VALIDATING="VALIDATING"; CAPTURING_GEOMETRY="CAPTURING_GEOMETRY"
+    ENCODING_SCENE="ENCODING_SCENE"; STARTING_SOLVER="STARTING_SOLVER"
+    BUILDING_CONTACTS="BUILDING_CONTACTS"; DETECTING_COLLISIONS="DETECTING_COLLISIONS"
+    SOLVING_CONSTRAINTS="SOLVING_CONSTRAINTS"; UPDATING_PINS="UPDATING_PINS"
+    ADVANCING_SIMULATION="ADVANCING_SIMULATION"; WRITING_FRAME="WRITING_FRAME"
+    WAITING_FOR_OUTPUT="WAITING_FOR_OUTPUT"; READING_RESULTS="READING_RESULTS"
+    BUILDING_PC2="BUILDING_PC2"; APPLYING_PLAYBACK="APPLYING_PLAYBACK"
+    CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; FINISHED="FINISHED"
+    ERROR="ERROR"; UNKNOWN="UNKNOWN"
+
+ACTIVITY_LABELS = {
+    BakeActivity.IDLE:"Waiting for a Bake", BakeActivity.VALIDATING:"Validating Blender scene",
+    BakeActivity.CAPTURING_GEOMETRY:"Preparing evaluated geometry",
+    BakeActivity.ENCODING_SCENE:"Encoding PPF scene", BakeActivity.STARTING_SOLVER:"Initializing solver",
+    BakeActivity.BUILDING_CONTACTS:"Building contact constraints",
+    BakeActivity.DETECTING_COLLISIONS:"Detecting collision candidates",
+    BakeActivity.SOLVING_CONSTRAINTS:"Solving constraints", BakeActivity.UPDATING_PINS:"Updating pinned vertices",
+    BakeActivity.ADVANCING_SIMULATION:"Advancing simulation", BakeActivity.WRITING_FRAME:"Writing frame",
+    BakeActivity.WAITING_FOR_OUTPUT:"Waiting for solver output", BakeActivity.READING_RESULTS:"Reading simulated vertices",
+    BakeActivity.BUILDING_PC2:"Building PC2 cache", BakeActivity.APPLYING_PLAYBACK:"Applying playback cache",
+    BakeActivity.CLEANING_UP:"Cleaning temporary files", BakeActivity.CANCELLING:"Cancelling solver",
+    BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
+    BakeActivity.UNKNOWN:"Running solver",
+}
+
+PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":BakeActivity.ENCODING_SCENE,
+    "STARTING_SOLVER":BakeActivity.STARTING_SOLVER, "UPLOADING":BakeActivity.ENCODING_SCENE,
+    "BUILDING":BakeActivity.UNKNOWN, "SIMULATING":BakeActivity.ADVANCING_SIMULATION,
+    "FETCHING":BakeActivity.READING_RESULTS, "IMPORTING":BakeActivity.BUILDING_PC2}
+
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
 _ACTIVE = {BakeState.PREPARING, BakeState.STARTING_COMPANION,
@@ -81,6 +112,9 @@ class BakeSnapshot:
     solver_mode: str = ""
     solver_version: str = ""
     solver_process_id: int | None = None
+    activity_code: BakeActivity = BakeActivity.IDLE
+    activity_label: str = ""
+    activity_detail: str = ""
 
     @property
     def progress_fraction(self) -> float:
@@ -96,6 +130,7 @@ class BakeSnapshot:
         data = asdict(self)
         data["state"] = self.state.value
         data["job_kind"] = self.job_kind.value
+        data["activity_code"] = self.activity_code.value
         data["progress_fraction"] = self.progress_fraction
         return data
 
@@ -108,6 +143,8 @@ class BakeSnapshot:
         values = {key: value for key, value in data.items() if key in allowed}
         values["state"] = BakeState(values.get("state", "IDLE"))
         values["job_kind"] = BakeJobKind(values.get("job_kind", "BAKE"))
+        try: values["activity_code"] = BakeActivity(values.get("activity_code", "IDLE"))
+        except ValueError: values["activity_code"] = BakeActivity.UNKNOWN
         return cls(**values)
 
     @classmethod
@@ -123,6 +160,11 @@ def normalized(snapshot: BakeSnapshot, **changes: Any) -> BakeSnapshot:
     changes.setdefault("status_title", _TITLES[state])
     changes.setdefault("can_cancel", state in _ACTIVE - {BakeState.CANCELLING})
     changes.setdefault("updated_at", time.time())
+    if "activity_code" not in changes and state != snapshot.state:
+        changes["activity_code"] = PHASE_ACTIVITIES.get(state.value, {
+            BakeState.IDLE:BakeActivity.IDLE, BakeState.CANCELLING:BakeActivity.CANCELLING,
+            BakeState.CANCELLED:BakeActivity.CLEANING_UP, BakeState.FINISHED:BakeActivity.FINISHED,
+            BakeState.ERROR:BakeActivity.ERROR}.get(state, BakeActivity.UNKNOWN))
     if changes.get("preview", snapshot.preview):
         changes.setdefault("job_kind", BakeJobKind.PREVIEW)
     current = max(0, int(changes.get("progress_current", snapshot.progress_current)))

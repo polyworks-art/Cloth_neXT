@@ -1,5 +1,7 @@
 # Phase 2.8B UI architecture
 
+The Bake companion separates overall progress from typed solver activity and never parses logs in Tk. Its deterministic eight-layer mist preloads build-generated sprites and updates Canvas coordinates through one 45 ms timer. Broad state and activity adjust motion subtly; reduced-motion and static fallback paths remain decorative. The packaged Windows DWM caption matches the `#303030` main-window background.
+
 Production Bake is a Blender modal operator backed by an event timer. It
 consumes editing events while active, keeps redraw and Cancel responsive, and
 removes its timer once at terminal state. The companion reads the same shared

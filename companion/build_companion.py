@@ -17,6 +17,7 @@ def main():
         f"--icon={assets/'cloth_next.ico'}",
         f"--add-data={assets/'cloth_next.png'};companion_assets",
         f"--add-data={assets/'bake.png'};companion_assets",
+        *[f"--add-data={assets/name};companion_assets" for name in ("mist_small.png","mist_medium.png","mist_large.png","mist_core.png","mist_glow.png","mist_fallback.png")],
         f"--distpath={ROOT/'companion/dist'}",f"--workpath={ROOT/'companion/build/app_icon'}",
         f"--specpath={ROOT/'companion'}",f"--paths={ROOT}"])
     output=ROOT/"companion/dist/Cloth NeXt Bake.exe"

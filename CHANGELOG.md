@@ -283,3 +283,7 @@ release pipeline.
   health check and process manager, verified solver bootstrap, managed solver
   installer with confirmation/SHA-256/health gates, release pipeline with
   Stable/Beta Blender extension repositories, Phase 2.7 hardening.
+# Unreleased
+
+- Replaced the static Bake companion icon with a lightweight animated mist visualization and added live solver activity to the lower status bar.
+- Matched the packaged Windows companion title bar to the main window's dark gray background.

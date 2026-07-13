@@ -1,5 +1,7 @@
 # Local PPF process lifecycle
 
+The mist Canvas is constructed before readiness, but animation success is not part of the matching-job, visibility, mapping, topmost, or transport-ready contract. Its one `after()` chain starts once and is cancelled idempotently before `root.destroy`, preserving polling, Cancel, disconnect, and terminal auto-close behavior.
+
 The optional owned companion is started or reused by Bake. Terminal snapshots
 request graceful close after 1.5 seconds (Finished), 1 second (Cancelled), or
 2.5 seconds (Error); only that owned process is terminated after the additional

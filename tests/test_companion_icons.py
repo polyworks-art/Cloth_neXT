@@ -3,6 +3,7 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
+from companion.build_assets import MIST_ASSETS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +26,17 @@ def test_generated_companion_executable_is_not_committed():
                            check=True, capture_output=True, text=True).stdout.splitlines()
     executables=[path for path in tracked if path.lower().endswith(".exe")]
     assert executables == []
+
+def test_mist_assets_are_deterministic_transparent_rgba():
+    build(); target=ROOT/"companion"/"assets"
+    before={name:(target/name).read_bytes() for name in MIST_ASSETS}; build()
+    assert before == {name:(target/name).read_bytes() for name in MIST_ASSETS}
+    for name,size in MIST_ASSETS.items():
+        assert (target/name).stat().st_size < 64*1024
+        with Image.open(target/name) as image:
+            assert image.mode=="RGBA" and image.size==(size,size)
+            alpha=image.getchannel("A"); assert alpha.getbbox()
+            assert all(alpha.getpixel(point)==0 for point in ((0,0),(size-1,0),(0,size-1),(size-1,size-1)))
 
 
 def test_blender_runtime_icons_are_white_for_dark_theme():

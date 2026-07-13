@@ -4,7 +4,8 @@ import threading
 import pytest
 
 from cloth_next.bake.controller import BakeController, InvalidTransition
-from cloth_next.bake.status import BakeSnapshot, BakeState, format_duration
+from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeSnapshot,
+                                    BakeState, format_duration)
 from cloth_next.bake.transport import (MAX_MESSAGE_BYTES, decode_message,
                                        encode_message, validate_localhost)
 
@@ -44,6 +45,15 @@ def test_snapshot_immutable_round_trip_and_duration():
     assert format_duration(None) == "Unknown"
     assert format_duration(65) == "01:05"
     assert format_duration(3661, approximate=True) == "~01:01:01"
+
+def test_typed_activity_round_trip_and_backward_compatibility():
+    snap=BakeSnapshot(activity_code=BakeActivity.SOLVING_CONSTRAINTS,
+                      activity_label="Solving constraints")
+    assert BakeSnapshot.from_json(snap.to_json()) == snap
+    assert BakeSnapshot.from_dict({"state":"SIMULATING"}).activity_code is BakeActivity.IDLE
+    assert BakeSnapshot.from_dict({"activity_code":"future"}).activity_code is BakeActivity.UNKNOWN
+    assert ACTIVITY_LABELS[BakeActivity.BUILDING_CONTACTS] == "Building contact constraints"
+    assert ACTIVITY_LABELS[BakeActivity.BUILDING_PC2] == "Building PC2 cache"
 
 
 def test_thread_safe_reads_are_complete_snapshots():
