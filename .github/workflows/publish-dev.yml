@@ -68,7 +68,7 @@ jobs:
           $destination=Join-Path $dev (Split-Path $zip -Leaf)
           if (Test-Path $destination) { throw 'Dev version already exists and is immutable' }
           Copy-Item -LiteralPath $zip -Destination $destination
-          $old=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -Skip 5
+          $old=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | Sort-Object {[int]([regex]::Match($_.Name,'dev\.(\d+)').Groups[1].Value)} -Descending | Select-Object -Skip 5
           $old | Remove-Item -Force
           $indexStage=Join-Path "$env:RUNNER_TEMP" "dev-index-current"
           python -c "from pathlib import Path; from tools.build_extension_repository import generate_single_candidate_index; generate_single_candidate_index(r'$env:CLOTH_NEXT_BLENDER', Path(r'$dev'), Path(r'$destination'), Path(r'$indexStage'))"

@@ -26,6 +26,8 @@ def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     assert "dev/*" in text
     assert "generate_single_candidate_index" in text
     assert "candidates.Count -ne 1" in text
+    assert "LastWriteTimeUtc" not in text
+    assert "[regex]::Match($_.Name,'dev\\.(\\d+)')" in text
 
 
 def test_single_candidate_index_keeps_retained_archives(tmp_path, monkeypatch):
