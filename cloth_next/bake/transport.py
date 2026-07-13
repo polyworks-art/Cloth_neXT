@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 import secrets
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 import socket
 import threading
 
@@ -134,6 +134,10 @@ class LocalSocketServer:
         self._server.bind((host, 0)); self._server.listen(1); self._server.settimeout(0.2)
         self.host, self.port = self._server.getsockname()
         self._client = None; self._lock = threading.Lock(); self._stop = threading.Event()
+        # Controller listeners run on Blender's main thread.  Never perform a
+        # socket write from publish(): a companion that stopped reading must
+        # not freeze Blender while a bake result is being attached.
+        self._status_outbox: Queue[bytes] = Queue(maxsize=1)
         self._thread = threading.Thread(target=self._run, name="ClothNeXtCompanionIPC", daemon=True)
         self._thread.start()
 
@@ -151,6 +155,7 @@ class LocalSocketServer:
                 self._send("session_hello")
                 buffer = b""
                 while not self._stop.is_set():
+                    self._flush_status(client)
                     try: chunk = client.recv(4096)
                     except socket.timeout: continue
                     if not chunk: break
@@ -172,6 +177,16 @@ class LocalSocketServer:
                     if self._client is client: self._client = None
                 client.close()
 
+    def _flush_status(self, client):
+        try:
+            data = self._status_outbox.get_nowait()
+        except Empty:
+            return
+        try:
+            client.sendall(data)
+        except OSError:
+            pass
+
     def _send(self, kind, snapshot=None):
         data = encode_message(kind, self.token, snapshot) + b"\n"
         with self._lock:
@@ -180,7 +195,22 @@ class LocalSocketServer:
             try: client.sendall(data)
             except OSError: pass
 
-    def publish(self, snapshot): self._send("bake_status", snapshot)
+    def publish(self, snapshot):
+        """Queue only the newest status without ever blocking the caller."""
+        data = encode_message("bake_status", self.token, snapshot) + b"\n"
+        try:
+            self._status_outbox.put_nowait(data)
+            return
+        except Full:
+            pass
+        try:
+            self._status_outbox.get_nowait()
+        except Empty:
+            pass
+        try:
+            self._status_outbox.put_nowait(data)
+        except Full:
+            pass
     def connected(self):
         with self._lock: return self._client is not None
     def enter_bake_mode(self, request: EnterBakeMode):

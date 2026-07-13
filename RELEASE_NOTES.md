@@ -1,4 +1,13 @@
-# Cloth NeXt 0.3.0-dev.5 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.6 — experimental Dev test build
+
+## Non-blocking Blender status delivery
+
+Bake status updates to the companion are now queued and coalesced on the IPC
+thread instead of writing to the socket from Blender's main thread. A stalled
+or disconnected companion can therefore no longer leave Blender blocked on
+“Importing PC2 cache” before the playback modifier is created. Only the newest
+pending status is retained, keeping progress delivery bounded during fast
+state transitions.
 
 ## Streaming cache update
 

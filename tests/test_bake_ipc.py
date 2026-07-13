@@ -36,3 +36,21 @@ def test_wrong_token_never_becomes_request():
 
 def test_non_localhost_server_rejected():
     with pytest.raises(ValueError): LocalSocketServer("0.0.0.0")
+
+def test_status_publish_is_nonblocking_and_coalesces_before_connect():
+    server = LocalSocketServer()
+    first = BakeSnapshot(state=BakeState.SIMULATING, progress_current=1)
+    latest = BakeSnapshot(state=BakeState.IMPORTING, progress_current=2)
+
+    started = time.perf_counter()
+    server.publish(first)
+    server.publish(latest)
+    assert time.perf_counter() - started < 0.05
+
+    client = LocalSocketClient(server.port, server.token)
+    assert client.receive(1)["type"] == "session_hello"
+    message = client.receive(1)
+    assert message["type"] == "bake_status"
+    assert message["snapshot"] == latest
+    client.close()
+    server.close()
