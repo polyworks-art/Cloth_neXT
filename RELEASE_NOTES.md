@@ -1,4 +1,4 @@
-# Cloth NeXt 0.3.0-dev.10 — experimental Dev test build
+# Cloth NeXt 0.3.0-beta.3
 
 ## Build-worker failure delivery and diagnostics
 
@@ -80,14 +80,14 @@ remain authoritative, and manually adjusted combinations are shown as Custom.
 High preserves Cloth NeXt's established defaults; Extreme is explicitly marked
 as potentially expensive.
 
-This Dev-only snapshot is for practical Blender 5.1.2 testing. It adds guarded
+This beta is for practical Blender 5.1.2 testing. It adds guarded
 no-downgrade update handoff, object-local uniform Pressure, and scene-wide
 Solver Quality (`dt`, Newton, and PCG controls). Pressure and all quality values
 participate in bake metadata and stale detection. `dt` defaults to `0.001` to
 preserve Cloth NeXt's established behavior; Newton/PCG defaults come from the
 pinned official PPF source at commit `7193f158`. No solver values were invented.
 
-It is not a Beta or Stable release. Back up scenes and caches before testing.
+It is a prerelease, not a Stable release. Back up scenes and caches before testing.
 
 ## Previous beta notes
 
