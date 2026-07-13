@@ -2,9 +2,14 @@
 from __future__ import annotations
 import argparse
 import ctypes
+import json
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 from pathlib import Path
 import sys
 import tkinter as tk
+import traceback
 from tkinter import messagebox, ttk
 
 from cloth_next.bake.status import (BakeJobKind, BakeSnapshot, BakeState,
@@ -13,6 +18,19 @@ from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
+
+def _logger():
+    root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
+    root.mkdir(parents=True,exist_ok=True)
+    logger=logging.getLogger("cloth_next_companion")
+    if not logger.handlers:
+        handler=RotatingFileHandler(root/"companion.log",maxBytes=256*1024,
+                                    backupCount=1,encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler); logger.setLevel(logging.INFO)
+    return logger
+
+LOG=_logger()
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -29,6 +47,7 @@ def _windows_identity():
 class BakeWindow:
     def __init__(self,transport=None,root=None):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
+        LOG.info("startup pid=%s tk_initialized=true",os.getpid())
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
         self.root.geometry("370x108"); self.root.minsize(370,108)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
@@ -43,6 +62,39 @@ class BakeWindow:
         self._job_modal=False
         self._configure_style(); self._build(); self.show(BakeSnapshot())
         self.root.protocol("WM_DELETE_WINDOW",self.close)
+
+    def enter_bake_mode(self,payload):
+        job_id=str(payload.get("job_id", ""))
+        try:
+            self.root.deiconify(); self.root.minsize(370,108)
+            self.root.update_idletasks()
+            if self.root.winfo_width()<100 or self.root.winfo_height()<80:
+                self.root.geometry("370x108"); self.root.update_idletasks()
+            width=max(370,self.root.winfo_width()); height=max(108,self.root.winfo_height())
+            x=max(0,(self.root.winfo_screenwidth()-width)//2)
+            y=max(0,(self.root.winfo_screenheight()-height)//2)
+            self.root.geometry(f"{width}x{height}+{x}+{y}")
+            self.root.update_idletasks()
+            if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden":
+                self.root.withdraw(); self.root.update_idletasks()
+            self.root.attributes("-topmost",True); self.root.lift()
+            self.root.after_idle(self.root.focus_force); self.root.update_idletasks()
+            visible=bool(self.root.winfo_ismapped() and self.root.winfo_viewable())
+            topmost=bool(self.root.attributes("-topmost"))
+            response={"job_id":job_id,"companion_process_id":os.getpid(),
+                      "window_created":True,"window_visible":visible,
+                      "topmost_applied":topmost,"transport_ready":True}
+            LOG.info("enter_bake_mode %s",json.dumps(response,sort_keys=True))
+            if visible and topmost:
+                self._job_modal=True
+                self.transport.send("bake_window_ready",response)
+            else:
+                self.transport.send("startup_error",{"job_id":job_id,
+                    "message":"Bake window did not become visible or topmost."})
+        except Exception as exc:
+            LOG.exception("enter_bake_mode failed job_id=%s",job_id)
+            self.transport.send("startup_error",{"job_id":job_id,
+                "message":f"Bake window could not enter foreground mode: {exc}"})
 
     def _configure_style(self):
         style=ttk.Style(self.root); style.theme_use("clam")
@@ -93,7 +145,8 @@ class BakeWindow:
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
-        modal = snapshot.job_kind is BakeJobKind.BAKE and snapshot.active
+        modal = (snapshot.job_kind is BakeJobKind.BAKE and snapshot.active
+                 and self._job_modal)
         if modal != self._job_modal:
             self._job_modal=modal
             self.root.attributes("-topmost", modal)
@@ -131,6 +184,7 @@ class BakeWindow:
                 message=self.transport.receive(.01)
                 if message and message["type"]=="bake_status": self.show(message["snapshot"])
                 elif message and message["type"]=="session_hello": self.transport.send("ready")
+                elif message and message["type"]=="enter_bake_mode": self.enter_bake_mode(message["payload"])
                 elif message and message["type"]=="shutdown": self.close(); return
                 elif getattr(self.transport,"closed",False): self.disconnected()
             except (OSError,ValueError,PermissionError): self.disconnected()
@@ -140,5 +194,8 @@ class BakeWindow:
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token")
     args=parser.parse_args(argv); transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
-    BakeWindow(transport).run()
+    try: BakeWindow(transport).run()
+    except Exception:
+        LOG.error("uncaught companion exception\n%s",traceback.format_exc())
+        raise
 if __name__=="__main__": main()

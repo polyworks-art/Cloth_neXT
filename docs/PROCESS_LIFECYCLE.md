@@ -6,6 +6,14 @@ request graceful close after 1.5 seconds (Finished), 1 second (Cancelled), or
 bounded timeout. A crash during simulation warns `Bake window closed
 unexpectedly.` while Blender-side progress and Cancel remain operational.
 
+`Popen` and process liveness are not readiness. The companion must acknowledge
+the exact job after Tk has deiconified, mapped, applied topmost, lifted, and
+performed one bounded focus request. Missing executable, invalid manifest,
+transport failure, process exit, hidden window, failed topmost, Cancel, or
+timeout abort startup before any worker/PPF process or cache replacement. Logs
+rotate under the user's Cloth NeXt configuration/runtime log directory and the
+companion's Local AppData log directory, never inside the extension.
+
 Baseline: upstream `7193f158e3843597070f66cb29af19efd9bdcff7`, protocol
 `0.11`, schema `1`, package `0.1.0`.
 

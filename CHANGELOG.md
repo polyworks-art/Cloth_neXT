@@ -6,6 +6,13 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Fixed — companion-gated modal startup
+
+- Fixed production Bake locking Blender before the Bake companion window
+  became visible.
+- Rebake and Bake Again now replace only the active object's validated Cloth
+  NeXt cache after all startup prerequisites succeed.
+
 ### Added — arbitrary ranges and modal Bake companion
 
 - Added arbitrary Bake ranges and corrected non-frame-one PC2 mapping.

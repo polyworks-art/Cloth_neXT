@@ -453,7 +453,11 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Developer Test Tools", default=False,
         description="Show the Phase-3A developer actions (Create PPF Test "
                     "Scene, Run Real Solver Test) in the Cache panel")
-    auto_launch_bake_window: bpy.props.BoolProperty(name="Open Bake Window Automatically", default=True)
+    auto_launch_bake_window: bpy.props.BoolProperty(
+        name="Open Bake Window Automatically", default=True,
+        description="Require the visible topmost Bake window before locking "
+                    "Blender. When disabled, Bake runs in Blender without a "
+                    "global modal workflow lock")
     show_bake_hud: bpy.props.BoolProperty(name="Show Bake HUD", default=True)
     bake_hud_mode: bpy.props.EnumProperty(name="HUD Mode", items=(("COMPACT", "Compact", "Compact status card"),("EXPANDED", "Expanded", "Detailed status and telemetry")), default="EXPANDED")
     bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")

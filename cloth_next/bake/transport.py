@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import json
 import secrets
 from queue import Empty, Queue
@@ -17,16 +17,47 @@ MAX_MESSAGE_BYTES = 64 * 1024
 
 
 MESSAGE_TYPES = {"session_hello", "bake_status", "shutdown", "heartbeat",
-                 "ready", "cancel_request", "close_notice"}
+                 "ready", "cancel_request", "close_notice",
+                 "enter_bake_mode", "bake_window_ready", "startup_error"}
 _ALIASES = {"status": "bake_status", "cancel": "cancel_request", "close": "close_notice"}
 
-def encode_message(kind: str, token: str, snapshot: BakeSnapshot | None = None) -> bytes:
+@dataclass(frozen=True, slots=True)
+class EnterBakeMode:
+    job_id: str
+    blender_process_id: int
+    frame_start: int
+    frame_end: int
+    preset_label: str
+    requested_topmost: bool = True
+    requested_visible: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class BakeWindowReady:
+    job_id: str
+    companion_process_id: int
+    window_created: bool
+    window_visible: bool
+    topmost_applied: bool
+    transport_ready: bool
+
+    @property
+    def ready(self) -> bool:
+        return all((self.job_id, self.companion_process_id > 0,
+                    self.window_created, self.window_visible,
+                    self.topmost_applied, self.transport_ready))
+
+
+def encode_message(kind: str, token: str, snapshot: BakeSnapshot | None = None,
+                   payload: dict | None = None) -> bytes:
     kind = _ALIASES.get(kind, kind)
     if kind not in MESSAGE_TYPES:
         raise ValueError("unsupported message kind")
     data = {"type": kind, "token": token}
     if snapshot is not None:
         data["snapshot"] = snapshot.to_dict()
+    if payload is not None:
+        data["payload"] = payload
     value = json.dumps(data, separators=(",", ":")).encode("utf-8")
     if len(value) > MAX_MESSAGE_BYTES:
         raise ValueError("message too large")
@@ -48,6 +79,10 @@ def decode_message(value: bytes, token: str) -> dict:
         if not isinstance(data.get("snapshot"), dict):
             raise ValueError("status snapshot missing")
         data["snapshot"] = BakeSnapshot.from_dict(data["snapshot"])
+    if data["type"] in {"enter_bake_mode", "bake_window_ready",
+                        "startup_error"} and not isinstance(
+                            data.get("payload"), dict):
+        raise ValueError("message payload missing")
     return data
 
 
@@ -125,8 +160,12 @@ class LocalSocketServer:
                         raw, buffer = buffer.split(b"\n", 1)
                         try: message = decode_message(raw, self.token)
                         except (ValueError, PermissionError): continue
-                        if message["type"] in {"ready", "cancel_request", "close_notice"}:
-                            try: self.requests.put_nowait(message["type"])
+                        if message["type"] in {"ready", "cancel_request", "close_notice",
+                                               "bake_window_ready", "startup_error"}:
+                            value = (message if message["type"] in {
+                                "bake_window_ready", "startup_error"}
+                                else message["type"])
+                            try: self.requests.put_nowait(value)
                             except Exception: pass
             finally:
                 with self._lock:
@@ -142,6 +181,16 @@ class LocalSocketServer:
             except OSError: pass
 
     def publish(self, snapshot): self._send("bake_status", snapshot)
+    def connected(self):
+        with self._lock: return self._client is not None
+    def enter_bake_mode(self, request: EnterBakeMode):
+        self._send_payload("enter_bake_mode", asdict(request))
+    def _send_payload(self, kind, payload):
+        data = encode_message(kind, self.token, payload=payload) + b"\n"
+        with self._lock: client = self._client
+        if client:
+            try: client.sendall(data)
+            except OSError: pass
     def shutdown_companion(self): self._send("shutdown")
     def poll_request(self):
         try: return self.requests.get_nowait()
@@ -162,7 +211,8 @@ class LocalSocketClient:
     def __init__(self, port: int, token: str):
         self.token=token; self._socket=socket.create_connection(("127.0.0.1", int(port)), timeout=2)
         self._socket.settimeout(0.2); self._buffer=b""; self.closed=False
-    def send(self, kind): self._socket.sendall(encode_message(kind, self.token)+b"\n")
+    def send(self, kind, payload=None):
+        self._socket.sendall(encode_message(kind, self.token, payload=payload)+b"\n")
     def receive(self, timeout=0.2):
         self._socket.settimeout(timeout)
         while b"\n" not in self._buffer:

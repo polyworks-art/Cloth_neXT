@@ -34,6 +34,7 @@ import bpy
 
 from ..bake import pc2
 from ..bake.frame_range import BakeFrameRange, BakeRangeError
+from ..bake.transport import EnterBakeMode
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.status import BakeJobKind, BakeState
 from ..core.errors import ClothNextError
@@ -53,7 +54,7 @@ from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
                               SolverSession, new_project_name)
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..telemetry import shared_telemetry
-from . import companion_manager, object_properties
+from . import companion_manager, modal_lock, object_properties
 
 _EVENT_STATE = {
     "STARTING_SOLVER": BakeState.STARTING_SOLVER,
@@ -70,6 +71,8 @@ _active_plan: "RunPlan | None" = None
 _last_work_directory: Path | None = None
 _run_started_at: float = 0.0
 _unsubscribe = None
+_pending_plan: "RunPlan | None" = None
+_pending_job_id = ""
 
 
 def _on_controller_snapshot(snapshot) -> None:
@@ -222,21 +225,11 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
         evaluated.to_mesh_clear()
 
 
-def _writable_cache_directory() -> Path:
+def _cache_directory() -> Path:
     blend_directory = bpy.path.abspath("//")
     if blend_directory:
-        candidate = Path(blend_directory) / "cloth_next_test_cache"
-        try:
-            candidate.mkdir(parents=True, exist_ok=True)
-            probe = candidate / ".cn_write_probe"
-            probe.write_text("ok", encoding="utf-8")
-            probe.unlink()
-            return candidate
-        except OSError:
-            pass
-    fallback = Path(bpy.app.tempdir) / "cloth_next_test_cache"
-    fallback.mkdir(parents=True, exist_ok=True)
-    return fallback
+        return Path(blend_directory) / "cloth_next_test_cache"
+    return Path(bpy.app.tempdir) / "cloth_next_test_cache"
 
 
 def _snapshot_materials(cloth_obj, collider_obj):
@@ -356,10 +349,8 @@ def build_run_plan(context) -> RunPlan:
     configured_cache = str(getattr(cloth_obj.cloth_next,
                                    "cache_directory", "") or "").strip()
     cache_directory = (Path(bpy.path.abspath(configured_cache))
-                       if configured_cache else _writable_cache_directory())
-    cache_directory.mkdir(parents=True, exist_ok=True)
+                       if configured_cache else _cache_directory())
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
-    work_directory.mkdir(parents=True, exist_ok=True)
     pc2_path = cache_directory / f"cn_test_cloth_{project_name[10:]}.pc2"
     return RunPlan(scene=session_scene, resolved=resolved,
                    initial_local=cloth_vertices, world_matrix=cloth_world,
@@ -375,6 +366,63 @@ def build_run_plan(context) -> RunPlan:
 
 # ---------------------------------------------------------------------------
 # Worker (never touches bpy) and main-thread pump
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def prepare_cache_for_new_run(plan: RunPlan) -> None:
+    """Idempotently replace only this object's validated Cloth NeXt result."""
+    obj = bpy.data.objects.get(plan.cloth_object_name)
+    if obj is None:
+        raise SceneValidationError("The Cloth object no longer exists.")
+    owned = [mod for mod in obj.modifiers
+             if mod.name == import_result.MODIFIER_NAME]
+    targets: list[Path] = []
+    cache_root = plan.pc2_path.parent.resolve()
+    for mod in owned:
+        value = str(getattr(mod, "filepath", "") or "")
+        if not value:
+            continue
+        path = Path(bpy.path.abspath(value)).resolve()
+        if (not _is_within(path, cache_root)
+                or not path.name.startswith("cn_test_cloth_")
+                or path.suffix.lower() != ".pc2"):
+            raise SceneValidationError(
+                "The previous Cloth NeXt cache could not be removed. "
+                "Rebake was not started.")
+        targets.extend((path, path.with_suffix(".meta.json")))
+    # Validate every target before mutating Blender or disk.
+    for target in targets:
+        if not _is_within(target, cache_root):
+            raise SceneValidationError(
+                "The previous Cloth NeXt cache could not be removed. "
+                "Rebake was not started.")
+    try:
+        for target in targets:
+            target.unlink(missing_ok=True)
+    except OSError as exc:
+        raise SceneValidationError(
+            "The previous Cloth NeXt cache could not be removed. "
+            "Rebake was not started.") from exc
+    for mod in owned:
+        obj.modifiers.remove(mod)
+    settings = getattr(obj, "cloth_next", None)
+    if settings is not None:
+        settings.baked_settings_fingerprint = ""
+
+
+def _discard_incomplete(plan: RunPlan | None) -> None:
+    if plan is None:
+        return
+    for target in (plan.pc2_path, plan.pc2_path.with_suffix(".meta.json")):
+        if _is_within(target, plan.pc2_path.parent):
+            try: target.unlink(missing_ok=True)
+            except OSError: pass
 
 def _worker_main(plan: RunPlan) -> None:
     frames: list[SolverFrame] = []
@@ -515,16 +563,21 @@ def _pump() -> float | None:
                 shared_controller.fail("Importing the solver result failed.",
                                        str(exc))
             _worker, _active_plan = None, None
+            modal_lock.release()
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "cancelled":
             _safe_transition(BakeState.CANCELLED,
                              status_message="Solver test cancelled")
+            _discard_incomplete(plan)
+            modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "error":
             shared_controller.fail(message[1], message[2])
+            _discard_incomplete(plan)
+            modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
             return None
@@ -532,6 +585,8 @@ def _pump() -> float | None:
         # The worker died without posting a terminal message.
         shared_controller.fail("The solver test worker stopped unexpectedly.",
                                "no terminal message from the worker thread")
+        _discard_incomplete(plan)
+        modal_lock.release()
         _worker, _active_plan = None, None
         return None
     shared_controller.update(
@@ -543,81 +598,145 @@ def run_active() -> bool:
     return _worker is not None and _worker.is_alive()
 
 
-def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.BAKE) -> str:
-    """Validate, snapshot, and launch one real solver run (main thread)."""
-    global _worker, _active_plan, _run_started_at
+def _start_prepared_run(plan: RunPlan) -> None:
+    """Create runtime files and worker only after startup prerequisites."""
+    global _worker, _active_plan, _run_started_at, _last_work_directory
+    global _unsubscribe
     import time as _time
-    if run_active():
-        raise SceneValidationError("A Cloth NeXt bake is already active.")
-    snapshot = shared_controller.snapshot()
-    if snapshot.state is not BakeState.IDLE:
-        shared_controller.reset()
-    shared_controller.transition(
-        BakeState.PREPARING, preview=False, job_kind=job_kind,
-        status_message="Validating Blender scene",
-        frame_start=None, frame_end=None)
-    launch_warning = ""
-    try:
-        # Complete scene, scope, solver, and immutable material validation
-        # occurs before any companion, worker, socket, or PPF process starts.
-        plan = build_run_plan(context)
-    except (SceneValidationError, ClothNextError) as exc:
-        message = (exc.record.user_message if isinstance(exc, ClothNextError)
-                   else str(exc))
-        details = (exc.record.technical_message
-                   if isinstance(exc, ClothNextError) else "")
-        shared_controller.fail(message, details)
-        raise
-    try:
-        prefs = context.preferences.addons[__package__.partition(".blender")[0]].preferences
-        auto_launch = bool(prefs.auto_launch_bake_window)
-        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
-    except (KeyError, AttributeError):
-        auto_launch = True
-    if auto_launch:
-        try:
-            ok, _message = companion_manager.ensure_running()
-        except Exception:  # noqa: BLE001 — optional window must never abort Bake
-            ok = False
-        if not ok:
-            launch_warning = ("Bake window could not be opened; simulation "
-                              "continues in Blender.")
-    global _last_work_directory
+    plan.pc2_path.parent.mkdir(parents=True, exist_ok=True)
+    plan.work_directory.mkdir(parents=True, exist_ok=True)
     _last_work_directory = plan.work_directory
     shared_controller.transition(
         BakeState.EXPORTING, status_message="Exporting cloth mesh",
         active_object_name=plan.cloth_object_name,
-        frame_start=getattr(plan, "frame_start", 1),
-        frame_end=getattr(plan, "frame_end", getattr(plan, "frame_count", 1)),
-        current_frame=getattr(plan, "frame_start", 1),
-        progress_current=1, progress_total=getattr(plan, "frame_count", 1))
+        frame_start=plan.frame_start, frame_end=plan.frame_end,
+        current_frame=plan.frame_start, progress_current=1,
+        progress_total=plan.frame_count)
     _cancel_event.clear()
     while not _queue.empty():
-        try:
-            _queue.get_nowait()
-        except queue.Empty:
-            break
+        try: _queue.get_nowait()
+        except queue.Empty: break
     _active_plan = plan
     _run_started_at = _time.monotonic()
-    global _unsubscribe
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
     _worker = threading.Thread(target=_worker_main, args=(plan,),
                                name="clothnext-bake-worker", daemon=False)
     try:
         _worker.start()
-    except Exception as exc:  # noqa: BLE001 — no PPF process exists yet
-        _worker, _active_plan = None, None
+    except Exception as exc:
+        _worker = None; _active_plan = None; modal_lock.release()
         shared_controller.fail("The Bake worker could not be started.", str(exc))
         raise SceneValidationError(
-            "The Bake worker could not be started; no solver process was launched.") \
-            from exc
+            "The Bake worker could not be started; no solver process was launched.") from exc
     if not bpy.app.timers.is_registered(_pump):
-        bpy.app.timers.register(_pump, first_interval=0.1)
-    return launch_warning
+        bpy.app.timers.register(_pump, first_interval=.1)
+
+
+def _begin_controller(job_kind: BakeJobKind) -> str:
+    if shared_controller.snapshot().state is not BakeState.IDLE:
+        shared_controller.reset()
+    return shared_controller.transition(
+        BakeState.PREPARING, preview=False, job_kind=job_kind,
+        status_message="Validating Blender scene", frame_start=None,
+        frame_end=None).job_id
+
+
+def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> str:
+    """Immediate developer diagnostic; production has a readiness gate."""
+    _begin_controller(job_kind)
+    try:
+        plan = build_run_plan(context)
+        shared_controller.transition(BakeState.STARTING_RUN,
+                                     status_message="Starting diagnostic run")
+        prepare_cache_for_new_run(plan)
+        _start_prepared_run(plan)
+    except (SceneValidationError, ClothNextError) as exc:
+        message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
+        shared_controller.fail(message)
+        raise
+    return ""
+
+
+def begin_production_bake(context) -> tuple[str, bool]:
+    """Validate and reserve production Bake without worker or modal lock."""
+    global _pending_plan, _pending_job_id
+    if run_active() or _pending_plan is not None:
+        raise SceneValidationError("A Cloth NeXt bake is already active.")
+    job_id = _begin_controller(BakeJobKind.BAKE)
+    try:
+        plan = build_run_plan(context)
+    except (SceneValidationError, ClothNextError) as exc:
+        message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
+        shared_controller.fail(message); raise
+    try:
+        prefs = context.preferences.addons[
+            __package__.partition(".blender")[0]].preferences
+        auto_launch = bool(prefs.auto_launch_bake_window)
+        shared_telemetry.configure(prefs.telemetry_refresh_seconds)
+    except (KeyError, AttributeError):
+        auto_launch = True
+    _pending_plan = plan; _pending_job_id = job_id
+    if not auto_launch:
+        shared_controller.transition(BakeState.STARTING_RUN,
+                                     status_message="Starting Bake in Blender")
+        try:
+            prepare_cache_for_new_run(plan); _start_prepared_run(plan)
+        finally:
+            _pending_plan = None; _pending_job_id = ""
+        return job_id, False
+    shared_controller.transition(BakeState.STARTING_COMPANION,
+                                 status_message="Starting Bake window")
+    request = EnterBakeMode(job_id=job_id, blender_process_id=os.getpid(),
+        frame_start=plan.frame_start, frame_end=plan.frame_end,
+        preset_label=plan.preset_identifier)
+    ok, message = companion_manager.begin_bake_mode(request)
+    if not ok:
+        _pending_plan = None; _pending_job_id = ""
+        shared_controller.fail(message); raise SceneValidationError(message)
+    shared_controller.transition(BakeState.WAITING_FOR_COMPANION,
+        status_message="Opening Bake window…", frame_start=plan.frame_start,
+        frame_end=plan.frame_end)
+    if not bpy.app.timers.is_registered(_startup_pump):
+        bpy.app.timers.register(_startup_pump, first_interval=.05)
+    return job_id, True
+
+
+def _startup_pump() -> float | None:
+    global _pending_plan, _pending_job_id
+    plan, job_id = _pending_plan, _pending_job_id
+    if plan is None or not job_id: return None
+    state, message = companion_manager.startup_status(job_id)
+    if state == "WAITING":
+        shared_controller.update(status_message=message); return .05
+    if state != "READY":
+        _pending_plan = None; _pending_job_id = ""
+        shared_controller.fail(message); return None
+    if not companion_manager.consume_ready(job_id): return .05
+    shared_controller.transition(BakeState.COMPANION_READY,
+                                 status_message="Bake window ready")
+    try: bpy.ops.clothnext.bake_modal("INVOKE_DEFAULT", job_id=job_id)
+    except (AttributeError, RuntimeError) as exc:
+        modal_lock.release(job_id); _pending_plan = None; _pending_job_id = ""
+        shared_controller.fail("The modal Bake workflow could not start.", str(exc))
+    return None
+
+
+def cancel_pending_startup() -> None:
+    global _pending_plan, _pending_job_id
+    if not _pending_job_id: return
+    job_id = _pending_job_id
+    companion_manager.cancel_startup(job_id)
+    _pending_plan = None; _pending_job_id = ""
+    if shared_controller.snapshot().state is not BakeState.CANCELLING:
+        shared_controller.request_cancel()
+    shared_controller.transition(BakeState.CANCELLED,
+                                 status_message="Bake startup cancelled")
 
 
 def request_cancel() -> None:
+    if _pending_job_id:
+        cancel_pending_startup(); return
     _cancel_event.set()
     snapshot = shared_controller.snapshot()
     if snapshot.active and snapshot.state is not BakeState.CANCELLING:
@@ -628,7 +747,10 @@ def shutdown(join_timeout: float = 30.0) -> None:
     """Unregister/exit path: cancel, join the worker, drop the timer. The
     session's own cleanup stops the exact owned solver process and never an
     external server."""
-    global _worker, _active_plan, _unsubscribe
+    global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id
+    if _pending_job_id:
+        companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
+    _pending_plan = None; _pending_job_id = ""; modal_lock.release()
     _cancel_event.set()
     worker = _worker
     if worker is not None and worker.is_alive():
@@ -640,6 +762,8 @@ def shutdown(join_timeout: float = 30.0) -> None:
         _unsubscribe = None
     if bpy.app.timers.is_registered(_pump):
         bpy.app.timers.unregister(_pump)
+    if bpy.app.timers.is_registered(_startup_pump):
+        bpy.app.timers.unregister(_startup_pump)
     while not _queue.empty():
         try:
             _queue.get_nowait()
@@ -778,16 +902,36 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_bake(bpy.types.Operator):
-    """Bake the supported scene through the real external PPF solver"""
+    """Validate and begin the asynchronous production startup gate."""
 
     bl_idname = "clothnext.bake"
     bl_label = "Bake"
-    _timer = None
-    _modal_cleaned = False
 
     @classmethod
     def poll(cls, _context):
-        return not run_active() and not shared_controller.snapshot().active
+        return (not run_active() and _pending_plan is None
+                and not shared_controller.snapshot().active)
+
+    def execute(self, context):
+        try:
+            _job_id, waiting = begin_production_bake(context)
+        except (SceneValidationError, ClothNextError) as exc:
+            message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
+            self.report({"ERROR"}, message); return {"CANCELLED"}
+        self.report({"INFO"}, "Opening Bake window…" if waiting
+                    else "Cloth NeXt bake started in Blender.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
+    """Modal lock entered only by the matching companion-ready gate."""
+
+    bl_idname = "clothnext.bake_modal"
+    bl_label = "Cloth NeXt Modal Bake"
+    bl_options = {"INTERNAL"}
+    job_id: bpy.props.StringProperty(options={"HIDDEN"})
+    _timer = None
+    _modal_cleaned = False
 
     def _cleanup_modal(self, context) -> None:
         if self._modal_cleaned:
@@ -798,24 +942,30 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             self._timer = None
 
     def invoke(self, context, _event):
-        try:
-            warning = start_run(context, job_kind=BakeJobKind.BAKE)
-        except (SceneValidationError, ClothNextError) as exc:
-            message = (exc.record.user_message
-                       if isinstance(exc, ClothNextError) else str(exc))
-            self.report({"ERROR"}, message)
+        global _pending_plan, _pending_job_id
+        plan = _pending_plan
+        if (plan is None or self.job_id != _pending_job_id
+                or shared_controller.snapshot().state is not BakeState.COMPANION_READY):
             return {"CANCELLED"}
-        if warning:
-            self.report({"WARNING"}, warning)
-        else:
-            self.report({"INFO"}, "Cloth NeXt bake started.")
         manager = getattr(context, "window_manager", None)
         if manager is None or not hasattr(manager, "event_timer_add"):
-            return {"FINISHED"}  # non-Blender test/automation context
+            return {"CANCELLED"}
         self._modal_cleaned = False
-        self._timer = manager.event_timer_add(
-            0.1, window=getattr(context, "window", None))
+        self._timer = manager.event_timer_add(.1, window=getattr(context, "window", None))
         manager.modal_handler_add(self)
+        if not modal_lock.acquire(self.job_id,
+                                  companion_ready_job_id=self.job_id):
+            self._cleanup_modal(context); return {"CANCELLED"}
+        try:
+            prepare_cache_for_new_run(plan)
+            shared_controller.transition(BakeState.STARTING_RUN,
+                                         status_message="Starting Bake run")
+            _start_prepared_run(plan)
+        except (SceneValidationError, ClothNextError, OSError) as exc:
+            modal_lock.release(self.job_id); self._cleanup_modal(context)
+            shared_controller.fail(str(exc)); _pending_plan = None; _pending_job_id = ""
+            return {"CANCELLED"}
+        _pending_plan = None; _pending_job_id = ""
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
@@ -823,6 +973,9 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     def modal(self, context, event):
         snapshot = shared_controller.snapshot()
+        if not modal_lock.active(self.job_id):
+            self._cleanup_modal(context)
+            return {"FINISHED"}
         if event.type == "ESC" and snapshot.can_cancel:
             request_cancel()
             return {"RUNNING_MODAL"}
@@ -840,6 +993,7 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     def cancel(self, context):
         request_cancel()
+        modal_lock.release(self.job_id)
         self._cleanup_modal(context)
 
 
@@ -851,7 +1005,8 @@ class CLOTHNEXT_OT_bake_cancel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, _context):
-        return run_active() and shared_controller.snapshot().can_cancel
+        return ((_pending_plan is not None or run_active())
+                and shared_controller.snapshot().can_cancel)
 
     def execute(self, _context):
         request_cancel()
@@ -955,8 +1110,19 @@ class CLOTHNEXT_OT_solver_test_open_logs(bpy.types.Operator):
         return {"FINISHED"}
 
 
-CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_cancel,
+class CLOTHNEXT_OT_companion_open_logs(bpy.types.Operator):
+    bl_idname = "clothnext.companion_open_logs"
+    bl_label = "Open Bake Window Logs"
+
+    def execute(self, _context):
+        os.startfile(str(companion_manager.log_directory()))
+        return {"FINISHED"}
+
+
+CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
+           CLOTHNEXT_OT_bake_cancel,
            CLOTHNEXT_OT_open_preferences,
            CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
+           CLOTHNEXT_OT_companion_open_logs,
            CLOTHNEXT_OT_inspect_parameters)

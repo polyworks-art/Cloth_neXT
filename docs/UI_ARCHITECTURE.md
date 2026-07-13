@@ -5,6 +5,15 @@ consumes editing events while active, keeps redraw and Cancel responsive, and
 removes its timer once at terminal state. The companion reads the same shared
 snapshots and enters Tk `-topmost` mode once when a Bake begins.
 
+Production startup is now a readiness-gated sequence: scene/material/range and
+solver validation, companion process and transport startup, `ENTER_BAKE_MODE`,
+then a matching `BAKE_WINDOW_READY`. Only an acknowledgement for the current
+job that confirms mapped visibility, topmost state, and transport readiness can
+create the modal handler and acquire its job-owned lock. A seven-second Blender
+timer bounds the wait without blocking the main thread. With automatic launch
+disabled, Bake runs through Blender progress and Cancel without the global
+modal lock.
+
 All three presentation surfaces consume `BakeSnapshot` values from the one
 thread-safe `BakeController`. The pure `cloth_next.bake` package imports no
 Blender API and owns transitions, progress, formatting and the bounded JSON

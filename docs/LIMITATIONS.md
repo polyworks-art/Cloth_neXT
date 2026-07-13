@@ -4,6 +4,11 @@ Current production scope is one Cloth and one static Collider. Animated
 colliders, pressure, and pinning are unsupported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
 
+When automatic Bake-window launch is enabled, inability to create a visible,
+topmost, responsive companion is a fatal startup error. Blender remains
+editable and the previous cache is preserved. Disabling automatic launch opts
+into Blender-only progress without a global workflow lock.
+
 - The Cloth NeXt repository contained no implementation to execute or compare.
 - Upstream was audited at commit `7193f158` on 2026-07-12. Protocol/schema and docs can
   change; implementation must pin a compatible solver release.

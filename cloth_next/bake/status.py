@@ -15,6 +15,10 @@ from typing import Any
 class BakeState(str, Enum):
     IDLE = "IDLE"
     PREPARING = "PREPARING"
+    STARTING_COMPANION = "STARTING_COMPANION"
+    WAITING_FOR_COMPANION = "WAITING_FOR_COMPANION"
+    COMPANION_READY = "COMPANION_READY"
+    STARTING_RUN = "STARTING_RUN"
     EXPORTING = "EXPORTING"
     STARTING_SOLVER = "STARTING_SOLVER"
     UPLOADING = "UPLOADING"
@@ -34,7 +38,9 @@ class BakeJobKind(str, Enum):
 
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
-_ACTIVE = {BakeState.PREPARING, BakeState.EXPORTING,
+_ACTIVE = {BakeState.PREPARING, BakeState.STARTING_COMPANION,
+           BakeState.WAITING_FOR_COMPANION, BakeState.COMPANION_READY,
+           BakeState.STARTING_RUN, BakeState.EXPORTING,
            BakeState.STARTING_SOLVER, BakeState.UPLOADING,
            BakeState.BUILDING, BakeState.SIMULATING, BakeState.FETCHING,
            BakeState.IMPORTING, BakeState.CANCELLING}

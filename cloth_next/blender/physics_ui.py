@@ -186,6 +186,9 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                                 **icon_registry.icon_kwargs("cancel", "CANCEL"))
         elif model.reason:
             layout.label(text=model.reason, icon="ERROR")
+        if snapshot.state.value == "ERROR" and snapshot.error_summary:
+            layout.operator("clothnext.companion_open_logs", text="Open Logs",
+                            icon="FILE_FOLDER")
         summary = layout.column(align=True)
         summary.label(text=model.summary_line)
         try:

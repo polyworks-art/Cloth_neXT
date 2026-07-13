@@ -149,76 +149,41 @@ class _FakeThread:
     def join(self, timeout=None): self.alive = False
 
 
-def _start_with_stubs(env, monkeypatch, *, auto_launch, companion_result):
-    module = env.solver_test
-    plan = SimpleNamespace(work_directory=Path("/tmp/run"),
-                           cloth_object_name="Cloth")
-    context = _context(env, [], auto_launch=auto_launch)
-    calls = []
-    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
-    monkeypatch.setattr(module.companion_manager, "ensure_running",
-                        lambda: calls.append("ensure") or companion_result)
-    monkeypatch.setattr(module.threading, "Thread", _FakeThread)
-    warning = module.start_run(context, job_kind=BakeJobKind.BAKE)
-    assert module._active_plan is plan
-    module.shutdown(join_timeout=0)
-    return calls, warning
-
-
-def test_bake_auto_launch_preference_and_optional_failure(blender_env,
-                                                           monkeypatch):
-    calls, warning = _start_with_stubs(
-        blender_env, monkeypatch, auto_launch=True,
-        companion_result=(False, "missing"))
-    assert calls == ["ensure"]
-    assert warning == "Bake window could not be opened; simulation continues in Blender."
-    assert shared_controller.snapshot().state is BakeState.EXPORTING
-
-
-def test_bake_skips_companion_when_auto_launch_disabled(blender_env,
-                                                        monkeypatch):
-    calls, warning = _start_with_stubs(
-        blender_env, monkeypatch, auto_launch=False,
-        companion_result=(True, "unexpected"))
-    assert calls == [] and warning == ""
-
-
-def test_unexpected_companion_error_is_warning_and_bake_continues(
-        blender_env, monkeypatch):
-    module = blender_env.solver_test
-    plan = SimpleNamespace(work_directory=Path("/tmp/run"),
-                           cloth_object_name="Cloth")
-    context = _context(blender_env, [], auto_launch=True)
-    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
-    monkeypatch.setattr(module.companion_manager, "ensure_running",
-                        lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    monkeypatch.setattr(module.threading, "Thread", _FakeThread)
-    warning = module.start_run(context)
-    assert warning == "Bake window could not be opened; simulation continues in Blender."
-    assert module.run_active()
-    module.shutdown(join_timeout=0)
-
-
-def test_production_and_developer_operators_share_run_service(blender_env,
+def test_production_companion_failure_is_fatal_before_worker(blender_env,
                                                               monkeypatch):
     module = blender_env.solver_test
-    kinds = []
-    monkeypatch.setattr(module, "start_run",
-                        lambda _c, *, job_kind: kinds.append(job_kind) or "")
-    assert module.CLOTHNEXT_OT_bake().execute(blender_env.bpy.context) == {"FINISHED"}
-    assert module.CLOTHNEXT_OT_solver_test_run().execute(
-        blender_env.bpy.context) == {"FINISHED"}
-    assert kinds == [BakeJobKind.BAKE, BakeJobKind.SOLVER_TEST]
+    plan = SimpleNamespace(frame_start=1, frame_end=8,
+                           preset_identifier="COTTON")
+    context = _context(blender_env, [], auto_launch=True)
+    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
+    monkeypatch.setattr(module.companion_manager, "begin_bake_mode",
+                        lambda _request: (False, "Bake executable was not found."))
+    with pytest.raises(module.SceneValidationError, match="not found"):
+        module.begin_production_bake(context)
+    assert module._worker is None
+    assert not module.modal_lock.active()
+
+
+def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,
+                                                               monkeypatch):
+    module = blender_env.solver_test
+    plan = SimpleNamespace(frame_start=1, frame_end=8,
+                           preset_identifier="COTTON")
+    context = _context(blender_env, [], auto_launch=False)
+    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
+    calls=[]
+    monkeypatch.setattr(module, "prepare_cache_for_new_run",
+                        lambda p: calls.append(("cache",p)))
+    monkeypatch.setattr(module, "_start_prepared_run",
+                        lambda p: calls.append(("run",p)))
+    _job, waiting = module.begin_production_bake(context)
+    assert not waiting and [x[0] for x in calls] == ["cache","run"]
+    assert not module.modal_lock.active()
 
 
 def test_production_bake_is_responsive_modal_and_cleans_timer_once(
         blender_env, monkeypatch):
     module = blender_env.solver_test
-    def start(*_a, **_kw):
-        shared_controller.transition(BakeState.PREPARING)
-        return ""
-    monkeypatch.setattr(module, "start_run", start)
-
     class Manager:
         def __init__(self):
             self.added = self.removed = self.handlers = 0
@@ -233,7 +198,16 @@ def test_production_bake_is_responsive_modal_and_cleans_timer_once(
     manager = Manager()
     context = SimpleNamespace(window_manager=manager, window=object(),
                               screen=SimpleNamespace(areas=[]))
-    operator = module.CLOTHNEXT_OT_bake()
+    plan=SimpleNamespace()
+    module._pending_plan=plan; module._pending_job_id="job"
+    shared_controller.transition(BakeState.PREPARING,job_id="job")
+    shared_controller.transition(BakeState.STARTING_COMPANION)
+    shared_controller.transition(BakeState.WAITING_FOR_COMPANION)
+    shared_controller.transition(BakeState.COMPANION_READY)
+    monkeypatch.setattr(module,"prepare_cache_for_new_run",lambda p:None)
+    monkeypatch.setattr(module,"_start_prepared_run",lambda p:
+                        shared_controller.transition(BakeState.STARTING_RUN))
+    operator = module.CLOTHNEXT_OT_bake_modal(); operator.job_id="job"
     assert operator.invoke(context, None) == {"RUNNING_MODAL"}
     assert (manager.added, manager.handlers) == (1, 1)
     for state in (BakeState.EXPORTING, BakeState.STARTING_SOLVER,

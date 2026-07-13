@@ -18,7 +18,16 @@ class InvalidTransition(ValueError):
 
 _NEXT = {
     BakeState.IDLE: {BakeState.PREPARING},
-    BakeState.PREPARING: {BakeState.EXPORTING, BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.PREPARING: {BakeState.STARTING_COMPANION, BakeState.STARTING_RUN,
+                          BakeState.EXPORTING, BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.STARTING_COMPANION: {BakeState.WAITING_FOR_COMPANION,
+                                   BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.WAITING_FOR_COMPANION: {BakeState.COMPANION_READY,
+                                      BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.COMPANION_READY: {BakeState.STARTING_RUN, BakeState.CANCELLING,
+                                BakeState.ERROR},
+    BakeState.STARTING_RUN: {BakeState.EXPORTING, BakeState.CANCELLING,
+                             BakeState.ERROR},
     BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.CANCELLING, BakeState.ERROR},
     # STARTING_SOLVER -> SIMULATING stays for the display-only UI preview;
     # the real run goes through UPLOADING and BUILDING.
