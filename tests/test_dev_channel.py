@@ -36,7 +36,12 @@ def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     assert "generate_single_candidate_index" in text
     assert "candidates.Count -ne 1" in text
     assert "LastWriteTimeUtc" not in text
-    assert "[regex]::Match($_.Name,'dev\\.(\\d+)')" in text
+    assert "Major=[int]$match.Groups[1].Value" in text
+    assert "Minor=[int]$match.Groups[2].Value" in text
+    assert "Patch=[int]$match.Groups[3].Value" in text
+    assert "Dev=[int]$match.Groups[4].Value" in text
+    assert "Expression='Major'" in text and "Expression='Dev'" in text
+    assert "$old.File | Remove-Item -Force" in text
     assert "MAJOR.MINOR.PATCH-dev.N" in text
     assert "^0\\.2\\.0-dev" not in text
 

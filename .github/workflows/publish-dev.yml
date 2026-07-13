@@ -68,8 +68,13 @@ jobs:
           $destination=Join-Path $dev (Split-Path $zip -Leaf)
           if (Test-Path $destination) { throw 'Dev version already exists and is immutable' }
           Copy-Item -LiteralPath $zip -Destination $destination
-          $old=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | Sort-Object {[int]([regex]::Match($_.Name,'dev\.(\d+)').Groups[1].Value)} -Descending | Select-Object -Skip 5
-          $old | Remove-Item -Force
+          $archives=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | ForEach-Object {
+            $match=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-dev\.(\d+)-windows-x64\.zip$')
+            if (-not $match.Success) { throw "invalid Dev archive name: $($_.Name)" }
+            [pscustomobject]@{File=$_; Major=[int]$match.Groups[1].Value; Minor=[int]$match.Groups[2].Value; Patch=[int]$match.Groups[3].Value; Dev=[int]$match.Groups[4].Value}
+          }
+          $old=$archives | Sort-Object @{Expression='Major';Descending=$true},@{Expression='Minor';Descending=$true},@{Expression='Patch';Descending=$true},@{Expression='Dev';Descending=$true} | Select-Object -Skip 5
+          $old.File | Remove-Item -Force
           $indexStage=Join-Path "$env:RUNNER_TEMP" "dev-index-current"
           python -c "from pathlib import Path; from tools.build_extension_repository import generate_single_candidate_index; generate_single_candidate_index(r'$env:CLOTH_NEXT_BLENDER', Path(r'$dev'), Path(r'$destination'), Path(r'$indexStage'))"
           $index=Get-Content (Join-Path $dev 'index.json') -Raw | ConvertFrom-Json
