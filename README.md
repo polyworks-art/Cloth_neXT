@@ -9,8 +9,9 @@
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
-  GPU-accelerated cloth simulation for Blender,<br>
-  powered by the external <strong>PPF Contact Solver</strong>.
+  Cloth NeXt brings the external <strong>PPF Contact Solver</strong> into a streamlined Blender workflow.
+
+  It does not include or develop the solver itself, it acts as a bridge between Blender and the separately installed PPF Contact Solver.
 </p>
 
 <p align="center">
