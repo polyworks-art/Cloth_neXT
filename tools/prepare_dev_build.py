@@ -6,9 +6,9 @@ import argparse, json, re
 from datetime import datetime, timezone
 from pathlib import Path
 
-PATTERN=re.compile(r"^0\.2\.0-dev\.([1-9]\d*)$")
+PATTERN=re.compile(r"^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-dev\.([1-9]\d*)$")
 def prepare(root: Path, version: str, commit: str, run_id: str) -> None:
-    if not PATTERN.fullmatch(version): raise ValueError("expected 0.2.0-dev.N")
+    if not PATTERN.fullmatch(version): raise ValueError("expected MAJOR.MINOR.PATCH-dev.N")
     manifest=root/"cloth_next/blender_manifest.toml"
     text=manifest.read_text(encoding="utf-8")
     text=re.sub(r'^version = "[^"]+"$',f'version = "{version}"',text,flags=re.M)

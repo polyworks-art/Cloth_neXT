@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ref: {description: "Exact 40-character source commit SHA", required: true}
-      version: {description: "Immutable Dev version (0.2.0-dev.N)", required: true}
+      version: {description: "Immutable Dev version (MAJOR.MINOR.PATCH-dev.N)", required: true}
       build_note: {description: "Optional public build note", required: false}
       confirmation: {description: "Type PUBLISH_DEV", required: true}
 
@@ -24,7 +24,7 @@ jobs:
         run: |
           if ('${{ inputs.confirmation }}' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
           if ('${{ inputs.ref }}' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }
-          if ('${{ inputs.version }}' -notmatch '^0\.2\.0-dev\.[1-9][0-9]*$') { throw 'invalid Dev version' }
+          if ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-dev\.[1-9][0-9]*$') { throw 'invalid Dev version' }
       - uses: actions/checkout@v4
         with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
       - shell: pwsh

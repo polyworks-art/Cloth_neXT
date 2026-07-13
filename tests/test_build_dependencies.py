@@ -20,6 +20,8 @@ def test_blender_runtime_does_not_import_pillow():
 
 
 def test_source_validation_excludes_built_artifacts():
+    pytest_config=(ROOT/"pyproject.toml").read_text("utf-8")
+    assert 'addopts = \'-ra -m "not built_artifact"\'' in pytest_config
     for name in ("ci.yml", "build-release-candidate.yml"):
         source=workflow(name)
         assert 'pytest -m "not integration and not built_artifact"' in source
