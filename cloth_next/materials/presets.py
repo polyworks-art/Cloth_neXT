@@ -28,13 +28,13 @@ _PRESET_FILE = Path(__file__).resolve().parent / "ppf_fabric_presets.toml"
 
 _REQUIRED_KEYS = frozenset({
     "id", "label", "description", "upstream_calibrated", "model",
-    "surface_density", "stretch_resistance", "sideways_response",
+    "surface_weight", "stretch_resistance", "sideways_response",
     "bend_resistance", "surface_grip", "stretch_limit_enabled",
     "maximum_stretch_percent",
 })
 _OPTIONAL_KEYS = frozenset({
-    "deformation_damping", "bending_damping", "contact_gap",
-    "contact_offset",
+    "shape_damping", "fold_damping", "collision_gap",
+    "surface_offset",
 })
 _REQUIRED_PROVENANCE = frozenset({
     "source_project", "source_commit", "source_path", "source_license",

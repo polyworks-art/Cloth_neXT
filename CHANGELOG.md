@@ -28,6 +28,10 @@ All notable Cloth NeXt changes. Versioning follows
 
 ### Phase 3B — real material parameters
 
+- Phase 3B.1 aligns the immutable snapshot and Blender property identifiers
+  with the artist-facing contract (`surface_weight`, `shape_damping`,
+  `fold_damping`, `collision_gap`, and `surface_offset`) while preserving
+  their exact PPF wire mappings and calibrated values.
 - Real Shell/Static material mapping: Material, Damping, and Collision
   properties are captured immutably on the main thread, validated, and
   encoded into the exact PPF `young-mod`/`poiss-rat`/`bend`/`friction`/

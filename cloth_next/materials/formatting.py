@@ -29,26 +29,26 @@ class FieldInfo:
 
 SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
     FieldInfo("model", "Solver Model", "model", ""),
-    FieldInfo("surface_density", "Surface Weight", "density", "kg/m²"),
+    FieldInfo("surface_weight", "Surface Weight", "density", "kg/m²"),
     FieldInfo("stretch_resistance", "Stretch Resistance", "young-mod",
               "density-normalized"),
     FieldInfo("sideways_response", "Sideways Response", "poiss-rat", ""),
     FieldInfo("bend_resistance", "Bend Resistance", "bend", ""),
-    FieldInfo("deformation_damping", "Shape Damping",
+    FieldInfo("shape_damping", "Shape Damping",
               "deformation-damping", "s"),
-    FieldInfo("bending_damping", "Fold Damping", "bending-damping", "s"),
+    FieldInfo("fold_damping", "Fold Damping", "bending-damping", "s"),
     FieldInfo("surface_grip", "Surface Grip", "friction", ""),
-    FieldInfo("contact_gap", "Collision Gap", "contact-gap",
+    FieldInfo("collision_gap", "Collision Gap", "contact-gap",
               "world units"),
-    FieldInfo("contact_offset", "Surface Offset", "contact-offset",
+    FieldInfo("surface_offset", "Surface Offset", "contact-offset",
               "world units"),
 )
 
 STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (
     FieldInfo("surface_grip", "Surface Grip", "friction", ""),
-    FieldInfo("contact_gap", "Collision Gap", "contact-gap",
+    FieldInfo("collision_gap", "Collision Gap", "contact-gap",
               "world units"),
-    FieldInfo("contact_offset", "Surface Offset", "contact-offset",
+    FieldInfo("surface_offset", "Surface Offset", "contact-offset",
               "world units"),
 )
 

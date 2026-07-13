@@ -77,7 +77,7 @@ _COLLISION_PANEL = ("Adjust it in Physics Properties > Cloth NeXt > "
 # density 0.01..10000 kg/m², young-mod hard max 1e9, poiss-rat max 0.4999,
 # friction 0..1, strain limit percent 0..100.
 SHELL_RULES: dict[str, NumericRule] = {
-    "surface_density": NumericRule(0.0, True, 10000.0, "kg/m²",
+    "surface_weight": NumericRule(0.0, True, 10000.0, "kg/m²",
                                    _MATERIAL_PANEL),
     "stretch_resistance": NumericRule(0.0, False, 1e9,
                                       "PPF density-normalized young-mod",
@@ -85,13 +85,13 @@ SHELL_RULES: dict[str, NumericRule] = {
     "sideways_response": NumericRule(0.0, False, 0.4999, "",
                                      _MATERIAL_PANEL),
     "bend_resistance": NumericRule(0.0, False, None, "", _MATERIAL_PANEL),
-    "deformation_damping": NumericRule(0.0, False, None, "s",
+    "shape_damping": NumericRule(0.0, False, None, "s",
                                        _DAMPING_PANEL),
-    "bending_damping": NumericRule(0.0, False, None, "s", _DAMPING_PANEL),
+    "fold_damping": NumericRule(0.0, False, None, "s", _DAMPING_PANEL),
     "surface_grip": NumericRule(0.0, False, 1.0, "", _COLLISION_PANEL),
-    "contact_gap": NumericRule(0.0, False, None, "world units",
+    "collision_gap": NumericRule(0.0, False, None, "world units",
                                _COLLISION_PANEL),
-    "contact_offset": NumericRule(0.0, False, None, "world units",
+    "surface_offset": NumericRule(0.0, False, None, "world units",
                                   _COLLISION_PANEL),
     "maximum_stretch_percent": NumericRule(0.0, True, 100.0, "%",
                                            _MATERIAL_PANEL),
@@ -99,9 +99,9 @@ SHELL_RULES: dict[str, NumericRule] = {
 
 STATIC_RULES: dict[str, NumericRule] = {
     "surface_grip": NumericRule(0.0, False, 1.0, "", _COLLISION_PANEL),
-    "contact_gap": NumericRule(0.0, False, None, "world units",
+    "collision_gap": NumericRule(0.0, False, None, "world units",
                                _COLLISION_PANEL),
-    "contact_offset": NumericRule(0.0, False, None, "world units",
+    "surface_offset": NumericRule(0.0, False, None, "world units",
                                   _COLLISION_PANEL),
 }
 

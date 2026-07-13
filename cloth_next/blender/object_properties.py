@@ -90,17 +90,17 @@ def apply_preset(settings, identifier: str) -> bool:
     try:
         material = settings.material
         material.model = shell.model
-        material.surface_density = shell.surface_density
+        material.surface_weight = shell.surface_weight
         material.stretch_resistance = shell.stretch_resistance
         material.sideways_response = shell.sideways_response
         material.bend_resistance = shell.bend_resistance
         material.stretch_limit_enabled = shell.stretch_limit_enabled
         material.maximum_stretch_percent = shell.maximum_stretch_percent
-        settings.damping.deformation_damping = shell.deformation_damping
-        settings.damping.bending_damping = shell.bending_damping
+        settings.damping.shape_damping = shell.shape_damping
+        settings.damping.fold_damping = shell.fold_damping
         settings.collision.surface_grip = shell.surface_grip
-        settings.collision.contact_gap = shell.contact_gap
-        settings.collision.contact_offset = shell.contact_offset
+        settings.collision.collision_gap = shell.collision_gap
+        settings.collision.surface_offset = shell.surface_offset
     finally:
         _applying_preset = False
     return True
@@ -151,65 +151,64 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
                     "bundled PPF fabric presets. Shape Preserving (ARAP) is "
                     "an advanced alternative. Technical PPF parameter: "
                     "model")
-    surface_density: bpy.props.FloatProperty(
+    surface_weight: bpy.props.FloatProperty(
         name="Surface Weight", default=1.0, min=0.01, soft_max=10.0,
         max=10000.0, precision=3, update=_on_material_value_update,
         description="Mass of the fabric per square meter. Higher values "
                     "give the cloth more inertia and make it react more "
                     "heavily, but do not directly make it stiffer. "
-                    "Unit: kg/m². Technical PPF parameter: shell density")
+                    "Unit: kg/m². Technical PPF parameter: density")
     stretch_resistance: bpy.props.FloatProperty(
         name="Stretch Resistance", default=1000.0, min=0.0,
         soft_max=100000.0, max=1e9, precision=1,
         update=_on_material_value_update,
         description="Controls how strongly the fabric resists being pulled "
                     "longer. Lower values create softer, more stretchable "
-                    "cloth. Higher values preserve the original size more "
-                    "strongly. This value is sent directly as PPF's "
-                    "density-normalized Young's modulus (young-mod)")
+                    "cloth. Higher values preserve its original size more "
+                    "strongly. Sent directly as PPF's density-normalized "
+                    "young-mod value")
     sideways_response: bpy.props.FloatProperty(
         name="Sideways Response", default=0.35, min=0.0, max=0.4999,
         precision=4, update=_on_material_value_update,
         description="Controls how strongly stretching in one direction "
                     "affects the fabric sideways. Lower values allow the "
-                    "two directions to stretch more independently. Higher "
-                    "values make the fabric narrow sideways more strongly "
-                    "when pulled. Technical PPF parameter: Poisson ratio "
-                    "(poiss-rat)")
+                    "directions to stretch more independently. Higher "
+                    "values make the fabric contract sideways more "
+                    "strongly. Technical PPF parameter: poiss-rat")
     bend_resistance: bpy.props.FloatProperty(
         name="Bend Resistance", default=10.0, min=0.0, soft_max=100.0,
         precision=2, update=_on_material_value_update,
         description="Controls how easily the fabric bends and forms folds. "
-                    "Lower values create small, soft, flowing folds. Higher "
+                    "Lower values create soft, flowing folds. Higher "
                     "values create broader, stiffer folds and stronger "
                     "shape retention. Technical PPF parameter: bend")
     stretch_limit_enabled: bpy.props.BoolProperty(
         name="Stretch Limit", default=False,
         update=_on_material_value_update,
         description="Prevents the fabric from stretching beyond the "
-                    "specified percentage. When disabled, PPF receives a "
-                    "strain limit of zero")
+                    "specified percentage. When disabled, Cloth NeXt sends "
+                    "a strain-limit value of zero to PPF")
     maximum_stretch_percent: bpy.props.FloatProperty(
         name="Maximum Stretch", default=5.0, min=0.01, soft_max=20.0,
         max=100.0, precision=2, subtype="PERCENTAGE",
         update=_on_material_value_update,
         description="Maximum permitted extension beyond the original size. "
                     "A value of 5% allows approximately five percent "
-                    "stretch. Cloth NeXt converts the displayed percentage "
-                    "to PPF's fractional strain-limit value")
+                    "stretch. Converted to PPF's fractional strain-limit "
+                    "value")
 
 
 class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
     """Both values are stiffness-proportional Rayleigh damping (seconds)."""
 
-    deformation_damping: bpy.props.FloatProperty(
+    shape_damping: bpy.props.FloatProperty(
         name="Shape Damping", default=0.0, min=0.0, soft_max=0.1,
         precision=4, update=_on_material_value_update,
         description="Reduces oscillation caused by stretching and in-plane "
                     "deformation. Small values can calm jitter without "
                     "making the fabric visibly sluggish. Unit: seconds. "
                     "Technical PPF parameter: deformation-damping")
-    bending_damping: bpy.props.FloatProperty(
+    fold_damping: bpy.props.FloatProperty(
         name="Fold Damping", default=0.0, min=0.0, soft_max=0.1,
         precision=4, update=_on_material_value_update,
         description="Reduces oscillation and flutter in folds and bending "
@@ -235,7 +234,7 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
                     "combination mode, so both touching surfaces need "
                     "sufficiently high values for a grippy result. "
                     "Technical PPF parameter: friction")
-    contact_gap: bpy.props.FloatProperty(
+    collision_gap: bpy.props.FloatProperty(
         name="Collision Gap", default=0.001, min=0.0, soft_max=0.01,
         precision=4, update=_on_material_value_update,
         description="Distance before PPF's contact barrier begins "
@@ -243,7 +242,7 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
                     "Excessive values can make the cloth appear to float. "
                     "Unit: Blender world units. Technical PPF parameter: "
                     "contact-gap")
-    contact_offset: bpy.props.FloatProperty(
+    surface_offset: bpy.props.FloatProperty(
         name="Surface Offset", default=0.0, min=0.0, soft_max=0.03,
         precision=4, update=_on_material_value_update,
         description="Adds a collision skin around the surface. Use small "
@@ -282,15 +281,15 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
     collision = settings.collision
     return ShellMaterialSettings(
         model=str(material.model),
-        surface_density=float(material.surface_density),
+        surface_weight=float(material.surface_weight),
         stretch_resistance=float(material.stretch_resistance),
         sideways_response=float(material.sideways_response),
         bend_resistance=float(material.bend_resistance),
-        deformation_damping=float(damping.deformation_damping),
-        bending_damping=float(damping.bending_damping),
+        shape_damping=float(damping.shape_damping),
+        fold_damping=float(damping.fold_damping),
         surface_grip=float(collision.surface_grip),
-        contact_gap=float(collision.contact_gap),
-        contact_offset=float(collision.contact_offset),
+        collision_gap=float(collision.collision_gap),
+        surface_offset=float(collision.surface_offset),
         stretch_limit_enabled=bool(material.stretch_limit_enabled),
         maximum_stretch_percent=float(material.maximum_stretch_percent))
 
@@ -300,8 +299,8 @@ def static_settings_from(settings) -> StaticMaterialSettings:
     collision = settings.collision
     return StaticMaterialSettings(
         surface_grip=float(collision.surface_grip),
-        contact_gap=float(collision.contact_gap),
-        contact_offset=float(collision.contact_offset))
+        collision_gap=float(collision.collision_gap),
+        surface_offset=float(collision.surface_offset))
 
 
 def reset_settings(settings) -> None:

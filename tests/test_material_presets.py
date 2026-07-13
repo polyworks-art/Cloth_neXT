@@ -6,6 +6,7 @@ validation, ordering, atomicity, and independence (task section 16)."""
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,20 @@ EXPECTED_ORDER = ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON", "WOOL",
                   "DENIM", "LEATHER"]
 
 
+def test_pure_material_models_use_artist_facing_field_contract():
+    from cloth_next.materials import StaticMaterialSettings
+    assert [field.name for field in fields(ShellMaterialSettings)] == [
+        "model", "surface_weight", "stretch_resistance",
+        "sideways_response", "bend_resistance", "shape_damping",
+        "fold_damping", "surface_grip", "collision_gap",
+        "surface_offset", "stretch_limit_enabled",
+        "maximum_stretch_percent",
+    ]
+    assert [field.name for field in fields(StaticMaterialSettings)] == [
+        "surface_grip", "collision_gap", "surface_offset",
+    ]
+
+
 def test_every_bundled_preset_parses_and_is_shell():
     presets = material_presets.builtin_presets()
     assert [p.identifier for p in presets] == EXPECTED_ORDER
@@ -49,7 +64,7 @@ def test_official_numeric_values_match_the_pinned_source():
         preset = material_presets.preset_by_identifier(identifier)
         assert preset is not None, identifier
         s = preset.settings
-        assert s.surface_density == density, identifier
+        assert s.surface_weight == density, identifier
         assert s.stretch_resistance == young, identifier
         assert s.sideways_response == poisson, identifier
         assert s.bend_resistance == bend, identifier
@@ -155,11 +170,11 @@ def test_fingerprint_changes_for_every_mapped_value():
             replace(DEFAULT_SHELL_SETTINGS, **{field: value}),
             DEFAULT_STATIC_SETTINGS, True, "DEFAULT_CLOTH")
         for field, value in (
-            ("model", "SHAPE_PRESERVING"), ("surface_density", 2.0),
+            ("model", "SHAPE_PRESERVING"), ("surface_weight", 2.0),
             ("stretch_resistance", 5500.0), ("sideways_response", 0.4),
-            ("bend_resistance", 4.3), ("deformation_damping", 0.01),
-            ("bending_damping", 0.01), ("surface_grip", 0.35),
-            ("contact_gap", 0.002), ("contact_offset", 0.001),
+            ("bend_resistance", 4.3), ("shape_damping", 0.01),
+            ("fold_damping", 0.01), ("surface_grip", 0.35),
+            ("collision_gap", 0.002), ("surface_offset", 0.001),
             ("stretch_limit_enabled", True),
             ("maximum_stretch_percent", 3.0))
     ]
@@ -169,11 +184,11 @@ def test_fingerprint_changes_for_every_mapped_value():
         True, "DEFAULT_CLOTH"))
     variants.append(formatting.settings_fingerprint(
         DEFAULT_SHELL_SETTINGS,
-        replace(DEFAULT_STATIC_SETTINGS, contact_gap=0.005),
+        replace(DEFAULT_STATIC_SETTINGS, collision_gap=0.005),
         True, "DEFAULT_CLOTH"))
     variants.append(formatting.settings_fingerprint(
         DEFAULT_SHELL_SETTINGS,
-        replace(DEFAULT_STATIC_SETTINGS, contact_offset=0.002),
+        replace(DEFAULT_STATIC_SETTINGS, surface_offset=0.002),
         True, "DEFAULT_CLOTH"))
     variants.append(formatting.settings_fingerprint(
         DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS, False,

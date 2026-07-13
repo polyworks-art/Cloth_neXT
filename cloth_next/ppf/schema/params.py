@@ -82,15 +82,15 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
                     if shell.stretch_limit_enabled else 0.0)
     return {
         "model": WIRE_MODEL_NAMES[shell.model],
-        "density": float32_wire(shell.surface_density),
+        "density": float32_wire(shell.surface_weight),
         "young-mod": float32_wire(shell.stretch_resistance),
         "poiss-rat": float32_wire(shell.sideways_response),
         "bend": float32_wire(shell.bend_resistance),
-        "deformation-damping": float32_wire(shell.deformation_damping),
-        "bending-damping": float32_wire(shell.bending_damping),
+        "deformation-damping": float32_wire(shell.shape_damping),
+        "bending-damping": float32_wire(shell.fold_damping),
         "friction": float32_wire(shell.surface_grip),
-        "contact-gap": float32_wire(shell.contact_gap),
-        "contact-offset": float32_wire(shell.contact_offset),
+        "contact-gap": float32_wire(shell.collision_gap),
+        "contact-offset": float32_wire(shell.surface_offset),
         "strain-limit": float32_wire(strain_limit),
     }
 
@@ -101,8 +101,8 @@ def static_wire_params(static: StaticMaterialSettings) -> dict[str, object]:
     validate_static_values(static)
     return {
         "friction": float32_wire(static.surface_grip),
-        "contact-gap": float32_wire(static.contact_gap),
-        "contact-offset": float32_wire(static.contact_offset),
+        "contact-gap": float32_wire(static.collision_gap),
+        "contact-offset": float32_wire(static.surface_offset),
     }
 
 

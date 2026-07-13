@@ -98,16 +98,16 @@ def test_defaults_are_default_cloth(blender_env):
     material = settings.material
     assert material.preset == "DEFAULT_CLOTH"
     assert material.model == "FABRIC"
-    assert material.surface_density == 1.0
+    assert material.surface_weight == 1.0
     assert material.stretch_resistance == 1000.0
     assert material.sideways_response == 0.35
     assert material.bend_resistance == 10.0
     assert material.stretch_limit_enabled is False
-    assert settings.damping.deformation_damping == 0.0
+    assert settings.damping.shape_damping == 0.0
     assert settings.collision.enabled is True
     assert settings.collision.surface_grip == 0.5
-    assert settings.collision.contact_gap == 0.001
-    assert settings.collision.contact_offset == 0.0
+    assert settings.collision.collision_gap == 0.001
+    assert settings.collision.surface_offset == 0.0
     env.registration.unregister()
 
 
@@ -120,18 +120,18 @@ def test_tooltips_disclose_effect_unit_and_ppf_parameter(blender_env):
     collisions = fake_bpy._resolved_props(
         env.object_properties.CLOTHNEXT_PG_collision_settings)
     expectations = {
-        props["surface_density"]: ("kg/m²", "shell density"),
+        props["surface_weight"]: ("kg/m²", "Technical PPF parameter: density"),
         props["stretch_resistance"]: ("density-normalized", "young-mod"),
         props["sideways_response"]: ("poiss-rat",),
         props["bend_resistance"]: ("bend",),
-        props["stretch_limit_enabled"]: ("strain limit",),
+        props["stretch_limit_enabled"]: ("strain-limit",),
         props["maximum_stretch_percent"]: ("strain-limit",),
         props["model"]: ("Baraff-Witkin", "ARAP", "model"),
-        dampings["deformation_damping"]: ("seconds", "deformation-damping"),
-        dampings["bending_damping"]: ("seconds", "bending-damping"),
+        dampings["shape_damping"]: ("seconds", "deformation-damping"),
+        dampings["fold_damping"]: ("seconds", "bending-damping"),
         collisions["surface_grip"]: ("friction", "Minimum"),
-        collisions["contact_gap"]: ("world units", "contact-gap"),
-        collisions["contact_offset"]: ("world units", "contact-offset"),
+        collisions["collision_gap"]: ("world units", "contact-gap"),
+        collisions["surface_offset"]: ("world units", "contact-offset"),
     }
     for prop, needles in expectations.items():
         description = prop.keywords["description"]
@@ -146,8 +146,8 @@ def test_property_ranges_match_the_pinned_upstream_ui(blender_env):
     assert stretch["min"] == 0.0 and stretch["soft_max"] == 100000.0
     assert stretch["max"] == 1e9
     assert props["sideways_response"].keywords["max"] == 0.4999
-    assert props["surface_density"].keywords["min"] > 0.0
-    assert props["surface_density"].keywords["max"] == 10000.0
+    assert props["surface_weight"].keywords["min"] > 0.0
+    assert props["surface_weight"].keywords["max"] == 10000.0
     assert props["maximum_stretch_percent"].keywords["max"] == 100.0
     assert props["maximum_stretch_percent"].keywords["min"] > 0.0
 
@@ -169,14 +169,14 @@ def test_apply_preset_is_deterministic_and_exact(blender_env):
     assert env.object_properties.apply_preset(settings, "SILK") is True
     material = settings.material
     assert material.model == "FABRIC"
-    assert material.surface_density == 1.0
+    assert material.surface_weight == 1.0
     assert material.stretch_resistance == 500.0
     assert material.sideways_response == 0.4
     assert material.bend_resistance == 1.42
     assert material.stretch_limit_enabled is True
     assert material.maximum_stretch_percent == 6.0
     assert settings.collision.surface_grip == 0.25
-    assert settings.damping.deformation_damping == 0.0
+    assert settings.damping.shape_damping == 0.0
     # deterministic: applying twice yields the identical state
     snapshot = env.object_properties.shell_settings_from(settings)
     env.object_properties.apply_preset(settings, "SILK")
@@ -287,7 +287,7 @@ def test_material_panel_displays_artist_facing_names(blender_env):
     panel = env.physics_ui.CLOTHNEXT_PT_material()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["preset", "surface_density",
+    assert panel.layout.props == ["preset", "surface_weight",
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
                                   "stretch_limit_enabled",
@@ -318,13 +318,13 @@ def test_collider_collisions_show_only_contact_values(blender_env):
     panel = env.physics_ui.CLOTHNEXT_PT_collisions()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["surface_grip", "contact_gap",
-                                  "contact_offset"]
+    assert panel.layout.props == ["surface_grip", "collision_gap",
+                                  "surface_offset"]
     settings.role = "CLOTH"
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["enabled", "surface_grip", "contact_gap",
-                                  "contact_offset"]
+    assert panel.layout.props == ["enabled", "surface_grip", "collision_gap",
+                                  "surface_offset"]
     env.registration.unregister()
 
 

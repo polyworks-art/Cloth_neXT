@@ -184,7 +184,7 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
             layout.label(text=description)
         behavior = layout.column(align=True)
         behavior.label(text="Fabric Behavior")
-        behavior.prop(material, "surface_density")
+        behavior.prop(material, "surface_weight")
         behavior.prop(material, "stretch_resistance")
         behavior.prop(material, "sideways_response")
         behavior.prop(material, "bend_resistance")
@@ -204,8 +204,8 @@ class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
         damping = context.object.cloth_next.damping
-        layout.prop(damping, "deformation_damping")
-        layout.prop(damping, "bending_damping")
+        layout.prop(damping, "shape_damping")
+        layout.prop(damping, "fold_damping")
 
 
 class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
@@ -223,8 +223,8 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         if settings.role == "CLOTH":
             column.enabled = collision.enabled
         column.prop(collision, "surface_grip")
-        column.prop(collision, "contact_gap")
-        column.prop(collision, "contact_offset")
+        column.prop(collision, "collision_gap")
+        column.prop(collision, "surface_offset")
 
 
 def _developer_tools_enabled(context) -> bool:

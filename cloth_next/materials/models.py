@@ -44,15 +44,15 @@ class ShellMaterialSettings:
     """
 
     model: str = MODEL_FABRIC
-    surface_density: float = 1.0          # kg/m² -> PPF density
+    surface_weight: float = 1.0           # kg/m² -> PPF density
     stretch_resistance: float = 1000.0    # direct PPF young-mod (Pa/rho)
     sideways_response: float = 0.35       # -> PPF poiss-rat
     bend_resistance: float = 10.0         # -> PPF bend
-    deformation_damping: float = 0.0      # s -> PPF deformation-damping
-    bending_damping: float = 0.0          # s -> PPF bending-damping
+    shape_damping: float = 0.0            # s -> PPF deformation-damping
+    fold_damping: float = 0.0             # s -> PPF bending-damping
     surface_grip: float = 0.5             # -> PPF friction
-    contact_gap: float = 0.001            # world units -> PPF contact-gap
-    contact_offset: float = 0.0           # world units -> PPF contact-offset
+    collision_gap: float = 0.001          # world units -> PPF contact-gap
+    surface_offset: float = 0.0           # world units -> PPF contact-offset
     stretch_limit_enabled: bool = False   # -> PPF strain-limit on/off
     maximum_stretch_percent: float = 5.0  # % -> PPF strain-limit fraction
 
@@ -65,8 +65,8 @@ class StaticMaterialSettings:
     """Immutable contact state for the one static collider."""
 
     surface_grip: float = 0.5     # -> PPF friction
-    contact_gap: float = 0.001    # world units -> PPF contact-gap
-    contact_offset: float = 0.0   # world units -> PPF contact-offset
+    collision_gap: float = 0.001  # world units -> PPF contact-gap
+    surface_offset: float = 0.0   # world units -> PPF contact-offset
 
     def __post_init__(self) -> None:
         validate_static_values(self)

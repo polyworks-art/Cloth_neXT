@@ -34,17 +34,17 @@ NeXt's *Stretch Resistance* stores this direct wire value:
 |---|---|---|---|---|---|---|---|---|
 | Material Preset | `material.preset` | — (preset id) | — | — | bundled ids + `CUSTOM` | selection applies mapped values | `DEFAULT_CLOTH` | — |
 | Solver Model | `material.model` | `model` | `model` | enum | `FABRIC`, `SHAPE_PRESERVING` | `FABRIC`→`baraff-witkin`, `SHAPE_PRESERVING`→`arap` | `FABRIC` | yes |
-| Surface Weight | `material.surface_density` | `surface_density` | `density` | kg/m² (area density — **not** kg/m³) | > 0 … 10000 | direct float32 | 1.0 | yes |
+| Surface Weight | `material.surface_weight` | `surface_weight` | `density` | kg/m² (area density — **not** kg/m³) | > 0 … 10000 | direct float32 | 1.0 | yes |
 | Stretch Resistance | `material.stretch_resistance` | `stretch_resistance` | `young-mod` | density-normalized (soft max 100000) | 0 … 1e9 | direct float32, **no density division** | 1000.0 | yes |
 | Sideways Response | `material.sideways_response` | `sideways_response` | `poiss-rat` | — | 0 … 0.4999 | direct float32 | 0.35 | yes |
 | Bend Resistance | `material.bend_resistance` | `bend_resistance` | `bend` | — (soft max 100) | ≥ 0 | direct float32 | 10.0 | yes |
 | Stretch Limit | `material.stretch_limit_enabled` | `stretch_limit_enabled` | `strain-limit` enable | bool | — | disabled ⇒ wire value 0.0 | off | yes |
 | Maximum Stretch | `material.maximum_stretch_percent` | `maximum_stretch_percent` | `strain-limit` | % (soft max 20) | > 0 … 100 | percent / 100 when enabled | 5.0 % | yes |
-| Shape Damping | `damping.deformation_damping` | `deformation_damping` | `deformation-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
-| Fold Damping | `damping.bending_damping` | `bending_damping` | `bending-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
+| Shape Damping | `damping.shape_damping` | `shape_damping` | `deformation-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
+| Fold Damping | `damping.fold_damping` | `fold_damping` | `bending-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
 | Surface Grip | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 | yes |
-| Collision Gap | `collision.contact_gap` | `contact_gap` | `contact-gap` | Blender world units (soft max 0.01) | ≥ 0 | direct float32 | 0.001 | yes |
-| Surface Offset | `collision.contact_offset` | `contact_offset` | `contact-offset` | Blender world units (soft max 0.03) | ≥ 0 | direct float32 | 0.0 | yes |
+| Collision Gap | `collision.collision_gap` | `collision_gap` | `contact-gap` | Blender world units (soft max 0.01) | ≥ 0 | direct float32 | 0.001 | yes |
+| Surface Offset | `collision.surface_offset` | `surface_offset` | `contact-offset` | Blender world units (soft max 0.03) | ≥ 0 | direct float32 | 0.0 | yes |
 | Enable Contact | `collision.enabled` | (`contact_enabled` argument) | `scene.disable-contact` | bool | — | enabled ⇒ `false`, disabled ⇒ `true` | on | no |
 
 Pure dataclass: `cloth_next.materials.ShellMaterialSettings` (immutable,
@@ -55,8 +55,8 @@ validated on construction; no `bpy`, no paths, no processes).
 | UI name | Internal property | Pure dataclass field | PPF key | Unit | Range | Conversion | Default |
 |---|---|---|---|---|---|---|---|
 | Surface Grip | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 |
-| Collision Gap | `collision.contact_gap` | `contact_gap` | `contact-gap` | world units | ≥ 0 | direct float32 | 0.001 |
-| Surface Offset | `collision.contact_offset` | `contact_offset` | `contact-offset` | world units | ≥ 0 | direct float32 | 0.0 |
+| Collision Gap | `collision.collision_gap` | `collision_gap` | `contact-gap` | world units | ≥ 0 | direct float32 | 0.001 |
+| Surface Offset | `collision.surface_offset` | `surface_offset` | `contact-offset` | world units | ≥ 0 | direct float32 | 0.0 |
 
 `friction`, `contact-gap`, and `contact-offset` are the only keys the
 upstream encoder emits for STATIC groups. Pure dataclass:

@@ -128,10 +128,10 @@ def test_param_golden_bytes_match_shipped_cbor2_output():
 
 def test_shell_artist_names_map_to_exact_wire_keys():
     shell = ShellMaterialSettings(
-        surface_density=2.5, stretch_resistance=5500.0,
+        surface_weight=2.5, stretch_resistance=5500.0,
         sideways_response=0.25, bend_resistance=4.3,
-        deformation_damping=0.01, bending_damping=0.002,
-        surface_grip=0.35, contact_gap=0.004, contact_offset=0.002,
+        shape_damping=0.01, fold_damping=0.002,
+        surface_grip=0.35, collision_gap=0.004, surface_offset=0.002,
         stretch_limit_enabled=True, maximum_stretch_percent=5.0)
     wire = shell_wire_params(shell)
     assert wire["density"] == float32_wire(2.5)          # Surface Weight
@@ -151,10 +151,10 @@ def test_stretch_resistance_is_never_divided_by_density():
     # young-mod 5500 — NOT 2750. The presets store the already
     # density-normalized wire value; normalizing again is the regression
     # this test exists to prevent.
-    shell = ShellMaterialSettings(surface_density=2.0,
+    shell = ShellMaterialSettings(surface_weight=2.0,
                                   stretch_resistance=5500.0)
     assert shell_wire_params(shell)["young-mod"] == 5500.0
-    heavy = ShellMaterialSettings(surface_density=1000.0,
+    heavy = ShellMaterialSettings(surface_weight=1000.0,
                                   stretch_resistance=500.0)
     assert shell_wire_params(heavy)["young-mod"] == 500.0
 
@@ -185,10 +185,10 @@ def test_strain_limit_percent_conversion_and_disable():
 
 
 def test_collider_grip_gap_offset_map_independently_of_cloth():
-    shell = ShellMaterialSettings(surface_grip=0.1, contact_gap=0.002,
-                                  contact_offset=0.001)
-    static = StaticMaterialSettings(surface_grip=0.9, contact_gap=0.005,
-                                    contact_offset=0.003)
+    shell = ShellMaterialSettings(surface_grip=0.1, collision_gap=0.002,
+                                  surface_offset=0.001)
+    static = StaticMaterialSettings(surface_grip=0.9, collision_gap=0.005,
+                                    surface_offset=0.003)
     payload = _micro_payload(shell=shell, static=static)
     shell_wire = payload["group"][0][0]
     static_wire = payload["group"][1][0]
@@ -235,7 +235,7 @@ def test_all_encoded_numeric_values_are_finite_floats():
 
 def test_invalid_ranges_fail_before_encoding():
     with pytest.raises(MaterialValidationError):
-        ShellMaterialSettings(surface_density=0.0)  # must be > 0
+        ShellMaterialSettings(surface_weight=0.0)  # must be > 0
     with pytest.raises(MaterialValidationError):
         ShellMaterialSettings(sideways_response=0.5)  # > 0.4999
     with pytest.raises(MaterialValidationError):
@@ -247,7 +247,7 @@ def test_invalid_ranges_fail_before_encoding():
     with pytest.raises(MaterialValidationError):
         StaticMaterialSettings(surface_grip=-0.1)
     with pytest.raises(MaterialValidationError):
-        StaticMaterialSettings(contact_gap=float("inf"))
+        StaticMaterialSettings(collision_gap=float("inf"))
 
 
 def test_validation_error_names_property_value_range_and_action():
