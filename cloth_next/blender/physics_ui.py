@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Physics Properties integration for Cloth NeXt (Phase 2.8A).
+"""Physics Properties integration for Cloth NeXt (Phase 3B).
 
 The "Cloth NeXt" entry is appended to Blender's own ``PHYSICS_PT_add`` panel
 through the stable ``Panel.append``/``Panel.remove`` API. Blender does not
@@ -11,6 +11,12 @@ below the native buttons — the closest placement the public UI API supports
 (see docs/LIMITATIONS.md). No Blender source class is monkey-patched and no
 third-party add-on internals are touched. Cloth NeXt deliberately has no
 N-panel; the Physics Properties tab is the primary workflow.
+
+Honest-controls policy (Phase 3B): every visible, editable property maps to
+a real PPF parameter. The former Quality, Pressure, and Shape subpanels and
+the editable Cache range are gone until their mappings are verified; the
+development frame slice is shown read-only instead. Preset data is parsed
+once at import time — no Panel.draw ever reads the preset file.
 """
 
 from __future__ import annotations
@@ -19,6 +25,9 @@ import bpy
 
 from . import icon_registry, physics_operators
 from ..bake.controller import shared_controller
+from ..materials import formatting
+from ..materials import presets as material_presets
+from . import object_properties
 
 _add_entry_appended = False
 
@@ -131,17 +140,14 @@ class _ClothNextSubpanel:
         return not getattr(cls, "cloth_only", False) or context.object.cloth_next.role == "CLOTH"
 
 
-def _mapped_note(layout):
-    return None
-
-
 class CLOTHNEXT_PT_overview(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Overview"; bl_idname = "CLOTHNEXT_PT_overview"
     header_icon = "cloth"
     def draw(self, context):
         s = context.object.cloth_next
         self.layout.label(text=f"{s.role.title()} · {context.object.name}")
-        self.layout.label(text="Phase 3A uses the fixed developer-test mapping",
+        self.layout.label(text="Material and contact values map to the real "
+                               "PPF solver parameters",
                           **icon_registry.icon_kwargs("info","INFO"))
 
 
@@ -152,57 +158,73 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         self.layout.label(text="Installation and compatibility are managed in Add-on Preferences.")
 
 
-class CLOTHNEXT_PT_quality(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Quality"; bl_idname = "CLOTHNEXT_PT_quality"; cloth_only = True
-    header_icon = "quality"
-    def draw(self, context):
-        s=context.object.cloth_next.quality
-        for name in ("preset", "substeps", "solver_iterations", "contact_iterations"): self.layout.prop(s, name)
-        _mapped_note(self.layout)
+def _preset_description(identifier: str) -> str:
+    for item_id, _label, description in object_properties.PRESET_ITEMS:
+        if item_id == identifier:
+            return description
+    return ""
 
 
-class CLOTHNEXT_PT_physical(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Physical Properties"; bl_idname = "CLOTHNEXT_PT_physical"; cloth_only = True
+class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Material"; bl_idname = "CLOTHNEXT_PT_material"; cloth_only = True
     header_icon = "physical"
+
     def draw(self, context):
-        s=context.object.cloth_next.physical
-        for name in ("mass_mode", "surface_density", "thickness", "stretch_stiffness", "shear_stiffness", "bend_stiffness"): self.layout.prop(s, name)
-        _mapped_note(self.layout)
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        material = context.object.cloth_next.material
+        error = material_presets.load_error()
+        if error:
+            layout.label(text="Bundled presets unavailable:", icon="ERROR")
+            layout.label(text=error)
+        layout.prop(material, "preset")
+        description = _preset_description(material.preset)
+        if description:
+            layout.label(text=description)
+        behavior = layout.column(align=True)
+        behavior.label(text="Fabric Behavior")
+        behavior.prop(material, "surface_density")
+        behavior.prop(material, "stretch_resistance")
+        behavior.prop(material, "sideways_response")
+        behavior.prop(material, "bend_resistance")
+        protection = layout.column(align=True)
+        protection.label(text="Stretch Protection")
+        protection.prop(material, "stretch_limit_enabled")
+        row = protection.row()
+        row.enabled = material.stretch_limit_enabled
+        row.prop(material, "maximum_stretch_percent")
 
 
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Damping"; bl_idname = "CLOTHNEXT_PT_damping"; cloth_only = True
     header_icon = "damping"
     def draw(self, context):
-        s=context.object.cloth_next.damping
-        for name in ("stretch", "shear", "bend", "velocity"): self.layout.prop(s, name)
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        damping = context.object.cloth_next.damping
+        layout.prop(damping, "deformation_damping")
+        layout.prop(damping, "bending_damping")
 
 
 class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Collisions"; bl_idname = "CLOTHNEXT_PT_collisions"
     header_icon = "collision"
     def draw(self, context):
-        s=context.object.cloth_next.collision
-        names=("enabled", "distance", "friction")
-        if context.object.cloth_next.role == "CLOTH": names=("enabled", "self_collision", "distance", "self_distance", "friction")
-        for name in names: self.layout.prop(s, name)
-
-
-class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Pressure"; bl_idname = "CLOTHNEXT_PT_pressure"; cloth_only = True
-    header_icon = "pressure"
-    def draw(self, context):
-        s=context.object.cloth_next.pressure
-        for name in ("enabled", "target", "stiffness", "volume_conservation"): self.layout.prop(s, name)
-        self.layout.label(text="Mesh closure validation is refreshed explicitly.", icon="INFO")
-
-
-class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Shape"; bl_idname = "CLOTHNEXT_PT_shape"; cloth_only = True
-    header_icon = "pinning"
-    def draw(self, context):
-        s=context.object.cloth_next.shape
-        for name in ("pin_group", "pin_stiffness", "use_rest_shape", "rest_shape_source", "rest_scale"): self.layout.prop(s, name)
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        settings = context.object.cloth_next
+        collision = settings.collision
+        if settings.role == "CLOTH":
+            layout.prop(collision, "enabled")
+        column = layout.column()
+        if settings.role == "CLOTH":
+            column.enabled = collision.enabled
+        column.prop(collision, "surface_grip")
+        column.prop(collision, "contact_gap")
+        column.prop(collision, "contact_offset")
 
 
 def _developer_tools_enabled(context) -> bool:
@@ -215,11 +237,11 @@ def _developer_tools_enabled(context) -> bool:
 
 
 def _draw_solver_test_section(layout, context) -> None:
-    """Phase-3A developer actions, clearly separated from the production
-    Bake workflow (which does not exist yet)."""
+    """Developer actions for the real solver slice, clearly separated from
+    the production Bake workflow (which does not exist yet)."""
     from . import solver_test
     box = layout.box()
-    box.label(text="Developer: Real Solver Test (Phase 3A)", icon="EXPERIMENTAL")
+    box.label(text="Developer: Real Solver Test (Phase 3B)", icon="EXPERIMENTAL")
     snapshot = shared_controller.snapshot()
     running = solver_test.run_active()
     box.operator("clothnext.create_test_scene", icon="MESH_GRID")
@@ -253,6 +275,8 @@ def _draw_solver_test_section(layout, context) -> None:
         column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
     if snapshot.error_summary:
         column.label(text=snapshot.error_summary, icon="ERROR")
+    box.operator("clothnext.inspect_parameters",
+                 **icon_registry.icon_kwargs("info", "VIEWZOOM"))
     actions=box.row(align=True)
     actions.operator("clothnext.companion_launch", text="Bake Window",
                      **icon_registry.icon_kwargs("bake","WINDOW"))
@@ -261,15 +285,43 @@ def _draw_solver_test_section(layout, context) -> None:
     actions.operator("clothnext.solver_test_clear", text="Clear", icon="TRASH")
 
 
+def _draw_stale_result_notice(layout, context) -> None:
+    """Compare the object's baked fingerprint with the current settings.
+
+    Pure in-memory computation on already-loaded properties — no file or
+    preset access happens here.
+    """
+    from . import solver_test
+    from ..ppf_run import import_result
+    obj = context.object
+    settings = obj.cloth_next
+    baked = getattr(settings, "baked_settings_fingerprint", "")
+    if not baked:
+        return
+    if not any(mod.name == import_result.MODIFIER_NAME
+               for mod in obj.modifiers):
+        return
+    try:
+        current = solver_test.current_settings_fingerprint(context)
+    except Exception:  # noqa: BLE001 — a broken scene must not break draw
+        return
+    if current is not None and current != baked:
+        layout.label(text="Result is stale — settings changed since this "
+                          "bake. Rebake or Clear it explicitly.",
+                     **icon_registry.icon_kwargs("warning", "ERROR"))
+
+
 class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Cache"; bl_idname = "CLOTHNEXT_PT_cache"
     header_icon = "cache"
     def draw(self, context):
-        s=context.object.cloth_next.cache
-        for name in ("frame_start", "frame_end", "directory"): self.layout.prop(s, name)
+        layout = self.layout
+        layout.label(text="Development slice: Blender frames 1–8",
+                     **icon_registry.icon_kwargs("info", "INFO"))
+        _draw_stale_result_notice(layout, context)
         if _developer_tools_enabled(context):
-            _draw_solver_test_section(self.layout, context)
-        diagnostics=self.layout.box(); diagnostics.label(text="UI Diagnostics")
+            _draw_solver_test_section(layout, context)
+        diagnostics=layout.box(); diagnostics.label(text="UI Diagnostics")
         diagnostics.operator("clothnext.preview_start", text="Start UI Preview",
                              **icon_registry.icon_kwargs("play", "PLAY"))
         if shared_controller.snapshot().preview and shared_controller.snapshot().active:
@@ -280,11 +332,42 @@ class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Advanced PPF"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
     header_icon = "advanced"
-    def draw(self, _context):
-        self.layout.label(text="Direct advanced solver mapping is not active yet.", icon="INFO")
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.object.cloth_next
+        if settings.role == "CLOTH":
+            layout.use_property_split = True
+            layout.use_property_decorate = False
+            layout.prop(settings.material, "model")
+        column = layout.column(align=True)
+        column.label(text="Exact PPF wire values:")
+        try:
+            if settings.role == "CLOTH":
+                shell = object_properties.shell_settings_from(settings)
+                rows = formatting.shell_wire_rows(shell)
+            else:
+                static = object_properties.static_settings_from(settings)
+                rows = formatting.static_wire_rows(static)
+        except Exception as exc:  # noqa: BLE001 — invalid values stay visible
+            column.label(text=str(exc), icon="ERROR")
+            rows = ()
+        for artist_label, ppf_key, value in rows:
+            column.label(text=f"{artist_label} · {ppf_key}: {value}")
+        info = layout.column(align=True)
+        info.label(text="Friction mode: Minimum (fixed) — the lower of the "
+                        "two touching surfaces wins")
+        if settings.role == "CLOTH":
+            info.label(text="Stiffness basis: density-normalized PPF "
+                            "young-mod (not textbook Pa)")
+            contact = ("enabled" if settings.collision.enabled
+                       else "DISABLED (disable-contact: true)")
+            info.label(text=f"Contact: {contact}")
+        info.label(text="Experimental development slice: one cloth, one "
+                        "static collider, frames 1–8", icon="EXPERIMENTAL")
 
 
 CLASSES = (CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
-           CLOTHNEXT_PT_quality, CLOTHNEXT_PT_physical, CLOTHNEXT_PT_damping,
-           CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_pressure, CLOTHNEXT_PT_shape,
-           CLOTHNEXT_PT_cache, CLOTHNEXT_PT_advanced)
+           CLOTHNEXT_PT_material, CLOTHNEXT_PT_damping,
+           CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
+           CLOTHNEXT_PT_advanced)

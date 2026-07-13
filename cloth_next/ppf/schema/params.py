@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""PPF 0.11 Param payload for the Phase-3A vertical slice.
+"""PPF 0.11 Param payload with the real Phase-3B material mapping.
 
 Exact reproduction of the subset of ``kinds/param.rs`` /
-``encoder/params.py`` (pinned commit ``7193f158``) the 8-frame test needs:
+``encoder/params.py`` (pinned commit ``7193f158``) the vertical slice
+needs:
 
 ``{"scene": {...}, "group": [(shell_params, [name], [uuid]),
                              (static_params, [name], [uuid])],
@@ -15,82 +16,94 @@ present key to the solver's parameter table (unknown keys are a hard error
 there, absent keys fall back to the solver defaults), so only audited keys
 are emitted.
 
-Fixed Phase-3A values (documented in docs/PPF_PARAMETER_MAPPING.md; these
-are NOT user-mapped yet):
+Material values come from the immutable, validated
+:class:`~cloth_next.materials.ShellMaterialSettings` /
+:class:`~cloth_next.materials.StaticMaterialSettings` captured on Blender's
+main thread. The full artist-name -> wire-key table lives in
+``docs/PPF_PARAMETER_MAPPING.md``. Two invariants matter most:
 
-Scene:
-- ``dt``            1e-3 s      solver default step size
-- ``gravity``       Blender scene gravity, axis-swapped to solver Y-up (m/s^2)
-- ``wind``          (0, 0, 0)   no wind in this slice
-- ``frames``        Blender frame count - 1 (Blender 1..N -> solver 0..N-1)
-- ``fps``           Blender scene FPS (frame->time conversion)
-- ``friction-mode`` "min"       solver default combination mode
-- ``disable-contact`` False
+- ``stretch_resistance`` is the DIRECT density-normalized ``young-mod``
+  wire value. It is NEVER divided by density here (the upstream presets
+  are calibrated in this convention; dividing again would silently soften
+  every fabric by its density factor).
+- Material floats are rounded through IEEE-754 float32 before the CBOR
+  float64 encode, mirroring the upstream encoder's ``np.float32(...)``
+  wrapping, so Cloth NeXt payload values match the official client's
+  bit-for-bit.
 
-SHELL material (upstream ``tri`` defaults unless noted):
-- ``model``                "baraff-witkin"  (upstream tri default)
-- ``density``              1000.0  kg/m^3 (upstream tri default)
-- ``young-mod``            1.0     density-normalized Pa/rho (upstream tri
-                                    default; a plain-Pa value must be divided
-                                    by density before it lands here)
-- ``poiss-rat``            0.35    dimensionless (upstream default)
-- ``bend``                 10.0    bending stiffness (upstream tri default)
-- ``deformation-damping``  0.0     (upstream default)
-- ``bending-damping``      0.0     (upstream default)
-- ``friction``             0.5     dimensionless Coulomb coefficient (chosen
-                                    so the cloth visibly settles instead of
-                                    sliding; legal range per upstream UI)
-- ``contact-gap``          1e-3 m  (upstream default)
-- ``contact-offset``       0.0  m  (upstream tri default)
-- ``strain-limit``         0.0     disabled (upstream default)
-
-STATIC collider:
-- ``friction``       0.5, ``contact-gap`` 1e-3 m, ``contact-offset`` 0.0 m
-  (the only keys the upstream encoder emits for STATIC groups)
+Scene keys (unchanged from Phase 3A except ``disable-contact``):
+``dt`` (1e-3 s solver default), swapped Blender ``gravity``, zero ``wind``,
+``frames`` (Blender N -> solver N-1), ``fps``, ``friction-mode`` "min"
+(solver default combination mode; both surfaces need high friction for a
+grippy contact), and ``disable-contact`` from the cloth's Enable Contact
+toggle.
 """
 
 from __future__ import annotations
 
 import math
+import struct
 from dataclasses import dataclass
 
+from ...materials import (ShellMaterialSettings, StaticMaterialSettings,
+                          WIRE_MODEL_NAMES)
+from ...materials.validation import (validate_shell_values,
+                                     validate_static_values)
 from ..coordinates import blender_vector_to_ppf
 from . import envelope
 
-MODEL_BARAFF_WITKIN = "baraff-witkin"
-
-FIXED_SHELL_MATERIAL: dict[str, object] = {
-    "model": MODEL_BARAFF_WITKIN,
-    "density": 1000.0,
-    "young-mod": 1.0,
-    "poiss-rat": 0.35,
-    "bend": 10.0,
-    "deformation-damping": 0.0,
-    "bending-damping": 0.0,
-    "friction": 0.5,
-    "contact-gap": 1e-3,
-    "contact-offset": 0.0,
-    "strain-limit": 0.0,
-}
-
-FIXED_STATIC_MATERIAL: dict[str, object] = {
-    "friction": 0.5,
-    "contact-gap": 1e-3,
-    "contact-offset": 0.0,
-}
-
 FIXED_TIME_STEP = 1e-3  # seconds; upstream solver default
+
+FRICTION_MODE = "min"  # fixed this phase; surfaced read-only in Advanced PPF
 
 
 class ParamEncodeError(ValueError):
     pass
 
 
-def normalized_young_modulus(young_modulus_pa: float, density: float) -> float:
-    """Apply the PPF density normalization: the wire carries Pa / rho."""
-    if density <= 0:
-        raise ParamEncodeError("density must be positive")
-    return young_modulus_pa / density
+def float32_wire(value: float) -> float:
+    """Round to the exact float32 the solver's parameter table stores.
+
+    The upstream encoder wraps every material scalar in ``np.float32``;
+    reproducing that here keeps payloads and hashes comparable with the
+    official client and makes the precision loss explicit and tested.
+    """
+    return float(struct.unpack(">f", struct.pack(">f", float(value)))[0])
+
+
+def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
+    """The exact SHELL group parameter dict for the pinned solver.
+
+    ``young-mod`` receives ``stretch_resistance`` unchanged — no density
+    division (see the module docstring).
+    """
+    validate_shell_values(shell)
+    strain_limit = (shell.maximum_stretch_percent / 100.0
+                    if shell.stretch_limit_enabled else 0.0)
+    return {
+        "model": WIRE_MODEL_NAMES[shell.model],
+        "density": float32_wire(shell.surface_density),
+        "young-mod": float32_wire(shell.stretch_resistance),
+        "poiss-rat": float32_wire(shell.sideways_response),
+        "bend": float32_wire(shell.bend_resistance),
+        "deformation-damping": float32_wire(shell.deformation_damping),
+        "bending-damping": float32_wire(shell.bending_damping),
+        "friction": float32_wire(shell.surface_grip),
+        "contact-gap": float32_wire(shell.contact_gap),
+        "contact-offset": float32_wire(shell.contact_offset),
+        "strain-limit": float32_wire(strain_limit),
+    }
+
+
+def static_wire_params(static: StaticMaterialSettings) -> dict[str, object]:
+    """The exact STATIC group parameter dict (the only keys upstream
+    emits for STATIC groups)."""
+    validate_static_values(static)
+    return {
+        "friction": float32_wire(static.surface_grip),
+        "contact-gap": float32_wire(static.contact_gap),
+        "contact-offset": float32_wire(static.contact_offset),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +129,10 @@ class SimulationSettings:
 
 def build_param_payload(settings: SimulationSettings,
                         cloth_name: str, cloth_uuid: str,
-                        collider_name: str, collider_uuid: str) -> dict:
+                        collider_name: str, collider_uuid: str, *,
+                        shell: ShellMaterialSettings,
+                        static: StaticMaterialSettings,
+                        contact_enabled: bool = True) -> dict:
     for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
                          ("collider name", collider_name),
                          ("collider uuid", collider_uuid)):
@@ -129,20 +145,25 @@ def build_param_payload(settings: SimulationSettings,
         # Blender frames 1..N map to solver frames 0..N-1 (upstream contract).
         "frames": int(settings.frame_count) - 1,
         "fps": int(settings.fps),
-        "friction-mode": "min",
-        "disable-contact": False,
+        "friction-mode": FRICTION_MODE,
+        "disable-contact": not bool(contact_enabled),
     }
     group = [
-        (dict(FIXED_SHELL_MATERIAL), [cloth_name], [cloth_uuid]),
-        (dict(FIXED_STATIC_MATERIAL), [collider_name], [collider_uuid]),
+        (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
+        (static_wire_params(static), [collider_name], [collider_uuid]),
     ]
     return {"scene": scene, "group": group, "pin_config": {}}
 
 
 def encode_param(settings: SimulationSettings,
                  cloth_name: str, cloth_uuid: str,
-                 collider_name: str, collider_uuid: str) -> tuple[bytes, str]:
+                 collider_name: str, collider_uuid: str, *,
+                 shell: ShellMaterialSettings,
+                 static: StaticMaterialSettings,
+                 contact_enabled: bool = True) -> tuple[bytes, str]:
     payload = build_param_payload(settings, cloth_name, cloth_uuid,
-                                  collider_name, collider_uuid)
+                                  collider_name, collider_uuid,
+                                  shell=shell, static=static,
+                                  contact_enabled=contact_enabled)
     blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
     return blob, envelope.payload_sha256(blob)

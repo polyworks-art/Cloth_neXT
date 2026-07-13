@@ -6,6 +6,39 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Phase 3B — real material parameters
+
+- Real Shell/Static material mapping: Material, Damping, and Collision
+  properties are captured immutably on the main thread, validated, and
+  encoded into the exact PPF `young-mod`/`poiss-rat`/`bend`/`friction`/
+  `contact-gap`/`contact-offset`/`strain-limit` wire keys (float32-exact,
+  matching the official encoder). Enable Contact maps to
+  `scene.disable-contact`.
+- Bundled read-only PPF fabric presets (Silk, Flag, Cotton, Wool, Denim,
+  Leather, plus Default Cloth and Custom) with pinned upstream provenance
+  and preserved Apache-2.0 notice; selecting a preset applies its values,
+  manual edits switch to Custom without resetting anything.
+- Artist-facing terminology (Surface Weight, Stretch Resistance, Sideways
+  Response, Bend Resistance, Surface Grip, Stretch Limit, Maximum Stretch,
+  Shape Damping, Fold Damping, Collision Gap, Surface Offset) with the
+  technical PPF parameter named in every tooltip and in Advanced PPF.
+- Removed/hid the misleading placeholder controls: Quality
+  (substeps/iterations), Total Mass, Thickness, Stretch/Shear stiffness,
+  per-mode damping, Velocity damping, Self Collision, Pressure, Shape/pin
+  settings, and the editable Cache range (replaced by the read-only
+  "Development slice: Blender frames 1–8" notice). Old placeholder values
+  were never used by the solver and are not reinterpreted.
+- Corrected the Shell density unit and default: Surface Weight is an area
+  density in kg/m² with default 1.0 (previously mislabeled 1000 kg/m³);
+  Stretch Resistance is the direct density-normalized PPF young-mod value
+  (never divided by density; double-normalization is regression-tested).
+- Encoded-parameter inspector (Developer Tools): shows artist and wire
+  names with exact values and copies JSON diagnostics — without starting
+  the solver.
+- Minimal versioned cache-invalidation metadata: a material fingerprint on
+  the baked object plus a `*.meta.json` sidecar marks results stale when
+  any mapped setting changes; nothing is deleted automatically.
+
 ### Dev channel
 
 - Added the explicit public `0.2.0-dev.N` snapshot channel with permanent risk

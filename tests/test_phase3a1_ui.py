@@ -11,10 +11,9 @@ def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypa
     class Layout:
         def label(self,**_kwargs): pass
     expected={ui.CLOTHNEXT_PT_physics:"cloth_next",ui.CLOTHNEXT_PT_overview:"cloth",
-        ui.CLOTHNEXT_PT_solver:"solver",ui.CLOTHNEXT_PT_quality:"quality",
-        ui.CLOTHNEXT_PT_physical:"physical",ui.CLOTHNEXT_PT_damping:"damping",
-        ui.CLOTHNEXT_PT_collisions:"collision",ui.CLOTHNEXT_PT_pressure:"pressure",
-        ui.CLOTHNEXT_PT_shape:"pinning",ui.CLOTHNEXT_PT_cache:"cache",
+        ui.CLOTHNEXT_PT_solver:"solver",
+        ui.CLOTHNEXT_PT_material:"physical",ui.CLOTHNEXT_PT_damping:"damping",
+        ui.CLOTHNEXT_PT_collisions:"collision",ui.CLOTHNEXT_PT_cache:"cache",
         ui.CLOTHNEXT_PT_advanced:"advanced"}
     for panel,icon in expected.items():
         instance=panel(); instance.layout=Layout(); instance.draw_header(None)

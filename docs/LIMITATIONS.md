@@ -112,11 +112,15 @@ The public Dev channel is unsupported and uses reduced validation. Builds may
 be incomplete, unstable, incompatible, removed, or invalidate caches/settings.
 Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
-## Phase 3A developer slice
+## Phase 3A/3B developer slice
 
-- One cloth shell, one static collider, and the eight-frame developer scene.
-- No pins, pressure, tearing, animated colliders, multiple cloths/colliders, or
-  production cache metadata/invalidation.
+- One cloth shell, one static collider, and the eight-frame developer scene
+  (the Cache panel shows the read-only notice "Development slice: Blender
+  frames 1–8"; editable Start/End range controls are deliberately absent).
+- No pins, pressure, shrink, stitching, plasticity, tearing, animated
+  colliders, multiple cloths/colliders, solids, rods, sand, PDRD, dynamic
+  parameter animation, or Quality (substeps/iterations) mapping yet; those
+  controls are hidden rather than shown as fake settings.
 - Playback is constant-topology PC2. Blender frame 1 is the exported initial
   state; frames 2--8 map to solver `vert_1.bin`--`vert_7.bin`.
 - The UI entry is a developer test, not a claim of production readiness.
@@ -124,7 +128,15 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   unavailable or temporarily stale. It is system GPU telemetry, not proof that
   PPF selected that exact CUDA device.
 
-- Physics settings are UI-ready but are not yet mapped to the PPF pipeline.
+- Material, Damping, and Collision properties are really mapped to the PPF
+  payload (Phase 3B). PPF's stiffness (`young-mod`) is a density-normalized
+  wire value, **not** a textbook Young's modulus in pascals; Cloth NeXt uses
+  that single representation everywhere.
+- The built-in fabric presets are calibrated upstream starting points, not
+  guarantees for every mesh scale, resolution, or scene setup.
+- Cache invalidation is a minimal versioned material fingerprint (object
+  property + `*.meta.json` sidecar) that marks a result stale; the full
+  production cache metadata system remains Phase-4 work.
 - Bake actions are unmistakable UI previews and never claim to run PPF.
 - The Viewport HUD is display-only; cancellation remains an operator action.
 - The optional Windows companion is bundled and hash-validated but still receives

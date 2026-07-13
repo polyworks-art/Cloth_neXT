@@ -46,14 +46,23 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Open-source Blender extension
 - Clear separation between the add-on and external solver
 - A native, role-aware Physics Properties configuration workflow
+- Real material parameters with understandable artist terminology
+  (Surface Weight, Stretch Resistance, Bend Resistance, Surface Grip, …),
+  each mapped one-to-one to a documented PPF solver parameter
+- Official PPF-derived fabric presets (Silk, Flag, Cotton, Wool, Denim,
+  Leather) bundled as read-only data, with exact provenance and the
+  Apache-2.0 upstream notice preserved
 - An optional display-only bake status HUD
 
 > [!NOTE]
-> Phase 3A includes an experimental developer-only real PPF vertical slice for
-> one cloth, one static collider, and eight frames. Enable Developer Test Tools
-> to create and run its fixed test scene. The general Bake workflow and material
-> controls are not connected to production simulation yet, and interactive
-> Blender acceptance remains pending.
+> Phase 3B connects the Material, Damping, and Collision properties to the
+> real PPF solver: every visible, editable value is actually encoded and
+> sent. The end-to-end run remains an experimental developer slice for one
+> cloth, one static collider, and eight frames. Enable Developer Test Tools
+> to create and run its fixed test scene. Note that PPF's stiffness is a
+> density-normalized value, not a textbook Young's modulus in pascals (see
+> [PPF parameter mapping](docs/PPF_PARAMETER_MAPPING.md)). PPF itself
+> remains separate, independently installed software.
 
 > [!IMPORTANT]
 > The PPF Contact Solver is external software developed and distributed by

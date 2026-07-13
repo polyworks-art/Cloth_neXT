@@ -20,12 +20,13 @@ The production Bake workflow is unchanged; these are developer test actions.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import queue
 import threading
 import uuid as uuid_module
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import bpy
@@ -34,19 +35,23 @@ from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.status import BakeJobKind, BakeState
 from ..core.errors import ClothNextError
+from ..materials import MaterialValidationError
+from ..materials import formatting as material_formatting
 from ..ppf.coordinates import (matrix_is_finite_and_invertible,
                                solver_world_matrix)
 from ..ppf.resolver import (ResolvedSolver, SolverResolutionContext,
                             SolverResolver,
                             development_executable_from_environment)
 from ..ppf.schema.data import SceneObject, encode_scene, zero_area_triangles
-from ..ppf.schema.params import SimulationSettings, encode_param
+from ..ppf.schema.params import (SimulationSettings, build_param_payload,
+                                 encode_param, shell_wire_params,
+                                 static_wire_params)
 from ..ppf_run import import_result
 from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
                               SolverSession, new_project_name)
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..telemetry import shared_telemetry
-from . import companion_manager
+from . import companion_manager, object_properties
 
 REQUIRED_FRAME_START = 1
 REQUIRED_FRAME_END = 8
@@ -91,6 +96,12 @@ class RunPlan:
     work_directory: Path
     pc2_path: Path
     frame_count: int
+    # Immutable pure material snapshot metadata (Phase 3B): the fingerprint
+    # marks the finished result, and the JSON-safe meta dict is written next
+    # to the PC2 cache so a stale result stays detectable.
+    settings_fingerprint: str = ""
+    preset_identifier: str = ""
+    material_meta: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +237,30 @@ def _writable_cache_directory() -> Path:
     return fallback
 
 
+def _snapshot_materials(cloth_obj, collider_obj):
+    """Freeze all material properties on the main thread (Phase 3B).
+
+    Returns ``(shell, static, contact_enabled, preset_identifier)``; any
+    invalid value raises :class:`SceneValidationError` naming the property,
+    the value, the accepted range, and the corrective action — before any
+    worker or solver process starts.
+    """
+    try:
+        shell = object_properties.shell_settings_from(cloth_obj.cloth_next)
+    except MaterialValidationError as exc:
+        raise SceneValidationError(
+            f"{cloth_obj.name}: invalid material value — {exc}") from exc
+    try:
+        static = object_properties.static_settings_from(
+            collider_obj.cloth_next)
+    except MaterialValidationError as exc:
+        raise SceneValidationError(
+            f"{collider_obj.name}: invalid contact value — {exc}") from exc
+    contact_enabled = bool(cloth_obj.cloth_next.collision.enabled)
+    preset_identifier = str(cloth_obj.cloth_next.material.preset)
+    return shell, static, contact_enabled, preset_identifier
+
+
 def build_run_plan(context) -> RunPlan:
     """Validate the scene on the main thread and freeze the run inputs."""
     scene = context.scene
@@ -268,9 +303,24 @@ def build_run_plan(context) -> RunPlan:
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0))
+    shell, static, contact_enabled, preset_identifier = _snapshot_materials(
+        cloth_obj, collider_obj)
     param_payload, param_hash = encode_param(
         settings, cloth_obj.name, cloth_uuid, collider_obj.name,
-        collider_uuid)
+        collider_uuid, shell=shell, static=static,
+        contact_enabled=contact_enabled)
+    fingerprint = material_formatting.settings_fingerprint(
+        shell, static, contact_enabled, preset_identifier)
+    material_meta = {
+        "version": 1,
+        "fingerprint": fingerprint,
+        "preset": preset_identifier,
+        "contact_enabled": contact_enabled,
+        "shell": shell_wire_params(shell),
+        "static": static_wire_params(static),
+        "development_slice": f"blender frames {REQUIRED_FRAME_START}-"
+                             f"{REQUIRED_FRAME_END}",
+    }
 
     project_name = new_project_name()
     session_scene = SessionScene(
@@ -290,7 +340,10 @@ def build_run_plan(context) -> RunPlan:
                    initial_local=cloth_vertices, world_matrix=cloth_world,
                    cloth_object_name=cloth_obj.name,
                    work_directory=work_directory, pc2_path=pc2_path,
-                   frame_count=frame_count)
+                   frame_count=frame_count,
+                   settings_fingerprint=fingerprint,
+                   preset_identifier=preset_identifier,
+                   material_meta=material_meta)
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +365,11 @@ def _worker_main(plan: RunPlan) -> None:
             plan.initial_local, frames, plan.world_matrix,
             expected_frame_count=plan.frame_count)
         header = import_result.write_playback_cache(plan.pc2_path, playback)
+        if plan.material_meta:
+            # Sidecar for cache invalidation: records which material
+            # settings produced this PC2 (pure values only; see RunPlan).
+            plan.pc2_path.with_suffix(".meta.json").write_text(
+                json.dumps(plan.material_meta, indent=2), encoding="utf-8")
         _queue.put(("finished", header, diagnostics))
     except SessionCancelled:
         _queue.put(("cancelled", None, None))
@@ -355,6 +413,9 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     modifier.play_mode = "SCENE"
     modifier.forward_axis = "POS_Y"
     modifier.up_axis = "POS_Z"
+    settings = getattr(obj, "cloth_next", None)
+    if settings is not None and plan.settings_fingerprint:
+        settings.baked_settings_fingerprint = plan.settings_fingerprint
     scene = bpy.context.scene
     scene.frame_start = REQUIRED_FRAME_START
     scene.frame_end = REQUIRED_FRAME_END
@@ -542,6 +603,99 @@ def shutdown(join_timeout: float = 30.0) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Material fingerprint and parameter inspection (diagnostic only)
+
+def current_settings_fingerprint(context) -> str | None:
+    """Fingerprint of the current one-cloth/one-collider material state.
+
+    Returns ``None`` when the scene does not hold exactly one enabled
+    cloth and collider or a value is invalid — never raises from draw.
+    """
+    try:
+        cloth_obj, collider_obj = _enabled_objects_by_role(context)
+        shell, static, contact_enabled, preset = _snapshot_materials(
+            cloth_obj, collider_obj)
+    except SceneValidationError:
+        return None
+    return material_formatting.settings_fingerprint(
+        shell, static, contact_enabled, preset)
+
+
+def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
+    """Validate the current settings and build the exact Param payload
+    without starting PPF.
+
+    Returns human-readable summary lines (artist and wire names) plus the
+    JSON-safe payload dictionary. Contains no mesh data, no secrets, and no
+    binary CBOR; placeholder UUIDs stand in for the per-run random ones.
+    """
+    cloth_obj, collider_obj = _enabled_objects_by_role(context)
+    shell, static, contact_enabled, preset = _snapshot_materials(
+        cloth_obj, collider_obj)
+    scene = context.scene
+    settings = SimulationSettings(
+        frame_count=REQUIRED_FRAME_END - REQUIRED_FRAME_START + 1,
+        fps=int(scene.render.fps),
+        gravity_blender=tuple(scene.gravity) if scene.use_gravity
+        else (0.0, 0.0, 0.0))
+    payload = build_param_payload(
+        settings, cloth_obj.name, "inspect-cloth",
+        collider_obj.name, "inspect-collider",
+        shell=shell, static=static, contact_enabled=contact_enabled)
+    lines: list[str] = [f"Material Preset: {preset}",
+                        f"Cloth: {cloth_obj.name} (SHELL)"]
+    for artist_label, ppf_key, value in \
+            material_formatting.shell_wire_rows(shell):
+        lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
+    lines.append(f"Collider: {collider_obj.name} (STATIC)")
+    for artist_label, ppf_key, value in \
+            material_formatting.static_wire_rows(static):
+        lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
+    wire_scene = payload["scene"]
+    lines.append(f"Scene — frames: {wire_scene['frames']}, "
+                 f"fps: {wire_scene['fps']}, "
+                 f"friction-mode: {wire_scene['friction-mode']}, "
+                 f"disable-contact: {wire_scene['disable-contact']}")
+    return tuple(lines), payload
+
+
+class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
+    """Show the exact encoded PPF parameters without starting the solver"""
+
+    bl_idname = "clothnext.inspect_parameters"
+    bl_label = "Inspect Encoded Parameters"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, context):
+        try:
+            lines, payload = build_parameter_inspection(context)
+        except (SceneValidationError, MaterialValidationError) as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        copied = False
+        window_manager = getattr(context, "window_manager", None)
+        if window_manager is not None:
+            try:
+                window_manager.clipboard = json.dumps(payload, indent=2)
+                copied = True
+            except (AttributeError, TypeError):
+                copied = False
+        if window_manager is not None and hasattr(window_manager,
+                                                  "popup_menu"):
+            def draw_popup(menu, _context, _lines=lines):
+                for line in _lines:
+                    menu.layout.label(text=line)
+            window_manager.popup_menu(draw_popup,
+                                      title="Encoded PPF Parameters",
+                                      icon="INFO")
+        suffix = (" JSON diagnostics copied to the clipboard."
+                  if copied else "")
+        self.report({"INFO"}, "Encoded parameters inspected — no solver "
+                              "was started." + suffix)
+        return {"FINISHED"}
+
+
+# ---------------------------------------------------------------------------
 # Operators
 
 class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
@@ -607,11 +761,16 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     filepath = getattr(mod, "filepath", "")
                     obj.modifiers.remove(mod)
                     removed_modifiers += 1
+                    settings = getattr(obj, "cloth_next", None)
+                    if settings is not None:
+                        settings.baked_settings_fingerprint = ""
                     if filepath:
                         path = Path(bpy.path.abspath(filepath))
                         if path.name.startswith("cn_test_cloth_"):
                             try:
                                 path.unlink(missing_ok=True)
+                                path.with_suffix(".meta.json").unlink(
+                                    missing_ok=True)
                                 removed_files += 1
                             except OSError:
                                 pass
@@ -644,4 +803,5 @@ class CLOTHNEXT_OT_solver_test_open_logs(bpy.types.Operator):
 
 
 CLASSES = (CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
-           CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs)
+           CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
+           CLOTHNEXT_OT_inspect_parameters)

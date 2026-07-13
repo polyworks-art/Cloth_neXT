@@ -27,6 +27,8 @@ class _PropDef:
         if self.kind == "ENUM":
             items = self.keywords.get("items", ())
             return self.keywords.get("default", items[0][0] if items else "")
+        if self.kind == "POINTER":
+            return _instantiate_group(self.keywords["type"])
         return self.keywords.get("default")
 
     def _name_on(self, owner):

@@ -121,6 +121,24 @@ standalone pinned-solver harness. Automated and interactive Blender 5.1.2
 acceptance remain environment-dependent gates; this is not the general
 production simulation workflow.
 
+Phase 3B status: real Shell/Static material mapping is implemented. A pure
+`cloth_next.materials` package (immutable validated dataclasses, bundled
+read-only PPF fabric presets with pinned provenance, artist/wire-name
+formatting) feeds the schema encoder; the Physics UI exposes artist-facing
+names (Surface Weight, Stretch Resistance, Sideways Response, Bend
+Resistance, Surface Grip, Stretch Limit, Shape/Fold Damping, Collision Gap,
+Surface Offset) with technical PPF names in tooltips and Advanced PPF;
+misleading placeholder controls (Quality, Pressure, Shape,
+Stretch/Shear/Thickness, editable Cache range) are removed; a minimal
+versioned material fingerprint marks stale results; and an Inspect Encoded
+Parameters developer action shows the exact payload without starting PPF.
+Automated status: full source suite, preset/mapping/bridge/UI tests,
+deliberately regenerated goldens, and real pinned-solver integration runs
+for COTTON, DENIM, and a no-contact case pass. This remains the bounded
+developer slice (one cloth, one static collider, frames 1–8) — the
+production bake workflow is NOT complete, and interactive Blender
+acceptance remains an environment-dependent gate.
+
 Add crash-safe PC2 (subject to the phase-3 proof) plus versioned JSON metadata:
 scene/object/settings hashes, topology/order, pin group, colliders, material, pressure,
 range, Blender/PPF/Cloth NeXt versions and completion state.

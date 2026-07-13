@@ -6,10 +6,37 @@ Blender API and owns transitions, progress, formatting and the bounded JSON
 schema.
 
 Physics Properties is the primary interface. Cloth objects show Overview,
-Solver, Quality, Physical Properties, Damping, Collisions, Pressure, Shape,
-Cache and Advanced PPF. Colliders show only Overview, Solver, Collisions, Cache
-and Advanced PPF. No N-panel is registered. Settings are configuration UI and
-are not mapped to PPF yet.
+Solver, Material, Damping, Collisions, Cache and Advanced PPF. Colliders show
+only Overview, Solver, Collisions, Cache and Advanced PPF. No N-panel is
+registered.
+
+## Phase 3B material UI
+
+Honest-controls policy: every visible, editable property maps to a real PPF
+parameter. The former Quality, Physical (Stretch/Shear/Thickness), Pressure,
+and Shape subpanels and the editable Cache range are removed until their
+mappings are verified; the Cache panel shows the read-only development
+slice notice instead.
+
+Preset service: the bundled `cloth_next/materials/ppf_fabric_presets.toml`
+is parsed and validated exactly once at import (registration) time into
+immutable `MaterialPreset` values; the EnumProperty items are a static
+tuple, so no `Panel.draw` ever reads the file. Selecting a preset applies
+its mapped values through one guarded update callback (reentrancy-safe,
+main-thread, undo-compatible); manually editing any preset-controlled value
+switches the selection to Custom without resetting values. A malformed
+bundle degrades the selector to Custom, shows the load error in the
+Material panel, and applies nothing.
+
+Blender-to-pure snapshot: `solver_test.build_run_plan` freezes all
+PropertyGroups into immutable `ShellMaterialSettings` /
+`StaticMaterialSettings` dataclasses on the main thread while building the
+`RunPlan`. Validation failures surface in PREPARING with property, value,
+accepted range, and remedy — before any worker thread or solver process
+starts. The worker only ever sees pure values and never touches ``bpy``
+(enforced by tests). The Advanced PPF panel and the "Inspect Encoded
+Parameters" developer action show both artist names and exact wire
+spellings from one shared formatting table.
 
 The display-only Viewport HUD has one reload-safe `POST_PIXEL` draw handler. Its
 callback reads a snapshot and draws; it starts no work. Explicit UI preview

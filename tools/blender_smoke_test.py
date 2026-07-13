@@ -130,6 +130,25 @@ def _addon_update_section_check(bpy, module_name: str) -> None:
     assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)
 
 
+def _phase3b_material_roundtrip(bpy, obj) -> None:
+    """Real-RNA preset behavior: apply, exact values, Custom on edit."""
+    material = obj.cloth_next.material
+    assert material.preset == "DEFAULT_CLOTH"
+    assert material.stretch_resistance == 1000.0
+    material.preset = "COTTON"  # update callback applies the preset
+    assert material.stretch_resistance == 5500.0
+    assert abs(material.bend_resistance - 4.3) < 1e-5
+    assert material.stretch_limit_enabled
+    assert abs(material.maximum_stretch_percent - 5.0) < 1e-5
+    assert abs(obj.cloth_next.collision.surface_grip - 0.35) < 1e-5
+    material.bend_resistance = 42.0  # manual edit switches to Custom
+    assert material.preset == "CUSTOM"
+    assert material.stretch_resistance == 5500.0  # values not reset
+    material.preset = "DEFAULT_CLOTH"
+    assert material.stretch_resistance == 1000.0
+    assert not material.stretch_limit_enabled
+
+
 def main() -> None:
     import bpy
 
@@ -164,16 +183,19 @@ def main() -> None:
         assert hud._handle is not None, "HUD handler was not installed"
         obj = bpy.context.active_object
         obj.cloth_next.enabled = True
-        cloth_only = (physics_ui.CLOTHNEXT_PT_quality,
-                      physics_ui.CLOTHNEXT_PT_physical,
-                      physics_ui.CLOTHNEXT_PT_damping,
-                      physics_ui.CLOTHNEXT_PT_pressure,
-                      physics_ui.CLOTHNEXT_PT_shape)
+        cloth_only = (physics_ui.CLOTHNEXT_PT_material,
+                      physics_ui.CLOTHNEXT_PT_damping)
         obj.cloth_next.role = "CLOTH"
         assert all(panel.poll(bpy.context) for panel in cloth_only)
+        # the misleading placeholder panels must stay removed
+        for stale in ("CLOTHNEXT_PT_quality", "CLOTHNEXT_PT_physical",
+                      "CLOTHNEXT_PT_pressure", "CLOTHNEXT_PT_shape"):
+            assert not hasattr(physics_ui, stale), stale
+        _phase3b_material_roundtrip(bpy, obj)
         obj.cloth_next.role = "COLLIDER"
         assert not any(panel.poll(bpy.context) for panel in cloth_only)
         assert physics_ui.CLOTHNEXT_PT_collisions.poll(bpy.context)
+        obj.cloth_next.role = "CLOTH"
         obj.cloth_next.enabled = False
         extension.unregister()
         extension.unregister()

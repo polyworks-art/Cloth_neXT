@@ -1,0 +1,129 @@
+# Cloth NeXt bundled fabric material presets (read-only).
+#
+# The six calibrated fabric presets (Silk, Flag, Cotton, Wool, Denim,
+# Leather) are numeric material values taken verbatim from the PPF Contact
+# Solver project's bundled preset data. Only the data values were copied;
+# no upstream Python or UI code is included, Cloth NeXt is an independent
+# project, and the PPF Contact Solver itself remains separately installed
+# software that Cloth NeXt never redistributes.
+#
+# Upstream convention preserved here: shell young modulus values are
+# ALREADY density-normalized PPF wire values (young_mod_density_normalized
+# = true in the source file; NOT textbook pascals), shell density is an
+# area density in kg/m² shipped at a uniform 1.0, and strain limits are
+# percentages that the encoder converts to the wire fraction.
+#
+# DEFAULT_CLOTH is not an upstream calibrated textile; it mirrors the
+# pinned upstream shell default values.
+
+[provenance]
+source_project = "st-tech/ppf-contact-solver"
+source_commit = "7193f158e3843597070f66cb29af19efd9bdcff7"
+source_path = "blender_addon/presets/materials.toml"
+source_license = "Apache-2.0"
+notes = """Preset values are derived from the Apache-2.0 licensed data file
+above (see docs/THIRD_PARTY_NOTICES.md for the full notice). Cloth NeXt is
+an independent project; the external PPF Contact Solver is separate
+software installed by the user and is never bundled with Cloth NeXt."""
+
+[[preset]]
+id = "DEFAULT_CLOTH"
+label = "Default Cloth"
+description = "Neutral starting cloth using the PPF shell defaults"
+upstream_calibrated = false
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 1000.0
+sideways_response = 0.35
+bend_resistance = 10.0
+surface_grip = 0.5
+stretch_limit_enabled = false
+maximum_stretch_percent = 5.0
+deformation_damping = 0.0
+bending_damping = 0.0
+contact_gap = 0.001
+contact_offset = 0.0
+
+[[preset]]
+id = "SILK"
+label = "Silk"
+description = "Light, fluid silk: very drapey, smooth, low friction"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 500.0
+sideways_response = 0.4
+bend_resistance = 1.42
+surface_grip = 0.25
+stretch_limit_enabled = true
+maximum_stretch_percent = 6.0
+
+[[preset]]
+id = "FLAG"
+label = "Flag"
+description = "Lightweight synthetic banner cloth: light, limp, low friction"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 1000.0
+sideways_response = 0.4
+bend_resistance = 0.83
+surface_grip = 0.30
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "COTTON"
+label = "Cotton"
+description = "Plain woven cotton: medium stiffness and drape"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 5500.0
+sideways_response = 0.35
+bend_resistance = 4.3
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 5.0
+
+[[preset]]
+id = "WOOL"
+label = "Wool"
+description = "Woven wool suiting: soft membrane, lofty folds"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 2000.0
+sideways_response = 0.4
+bend_resistance = 3.67
+surface_grip = 0.40
+stretch_limit_enabled = true
+maximum_stretch_percent = 8.0
+
+[[preset]]
+id = "DENIM"
+label = "Denim"
+description = "Heavy cotton twill: stiff and resistant to stretching"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 10000.0
+sideways_response = 0.25
+bend_resistance = 10.0
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "LEATHER"
+label = "Leather"
+description = "Garment leather: firm, shape-holding and low-stretch"
+upstream_calibrated = true
+model = "FABRIC"
+surface_density = 1.0
+stretch_resistance = 13000.0
+sideways_response = 0.4
+bend_resistance = 1.8
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.0
