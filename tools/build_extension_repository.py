@@ -107,8 +107,10 @@ def main() -> int:
             (args.repository_root / "cloth_next" / "blender_manifest.toml")
             .read_text(encoding="utf-8"))
         channel_dir = args.site_dir / args.channel
-        assemble_channel(args.zip, channel_dir, args.sha256)
-        generate_index(args.blender, channel_dir)
+        archive = assemble_channel(args.zip, channel_dir, args.sha256)
+        generate_single_candidate_index(
+            args.blender, channel_dir, archive,
+            args.site_dir / f".{args.channel}-index-staging")
         validate_index(channel_dir, manifest["id"], manifest["version"])
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
         print(f"extension repository build failed: {exc}", file=sys.stderr)

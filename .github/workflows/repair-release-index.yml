@@ -1,0 +1,71 @@
+name: repair-release-index
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel: {description: "Release channel to repair", required: true, type: choice, options: [beta, stable]}
+      version: {description: "Existing immutable release version", required: true}
+      confirmation: {description: "Type REPAIR_RELEASE_INDEX", required: true}
+
+permissions: {contents: write}
+concurrency: {group: publish-release, cancel-in-progress: false}
+env:
+  BLENDER_VERSION: "5.1.2"
+  BLENDER_SERIES: "5.1"
+
+jobs:
+  repair:
+    runs-on: windows-latest
+    steps:
+      - name: Require exact repair request
+        shell: pwsh
+        run: |
+          if ('${{ inputs.confirmation }}' -cne 'REPAIR_RELEASE_INDEX') { throw 'confirmation mismatch' }
+          if ('${{ inputs.channel }}' -eq 'beta') {
+            if ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(beta|rc)\.[1-9][0-9]*$') { throw 'invalid Beta version' }
+          } elseif ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw 'invalid Stable version'
+          }
+      - uses: actions/checkout@v4
+      - name: Download Blender 5.1.2
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip
+          Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
+          $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
+          "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - name: Generate and verify the single release candidate
+        shell: pwsh
+        run: |
+          git fetch origin gh-pages
+          git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
+          $channel=Join-Path "$env:RUNNER_TEMP\pages" '${{ inputs.channel }}'
+          $duplicate=Join-Path "$env:RUNNER_TEMP" 'duplicate-release'
+          $repaired=Join-Path "$env:RUNNER_TEMP" 'repaired-release'
+          Copy-Item -LiteralPath $channel -Destination $duplicate -Recurse
+          New-Item -ItemType Directory -Force $repaired | Out-Null
+          $name="cloth_next-${{ inputs.version }}-windows-x64.zip"
+          $archive=Join-Path $channel $name
+          if (-not (Test-Path -LiteralPath $archive)) { throw "missing immutable release archive: $name" }
+          Copy-Item -LiteralPath $archive -Destination (Join-Path $repaired $name)
+          & "$env:CLOTH_NEXT_BLENDER" --command extension server-generate "--repo-dir=$repaired"
+          python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected "${{ inputs.version }}" --report "$env:RUNNER_TEMP\release-index-regression.json"
+          Copy-Item -LiteralPath (Join-Path $repaired 'index.json') -Destination (Join-Path $channel 'index.json') -Force
+          $index=Get-Content (Join-Path $channel 'index.json') -Raw | ConvertFrom-Json
+          $candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})
+          if ($candidates.Count -ne 1 -or $candidates[0].version -cne '${{ inputs.version }}') { throw 'repaired release index is ambiguous' }
+      - name: Publish index-only repair
+        shell: pwsh
+        run: |
+          $path='${{ inputs.channel }}/index.json'
+          git -C "$env:RUNNER_TEMP\pages" add $path
+          $changed=@(git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only)
+          if ($changed.Count -ne 1 -or $changed[0] -cne $path) { throw 'repair must change only the selected channel index.json' }
+          git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Repair ${{ inputs.channel }} repository candidate ${{ inputs.version }}"
+          git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
+      - name: Summary
+        shell: pwsh
+        run: |
+          "${{ inputs.channel }} index repaired to one candidate: ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          "Blender 5.1.2 duplicate/repaired repository regression passed." >> $env:GITHUB_STEP_SUMMARY
+          "Only the channel index changed; immutable release ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY

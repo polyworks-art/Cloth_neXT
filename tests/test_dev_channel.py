@@ -74,6 +74,14 @@ def test_single_candidate_index_keeps_retained_archives(tmp_path, monkeypatch):
         f"immutable-{number}".encode() for number in range(1, 6)]
 
 
+def test_release_repository_main_uses_single_candidate_generation():
+    source = (Path(__file__).parents[1] / "tools" /
+              "build_extension_repository.py").read_text()
+    main = source[source.index("def main()") :]
+    assert "generate_single_candidate_index(" in main
+    assert "generate_index(args.blender, channel_dir)" not in main
+
+
 def test_index_repair_runs_real_blender_and_changes_only_index():
     root = Path(__file__).parents[1]
     workflow = (root / ".github/workflows/repair-dev-index.yml").read_text()
@@ -86,3 +94,15 @@ def test_index_repair_runs_real_blender_and_changes_only_index():
     for source in ("repository_candidate", "installed_manifest",
                    "loaded_manifest", "update_offered"):
         assert source in probe
+
+
+def test_release_index_repair_is_index_only_and_single_candidate():
+    root = Path(__file__).parents[1]
+    workflow = (root / ".github/workflows/repair-release-index.yml").read_text()
+    assert "options: [beta, stable]" in workflow
+    assert "REPAIR_RELEASE_INDEX" in workflow
+    assert "run_blender_dev_repository_regression.py" in workflow
+    assert "candidates.Count -ne 1" in workflow
+    assert "repair must change only the selected channel index.json" in workflow
+    assert "push origin HEAD:gh-pages" in workflow
+    assert "Remove-Item" not in workflow
