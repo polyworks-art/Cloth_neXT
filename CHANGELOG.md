@@ -6,6 +6,14 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Changed — gated developer interface
+
+- Grouped Real Solver Test and UI Diagnostics into one preference-gated
+  Developer Tools subpanel under Cache, using one native alert-styled area.
+- Developer controls are hidden by default and are enabled only in explicitly
+  prepared Dev snapshots; Beta and Stable release validation rejects Dev build
+  metadata.
+
 ### Added — static vertex-group Pinning
 
 - Added static hard Pinning through Blender vertex groups.

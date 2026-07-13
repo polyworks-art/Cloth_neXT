@@ -28,6 +28,13 @@ Solver, Material, Damping, Collisions, Cache and Advanced PPF. Colliders show
 only Overview, Solver, Collisions, Cache and Advanced PPF. No N-panel is
 registered.
 
+Explicit Dev snapshots may also show one collapsed, Cloth-only Developer Tools
+subpanel under Cache. It is hidden by default and requires the existing
+Developer Tools preference. Real Solver Test and UI Diagnostics share one
+native alert-styled box there; they are not part of the production workflow.
+Beta and stable packages have no Dev metadata, so this UI fails closed even if
+an older preferences file has the checkbox enabled.
+
 ## Production Bake entry point
 
 `CLOTHNEXT_PT_solver` shows solver readiness without executable paths, the

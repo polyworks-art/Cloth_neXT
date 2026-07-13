@@ -30,6 +30,12 @@ extension ZIP. It is validated by `companion_manifest.json` (version, platform,
 size, and SHA-256), is never a separate release asset, and does not authorize any
 other executable, third-party binary, solver DLL, archive, or runtime.
 
+Developer-only UI is permitted only in explicitly prepared `-dev.N` snapshots.
+Beta, release-candidate, and stable packages must not contain `dev_build.json`;
+without that CI-generated metadata all Developer Tools UI fails closed. The
+release policy validator rejects any production-channel ZIP carrying this Dev
+metadata, even if its manifest version otherwise appears valid.
+
 ## 2. Version Source of Truth
 
 The canonical Cloth NeXt version lives exclusively in:

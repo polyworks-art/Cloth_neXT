@@ -18,6 +18,8 @@ from pathlib import Path
 
 import bpy
 
+from ..developer import is_dev_build
+
 from ..ppf.compatibility import parse_executable_version
 from ..updater import addon_updates, view_model
 from . import addon_update_operators
@@ -450,9 +452,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="I understand the Dev channel risks", default=False)
 
     developer_tools: bpy.props.BoolProperty(
-        name="Developer Test Tools", default=False,
-        description="Show the Phase-3A developer actions (Create PPF Test "
-                    "Scene, Run Real Solver Test) in the Cache panel")
+        name="Developer Tools", default=False,
+        description="Show internal solver tests and UI diagnostics in the "
+                    "Cloth NeXt Cache panel.")
     auto_launch_bake_window: bpy.props.BoolProperty(
         name="Open Bake Window Automatically", default=True,
         description="Require the visible topmost Bake window before locking "
@@ -469,7 +471,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         self._draw_addon_update_section(layout)
         self._draw_solver_section(layout)
-        layout.prop(self, "developer_tools")
+        if is_dev_build():
+            layout.prop(self, "developer_tools")
         layout.prop(self, "auto_launch_bake_window")
         hud_box=layout.box(); hud_box.label(text="Bake HUD")
         for name in ("show_bake_hud","bake_hud_mode","bake_hud_anchor","bake_hud_scale","show_hardware_metrics","telemetry_refresh_seconds"): hud_box.prop(self,name)

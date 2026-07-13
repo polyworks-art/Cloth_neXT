@@ -120,6 +120,13 @@ def test_zip_with_forbidden_solver_material_rejected(tmp_path, member):
     assert scan_zip(bad)
 
 
+@pytest.mark.parametrize("version", ["0.2.0", "0.3.0-beta.1", "0.3.0-rc.1"])
+def test_beta_and_stable_artifacts_reject_dev_tools_metadata(tmp_path, version):
+    bad = make_zip(tmp_path, version, extra=("dev_build.json",))
+    with pytest.raises(ValueError, match="Developer Tools"):
+        check_zip(bad, parse_version(version))
+
+
 def test_scanner_reports_clean_names():
     assert scan_names(["__init__.py", "ppf/transport.py",
                        "solver_compatibility.json"]) == []

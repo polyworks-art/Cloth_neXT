@@ -30,6 +30,7 @@ from . import icon_registry, physics_operators
 from ..bake.controller import shared_controller
 from ..materials import formatting
 from ..materials import presets as material_presets
+from ..developer import is_dev_build
 from . import object_properties
 
 _add_entry_appended = False
@@ -486,6 +487,8 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
 
 
 def _developer_tools_enabled(context) -> bool:
+    if not _developer_tools_build_enabled():
+        return False
     addon_id = __package__.partition(".blender")[0]
     try:
         return bool(context.preferences.addons[addon_id]
@@ -494,25 +497,28 @@ def _developer_tools_enabled(context) -> bool:
         return False
 
 
-def _draw_solver_test_section(layout, context) -> None:
-    """Developer actions for the real solver slice, clearly separated from
-    the production Bake workflow (which does not exist yet)."""
+def _developer_tools_build_enabled() -> bool:
+    """Developer UI exists only in explicitly prepared Dev snapshots."""
+    return is_dev_build()
+
+
+def _draw_solver_test_controls(layout, context) -> None:
+    """Draw real-solver developer controls into a supplied container."""
     from . import solver_test
-    box = layout.box()
-    box.label(text="Developer: Real Solver Test (Phase 3B)", icon="EXPERIMENTAL")
+    layout.label(text="Real Solver Test", icon="EXPERIMENTAL")
     snapshot = shared_controller.snapshot()
     running = solver_test.run_active()
-    box.operator("clothnext.create_test_scene", icon="MESH_GRID")
-    run_row = box.row()
+    layout.operator("clothnext.create_test_scene", icon="MESH_GRID")
+    run_row = layout.row()
     run_row.enabled = not running and not snapshot.active
     run_row.operator("clothnext.solver_test_run",
                      **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
     if running or snapshot.active:
-        cancel_row = box.row()
+        cancel_row = layout.row()
         cancel_row.enabled = snapshot.can_cancel
         cancel_row.operator("clothnext.solver_test_cancel",
                             **icon_registry.icon_kwargs("cancel","CANCEL"))
-    column = box.column(align=True)
+    column = layout.column(align=True)
     column.label(text=f"State: {snapshot.status_title}")
     if snapshot.status_message:
         column.label(text=snapshot.status_message)
@@ -533,14 +539,24 @@ def _draw_solver_test_section(layout, context) -> None:
         column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
     if snapshot.error_summary:
         column.label(text=snapshot.error_summary, icon="ERROR")
-    box.operator("clothnext.inspect_parameters",
-                 **icon_registry.icon_kwargs("info", "VIEWZOOM"))
-    actions=box.row(align=True)
+    layout.operator("clothnext.inspect_parameters",
+                    **icon_registry.icon_kwargs("info", "VIEWZOOM"))
+    actions=layout.row(align=True)
     actions.operator("clothnext.companion_launch", text="Bake Window",
                      **icon_registry.icon_kwargs("bake","WINDOW"))
     actions.operator("clothnext.solver_test_open_logs", text="Logs",
                      **icon_registry.icon_kwargs("folder","FILE_FOLDER"))
     actions.operator("clothnext.solver_test_clear", text="Clear", icon="TRASH")
+
+
+def _draw_ui_diagnostics_controls(layout, _context) -> None:
+    layout.label(text="UI Diagnostics")
+    snapshot = shared_controller.snapshot()
+    layout.operator("clothnext.preview_start", text="Start UI Preview",
+                    **icon_registry.icon_kwargs("play", "PLAY"))
+    if snapshot.preview and snapshot.active:
+        layout.operator("clothnext.preview_cancel", text="Cancel UI Preview",
+                        **icon_registry.icon_kwargs("cancel", "CANCEL"))
 
 
 def _draw_stale_result_notice(layout, context) -> None:
@@ -594,14 +610,31 @@ class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
         clear_row.enabled = not shared_controller.snapshot().active
         clear_row.operator("clothnext.solver_test_clear", text="Clear Result",
                            icon="TRASH")
-        if _developer_tools_enabled(context):
-            _draw_solver_test_section(layout, context)
-        diagnostics=layout.box(); diagnostics.label(text="UI Diagnostics")
-        diagnostics.operator("clothnext.preview_start", text="Start UI Preview",
-                             **icon_registry.icon_kwargs("play", "PLAY"))
-        if shared_controller.snapshot().preview and shared_controller.snapshot().active:
-            diagnostics.operator("clothnext.preview_cancel", text="Cancel UI Preview",
-                                 **icon_registry.icon_kwargs("cancel","CANCEL"))
+
+
+class CLOTHNEXT_PT_developer_tools(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Developer Tools"
+    bl_idname = "CLOTHNEXT_PT_developer_tools"
+    bl_parent_id = "CLOTHNEXT_PT_cache"
+    bl_options = {"DEFAULT_CLOSED"}
+    cloth_only = True
+    header_icon = "warning"
+
+    @classmethod
+    def poll(cls, context):
+        return (CLOTHNEXT_PT_cache.poll(context)
+                and _developer_tools_enabled(context))
+
+    def draw(self, context):
+        developer_box = self.layout.box()
+        developer_box.alert = True
+        developer_box.label(text="Developer-only controls", icon="EXPERIMENTAL")
+        developer_box.label(
+            text="Internal testing tools. Do not use in production scenes.",
+            icon="ERROR")
+        _draw_solver_test_controls(developer_box, context)
+        developer_box.separator()
+        _draw_ui_diagnostics_controls(developer_box, context)
 
 
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
@@ -646,4 +679,5 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
+           CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_advanced)

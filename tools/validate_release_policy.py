@@ -108,6 +108,10 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
         raise ValueError(f"ZIP name {zip_path.name!r} must be {expected!r}")
     with zipfile.ZipFile(zip_path) as bundle:
         names = bundle.namelist()
+        if "dev_build.json" in names:
+            raise ValueError(
+                "Beta/stable extension ZIP must never contain Dev build metadata "
+                "or enable Developer Tools")
         violations = scan_names(names)
         if violations:
             raise ValueError("extension ZIP contains forbidden solver material: "
