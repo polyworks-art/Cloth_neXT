@@ -140,6 +140,47 @@ def extract_object_frame_numpy(frame_positions: np.ndarray,
     return result
 
 
+@dataclass(slots=True)
+class ObjectFrameExtractor:
+    """Validated reusable slice/gather plan preserving object vertex order."""
+
+    indices: np.ndarray
+    expected_count: int
+    uuid: str
+    contiguous_start: int | None
+    gather_buffer: np.ndarray | None
+
+    @classmethod
+    def create(cls, indices: np.ndarray, *, expected_count: int,
+               uuid: str) -> "ObjectFrameExtractor":
+        if indices.shape != (expected_count,) or expected_count <= 0:
+            raise ResultValidationError(
+                f"output map for {uuid} has {indices.size} vertices, expected "
+                f"{expected_count}")
+        contiguous = bool(indices.size == 1 or np.all(np.diff(indices) == 1))
+        start = int(indices[0]) if contiguous else None
+        buffer = None if contiguous else np.empty((expected_count, 3), dtype="<f4")
+        return cls(indices, expected_count, uuid, start, buffer)
+
+    def extract(self, frame_positions: np.ndarray, *, frame: int) -> np.ndarray:
+        if frame_positions.ndim != 2 or frame_positions.shape[1] != 3:
+            raise ResultValidationError(f"frame {frame} has invalid position shape")
+        if np.any(self.indices < 0) or np.any(self.indices >= frame_positions.shape[0]):
+            raise ResultValidationError(
+                f"frame {frame}: output map for {self.uuid} is outside the frame")
+        if self.contiguous_start is not None:
+            result = frame_positions[self.contiguous_start:
+                                     self.contiguous_start + self.expected_count]
+        else:
+            assert self.gather_buffer is not None
+            np.take(frame_positions, self.indices, axis=0, out=self.gather_buffer)
+            result = self.gather_buffer
+        if not np.isfinite(result).all():
+            raise ResultValidationError(
+                f"frame {frame}: non-finite position for {self.uuid}")
+        return result
+
+
 def extract_object_frame(
         frame_positions: tuple[tuple[float, float, float], ...],
         indices: tuple[int, ...],

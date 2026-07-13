@@ -237,21 +237,36 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
 
 class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
     time_step: bpy.props.FloatProperty(
-        name="Time Step", default=DEFAULT_TIME_STEP,
+        name="Motion Step Size", default=DEFAULT_TIME_STEP,
         min=MIN_TIME_STEP, max=MAX_TIME_STEP, precision=5,
-        description="Scene-wide solver time step in seconds; technical PPF parameter: dt")
+        description="Controls how much simulated time is covered by each "
+                    "internal motion step. Smaller values improve fast motion "
+                    "and collision accuracy but increase simulation time. "
+                    "Unit: seconds. Technical PPF parameter: dt.")
     min_newton_steps: bpy.props.IntProperty(
-        name="Minimum Newton Steps", default=DEFAULT_MIN_NEWTON_STEPS,
+        name="Stability Passes", default=DEFAULT_MIN_NEWTON_STEPS,
         min=MIN_NEWTON_STEPS, max=MAX_NEWTON_STEPS,
-        description="Scene-wide minimum nonlinear solver steps; technical PPF parameter: min-newton-steps")
+        description="Minimum number of stability passes performed for every "
+                    "simulation step. Higher values can help difficult or very "
+                    "stiff simulations, but usually take longer. Technical PPF "
+                    "parameter: min-newton-steps.")
     cg_max_iter: bpy.props.IntProperty(
-        name="PCG Max Iterations", default=DEFAULT_CG_MAX_ITER,
+        name="Maximum Solve Passes", default=DEFAULT_CG_MAX_ITER,
         min=MIN_CG_MAX_ITER, max=MAX_CG_MAX_ITER,
-        description="Scene-wide PCG iteration limit; technical PPF parameter: cg-max-iter")
+        description="Maximum amount of work the solver may spend resolving "
+                    "each internal step. Higher values can help scenes that "
+                    "struggle to settle, but do not automatically improve an "
+                    "already stable simulation. Technical PPF parameter: "
+                    "cg-max-iter.")
     cg_tol: bpy.props.FloatProperty(
-        name="PCG Tolerance", default=DEFAULT_CG_TOL,
+        name="Solve Accuracy", default=DEFAULT_CG_TOL,
         min=MIN_CG_TOL, max=MAX_CG_TOL, precision=5,
-        description="Scene-wide PCG convergence tolerance; technical PPF parameter: cg-tol")
+        description="Controls how accurately each internal solve must finish. "
+                    "Smaller values demand a more precise result and may take "
+                    "longer. Technical PPF parameter: cg-tol.")
+    show_advanced: bpy.props.BoolProperty(
+        name="Advanced Settings", default=False,
+        description="Show the four numeric solver quality controls")
 
 
 class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):

@@ -575,7 +575,7 @@ def _worker_main(plan: RunPlan) -> None:
                 raise SessionCancelled()
             emit(type("CacheEvent", (), {
                 "phase": "TRANSFORMING_FRAME",
-                "message": (f"Creating playback cache · frame "
+                "message": (f"Preparing playback data · frame "
                             f"{frame.solver_frame + 1} / {plan.frame_count}"),
                 "frame_current": frame.solver_frame,
                 "frame_total": plan.frame_count,
@@ -587,6 +587,14 @@ def _worker_main(plan: RunPlan) -> None:
             transform_seconds += time.monotonic() - step
             if _cancel_event.is_set():
                 raise SessionCancelled()
+            emit(type("CacheEvent", (), {
+                "phase": "WRITING_CACHE",
+                "message": (f"Writing playback cache · frame "
+                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
+                "frame_current": frame.solver_frame,
+                "frame_total": plan.frame_count,
+                "indeterminate": False,
+            })())
             step = time.monotonic()
             writer.write_frame(local)
             write_seconds += time.monotonic() - step
@@ -609,9 +617,14 @@ def _worker_main(plan: RunPlan) -> None:
         header = writer.finalize()
         diagnostics.timings["pc2_finalize"] = time.monotonic() - step
         diagnostics.timings["pc2_flush"] = writer.flush_seconds
-        diagnostics.timings["pc2_validate"] = writer.validation_seconds
+        diagnostics.timings["pc2_fstat"] = writer.fstat_seconds
+        diagnostics.timings["pc2_fsync"] = writer.fsync_seconds
+        diagnostics.timings["pc2_close"] = writer.close_seconds
+        diagnostics.timings["pc2_replace"] = writer.replace_seconds
+        diagnostics.timings["pc2_validation"] = writer.validation_seconds
         diagnostics.timings["total"] = time.monotonic() - _run_started_at
         if plan.material_meta:
+            sidecar_step = time.monotonic()
             metadata = dict(plan.material_meta)
             metadata.update({"cache_format": "POINTCACHE2",
                 "vertex_count": header.vertex_count, "frame_count": header.frame_count,
@@ -625,6 +638,7 @@ def _worker_main(plan: RunPlan) -> None:
             temporary = sidecar.with_name(f".{sidecar.name}.{uuid_module.uuid4().hex}.tmp")
             temporary.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
             os.replace(temporary, sidecar)
+            diagnostics.timings["sidecar_write"] = time.monotonic() - sidecar_step
         log_with_context(get_logger("playback.cache"), 20,
                          "streaming PC2 completed", {
             "vertices": header.vertex_count, "frames": header.frame_count,

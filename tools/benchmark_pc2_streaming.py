@@ -42,7 +42,7 @@ def run_case(vertices: int, frames: int) -> dict:
             write_seconds += time.perf_counter() - step
         step = time.perf_counter()
         writer.finalize()
-        flush_seconds = time.perf_counter() - step
+        finalize_seconds = time.perf_counter() - step
         elapsed = time.perf_counter() - started
         _, peak = tracemalloc.get_traced_memory()
         size = output.stat().st_size
@@ -50,7 +50,13 @@ def run_case(vertices: int, frames: int) -> dict:
         return {"vertices": vertices, "frames": frames, "pc2_bytes": size,
                 "transform_seconds": transform_seconds,
                 "write_seconds": write_seconds,
-                "final_flush_seconds": flush_seconds,
+                "finalize_seconds": finalize_seconds,
+                "flush_seconds": writer.flush_seconds,
+                "fstat_seconds": writer.fstat_seconds,
+                "fsync_seconds": writer.fsync_seconds,
+                "close_seconds": writer.close_seconds,
+                "replace_seconds": writer.replace_seconds,
+                "validation_seconds": writer.validation_seconds,
                 "elapsed_seconds": elapsed, "peak_python_bytes": peak,
                 "throughput_mib_s": size / 1048576 / elapsed}
     finally:

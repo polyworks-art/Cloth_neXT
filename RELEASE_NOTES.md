@@ -1,4 +1,4 @@
-# Cloth NeXt 0.3.0-dev.2 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.4 — experimental Dev test build
 
 ## Streaming cache update
 
@@ -8,6 +8,22 @@ complete animation in Python memory; cache files and sidecars publish
 atomically, cancellation preserves the previous valid result, and the UI
 reports real cache-frame and finalization progress. No solver or quality
 parameter changed.
+
+Owned local solver runs now read completed result frames directly from Cloth
+NeXt's controlled project directory instead of downloading every frame again
+through the local TCP server. External servers retain the validated TCP path.
+The importer validates path containment and final frame sizes, closes each
+memory mapping explicitly, reuses extraction buffers, and writes PC2 frame
+payloads without an additional Python `bytes` copy. Cache finalization timings
+now separate flush, filesystem sync, replacement, and validation.
+
+## Solver Quality presets
+
+Scene-wide Solver Quality now offers Low, Medium, High, and Extreme presets
+with clearer artist-facing labels. The four documented numeric PPF settings
+remain authoritative, and manually adjusted combinations are shown as Custom.
+High preserves Cloth NeXt's established defaults; Extreme is explicitly marked
+as potentially expensive.
 
 This Dev-only snapshot is for practical Blender 5.1.2 testing. It adds guarded
 no-downgrade update handoff, object-local uniform Pressure, and scene-wide

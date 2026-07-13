@@ -32,9 +32,10 @@ from ..ppf.health import start_owned_and_wait
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.models import ConnectionOwnership
 from ..ppf.process import SolverProcessConfig, SolverProcessManager
-from ..ppf.resolver import ResolvedSolver, SolverMode
+from ..ppf.resolver import ResolvedSolver
 from ..ppf.transport import TransportConfig
 from ..updater.health_runner import bundle_root_for, free_port
+from .result_source import OwnedLocalResultSource, TcpResultSource
 
 # Wire status tokens (crates/ppf-cts-server, verified at pinned 7193f158).
 STATUS_NO_DATA = "NO_DATA"
@@ -125,6 +126,9 @@ class SessionDiagnostics:
     stderr_tail: tuple[str, ...] = ()
     cancelled: bool = False
     bytes_transferred: int = 0
+    bytes_read: int = 0
+    tcp_connections: int = 0
+    result_source: str = ""
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -168,6 +172,9 @@ class SolverSession:
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
         self._cloth_indices: np.ndarray | None = None
+        self._extractor: results.ObjectFrameExtractor | None = None
+        self._total_vertices = 0
+        self._result_source: OwnedLocalResultSource | TcpResultSource | None = None
         self.diagnostics = SessionDiagnostics(project_name=scene.project_name,
                                               solver_mode=resolved.mode.name,
                                               data_hash=scene.data_hash,
@@ -198,8 +205,12 @@ class SolverSession:
 
     def _status(self) -> dict:
         assert self._address is not None
+        step = time.perf_counter()
         response = wire.send_tcmd(self._address, self.transport,
                                   self.scene.project_name)
+        self.diagnostics.timings["status_polling"] = (
+            self.diagnostics.timings.get("status_polling", 0.0)
+            + time.perf_counter() - step)
         status = str(response.get("status", ""))
         self.diagnostics.note_status(status)
         return response
@@ -319,48 +330,50 @@ class SolverSession:
             time.sleep(self._poll_interval)
 
     def _fetch_output_map(self) -> results.OutputMap:
-        assert self._address is not None
-        blob = wire.data_receive(self._address, self.transport,
-                                 project_name=self.scene.project_name,
-                                 path=results.MAP_PATH)
+        assert self._result_source is not None
+        step = time.monotonic()
+        blob = self._result_source.output_map_blob()
+        self.diagnostics.timings["output_map_transfer"] = time.monotonic() - step
+        step = time.monotonic()
         output_map = results.parse_output_map(blob)
-        self.diagnostics.bytes_transferred += len(blob)
+        self.diagnostics.timings["output_map_decode"] = time.monotonic() - step
         # The cloth must map back onto the original vertex order/count.
         raw_indices = output_map.indices_for(self.scene.cloth_uuid,
                                              self.scene.cloth_vertex_count)
         total_vertices = max(index for values in output_map.indices_by_uuid.values()
                              for index in values) + 1
+        self._total_vertices = total_vertices
         self._cloth_indices = results.object_index_array(
             raw_indices, total_vertices=total_vertices,
+            uuid=self.scene.cloth_uuid)
+        self._extractor = results.ObjectFrameExtractor.create(
+            self._cloth_indices, expected_count=self.scene.cloth_vertex_count,
             uuid=self.scene.cloth_uuid)
         return output_map
 
     def _fetch_frame(self, output_map: results.OutputMap,
-                     frame: int) -> SolverFrame:
-        assert self._address is not None
+                     frame: int) -> None:
+        del output_map
+        assert self._result_source is not None
+        assert self._extractor is not None
         step = time.monotonic()
-        blob = wire.data_receive(self._address, self.transport,
-                                 project_name=self.scene.project_name,
-                                 path=results.frame_file_path(frame))
-        self.diagnostics.timings["frame_transfer"] = (
-            self.diagnostics.timings.get("frame_transfer", 0.0)
-            + time.monotonic() - step)
-        self.diagnostics.bytes_transferred += len(blob)
-        step = time.monotonic()
-        positions = results.decode_frame_payload_numpy(blob)
-        self.diagnostics.timings["frame_decode"] = (
-            self.diagnostics.timings.get("frame_decode", 0.0)
-            + time.monotonic() - step)
-        step = time.monotonic()
-        assert self._cloth_indices is not None
-        cloth = results.extract_object_frame_numpy(
-            positions, self._cloth_indices, frame=frame,
-            uuid=self.scene.cloth_uuid,
-            expected_count=self.scene.cloth_vertex_count)
-        self.diagnostics.timings["frame_extract"] = (
-            self.diagnostics.timings.get("frame_extract", 0.0)
-            + time.monotonic() - step)
-        return SolverFrame(frame, cloth)
+        with self._result_source.frame_positions(
+                frame, self._total_vertices, self._check_cancel) as frame_data:
+            self.diagnostics.timings["frame_transfer"] = (
+                self.diagnostics.timings.get("frame_transfer", 0.0)
+                + time.monotonic() - step)
+            step = time.monotonic()
+            positions = frame_data.positions
+            assert positions is not None
+            cloth = self._extractor.extract(positions, frame=frame)
+            self.diagnostics.timings["frame_extract"] = (
+                self.diagnostics.timings.get("frame_extract", 0.0)
+                + time.monotonic() - step)
+            # The synchronous sink consumes mmap-backed slice views before the
+            # context exits; gather results live in the reusable frame buffer.
+            result = SolverFrame(frame, cloth)
+            self._frame_sink(result)
+            del result, cloth, positions
 
     def _simulate_and_fetch(self) -> None:
         total = self.scene.solver_frame_count
@@ -371,11 +384,7 @@ class SolverSession:
         finished_status: str | None = None
         while len(fetched) < total:
             self._check_cancel()
-            wait_step = time.monotonic()
             response = self._status()
-            self.diagnostics.timings["simulation_wait"] = (
-                self.diagnostics.timings.get("simulation_wait", 0.0)
-                + time.monotonic() - wait_step)
             status = str(response.get("status", ""))
             solver_frame = response.get("frame")
             available = solver_frame if isinstance(solver_frame, int) else 0
@@ -386,7 +395,7 @@ class SolverSession:
                 finished_status = status
                 available = total
             if available > 0 and output_map is None:
-                self._event("FETCHING", "Downloading solver output map",
+                self._event("FETCHING", "Reading solver output map",
                             indeterminate=True)
                 output_map = self._fetch_output_map()
             for frame in range(1, min(available, total) + 1):
@@ -395,10 +404,10 @@ class SolverSession:
                 self._check_cancel()
                 assert output_map is not None
                 self._event("FETCHING",
-                            f"Downloading frame {frame} of {total}",
+                            f"Reading solver results · frame {frame} / {total}",
                             frame_current=frame, frame_total=total)
                 try:
-                    solver_output = self._fetch_frame(output_map, frame)
+                    self._fetch_frame(output_map, frame)
                 except ClothNextError as exc:
                     if finished_status is None:
                         raise
@@ -407,7 +416,6 @@ class SolverSession:
                         "finished without producing every frame: "
                         f"status {finished_status}; frame {frame} could not be "
                         f"read after completion: {exc}") from exc
-                self._frame_sink(solver_output)
                 fetched.add(frame)
                 self.diagnostics.fetched_frames.append(frame)
                 deadline = time.monotonic() + self._simulate_timeout
@@ -494,6 +502,15 @@ class SolverSession:
                             indeterminate=True)
                 self._status()
                 self._metadata_event()
+            assert self._address is not None
+            if owned:
+                self._result_source = OwnedLocalResultSource(
+                    self.work_directory, self.scene.project_name,
+                    poll_interval=self._poll_interval)
+            else:
+                self._result_source = TcpResultSource(
+                    self._address, self.transport, self.scene.project_name)
+            self.diagnostics.result_source = self._result_source.kind
             self._check_cancel()
             self._event("UPLOADING", "Uploading scene", indeterminate=True)
             step = time.monotonic()
@@ -510,6 +527,10 @@ class SolverSession:
             step = time.monotonic()
             self._simulate_and_fetch()
             self.diagnostics.timings["simulation_and_import"] = time.monotonic() - step
+            assert self._result_source is not None
+            self.diagnostics.bytes_transferred = self._result_source.bytes_transferred
+            self.diagnostics.bytes_read = self._result_source.bytes_read
+            self.diagnostics.tcp_connections = self._result_source.connections
             return self.diagnostics
         except SessionCancelled:
             self.diagnostics.cancelled = True

@@ -30,6 +30,7 @@ from . import icon_registry, physics_operators
 from ..bake.controller import shared_controller
 from ..materials import formatting
 from ..materials import presets as material_presets
+from ..solver_quality import QUALITY_PRESETS, matching_quality_preset
 from ..developer import is_dev_build
 from . import object_properties
 
@@ -260,18 +261,46 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                                f"frames · {model.cache_label}")
         except solver_test.SceneValidationError:
             summary.label(text=model.cache_label)
-        quality_box = layout.column(align=True)
-        quality_box.label(text="Solver Quality · Scene-wide")
-        quality_box.use_property_split = True
-        quality_box.use_property_decorate = False
-        quality = getattr(context.scene, "cloth_next_quality", None)
-        if quality is None:
-            return
-        quality_box.label(text="Basic")
-        quality_box.prop(quality, "time_step")
-        quality_box.prop(quality, "min_newton_steps")
-        advanced = quality_box.column(align=True)
-        advanced.label(text="Advanced")
+        _draw_solver_quality(layout, context, snapshot.active)
+
+
+def _draw_solver_quality(layout, context, bake_active: bool) -> None:
+    """Draw presets derived solely from the four numeric scene values."""
+    quality = getattr(context.scene, "cloth_next_quality", None)
+    if quality is None:
+        return
+    section = layout.column(align=True)
+    section.label(text="Solver Quality · Scene-wide")
+    current = matching_quality_preset(
+        object_properties.solver_quality_from(context.scene))
+    buttons = section.row(align=True)
+    buttons.enabled = not bake_active
+    for preset in QUALITY_PRESETS:
+        operator = buttons.operator(
+            physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
+            text=preset.label, depress=current is preset)
+        operator.preset = preset.identifier
+
+    if current is None:
+        section.label(text="Custom")
+        section.label(text="Manually adjusted solver settings.")
+    else:
+        section.label(text=current.label)
+        section.label(text=current.description)
+        if current.warning:
+            section.label(text=current.warning, icon="ERROR")
+
+    foldout = section.row(align=True)
+    foldout.prop(quality, "show_advanced", text="Advanced Settings",
+                 icon="TRIA_DOWN" if quality.show_advanced else "TRIA_RIGHT",
+                 emboss=False)
+    if quality.show_advanced:
+        advanced = section.column(align=True)
+        advanced.enabled = not bake_active
+        advanced.use_property_split = True
+        advanced.use_property_decorate = False
+        advanced.prop(quality, "time_step")
+        advanced.prop(quality, "min_newton_steps")
         advanced.prop(quality, "cg_max_iter")
         advanced.prop(quality, "cg_tol")
 

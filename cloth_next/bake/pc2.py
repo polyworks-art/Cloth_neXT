@@ -55,6 +55,10 @@ class StreamingPc2Writer:
         self.frames_written = 0
         self.bytes_written = 0
         self.flush_seconds = 0.0
+        self.fstat_seconds = 0.0
+        self.fsync_seconds = 0.0
+        self.close_seconds = 0.0
+        self.replace_seconds = 0.0
         self.validation_seconds = 0.0
         self._finished = False
         self.final_path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,11 +89,14 @@ class StreamingPc2Writer:
         # astype(copy=False) preserves an already contiguous <f4 input.  A
         # single frame-sized copy is made only when dtype/layout requires it.
         array = np.ascontiguousarray(array, dtype=np.dtype("<f4"))
-        payload = array.tobytes(order="C")
+        payload = memoryview(array).cast("B")
         expected = self.header.vertex_count * 12
-        if len(payload) != expected:
+        if payload.nbytes != expected:
             raise Pc2Error("encoded PC2 frame has the wrong byte count")
-        written = self._stream.write(payload)
+        try:
+            written = self._stream.write(payload)
+        finally:
+            payload.release()
         if written != expected:
             raise OSError(f"short PC2 frame write: {written}/{expected}")
         self.frames_written += 1
@@ -108,21 +115,29 @@ class StreamingPc2Writer:
                 raise Pc2Error("tracked PC2 size does not match expected size")
             if self._stream.tell() != self.expected_size:
                 raise Pc2Error("temporary PC2 stream position is invalid")
-            step = time.monotonic()
+            step = time.perf_counter()
             self._stream.flush()
+            self.flush_seconds = time.perf_counter() - step
+            step = time.perf_counter()
             actual = os.fstat(self._stream.fileno()).st_size
+            self.fstat_seconds = time.perf_counter() - step
             if actual != self.expected_size:
                 raise Pc2Error(f"temporary PC2 has {actual} bytes, expected "
                                f"{self.expected_size}")
+            step = time.perf_counter()
             os.fsync(self._stream.fileno())
-            self.flush_seconds = time.monotonic() - step
+            self.fsync_seconds = time.perf_counter() - step
+            step = time.perf_counter()
             self._stream.close()
+            self.close_seconds = time.perf_counter() - step
             if self.final_path.exists():
                 os.link(self.final_path, backup)
+            step = time.perf_counter()
             os.replace(self.temporary_path, self.final_path)
-            step = time.monotonic()
+            self.replace_seconds = time.perf_counter() - step
+            step = time.perf_counter()
             verified = read_header(self.final_path)
-            self.validation_seconds = time.monotonic() - step
+            self.validation_seconds = time.perf_counter() - step
             if verified != self.header:
                 raise Pc2Error("published PC2 header validation failed")
             backup.unlink(missing_ok=True)

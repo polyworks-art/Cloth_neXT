@@ -142,3 +142,16 @@ def test_streaming_output_is_byte_exact_with_legacy_reference(tmp_path):
         writer.write_frame(frame)
     writer.finalize()
     assert streamed.read_bytes() == reference.read_bytes()
+
+
+def test_writer_uses_bytes_view_and_reports_separate_finalize_timings(tmp_path):
+    array = np.arange(12, dtype="<f4").reshape(4, 3)
+    path = tmp_path / "view.pc2"
+    writer = pc2.StreamingPc2Writer(path, vertex_count=4, frame_count=1)
+    writer.write_frame(array)
+    writer.finalize()
+    assert path.read_bytes()[32:] == array.tobytes()
+    for value in (writer.flush_seconds, writer.fstat_seconds,
+                  writer.fsync_seconds, writer.close_seconds,
+                  writer.replace_seconds, writer.validation_seconds):
+        assert value >= 0

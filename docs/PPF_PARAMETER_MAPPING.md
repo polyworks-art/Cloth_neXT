@@ -95,10 +95,10 @@ each carry their own friction/gap/offset.
 
 | Value | PPF key | Source | Notes |
 |---|---|---|---|
-| Time Step | Scene `cloth_next_quality.time_step` | `dt` | float32 seconds; default `0.001`, range `0.001..0.01` |
-| Minimum Newton Steps | Scene `cloth_next_quality.min_newton_steps` | `min-newton-steps` | int; default `1`, range `1..64` |
-| PCG Max Iterations | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
-| PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
+| Motion Step Size | Scene `cloth_next_quality.time_step` | `dt` | float32 seconds; default `0.001`, range `0.001..0.01`; smaller is more accurate and slower |
+| Stability Passes | Scene `cloth_next_quality.min_newton_steps` | `min-newton-steps` | int; default `1`, range `1..64` |
+| Maximum Solve Passes | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
+| Solve Accuracy | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1`; smaller is stricter and potentially slower |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Gravity | `gravity` | Blender scene gravity | axis-swapped to solver Y-up |
 | Wind | `wind` | fixed `(0,0,0)` | no wind this phase |
@@ -108,6 +108,29 @@ each carry their own friction/gap/offset.
 | Contact | `disable-contact` | cloth's Enable Contact | inverted boolean |
 
 ## Presets
+
+Solver Quality is scene-wide and offers an artist-facing layer over the four
+numeric properties above. The numeric values remain the only authoritative
+state and continue to use the unchanged PPF wire keys. The active preset is
+derived from those values on every UI draw; a match with a tight float
+tolerance shows the preset, while any other combination shows **Custom**. No
+quality-preset identifier is stored as solver state or included in the cache
+fingerprint.
+
+| Quality preset | Motion Step Size (`time_step` / `dt`) | Stability Passes (`min_newton_steps` / `min-newton-steps`) | Maximum Solve Passes (`cg_max_iter` / `cg-max-iter`) | Solve Accuracy (`cg_tol` / `cg-tol`) |
+|---|---:|---:|---:|---:|
+| Low | 0.010 | 1 | 2500 | 0.010 |
+| Medium | 0.005 | 1 | 5000 | 0.005 |
+| High | 0.001 | 1 | 10000 | 0.001 |
+| Extreme | 0.001 | 4 | 25000 | 0.0001 |
+
+**High** preserves the previous and current Cloth NeXt defaults. **Extreme**
+can increase simulation time significantly. Quality presets change only these
+four scene properties: they never change material, pressure, collision, FPS,
+frame-range, or cache files. Smaller Motion Step Size and Solve Accuracy
+numbers request more accuracy and generally more solve time.
+
+### Material presets
 
 Bundled read-only source: `cloth_next/materials/ppf_fabric_presets.toml`
 (provenance: `st-tech/ppf-contact-solver` @ `7193f158…`,
@@ -147,11 +170,14 @@ Geometry, materials, vertex groups, and files are untouched.
 Every completed developer-slice run records a versioned SHA-256 fingerprint
 of all mapped material values (preset id, model, density, stretch,
 sideways, bend, both dampings, cloth and collider friction/gap/offset,
-stretch-limit state and value, contact enabled) on the cloth object and in
-a `*.meta.json` sidecar next to the PC2 cache. When current settings no
+stretch-limit state and value, contact enabled), the four numeric scene-wide
+Solver Quality values, bake range, and pinning state on the cloth object and
+in a `*.meta.json` sidecar next to the PC2 cache. When current settings no
 longer match, the Cache panel marks the result stale; nothing is deleted
-automatically — rebake or Clear explicitly. A full production cache
-metadata system remains Phase-4 work.
+automatically. Opening Advanced Settings does not affect the fingerprint.
+Returning all numeric values to their baked values restores the same digest.
+Rebake or Clear explicitly replaces or removes a result. A full production
+cache metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
