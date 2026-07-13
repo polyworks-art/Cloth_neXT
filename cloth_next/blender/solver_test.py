@@ -689,14 +689,29 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> dict[str, float]:
     if obj is None:
         raise ValueError(f"cloth object {plan.cloth_object_name!r} no longer "
                          "exists")
+    def orphaned_owned_cache(modifier) -> bool:
+        """Recover modifiers left before Blender 5.1 rejected ID props."""
+        if (str(getattr(modifier, "type", "")) != "MESH_CACHE"
+                or getattr(modifier, "name", "") != import_result.MODIFIER_NAME):
+            return False
+        value = str(getattr(modifier, "filepath", "") or "")
+        if not value:
+            return False
+        path = Path(bpy.path.abspath(value))
+        return (path.name.startswith("cn_test_cloth_")
+                and path.suffix.lower() == ".pc2"
+                and _is_within(path, plan.pc2_path.parent))
+
     stale = [mod for mod in obj.modifiers
-             if is_cloth_next_playback_modifier(obj,mod)]
+             if (is_cloth_next_playback_modifier(obj, mod)
+                 or orphaned_owned_cache(mod))]
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
     # Reuse the active Cloth NeXt modifier. Removing it and constructing a new
     # one forces expensive dependency-graph rebuilding in real production
     # scenes. Configure inactive properties first and switch the filepath last;
     # that single assignment is the atomic handoff from the old valid cache.
+    created = False
     if stale:
         modifier = stale[0]
         extras = stale[1:]
@@ -704,14 +719,20 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> dict[str, float]:
         modifier = measured("modifier_create", lambda: getattr(
             obj.modifiers, "new")(name=import_result.MODIFIER_NAME,
                                    type="MESH_CACHE"))
+        created = True
         extras = []
-    modifier.name = import_result.MODIFIER_NAME
-    measured("modifier_settings", lambda: _configure_playback_modifier(
-        modifier, plan.frame_start))
-    measured("modifier_filepath", lambda: setattr(
-        modifier, "filepath", str(plan.pc2_path)))
-    measured("modifier_ownership", lambda: mark_owned_playback(
-        obj, modifier, str(plan.pc2_path)))
+    try:
+        modifier.name = import_result.MODIFIER_NAME
+        measured("modifier_settings", lambda: _configure_playback_modifier(
+            modifier, plan.frame_start))
+        measured("modifier_filepath", lambda: setattr(
+            modifier, "filepath", str(plan.pc2_path)))
+        measured("modifier_ownership", lambda: mark_owned_playback(
+            obj, modifier, str(plan.pc2_path)))
+    except Exception:
+        if created:
+            obj.modifiers.remove(modifier)
+        raise
     settings = getattr(obj, "cloth_next", None)
     if settings is not None and plan.settings_fingerprint:
         settings.baked_settings_fingerprint = plan.settings_fingerprint

@@ -180,6 +180,50 @@ def test_playback_ownership_requires_marker_or_result_metadata(blender_env,tmp_p
     module.mark_owned_playback(obj,user,str(path))
     assert module.is_cloth_next_playback_modifier(obj,user)
 
+def test_playback_ownership_supports_blender_modifiers_without_id_properties(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object("Cloth", "MESH")
+    path = tmp_path / "cn_test_cloth_owned.pc2"
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME,
+                                 "MESH_CACHE")
+    modifier.filepath = str(path)
+
+    class Blender51Modifier:
+        def __getattr__(self, name):
+            return getattr(modifier, name)
+        def __setitem__(self, _key, _value):
+            raise TypeError("id properties not supported for this type")
+        def get(self, key, default=None):
+            return default
+
+    proxy = Blender51Modifier()
+    module.mark_owned_playback(obj, proxy, str(path))
+    assert getattr(obj, "cloth_next_cache_path") == str(path)
+    assert module.is_cloth_next_playback_modifier(obj, proxy)
+
+def test_attach_rolls_back_new_modifier_when_configuration_fails(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    cloth = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    cloth.cloth_next = SimpleNamespace(baked_settings_fingerprint="")
+    blender_env.bpy.data.objects[cloth.name] = cloth
+    path = tmp_path / "cn_test_cloth_new.pc2"
+    writer = module.pc2.StreamingPc2Writer(path, vertex_count=1, frame_count=1)
+    writer.write_frame([[0, 0, 0]])
+    header = writer.finalize()
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        "Cloth", tmp_path, path, 1)
+    monkeypatch.setattr(module, "_configure_playback_modifier",
+                        lambda *_args: (_ for _ in ()).throw(TypeError("boom")))
+
+    with pytest.raises(TypeError, match="boom"):
+        module._attach_playback(plan, header)
+    assert list(cloth.modifiers) == []
+
 def test_owned_playback_exclusion_restores_exact_state(blender_env,tmp_path):
     module=blender_env.solver_test; obj=blender_env.bpy.types.Object("Cloth","MESH")
     path=tmp_path/"cn_test_cloth_owned.pc2"

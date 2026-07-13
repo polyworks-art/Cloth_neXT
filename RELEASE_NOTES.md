@@ -1,4 +1,13 @@
-# Cloth NeXt 0.3.0-dev.7 — experimental Dev test build
+# Cloth NeXt 0.3.0-dev.8 — experimental Dev test build
+
+## Blender 5.1 playback ownership fix
+
+Playback ownership is now stored authoritatively on the cloth object because
+Blender 5.1 does not support ID properties on Mesh Cache modifiers. Failed
+modifier creation is rolled back instead of leaving a duplicate behind, and
+orphaned Cloth NeXt modifiers from earlier Dev builds are recovered only when
+their type, canonical name, controlled cache filename, and cache directory all
+match. A successful attach reuses one recovered modifier and removes extras.
 
 ## Blender result-pump recovery
 

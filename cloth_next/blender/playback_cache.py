@@ -12,27 +12,41 @@ def _property(value,key,default=None):
     except (AttributeError,TypeError):return getattr(value,key,default)
 
 def mark_owned_playback(obj,modifier,cache_path:str)->None:
-    for target,key,value in ((modifier,"cloth_next_owner",OWNERSHIP_MARKER),
-                             (obj,"cloth_next_cache_path",str(cache_path))):
-        try:target[key]=value
-        except (TypeError,AttributeError):setattr(target,key,value)
+    # Blender 5.1 modifiers do not support ID properties.  The object is the
+    # authoritative owner; writing it first also makes attachment atomic when
+    # older Blender versions happen to support a modifier marker.
+    try:
+        obj["cloth_next_cache_path"] = str(cache_path)
+    except (TypeError, AttributeError):
+        setattr(obj, "cloth_next_cache_path", str(cache_path))
+    try:
+        modifier["cloth_next_owner"] = OWNERSHIP_MARKER
+    except (TypeError, AttributeError):
+        try:
+            setattr(modifier, "cloth_next_owner", OWNERSHIP_MARKER)
+        except (TypeError, AttributeError):
+            pass
 
 def is_cloth_next_playback_modifier(obj,modifier)->bool:
     if str(getattr(modifier,"type",""))!="MESH_CACHE":return False
     marker=_property(modifier,"cloth_next_owner","")
     recorded=str(_property(obj,"cloth_next_cache_path","") or "")
     actual=str(getattr(modifier,"filepath","") or "")
+    paths_match = False
+    if recorded and actual:
+        try: paths_match = Path(recorded).resolve() == Path(actual).resolve()
+        except OSError: paths_match = recorded == actual
     if marker!=OWNERSHIP_MARKER:
         settings=getattr(obj,"cloth_next",None)
-        legacy=(getattr(modifier,"name","")=="Cloth NeXt Test Cache"
-                and bool(getattr(settings,"baked_settings_fingerprint",""))
-                and Path(actual).name.startswith("cn_test_cloth_")
-                and Path(actual).suffix.lower()==".pc2")
+        canonical=(getattr(modifier,"name","")=="Cloth NeXt Test Cache"
+                   and Path(actual).name.startswith("cn_test_cloth_")
+                   and Path(actual).suffix.lower()==".pc2")
+        legacy=canonical and (paths_match or bool(
+            getattr(settings,"baked_settings_fingerprint","")))
         if not legacy:return False
         return True
     if not recorded or not actual:return False
-    try:return Path(recorded).resolve()==Path(actual).resolve()
-    except OSError:return recorded==actual
+    return paths_match
 
 @contextmanager
 def without_owned_playback(obj,update=None):
