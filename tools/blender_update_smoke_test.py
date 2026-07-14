@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -66,14 +67,29 @@ def main() -> None:
     assert not hasattr(updates, "_blender_package_install"), \
         "_blender_package_install returned — self-install path is forbidden"
 
+    # The handoff operator deliberately polls false until a *newer* version is
+    # actually known, so arming the session means setting `latest` as well as
+    # the state. Setting only the state left `latest` at None, poll() failed,
+    # bpy.ops raised, run_handoff() swallowed it as CANCELLED, and every
+    # assertion below then read back the very state this fixture had just
+    # written — the operator was never entered at all.
+    newer_than_installed = replace(
+        updates.INSTALLED_VERSION,
+        patch=updates.INSTALLED_VERSION.patch + 1, stage=None, stage_number=0)
+
     def run_handoff():
         session.state = state_cls.UPDATE_AVAILABLE
+        session.latest = newer_than_installed
         try:
             return bpy.ops.clothnext.addon_update_through_blender()
         except RuntimeError:
             # a directly called operator re-raises its ERROR report; the
             # distinct failure is already recorded in the session state
             return {"CANCELLED"}
+        finally:
+            assert session.state is not state_cls.UPDATE_AVAILABLE, (
+                "the handoff operator was never entered — poll() rejected it, "
+                "so this test would be asserting against its own fixture")
 
     online = bool(getattr(bpy.app, "online_access", False))
     if not online:
