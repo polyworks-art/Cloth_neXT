@@ -14,6 +14,25 @@ def test_shared_build_dependencies_cover_ci_and_candidate():
         assert "pip install -r requirements-build.txt" in workflow(name)
 
 
+def test_numpy_is_declared_wherever_it_is_imported():
+    """NumPy is imported at module scope by shipped code and by tests.
+
+    Blender bundles it, so the add-on runs fine — but CI installs only
+    requirements-build.txt. Leaving it undeclared there breaks collection of
+    every module that touches the PC2 writer, the PPF decoders, or the mesh
+    topology hash, which is exactly how CI went red once already.
+    """
+    importers=[path.relative_to(ROOT).as_posix()
+               for directory in ("cloth_next", "tests")
+               for path in (ROOT/directory).rglob("*.py")
+               if "import numpy" in path.read_text("utf-8")]
+    assert importers, "expected NumPy importers to exist"
+    requirements=(ROOT/"requirements-build.txt").read_text("utf-8").lower()
+    assert "numpy==" in requirements, (
+        f"NumPy is imported by {importers} but is not pinned in "
+        "requirements-build.txt")
+
+
 def test_blender_runtime_does_not_import_pillow():
     for path in (ROOT/"cloth_next").rglob("*.py"):
         assert "from PIL" not in path.read_text("utf-8")

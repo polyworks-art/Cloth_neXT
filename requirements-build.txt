@@ -2,3 +2,7 @@ pytest==9.1.1
 pillow==12.2.0
 resvg-py==0.3.3
 pyinstaller==6.21.0
+# Pinned to the version Blender 5.1.2 bundles, so CI exercises the same NumPy
+# the add-on actually runs against. Required at import time by the PC2 writer,
+# the PPF coordinate/result decoders, and the mesh topology hash.
+numpy==2.3.4
