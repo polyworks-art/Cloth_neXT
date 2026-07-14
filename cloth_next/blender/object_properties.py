@@ -32,6 +32,7 @@ from ..solver_quality import (DEFAULT_CG_MAX_ITER, DEFAULT_CG_TOL,
                               MIN_CG_MAX_ITER, MIN_CG_TOL,
                               MIN_NEWTON_STEPS, MIN_TIME_STEP,
                               SolverQualitySettings)
+from . import validation_state
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
@@ -82,6 +83,31 @@ def _object_settings_of(property_group):
     return getattr(owner, "cloth_next", None)
 
 
+# ---------------------------------------------------------------------------
+# Dirty marking.
+#
+# Every property below that the solver actually reads flips the object's
+# recorded validation status to DIRTY. This is a dict write — no vertex, edge,
+# polygon, or vertex group is touched. The expensive re-validation happens once,
+# later, at Bake (or in the debounced validation timer).
+
+def _mark_dirty(property_group) -> None:
+    owner = getattr(property_group, "id_data", None)
+    if owner is None:
+        return
+    if getattr(owner, "cloth_next", None) is None:
+        # A Scene-level group (solver quality) — scene-wide, so every enabled
+        # Cloth NeXt object has to be re-validated.
+        validation_state.mark_all_settings_dirty()
+        return
+    validation_state.mark_settings_dirty(owner)
+
+
+def _on_settings_update(self, _context) -> None:
+    """Solver-visible value changed: record DIRTY, compute nothing."""
+    _mark_dirty(self)
+
+
 def apply_preset(settings, identifier: str) -> bool:
     """Deterministically copy one bundled preset onto the property groups.
 
@@ -123,6 +149,7 @@ def mark_custom(settings) -> None:
 
 
 def _on_preset_update(self, _context) -> None:
+    _mark_dirty(self)
     if _applying_preset:
         return
     if self.preset == material_presets.PRESET_CUSTOM:
@@ -134,6 +161,7 @@ def _on_preset_update(self, _context) -> None:
 
 def _on_material_value_update(self, _context) -> None:
     """Any manual edit of a preset-controlled value selects Custom."""
+    _mark_dirty(self)
     mark_custom(_object_settings_of(self))
 
 
@@ -225,12 +253,13 @@ class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
 
 class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
     enable_inflate: bpy.props.BoolProperty(
-        name="Enable Pressure", default=False,
+        name="Enable Pressure", default=False, update=_on_settings_update,
         description="Apply uniform pressure along the Cloth mesh surface "
                     "normals. Consistent normals and a closed mesh are "
                     "recommended for balloon-like results")
     inflate_pressure: bpy.props.FloatProperty(
         name="Pressure", default=0.0, min=0.0, soft_max=100.0, precision=3,
+        update=_on_settings_update,
         description="Uniform pressure along the Cloth surface normals. "
                     "Technical PPF parameter: pressure")
 
@@ -239,18 +268,22 @@ class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
     time_step: bpy.props.FloatProperty(
         name="Time Step", default=DEFAULT_TIME_STEP,
         min=MIN_TIME_STEP, max=MAX_TIME_STEP, precision=5,
+        update=_on_settings_update,
         description="Scene-wide solver time step in seconds; technical PPF parameter: dt")
     min_newton_steps: bpy.props.IntProperty(
         name="Minimum Newton Steps", default=DEFAULT_MIN_NEWTON_STEPS,
         min=MIN_NEWTON_STEPS, max=MAX_NEWTON_STEPS,
+        update=_on_settings_update,
         description="Scene-wide minimum nonlinear solver steps; technical PPF parameter: min-newton-steps")
     cg_max_iter: bpy.props.IntProperty(
         name="PCG Max Iterations", default=DEFAULT_CG_MAX_ITER,
         min=MIN_CG_MAX_ITER, max=MAX_CG_MAX_ITER,
+        update=_on_settings_update,
         description="Scene-wide PCG iteration limit; technical PPF parameter: cg-max-iter")
     cg_tol: bpy.props.FloatProperty(
         name="PCG Tolerance", default=DEFAULT_CG_TOL,
         min=MIN_CG_TOL, max=MAX_CG_TOL, precision=5,
+        update=_on_settings_update,
         description="Scene-wide PCG convergence tolerance; technical PPF parameter: cg-tol")
 
 
@@ -258,7 +291,7 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
     """Contact values; on a Collider these are the STATIC group values."""
 
     enabled: bpy.props.BoolProperty(
-        name="Enable Contact", default=True,
+        name="Enable Contact", default=True, update=_on_settings_update,
         description="Turns solver contact handling on or off for the whole "
                     "run. When disabled, PPF receives disable-contact and "
                     "the cloth falls through every obstacle. Technical PPF "
@@ -294,39 +327,57 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
     enabled: bpy.props.BoolProperty(
-        name="Enabled", default=False,
+        name="Enabled", default=False, update=_on_settings_update,
         description="Cloth NeXt is enabled on this object")
     role: bpy.props.EnumProperty(
         name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
+        update=_on_settings_update,
         description="How Cloth NeXt treats this object in a simulation")
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
     pinning_enabled: bpy.props.BoolProperty(
-        name="Enable Pinning", default=False,
+        name="Enable Pinning", default=False, update=_on_settings_update,
         description="Hold vertices in the selected Blender vertex group at "
                     "their evaluated Bake Start positions")
     pin_group: bpy.props.StringProperty(
-        name="Pin Group", default="",
+        name="Pin Group", default="", update=_on_settings_update,
         description="Vertex group on this Cloth object used for static hard Pinning")
     pin_mode: bpy.props.EnumProperty(
-        name="Pin Mode", default="STATIC",
+        name="Pin Mode", default="STATIC", update=_on_settings_update,
         items=(("STATIC","Static","Keep pinned vertices fixed at their evaluated positions on Bake Start."),
                ("FOLLOW_ANIMATION","Follow Animation","Make pinned vertices follow their evaluated Blender positions throughout the Bake range.")))
     bake_start: bpy.props.IntProperty(
         name="Bake Start", default=1, min=-1048574, max=1048574,
+        update=_on_settings_update,
         description="First Blender frame captured into the solver cache")
     bake_end: bpy.props.IntProperty(
         name="Bake End", default=250, min=-1048574, max=1048574,
+        update=_on_settings_update,
         description="Last Blender frame produced by the solver cache")
     cache_directory: bpy.props.StringProperty(
         name="Cache Directory", default="", subtype="DIR_PATH",
+        update=_on_settings_update,
         description="Optional directory for this object's Cloth NeXt result")
+    # The Bake fingerprint is stored in halves. The settings half can be
+    # recomputed in a Panel.draw for free (no mesh access), so the UI can say
+    # "stale — settings changed" with certainty. The geometry half can only be
+    # confirmed by a full validation, so a draw may only ever report it as
+    # unconfirmed — never as safely matching.
     baked_settings_fingerprint: bpy.props.StringProperty(
         name="Baked Settings Fingerprint", default="", options={"HIDDEN"},
-        description="Material fingerprint of the last completed solver "
+        description="Settings fingerprint of the last completed solver "
                     "result; a mismatch marks the cached result as stale")
+    baked_geometry_fingerprint: bpy.props.StringProperty(
+        name="Baked Geometry Fingerprint", default="", options={"HIDDEN"},
+        description="Topology and pin-index fingerprint of the last completed "
+                    "solver result; only a full validation can confirm it")
+    baked_fingerprint_version: bpy.props.IntProperty(
+        name="Baked Fingerprint Version", default=0, options={"HIDDEN"},
+        description="Internal fingerprint schema of the stored result. Zero "
+                    "marks a legacy result from before the split fingerprint; "
+                    "it is treated as needing validation, never as matching")
 
 
 # ---------------------------------------------------------------------------
@@ -383,6 +434,9 @@ def reset_settings(settings) -> None:
     """
     settings.enabled = False
     settings.role = DEFAULT_ROLE
+    owner = getattr(settings, "id_data", None)
+    if owner is not None:
+        validation_state.forget(owner)
 
 
 def attach_to_object() -> None:

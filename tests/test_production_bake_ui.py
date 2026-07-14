@@ -155,7 +155,7 @@ def test_production_companion_failure_is_fatal_before_worker(blender_env,
     plan = SimpleNamespace(frame_start=1, frame_end=8,
                            preset_identifier="COTTON")
     context = _context(blender_env, [], auto_launch=True)
-    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
+    monkeypatch.setattr(module, "build_run_plan", lambda _c, **_kw: plan)
     monkeypatch.setattr(module.companion_manager, "begin_bake_mode",
                         lambda _request: (False, "Bake executable was not found."))
     with pytest.raises(module.SceneValidationError, match="not found"):
@@ -170,7 +170,7 @@ def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,
     plan = SimpleNamespace(frame_start=1, frame_end=8,
                            preset_identifier="COTTON")
     context = _context(blender_env, [], auto_launch=False)
-    monkeypatch.setattr(module, "build_run_plan", lambda _c: plan)
+    monkeypatch.setattr(module, "build_run_plan", lambda _c, **_kw: plan)
     calls=[]
     monkeypatch.setattr(module, "prepare_cache_for_new_run",
                         lambda p: calls.append(("cache",p)))

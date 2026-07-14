@@ -23,12 +23,12 @@ class _PropDef:
         self.kind = kind
         self.keywords = keywords
 
-    def default_value(self):
+    def default_value(self, id_data=None):
         if self.kind == "ENUM":
             items = self.keywords.get("items", ())
             return self.keywords.get("default", items[0][0] if items else "")
         if self.kind == "POINTER":
-            return _instantiate_group(self.keywords["type"])
+            return _instantiate_group(self.keywords["type"], id_data)
         return self.keywords.get("default")
 
     def _name_on(self, owner):
@@ -44,13 +44,21 @@ class _PropDef:
         if self.kind != "POINTER":
             return self.default_value()
         name = self._name_on(owner)
-        instance = _instantiate_group(self.keywords["type"])
+        # The ID that owns the group — Blender exposes this as `id_data`, and
+        # the add-on's update callbacks navigate through it.
+        instance = _instantiate_group(self.keywords["type"], id_data=obj)
         obj.__dict__[name] = instance
         return instance
 
 
+_PROP_CACHE: dict = {}
+
+
 def _resolved_props(cls):
     """Resolve (possibly stringized) property annotations to _PropDef objects."""
+    cached = _PROP_CACHE.get(cls)
+    if cached is not None:
+        return cached
     module = sys.modules.get(cls.__module__)
     module_globals = vars(module) if module else {}
     resolved = {}
@@ -60,13 +68,22 @@ def _resolved_props(cls):
             value = eval(value, dict(module_globals))  # noqa: S307 — test fake
         if isinstance(value, _PropDef):
             resolved[name] = value
+    _PROP_CACHE[cls] = resolved
     return resolved
 
 
-def _instantiate_group(group_cls):
+def _instantiate_group(group_cls, id_data=None):
+    """Build a PropertyGroup with its defaults, without firing update callbacks.
+
+    Blender does not run a property's ``update`` callback while initializing
+    defaults, so neither does this.
+    """
     instance = group_cls()
+    object.__setattr__(instance, "_id_data", id_data)
     for name, prop in _resolved_props(group_cls).items():
-        setattr(instance, name, prop.default_value())
+        value = (_instantiate_group(prop.keywords["type"], id_data)
+                 if prop.kind == "POINTER" else prop.default_value())
+        object.__setattr__(instance, name, value)
     return instance
 
 
@@ -82,7 +99,27 @@ def make_module() -> types.ModuleType:
     bpy = types.ModuleType("bpy")
 
     class PropertyGroup:
-        pass
+        """Fires ``update=`` callbacks on assignment, exactly like Blender.
+
+        Without this, a test that asserts "changing a material value marks the
+        object dirty" would pass for the wrong reason — the callback would
+        simply never run.
+        """
+
+        @property
+        def id_data(self):
+            return getattr(self, "_id_data", None)
+
+        def __setattr__(self, name, value):
+            object.__setattr__(self, name, value)
+            if name.startswith("_"):
+                return
+            prop = _resolved_props(type(self)).get(name)
+            if prop is None:
+                return
+            update = prop.keywords.get("update")
+            if update is not None:
+                update(self, bpy.context)
 
     class Operator:
         def __init__(self):
@@ -217,9 +254,15 @@ def make_module() -> types.ModuleType:
     def timers_is_registered(func):
         return func in timer_functions
 
+    # Blender's handler lists are plain Python lists; append/remove semantics
+    # (and therefore duplicate-handler bugs) are reproduced exactly.
+    handlers_module = types.SimpleNamespace(
+        depsgraph_update_post=[], load_post=[], undo_post=[], redo_post=[])
+
     app_module = types.SimpleNamespace(
         online_access=True,
         tempdir="/fake/session-temp",
+        handlers=handlers_module,
         timers=types.SimpleNamespace(register=timers_register,
                                      unregister=timers_unregister,
                                      is_registered=timers_is_registered,

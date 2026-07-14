@@ -6,8 +6,8 @@
   supported-scope summary, and cache state are implemented in Physics.
 - Production and developer actions share the immutable material-aware run
   service and idempotent companion manager.
-- General production baking remains incomplete: the development slice is
-  still exactly one cloth, one static collider, and frames 1–8.
+- The production slice remains intentionally bounded to one cloth and one static
+  collider, but supports an artist-selected range of up to 10,000 output frames.
 
 ## 2.8B Simulation UI shell
 
@@ -16,8 +16,8 @@ visual inspection remains open, so the phase is not yet declared complete.
 
 The shared bake status model, role-aware Physics Properties hierarchy,
 display-only HUD, explicit preview provider and optional companion source shell
-form the UI boundary. They do not implement simulation. Phase 3 remains the
-real PPF scene transfer, simulation, result import and cache integration.
+formed the UI boundary at this historical milestone. Real PPF scene transfer,
+simulation, result import, and cache integration were added in Phase 3.
 
 Each phase is a gate. Do not start the next phase until tests pass, changed files,
 decisions, limitations and exact manual test steps are reported.
@@ -50,17 +50,17 @@ Status: implemented in Phase 2. Unit acceptance passes. The real integration tes
 until `CLOTH_NEXT_PPF_EXECUTABLE` explicitly names a pinned binary. External PPF 0.11
 schema cannot be verified through its status response and is reported as limited.
 
-## 2.5 Real solver bootstrap and bundling
+## 2.5 Historical solver bootstrap prototype
 
-Import an official Windows runtime through secure staging, record provenance/licenses,
-resolve repository/extension/external deployments, run the real health lifecycle, and
-build development or solver-inclusive extension packages. Runtime data remains outside
-the read-only extension/source tree.
+This milestone imported an already obtained official Windows runtime through secure
+staging, recorded provenance/licenses, and exercised the real health lifecycle. Its
+temporary repository/extension-bundle packaging experiment was removed in Phase 2.7
+and is not a supported distribution mode.
 
 Status: implemented. The official `2026-07-09-04-39` Windows release reports package
 `0.1.0`, protocol `0.11`, schema `1`; bootstrap health and the real integration test
-pass. Local binaries use documented Git strategy B and are ignored. Both development
-and solver-inclusive package builds pass. Phase 3 remains unstarted.
+passed. Local binaries were ignored and remained external development state. Current
+builds are always solver-free; see `docs/SOLVER_DISTRIBUTION.md`.
 
 ## 2.6 Automated Add-on Release, Update Pipeline and Separate Solver Installer
 
@@ -102,9 +102,8 @@ path escapes); worker/download shutdown on unregister; the manifest as the only
 version source (`__version__` removed); all docs tracked in Git; a CI workflow
 for pushes/PRs; and a real Blender registration smoke test job.
 
-Status: implemented; 224 unit acceptance tests pass locally. The Blender smoke
-job runs in CI (Blender is not installed on the development machine). Phase 3
-remains unstarted.
+Status: implemented. The test count recorded at this milestone is intentionally not
+treated as current; use `python -m pytest --collect-only -q` for the live count.
 
 ## 3. Minimal vertical slice
 

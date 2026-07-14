@@ -60,9 +60,12 @@ from ..ppf.schema.params import (SimulationSettings, build_param_payload,
 from ..ppf_run import import_result
 from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
                               SolverSession, new_project_name)
+from ..topology import (geometry_fingerprint as combine_geometry_fingerprint,
+                        mesh_topology_signature as _hash_mesh_topology,
+                        pin_indices_signature)
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..telemetry import shared_telemetry
-from . import companion_manager, modal_lock, object_properties
+from . import companion_manager, modal_lock, object_properties, validation_state
 from .playback_cache import (is_cloth_next_playback_modifier,
                              mark_owned_playback, without_owned_playback)
 
@@ -112,10 +115,15 @@ class RunPlan:
     frame_start: int = 1
     frame_end: int = 1
     fps: int = 24
-    # Immutable pure material snapshot metadata (Phase 3B): the fingerprint
-    # marks the finished result, and the JSON-safe meta dict is written next
-    # to the PC2 cache so a stale result stays detectable.
+    # Immutable pure snapshot metadata: the fingerprint marks the finished
+    # result and the JSON-safe meta dict is written next to the PC2 cache so a
+    # stale result stays detectable. The fingerprint is stored in halves — the
+    # cheap settings half lets a Panel.draw detect "settings changed" without
+    # touching the mesh; the geometry half can only be confirmed by a full
+    # validation.
     settings_fingerprint: str = ""
+    geometry_fingerprint: str = ""
+    topology_signature: str = ""
     preset_identifier: str = ""
     material_meta: dict = field(default_factory=dict)
 
@@ -262,25 +270,101 @@ def _snapshot_materials(cloth_obj, collider_obj):
     return shell, static, contact_enabled, preset_identifier
 
 
-def _snapshot_static_pin(cloth_obj) -> StaticPinSnapshot:
-    """Capture binary vertex-group membership on Blender's main thread."""
+class _EmptyMesh:
+    """Stands in for an object with no mesh data, so hashing stays total."""
+
+    vertices = ()
+    edges = ()
+    polygons = ()
+    loops = ()
+
+
+_EMPTY_MESH = _EmptyMesh()
+
+
+def mesh_topology_signature(mesh) -> str:
+    """Hash the connectivity of a mesh datablock (EXPENSIVE — never from draw).
+
+    Delegates to the allocation-bounded ``foreach_get``/NumPy path in
+    :mod:`cloth_next.topology`. The old implementation built lists of tuples
+    for every edge and polygon and serialized them as JSON before hashing;
+    this one streams four ``uint32`` buffers straight into SHA-256.
+    """
+    return _hash_mesh_topology(_EMPTY_MESH if mesh is None else mesh)
+
+
+@dataclass(frozen=True, slots=True)
+class _PinSummary:
+    """What a Panel.draw may know about pinning without reading the mesh."""
+
+    enabled: bool
+    group_name: str
+    group_exists: bool
+    pin_count: int
+    state: validation_state.ValidationState
+    message: str = ""
+    counted_group: str = ""
+
+
+def cheap_pin_summary(cloth_obj) -> _PinSummary:
+    """UI-safe pinning view model — reads properties and a name, nothing else.
+
+    Deliberately performs no vertex-group membership scan: the pin *count*
+    comes from the last full validation recorded in
+    :mod:`~cloth_next.blender.validation_state`, and is labelled by that
+    record's state so the panel can never present a stale number as current.
+    """
+    settings = getattr(cloth_obj, "cloth_next", None)
+    enabled = bool(getattr(settings, "pinning_enabled", False))
+    group_name = str(getattr(settings, "pin_group", "") or "")
+    groups = getattr(cloth_obj, "vertex_groups", None)
+    # A dict-style name lookup, not a membership scan.
+    group_exists = bool(group_name) and (
+        groups is not None and groups.get(group_name) is not None)
+    record = validation_state.record_for(cloth_obj)
+    return _PinSummary(
+        enabled=enabled, group_name=group_name, group_exists=group_exists,
+        pin_count=record.pin_count, state=record.state,
+        message=record.message, counted_group=record.pin_group)
+
+
+def _scan_pin_indices(cloth_obj, group_index: int) -> tuple[int, ...]:
+    """Exact binary membership scan. One pass, hoisted lookups, no copies.
+
+    Blender's Python API exposes no vectorized accessor for vertex-group
+    weights (``foreach_get`` covers positions and indices, not deform
+    weights), so this stays a per-vertex walk. The fix is that it now runs
+    exactly once per full validation instead of several times per redraw.
+    """
+    threshold = STATIC_PIN_WEIGHT_THRESHOLD
+    indices: list[int] = []
+    append = indices.append
+    for vertex in cloth_obj.data.vertices:
+        for membership in vertex.groups:
+            if (membership.group == group_index
+                    and membership.weight > threshold):
+                append(vertex.index)
+                break
+    return tuple(indices)
+
+
+def _snapshot_static_pin(cloth_obj, *,
+                         topology_signature: str | None = None) -> StaticPinSnapshot:
+    """Capture exact vertex-group membership (EXPENSIVE — never from draw).
+
+    Runs only from a full validation: Bake, Rebake, explicit validation, or
+    the debounced validation timer. ``topology_signature`` is threaded through
+    so a single validation hashes the topology once instead of once per caller.
+    """
     settings = cloth_obj.cloth_next
     enabled = bool(getattr(settings, "pinning_enabled", False))
     group_name = str(getattr(settings, "pin_group", "") or "")
-    vertex_count = len(getattr(getattr(cloth_obj, "data", None), "vertices", ()))
+    mesh = getattr(cloth_obj, "data", None)
+    vertex_count = len(getattr(mesh, "vertices", ()))
     object_id = str(getattr(cloth_obj, "name_full",
                             getattr(cloth_obj, "name", "")))
-    mesh = getattr(cloth_obj, "data", None)
-    topology_record = {
-        "vertices": vertex_count,
-        "edges": [tuple(int(i) for i in edge.vertices)
-                  for edge in getattr(mesh, "edges", ())],
-        "polygons": [tuple(int(i) for i in polygon.vertices)
-                     for polygon in getattr(mesh, "polygons", ())],
-    }
-    topology_signature = hashlib.sha256(json.dumps(
-        topology_record, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")).hexdigest()
+    if topology_signature is None:
+        topology_signature = mesh_topology_signature(mesh)
     if not enabled:
         return StaticPinSnapshot(False, group_name, object_id, vertex_count, (),
                                  source_topology_signature=topology_signature)
@@ -290,20 +374,207 @@ def _snapshot_static_pin(cloth_obj) -> StaticPinSnapshot:
     group = groups.get(group_name) if groups is not None else None
     if group is None:
         raise SceneValidationError("The selected Pin Group no longer exists.")
-    group_index = int(group.index)
-    indices = []
-    for vertex in cloth_obj.data.vertices:
-        for membership in vertex.groups:
-            if (int(membership.group) == group_index
-                    and float(membership.weight) > STATIC_PIN_WEIGHT_THRESHOLD):
-                indices.append(int(vertex.index))
-                break
+    indices = _scan_pin_indices(cloth_obj, int(group.index))
     try:
         return StaticPinSnapshot(True, group_name, object_id, vertex_count,
-                                 tuple(indices),
+                                 indices,
                                  source_topology_signature=topology_signature)
     except StaticPinError as exc:
         raise SceneValidationError(str(exc)) from exc
+
+# ---------------------------------------------------------------------------
+# Fingerprints
+#
+# The fingerprint is split so the UI can answer "did the settings change?"
+# honestly and instantly, while "did the mesh change?" stays an expensive
+# question that only a full validation is allowed to answer.
+#
+#   settings fingerprint  — materials, damping, collision, pressure, quality,
+#                           bake range, fps, roles, object identities, pin
+#                           mode and pin group NAME. No mesh access. Cheap.
+#   geometry fingerprint  — topology signature + validated pin indices.
+#                           Requires a full mesh scan. Expensive.
+#   bake fingerprint      — both halves combined; written into the sidecar.
+
+SETTINGS_FINGERPRINT_VERSION = 1
+BAKE_FINGERPRINT_VERSION = 1
+
+
+def _cheap_pinning_fingerprint(cloth_obj) -> str:
+    """Pinning *intent* — enabled, group name, mode. Never the indices."""
+    settings = cloth_obj.cloth_next
+    record = "\0".join((
+        "1" if getattr(settings, "pinning_enabled", False) else "0",
+        str(getattr(settings, "pin_group", "") or ""),
+        str(getattr(settings, "pin_mode", "STATIC")),
+    ))
+    return hashlib.sha256(record.encode("utf-8")).hexdigest()
+
+
+def _scene_fps(context) -> int:
+    render = getattr(getattr(context, "scene", None), "render", None)
+    try:
+        return int(getattr(render, "fps", 24) or 24)
+    except (TypeError, ValueError):
+        return 24
+
+
+def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
+                          contact_enabled, preset_identifier, quality) -> str:
+    base = material_formatting.settings_fingerprint(
+        shell, static, contact_enabled, preset_identifier,
+        bake_start=int(cloth_obj.cloth_next.bake_start),
+        bake_end=int(cloth_obj.cloth_next.bake_end),
+        pinning_fingerprint=_cheap_pinning_fingerprint(cloth_obj),
+        quality=quality)
+    record = "\0".join((
+        str(SETTINGS_FINGERPRINT_VERSION), base,
+        validation_state.object_key(cloth_obj),
+        str(cloth_obj.cloth_next.role),
+        validation_state.object_key(collider_obj),
+        str(collider_obj.cloth_next.role),
+        str(_scene_fps(context)),
+    ))
+    return hashlib.sha256(record.encode("utf-8")).hexdigest()
+
+
+def cheap_settings_fingerprint(context) -> str | None:
+    """UI-safe settings fingerprint. Reads properties only — never a mesh.
+
+    Returns ``None`` when the scene is not exactly one cloth plus one
+    collider, or a mapped value is invalid.
+    """
+    try:
+        cloth_obj, collider_obj = _enabled_objects_by_role(context)
+        shell, static, contact_enabled, preset = _snapshot_materials(
+            cloth_obj, collider_obj)
+        quality = object_properties.solver_quality_from(context.scene)
+    except (SceneValidationError, MaterialValidationError, ValueError,
+            AttributeError):
+        return None
+    return _settings_fingerprint(context, cloth_obj, collider_obj, shell,
+                                 static, contact_enabled, preset, quality)
+
+
+def bake_fingerprint(settings_fingerprint: str,
+                     geometry_fingerprint: str) -> str:
+    return hashlib.sha256(
+        f"{BAKE_FINGERPRINT_VERSION}\0{settings_fingerprint}\0"
+        f"{geometry_fingerprint}".encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# The single authoritative full validation
+
+@dataclass(frozen=True, slots=True)
+class ValidationSnapshot:
+    """One complete, validated view of the scene. Produced exactly once.
+
+    Holds live ``bpy`` objects and is therefore main-thread-only and
+    strictly transient: it is handed straight to :func:`build_run_plan` and
+    never stored in a PropertyGroup, a handler, or a thread.
+    """
+
+    cloth_obj: object
+    collider_obj: object
+    bake_range: BakeFrameRange
+    shell: object
+    static: object
+    contact_enabled: bool
+    preset_identifier: str
+    quality: object
+    pin_membership: StaticPinSnapshot
+    topology_signature: str
+    settings_fingerprint: str
+    geometry_fingerprint: str
+    combined_fingerprint: str
+
+
+def validate_scene(context) -> ValidationSnapshot:
+    """Fully validate the scene: topology, materials, pinning, fingerprints.
+
+    EXPENSIVE by design and the *only* place the mesh is scanned. Called from
+    Bake, Rebake, the explicit Validate operator, and the debounced validation
+    timer — never from ``Panel.draw()`` or ``Panel.poll()``.
+
+    The result is recorded in :mod:`validation_state` (VALID or INVALID with a
+    readable message) and returned so the Bake path can reuse it without
+    scanning anything a second time.
+    """
+    cloth_obj, collider_obj = _enabled_objects_by_role(context)
+    validation_state.mark_validating(cloth_obj)
+    try:
+        try:
+            bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
+                                        int(cloth_obj.cloth_next.bake_end))
+        except (BakeRangeError, TypeError, ValueError) as exc:
+            raise SceneValidationError(str(exc)) from exc
+        if (getattr(collider_obj, "animation_data", None) is not None
+                or len(getattr(collider_obj, "constraints", ())) > 0):
+            raise SceneValidationError(
+                "Animated colliders are not supported yet.")
+        shell, static, contact_enabled, preset_identifier = _snapshot_materials(
+            cloth_obj, collider_obj)
+        try:
+            quality = object_properties.solver_quality_from(context.scene)
+        except ValueError as exc:
+            raise SceneValidationError(str(exc)) from exc
+        topology_signature = mesh_topology_signature(
+            getattr(cloth_obj, "data", None))
+        pin_membership = _snapshot_static_pin(
+            cloth_obj, topology_signature=topology_signature)
+        settings_fp = _settings_fingerprint(
+            context, cloth_obj, collider_obj, shell, static, contact_enabled,
+            preset_identifier, quality)
+        geometry_fp = combine_geometry_fingerprint(
+            topology_signature,
+            pin_indices_signature(
+                pin_membership.vertex_indices,
+                vertex_count=pin_membership.source_vertex_count))
+    except (SceneValidationError, ClothNextError, MaterialValidationError) as exc:
+        message = (exc.record.user_message if isinstance(exc, ClothNextError)
+                   else str(exc))
+        validation_state.store_invalid(cloth_obj, message)
+        raise
+    validation_state.store_valid(
+        cloth_obj, pin_count=len(pin_membership.vertex_indices),
+        pin_group=pin_membership.group_name,
+        topology_signature=topology_signature,
+        geometry_fingerprint=geometry_fp, settings_fingerprint=settings_fp)
+    return ValidationSnapshot(
+        cloth_obj=cloth_obj, collider_obj=collider_obj, bake_range=bake_range,
+        shell=shell, static=static, contact_enabled=contact_enabled,
+        preset_identifier=preset_identifier, quality=quality,
+        pin_membership=pin_membership, topology_signature=topology_signature,
+        settings_fingerprint=settings_fp, geometry_fingerprint=geometry_fp,
+        combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp))
+
+
+def _validate_active_cloth() -> bool:
+    """Debounced-timer entry point (Phase 11). Returns True when it validated.
+
+    Skipped entirely while a Bake runs — the Bake owns validation then.
+    """
+    if run_active() or _pending_plan is not None or _pin_capture is not None:
+        return False
+    context = bpy.context
+    scene = getattr(context, "scene", None)
+    if scene is None:
+        return False
+    try:
+        cloth_obj, _collider = _enabled_objects_by_role(context)
+    except SceneValidationError:
+        return False
+    record = validation_state.record_for(cloth_obj)
+    if record.state in (validation_state.ValidationState.VALID,
+                        validation_state.ValidationState.VALIDATING):
+        return False
+    try:
+        validate_scene(context)
+    except (SceneValidationError, ClothNextError, MaterialValidationError):
+        return True  # recorded as INVALID with its message; the panel shows it
+    return True
+
 
 def _depsgraph_update(context):
     view_layer=getattr(context,"view_layer",None)
@@ -351,24 +622,29 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
         samples=tuple(samples),**common)
 
 
-def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
-    """Validate the scene on the main thread and freeze the run inputs."""
+def build_run_plan(context, *, animated_pin_samples=None,
+                   snapshot: ValidationSnapshot | None = None) -> RunPlan:
+    """Freeze the run inputs from one authoritative validation.
+
+    ``snapshot`` is the :class:`ValidationSnapshot` the Bake start already
+    produced. Passing it in is what guarantees a Bake performs exactly one
+    topology hash and exactly one pin scan; when it is omitted (developer
+    test run, direct call) this validates once, here.
+    """
     scene = context.scene
-    cloth_obj, collider_obj = _enabled_objects_by_role(context)
-    try:
-        bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
-                                    int(cloth_obj.cloth_next.bake_end))
-    except (BakeRangeError, TypeError, ValueError) as exc:
-        raise SceneValidationError(str(exc)) from exc
-    if (getattr(collider_obj, "animation_data", None) is not None
-            or len(getattr(collider_obj, "constraints", ())) > 0):
-        raise SceneValidationError("Animated colliders are not supported yet.")
+    if snapshot is None:
+        snapshot = validate_scene(context)
+    cloth_obj, collider_obj = snapshot.cloth_obj, snapshot.collider_obj
+    bake_range = snapshot.bake_range
     # Material validation is deliberately first after role/scope validation:
     # even the solver version probe is a subprocess, so invalid mapped values
-    # must fail before resolution can launch it.
-    shell, static, contact_enabled, preset_identifier = _snapshot_materials(
-        cloth_obj, collider_obj)
-    pin_membership = _snapshot_static_pin(cloth_obj)
+    # must fail before resolution can launch it. validate_scene() already did
+    # exactly that, along with the topology hash and the pin scan.
+    shell = snapshot.shell
+    static = snapshot.static
+    contact_enabled = snapshot.contact_enabled
+    preset_identifier = snapshot.preset_identifier
+    pin_membership = snapshot.pin_membership
     modifiers = tuple(getattr(cloth_obj, "modifiers", ()))
     relevant_modifiers=tuple(mod for mod in modifiers
                              if not is_cloth_next_playback_modifier(cloth_obj,mod))
@@ -426,10 +702,7 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
                                  solver_world_matrix(collider_world))
     data_payload, data_hash = encode_scene(scene_cloth, scene_collider)
     frame_count = bake_range.output_count
-    try:
-        quality = object_properties.solver_quality_from(scene)
-    except ValueError as exc:
-        raise SceneValidationError(str(exc)) from exc
+    quality = snapshot.quality
     settings = SimulationSettings(
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
@@ -438,13 +711,17 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
         settings, cloth_obj.name, cloth_uuid, collider_obj.name,
         collider_uuid, shell=shell, static=static,
         contact_enabled=contact_enabled, static_pin=pin_config)
-    fingerprint = material_formatting.settings_fingerprint(
-        shell, static, contact_enabled, preset_identifier,
-        bake_start=bake_range.start, bake_end=bake_range.end,
-        pinning_fingerprint=pin_snapshot.fingerprint, quality=quality)
+    # Reused from the single authoritative validation — the topology is not
+    # hashed and the pin group is not scanned a second time here.
+    settings_fp = snapshot.settings_fingerprint
+    geometry_fp = snapshot.geometry_fingerprint
+    fingerprint = bake_fingerprint(settings_fp, geometry_fp)
     material_meta = {
-        "version": 1,
+        "version": 2,
         "fingerprint": fingerprint,
+        "settings_fingerprint": settings_fp,
+        "geometry_fingerprint": geometry_fp,
+        "topology_signature": snapshot.topology_signature,
         "preset": preset_identifier,
         "contact_enabled": contact_enabled,
         "shell": shell_wire_params(shell),
@@ -498,7 +775,9 @@ def build_run_plan(context, *, animated_pin_samples=None) -> RunPlan:
                    frame_count=frame_count,
                    frame_start=bake_range.start, frame_end=bake_range.end,
                    fps=int(scene.render.fps),
-                   settings_fingerprint=fingerprint,
+                   settings_fingerprint=settings_fp,
+                   geometry_fingerprint=geometry_fp,
+                   topology_signature=snapshot.topology_signature,
                    preset_identifier=preset_identifier,
                    material_meta=material_meta)
 
@@ -690,6 +969,16 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     settings = getattr(obj, "cloth_next", None)
     if settings is not None and plan.settings_fingerprint:
         settings.baked_settings_fingerprint = plan.settings_fingerprint
+        settings.baked_geometry_fingerprint = plan.geometry_fingerprint
+        settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+        # The bake just validated this mesh; record it so the Cache panel can
+        # honestly say "ready" instead of "needs validation".
+        validation_state.store_valid(
+            obj, pin_count=plan.material_meta.get("pinning", {}).get("count", 0),
+            pin_group=plan.material_meta.get("pinning", {}).get("group", ""),
+            topology_signature=plan.topology_signature,
+            geometry_fingerprint=plan.geometry_fingerprint,
+            settings_fingerprint=plan.settings_fingerprint)
     # Only after the new cache is attached, drop older Cloth NeXt test caches.
     for old_path in previous_paths:
         if old_path != plan.pc2_path and old_path.name.startswith("cn_test_cloth_"):
@@ -895,25 +1184,29 @@ def begin_production_bake(context) -> tuple[str, bool]:
         raise SceneValidationError("A Cloth NeXt bake is already active.")
     job_id = _begin_controller(BakeJobKind.BAKE)
     try:
+        # One authoritative validation for the whole Bake start: it hashes the
+        # topology once and scans the pin group once. Everything downstream
+        # (pin capture, run plan, fingerprints, cache check) reuses it.
         objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
-        cloth_obj=None
-        if objects:cloth_obj,_=_enabled_objects_by_role(context)
-        membership=_snapshot_static_pin(cloth_obj) if cloth_obj is not None else None
-        bake_range=(BakeFrameRange(int(cloth_obj.cloth_next.bake_start),int(cloth_obj.cloth_next.bake_end))
-                    if cloth_obj is not None else None)
-        if (membership is not None and membership.enabled
-                and str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))=="FOLLOW_ANIMATION"):
-            _pin_capture={"context":context,"object_name":cloth_obj.name,"membership":membership,
-                "range":bake_range,"next":bake_range.start,"samples":[],
-                "original":int(context.scene.frame_current),"job_id":job_id}
-            _pending_job_id=job_id
-            shared_controller.update(status_message="Capturing animated Pin targets",
-                activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
-                progress_current=0,progress_total=bake_range.output_count)
-            if not bpy.app.timers.is_registered(_pin_capture_pump):
-                bpy.app.timers.register(_pin_capture_pump,first_interval=.01)
-            return job_id,True
-        plan=build_run_plan(context)
+        snapshot=validate_scene(context) if objects else None
+        if snapshot is not None:
+            cloth_obj=snapshot.cloth_obj
+            membership=snapshot.pin_membership
+            bake_range=snapshot.bake_range
+            if (membership.enabled
+                    and str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))=="FOLLOW_ANIMATION"):
+                _pin_capture={"context":context,"object_name":cloth_obj.name,"membership":membership,
+                    "range":bake_range,"next":bake_range.start,"samples":[],
+                    "original":int(context.scene.frame_current),"job_id":job_id,
+                    "snapshot":snapshot}
+                _pending_job_id=job_id
+                shared_controller.update(status_message="Capturing animated Pin targets",
+                    activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
+                    progress_current=0,progress_total=bake_range.output_count)
+                if not bpy.app.timers.is_registered(_pin_capture_pump):
+                    bpy.app.timers.register(_pin_capture_pump,first_interval=.01)
+                return job_id,True
+        plan=build_run_plan(context,snapshot=snapshot)
     except (SceneValidationError, ClothNextError) as exc:
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
         shared_controller.fail(message); raise
@@ -945,7 +1238,9 @@ def _pin_capture_pump():
         if frame<state["range"].end:
             state["next"]=frame+1; return .01
         job_id=state["job_id"]; samples=tuple(state["samples"]); _pin_capture=None
-        plan=build_run_plan(context,animated_pin_samples=samples)
+        # Reuses the Bake's single validation; no second topology hash or pin scan.
+        plan=build_run_plan(context,animated_pin_samples=samples,
+                            snapshot=state.get("snapshot"))
         _continue_production_bake(context,job_id,plan); return None
     except Exception as exc:
         try:scene.frame_set(state["original"]); _depsgraph_update(context)
@@ -1036,27 +1331,23 @@ def shutdown(join_timeout: float = 30.0) -> None:
 # Material fingerprint and parameter inspection (diagnostic only)
 
 def current_settings_fingerprint(context) -> str | None:
-    """Fingerprint of the current one-cloth/one-collider material state.
+    """Complete Bake fingerprint: settings AND geometry.
 
-    Returns ``None`` when the scene does not hold exactly one enabled
-    cloth and collider or a value is invalid — never raises from draw.
+    EXPENSIVE — it runs a full validation (topology hash + pin scan). It must
+    never be called from ``Panel.draw()`` or ``Panel.poll()``; the UI uses
+    :func:`cheap_settings_fingerprint` and the recorded validation state
+    instead. Kept for diagnostics and for callers that genuinely want the
+    authoritative combined value.
+
+    Returns ``None`` when the scene is not exactly one cloth plus one collider
+    or a value is invalid — it never raises.
     """
     try:
-        cloth_obj, collider_obj = _enabled_objects_by_role(context)
-        shell, static, contact_enabled, preset = _snapshot_materials(
-            cloth_obj, collider_obj)
-        pin_snapshot=_snapshot_static_pin(cloth_obj)
-        quality=object_properties.solver_quality_from(context.scene)
-        pin_mode=str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))
-        pin_fingerprint=hashlib.sha256(
-            f"{pin_snapshot.fingerprint}\0{pin_mode}".encode("utf-8")).hexdigest()
-    except (SceneValidationError, ValueError):
+        snapshot = validate_scene(context)
+    except (SceneValidationError, MaterialValidationError, ClothNextError,
+            ValueError):
         return None
-    return material_formatting.settings_fingerprint(
-        shell, static, contact_enabled, preset,
-        bake_start=int(cloth_obj.cloth_next.bake_start),
-        bake_end=int(cloth_obj.cloth_next.bake_end),
-        pinning_fingerprint=pin_fingerprint, quality=quality)
+    return snapshot.combined_fingerprint
 
 
 def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
@@ -1067,23 +1358,20 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     JSON-safe payload dictionary. Contains no mesh data, no secrets, and no
     binary CBOR; placeholder UUIDs stand in for the per-run random ones.
     """
-    cloth_obj, collider_obj = _enabled_objects_by_role(context)
-    shell, static, contact_enabled, preset = _snapshot_materials(
-        cloth_obj, collider_obj)
-    pin_snapshot = _snapshot_static_pin(cloth_obj)
+    snapshot = validate_scene(context)
+    cloth_obj, collider_obj = snapshot.cloth_obj, snapshot.collider_obj
+    shell, static = snapshot.shell, snapshot.static
+    contact_enabled, preset = snapshot.contact_enabled, snapshot.preset_identifier
+    pin_snapshot = snapshot.pin_membership
     pin_config = static_pin_config(pin_snapshot)
     scene = context.scene
-    try:
-        bake_range = BakeFrameRange(int(cloth_obj.cloth_next.bake_start),
-                                    int(cloth_obj.cloth_next.bake_end))
-    except BakeRangeError as exc:
-        raise SceneValidationError(str(exc)) from exc
+    bake_range = snapshot.bake_range
     settings = SimulationSettings(
         frame_count=bake_range.output_count,
         fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0),
-        quality=object_properties.solver_quality_from(scene))
+        quality=snapshot.quality)
     payload = build_param_payload(
         settings, cloth_obj.name, "inspect-cloth",
         collider_obj.name, "inspect-collider",
@@ -1355,6 +1643,9 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     settings = getattr(obj, "cloth_next", None)
                     if settings is not None:
                         settings.baked_settings_fingerprint = ""
+                        settings.baked_geometry_fingerprint = ""
+                        settings.baked_fingerprint_version = 0
+                        validation_state.forget(obj)
                     if filepath:
                         path = Path(bpy.path.abspath(filepath))
                         if path.name.startswith("cn_test_cloth_"):
@@ -1402,9 +1693,48 @@ class CLOTHNEXT_OT_companion_open_logs(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_validate(bpy.types.Operator):
+    """Validate the Cloth NeXt scene now (topology, materials, and pinning)"""
+
+    bl_idname = "clothnext.validate"
+    bl_label = "Validate Scene"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        # Cheap: a controller flag. No mesh is touched to decide this.
+        return not run_active() and not shared_controller.snapshot().active
+
+    def execute(self, context):
+        try:
+            snapshot = validate_scene(context)
+        except (SceneValidationError, MaterialValidationError,
+                ClothNextError) as exc:
+            message = (exc.record.user_message
+                       if isinstance(exc, ClothNextError) else str(exc))
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+        pinned = len(snapshot.pin_membership.vertex_indices)
+        self.report({"INFO"}, f"Cloth NeXt scene validated · {pinned} pinned "
+                              f"vertices." if snapshot.pin_membership.enabled
+                    else "Cloth NeXt scene validated.")
+        return {"FINISHED"}
+
+
+def install_validator() -> None:
+    """Hand the expensive validator to the cheap runtime state module.
+
+    validation_state owns only the recorded outcome and the debounced timer;
+    the mesh work lives here. Installed as a registration step so an
+    unregister/register cycle re-arms it.
+    """
+    validation_state.set_validator(_validate_active_cloth)
+
+
 CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
            CLOTHNEXT_OT_bake_cancel,
            CLOTHNEXT_OT_open_preferences,
+           CLOTHNEXT_OT_validate,
            CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
            CLOTHNEXT_OT_companion_open_logs,

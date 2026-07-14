@@ -22,13 +22,13 @@ topmost, responsive companion is a fatal startup error. Blender remains
 editable and the previous cache is preserved. Disabling automatic launch opts
 into Blender-only progress without a global workflow lock.
 
-- The Cloth NeXt repository contained no implementation to execute or compare.
 - Upstream was audited at commit `7193f158` on 2026-07-12. Protocol/schema and docs can
   change; implementation must pin a compatible solver release.
 - No NVIDIA solver binary was installed or launched in this audit. Findings are static
   source/documentation evidence, not a successful GPU solve on this workstation.
-- Phase 2.5 now has a locally bundled official solver and the real health integration
-  test passes. The 1.43 GB extracted runtime remains untracked local state.
+- A locally installed official solver passed the real health integration test during
+  development. That external runtime is untracked local state and is never included in
+  a Cloth NeXt package.
 - Blender 5.1.2 is available through the local Steam installation and the automated
   registration/RNA smoke test passes. Background mode cannot verify final on-screen
   HUD contrast, clipping, DPI behavior, or icon appearance; those remain explicit
@@ -42,21 +42,20 @@ into Blender-only progress without a global workflow lock.
 - The official Windows archive contained no root project license. Bootstrap used the
   unchanged Apache-2.0 license from the official checkout and preserved discovered
   third-party notices. Formal release notice review remains open.
-- Publishing the 453 MB solver-inclusive extension has not been authorized. Git LFS is
-  installed but unconfigured; the local solver is ignored under strategy B.
 - Exact CBOR scene schemas are extensive. This audit records the envelope and relevant
   keys, but implementation requires upstream format definitions and golden fixtures;
   filenames named `.pickle` must not be mistaken for Python pickle content.
 - PPF supports incremental complete-frame fetching. It does not promise real-time
   delivery or a stable frame cadence; UI wording remains Buffered Live/Follow Solver.
-- PC2 is proven by the official client for constant topology, not yet selected through
-  a Cloth NeXt integration test. It cannot represent topology-changing tearing.
+- Cloth NeXt uses PC2 playback for constant topology. It cannot represent
+  topology-changing tearing.
 - Pressure is implemented as a uniform shell parameter. Target volume, compressibility,
   gas behavior and pressure animation are not yet verified and must not be exposed.
 - Independent Blender-style self-collision controls and tension/compression/shear
   stiffness mappings are not established. PPF contact is unified; fake mappings are
   prohibited.
-- Weighted/animated pin details require schema fixtures before UI design.
+- Static and Follow Animation hard pinning are implemented for one vertex group;
+  soft Pull, timed release, and operation stacks remain unsupported.
 - Dynamic tearing/ripping is unsupported by the unchanged solver. Only disabled future
   interfaces may exist.
 - The official add-on's release index updates that add-on. No supported standalone
@@ -64,8 +63,8 @@ into Blender-only progress without a global workflow lock.
   updates cannot be implemented safely yet.
 - The official add-on is a technical reference only. Cloth NeXt will not copy it in
   full or import it at runtime.
-- Retaining the repository's GPL-3.0 `LICENSE` is a legal/project decision, not a
-  conclusion that all future distribution and bundled solver licensing is resolved.
+- The repository's GPL-3.0-or-later license covers Cloth NeXt, not the separately
+  installed Apache-2.0 PPF Contact Solver.
 
 ## Required evidence before implementation claims support
 
@@ -82,16 +81,13 @@ guessing an endpoint, parameter or format.
 - The solver compatibility manifest pins exactly one verified upstream release
   (`2026-07-09-04-39`). Newer upstream releases are not offered until tested
   and added through a reviewed manifest change.
-- The preferences UI code paths that require Blender (operators, dialogs) are
-  covered only by the pure view-model tests on this machine, because Blender
-  5.x is not installed locally.
+- Blender-dependent UI paths have automated unit/smoke coverage; final interaction,
+  display, DPI, and platform behavior still require testing in Blender itself.
 - The Phase 2.7 Blender registration smoke test is wired into CI
   (`.github/workflows/ci.yml`, job `blender-smoke`) but has not run on this
   machine because Blender 5.x is not installed locally. The pinned CI Blender
   download URL and the `extension install-file` invocation must be confirmed on
   the first CI run.
-- The `BUILDING` state exists in the state machine and wire-status mapping, but
-  no code issues real `build` requests yet; that is Phase 3 scope.
 - Phase 2.8A Add-Physics placement: Blender's `PHYSICS_PT_add` panel draws its
   native Add-Physics buttons inside an internal two-column `grid_flow` that is
   not exposed to appended draw callbacks. The "Cloth NeXt" entry therefore
@@ -143,11 +139,12 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
 - One cloth shell, one static collider, and an artist-selected Bake Start/End
   range with a 10,000-output-frame safety limit.
-- No pins, pressure, shrink, stitching, plasticity, tearing, animated
-  colliders, multiple cloths/colliders, solids, rods, sand, PDRD, dynamic
-  parameter animation, or a separate substeps control. Time Step/Newton/PCG
-  Quality and uniform Pressure use their verified PPF keys; unsupported
-  controls remain hidden rather than shown as fake settings.
+- Static and Follow Animation hard pins through one vertex group and uniform
+  object-local pressure are supported. Soft Pull, timed pin release, shrink,
+  stitching, plasticity, tearing, animated colliders, multiple cloths/colliders,
+  solids, rods, sand, PDRD, dynamic material/pressure animation, and a separate
+  substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
+  keys; unsupported controls remain hidden rather than shown as fake settings.
 - Playback is constant-topology PC2. Bake Start is the exported initial state;
   solver step `n` maps to Blender frame `Bake Start + n`.
 - GPU telemetry depends on available NVIDIA `nvidia-smi` tooling and may be
@@ -160,14 +157,16 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   that single representation everywhere.
 - The built-in fabric presets are calibrated upstream starting points, not
   guarantees for every mesh scale, resolution, or scene setup.
-- Static hard Pinning through one Blender vertex group is supported. Pin
-  indices require topology-preserving evaluated Cloth geometry. Animated pins,
-  timed release, soft Pull, multiple pin groups, animated colliders, animated Pressure,
-  and native Blender Cloth remain unsupported.
+- Static and Follow Animation hard Pinning through one Blender vertex group are
+  supported. Pin indices require topology-preserving evaluated Cloth geometry.
+  Timed release, soft Pull, multiple pin groups, animated colliders, animated
+  Pressure, and native Blender Cloth remain unsupported.
 - Cache invalidation is a minimal versioned material fingerprint (object
   property + `*.meta.json` sidecar) that marks a result stale; the full
   production cache metadata system remains Phase-4 work.
-- Bake actions are unmistakable UI previews and never claim to run PPF.
+- Bake actions run the compatible external PPF solver; Developer Test Tools remain
+  separately labeled diagnostics.
 - The Viewport HUD is display-only; cancellation remains an operator action.
-- The optional Windows companion is bundled and hash-validated but still receives
-  preview data only until Phase 3. It never launches automatically.
+- The optional Windows companion is bundled and hash-validated. When automatic
+  launch is enabled, it receives real bake status and must open successfully before
+  startup continues; users can disable it for Blender-only progress.

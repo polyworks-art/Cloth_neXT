@@ -161,7 +161,7 @@ def test_startup_reservation_never_replaces_cache_or_starts_worker(
     context=SimpleNamespace(preferences=SimpleNamespace(addons={
         "cloth_next":SimpleNamespace(preferences=SimpleNamespace(
             auto_launch_bake_window=True,telemetry_refresh_seconds=1.0))}))
-    monkeypatch.setattr(module,"build_run_plan",lambda _context:plan)
+    monkeypatch.setattr(module,"build_run_plan",lambda _context,**_kw:plan)
     calls=[]
     monkeypatch.setattr(module,"prepare_cache_for_new_run",
                         lambda _plan:calls.append("cache"))

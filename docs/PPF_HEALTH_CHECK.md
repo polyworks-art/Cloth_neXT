@@ -59,6 +59,6 @@ python -m pytest tests\integration\test_real_ppf_health.py -m integration -v
 
 No solver is downloaded. Without the variable, the test is intentionally skipped.
 
-Since Phase 2.5 the test also resolves extension- and repository-bundled installations,
-uses an ephemeral port and temporary runtime directory, and passes against the local
-official Windows bundle. The environment variable retains highest priority.
+The test uses an ephemeral port and temporary runtime directory and can run against a
+local official Windows installation selected with the environment variable. Extension
+and repository directories are not searched for bundled solvers.

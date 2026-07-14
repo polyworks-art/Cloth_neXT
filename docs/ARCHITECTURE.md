@@ -182,17 +182,14 @@ and `health.py` composes immutable results. All are Blender-free. Process reader
 threads communicate through `queue.Queue`; no callback or message contains Blender
 data. See `PROCESS_LIFECYCLE.md`.
 
-## Phase 2.5 solver deployment
+## Solver deployment
 
-`ppf/layout.py` describes an immutable complete runtime tree. `ppf/resolver.py` applies
-the fixed priority external installation, extension bundle, repository bundle, then
-external server. Extension bundles are always read-only; repository writes are confined
-to the explicit bootstrap tool. `ppf/bootstrap.py` provides secure staging and atomic
-exchange primitives. All mutable process state is injected under the OS temporary root.
-
-The extension root is derived from `ppf/resolver.py`'s module path. A repository root is
-accepted only when both `pyproject.toml` and `cloth_next/blender_manifest.toml` exist;
-there is no open-ended parent search or developer-specific absolute path.
+`ppf/layout.py` describes an immutable complete runtime tree. Runtime resolution uses
+only a managed installation, a user-selected external installation, an external server,
+or the explicit `CLOTH_NEXT_PPF_EXECUTABLE` development override. No extension or
+repository directory is scanned for a solver. `ppf/bootstrap.py` retains secure staging
+helpers for explicit local development imports. All mutable process state is injected
+under the OS temporary root.
 
 ## Streaming playback cache
 

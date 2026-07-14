@@ -147,11 +147,13 @@ For manual installation and troubleshooting, see
 ## Updates
 
 Cloth NeXt updates install through Blender's own extension system — never
-through a custom self-updater — from two official repositories
+through a custom self-updater — from three official repositories
 (see [Update Channels](docs/UPDATE_CHANNELS.md)):
 
 - **Stable** — normal releases only.
 - **Beta** — beta and release-candidate prereleases.
+- **Dev** — unsupported experimental snapshots, available only after enabling
+  Developer Tools and explicitly acknowledging the risk.
 
 In the add-on preferences, the *Cloth NeXt* section shows the installed
 version, lets you pick the update channel, and offers *Check for Updates*.
@@ -168,14 +170,16 @@ PPF solver, and solver updates never touch the add-on.
 
 ## Quick start
 
-The production quick-start workflow below is planned, not complete:
+The current production slice supports one Cloth object and one static Collider:
 
-1. Open your project in Blender.
-2. Select or prepare the objects for simulation.
-3. Open the Cloth NeXt interface.
-4. Configure the cloth and collision setup.
-5. Start the simulation through Cloth NeXt.
-6. Continue working with the resulting animation in Blender.
+1. Add Cloth NeXt physics to the mesh that should behave as cloth.
+2. Add Cloth NeXt physics to one mesh and set its role to **Static Collider**.
+3. Configure material, damping, collision, pressure, quality, and optional
+   vertex-group pinning in Physics Properties.
+4. Choose the Bake Start and End frames in the Cloth NeXt Solver panel.
+5. Verify that the external solver is ready, then click **Bake**.
+6. Review the resulting constant-topology Mesh Cache animation; use **Rebake**
+   after changing settings or **Cancel** while a bake is active.
 
 > [!NOTE]
 > The exact workflow and available controls may depend on the installed

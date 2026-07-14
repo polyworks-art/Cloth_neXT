@@ -20,7 +20,7 @@ import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, companion_manager, hud,
                icon_registry, object_properties, physics_operators, physics_ui,
-               preferences, solver_test, test_scene)
+               preferences, solver_test, test_scene, validation_state)
 
 _CLASSES = (
     preferences.CLASSES
@@ -49,6 +49,12 @@ def _steps() -> list[tuple]:
                   physics_ui.remove_add_physics_entry))
     steps.append((icon_registry.register, icon_registry.unregister))
     steps.append((hud.register, hud.unregister))
+    # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
+    # last and detached first, and idempotent, so a reload cannot leave a
+    # duplicate behind.
+    steps.append((validation_state.register, validation_state.unregister))
+    steps.append((solver_test.install_validator,
+                  lambda: validation_state.set_validator(None)))
     return steps
 
 

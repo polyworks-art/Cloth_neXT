@@ -17,20 +17,40 @@ def mark_owned_playback(obj,modifier,cache_path:str)->None:
         try:target[key]=value
         except (TypeError,AttributeError):setattr(target,key,value)
 
-def is_cloth_next_playback_modifier(obj,modifier)->bool:
+def has_cloth_next_playback_marker(obj,modifier)->bool:
+    """Cheap, syscall-free ownership classification for read-only UI paths.
+
+    Compares the ownership marker and inspects the recorded path as a plain
+    string. It never touches the filesystem, so it is safe to call from a
+    ``Panel.draw``. Use :func:`is_cloth_next_playback_modifier` — which
+    additionally resolves both paths on disk — for anything that deletes or
+    replaces a cache file.
+    """
     if str(getattr(modifier,"type",""))!="MESH_CACHE":return False
     marker=_property(modifier,"cloth_next_owner","")
-    recorded=str(_property(obj,"cloth_next_cache_path","") or "")
     actual=str(getattr(modifier,"filepath","") or "")
     if marker!=OWNERSHIP_MARKER:
         settings=getattr(obj,"cloth_next",None)
-        legacy=(getattr(modifier,"name","")=="Cloth NeXt Test Cache"
+        return (getattr(modifier,"name","")=="Cloth NeXt Test Cache"
                 and bool(getattr(settings,"baked_settings_fingerprint",""))
                 and Path(actual).name.startswith("cn_test_cloth_")
                 and Path(actual).suffix.lower()==".pc2")
-        if not legacy:return False
-        return True
-    if not recorded or not actual:return False
+    recorded=str(_property(obj,"cloth_next_cache_path","") or "")
+    return bool(recorded and actual)
+
+def is_cloth_next_playback_modifier(obj,modifier)->bool:
+    """Authoritative ownership check; resolves both paths on disk.
+
+    The ``resolve()`` comparison is the safety property that stops Cloth NeXt
+    from ever unlinking or overwriting a file it does not own, so every
+    destructive path keeps using this. It performs filesystem syscalls and is
+    therefore never called from a draw path.
+    """
+    if not has_cloth_next_playback_marker(obj,modifier):return False
+    marker=_property(modifier,"cloth_next_owner","")
+    if marker!=OWNERSHIP_MARKER:return True  # legacy: fully classified above
+    recorded=str(_property(obj,"cloth_next_cache_path","") or "")
+    actual=str(getattr(modifier,"filepath","") or "")
     try:return Path(recorded).resolve()==Path(actual).resolve()
     except OSError:return recorded==actual
 

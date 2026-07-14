@@ -31,7 +31,8 @@ from ..bake.controller import shared_controller
 from ..materials import formatting
 from ..materials import presets as material_presets
 from ..developer import is_dev_build
-from . import object_properties
+from . import object_properties, validation_state
+from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
 
@@ -251,6 +252,12 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         if snapshot.state.value == "ERROR" and snapshot.error_summary:
             layout.operator("clothnext.companion_open_logs", text="Open Logs",
                             icon="FILE_FOLDER")
+        if not snapshot.active:
+            validation = layout.row(align=True)
+            validation.label(text=_validation_line(context))
+            validation.operator("clothnext.validate", text="Validate",
+                                **icon_registry.icon_kwargs("validate",
+                                                            "CHECKMARK"))
         summary = layout.column(align=True)
         summary.label(text=model.summary_line)
         try:
@@ -342,24 +349,77 @@ def _solver_status(context) -> _SolverStatus:
 
 
 def _cache_state(context) -> tuple[str, str]:
+    """Cheap, honest cache view. Never hashes a mesh and never scans pins.
+
+    The settings half of the Bake fingerprint is recomputable for free, so
+    "the settings changed" is stated as fact. The geometry half is not, so
+    until a full validation confirms it this reports "needs validation"
+    rather than claiming the cache safely matches.
+    """
     from . import solver_test
     try:
         cloth, _collider = solver_test._enabled_objects_by_role(context)
     except solver_test.SceneValidationError:
         return "EMPTY", "Cache empty"
+    settings = cloth.cloth_next
+    # Marker-only check: no Path.resolve(), so no filesystem syscall in draw.
     modifier = next((mod for mod in cloth.modifiers
-                     if solver_test.is_cloth_next_playback_modifier(cloth,mod)), None)
-    baked = getattr(cloth.cloth_next, "baked_settings_fingerprint", "")
-    if modifier is None or not baked:
+                     if has_cloth_next_playback_marker(cloth, mod)), None)
+    baked_settings = getattr(settings, "baked_settings_fingerprint", "")
+    if modifier is None or not baked_settings:
         return "EMPTY", "Cache empty"
-    current = solver_test.current_settings_fingerprint(context)
-    if current != baked:
-        return "STALE", "Cache stale"
-    return "MATCHING", "Cache ready"
+
+    record = validation_state.record_for(cloth)
+    if record.state is validation_state.ValidationState.INVALID:
+        return "INVALID", f"Cache invalid · {record.message}" if record.message \
+            else "Cache invalid · topology mismatch"
+
+    # A result baked before the fingerprint was split carries no geometry half.
+    # It is never presented as matching; it has to be validated first.
+    version = int(getattr(settings, "baked_fingerprint_version", 0) or 0)
+    baked_geometry = getattr(settings, "baked_geometry_fingerprint", "")
+    if version != solver_test.BAKE_FINGERPRINT_VERSION or not baked_geometry:
+        return "NEEDS_VALIDATION", "Cache needs validation · mesh may have changed"
+
+    current_settings = solver_test.cheap_settings_fingerprint(context)
+    if current_settings is None or current_settings != baked_settings:
+        return "STALE", "Cache stale · settings changed"
+
+    if record.state is validation_state.ValidationState.VALID:
+        if record.geometry_fingerprint == baked_geometry:
+            return "MATCHING", "Cache ready"
+        return "STALE", "Cache stale · mesh changed"
+    return "NEEDS_VALIDATION", "Cache needs validation · mesh may have changed"
+
+
+_VALIDATION_TITLES = {
+    validation_state.ValidationState.UNKNOWN: "Ready to validate and bake",
+    validation_state.ValidationState.DIRTY: "Scene validation required",
+    validation_state.ValidationState.VALIDATING: "Validating scene…",
+    validation_state.ValidationState.VALID: "Scene validated",
+}
+
+
+def _validation_line(context) -> str:
+    """One recorded status string. Computes nothing."""
+    obj = getattr(context, "object", None)
+    record = validation_state.record_for(obj)
+    if record.state is validation_state.ValidationState.INVALID:
+        return record.message or "Scene validation failed"
+    return _VALIDATION_TITLES.get(record.state, "Ready to validate and bake")
 
 
 def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
         -> _BakePanelModel:
+    """Enable/disable the Bake button from cheap state only.
+
+    Obviously invalid *cheap* states (no solver, wrong object counts, an
+    animated collider, a broken frame range, an invalid mapped material value,
+    a missing pin group) disable the button immediately. Everything that needs
+    the mesh — topology, pin indices — is validated when Bake is clicked, not
+    on every redraw. A previously *recorded* INVALID verdict is shown too:
+    that is reading a stored result, not computing a new one.
+    """
     from . import solver_test
     status = solver_status or _solver_status(context)
     objects = getattr(getattr(context, "scene", None), "objects", ())
@@ -373,8 +433,9 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
               if len(cloths) == 1 else "No material")
     summary = f"{preset} · {len(cloths)} Cloth · {len(colliders)} Collider"
     cache_state, cache_label = _cache_state(context)
-    action = {"STALE": "REBAKE", "MATCHING": "BAKE AGAIN"}.get(
-        cache_state, "BAKE")
+    action = {"STALE": "REBAKE", "INVALID": "REBAKE",
+              "NEEDS_VALIDATION": "REBAKE",
+              "MATCHING": "BAKE AGAIN"}.get(cache_state, "BAKE")
     reason = ""
     if not status.ready:
         reason = "PPF is not configured."
@@ -389,11 +450,29 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
             from ..bake.frame_range import BakeFrameRange
             BakeFrameRange(int(cloths[0].cloth_next.bake_start),
                            int(cloths[0].cloth_next.bake_end))
+            # Property-only validation: reads ~15 floats, touches no mesh.
             solver_test._snapshot_materials(cloths[0], colliders[0])
-            solver_test._snapshot_static_pin(cloths[0])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — an invalid value stays visible
             reason = str(exc) or "Material settings are invalid."
+        else:
+            reason = _cheap_pin_reason(solver_test, cloths[0])
+            if not reason:
+                record = validation_state.record_for(cloths[0])
+                if record.state is validation_state.ValidationState.INVALID:
+                    reason = record.message
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
+
+
+def _cheap_pin_reason(solver_test, cloth) -> str:
+    """Pin problems detectable without reading a single vertex."""
+    summary = solver_test.cheap_pin_summary(cloth)
+    if not summary.enabled:
+        return ""
+    if not summary.group_name:
+        return "Select a Pin Group."
+    if not summary.group_exists:
+        return "The selected Pin Group no longer exists."
+    return ""
 
 
 def _run_state_text(snapshot) -> str:
@@ -469,14 +548,32 @@ class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
                               "vertex_groups", text="Pin Group")
         mode_row=controls.row(); mode_row.enabled=bool(settings.pinning_enabled)
         mode_row.prop(settings,"pin_mode",text="Pin Mode")
-        if settings.pinning_enabled:
-            try:
-                snapshot = solver_test._snapshot_static_pin(context.object)
-                layout.label(text=f"Pinned Vertices: {len(snapshot.vertex_indices)}")
-            except solver_test.SceneValidationError as exc:
-                layout.label(text=str(exc), icon="ERROR")
-        else:
-            layout.label(text="Static hard Pinning is disabled")
+        # The pin count comes from the last full validation. Scanning the
+        # vertex group here would cost one pass over every vertex on every
+        # single redraw — that is what made large meshes unusable.
+        summary = solver_test.cheap_pin_summary(context.object)
+        for text, icon in _pin_status_lines(summary):
+            layout.label(text=text, icon=icon)
+
+
+def _pin_status_lines(summary):
+    """Recorded pinning status, labelled by how trustworthy it is."""
+    states = validation_state.ValidationState
+    if not summary.enabled:
+        return (("Static hard Pinning is disabled", "NONE"),)
+    if not summary.group_name:
+        return (("Select a Pin Group.", "ERROR"),)
+    if not summary.group_exists:
+        return (("The selected Pin Group no longer exists.", "ERROR"),)
+    if summary.state is states.INVALID:
+        return ((summary.message or "Pin selection is invalid.", "ERROR"),)
+    if summary.state is states.VALID and summary.counted_group == summary.group_name:
+        return ((f"Pinned Vertices: {summary.pin_count}", "NONE"),)
+    if summary.state is states.VALIDATING:
+        return (("Validating Pin selection…", "INFO"),)
+    if summary.state is states.DIRTY:
+        return (("Pin selection changed · validation required", "INFO"),)
+    return (("Pin selection will be validated before Bake", "INFO"),)
 
 
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
@@ -583,28 +680,33 @@ def _draw_ui_diagnostics_controls(layout, _context) -> None:
                         **icon_registry.icon_kwargs("cancel", "CANCEL"))
 
 
-def _draw_stale_result_notice(layout, context) -> None:
-    """Compare the object's baked fingerprint with the current settings.
+_STALE_NOTICES = {
+    "STALE": "Result is stale — settings or mesh changed since this bake. "
+             "Rebake or Clear it explicitly.",
+    "INVALID": "Result cannot be trusted — the last validation failed. "
+               "Fix the scene, then Rebake.",
+    "NEEDS_VALIDATION": "Result is not confirmed — the mesh has not been "
+                        "validated since this bake. Validate or Rebake.",
+}
 
-    Pure in-memory computation on already-loaded properties — no file or
-    preset access happens here.
+
+def _draw_stale_result_notice(layout, context) -> None:
+    """Show the recorded cache verdict.
+
+    Reads the cheap settings fingerprint and the recorded validation state.
+    It never hashes the mesh, so it can be honest about "settings changed"
+    while staying explicitly unsure about "mesh changed".
     """
-    from . import solver_test
     obj = context.object
-    settings = obj.cloth_next
-    baked = getattr(settings, "baked_settings_fingerprint", "")
-    if not baked:
-        return
-    if not any(solver_test.is_cloth_next_playback_modifier(obj,mod)
-               for mod in obj.modifiers):
+    if not getattr(obj.cloth_next, "baked_settings_fingerprint", ""):
         return
     try:
-        current = solver_test.current_settings_fingerprint(context)
+        state, _label = _cache_state(context)
     except Exception:  # noqa: BLE001 — a broken scene must not break draw
         return
-    if current is not None and current != baked:
-        layout.label(text="Result is stale — settings changed since this "
-                          "bake. Rebake or Clear it explicitly.",
+    notice = _STALE_NOTICES.get(state)
+    if notice:
+        layout.label(text=notice,
                      **icon_registry.icon_kwargs("warning", "ERROR"))
 
 

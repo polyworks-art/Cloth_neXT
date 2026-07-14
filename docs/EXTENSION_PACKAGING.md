@@ -1,34 +1,32 @@
 # Extension packaging
 
-The extension root remains `cloth_next/`; the repository solver is copied into the
-archive as `solver/windows-x86_64/` only for an explicit release build.
+The extension root is `cloth_next/`. Every development and release package is
+solver-free: Cloth NeXt never copies the external PPF Contact Solver into an
+extension archive. `tools/scan_release_artifact.py` rejects solver material.
 
-Development build:
+Development build (pure-Python fallback when Blender is unavailable):
 
 ```powershell
-python tools\build_extension.py --without-solver `
+python tools\build_extension.py `
   --output dist\cloth_next-development.zip
 ```
 
-This succeeds without any solver. Runtime resolution can use an external or repository
-installation and reports “Solver not bundled” at the product layer.
+The default output name is derived from `cloth_next/blender_manifest.toml` when
+`--output` is omitted.
 
-Release build:
+Release build with Blender's official extension tooling:
 
 ```powershell
-python tools\build_extension.py --with-solver `
-  --output dist\cloth_next-release-with-solver.zip
+python tools\build_extension.py `
+  --blender "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" `
+  --output dist\cloth_next-<version>-windows-x64.zip
 ```
 
-It fails unless executable, `SOURCE.json`, at least one license file, protocol `0.11`,
-schema `1`, and `health_check: passed` are present. The current real build succeeded:
+Both modes validate the ZIP layout and scan the finished artifact. Release CI
+additionally builds and stages the Cloth NeXt-owned Windows Bake companion at
+`bin/cloth-next-bake.exe`; that executable is UI software, not the solver.
 
-- archive size: 452,882,631 bytes;
-- archive SHA-256: `5fb18dfdc1ac4b1afe2f234d90b1751757ada0e837ee27fc6c4b98731024a107`;
-- manifest and `__init__.py` validated at ZIP root;
-- bundled server located at `solver/windows-x86_64/ppf-cts-server.exe`.
-
-The installed extension directory is treated read-only. Solver execution is allowed,
-but progress/log/runtime state is injected outside it. Bootstrap never modifies an
-installed extension; replacement happens through a new package installation.
-
+The installed extension directory is treated as read-only. Managed solver files,
+downloads, logs, and runtime state live under `%LOCALAPPDATA%\ClothNeXt\solver\`.
+See [Solver distribution](SOLVER_DISTRIBUTION.md) and the mandatory
+[Release policy](RELEASE_POLICY.md).

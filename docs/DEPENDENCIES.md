@@ -1,14 +1,12 @@
 # Dependency policy
 
-Phase 1 performs no dependency installation, protocol encoding or hardware probing.
 Cloth NeXt will never run an unsolicited `pip install` in Blender's Python environment.
 
 | Dependency | Classification | Distribution decision | Missing behavior |
 |---|---|---|---|
-| `cbor2` | required from the first real PPF protocol adapter | platform-matched wheel declared/bundled in the Blender extension; version pinned to tested builds | PPF features unavailable with a categorized Dependency error; registration remains usable |
-| `psutil` | optional HUD/process telemetry | prefer a bundled, pinned platform wheel only when HUD phase proves it necessary | use standard-library process data where safe or show metric unavailable |
-| NVML / `pynvml` | optional NVIDIA HUD telemetry | do not make core dependency; consider a pinned wheel in a platform-specific extension build | fall back to throttled `nvidia-smi`, then unavailable |
-| `nvidia-smi` | optional external executable supplied by NVIDIA drivers | never bundle or download it; invoke later with an argument list and timeout | GPU telemetry unavailable; solver capability is diagnosed separately |
+| Built-in CBOR codec | internal pure-Python module | shipped as `cloth_next.ppf.schema.cbor_codec`; no `cbor2` runtime dependency | protocol encoding remains self-contained |
+| NumPy | Blender-provided Python module | not separately installed by Cloth NeXt | a bake fails with an actionable dependency error; registration remains usable |
+| `nvidia-smi` | optional external executable supplied by NVIDIA drivers | never bundled or downloaded; invoked with an argument list and timeout | GPU telemetry is unavailable; solver capability is diagnosed separately |
 
 Blender recommends self-contained extensions and wheels for third-party Python
 dependencies. Cloth NeXt will prefer platform-specific wheels in the extension manifest
@@ -17,15 +15,11 @@ auditable packages where wheel packaging is unsuitable. Optional monitoring fail
 must never prevent add-on registration or simulation. Required protocol dependencies
 must fail before transfer with an actionable typed error.
 
-No wheel is included in Phase 1 because none is used. Dependency detection must be lazy
-and located in the feature adapter that needs it. Downloads, if ever supported, require
-explicit user action, Blender online-access compliance, checksums and the later updater
-security design.
-
-Phase 2.5 bundles the official solver as a complete redistributable tree, including its
-embedded Python and native runtime files. These are solver runtime dependencies, not
-modules installed into Blender Python. Cloth NeXt injects bundle-relative environment
-paths only into the owned solver child process.
+The extension currently declares no Python wheels. Dependency detection is lazy and
+located in the feature adapter that needs it. The managed solver download is a separate,
+explicitly confirmed workflow with host restrictions, size limits, checksums, safe
+extraction, version probing, and a health check. The solver is installed outside the
+extension and is never redistributed in a Cloth NeXt package.
 
 Source: Blender's official [extension add-on guidance](https://docs.blender.org/manual/en/5.0/advanced/extensions/addons.html)
 recommends bundling external Python dependencies as wheels and using relative imports.

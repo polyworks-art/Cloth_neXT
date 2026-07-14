@@ -77,10 +77,11 @@ timeouts are categorized. An early exit records code plus bounded stderr/progres
 Owned startup requires both the marker and successful compatible query. External
 servers do not require or manipulate a progress file.
 
-For bundled deployments, the complete solver tree supplies injected `PATH` and
-`PYTHONPATH` entries. Progress lives in `%TEMP%/ClothNeXt*`; neither repository nor
-extension directories receive mutable runtime files. Phase 2.5 exercised this lifecycle
-against the real official Windows binary and verified no server process remained.
+Owned local deployments may supply solver-tree-specific `PATH` and `PYTHONPATH`
+entries to the child process. Progress lives in `%TEMP%/ClothNeXt*`; neither repository
+nor extension directories receive mutable runtime files. The Phase 2.5 prototype
+exercised this lifecycle against the real official Windows binary and verified no
+server process remained; current packages do not bundle that runtime.
 
 ## Result streaming and cancellation
 

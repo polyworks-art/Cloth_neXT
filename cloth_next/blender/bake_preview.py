@@ -43,4 +43,24 @@ def stop():
     global _running
     _running = False
     if bpy.app.timers.is_registered(_tick): bpy.app.timers.unregister(_tick)
-    shared_controller.reset()
+    _force_idle()
+
+
+def _force_idle():
+    """Return the shared controller to IDLE from any state.
+
+    ``stop()`` runs from ``registration.unregister()``, which must always
+    complete. A controller parked in a mid-bake state — e.g. PREPARING, when
+    the add-on is disabled after validation but before the worker starts — has
+    no legal direct transition to IDLE, and the resulting InvalidTransition
+    used to abort the unregister half-way, leaving classes and handlers behind.
+    Fail it explicitly first, then reset; the reason stays visible in the
+    snapshot rather than being swallowed.
+    """
+    if shared_controller.snapshot().state is BakeState.IDLE:
+        return
+    try:
+        shared_controller.reset()
+    except InvalidTransition:
+        shared_controller.fail("Cloth NeXt was disabled during a bake.")
+        shared_controller.reset()
