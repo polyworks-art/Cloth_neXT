@@ -94,7 +94,7 @@ def test_production_request_arms_terminal_shutdown_without_modal_lock(
     assert manager._terminal_deadline == 101.5
 
 
-def test_stale_terminal_snapshot_cannot_close_new_companion(
+def test_non_bake_terminal_snapshot_cannot_close_production_companion(
         blender_env, monkeypatch):
     manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
     reset(manager); manager._production_session=True
@@ -102,9 +102,23 @@ def test_stale_terminal_snapshot_cannot_close_new_companion(
     monkeypatch.setattr(manager,"_server",SimpleNamespace(
         publish=lambda _snapshot:None))
     manager._publish(SimpleNamespace(
-        job_id="stale", job_kind=manager.BakeJobKind.BAKE,
+        job_id="diagnostic", job_kind=manager.BakeJobKind.SOLVER_TEST,
         state=BakeState.FINISHED))
     assert manager._terminal_deadline is None
+
+
+def test_terminal_bake_closes_even_if_controller_rotated_job_id(
+        blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager); manager._production_session=True
+    manager._production_job_id="handshake-job"
+    monkeypatch.setattr(manager,"_server",SimpleNamespace(
+        publish=lambda _snapshot:None))
+    monkeypatch.setattr(manager.time,"monotonic",lambda:50.0)
+    manager._publish(SimpleNamespace(
+        job_id="terminal-job", job_kind=manager.BakeJobKind.BAKE,
+        state=BakeState.FINISHED))
+    assert manager._terminal_deadline == 51.5
 
 
 def test_terminal_deadline_requests_shutdown_then_forces_exit(

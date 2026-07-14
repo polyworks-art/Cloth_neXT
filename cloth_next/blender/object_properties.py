@@ -277,6 +277,9 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
 
 
 class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
+    show_advanced: bpy.props.BoolProperty(
+        name="Advanced Settings", default=False,
+        description="Show the four numeric solver quality controls")
     time_step: bpy.props.FloatProperty(
         name="Time Step", default=DEFAULT_TIME_STEP,
         min=MIN_TIME_STEP, max=MAX_TIME_STEP, precision=5,

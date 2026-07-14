@@ -14,6 +14,8 @@ import bpy
 
 from . import object_properties
 from ..bake.controller import shared_controller
+from ..solver_quality import (SolverQualityValidationError,
+                              apply_quality_preset)
 
 
 def _active_mesh(context):
@@ -122,6 +124,40 @@ class CLOTHNEXT_OT_use_scene_range(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
+    """Apply one scene-wide solver quality preset."""
+
+    bl_idname = "clothnext.apply_solver_quality_preset"
+    bl_label = "Apply Solver Quality Preset"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    preset: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        return (getattr(getattr(context, "scene", None),
+                        "cloth_next_quality", None) is not None
+                and not shared_controller.snapshot().active)
+
+    def execute(self, context):
+        if shared_controller.snapshot().active:
+            self.report({"WARNING"},
+                        "Solver Quality cannot change during an active Bake.")
+            return {"CANCELLED"}
+        try:
+            values = apply_quality_preset(self.preset)
+        except SolverQualityValidationError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        quality = context.scene.cloth_next_quality
+        quality.time_step = values.time_step
+        quality.min_newton_steps = values.min_newton_steps
+        quality.cg_max_iter = values.cg_max_iter
+        quality.cg_tol = values.cg_tol
+        return {"FINISHED"}
+
+
 CLASSES = (CLOTHNEXT_OT_set_object_type,
            CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
-           CLOTHNEXT_OT_use_scene_range)
+           CLOTHNEXT_OT_use_scene_range,
+           CLOTHNEXT_OT_apply_solver_quality_preset)

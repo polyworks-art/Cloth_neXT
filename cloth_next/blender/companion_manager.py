@@ -76,13 +76,14 @@ def _publish(snapshot) -> None:
     global _terminal_deadline
     if _server is not None:
         _server.publish(snapshot)
-    if (_production_session and snapshot.job_id == _production_job_id
+    if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
             and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):
         modal_lock.release(snapshot.job_id)
         _terminal_deadline = time.monotonic() + _TERMINAL_GRACE[snapshot.state]
         _log("shutdown", "terminal Bake state scheduled Companion exit",
-             job_id=snapshot.job_id, state=snapshot.state.value,
+             job_id=snapshot.job_id, requested_job_id=_production_job_id,
+             state=snapshot.state.value,
              grace_seconds=_TERMINAL_GRACE[snapshot.state])
 
 

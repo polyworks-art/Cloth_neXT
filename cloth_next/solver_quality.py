@@ -57,3 +57,55 @@ class SolverQualitySettings:
 
 
 DEFAULT_SOLVER_QUALITY = SolverQualitySettings()
+
+
+@dataclass(frozen=True, slots=True)
+class SolverQualityPreset:
+    identifier: str
+    label: str
+    description: str
+    settings: SolverQualitySettings
+    warning: str = ""
+
+
+QUALITY_PRESETS = (
+    SolverQualityPreset("LOW", "Low", "Fast previews for setup and broad motion checks.",
+                        SolverQualitySettings(0.010, 1, 2500, 0.010)),
+    SolverQualityPreset("MEDIUM", "Medium", "Balanced working quality for most simulations.",
+                        SolverQualitySettings(0.005, 1, 5000, 0.005)),
+    SolverQualityPreset("HIGH", "High", "High-quality simulation for final results and reliable contact.",
+                        SolverQualitySettings(0.001, 1, 10000, 0.001)),
+    SolverQualityPreset(
+        "EXTREME", "Extreme",
+        "Maximum solve effort and smaller motion steps for difficult contact.",
+        SolverQualitySettings(0.0005, 4, 25000, 0.0001),
+        "Extreme can increase simulation time significantly."),
+)
+
+_QUALITY_PRESETS_BY_ID = {preset.identifier: preset for preset in QUALITY_PRESETS}
+QUALITY_FLOAT_ABS_TOLERANCE = 1e-9
+
+
+def quality_preset(identifier: str) -> SolverQualityPreset:
+    try:
+        return _QUALITY_PRESETS_BY_ID[str(identifier).upper()]
+    except KeyError as exc:
+        raise SolverQualityValidationError(
+            f"unknown solver quality preset: {identifier!r}") from exc
+
+
+def apply_quality_preset(identifier: str) -> SolverQualitySettings:
+    return quality_preset(identifier).settings
+
+
+def matching_quality_preset(settings: SolverQualitySettings) -> SolverQualityPreset | None:
+    for preset in QUALITY_PRESETS:
+        candidate = preset.settings
+        if (settings.min_newton_steps == candidate.min_newton_steps
+                and settings.cg_max_iter == candidate.cg_max_iter
+                and math.isclose(settings.time_step, candidate.time_step, rel_tol=0.0,
+                                 abs_tol=QUALITY_FLOAT_ABS_TOLERANCE)
+                and math.isclose(settings.cg_tol, candidate.cg_tol, rel_tol=0.0,
+                                 abs_tol=QUALITY_FLOAT_ABS_TOLERANCE)):
+            return preset
+    return None

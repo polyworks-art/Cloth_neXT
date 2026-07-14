@@ -99,9 +99,12 @@ def test_every_solver_quality_property_marks_dirty(env):
     quality_cls = env.object_properties.CLOTHNEXT_PG_solver_quality_settings
     from tests.fake_bpy import _resolved_props
     props = _resolved_props(quality_cls)
-    assert set(props) == {"time_step", "min_newton_steps", "cg_max_iter",
-                          "cg_tol"}
+    assert set(props) == {"show_advanced", "time_step", "min_newton_steps",
+                          "cg_max_iter", "cg_tol"}
+    assert props["show_advanced"].keywords.get("update") is None
     for name, prop in props.items():
+        if name == "show_advanced":
+            continue
         assert prop.keywords.get("update") is not None, \
             f"solver quality '{name}' must mark the scene dirty"
 

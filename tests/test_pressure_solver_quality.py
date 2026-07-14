@@ -13,9 +13,26 @@ from cloth_next.ppf.schema.params import (SimulationSettings,
                                           shell_wire_params,
                                           static_wire_params)
 from cloth_next.solver_quality import (
+    QUALITY_PRESETS, apply_quality_preset, matching_quality_preset,
     DEFAULT_CG_MAX_ITER, DEFAULT_CG_TOL, DEFAULT_MIN_NEWTON_STEPS,
     DEFAULT_SOLVER_QUALITY, DEFAULT_TIME_STEP, SolverQualitySettings,
     SolverQualityValidationError)
+
+
+def test_quality_presets_are_complete_and_match_their_values():
+    assert [preset.identifier for preset in QUALITY_PRESETS] == [
+        "LOW", "MEDIUM", "HIGH", "EXTREME"]
+    for preset in QUALITY_PRESETS:
+        assert apply_quality_preset(preset.identifier.lower()) == preset.settings
+        assert matching_quality_preset(preset.settings) is preset
+    assert apply_quality_preset("EXTREME").time_step == 0.0005
+
+
+def test_custom_quality_has_no_match_and_unknown_preset_is_rejected():
+    assert matching_quality_preset(
+        replace(DEFAULT_SOLVER_QUALITY, cg_max_iter=10001)) is None
+    with pytest.raises(SolverQualityValidationError, match="unknown"):
+        apply_quality_preset("missing")
 
 
 def test_pressure_defaults_and_exact_effective_wire_value():
