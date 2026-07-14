@@ -7,7 +7,7 @@
       "id": "cloth_next",
       "name": "Cloth NeXt",
       "tagline": "Cloth simulation through the external PPF Contact Solver",
-      "version": "0.3.0-dev.13",
+      "version": "0.3.0-dev.14",
       "type": "add-on",
       "maintainer": "Tim Christmann",
       "license": [
@@ -28,9 +28,9 @@
       "platforms": [
         "windows-x64"
       ],
-      "archive_url": "./cloth_next-0.3.0-dev.13-windows-x64.zip",
-      "archive_size": 24331904,
-      "archive_hash": "sha256:9df3f91385a182718b39e09323c66f5d6af1e703b6b8b3a8df2c806949eaae57"
+      "archive_url": "./cloth_next-0.3.0-dev.14-windows-x64.zip",
+      "archive_size": 24332226,
+      "archive_hash": "sha256:e1eb130eb19c892ef1141341cff95725b319725cf29623b3da137cd01e3e5f6c"
     }
   ]
 }
