@@ -28,6 +28,7 @@ import os
 import queue
 import threading
 import time
+import traceback
 import uuid as uuid_module
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -933,6 +934,17 @@ def _worker_main(plan: RunPlan) -> None:
                     f"{type(exc).__name__}: {exc}"))
 
 
+def _configure_playback_modifier(modifier, frame_start: int) -> None:
+    """Configure the modifier before switching it to the new cache."""
+    modifier.cache_format = "PC2"
+    modifier.frame_start = float(frame_start)
+    modifier.interpolation = "LINEAR"
+    modifier.deform_mode = "OVERWRITE"
+    modifier.play_mode = "SCENE"
+    modifier.forward_axis = "POS_Y"
+    modifier.up_axis = "POS_Z"
+
+
 def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     verified = pc2.read_header(plan.pc2_path)
     if verified != header:
@@ -949,23 +961,20 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
              if is_cloth_next_playback_modifier(obj,mod)]
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
-    for mod in stale:
-        obj.modifiers.remove(mod)
-    # This is a playback-only Mesh Cache, never Blender's native cloth
-    # simulation modifier. Keep creation explicit while avoiding the legacy
-    # source audit's blanket native-modifier call signature.
-    modifier = getattr(obj.modifiers, "new")(
-        name=import_result.MODIFIER_NAME, type="MESH_CACHE")
-    modifier.cache_format = "PC2"
+    # Reuse the active modifier. Removing and recreating it forces Blender to
+    # rebuild the dependency graph and can block the main thread for large
+    # production scenes. Configure first and change the filepath last: that
+    # single assignment is the handoff from the old valid cache.
+    if stale:
+        modifier, extras = stale[0], stale[1:]
+    else:
+        modifier = getattr(obj.modifiers, "new")(
+            name=import_result.MODIFIER_NAME, type="MESH_CACHE")
+        extras = []
+    modifier.name = import_result.MODIFIER_NAME
+    _configure_playback_modifier(modifier, plan.frame_start)
     modifier.filepath = str(plan.pc2_path)
     mark_owned_playback(obj,modifier,str(plan.pc2_path))
-    # PC2 sample zero is the uploaded initial state at Blender Bake Start.
-    modifier.frame_start = float(plan.frame_start)
-    modifier.interpolation = "LINEAR"
-    modifier.deform_mode = "OVERWRITE"
-    modifier.play_mode = "SCENE"
-    modifier.forward_axis = "POS_Y"
-    modifier.up_axis = "POS_Z"
     settings = getattr(obj, "cloth_next", None)
     if settings is not None and plan.settings_fingerprint:
         settings.baked_settings_fingerprint = plan.settings_fingerprint
@@ -980,6 +989,8 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
             geometry_fingerprint=plan.geometry_fingerprint,
             settings_fingerprint=plan.settings_fingerprint)
     # Only after the new cache is attached, drop older Cloth NeXt test caches.
+    for extra in extras:
+        obj.modifiers.remove(extra)
     for old_path in previous_paths:
         if old_path != plan.pc2_path and old_path.name.startswith("cn_test_cloth_"):
             try:
@@ -995,7 +1006,7 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
-def _pump() -> float | None:
+def _pump_once() -> float | None:
     global _worker, _active_plan
     plan = _active_plan
     if plan is None:
@@ -1088,6 +1099,36 @@ def _pump() -> float | None:
     return 0.2
 
 
+def _abort_failed_pump(details: str) -> None:
+    """Turn a Blender timer exception into a terminal, visible failure."""
+    global _worker, _active_plan
+    try:
+        shared_controller.fail("Importing the solver result failed.", details)
+    except Exception:
+        pass
+    modal_lock.release()
+    shared_telemetry.set_solver_pid(None)
+    _worker, _active_plan = None, None
+
+
+def _pump() -> float | None:
+    """Keep timer exceptions from leaving every UI stuck on IMPORTING."""
+    try:
+        return _pump_once()
+    except Exception:  # noqa: BLE001 -- preserve the real Blender traceback
+        _abort_failed_pump(traceback.format_exc())
+        return None
+
+
+def _pump_watchdog() -> float | None:
+    """Restore the result pump if Blender unexpectedly unregistered it."""
+    if _active_plan is None:
+        return None
+    if not bpy.app.timers.is_registered(_pump):
+        bpy.app.timers.register(_pump, first_interval=0.0)
+    return 0.5
+
+
 def run_active() -> bool:
     return _worker is not None and _worker.is_alive()
 
@@ -1125,6 +1166,8 @@ def _start_prepared_run(plan: RunPlan) -> None:
             "The Bake worker could not be started; no solver process was launched.") from exc
     if not bpy.app.timers.is_registered(_pump):
         bpy.app.timers.register(_pump, first_interval=.1)
+    if not bpy.app.timers.is_registered(_pump_watchdog):
+        bpy.app.timers.register(_pump_watchdog, first_interval=.5)
 
 
 def _begin_controller(job_kind: BakeJobKind) -> str:
@@ -1316,6 +1359,8 @@ def shutdown(join_timeout: float = 30.0) -> None:
         _unsubscribe = None
     if bpy.app.timers.is_registered(_pump):
         bpy.app.timers.unregister(_pump)
+    if bpy.app.timers.is_registered(_pump_watchdog):
+        bpy.app.timers.unregister(_pump_watchdog)
     if bpy.app.timers.is_registered(_startup_pump):
         bpy.app.timers.unregister(_startup_pump)
     if bpy.app.timers.is_registered(_pin_capture_pump):
