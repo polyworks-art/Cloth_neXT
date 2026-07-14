@@ -36,6 +36,31 @@ def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
         messages.append(module._queue.get_nowait()[0])
     assert messages[-1] == "finished"
 
+
+def test_worker_failure_is_printed_persisted_and_sent_to_ui(
+        blender_env, monkeypatch, tmp_path, capsys):
+    module = blender_env.solver_test
+
+    class FailingSession:
+        def __init__(self, **_kwargs): pass
+        def run(self): raise RuntimeError("solver exploded at frame 42")
+
+    monkeypatch.setattr(module, "SolverSession", FailingSession)
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        "cloth", tmp_path / "run", tmp_path / "x.pc2", 1)
+
+    module._worker_main(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "error"
+    assert "solver exploded at frame 42" in message[2]
+    assert str(plan.work_directory / "failure.log") in message[2]
+    report = (plan.work_directory / "failure.log").read_text(encoding="utf-8")
+    assert "RuntimeError: solver exploded at frame 42" in report
+    assert "solver exploded at frame 42" in capsys.readouterr().out
+
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test
     module._cancel_event.clear()

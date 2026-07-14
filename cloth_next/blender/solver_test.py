@@ -1128,6 +1128,24 @@ def _discard_incomplete(plan: RunPlan | None) -> None:
             try: target.unlink(missing_ok=True)
             except OSError: pass
 
+
+def _record_worker_failure(plan: RunPlan, summary: str, details: str) -> str:
+    """Persist and print worker diagnostics without masking the real error."""
+    failure_path = plan.work_directory / "failure.log"
+    report = f"{summary}\n\n{details}\n"
+    try:
+        failure_path.parent.mkdir(parents=True, exist_ok=True)
+        failure_path.write_text(report, encoding="utf-8")
+        location = str(failure_path.resolve())
+    except OSError as exc:
+        location = f"unavailable ({type(exc).__name__}: {exc})"
+    visible = f"{details}\nDiagnostic log: {location}"
+    print(f"Cloth NeXt Bake failed: {summary}\n{visible}", flush=True)
+    log_with_context(get_logger("solver.worker"), 40, summary, {
+        "details": details, "diagnostic_log": location,
+    })
+    return visible
+
 def _worker_main(plan: RunPlan) -> None:
     def emit(event) -> None:
         _queue.put(("event", event))
@@ -1219,15 +1237,19 @@ def _worker_main(plan: RunPlan) -> None:
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan)
-        _queue.put(("error", exc.record.user_message,
-                    f"{exc.record.technical_message}\n"
-                    f"Recommended: {exc.record.recommended_action}"))
+        summary = exc.record.user_message
+        details = (f"{exc.record.technical_message}\n"
+                   f"Recommended: {exc.record.recommended_action}")
+        _queue.put(("error", summary,
+                    _record_worker_failure(plan, summary, details)))
     except Exception as exc:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan)
-        _queue.put(("error", "The solver test failed unexpectedly.",
-                    f"{type(exc).__name__}: {exc}"))
+        summary = "The solver test failed unexpectedly."
+        details = traceback.format_exc()
+        _queue.put(("error", summary,
+                    _record_worker_failure(plan, summary, details)))
 
 
 def _configure_playback_modifier(modifier, frame_start: int) -> None:
