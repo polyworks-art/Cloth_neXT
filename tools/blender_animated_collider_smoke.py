@@ -54,7 +54,7 @@ def main():
     rigid.keyframe_insert("scale", frame=3)
     rigid_capture, rigid_seconds, rigid_peak = _capture(rigid)
     assert rigid_capture.motion_type == "RIGID_ANIMATED"
-    assert len(rigid_capture.animation["time"]) == 3
+    assert len(rigid_capture.animation["time"]) == 5
     rigid_capture.cleanup()
 
     bpy.ops.mesh.primitive_cube_add()
@@ -77,7 +77,7 @@ def main():
     deform_capture, deform_seconds, deform_peak = _capture(deform)
     assert deform_capture.motion_type == "DEFORMING_ANIMATED"
     temp_size = deform_capture.temporary_path.stat().st_size
-    assert temp_size == 3 * len(deform.data.vertices) * 3 * 4
+    assert temp_size == 5 * len(deform.data.vertices) * 3 * 4
     deform_capture.cleanup()
 
     bpy.ops.mesh.primitive_cube_add()
@@ -115,8 +115,9 @@ def main():
                                     + len(deform.data.vertices)),
         "rigid_capture_seconds": rigid_seconds,
         "deforming_capture_seconds": deform_seconds,
-        "average_capture_seconds_per_frame": (
-            rigid_seconds + deform_seconds) / 6.0,
+        "samples_per_collider": 5,
+        "average_capture_seconds_per_sample": (
+            rigid_seconds + deform_seconds) / 10.0,
         "temporary_file_bytes": temp_size,
         "python_peak_bytes": max(rigid_peak, deform_peak),
         "frame_restored": scene.frame_current == 2,

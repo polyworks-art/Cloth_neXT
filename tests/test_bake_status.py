@@ -77,6 +77,9 @@ def test_error_and_authenticated_bounded_schema():
     c = BakeController()
     c.transition(BakeState.PREPARING)
     snap = c.fail("Preview failure", "details")
+    assert snap.activity_detail == "scene validation"
+    assert snap.error_details.startswith("Stage: scene validation")
+    assert "What to do:" in snap.error_details
     token = "secret"
     assert decode_message(encode_message("status", token, snap), token)["snapshot"] == snap
     with pytest.raises(PermissionError):

@@ -26,6 +26,7 @@ import json
 import math
 import os
 import queue
+import re
 import threading
 import time
 import traceback
@@ -725,29 +726,47 @@ def _matrix_trs(matrix):
             [float(value) for value in scale])
 
 
+COLLIDER_SAMPLES_PER_FRAME = 2
+
+
+def _collider_sample_points(bake_range: BakeFrameRange, fps: int):
+    """Half-frame evaluated samples, including both Bake endpoints."""
+    intervals = bake_range.output_count - 1
+    count = intervals * COLLIDER_SAMPLES_PER_FRAME + 1
+    result = []
+    for index in range(count):
+        position = bake_range.start + index / COLLIDER_SAMPLES_PER_FRAME
+        frame = math.floor(position)
+        subframe = position - frame
+        result.append((frame, subframe,
+                       index / (float(fps) * COLLIDER_SAMPLES_PER_FRAME)))
+    return tuple(result)
+
+
 def _capture_collider_motion(context, collider_obj,
                              bake_range: BakeFrameRange) -> ColliderMotionCapture:
     """Capture and classify one animated Collider on Blender's main thread."""
     scene = context.scene
     original_frame = int(scene.frame_current)
-    frame_count = bake_range.output_count
-    times = [index / float(_scene_fps(context)) for index in range(frame_count)]
+    sample_points = _collider_sample_points(
+        bake_range, _scene_fps(context))
+    sample_count = len(sample_points)
+    times = [point[2] for point in sample_points]
     reference_vertices = None
     reference_triangles = None
     matrices = []
     local_samples = None
     temporary_path = None
     try:
-        for offset, frame in enumerate(range(bake_range.start,
-                                             bake_range.end + 1)):
+        for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
                 raise SessionCancelled()
             shared_controller.update(
                 status_message=(f"Capturing collider animation · frame "
-                                f"{frame} / {bake_range.end}"),
+                                f"{frame + subframe:g} / {bake_range.end}"),
                 current_frame=frame, progress_current=offset + 1,
-                progress_total=frame_count)
-            scene.frame_set(frame)
+                progress_total=sample_count)
+            scene.frame_set(frame, subframe=subframe)
             _depsgraph_update(context)
             evaluated = collider_obj.evaluated_get(
                 context.evaluated_depsgraph_get())
@@ -760,7 +779,7 @@ def _capture_collider_motion(context, collider_obj,
                 if count == 0 or not triangles:
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an empty '
-                        f'evaluated mesh at frame {frame}.')
+                        f'evaluated mesh at frame {frame + subframe:g}.')
                 if reference_triangles is not None and (
                         count != len(reference_vertices)
                         or triangles != reference_triangles):
@@ -770,7 +789,7 @@ def _capture_collider_motion(context, collider_obj,
                               else "triangle count changed")
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" changes topology at '
-                        f'frame {frame}. Expected {len(reference_vertices)} '
+                        f'frame {frame + subframe:g}. Expected {len(reference_vertices)} '
                         f'vertices and {expected_triangles} triangles; got '
                         f'{count} vertices and {len(triangles)} triangles '
                         f'({detail}). Animated colliders must keep a '
@@ -780,13 +799,13 @@ def _capture_collider_motion(context, collider_obj,
                 if not np.isfinite(local).all():
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" contains non-finite '
-                        f'positions at frame {frame}.')
+                        f'positions at frame {frame + subframe:g}.')
                 world = tuple(tuple(float(value) for value in row)
                               for row in evaluated.matrix_world)
                 if not matrix_is_finite_and_invertible(world):
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an invalid '
-                        f'transform at frame {frame}.')
+                        f'transform at frame {frame + subframe:g}.')
                 matrices.append(solver_world_matrix(world))
                 if reference_vertices is None:
                     reference_vertices = local.copy()
@@ -795,7 +814,7 @@ def _capture_collider_motion(context, collider_obj,
                         / f"cloth_next_collider_{uuid_module.uuid4().hex}.bin")
                     local_samples = np.memmap(
                         temporary_path, dtype="<f4", mode="w+",
-                        shape=(frame_count, count, 3))
+                        shape=(sample_count, count, 3))
                 local_samples[offset] = local
             finally:
                 evaluated.to_mesh_clear()
@@ -805,11 +824,14 @@ def _capture_collider_motion(context, collider_obj,
         deforming = any(not np.allclose(local_samples[index],
                                         reference_vertices, rtol=0.0,
                                         atol=1e-6)
-                        for index in range(1, frame_count))
+                                        for index in range(1, sample_count))
         if not deforming:
             translations, quaternions, scales = [], [], []
             for matrix in matrices:
                 translation, quaternion, scale = _matrix_trs(matrix)
+                if (quaternions and sum(a * b for a, b in
+                                        zip(quaternions[-1], quaternion)) < 0.0):
+                    quaternion = [-value for value in quaternion]
                 translations.append(translation)
                 quaternions.append(quaternion)
                 scales.append(scale)
@@ -824,7 +846,7 @@ def _capture_collider_motion(context, collider_obj,
                      {"interpolation": "LINEAR",
                       "handle_right": [1.0 / 3.0, 0.0],
                       "handle_left": [2.0 / 3.0, 1.0]}
-                     for _index in range(frame_count - 1)]})
+                     for _index in range(sample_count - 1)]})
             local_samples._mmap.close()
             temporary_path.unlink(missing_ok=True)
             return result
@@ -1146,6 +1168,32 @@ def _record_worker_failure(plan: RunPlan, summary: str, details: str) -> str:
     })
     return visible
 
+
+def _present_worker_error(plan: RunPlan, exc: ClothNextError) -> tuple[str, str]:
+    """Translate technical solver failures into actionable Blender language."""
+    record = exc.record
+    technical = record.technical_message
+    convergence = re.search(
+        r"Linear solver failed to converge: advance failed at frame (\d+)",
+        technical, re.IGNORECASE)
+    if convergence:
+        solver_frame = int(convergence.group(1))
+        blender_frame = plan.frame_start + solver_frame
+        summary = ("Simulation could not converge at Blender frame "
+                   f"{blender_frame}.")
+        action = ("Try a smaller Time Step or denser Collider motion "
+                  "sampling, then inspect contact around the preceding "
+                  "and failing frames.")
+        details = (f"Stage: collision and constraint solve\n"
+                   f"Solver frame: {solver_frame}\n"
+                   f"Blender frame: {blender_frame}\n"
+                   f"Cause: {technical}\n"
+                   f"What to do: {action}")
+        return summary, details
+    details = (f"Cause: {technical}\n"
+               f"What to do: {record.recommended_action}")
+    return record.user_message, details
+
 def _worker_main(plan: RunPlan) -> None:
     def emit(event) -> None:
         _queue.put(("event", event))
@@ -1237,9 +1285,7 @@ def _worker_main(plan: RunPlan) -> None:
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan)
-        summary = exc.record.user_message
-        details = (f"{exc.record.technical_message}\n"
-                   f"Recommended: {exc.record.recommended_action}")
+        summary, details = _present_worker_error(plan, exc)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details)))
     except Exception as exc:  # noqa: BLE001 — surfaced as a visible ERROR state

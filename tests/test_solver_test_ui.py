@@ -7,6 +7,7 @@ import threading
 from types import SimpleNamespace
 
 from cloth_next.bake.status import BakeState
+from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
 
 
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
@@ -60,6 +61,23 @@ def test_worker_failure_is_printed_persisted_and_sent_to_ui(
     report = (plan.work_directory / "failure.log").read_text(encoding="utf-8")
     assert "RuntimeError: solver exploded at frame 42" in report
     assert "solver exploded at frame 42" in capsys.readouterr().out
+
+
+def test_convergence_failure_names_blender_frame_and_action(blender_env):
+    module = blender_env.solver_test
+    plan = SimpleNamespace(frame_start=1)
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver rejected the status request.",
+        technical_message=("server error during status: Linear solver failed "
+                           "to converge: advance failed at frame 41"),
+        recommended_action="Retry."))
+
+    summary, details = module._present_worker_error(plan, error)
+
+    assert summary == "Simulation could not converge at Blender frame 42."
+    assert "Stage: collision and constraint solve" in details
+    assert "What to do:" in details
 
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test

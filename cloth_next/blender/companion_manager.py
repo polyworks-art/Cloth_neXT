@@ -35,6 +35,7 @@ _terminal_deadline = None
 _force_deadline = None
 _kill_deadline = None
 _production_session = False
+_production_job_id = ""
 
 
 def _log_path() -> Path:
@@ -72,15 +73,17 @@ def running() -> bool:
 
 
 def _publish(snapshot) -> None:
-    global _terminal_deadline, _production_session
+    global _terminal_deadline
     if _server is not None:
         _server.publish(snapshot)
-    if snapshot.job_kind is BakeJobKind.BAKE and modal_lock.active(snapshot.job_id):
-        _production_session = True
-    if (_production_session and snapshot.state in _TERMINAL_GRACE
+    if (_production_session and snapshot.job_id == _production_job_id
+            and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):
         modal_lock.release(snapshot.job_id)
         _terminal_deadline = time.monotonic() + _TERMINAL_GRACE[snapshot.state]
+        _log("shutdown", "terminal Bake state scheduled Companion exit",
+             job_id=snapshot.job_id, state=snapshot.state.value,
+             grace_seconds=_TERMINAL_GRACE[snapshot.state])
 
 
 def _launch() -> tuple[bool, str, bool]:
@@ -132,7 +135,7 @@ def _launch() -> tuple[bool, str, bool]:
 def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     """Reserve one readiness attempt. No worker, PPF, or modal lock starts."""
     global _pending_request, _pending_deadline, _ready, _startup_error
-    global _owned_for_attempt
+    global _owned_for_attempt, _production_session, _production_job_id
     if _pending_request is not None:
         return False, "A Bake window startup is already pending."
     ok, message, owned = _launch()
@@ -144,6 +147,11 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     _ready = None
     _startup_error = ""
     _owned_for_attempt = owned
+    # This request is the authoritative production-session boundary. Do not
+    # infer ownership later from a transient modal-lock observation: the
+    # terminal transition can release that lock before a listener sees it.
+    _production_session = True
+    _production_job_id = request.job_id
     _log("handshake", "waiting for Bake window readiness",
          job_id=request.job_id, frame_start=request.frame_start,
          frame_end=request.frame_end)
@@ -251,6 +259,9 @@ def _pulse():
             if snapshot.active:
                 shared_controller.update(
                     status_message="Bake window closed unexpectedly.")
+            else:
+                _log("shutdown", "Companion acknowledged close",
+                     job_id=snapshot.job_id, state=snapshot.state.value)
     now = time.monotonic()
     if _pending_request is not None:
         if not running():
@@ -260,15 +271,21 @@ def _pulse():
             cancel_startup(_pending_request.job_id,
                            "The Bake window did not become ready. Bake was not started.")
     if _terminal_deadline is not None and now >= _terminal_deadline:
+        _log("shutdown", "requesting graceful Companion exit",
+             job_id=_production_job_id)
         _server.shutdown_companion(); _terminal_deadline = None
         _force_deadline = now + 1.0
     if _force_deadline is not None:
         if not running(): _dispose_transport(); return None
         if now >= _force_deadline:
+            _log("shutdown", "terminating unresponsive Companion",
+                 job_id=_production_job_id, pid=getattr(_process, "pid", None))
             _process.terminate(); _force_deadline = None; _kill_deadline = now + 1.0
     if _kill_deadline is not None:
         if not running(): _dispose_transport(); return None
         if now >= _kill_deadline:
+            _log("shutdown", "killing unresponsive Companion",
+                 job_id=_production_job_id, pid=getattr(_process, "pid", None))
             _process.kill(); _dispose_transport(); return None
     if _production_session and not running():
         snapshot = shared_controller.snapshot()
@@ -289,15 +306,20 @@ def _request_close_now() -> None:
 def _dispose_transport() -> None:
     global _process, _server, _unsubscribe, _terminal_deadline
     global _force_deadline, _kill_deadline, _production_session
+    global _production_job_id, _owned_for_attempt
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
     if _server: _server.close(join=False)
     _process = None; _server = None; _terminal_deadline = None
     _force_deadline = None; _kill_deadline = None; _production_session = False
+    _production_job_id = ""; _owned_for_attempt = False
 
 
 def shutdown() -> None:
     global _process, _server, _unsubscribe, _pending_request, _ready
+    global _production_session, _production_job_id, _owned_for_attempt
+    global _terminal_deadline, _force_deadline, _kill_deadline
+    global _pending_deadline, _startup_error
     modal_lock.release()
     _pending_request = None; _ready = None
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
@@ -312,3 +334,7 @@ def shutdown() -> None:
             except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=1)
     if _server: _server.close()
     _process = None; _server = None
+    _production_session = False; _production_job_id = ""
+    _owned_for_attempt = False
+    _terminal_deadline = None; _force_deadline = None; _kill_deadline = None
+    _pending_deadline = None; _startup_error = ""

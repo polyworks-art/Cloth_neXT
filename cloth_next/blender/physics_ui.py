@@ -660,6 +660,14 @@ def _draw_solver_test_controls(layout, context) -> None:
         column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
     if snapshot.error_summary:
         column.label(text=snapshot.error_summary, icon="ERROR")
+        details = tuple(line.strip() for line in snapshot.error_details.splitlines()
+                        if line.strip())
+        for prefix in ("Stage:", "Blender frame:", "What to do:",
+                       "Diagnostic log:"):
+            line = next((value for value in details
+                         if value.startswith(prefix)), None)
+            if line:
+                column.label(text=line[:180])
     layout.operator("clothnext.inspect_parameters",
                     **icon_registry.icon_kwargs("info", "VIEWZOOM"))
     actions=layout.row(align=True)

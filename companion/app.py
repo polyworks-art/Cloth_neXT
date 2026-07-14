@@ -113,6 +113,7 @@ class BakeWindow:
         self._activity_pending=None; self._activity_after=None; self._closed=False
         self._progress_fraction=0.0
         self._job_modal=False
+        self._error_details=""
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.mist.start()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
@@ -177,7 +178,20 @@ class BakeWindow:
         status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
                         highlightbackground="#777777",highlightthickness=1,height=1)
         status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
-        bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=1,column=0,sticky="ew",pady=(5,0))
+        self.error_panel=ttk.Frame(outer,style="Inset.TFrame",padding=(7,5))
+        self.error_panel.grid(row=1,column=0,sticky="ew",pady=(5,0))
+        self.error_panel.columnconfigure(0,weight=1)
+        tk.Label(self.error_panel,textvariable=self.primary,bg=PANEL,fg="#ffb36a",
+                 font=("Segoe UI Semibold",9),anchor="w",justify="left",
+                 wraplength=315).grid(row=0,column=0,sticky="ew")
+        tk.Label(self.error_panel,textvariable=self.secondary,bg=PANEL,fg=MUTED,
+                 font=("Segoe UI",8),anchor="w",justify="left",
+                 wraplength=315).grid(row=1,column=0,sticky="ew",pady=(3,0))
+        ttk.Button(self.error_panel,text="Details",width=8,style="CN.TButton",
+                   command=self._show_error_details).grid(
+                       row=0,column=1,rowspan=2,padx=(6,0))
+        self.error_panel.grid_remove()
+        bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.pause=ttk.Button(bottom,text="Pause",width=8,style="CN.TButton",state="disabled",command=self._pause)
         self.pause.pack(side="left")
         ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",anchor="center",justify="center").place(relx=.5,rely=.5,anchor="center")
@@ -191,6 +205,10 @@ class BakeWindow:
         self.progress.coords(self.progress_label,width/2,11)
 
     def _about(self): messagebox.showinfo("About Cloth NeXt Bake","SideFX, please don’t sue me.",parent=self.root)
+    def _show_error_details(self):
+        messagebox.showerror(self.primary.get() or "Cloth NeXt Bake failed",
+                             self._error_details or self.secondary.get(),
+                             parent=self.root)
     def _pause(self): pass
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
@@ -231,7 +249,21 @@ class BakeWindow:
         self.progress.itemconfigure(self.progress_label,text=self.progress_text.get())
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
-        self.secondary.set(snapshot.error_details or snapshot.status_message or "No PPF simulation is running.")
+        self._error_details=snapshot.error_details or ""
+        detail_lines=[line.strip() for line in self._error_details.splitlines()
+                      if line.strip()]
+        concise=[]
+        for prefix in ("Stage:","Blender frame:","Cause:","What to do:",
+                       "Diagnostic log:"):
+            match=next((line for line in detail_lines if line.startswith(prefix)),None)
+            if match and match not in concise:concise.append(match)
+        self.secondary.set("\n".join(concise[:3]) or snapshot.status_message
+                           or "No PPF simulation is running.")
+        if snapshot.state is BakeState.ERROR:
+            self.error_panel.grid()
+            self.root.geometry(f"{max(390,self.root.winfo_width())}x210")
+        else:
+            self.error_panel.grid_remove()
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR and snapshot.activity_detail:label=f"Failed while {snapshot.activity_detail}"

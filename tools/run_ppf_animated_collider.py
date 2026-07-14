@@ -38,7 +38,8 @@ def run(executable: Path, output: Path, mode: str) -> dict:
     cloth, collider = fixture.vertical_slice_fixture()
     frame_count = 8
     fps = 24
-    times = [index / fps for index in range(frame_count)]
+    sample_count = (frame_count - 1) * 2 + 1
+    times = [index / (fps * 2) for index in range(sample_count)]
     cloth_uuid = f"cloth-{new_project_name()}"
     collider_uuid = f"collider-{new_project_name()}"
     cloth_object = SceneObject(
@@ -47,7 +48,7 @@ def run(executable: Path, output: Path, mode: str) -> dict:
     collider_matrix = solver_world_matrix(collider.world_matrix)
     if mode == "rigid":
         translations = []
-        for index in range(frame_count):
+        for index in range(sample_count):
             translations.append([
                 collider_matrix[0][3] + 0.03 * index,
                 collider_matrix[1][3], collider_matrix[2][3]])
@@ -57,19 +58,19 @@ def run(executable: Path, output: Path, mode: str) -> dict:
             collider.triangles, collider_matrix,
             transform_animation={
                 "time": times, "translation": translations,
-                "quaternion": [[half, -half, 0.0, 0.0]] * frame_count,
-                "scale": [[1.0, 1.0, 1.0]] * frame_count,
+                "quaternion": [[half, -half, 0.0, 0.0]] * sample_count,
+                "scale": [[1.0, 1.0, 1.0]] * sample_count,
                 "segments": [
                     {"interpolation": "LINEAR",
                      "handle_right": [1.0 / 3.0, 0.0],
                      "handle_left": [2.0 / 3.0, 1.0]}
-                    for _index in range(frame_count - 1)]})
+                    for _index in range(sample_count - 1)]})
     else:
         rest_world = np.asarray([
             transform_point(collider_matrix, vertex)
             for vertex in collider.vertices_local], dtype=np.float32)
-        frames = np.empty((frame_count, len(rest_world), 3), dtype=np.float32)
-        for index in range(frame_count):
+        frames = np.empty((sample_count, len(rest_world), 3), dtype=np.float32)
+        for index in range(sample_count):
             frames[index] = rest_world
             frames[index, :, 0] += 0.02 * index
             frames[index, :, 1] += np.linspace(

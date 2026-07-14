@@ -58,7 +58,7 @@ def test_quality_defaults_and_wire_mapping_are_central_and_exact():
 
 
 @pytest.mark.parametrize("kwargs", [
-    {"time_step": 0.0009}, {"time_step": float("nan")},
+    {"time_step": 0.00049}, {"time_step": float("nan")},
     {"min_newton_steps": 0}, {"min_newton_steps": 65},
     {"cg_max_iter": 99}, {"cg_max_iter": 100001},
     {"cg_tol": 0.000001}, {"cg_tol": 0.11},

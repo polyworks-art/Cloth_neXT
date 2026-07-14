@@ -48,6 +48,22 @@ _NEXT = {
     BakeState.ERROR: {BakeState.IDLE, BakeState.PREPARING},
 }
 
+_ERROR_STAGE = {
+    BakeState.PREPARING: ("scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
+    BakeState.STARTING_COMPANION: ("Bake window startup", "Restart the Bake window or Blender, then retry."),
+    BakeState.WAITING_FOR_COMPANION: ("Bake window handshake", "Close stale Bake windows and retry."),
+    BakeState.COMPANION_READY: ("Bake workflow startup", "Retry the Bake; if it repeats, inspect the diagnostic log."),
+    BakeState.STARTING_RUN: ("Bake worker startup", "Check cache-folder access and retry."),
+    BakeState.EXPORTING: ("scene export", "Check evaluated Cloth and Collider geometry, then retry."),
+    BakeState.STARTING_SOLVER: ("solver startup", "Check the installed solver and its diagnostic log, then retry."),
+    BakeState.UPLOADING: ("scene upload", "Check the local solver connection and retry."),
+    BakeState.BUILDING: ("solver project build", "Check scene geometry and the solver log, then retry."),
+    BakeState.SIMULATING: ("simulation", "Inspect the reported frame and solver cause, adjust stability settings, then retry."),
+    BakeState.FETCHING: ("result transfer", "Check the solver connection and available disk space, then retry."),
+    BakeState.IMPORTING: ("playback cache import", "Check the cache path and Cloth object, then retry."),
+    BakeState.CANCELLING: ("cancellation cleanup", "Wait for cleanup; restart Blender only if the process remains stuck."),
+}
+
 
 class BakeController:
     def __init__(self) -> None:
@@ -84,8 +100,18 @@ class BakeController:
                                status_message="Cancellation requested")
 
     def fail(self, summary: str, details: str = "") -> BakeSnapshot:
-        return self.transition(BakeState.ERROR, error_summary=summary,
-                               error_details=details, status_message=summary)
+        current = self.snapshot()
+        stage, action = _ERROR_STAGE.get(
+            current.state, ("internal operation", "Open the diagnostic log and retry."))
+        lines = [] if not details else [details]
+        if "Stage:" not in details:
+            lines.insert(0, f"Stage: {stage}")
+        if "What to do:" not in details and "Recommended:" not in details:
+            lines.append(f"What to do: {action}")
+        return self.transition(
+            BakeState.ERROR, error_summary=summary,
+            error_details="\n".join(lines), status_message=summary,
+            activity_detail=stage)
 
     def reset(self) -> BakeSnapshot:
         state = self.snapshot().state

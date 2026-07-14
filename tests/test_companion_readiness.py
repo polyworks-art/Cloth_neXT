@@ -24,6 +24,9 @@ def reset(manager):
     manager._pending_request=None; manager._pending_deadline=None
     manager._ready=None; manager._startup_error=""
     manager._owned_for_attempt=False
+    manager._production_session=False; manager._production_job_id=""
+    manager._terminal_deadline=None; manager._force_deadline=None
+    manager._kill_deadline=None
 
 
 def test_typed_readiness_protocol_round_trip():
@@ -70,6 +73,65 @@ def test_matching_ready_permits_gate_and_stale_after_cancel_does_nothing(
     manager.cancel_startup("job")
     manager._handle_ready(ready())
     assert manager._ready is None
+
+
+def test_production_request_arms_terminal_shutdown_without_modal_lock(
+        blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager)
+    server=SimpleNamespace(connected=lambda:False, publish=lambda _snapshot:None)
+    monkeypatch.setattr(manager,"_launch",lambda:(True,"created",True))
+    monkeypatch.setattr(manager,"_server",server)
+    monkeypatch.setattr(manager.time,"monotonic",lambda:100.0)
+
+    assert manager.begin_bake_mode(request("bake-job"))[0]
+    assert manager._production_session
+    assert manager._production_job_id == "bake-job"
+    manager._publish(SimpleNamespace(
+        job_id="bake-job", job_kind=manager.BakeJobKind.BAKE,
+        state=BakeState.FINISHED))
+
+    assert manager._terminal_deadline == 101.5
+
+
+def test_stale_terminal_snapshot_cannot_close_new_companion(
+        blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager); manager._production_session=True
+    manager._production_job_id="current"
+    monkeypatch.setattr(manager,"_server",SimpleNamespace(
+        publish=lambda _snapshot:None))
+    manager._publish(SimpleNamespace(
+        job_id="stale", job_kind=manager.BakeJobKind.BAKE,
+        state=BakeState.FINISHED))
+    assert manager._terminal_deadline is None
+
+
+def test_terminal_deadline_requests_shutdown_then_forces_exit(
+        blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager); calls=[]; now=[100.0]
+    class Process:
+        pid=321
+        def poll(self): return None
+        def terminate(self): calls.append("terminate")
+        def kill(self): calls.append("kill")
+    manager._process=Process()
+    manager._server=SimpleNamespace(
+        poll_request=lambda:None,
+        shutdown_companion=lambda:calls.append("shutdown"))
+    manager._production_session=True; manager._production_job_id="job"
+    manager._terminal_deadline=100.0
+    monkeypatch.setattr(manager.time,"monotonic",lambda:now[0])
+
+    assert manager._pulse() == .05
+    assert calls == ["shutdown"] and manager._force_deadline == 101.0
+    now[0]=101.0
+    assert manager._pulse() == .05
+    assert calls == ["shutdown","terminate"]
+
+    manager._process=None; manager._server=None
+    reset(manager)
 
 
 def test_modal_lock_requires_matching_ready_token_and_release_is_idempotent(

@@ -11,7 +11,9 @@ DEFAULT_MIN_NEWTON_STEPS = 1
 DEFAULT_CG_MAX_ITER = 10000
 DEFAULT_CG_TOL = 0.001
 
-MIN_TIME_STEP, MAX_TIME_STEP = 0.001, 0.01
+# PPF accepts and tests 5e-4. Keep the established 1e-3 default, while
+# exposing a stability step for dense or fast-moving contact scenes.
+MIN_TIME_STEP, MAX_TIME_STEP = 0.0005, 0.01
 MIN_NEWTON_STEPS, MAX_NEWTON_STEPS = 1, 64
 MIN_CG_MAX_ITER, MAX_CG_MAX_ITER = 100, 100000
 MIN_CG_TOL, MAX_CG_TOL = 0.00001, 0.1
