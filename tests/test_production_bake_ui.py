@@ -134,6 +134,25 @@ def test_bake_allows_multiple_colliders(blender_env):
     env.registration.unregister()
 
 
+def test_new_bake_clears_stale_cancel_before_run_plan(blender_env,
+                                                       monkeypatch):
+    module = blender_env.solver_test
+    context = SimpleNamespace(scene=SimpleNamespace(objects=()))
+    module._cancel_event.set()
+    monkeypatch.setattr(
+        module, "build_run_plan",
+        lambda *_args, **_kwargs: (
+            (_ for _ in ()).throw(AssertionError("stale cancellation"))
+            if module._cancel_event.is_set() else SimpleNamespace()))
+    monkeypatch.setattr(module, "_continue_production_bake",
+                        lambda _context, job_id, _plan: (job_id, False))
+
+    _job_id, waiting = module.begin_production_bake(context)
+
+    assert waiting is False
+    assert not module._cancel_event.is_set()
+
+
 def test_material_validation_precedes_companion_or_worker(blender_env,
                                                            monkeypatch):
     module = blender_env.solver_test

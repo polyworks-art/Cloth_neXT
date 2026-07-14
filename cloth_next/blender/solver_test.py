@@ -1533,6 +1533,10 @@ def begin_production_bake(context) -> tuple[str, bool]:
     global _pending_plan, _pending_job_id, _pin_capture
     if run_active() or _pending_plan is not None or _pin_capture is not None:
         raise SceneValidationError("A Cloth NeXt bake is already active.")
+    # Cancellation belongs to one Bake attempt. It may still be set after a
+    # previous Cancel or add-on shutdown, while animated Collider capture runs
+    # before _start_prepared_run() gets a chance to clear it.
+    _cancel_event.clear()
     job_id = _begin_controller(BakeJobKind.BAKE)
     try:
         # One authoritative validation for the whole Bake start: it hashes the
