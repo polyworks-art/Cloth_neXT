@@ -45,12 +45,10 @@ import math
 import struct
 from dataclasses import dataclass, field
 
-from ...materials import (ShellMaterialSettings, StaticMaterialSettings,
-                          WIRE_MODEL_NAMES)
-from ...materials.validation import (validate_shell_values,
-                                     validate_static_values)
+from ...materials import WIRE_MODEL_NAMES, ShellMaterialSettings, StaticMaterialSettings
+from ...materials.validation import validate_shell_values, validate_static_values
 from ...pinning import StaticPinConfig
-from ...solver_quality import (DEFAULT_SOLVER_QUALITY, SolverQualitySettings)
+from ...solver_quality import DEFAULT_SOLVER_QUALITY, SolverQualitySettings
 from ..coordinates import blender_vector_to_ppf
 from . import envelope
 
@@ -172,6 +170,38 @@ def build_param_payload(settings: SimulationSettings,
                     "position":[list(frame[offset]) for frame in static_pin.positions]}}
             pin_config[cloth_uuid][index]=config
     return {"scene": scene, "group": group, "pin_config": pin_config}
+
+
+def build_multi_collider_param_payload(
+        settings: SimulationSettings, cloth_name: str, cloth_uuid: str,
+        colliders, *, shell: ShellMaterialSettings,
+        contact_enabled: bool = True,
+        static_pin: StaticPinConfig | None = None) -> dict:
+    """PPF Param payload with one material group per STATIC collider."""
+    entries = tuple(colliders)
+    if not entries:
+        raise ParamEncodeError("at least one collider is required")
+    first_name, first_uuid, first_static = entries[0]
+    payload = build_param_payload(
+        settings, cloth_name, cloth_uuid, first_name, first_uuid,
+        shell=shell, static=first_static, contact_enabled=contact_enabled,
+        static_pin=static_pin)
+    payload["group"] = [payload["group"][0]] + [
+        (static_wire_params(static), [name], [uuid])
+        for name, uuid, static in entries]
+    return payload
+
+
+def encode_multi_collider_param(
+        settings: SimulationSettings, cloth_name: str, cloth_uuid: str,
+        colliders, *, shell: ShellMaterialSettings,
+        contact_enabled: bool = True,
+        static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
+    payload = build_multi_collider_param_payload(
+        settings, cloth_name, cloth_uuid, colliders, shell=shell,
+        contact_enabled=contact_enabled, static_pin=static_pin)
+    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+    return blob, envelope.payload_sha256(blob)
 
 
 def encode_param(settings: SimulationSettings,

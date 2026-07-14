@@ -75,7 +75,7 @@ exposed.
 > [!NOTE]
 > Phase 3B connects the Material, Damping, and Collision properties to the
 > real PPF solver: every visible, editable value is actually encoded and
-> sent. The current scope is one cloth and one static collider, with an
+> sent. The current scope is one cloth and one or more colliders, with an
 > artist-selected Bake range. Developer Test Tools retain diagnostics and
 > test-scene creation. Note that PPF's stiffness is a
 > density-normalized value, not a textbook Young's modulus in pascals (see
@@ -170,16 +170,26 @@ PPF solver, and solver updates never touch the add-on.
 
 ## Quick start
 
-The current production slice supports one Cloth object and one static Collider:
+The current production slice supports one Cloth object and one or more Colliders:
 
 1. Add Cloth NeXt physics to the mesh that should behave as cloth.
-2. Add Cloth NeXt physics to one mesh and set its role to **Static Collider**.
+2. Add Cloth NeXt physics to each collision mesh and set its role to
+   **Collider**. Leave **Collider Motion** at **Static** for a fixed obstacle,
+   or choose **Animated** to capture evaluated Blender object animation and
+   topology-preserving deformation over the Bake range.
 3. Configure material, damping, collision, pressure, quality, and optional
    vertex-group pinning in Physics Properties.
 4. Choose the Bake Start and End frames in the Cloth NeXt Solver panel.
 5. Verify that the external solver is ready, then click **Bake**.
 6. Review the resulting constant-topology Mesh Cache animation; use **Rebake**
    after changing settings or **Cancel** while a bake is active.
+
+Animated Colliders support evaluated transforms (including parenting,
+constraints and drivers) and stable-topology deformation such as Armatures,
+Shape Keys and deforming modifiers. A topology change aborts before the solver
+starts. Blender remains the source of Collider animation: Collider objects are
+never assigned a Cloth NeXt playback cache or result modifier; only Cloth is
+written back from solver output.
 
 > [!NOTE]
 > The exact workflow and available controls may depend on the installed

@@ -51,6 +51,8 @@ class SceneObject:
     triangles: tuple[tuple[int, int, int], ...]
     transform: Mat4  # solver-space world matrix (Z2Y @ matrix_world)
     pin_indices: tuple[int, ...] = ()
+    transform_animation: dict | None = None
+    static_deform_animation: dict | None = None
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -81,6 +83,36 @@ class SceneObject:
             raise SceneEncodeError(f"{self.name}: transform must be 4x4")
         if any(not math.isfinite(c) for row in self.transform for c in row):
             raise SceneEncodeError(f"{self.name}: non-finite transform")
+        if (self.transform_animation is not None
+                and self.static_deform_animation is not None):
+            raise SceneEncodeError(
+                f"{self.name}: collider motion sources are mutually exclusive")
+        if self.transform_animation is not None:
+            animation = self.transform_animation
+            required = ("time", "translation", "quaternion", "scale")
+            if any(key not in animation for key in required):
+                raise SceneEncodeError(
+                    f"{self.name}: incomplete transform animation")
+            frame_count = len(animation["time"])
+            if frame_count < 2 or any(len(animation[key]) != frame_count
+                                      for key in required[1:]):
+                raise SceneEncodeError(
+                    f"{self.name}: inconsistent transform animation")
+            segments = animation.get("segments")
+            if segments is None or len(segments) != frame_count - 1:
+                raise SceneEncodeError(
+                    f"{self.name}: transform animation requires one segment "
+                    "per frame interval")
+        if self.static_deform_animation is not None:
+            animation = self.static_deform_animation
+            frames = animation.get("vert_frames")
+            times = animation.get("time")
+            shape = tuple(getattr(frames, "shape", ()))
+            if (times is None or len(times) < 2 or len(shape) != 3
+                    or shape[0] != len(times) or shape[1] != count
+                    or shape[2] != 3):
+                raise SceneEncodeError(
+                    f"{self.name}: inconsistent static deformation animation")
 
     def info_dict(self) -> dict:
         info = {
@@ -93,20 +125,34 @@ class SceneObject:
         }
         if self.pin_indices:
             info["pin"] = list(self.pin_indices)
+        if self.transform_animation is not None:
+            info["transform_animation"] = self.transform_animation
+        if self.static_deform_animation is not None:
+            info["static_deform_animation"] = self.static_deform_animation
         return info
 
 
-def build_scene_payload(cloth: SceneObject, collider: SceneObject) -> list:
-    """One SHELL group (the cloth) followed by one STATIC group (collider)."""
-    if cloth.uuid == collider.uuid:
-        raise SceneEncodeError("cloth and collider must have distinct UUIDs")
+def _collider_sequence(collider) -> tuple[SceneObject, ...]:
+    return ((collider,) if isinstance(collider, SceneObject)
+            else tuple(collider))
+
+
+def build_scene_payload(cloth: SceneObject, collider) -> list:
+    """One SHELL group followed by a deterministic STATIC object group."""
+    colliders = _collider_sequence(collider)
+    if not colliders:
+        raise SceneEncodeError("at least one collider is required")
+    uuids = [cloth.uuid, *(item.uuid for item in colliders)]
+    if len(set(uuids)) != len(uuids):
+        raise SceneEncodeError("cloth and colliders must have distinct UUIDs")
     return [
         {"object": [cloth.info_dict()], "type": GROUP_SHELL},
-        {"object": [collider.info_dict()], "type": GROUP_STATIC},
+        {"object": [item.info_dict() for item in colliders],
+         "type": GROUP_STATIC},
     ]
 
 
-def encode_scene(cloth: SceneObject, collider: SceneObject) -> tuple[bytes, str]:
+def encode_scene(cloth: SceneObject, collider) -> tuple[bytes, str]:
     blob = envelope.dumps_envelope(envelope.KIND_SCENE,
                                    build_scene_payload(cloth, collider))
     return blob, envelope.payload_sha256(blob)

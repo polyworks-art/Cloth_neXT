@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Threading, cancellation, and cleanup contracts for the Blender bridge."""
 from __future__ import annotations
+
 import threading
 from types import SimpleNamespace
+
 from cloth_next.bake.status import BakeState
+
 
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
@@ -71,6 +74,28 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert len(obj.modifiers) == 1
     assert obj.modifiers[0] is old
     assert old.filepath == str(path)
+
+
+def test_attach_succeeds_when_post_import_housekeeping_fails(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    path = tmp_path / "cn_test_cloth_new.pc2"
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    monkeypatch.setattr(
+        module, "mark_owned_playback",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("metadata boom")))
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
+        obj.name, tmp_path, path, 1)
+
+    module._attach_playback(plan, header)
+
+    assert len(obj.modifiers) == 1
+    assert obj.modifiers[0].filepath == str(path)
 
 
 def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):

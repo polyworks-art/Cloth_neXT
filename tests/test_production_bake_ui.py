@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from cloth_next.bake.controller import shared_controller
-from cloth_next.bake.status import BakeJobKind, BakeState
+from cloth_next.bake.status import BakeState
 
 
 class RecordingLayout:
@@ -112,8 +112,7 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
 @pytest.mark.parametrize("cloths,colliders,reason", [
     (0, 1, "Exactly one Cloth object is currently supported."),
     (2, 1, "Exactly one Cloth object is currently supported."),
-    (1, 0, "Exactly one static Collider is currently supported."),
-    (1, 2, "Exactly one static Collider is currently supported."),
+    (1, 0, "At least one Collider is required."),
 ])
 def test_bake_disabled_for_invalid_scene_scope(blender_env, cloths,
                                                 colliders, reason):
@@ -123,6 +122,15 @@ def test_bake_disabled_for_invalid_scene_scope(blender_env, cloths,
     model = ui._bake_panel_model(
         context, ui._SolverStatus(True, "Ready · Protocol 0.11"))
     assert not model.enabled and model.reason == reason
+
+
+def test_bake_allows_multiple_colliders(blender_env):
+    env = blender_env
+    env.registration.register()
+    context = _context(env, _objects(env, 1, 2))
+    model = env.physics_ui._bake_panel_model(
+        context, env.physics_ui._SolverStatus(True, "Ready · Protocol 0.11"))
+    assert model.enabled
     env.registration.unregister()
 
 

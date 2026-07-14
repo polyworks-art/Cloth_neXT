@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.0-dev.13 — 2026-07-14 (Dev test channel)
+
+### Added — animated and deforming Colliders
+
+- Add Static/Animated Collider Motion controls with Static remaining the
+  backward-compatible default.
+- Capture evaluated rigid transforms and stable-topology mesh deformation from
+  Blender across the Bake range, including parent, constraint, driver,
+  Shape-Key, Armature, and modifier evaluation.
+- Encode the verified PPF 0.11 `transform_animation` and
+  `static_deform_animation` contracts, including deterministic support for
+  multiple mixed-motion Colliders.
+- Validate Collider topology per frame and restore Blender's original frame
+  after successful capture, cancellation, or failure.
+- Keep Collider animation under Blender control: only Cloth receives a PC2
+  playback cache and Collider output is never written back.
+
+### Fixed
+
+- Do not report a successful Cloth playback attachment as an import failure
+  when only post-import metadata or stale-cache housekeeping fails.
+
 ## 0.3.0-dev.2 — 2026-07-13 (Dev test channel)
 
 - Prevent older, equal, invalid, or ambiguous channel candidates from enabling

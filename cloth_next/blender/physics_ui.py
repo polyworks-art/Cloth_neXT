@@ -21,17 +21,17 @@ once at import time — no Panel.draw ever reads the preset file.
 
 from __future__ import annotations
 
-import bpy
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import icon_registry, physics_operators
+import bpy
+
 from ..bake.controller import shared_controller
+from ..developer import is_dev_build
 from ..materials import formatting
 from ..materials import presets as material_presets
-from ..developer import is_dev_build
-from . import object_properties, validation_state
+from . import icon_registry, object_properties, physics_operators, validation_state
 from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
@@ -261,7 +261,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         summary = layout.column(align=True)
         summary.label(text=model.summary_line)
         try:
-            cloth, _ = solver_test._enabled_objects_by_role(context)
+            cloth, _ = solver_test._enabled_objects_for_bake(context)
             start, end = cloth.cloth_next.bake_start, cloth.cloth_next.bake_end
             summary.label(text=f"Frames {start}–{end} · {end-start+1} cached "
                                f"frames · {model.cache_label}")
@@ -358,7 +358,7 @@ def _cache_state(context) -> tuple[str, str]:
     """
     from . import solver_test
     try:
-        cloth, _collider = solver_test._enabled_objects_by_role(context)
+        cloth, _collider = solver_test._enabled_objects_for_bake(context)
     except solver_test.SceneValidationError:
         return "EMPTY", "Cache empty"
     settings = cloth.cloth_next
@@ -441,10 +441,8 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
         reason = "PPF is not configured."
     elif len(cloths) != 1:
         reason = "Exactly one Cloth object is currently supported."
-    elif len(colliders) != 1:
-        reason = "Exactly one static Collider is currently supported."
-    elif getattr(colliders[0], "animation_data", None) is not None:
-        reason = "Animated colliders are not supported yet."
+    elif not colliders:
+        reason = "At least one Collider is required."
     else:
         try:
             from ..bake.frame_range import BakeFrameRange
@@ -597,6 +595,8 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         layout.use_property_decorate = False
         settings = context.object.cloth_next
         collision = settings.collision
+        if settings.role == "COLLIDER":
+            layout.prop(settings, "collider_motion")
         if settings.role == "CLOTH":
             layout.prop(collision, "enabled")
         column = layout.column()
@@ -797,7 +797,7 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
             contact = ("enabled" if settings.collision.enabled
                        else "DISABLED (disable-contact: true)")
             info.label(text=f"Contact: {contact}")
-        info.label(text="Current scope: one cloth and one static collider",
+        info.label(text="Current scope: one cloth and one collider",
                    icon="EXPERIMENTAL")
 
 

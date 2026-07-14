@@ -21,8 +21,8 @@ the same :func:`start_run` service.
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import math
 import os
 import queue
@@ -34,41 +34,63 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import bpy
+import numpy as np
 
 from ..bake import pc2
-from ..bake.frame_range import BakeFrameRange, BakeRangeError
-from ..bake.transport import EnterBakeMode
 from ..bake.controller import InvalidTransition, shared_controller
+from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
+from ..bake.transport import EnterBakeMode
 from ..core.errors import ClothNextError
 from ..core.logging import get_logger, log_with_context
 from ..materials import MaterialValidationError
 from ..materials import formatting as material_formatting
-from ..pinning import (STATIC_PIN_WEIGHT_THRESHOLD, AnimatedPinTargetSample,
-                       PinMode, StaticPinError, StaticPinSnapshot,
-                       static_pin_config)
-from ..ppf.coordinates import (matrix_is_finite_and_invertible,
-                               solver_world_matrix,
-                               solver_world_to_object_local,
-                               transform_points_numpy)
-from ..ppf.resolver import (ResolvedSolver, SolverResolutionContext,
-                            SolverResolver,
-                            development_executable_from_environment)
+from ..pinning import (
+    STATIC_PIN_WEIGHT_THRESHOLD,
+    AnimatedPinTargetSample,
+    PinMode,
+    StaticPinError,
+    StaticPinSnapshot,
+    static_pin_config,
+)
+from ..ppf.coordinates import (
+    matrix_is_finite_and_invertible,
+    solver_world_matrix,
+    solver_world_to_object_local,
+    transform_points_numpy,
+)
+from ..ppf.resolver import (
+    ResolvedSolver,
+    SolverResolutionContext,
+    SolverResolver,
+    development_executable_from_environment,
+)
 from ..ppf.schema.data import SceneObject, encode_scene, zero_area_triangles
-from ..ppf.schema.params import (SimulationSettings, build_param_payload,
-                                 encode_param, shell_wire_params,
-                                 static_wire_params)
+from ..ppf.schema.params import (
+    SimulationSettings,
+    build_param_payload,
+    shell_wire_params,
+    static_wire_params,
+)
 from ..ppf_run import import_result
-from ..ppf_run.session import (SessionCancelled, SessionScene, SolverFrame,
-                              SolverSession, new_project_name)
-from ..topology import (geometry_fingerprint as combine_geometry_fingerprint,
-                        mesh_topology_signature as _hash_mesh_topology,
-                        pin_indices_signature)
-from ..updater.install_paths import ManagedSolverPaths, read_current
+from ..ppf_run.session import (
+    SessionCancelled,
+    SessionScene,
+    SolverFrame,
+    SolverSession,
+    new_project_name,
+)
 from ..telemetry import shared_telemetry
+from ..topology import geometry_fingerprint as combine_geometry_fingerprint
+from ..topology import mesh_topology_signature as _hash_mesh_topology
+from ..topology import pin_indices_signature
+from ..updater.install_paths import ManagedSolverPaths, read_current
 from . import companion_manager, modal_lock, object_properties, validation_state
-from .playback_cache import (is_cloth_next_playback_modifier,
-                             mark_owned_playback, without_owned_playback)
+from .playback_cache import (
+    is_cloth_next_playback_modifier,
+    mark_owned_playback,
+    without_owned_playback,
+)
 
 _EVENT_STATE = {
     "STARTING_SOLVER": BakeState.STARTING_SOLVER,
@@ -99,6 +121,31 @@ def _on_controller_snapshot(snapshot) -> None:
 
 class SceneValidationError(ValueError):
     pass
+
+
+@dataclass(slots=True)
+class ColliderMotionCapture:
+    """Compact main-thread capture ready for the official PPF scene fields."""
+
+    motion_type: str
+    vertices: tuple[tuple[float, float, float], ...]
+    triangles: tuple[tuple[int, int, int], ...]
+    transform: tuple[tuple[float, float, float, float], ...]
+    animation: dict | None = None
+    temporary_path: Path | None = None
+
+    def cleanup(self) -> None:
+        # Release a memmap before deleting its backing file on Windows.
+        if self.animation is not None:
+            frames = self.animation.get("vert_frames")
+            mapping = getattr(frames, "_mmap", None)
+            if mapping is not None:
+                mapping.close()
+        if self.temporary_path is not None:
+            try:
+                self.temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +244,30 @@ def _enabled_objects_by_role(context) -> tuple[object, object]:
     return cloth_objects[0], collider_objects[0]
 
 
+def _enabled_objects_for_bake(context) -> tuple[object, tuple[object, ...]]:
+    """Return one Cloth and deterministically ordered enabled Colliders."""
+    cloth_objects, collider_objects = [], []
+    for obj in context.scene.objects:
+        settings = getattr(obj, "cloth_next", None)
+        if settings is None or not settings.enabled:
+            continue
+        if settings.role == "CLOTH":
+            cloth_objects.append(obj)
+        elif settings.role == "COLLIDER":
+            collider_objects.append(obj)
+    if len(cloth_objects) != 1:
+        raise SceneValidationError(
+            f"Exactly one enabled Cloth NeXt cloth object is required; "
+            f"found {len(cloth_objects)}.")
+    if not collider_objects:
+        raise SceneValidationError(
+            "At least one enabled Cloth NeXt collider object is required.")
+    collider_objects.sort(key=lambda obj: (
+        validation_state.object_key(obj),
+        str(getattr(obj, "name_full", getattr(obj, "name", "")))))
+    return cloth_objects[0], tuple(collider_objects)
+
+
 def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
     """Evaluated local vertices + loop triangles, original vertex order."""
     if obj.type != "MESH":
@@ -269,6 +340,20 @@ def _snapshot_materials(cloth_obj, collider_obj):
     contact_enabled = bool(cloth_obj.cloth_next.collision.enabled)
     preset_identifier = str(cloth_obj.cloth_next.material.preset)
     return shell, static, contact_enabled, preset_identifier
+
+
+def _snapshot_materials_multi(cloth_obj, collider_objs):
+    shell, _first, contact_enabled, preset = _snapshot_materials(
+        cloth_obj, collider_objs[0])
+    statics = []
+    for collider in collider_objs:
+        try:
+            statics.append(object_properties.static_settings_from(
+                collider.cloth_next))
+        except MaterialValidationError as exc:
+            raise SceneValidationError(
+                f"{collider.name}: invalid contact value — {exc}") from exc
+    return shell, tuple(statics), contact_enabled, preset
 
 
 class _EmptyMesh:
@@ -422,8 +507,11 @@ def _scene_fps(context) -> int:
 
 def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                           contact_enabled, preset_identifier, quality) -> str:
+    collider_objs = (collider_obj if isinstance(collider_obj, tuple)
+                     else (collider_obj,))
+    statics = static if isinstance(static, tuple) else (static,)
     base = material_formatting.settings_fingerprint(
-        shell, static, contact_enabled, preset_identifier,
+        shell, statics[0], contact_enabled, preset_identifier,
         bake_start=int(cloth_obj.cloth_next.bake_start),
         bake_end=int(cloth_obj.cloth_next.bake_end),
         pinning_fingerprint=_cheap_pinning_fingerprint(cloth_obj),
@@ -432,8 +520,10 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         str(SETTINGS_FINGERPRINT_VERSION), base,
         validation_state.object_key(cloth_obj),
         str(cloth_obj.cloth_next.role),
-        validation_state.object_key(collider_obj),
-        str(collider_obj.cloth_next.role),
+        *(f"{validation_state.object_key(obj)}\0{obj.cloth_next.role}\0"
+          f"{getattr(obj.cloth_next, 'collider_motion', 'STATIC')}\0"
+          f"{json.dumps(static_wire_params(material), sort_keys=True)}"
+          for obj, material in zip(collider_objs, statics)),
         str(_scene_fps(context)),
     ))
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
@@ -446,15 +536,15 @@ def cheap_settings_fingerprint(context) -> str | None:
     collider, or a mapped value is invalid.
     """
     try:
-        cloth_obj, collider_obj = _enabled_objects_by_role(context)
-        shell, static, contact_enabled, preset = _snapshot_materials(
-            cloth_obj, collider_obj)
+        cloth_obj, collider_objs = _enabled_objects_for_bake(context)
+        shell, statics, contact_enabled, preset = _snapshot_materials_multi(
+            cloth_obj, collider_objs)
         quality = object_properties.solver_quality_from(context.scene)
     except (SceneValidationError, MaterialValidationError, ValueError,
             AttributeError):
         return None
-    return _settings_fingerprint(context, cloth_obj, collider_obj, shell,
-                                 static, contact_enabled, preset, quality)
+    return _settings_fingerprint(context, cloth_obj, collider_objs, shell,
+                                 statics, contact_enabled, preset, quality)
 
 
 def bake_fingerprint(settings_fingerprint: str,
@@ -478,9 +568,11 @@ class ValidationSnapshot:
 
     cloth_obj: object
     collider_obj: object
+    collider_objs: tuple[object, ...]
     bake_range: BakeFrameRange
     shell: object
     static: object
+    statics: tuple[object, ...]
     contact_enabled: bool
     preset_identifier: str
     quality: object
@@ -502,7 +594,8 @@ def validate_scene(context) -> ValidationSnapshot:
     readable message) and returned so the Bake path can reuse it without
     scanning anything a second time.
     """
-    cloth_obj, collider_obj = _enabled_objects_by_role(context)
+    cloth_obj, collider_objs = _enabled_objects_for_bake(context)
+    collider_obj = collider_objs[0]
     validation_state.mark_validating(cloth_obj)
     try:
         try:
@@ -510,12 +603,9 @@ def validate_scene(context) -> ValidationSnapshot:
                                         int(cloth_obj.cloth_next.bake_end))
         except (BakeRangeError, TypeError, ValueError) as exc:
             raise SceneValidationError(str(exc)) from exc
-        if (getattr(collider_obj, "animation_data", None) is not None
-                or len(getattr(collider_obj, "constraints", ())) > 0):
-            raise SceneValidationError(
-                "Animated colliders are not supported yet.")
-        shell, static, contact_enabled, preset_identifier = _snapshot_materials(
-            cloth_obj, collider_obj)
+        shell, statics, contact_enabled, preset_identifier = (
+            _snapshot_materials_multi(cloth_obj, collider_objs))
+        static = statics[0]
         try:
             quality = object_properties.solver_quality_from(context.scene)
         except ValueError as exc:
@@ -525,7 +615,7 @@ def validate_scene(context) -> ValidationSnapshot:
         pin_membership = _snapshot_static_pin(
             cloth_obj, topology_signature=topology_signature)
         settings_fp = _settings_fingerprint(
-            context, cloth_obj, collider_obj, shell, static, contact_enabled,
+            context, cloth_obj, collider_objs, shell, statics, contact_enabled,
             preset_identifier, quality)
         geometry_fp = combine_geometry_fingerprint(
             topology_signature,
@@ -543,8 +633,10 @@ def validate_scene(context) -> ValidationSnapshot:
         topology_signature=topology_signature,
         geometry_fingerprint=geometry_fp, settings_fingerprint=settings_fp)
     return ValidationSnapshot(
-        cloth_obj=cloth_obj, collider_obj=collider_obj, bake_range=bake_range,
-        shell=shell, static=static, contact_enabled=contact_enabled,
+        cloth_obj=cloth_obj, collider_obj=collider_obj,
+        collider_objs=collider_objs, bake_range=bake_range,
+        shell=shell, static=static, statics=statics,
+        contact_enabled=contact_enabled,
         preset_identifier=preset_identifier, quality=quality,
         pin_membership=pin_membership, topology_signature=topology_signature,
         settings_fingerprint=settings_fp, geometry_fingerprint=geometry_fp,
@@ -563,7 +655,7 @@ def _validate_active_cloth() -> bool:
     if scene is None:
         return False
     try:
-        cloth_obj, _collider = _enabled_objects_by_role(context)
+        cloth_obj, _collider = _enabled_objects_for_bake(context)
     except SceneValidationError:
         return False
     record = validation_state.record_for(cloth_obj)
@@ -623,6 +715,151 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
         samples=tuple(samples),**common)
 
 
+def _matrix_trs(matrix):
+    """Decompose one solver-space matrix using Blender's evaluated math."""
+    from mathutils import Matrix
+    location, rotation, scale = Matrix(matrix).decompose()
+    return ([float(value) for value in location],
+            [float(rotation.w), float(rotation.x), float(rotation.y),
+             float(rotation.z)],
+            [float(value) for value in scale])
+
+
+def _capture_collider_motion(context, collider_obj,
+                             bake_range: BakeFrameRange) -> ColliderMotionCapture:
+    """Capture and classify one animated Collider on Blender's main thread."""
+    scene = context.scene
+    original_frame = int(scene.frame_current)
+    frame_count = bake_range.output_count
+    times = [index / float(_scene_fps(context)) for index in range(frame_count)]
+    reference_vertices = None
+    reference_triangles = None
+    matrices = []
+    local_samples = None
+    temporary_path = None
+    try:
+        for offset, frame in enumerate(range(bake_range.start,
+                                             bake_range.end + 1)):
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            shared_controller.update(
+                status_message=(f"Capturing collider animation · frame "
+                                f"{frame} / {bake_range.end}"),
+                current_frame=frame, progress_current=offset + 1,
+                progress_total=frame_count)
+            scene.frame_set(frame)
+            _depsgraph_update(context)
+            evaluated = collider_obj.evaluated_get(
+                context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                count = len(mesh.vertices)
+                mesh.calc_loop_triangles()
+                triangles = tuple(tuple(int(i) for i in tri.vertices)
+                                  for tri in mesh.loop_triangles)
+                if count == 0 or not triangles:
+                    raise SceneValidationError(
+                        f'Collider "{collider_obj.name}" has an empty '
+                        f'evaluated mesh at frame {frame}.')
+                if reference_triangles is not None and (
+                        count != len(reference_vertices)
+                        or triangles != reference_triangles):
+                    expected_triangles = len(reference_triangles)
+                    detail = ("triangle indices changed" if
+                              len(triangles) == expected_triangles
+                              else "triangle count changed")
+                    raise SceneValidationError(
+                        f'Collider "{collider_obj.name}" changes topology at '
+                        f'frame {frame}. Expected {len(reference_vertices)} '
+                        f'vertices and {expected_triangles} triangles; got '
+                        f'{count} vertices and {len(triangles)} triangles '
+                        f'({detail}). Animated colliders must keep a '
+                        f'consistent mesh structure.')
+                local = np.empty((count, 3), dtype=np.float32)
+                mesh.vertices.foreach_get("co", local.reshape(-1))
+                if not np.isfinite(local).all():
+                    raise SceneValidationError(
+                        f'Collider "{collider_obj.name}" contains non-finite '
+                        f'positions at frame {frame}.')
+                world = tuple(tuple(float(value) for value in row)
+                              for row in evaluated.matrix_world)
+                if not matrix_is_finite_and_invertible(world):
+                    raise SceneValidationError(
+                        f'Collider "{collider_obj.name}" has an invalid '
+                        f'transform at frame {frame}.')
+                matrices.append(solver_world_matrix(world))
+                if reference_vertices is None:
+                    reference_vertices = local.copy()
+                    reference_triangles = triangles
+                    temporary_path = (Path(bpy.app.tempdir)
+                        / f"cloth_next_collider_{uuid_module.uuid4().hex}.bin")
+                    local_samples = np.memmap(
+                        temporary_path, dtype="<f4", mode="w+",
+                        shape=(frame_count, count, 3))
+                local_samples[offset] = local
+            finally:
+                evaluated.to_mesh_clear()
+
+        assert reference_vertices is not None and reference_triangles is not None
+        assert local_samples is not None
+        deforming = any(not np.allclose(local_samples[index],
+                                        reference_vertices, rtol=0.0,
+                                        atol=1e-6)
+                        for index in range(1, frame_count))
+        if not deforming:
+            translations, quaternions, scales = [], [], []
+            for matrix in matrices:
+                translation, quaternion, scale = _matrix_trs(matrix)
+                translations.append(translation)
+                quaternions.append(quaternion)
+                scales.append(scale)
+            result = ColliderMotionCapture(
+                "RIGID_ANIMATED",
+                tuple(tuple(float(value) for value in row)
+                      for row in reference_vertices),
+                reference_triangles, matrices[0],
+                {"time": times, "translation": translations,
+                 "quaternion": quaternions, "scale": scales,
+                 "segments": [
+                     {"interpolation": "LINEAR",
+                      "handle_right": [1.0 / 3.0, 0.0],
+                      "handle_left": [2.0 / 3.0, 1.0]}
+                     for _index in range(frame_count - 1)]})
+            local_samples._mmap.close()
+            temporary_path.unlink(missing_ok=True)
+            return result
+
+        # Reuse the local-position memmap in place for absolute solver-world
+        # positions; peak numeric storage stays frames x vertices x 12 bytes.
+        for index, matrix in enumerate(matrices):
+            transform = np.asarray(matrix, dtype=np.float64)
+            local_samples[index] = (
+                local_samples[index] @ transform[:3, :3].T
+                + transform[:3, 3])
+        local_samples.flush()
+        identity = tuple(tuple(1.0 if row == column else 0.0
+                               for column in range(4)) for row in range(4))
+        return ColliderMotionCapture(
+            "DEFORMING_ANIMATED",
+            tuple(tuple(float(value) for value in row)
+                  for row in local_samples[0]),
+            reference_triangles, identity,
+            {"time": times, "vert_frames": local_samples}, temporary_path)
+    except Exception:
+        mapping = getattr(local_samples, "_mmap", None)
+        if mapping is not None:
+            mapping.close()
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise
+    finally:
+        scene.frame_set(original_frame)
+        _depsgraph_update(context)
+
+
 def build_run_plan(context, *, animated_pin_samples=None,
                    snapshot: ValidationSnapshot | None = None) -> RunPlan:
     """Freeze the run inputs from one authoritative validation.
@@ -635,14 +872,16 @@ def build_run_plan(context, *, animated_pin_samples=None,
     scene = context.scene
     if snapshot is None:
         snapshot = validate_scene(context)
-    cloth_obj, collider_obj = snapshot.cloth_obj, snapshot.collider_obj
+    cloth_obj = snapshot.cloth_obj
+    collider_objs = snapshot.collider_objs
     bake_range = snapshot.bake_range
     # Material validation is deliberately first after role/scope validation:
     # even the solver version probe is a subprocess, so invalid mapped values
     # must fail before resolution can launch it. validate_scene() already did
     # exactly that, along with the topology hash and the pin scan.
     shell = snapshot.shell
-    static = snapshot.static
+    statics = snapshot.statics
+    static = statics[0]
     contact_enabled = snapshot.contact_enabled
     preset_identifier = snapshot.preset_identifier
     pin_membership = snapshot.pin_membership
@@ -653,7 +892,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
         raise SceneValidationError(
             f"{cloth_obj.name} has modifiers; the current unpinned solver "
             "slice requires a plain mesh.")
+    # Compatibility probing happens before animation capture so a missing
+    # solver cannot leave behind a large temporary Collider buffer.
+    resolved = resolve_solver(context)
     original_frame = int(scene.frame_current)
+    collider_records = []
     try:
         with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
             scene.frame_set(bake_range.start); _depsgraph_update(context)
@@ -662,55 +905,107 @@ def build_run_plan(context, *, animated_pin_samples=None,
                 cloth_obj, depsgraph, needs_edges=True)
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
-        collider_vertices, collider_triangles = _extract_mesh(
-            collider_obj, depsgraph, needs_edges=False)
+        for current in collider_objs:
+            if str(getattr(current.cloth_next, "collider_motion",
+                           "STATIC")) == "ANIMATED":
+                capture = _capture_collider_motion(
+                    context, current, bake_range)
+                collider_records.append((current, capture.vertices,
+                                         capture.triangles, None, capture))
+            else:
+                scene.frame_set(bake_range.start); _depsgraph_update(context)
+                depsgraph = context.evaluated_depsgraph_get()
+                vertices, triangles = _extract_mesh(
+                    current, depsgraph, needs_edges=False)
+                world = tuple(tuple(row) for row in current.matrix_world)
+                collider_records.append(
+                    (current, vertices, triangles, world, None))
         cloth_world = tuple(tuple(row) for row in cloth_obj.matrix_world)
-        collider_world = tuple(tuple(row) for row in collider_obj.matrix_world)
+    except Exception:
+        for _obj, _vertices, _triangles, _world, capture in collider_records:
+            if capture is not None:
+                capture.cleanup()
+        raise
     finally:
         scene.frame_set(original_frame)
-    degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
-    if degenerate:
-        raise SceneValidationError(
-            f"{cloth_obj.name} has {len(degenerate)} zero-area triangle(s) "
-            f"(first index {degenerate[0]}); clean the mesh before running.")
-    for obj, world in ((cloth_obj, cloth_world),
-                       (collider_obj, collider_world)):
-        if not matrix_is_finite_and_invertible(world):
+    try:
+        degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
+        if degenerate:
             raise SceneValidationError(
-                f"{obj.name} has a non-finite or non-invertible world matrix.")
-    if pin_snapshot.enabled and len(cloth_vertices) != pin_snapshot.source_vertex_count:
-        raise SceneValidationError(
-            f"Pinning found {pin_snapshot.source_vertex_count} source vertices "
-            f"and {len(cloth_vertices)} evaluated vertices.")
-    if pin_snapshot.samples:
-        matrix=solver_world_matrix(cloth_world)
-        initial=tuple(_solver_position(matrix,cloth_vertices[index])
-                      for index in pin_snapshot.vertex_indices)
-        if any(any(abs(a-b)>1e-6 for a,b in zip(expected,captured))
-               for expected,captured in zip(initial,pin_snapshot.samples[0].positions)):
+                f"{cloth_obj.name} has {len(degenerate)} zero-area triangle(s) "
+                f"(first index {degenerate[0]}); clean the mesh before running.")
+        matrix_records = [(cloth_obj, cloth_world)] + [
+            (obj, world if world is not None else capture.transform)
+            for obj, _vertices, _triangles, world, capture in collider_records]
+        for obj, world in matrix_records:
+            if not matrix_is_finite_and_invertible(world):
+                raise SceneValidationError(
+                    f"{obj.name} has a non-finite or non-invertible world matrix.")
+        if (pin_snapshot.enabled
+                and len(cloth_vertices) != pin_snapshot.source_vertex_count):
             raise SceneValidationError(
-                "Animated Pin targets at Bake Start do not match the exported Cloth positions.")
+                f"Pinning found {pin_snapshot.source_vertex_count} source vertices "
+                f"and {len(cloth_vertices)} evaluated vertices.")
+        if pin_snapshot.samples:
+            matrix=solver_world_matrix(cloth_world)
+            initial=tuple(_solver_position(matrix,cloth_vertices[index])
+                          for index in pin_snapshot.vertex_indices)
+            if any(any(abs(a-b)>1e-6 for a,b in zip(expected,captured))
+                   for expected,captured in zip(initial,pin_snapshot.samples[0].positions)):
+                raise SceneValidationError(
+                    "Animated Pin targets at Bake Start do not match the exported Cloth positions.")
+    except Exception:
+        for _obj, _vertices, _triangles, _world, capture in collider_records:
+            if capture is not None:
+                capture.cleanup()
+        raise
     pin_config = static_pin_config(pin_snapshot)
-    resolved = resolve_solver(context)
 
     cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
-    collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
                               cloth_triangles, solver_world_matrix(cloth_world),
                               pin_snapshot.vertex_indices)
-    scene_collider = SceneObject(collider_obj.name, collider_uuid,
-                                 collider_vertices, collider_triangles,
-                                 solver_world_matrix(collider_world))
-    data_payload, data_hash = encode_scene(scene_cloth, scene_collider)
+    scene_colliders = []
+    collider_specs = []
+    motion_meta = []
+    for (current, vertices, triangles, world, capture), material in zip(
+            collider_records, statics):
+        collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
+        collider_specs.append((current.name, collider_uuid, material))
+        if capture is None:
+            exported = SceneObject(current.name, collider_uuid, vertices,
+                                   triangles, solver_world_matrix(world))
+            motion_type = "STATIC"
+        elif capture.motion_type == "RIGID_ANIMATED":
+            exported = SceneObject(
+                current.name, collider_uuid, vertices, triangles,
+                capture.transform, transform_animation=capture.animation)
+            motion_type = capture.motion_type
+        else:
+            exported = SceneObject(
+                current.name, collider_uuid, vertices, triangles,
+                capture.transform, static_deform_animation=capture.animation)
+            motion_type = capture.motion_type
+        scene_colliders.append(exported)
+        motion_meta.append({"name": current.name, "uuid": collider_uuid,
+                            "motion_type": motion_type,
+                            "vertex_count": len(vertices),
+                            "triangle_count": len(triangles)})
+    try:
+        data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
+    finally:
+        for _obj, _vertices, _triangles, _world, capture in collider_records:
+            if capture is not None:
+                capture.cleanup()
     frame_count = bake_range.output_count
     quality = snapshot.quality
     settings = SimulationSettings(
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0), quality=quality)
-    param_payload, param_hash = encode_param(
-        settings, cloth_obj.name, cloth_uuid, collider_obj.name,
-        collider_uuid, shell=shell, static=static,
+    from ..ppf.schema.params import encode_multi_collider_param
+    param_payload, param_hash = encode_multi_collider_param(
+        settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
         contact_enabled=contact_enabled, static_pin=pin_config)
     # Reused from the single authoritative validation — the topology is not
     # hashed and the pin group is not scanned a second time here.
@@ -727,6 +1022,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
         "contact_enabled": contact_enabled,
         "shell": shell_wire_params(shell),
         "static": static_wire_params(static),
+        "colliders": motion_meta,
         "quality": {
             "dt": settings.quality.time_step,
             "min-newton-steps": settings.quality.min_newton_steps,
@@ -758,7 +1054,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
         project_name=project_name,
         cloth_name=cloth_obj.name, cloth_uuid=cloth_uuid,
         cloth_vertex_count=len(cloth_vertices),
-        collider_name=collider_obj.name, collider_uuid=collider_uuid,
+        collider_name=collider_specs[0][0], collider_uuid=collider_specs[0][1],
         frame_count=frame_count,
         data_payload=data_payload, param_payload=param_payload,
         data_hash=data_hash, param_hash=param_hash)
@@ -974,29 +1270,41 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     modifier.name = import_result.MODIFIER_NAME
     _configure_playback_modifier(modifier, plan.frame_start)
     modifier.filepath = str(plan.pc2_path)
-    mark_owned_playback(obj,modifier,str(plan.pc2_path))
-    settings = getattr(obj, "cloth_next", None)
-    if settings is not None and plan.settings_fingerprint:
-        settings.baked_settings_fingerprint = plan.settings_fingerprint
-        settings.baked_geometry_fingerprint = plan.geometry_fingerprint
-        settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
-        # The bake just validated this mesh; record it so the Cache panel can
-        # honestly say "ready" instead of "needs validation".
-        validation_state.store_valid(
-            obj, pin_count=plan.material_meta.get("pinning", {}).get("count", 0),
-            pin_group=plan.material_meta.get("pinning", {}).get("group", ""),
-            topology_signature=plan.topology_signature,
-            geometry_fingerprint=plan.geometry_fingerprint,
-            settings_fingerprint=plan.settings_fingerprint)
-    # Only after the new cache is attached, drop older Cloth NeXt test caches.
-    for extra in extras:
-        obj.modifiers.remove(extra)
-    for old_path in previous_paths:
-        if old_path != plan.pc2_path and old_path.name.startswith("cn_test_cloth_"):
-            try:
-                old_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+    # Assigning filepath above is the import commit point. Ownership metadata,
+    # validation hints, and stale-cache cleanup improve later UX but must not
+    # turn a working playback cache into a reported import failure.
+    try:
+        mark_owned_playback(obj, modifier, str(plan.pc2_path))
+        settings = getattr(obj, "cloth_next", None)
+        if settings is not None and plan.settings_fingerprint:
+            settings.baked_settings_fingerprint = plan.settings_fingerprint
+            settings.baked_geometry_fingerprint = plan.geometry_fingerprint
+            settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+            # The bake just validated this mesh; record it so the Cache panel
+            # can honestly say "ready" instead of "needs validation".
+            validation_state.store_valid(
+                obj,
+                pin_count=plan.material_meta.get("pinning", {}).get("count", 0),
+                pin_group=plan.material_meta.get("pinning", {}).get("group", ""),
+                topology_signature=plan.topology_signature,
+                geometry_fingerprint=plan.geometry_fingerprint,
+                settings_fingerprint=plan.settings_fingerprint)
+        # Only after the new cache is attached, drop older Cloth NeXt caches.
+        for extra in extras:
+            obj.modifiers.remove(extra)
+        for old_path in previous_paths:
+            if (old_path != plan.pc2_path
+                    and old_path.name.startswith("cn_test_cloth_")):
+                try:
+                    old_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    except Exception as exc:  # noqa: BLE001 -- playback is already attached
+        log_with_context(get_logger("playback.cache"), 30,
+                         "playback attached; post-import housekeeping failed", {
+            "cache_path": str(plan.pc2_path),
+            "error": f"{type(exc).__name__}: {exc}",
+        })
 
 
 def _safe_transition(state: BakeState, **changes) -> None:

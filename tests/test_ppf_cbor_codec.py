@@ -15,10 +15,18 @@ import math
 import struct
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf.schema.cbor_codec import CborError, dumps, loads
+
+
+def test_numpy_arrays_encode_without_python_materialization():
+    value = np.arange(12, dtype=np.float32).reshape(2, 2, 3)
+    decoded = cbor_codec.loads(cbor_codec.dumps(value))
+    assert decoded == value.tolist()
+
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 

@@ -9,23 +9,34 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from cloth_next.materials import (DEFAULT_SHELL_SETTINGS,
-                                  DEFAULT_STATIC_SETTINGS,
-                                  MaterialValidationError,
-                                  ShellMaterialSettings,
-                                  StaticMaterialSettings)
+from cloth_next.materials import (
+    DEFAULT_SHELL_SETTINGS,
+    DEFAULT_STATIC_SETTINGS,
+    MaterialValidationError,
+    ShellMaterialSettings,
+    StaticMaterialSettings,
+)
 from cloth_next.ppf.coordinates import solver_world_matrix
 from cloth_next.ppf.schema import cbor_codec, envelope
-from cloth_next.ppf.schema.data import (SceneEncodeError, SceneObject,
-                                        build_scene_payload, encode_scene,
-                                        zero_area_triangles)
-from cloth_next.ppf.schema.params import (ParamEncodeError,
-                                          SimulationSettings,
-                                          build_param_payload, encode_param,
-                                          float32_wire, shell_wire_params,
-                                          static_wire_params)
+from cloth_next.ppf.schema.data import (
+    SceneEncodeError,
+    SceneObject,
+    build_scene_payload,
+    encode_scene,
+    zero_area_triangles,
+)
+from cloth_next.ppf.schema.params import (
+    ParamEncodeError,
+    SimulationSettings,
+    build_multi_collider_param_payload,
+    build_param_payload,
+    encode_param,
+    float32_wire,
+    shell_wire_params,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 
@@ -79,6 +90,39 @@ def test_scene_payload_structure_and_types():
     # transform = Z2Y @ world: Blender +Z translation lands in solver row 1.
     assert info["transform"][1] == [0.0, 0.0, 1.0, 0.8]
     assert info["transform"][2][1] == -1.0
+
+
+def test_official_static_deform_animation_roundtrip():
+    cloth, collider = _micro_objects()
+    frames = np.asarray([collider.vertices_local, collider.vertices_local],
+                        dtype=np.float32)
+    animated = SceneObject(
+        collider.name, collider.uuid, collider.vertices_local,
+        collider.triangles, collider.transform,
+        static_deform_animation={"time": [0.0, 1.0 / 24.0],
+                                 "vert_frames": frames})
+    blob, _digest = encode_scene(cloth, animated)
+    payload = envelope.loads_envelope(blob, envelope.KIND_SCENE)
+    motion = payload[1]["object"][0]["static_deform_animation"]
+    assert motion["time"] == [0.0, 1.0 / 24.0]
+    assert motion["vert_frames"] == frames.tolist()
+
+
+def test_multiple_colliders_keep_deterministic_scene_and_param_order():
+    cloth, collider = _micro_objects()
+    second = SceneObject("Second", "cn-collider-0002",
+                         collider.vertices_local, collider.triangles,
+                         collider.transform)
+    payload = build_scene_payload(cloth, (collider, second))
+    assert [item["uuid"] for item in payload[1]["object"]] == [
+        "cn-collider-0001", "cn-collider-0002"]
+    params = build_multi_collider_param_payload(
+        _micro_settings(), cloth.name, cloth.uuid,
+        ((collider.name, collider.uuid, DEFAULT_STATIC_SETTINGS),
+         (second.name, second.uuid, DEFAULT_STATIC_SETTINGS)),
+        shell=DEFAULT_SHELL_SETTINGS)
+    assert [entry[2][0] for entry in params["group"][1:]] == [
+        "cn-collider-0001", "cn-collider-0002"]
 
 
 def test_scene_golden_bytes_match_shipped_cbor2_output():

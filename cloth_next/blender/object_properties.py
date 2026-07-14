@@ -22,16 +22,28 @@ from __future__ import annotations
 
 import bpy
 
-from ..materials import (MODEL_FABRIC, MODEL_SHAPE_PRESERVING,
-                         ShellMaterialSettings, StaticMaterialSettings)
+from ..materials import (
+    MODEL_FABRIC,
+    MODEL_SHAPE_PRESERVING,
+    ShellMaterialSettings,
+    StaticMaterialSettings,
+)
 from ..materials import presets as material_presets
-from ..solver_quality import (DEFAULT_CG_MAX_ITER, DEFAULT_CG_TOL,
-                              DEFAULT_MIN_NEWTON_STEPS, DEFAULT_TIME_STEP,
-                              MAX_CG_MAX_ITER, MAX_CG_TOL,
-                              MAX_NEWTON_STEPS, MAX_TIME_STEP,
-                              MIN_CG_MAX_ITER, MIN_CG_TOL,
-                              MIN_NEWTON_STEPS, MIN_TIME_STEP,
-                              SolverQualitySettings)
+from ..solver_quality import (
+    DEFAULT_CG_MAX_ITER,
+    DEFAULT_CG_TOL,
+    DEFAULT_MIN_NEWTON_STEPS,
+    DEFAULT_TIME_STEP,
+    MAX_CG_MAX_ITER,
+    MAX_CG_TOL,
+    MAX_NEWTON_STEPS,
+    MAX_TIME_STEP,
+    MIN_CG_MAX_ITER,
+    MIN_CG_TOL,
+    MIN_NEWTON_STEPS,
+    MIN_TIME_STEP,
+    SolverQualitySettings,
+)
 from . import validation_state
 
 ROLE_ITEMS = (
@@ -333,6 +345,15 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
         update=_on_settings_update,
         description="How Cloth NeXt treats this object in a simulation")
+    collider_motion: bpy.props.EnumProperty(
+        name="Collider Motion", default="STATIC", update=_on_settings_update,
+        items=(
+            ("STATIC", "Static", "Use the evaluated collider shape at Bake Start"),
+            ("ANIMATED", "Animated", "Use the evaluated Blender animation "
+             "during the bake. Collider topology must remain unchanged."),
+        ),
+        description="Choose whether this Collider stays fixed or follows its "
+                    "evaluated Blender animation during the bake")
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
@@ -434,6 +455,7 @@ def reset_settings(settings) -> None:
     """
     settings.enabled = False
     settings.role = DEFAULT_ROLE
+    settings.collider_motion = "STATIC"
     owner = getattr(settings, "id_data", None)
     if owner is not None:
         validation_state.forget(owner)

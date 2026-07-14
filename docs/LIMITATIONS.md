@@ -2,8 +2,8 @@
 
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
-Current production scope is one Cloth and one static Collider. Animated
-colliders and animated pressure are unsupported. Uniform object-local shell
+Current production scope is one Cloth and one or more static or animated
+Colliders. Animated Colliders require stable evaluated topology. Uniform object-local shell
 pressure and pinning are supported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
 
@@ -137,11 +137,11 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
 ## Phase 3B production slice
 
-- One cloth shell, one static collider, and an artist-selected Bake Start/End
+- One cloth shell, one or more static/animated colliders, and an artist-selected Bake Start/End
   range with a 10,000-output-frame safety limit.
 - Static and Follow Animation hard pins through one vertex group and uniform
   object-local pressure are supported. Soft Pull, timed pin release, shrink,
-  stitching, plasticity, tearing, animated colliders, multiple cloths/colliders,
+  stitching, plasticity, tearing, multiple cloths,
   solids, rods, sand, PDRD, dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
   keys; unsupported controls remain hidden rather than shown as fake settings.
@@ -159,7 +159,7 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   guarantees for every mesh scale, resolution, or scene setup.
 - Static and Follow Animation hard Pinning through one Blender vertex group are
   supported. Pin indices require topology-preserving evaluated Cloth geometry.
-  Timed release, soft Pull, multiple pin groups, animated colliders, animated
+  Timed release, soft Pull, multiple pin groups, animated
   Pressure, and native Blender Cloth remain unsupported.
 - Cache invalidation is a minimal versioned material fingerprint (object
   property + `*.meta.json` sidecar) that marks a result stale; the full

@@ -320,7 +320,7 @@ def test_collider_collisions_show_only_contact_values(blender_env):
     panel = env.physics_ui.CLOTHNEXT_PT_collisions()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["surface_grip", "collision_gap",
+    assert panel.layout.props == ["collider_motion", "surface_grip", "collision_gap",
                                   "surface_offset"]
     settings.role = "CLOTH"
     panel.layout = RecordingLayout()
@@ -372,8 +372,7 @@ def test_snapshot_materials_returns_pure_immutable_settings(blender_env):
     collider_settings.collision.surface_grip = 0.9
     shell, static, contact_enabled, preset = \
         env.solver_test._snapshot_materials(cloth_obj, collider_obj)
-    from cloth_next.materials import (ShellMaterialSettings,
-                                      StaticMaterialSettings)
+    from cloth_next.materials import ShellMaterialSettings, StaticMaterialSettings
     assert isinstance(shell, ShellMaterialSettings)
     assert isinstance(static, StaticMaterialSettings)
     assert shell.stretch_resistance == 5500.0

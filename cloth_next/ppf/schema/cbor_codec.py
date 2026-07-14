@@ -90,6 +90,8 @@ def _encode_item(value: Any, out: bytearray, depth: int) -> None:
     elif isinstance(value, (bytes, bytearray)):
         _encode_head(2, len(value), out)
         out.extend(value)
+    elif _is_numpy_array(value):
+        _encode_numpy_array(value, out, depth)
     elif isinstance(value, (list, tuple)):
         _encode_head(4, len(value), out)
         for item in value:
@@ -104,6 +106,39 @@ def _encode_item(value: Any, out: bytearray, depth: int) -> None:
     else:
         raise CborError(f"unsupported type {type(value).__name__} "
                         "(outside the verified PPF wire subset)")
+
+
+def _is_numpy_array(value: Any) -> bool:
+    """Recognize ndarrays without making NumPy a codec dependency."""
+    return (type(value).__module__.split(".", 1)[0] == "numpy"
+            and hasattr(value, "shape") and hasattr(value, "flat"))
+
+
+def _encode_numpy_array(value: Any, out: bytearray, depth: int) -> None:
+    """Encode an ndarray as nested CBOR arrays without ``tolist()``.
+
+    Animated collider captures can contain millions of coordinates.  Walking
+    the ndarray/memmap directly keeps encoding bounded to the CBOR output plus
+    the compact numeric capture instead of allocating a Python object per
+    scalar.  Numeric leaves intentionally become normal Python int/float wire
+    values, matching cbor2's normalized upstream payload.
+    """
+    shape = tuple(int(size) for size in value.shape)
+    if not shape:
+        _encode_item(value.item(), out, depth + 1)
+        return
+
+    def emit(axis: int, prefix: tuple[int, ...]) -> None:
+        _encode_head(4, shape[axis], out)
+        if axis + 1 < len(shape):
+            for index in range(shape[axis]):
+                emit(axis + 1, prefix + (index,))
+        else:
+            for index in range(shape[axis]):
+                scalar = value[prefix + (index,)].item()
+                _encode_item(scalar, out, depth + axis + 1)
+
+    emit(0, ())
 
 
 def dumps(value: Any) -> bytes:
