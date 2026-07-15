@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Real PPF smoke tests for Cloth NeXt ROD and SOLID encoders."""
 
+# ruff: noqa: E402 -- executable script adds the repository root before imports.
+
 from __future__ import annotations
 
 import argparse
@@ -35,28 +37,32 @@ def _probe(executable: Path):
 def _run(resolved, output: Path, kind: str):
     uid = f"smoke-{kind.lower()}"
     if kind == "ROD":
-        vertices = ((-0.5, 0, 1), (0, 0, 1), (0.5, 0, 1))
+        vertices = ((-0.8, 0, 1.1), (-0.4, 0.1, 1.0), (0, 0, 0.9),
+                    (0.4, -0.1, 1.0), (0.8, 0, 1.1))
         deformable = SceneObject("Rod", uid, vertices, (), IDENTITY,
-                                 edges=((0, 1), (1, 2)))
+                                 edges=((0, 1), (1, 2), (2, 3), (3, 4)))
         material = RodMaterialSettings()
     else:
-        vertices = ((-0.2, -0.2, 0.8), (0.2, -0.2, 0.8),
-                    (0.0, 0.2, 0.8), (0.0, 0.0, 1.2))
+        # Closed octahedron: exercises tetrahedralization and maps a surface
+        # with more vertices/faces than the minimal single tetrahedron.
+        vertices = ((0, 0, 1.3), (0, 0, 0.7), (-0.3, 0, 1.0),
+                    (0.3, 0, 1.0), (0, -0.3, 1.0), (0, 0.3, 1.0))
         deformable = SceneObject("Soft", uid, vertices,
-            ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)), IDENTITY)
+            ((0, 2, 4), (0, 4, 3), (0, 3, 5), (0, 5, 2),
+             (1, 4, 2), (1, 3, 4), (1, 5, 3), (1, 2, 5)), IDENTITY)
         material = SoftBodyMaterialSettings()
     collider = SceneObject("Floor", "smoke-floor",
         ((-2, -2, 0), (2, -2, 0), (2, 2, 0), (-2, 2, 0)),
         ((0, 1, 2), (0, 2, 3)), IDENTITY)
     data, data_hash = encode_deformable_scene(
         deformable, collider, group_type=kind)
-    settings = SimulationSettings(3, 24, (0, 0, -9.81))
+    settings = SimulationSettings(5, 24, (0, 0, -9.81))
     params, param_hash = encode_deformable_param(
         settings, deformable.name, uid,
         ((collider.name, collider.uuid, DEFAULT_STATIC_SETTINGS),),
         group_type=kind, material=material)
     scene = SessionScene(new_project_name(), deformable.name, uid, len(vertices),
-        collider.name, collider.uuid, 3, data, params, data_hash, param_hash,
+        collider.name, collider.uuid, 5, data, params, data_hash, param_hash,
         deformable_type=kind, deformable_world_matrix=IDENTITY)
     frames = []
     session = SolverSession(resolved=resolved, scene=scene,
@@ -74,10 +80,23 @@ def _run(resolved, output: Path, kind: str):
             "states": session.diagnostics.status_transitions}, indent=2),
             flush=True)
         raise
-    if len(frames) != 2 or any(not math.isfinite(v) for frame in frames
+    if len(frames) != 4 or any(not math.isfinite(v) for frame in frames
                                for point in frame.positions_solver_world for v in point):
         raise RuntimeError(f"{kind} returned invalid frames")
     return {"frames": len(frames), "vertices": len(frames[-1].positions_solver_world)}
+
+
+def run(solver: Path, output: Path) -> dict[str, object]:
+    """Run both real deformable paths through the production session service."""
+    resolved = SolverResolver(_probe).resolve(SolverResolutionContext(
+        development_executable=solver))
+    if resolved is None:
+        raise RuntimeError("solver could not be resolved")
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    report = {kind: _run(resolved, output, kind)
+              for kind in ("ROD", "SOLID")}
+    return {"result": "PASS", **report}
 
 
 def main():
@@ -85,15 +104,7 @@ def main():
     parser.add_argument("--solver", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    resolved = SolverResolver(_probe).resolve(SolverResolutionContext(
-        development_executable=args.solver))
-    if resolved is None:
-        raise SystemExit("solver could not be resolved")
-    output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    report = {kind: _run(resolved, output, kind)
-              for kind in ("ROD", "SOLID")}
-    print(json.dumps({"result": "PASS", **report}, indent=2))
+    print(json.dumps(run(args.solver, args.output), indent=2))
 
 
 if __name__ == "__main__":

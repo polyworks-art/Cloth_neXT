@@ -44,6 +44,25 @@ def test_output_map_rejections():
         output_map.indices_for("cn-cloth-0001", 5)
 
 
+def test_parse_surface_map_uses_package_relative_codec():
+    blob = cbor_codec.dumps({
+        "kind": "SurfaceMap",
+        "payload": {
+            "version": 2,
+            "maps": {"soft-body": [[0, 0],
+                                     [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                                     [[0, 1, 2]]]},
+        },
+    })
+
+    surface_map = results.parse_surface_map(blob, "soft-body", 2)
+
+    assert surface_map.tri_indices.tolist() == [0, 0]
+    assert surface_map.coefficients.tolist() == [
+        [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    assert surface_map.surface_triangles.tolist() == [[0, 1, 2]]
+
+
 def test_decode_frame_payload():
     values = [1.0, 2.0, 3.0, -4.5, 5.25, -6.125]
     blob = struct.pack(f"<{len(values)}f", *values)

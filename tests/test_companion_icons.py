@@ -3,7 +3,7 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
-from companion.build_assets import MIST_ASSETS
+from companion.build_assets import PARTICLE_ASSETS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,15 +27,17 @@ def test_generated_companion_executable_is_not_committed():
     executables=[path for path in tracked if path.lower().endswith(".exe")]
     assert executables == []
 
-def test_mist_assets_are_deterministic_full_frame_rgb():
+def test_particle_assets_are_deterministic_translucent_icons():
     build(); target=ROOT/"companion"/"assets"
-    before={name:(target/name).read_bytes() for name in MIST_ASSETS}; build()
-    assert before == {name:(target/name).read_bytes() for name in MIST_ASSETS}
-    for name,size in MIST_ASSETS.items():
-        assert (target/name).stat().st_size < 64*1024
+    before={name:(target/name).read_bytes() for name in PARTICLE_ASSETS}; build()
+    assert before == {name:(target/name).read_bytes() for name in PARTICLE_ASSETS}
+    for name,size in PARTICLE_ASSETS.items():
+        assert (target/name).stat().st_size < 16*1024
         with Image.open(target/name) as image:
-            assert image.mode=="RGB" and image.size==size
-            assert all(image.getpixel(point)!=(0,0,0) for point in ((0,0),(size[0]-1,0),(0,size[1]-1),(size[0]-1,size[1]-1)))
+            rgba=image.convert("RGBA")
+            assert image.mode=="RGBA" and image.size==size
+            visible=[pixel for pixel in rgba.getdata() if pixel[3]]
+            assert visible and max(pixel[3] for pixel in visible) <= 184
 
 
 def test_blender_runtime_icons_are_white_for_dark_theme():

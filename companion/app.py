@@ -7,6 +7,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+import math
+import random
 import sys
 import tkinter as tk
 import traceback
@@ -53,24 +55,34 @@ def _match_windows_title_bar(root):
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(light),ctypes.sizeof(light))
     except (AttributeError,OSError): pass
 
-class MistAnimation:
-    WIDTH=76; HEIGHT=72; FRAME_COUNT=32; FRAME_MS=45
+PARTICLE_ASSETS=("particle_bake_12.png","particle_cloth_16.png",
+    "particle_collider_12.png","particle_collision_16.png",
+    "particle_pinning_12.png","particle_solver_16.png",
+    "particle_quality_12.png","particle_timer_12.png")
+
+class IconParticleField:
+    """Small Houdini-inspired icon flow with smooth path noise."""
+    WIDTH=76; HEIGHT=72; FRAME_MS=45; COUNT=9
     def __init__(self,parent,reduced_motion=False):
         self.canvas=tk.Canvas(parent,width=self.WIDTH,height=self.HEIGHT,bg=PANEL,highlightthickness=0,borderwidth=0)
         self.reduced_motion=reduced_motion; self._after=None; self._running=False; self._closed=False
-        self._rate=.18; self._target=.18; self._position=0.; self._images=[]; self._item=None
+        self._rate=.18; self._target=.18; self._time=0.; self._images=[]; self._particles=[]
         try:
-            for index in range(self.FRAME_COUNT):
-                self._images.append(tk.PhotoImage(file=str(_asset(f"mist_frame_{index:02d}.png"))))
-            self._item=self.canvas.create_image(0,0,image=self._images[0],anchor="nw")
+            self._images=[tk.PhotoImage(file=str(_asset(name))) for name in PARTICLE_ASSETS]
+            rng=random.Random()
+            for index in range(self.COUNT):
+                angle=rng.uniform(0,math.tau); speed=rng.uniform(.16,.38)
+                particle={"x":rng.uniform(0,self.WIDTH),"y":rng.uniform(0,self.HEIGHT),
+                    "vx":math.cos(angle)*speed,"vy":math.sin(angle)*speed,
+                    "phase":rng.uniform(0,math.tau),"noise":rng.uniform(.018,.045),
+                    "amplitude":rng.uniform(.12,.32)}
+                particle["item"]=self.canvas.create_image(
+                    particle["x"],particle["y"],image=self._images[index%len(self._images)])
+                self._particles.append(particle)
             self.available=True
         except Exception:
-            LOG.warning("Mist animation unavailable; using static fallback."); self.available=False
-            self.canvas.delete("all"); self._images=[]
-            try:
-                image=tk.PhotoImage(file=str(_asset("mist_fallback.png"))); self._images=[image]
-                self._item=self.canvas.create_image(0,0,image=image,anchor="nw")
-            except Exception: pass
+            LOG.warning("Icon particle field unavailable; using empty fallback.")
+            self.available=False; self.canvas.delete("all"); self._images=[]; self._particles=[]
     def start(self):
         if self._running or self._closed or not self.available:return
         self._running=True; self._tick()
@@ -84,8 +96,17 @@ class MistAnimation:
         if self._closed or not self._running:return
         self._rate+=(self._target-self._rate)*.08
         if not self.reduced_motion:
-            self._position=(self._position+self._rate)%self.FRAME_COUNT
-            self.canvas.itemconfigure(self._item,image=self._images[int(self._position)])
+            self._time+=self._rate
+            margin=12
+            for particle in self._particles:
+                phase=particle["phase"]+self._time*particle["noise"]
+                particle["x"]+=particle["vx"]*self._rate+math.sin(phase)*particle["amplitude"]
+                particle["y"]+=particle["vy"]*self._rate+math.cos(phase*.83)*particle["amplitude"]
+                if particle["x"] < -margin:particle["x"]=self.WIDTH+margin
+                elif particle["x"] > self.WIDTH+margin:particle["x"]=-margin
+                if particle["y"] < -margin:particle["y"]=self.HEIGHT+margin
+                elif particle["y"] > self.HEIGHT+margin:particle["y"]=-margin
+                self.canvas.coords(particle["item"],particle["x"],particle["y"])
         try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
         except tk.TclError:self._running=False
     def close(self):
@@ -115,7 +136,7 @@ class BakeWindow:
         self._job_modal=False
         self._error_details=""
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
-        self.show(BakeSnapshot()); self.mist.start()
+        self.show(BakeSnapshot()); self.particles.start()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
 
     def enter_bake_mode(self,payload):
@@ -167,8 +188,8 @@ class BakeWindow:
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
         icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=78,height=74)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
-        self.mist=MistAnimation(icon_box,os.environ.get("CLOTH_NEXT_REDUCED_MOTION")=="1")
-        self.mist.canvas.place(relx=.5,rely=.5,anchor="center")
+        self.particles=IconParticleField(icon_box,os.environ.get("CLOTH_NEXT_REDUCED_MOTION")=="1")
+        self.particles.canvas.place(relx=.5,rely=.5,anchor="center")
         right=ttk.Frame(body,style="CN.TFrame"); right.grid(row=0,column=1,sticky="ew"); body.columnconfigure(1,weight=1)
         self.progress=tk.Canvas(right,width=270,height=22,bg=PANEL,highlightbackground="#777777",highlightthickness=1,borderwidth=0)
         self.progress.grid(row=0,column=0,sticky="ew"); right.columnconfigure(0,weight=1)
@@ -268,7 +289,7 @@ class BakeWindow:
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR and snapshot.activity_detail:label=f"Failed while {snapshot.activity_detail}"
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
-        self.mist.set_state(snapshot.state,snapshot.activity_code)
+        self.particles.set_state(snapshot.state,snapshot.activity_code)
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
         self.remaining_text.set("" if remaining=="Unknown" else f"remaining {remaining}")
@@ -284,7 +305,7 @@ class BakeWindow:
 
     def close(self):
         if self._closed:return
-        self._closed=True; self.mist.close()
+        self._closed=True; self.particles.close()
         if self._activity_after is not None:
             try:self.root.after_cancel(self._activity_after)
             except tk.TclError:pass

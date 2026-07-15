@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .schema import envelope
+from .schema import cbor_codec, envelope
 
 MAP_PATH = "session/map.pickle"
 SURFACE_MAP_PATH = "session/surface_map.pickle"
@@ -90,7 +90,7 @@ class SurfaceMap:
 
 def parse_surface_map(blob: bytes, uuid: str,
                       expected_count: int) -> SurfaceMap:
-    raw = __import__("cloth_next.ppf.schema.cbor_codec", fromlist=["loads"]).loads(blob)
+    raw = cbor_codec.loads(blob)
     if not isinstance(raw, dict) or raw.get("kind") != "SurfaceMap":
         raise ResultValidationError("surface map envelope kind mismatch")
     payload = raw.get("payload")
