@@ -2,8 +2,12 @@
 
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
-Current production scope is one Cloth and one or more static or animated
-Colliders. Animated Colliders require stable evaluated topology. Uniform object-local shell
+Current production scope is multiple Cloth, Rod, and Soft Body deformables in
+one shared solve with one or more static or animated Colliders. Every
+deformable must use the same Bake range and scene-wide Contact setting.
+Force objects are supported on Emptys: Gravity uses local `-Z`, Wind uses
+local `+Z`, and multiple forces of each type are summed.
+Animated Colliders require stable evaluated topology. Uniform object-local shell
 pressure and pinning are supported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.
 
@@ -137,12 +141,13 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
 ## Phase 3B production slice
 
-- One deformable object (Cloth shell, experimental Rod / Cable, or experimental
-  Soft Body), one or more static/animated colliders, and an artist-selected
+- Multiple deformable objects (Cloth shells, experimental Rod / Cable, and
+  experimental Soft Body) in one interacting solve, one or more
+  static/animated colliders, and an artist-selected
   Bake Start/End range with a 10,000-output-frame safety limit.
 - For Cloth shells, Static and Follow Animation hard pins through one vertex
   group and uniform object-local pressure are supported. Soft Pull, timed pin release, shrink,
-  stitching, plasticity, tearing, multiple deformables, sand, PDRD,
+  stitching, plasticity, tearing, sand, PDRD,
   dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
   keys; unsupported controls remain hidden rather than shown as fake settings.
@@ -154,6 +159,9 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   topology are unsupported. Curve Bevel/Taper/point radius are visual only;
   `Surface Offset` provides one uniform collision-radius approximation for the
   simulated centerline. Variable physical cable thickness is unsupported.
+- Static and Follow Animation Cloth pins are supported per object in
+  multi-object bakes. Every animated pin track is captured independently and
+  mapped to its deformable UUID.
 - Soft Bodies require a closed manifold mesh. The external solver performs
   tetrahedralization and Cloth NeXt maps the simulated tetrahedral surface back
   to the original vertices. Soft Body pinning and animated source topology are
@@ -178,7 +186,9 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   Phase-4 status without a Rebake.
 - Bake actions run the compatible external PPF solver; Developer Test Tools remain
   separately labeled diagnostics.
-- The Viewport HUD is display-only; cancellation remains an operator action.
+- The Viewport resource monitor is display-only and shows cached CPU, RAM, and
+  VRAM history during a Bake. Bake status and cancellation remain dedicated UI
+  actions outside the monitor.
 - The optional Windows companion is bundled and hash-validated. When automatic
   launch is enabled, it receives real bake status and must open successfully before
   startup continues; users can disable it for Blender-only progress.

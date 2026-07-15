@@ -100,7 +100,8 @@ each carry their own friction/gap/offset.
 | PCG Max Iterations | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
 | PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
-| Gravity | `gravity` | Blender scene gravity | axis-swapped to solver Y-up |
+| Gravity | `gravity` | Sum of Gravity Empty local `-Z` vectors, or Blender scene gravity when no Gravity Empty is enabled | axis-swapped to solver Y-up |
+| Wind Force Empty | `wind` | Sum of enabled Wind Empty local `+Z` vectors | axis-swapped to solver Y-up |
 | Wind | `wind` | fixed `(0,0,0)` | no wind this phase |
 | Frame count | `frames` | Blender frames `N-1` | Blender 1..N → solver 0..N-1; development slice N=8 |
 | FPS | `fps` | Blender scene FPS | frame→time conversion |

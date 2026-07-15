@@ -53,27 +53,24 @@ ROLE_ITEMS = (
     ("ROD", "Rod / Cable", "Simulate this Curve as a one-dimensional rod"),
     ("SOFT_BODY", "Soft Body", "Simulate this closed mesh as a tetrahedral solid"),
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
+    ("FORCE", "Force", "Add scene-wide gravity or wind from an Empty"),
 )
 
-_ROLE_ICONS = (
-    ("cloth", "MOD_CLOTH"),
-    ("rod", "CURVE_DATA"),
-    ("soft_body", "MOD_SOFT"),
-    ("collider", "MESH_CUBE"),
-)
+ROLE_ICONS = {
+    "CLOTH": ("cloth", "MOD_CLOTH"),
+    "ROD": ("rod", "CURVE_DATA"),
+    "SOFT_BODY": ("soft_body", "MOD_SOFT"),
+    "COLLIDER": ("collider", "MESH_CUBE"),
+    "FORCE": ("force", "FORCE_FORCE"),
+}
 
 DEFAULT_ROLE = "CLOTH"
 
 
-def role_items(_self, _context):
-    """Return role choices with custom previews and safe built-in fallbacks."""
-    return tuple(
-        (identifier, label, description,
-         icon_registry.icon_id(icon_name) or fallback, number)
-        for number, ((identifier, label, description),
-                     (icon_name, fallback))
-        in enumerate(zip(ROLE_ITEMS, _ROLE_ICONS))
-    )
+def role_icon_kwargs(identifier: str) -> dict:
+    """Custom role preview for menus, with a distinct built-in fallback."""
+    icon_name, fallback = ROLE_ICONS.get(identifier, ("cloth_next", "OBJECT_DATA"))
+    return icon_registry.icon_kwargs(icon_name, fallback)
 
 # ---------------------------------------------------------------------------
 # Preset plumbing.
@@ -397,6 +394,17 @@ class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
         default="FTETWILD", update=_on_settings_update)
 
 
+class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
+    force_type: bpy.props.EnumProperty(
+        name="Force Type", default="GRAVITY", update=_on_settings_update,
+        items=(("GRAVITY", "Gravity", "Acceleration along the Empty's local -Z axis"),
+               ("WIND", "Wind", "PPF wind vector along the Empty's local +Z axis")))
+    strength: bpy.props.FloatProperty(
+        name="Strength", default=9.81, min=0.0, soft_max=50.0,
+        precision=3, update=_on_settings_update,
+        description="PPF vector magnitude in Blender-space units; rotate the Empty to set direction")
+
+
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
@@ -404,7 +412,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Enabled", default=False, update=_on_settings_update,
         description="Cloth NeXt is enabled on this object")
     role: bpy.props.EnumProperty(
-        name="Object Role", items=role_items, default=0,
+        name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
         update=_on_settings_update,
         description="How Cloth NeXt treats this object in a simulation")
     collider_motion: bpy.props.EnumProperty(
@@ -422,6 +430,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
     rod: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rod_settings)
     soft_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_soft_body_settings)
+    force: bpy.props.PointerProperty(type=CLOTHNEXT_PG_force_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False, update=_on_settings_update,
         description="Hold vertices in the selected Blender vertex group at "
@@ -583,5 +592,6 @@ CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
            CLOTHNEXT_PG_collision_settings,
            CLOTHNEXT_PG_rod_settings, CLOTHNEXT_PG_soft_body_settings,
+           CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_object_settings)

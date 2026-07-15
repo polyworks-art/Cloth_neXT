@@ -12,10 +12,11 @@ SOURCE = ROOT / "cloth_next" / "assets" / "icons"
 TARGET = ROOT / "companion" / "assets"
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
              (128, 128), (256, 256))
-PARTICLE_SOURCES={"bake":12,"cloth":16,"collider":12,"collision":16,
-                  "pinning":12,"solver":16,"quality":12,"timer":12}
+PARTICLE_SOURCES={"bake":(12,-18),"cloth":(16,12),"collider":(12,-11),
+                  "collision":(16,20),"pinning":(12,-24),"solver":(16,15),
+                  "quality":(12,-14),"timer":(12,23)}
 PARTICLE_ASSETS={f"particle_{name}_{size}.png":(size,size)
-                 for name,size in PARTICLE_SOURCES.items()}
+                 for name,(size,_angle) in PARTICLE_SOURCES.items()}
 
 def build() -> None:
     app_source, bake_source = SOURCE / "cloth_next.png", SOURCE / "bake.png"
@@ -31,9 +32,15 @@ def build() -> None:
         master = image.convert("RGBA").resize((256, 256), Image.Resampling.LANCZOS)
         master.save(TARGET / "cloth_next.ico", format="ICO", sizes=ICO_SIZES,
                     bitmap_format="png")
-    for name,size in PARTICLE_SOURCES.items():
+    for name,(size,angle) in PARTICLE_SOURCES.items():
         with Image.open(SOURCE/f"{name}.png") as source:
-            icon=source.convert("RGBA").resize((size,size),Image.Resampling.LANCZOS)
+            inset=max(2,size//6)
+            content=source.convert("RGBA").resize(
+                (size-inset*2,size-inset*2),Image.Resampling.LANCZOS)
+            icon=Image.new("RGBA",(size,size),(255,255,255,0))
+            icon.alpha_composite(content,(inset,inset))
+            icon=icon.rotate(angle,resample=Image.Resampling.BICUBIC,
+                             expand=False)
             alpha=icon.getchannel("A").point(lambda value:int(value*.72))
             icon.putalpha(alpha)
             icon.save(TARGET/f"particle_{name}_{size}.png",format="PNG",

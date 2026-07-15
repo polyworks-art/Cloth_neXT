@@ -68,12 +68,21 @@ class CLOTHNEXT_MT_object_type(bpy.types.Menu):
     bl_idname = "CLOTHNEXT_MT_object_type"
     bl_label = "Object Type"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
+        obj = getattr(context, "object", None)
+        settings = getattr(obj, "cloth_next", None)
+        active_role = getattr(settings, "role", "")
         for identifier, label, _description in object_properties.ROLE_ITEMS:
-            operator = layout.operator(
+            row = layout.row()
+            row.enabled = ((identifier == "FORCE") ==
+                           (getattr(obj, "type", "") == "EMPTY"))
+            if getattr(obj, "type", "") == "CURVE":
+                row.enabled = identifier == "ROD"
+            operator = row.operator(
                 physics_operators.CLOTHNEXT_OT_set_object_type.bl_idname,
-                text=label, icon="CHECKMARK" if identifier == "CLOTH" else "OBJECT_DATA")
+                text=label, depress=identifier == active_role,
+                **object_properties.role_icon_kwargs(identifier))
             operator.role = identifier
         layout.separator()
         for _identifier, label, description in UNAVAILABLE_OBJECT_TYPES:
@@ -98,7 +107,7 @@ def _draw_object_type_selector(layout, settings) -> None:
 def _draw_add_physics_entry(panel, context) -> None:
     """Appended to PHYSICS_PT_add; draws the Cloth NeXt add/remove entry."""
     obj = getattr(context, "object", None)
-    if obj is None or obj.type not in {"MESH", "CURVE"}:
+    if obj is None or obj.type not in {"MESH", "CURVE", "EMPTY"}:
         return
     settings = getattr(obj, "cloth_next", None)
     col = panel.layout.column()
@@ -157,7 +166,7 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         obj = getattr(context, "object", None)
-        if obj is None or obj.type not in {"MESH", "CURVE"}:
+        if obj is None or obj.type not in {"MESH", "CURVE", "EMPTY"}:
             return False
         settings = getattr(obj, "cloth_next", None)
         return settings is not None and settings.enabled
@@ -171,7 +180,8 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         snapshot = shared_controller.snapshot()
         box = layout.box()
         col = box.column(align=True)
-        role_icon="cloth" if settings.role=="CLOTH" else "collider"
+        role_icon = settings.role.lower() if settings.role in {
+            "CLOTH", "COLLIDER", "FORCE"} else "cloth_next"
         col.label(text=f"{context.object.name} · {settings.role.title()}",
                   **icon_registry.icon_kwargs(role_icon,"OBJECT_DATA"))
         state_icon=("error" if snapshot.error_summary else "solver" if snapshot.active
@@ -201,6 +211,11 @@ class _ClothNextSubpanel:
         if not CLOTHNEXT_PT_physics.poll(context):
             return False
         role = context.object.cloth_next.role
+        if role == "FORCE":
+            return bool(getattr(cls, "force_only", False)
+                        or cls.__name__ == "CLOTHNEXT_PT_overview")
+        if getattr(cls, "force_only", False):
+            return False
         if getattr(cls, "cloth_only", False):
             return role == "CLOTH"
         if getattr(cls, "deformable_only", False):
@@ -469,10 +484,11 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     colliders = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
                                                    "enabled", False)
                  and obj.cloth_next.role == "COLLIDER"]
-    role = cloths[0].cloth_next.role if len(cloths) == 1 else ""
+    role = (cloths[0].cloth_next.role if len(cloths) == 1
+            else "MULTI" if cloths else "")
     preset = (cloths[0].cloth_next.material.preset.replace("_", " ").title()
-              if role == "CLOTH" else role.replace("_", " ").title()
-              if role else "No material")
+              if role == "CLOTH" else "Multi Object" if role == "MULTI"
+              else role.replace("_", " ").title() if role else "No material")
     summary = f"{preset} · {len(cloths)} Deformable · {len(colliders)} Collider"
     cache_state, cache_label = _cache_state(context)
     action = {"STALE": "REBAKE", "INVALID": "REBAKE",
@@ -481,25 +497,37 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     reason = ""
     if not status.ready:
         reason = "PPF is not configured."
-    elif len(cloths) != 1:
-        reason = "Exactly one deformable object is currently supported."
+    elif not cloths:
+        reason = "At least one deformable object is required."
     elif not colliders:
         reason = "At least one Collider is required."
     else:
         try:
             from ..bake.frame_range import BakeFrameRange
-            BakeFrameRange(int(cloths[0].cloth_next.bake_start),
-                           int(cloths[0].cloth_next.bake_end))
-            # Property-only validation: reads ~15 floats, touches no mesh.
-            solver_test._snapshot_materials(cloths[0], colliders[0])
+            ranges = {(int(obj.cloth_next.bake_start),
+                       int(obj.cloth_next.bake_end)) for obj in cloths}
+            if len(ranges) != 1:
+                raise ValueError("All deformables need the same Bake range.")
+            BakeFrameRange(*next(iter(ranges)))
+            contacts = {bool(obj.cloth_next.collision.enabled)
+                        for obj in cloths}
+            if len(contacts) != 1:
+                raise ValueError(
+                    "All deformables need the same Enable Contact setting.")
+            # Property-only validation: touches no mesh.
+            for obj in cloths:
+                solver_test._snapshot_materials(obj, colliders[0])
         except Exception as exc:  # noqa: BLE001 — an invalid value stays visible
             reason = str(exc) or "Material settings are invalid."
         else:
-            reason = _cheap_pin_reason(solver_test, cloths[0])
-            if not reason:
-                record = validation_state.record_for(cloths[0])
+            for obj in cloths:
+                reason = _cheap_pin_reason(solver_test, obj)
+                if reason:
+                    break
+                record = validation_state.record_for(obj)
                 if record.state is validation_state.ValidationState.INVALID:
                     reason = record.message
+                    break
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 
 
@@ -528,6 +556,26 @@ def _preset_description(identifier: str) -> str:
         if item_id == identifier:
             return description
     return ""
+
+
+class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Force"
+    bl_idname = "CLOTHNEXT_PT_force"
+    force_only = True
+    header_icon = "force"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        force = context.object.cloth_next.force
+        layout.prop(force, "force_type")
+        layout.prop(force, "strength")
+        direction = "local -Z" if force.force_type == "GRAVITY" else "local +Z"
+        info = layout.column(align=True)
+        info.label(text=f"Direction: Empty {direction}", icon="ORIENTATION_LOCAL")
+        info.label(text="Rotate the Empty to aim the force")
+        info.label(text="Forces of the same type are added together")
 
 
 class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
@@ -870,13 +918,14 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
             contact = ("enabled" if settings.collision.enabled
                        else "DISABLED (disable-contact: true)")
             info.label(text=f"Contact: {contact}")
-        info.label(text="Current scope: one cloth and one collider",
-                   icon="EXPERIMENTAL")
+        info.label(text="Shared solve: multiple deformables and colliders",
+                   icon="INFO")
 
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
-           CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning, CLOTHNEXT_PT_damping,
+           CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
+           CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_advanced)

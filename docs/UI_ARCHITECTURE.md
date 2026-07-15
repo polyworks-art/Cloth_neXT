@@ -2,7 +2,13 @@
 
 The Pinning panel exposes Static and Follow Animation modes. Follow Animation reserves the run, captures one evaluated frame per bounded main-thread timer tick, reports dedicated capture activity, remains cancellable, and completes companion readiness only after the immutable target snapshot is valid.
 
-The Bake companion separates overall progress from typed solver activity and never parses logs in Tk. Its rectangular mist preloads 32 seamless build-generated fog frames and swaps one full-Canvas image through a 45 ms timer. Broad state and activity adjust playback speed; reduced-motion and static fallback paths remain decorative. The packaged Windows DWM caption matches the `#303030` main-window background.
+The Bake companion separates overall progress from typed solver activity and
+never parses logs in Tk. Its compact Canvas preloads inclined derivatives of
+approved add-on icons and advances them on random linear paths with bounded
+perpendicular noise through a 16 ms timer. Elapsed-time integration keeps the
+speed independent of timer jitter. Broad state and activity adjust playback
+speed; reduced-motion and static fallback paths remain decorative. The packaged
+Windows DWM caption matches the `#303030` main-window background.
 
 Production Bake is a Blender modal operator backed by an event timer. It
 consumes editing events while active, keeps redraw and Cancel responsive, and
@@ -91,9 +97,12 @@ starts. The worker only ever sees pure values and never touches ``bpy``
 Parameters" developer action show both artist names and exact wire
 spellings from one shared formatting table.
 
-The display-only Viewport HUD has one reload-safe `POST_PIXEL` draw handler. Its
-callback reads a snapshot and draws; it starts no work. Explicit UI preview
-operators use one Blender timer and clearly state that PPF was not run.
+The display-only Viewport resource monitor has one reload-safe `POST_PIXEL`
+draw handler. During an active Bake it draws only CPU, RAM, and VRAM history
+graphs from cached telemetry; solver, object, PID, frame, and Bake status stay
+in the Physics panel and companion. Its callback reads snapshots and draws; it
+starts no work. Explicit UI preview operators use one Blender timer and clearly
+state that PPF was not run.
 
 Custom previews use `bpy.utils.previews`, load packaged PNGs once, tolerate
 individual missing assets, and unload on rollback/unregister. SVG sources remain
@@ -118,11 +127,12 @@ observe one controller.
 The pure `telemetry` package owns one stoppable worker. At a throttled one-second
 default interval it queries `nvidia-smi` with a bounded explicit argument list
 and Windows CPU/RAM APIs, then replaces an immutable cached snapshot. HUD draw
-callbacks only read that snapshot and the shared `BakeSnapshot`; they never
+callbacks only read that telemetry snapshot (plus the Bake state used to show
+or hide the monitor); they never
 launch processes, query hardware, access files, or mutate Blender data.
 
-Responsive compact and expanded layouts support four anchors and scaling, with
-a local compact fallback for narrow viewports. Typed job kinds distinguish UI
-previews, solver tests, and future bakes. An explicit real run transitions to
+The three graph layout supports four anchors and scaling while remaining
+bounded by the current viewport. Typed job kinds distinguish UI previews,
+solver tests, and future bakes. An explicit real run transitions to
 PREPARING, optionally launches or reuses the authenticated companion, and then
 validates the scene. Launch failure is a visible warning, not a solve failure.

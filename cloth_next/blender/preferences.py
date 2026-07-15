@@ -469,11 +469,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Require the visible topmost Bake window before locking "
                     "Blender. When disabled, Bake runs in Blender without a "
                     "global modal workflow lock")
-    show_bake_hud: bpy.props.BoolProperty(name="Show Bake HUD", default=True)
-    bake_hud_mode: bpy.props.EnumProperty(name="HUD Mode", items=(("COMPACT", "Compact", "Compact status card"),("EXPANDED", "Expanded", "Detailed status and telemetry")), default="EXPANDED")
+    show_bake_hud: bpy.props.BoolProperty(name="Show Resource Monitor", default=True)
     bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")
     bake_hud_scale: bpy.props.FloatProperty(name="HUD Scale", default=1.0, min=0.75, max=2.0)
-    show_hardware_metrics: bpy.props.BoolProperty(name="Hardware Metrics", default=True)
     telemetry_refresh_seconds: bpy.props.FloatProperty(name="Telemetry Refresh", default=1.0, min=0.25, max=10.0, subtype="TIME")
 
     def draw(self, _context) -> None:
@@ -483,8 +481,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         if is_dev_build():
             layout.prop(self, "developer_tools")
         layout.prop(self, "auto_launch_bake_window")
-        hud_box=layout.box(); hud_box.label(text="Bake HUD")
-        for name in ("show_bake_hud","bake_hud_mode","bake_hud_anchor","bake_hud_scale","show_hardware_metrics","telemetry_refresh_seconds"): hud_box.prop(self,name)
+        hud_box=layout.box(); hud_box.label(text="Bake Resource Monitor")
+        for name in ("show_bake_hud","bake_hud_anchor","bake_hud_scale","telemetry_refresh_seconds"): hud_box.prop(self,name)
 
     def _draw_addon_update_section(self, layout) -> None:
         """Cloth NeXt's own update status; never performs network work."""

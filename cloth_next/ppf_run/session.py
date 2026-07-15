@@ -54,6 +54,15 @@ class SessionCancelled(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class SessionDeformable:
+    name: str
+    uuid: str
+    vertex_count: int
+    deformable_type: str = "SHELL"
+    world_matrix: tuple | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SessionScene:
     """Immutable scene export handed from Blender's main thread."""
 
@@ -70,6 +79,15 @@ class SessionScene:
     param_hash: str
     deformable_type: str = "SHELL"
     deformable_world_matrix: tuple | None = None
+    deformables: tuple[SessionDeformable, ...] = ()
+
+    @property
+    def dynamic_objects(self) -> tuple[SessionDeformable, ...]:
+        if self.deformables:
+            return self.deformables
+        return (SessionDeformable(
+            self.cloth_name, self.cloth_uuid, self.cloth_vertex_count,
+            self.deformable_type, self.deformable_world_matrix),)
 
     @property
     def solver_frame_count(self) -> int:
@@ -100,10 +118,11 @@ class SessionEvent:
 
 @dataclass(frozen=True, slots=True)
 class SolverFrame:
-    """One validated solver frame for one object, solver world space."""
+    """One validated solver frame split into original dynamic objects."""
 
     solver_frame: int  # 1-based solver frame index (vert_<N>.bin)
     positions_solver_world: object
+    positions_by_uuid: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -169,8 +188,8 @@ class SolverSession:
         self._manager: SolverProcessManager | None = None
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
-        self._cloth_indices: np.ndarray | None = None
-        self._surface_map: results.SurfaceMap | None = None
+        self._indices_by_uuid: dict[str, np.ndarray] = {}
+        self._surface_maps_by_uuid: dict[str, results.SurfaceMap] = {}
         self.diagnostics = SessionDiagnostics(project_name=scene.project_name,
                                               solver_mode=resolved.mode.name,
                                               data_hash=scene.data_hash,
@@ -328,28 +347,32 @@ class SolverSession:
                                  path=results.MAP_PATH)
         output_map = results.parse_output_map(blob)
         self.diagnostics.bytes_transferred += len(blob)
-        # The cloth must map back onto the original vertex order/count.
-        if self.scene.deformable_type == "SOLID":
-            raw_indices = output_map.indices_by_uuid.get(self.scene.cloth_uuid)
-            if raw_indices is None:
-                raise results.ResultValidationError(
-                    f"solver output map has no entry for {self.scene.cloth_uuid}")
+        targets = self.scene.dynamic_objects
+        solid_targets = [target for target in targets
+                         if target.deformable_type == "SOLID"]
+        surface_blob = None
+        if solid_targets:
             surface_blob = wire.data_receive(
                 self._address, self.transport,
                 project_name=self.scene.project_name,
                 path=results.SURFACE_MAP_PATH)
             self.diagnostics.bytes_transferred += len(surface_blob)
-            self._surface_map = results.parse_surface_map(
-                surface_blob, self.scene.cloth_uuid,
-                self.scene.cloth_vertex_count)
-        else:
-            raw_indices = output_map.indices_for(self.scene.cloth_uuid,
-                                                 self.scene.cloth_vertex_count)
         total_vertices = max(index for values in output_map.indices_by_uuid.values()
                              for index in values) + 1
-        self._cloth_indices = results.object_index_array(
-            raw_indices, total_vertices=total_vertices,
-            uuid=self.scene.cloth_uuid)
+        for target in targets:
+            if target.deformable_type == "SOLID":
+                raw_indices = output_map.indices_by_uuid.get(target.uuid)
+                if raw_indices is None:
+                    raise results.ResultValidationError(
+                        f"solver output map has no entry for {target.uuid}")
+                assert surface_blob is not None
+                self._surface_maps_by_uuid[target.uuid] = results.parse_surface_map(
+                    surface_blob, target.uuid, target.vertex_count)
+            else:
+                raw_indices = output_map.indices_for(target.uuid,
+                                                     target.vertex_count)
+            self._indices_by_uuid[target.uuid] = results.object_index_array(
+                raw_indices, total_vertices=total_vertices, uuid=target.uuid)
         return output_map
 
     def _fetch_frame(self, output_map: results.OutputMap,
@@ -369,22 +392,25 @@ class SolverSession:
             self.diagnostics.timings.get("frame_decode", 0.0)
             + time.monotonic() - step)
         step = time.monotonic()
-        assert self._cloth_indices is not None
-        if self._surface_map is None:
-            cloth = results.extract_object_frame_numpy(
-                positions, self._cloth_indices, frame=frame,
-                uuid=self.scene.cloth_uuid,
-                expected_count=self.scene.cloth_vertex_count)
-        else:
-            tet_world = positions[self._cloth_indices]
-            world = np.asarray(self.scene.deformable_world_matrix,
+        positions_by_uuid = {}
+        for target in self.scene.dynamic_objects:
+            indices = self._indices_by_uuid[target.uuid]
+            surface_map = self._surface_maps_by_uuid.get(target.uuid)
+            if surface_map is None:
+                extracted = results.extract_object_frame_numpy(
+                    positions, indices, frame=frame, uuid=target.uuid,
+                    expected_count=target.vertex_count)
+                positions_by_uuid[target.uuid] = extracted
+                continue
+            tet_world = positions[indices]
+            world = np.asarray(target.world_matrix,
                                dtype=np.float64)
             inverse = np.linalg.inv(world)
             homogeneous = np.concatenate(
                 (tet_world.astype(np.float64),
                  np.ones((len(tet_world), 1))), axis=1)
             tet_local = (homogeneous @ inverse.T)[:, :3]
-            smap = self._surface_map
+            smap = surface_map
             triangles = smap.surface_triangles[smap.tri_indices]
             v0, v1, v2 = (tet_local[triangles[:, index]] for index in range(3))
             b1, b2 = v1 - v0, v2 - v0
@@ -398,11 +424,13 @@ class SolverSession:
                             + c[:, 2:3] * normal)
             source_h = np.concatenate(
                 (source_local, np.ones((len(source_local), 1))), axis=1)
-            cloth = (source_h @ world.T)[:, :3].astype(np.float32)
+            positions_by_uuid[target.uuid] = (
+                source_h @ world.T)[:, :3].astype(np.float32)
         self.diagnostics.timings["frame_extract"] = (
             self.diagnostics.timings.get("frame_extract", 0.0)
             + time.monotonic() - step)
-        return SolverFrame(frame, cloth)
+        first = positions_by_uuid[self.scene.dynamic_objects[0].uuid]
+        return SolverFrame(frame, first, positions_by_uuid)
 
     def _simulate_and_fetch(self) -> None:
         total = self.scene.solver_frame_count

@@ -20,7 +20,7 @@ from ..solver_quality import (SolverQualityValidationError,
 
 def _active_mesh(context):
     obj = getattr(context, "active_object", None)
-    if obj is None or obj.type not in {"MESH", "CURVE"}:
+    if obj is None or obj.type not in {"MESH", "CURVE", "EMPTY"}:
         return None
     return obj
 
@@ -48,10 +48,13 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             self.report({"WARNING"}, "This Cloth NeXt object type is not supported yet.")
             return {"CANCELLED"}
         obj = context.active_object
+        if self.role == "FORCE" and obj.type != "EMPTY":
+            self.report({"WARNING"}, "Force requires an Empty object.")
+            return {"CANCELLED"}
         if self.role == "ROD" and obj.type != "CURVE":
             self.report({"WARNING"}, "Rod / Cable requires a Curve object.")
             return {"CANCELLED"}
-        if self.role != "ROD" and obj.type != "MESH":
+        if self.role not in {"ROD", "FORCE"} and obj.type != "MESH":
             self.report({"WARNING"},
                         "Cloth, Soft Body and Collider require a Mesh object.")
             return {"CANCELLED"}
@@ -80,7 +83,8 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
         obj = context.active_object
         settings = obj.cloth_next
         settings.enabled = True
-        settings.role = object_properties.DEFAULT_ROLE
+        settings.role = ("FORCE" if obj.type == "EMPTY"
+                         else object_properties.DEFAULT_ROLE)
         scene = getattr(context, "scene", getattr(bpy.context, "scene", None))
         if scene is not None:
             settings.bake_start = int(scene.frame_start)

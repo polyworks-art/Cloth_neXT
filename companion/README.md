@@ -1,6 +1,14 @@
 # Cloth NeXt Bake companion (source preview)
 
-The compact window uses a 76×72 Houdini-inspired icon particle field at roughly 22 FPS. Approved add-on icons drift in independent random directions, follow smooth sine-based path noise, and wrap around the Canvas edges. Build-time Pillow derivatives keep the runtime lightweight; reduced motion freezes the field, and an asset failure leaves the background empty without affecting readiness. The upper bar shows overall progress while the lower bar consumes the dedicated typed solver-activity channel with a short debounce. `IconParticleField` owns and cancels its single `after()` timer on close.
+The compact window uses a 76×72 Houdini-inspired icon particle field targeting
+60 FPS. Approved add-on icons have individual build-time inclinations, drift in
+independent random directions, and follow bounded perpendicular sine noise
+along a frame-rate-independent linear path. Build-time Pillow derivatives keep
+the runtime lightweight; reduced motion freezes the field, and an asset failure
+leaves the background empty without affecting readiness. The upper bar shows
+overall progress while the lower bar consumes the dedicated typed
+solver-activity channel with a short debounce. `IconParticleField` owns and
+cancels its single `after()` timer on close.
 
 This optional status client visualizes the same immutable real-bake snapshots as
 the Blender panels and HUD. It does not run PPF itself; Blender owns the solver

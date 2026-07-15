@@ -56,16 +56,14 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     env = blender_env
     props = fake_bpy._resolved_props(env.object_properties.CLOTHNEXT_PG_object_settings)
     role = props["role"]
-    items = role.keywords["items"](None, None)
+    items = role.keywords["items"]
     identifiers = [item[0] for item in items]
     labels = {item[0]: item[1] for item in items}
-    assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "COLLIDER"]
+    assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "COLLIDER", "FORCE"]
     assert labels == {"CLOTH": "Cloth", "ROD": "Rod / Cable",
-                      "SOFT_BODY": "Soft Body", "COLLIDER": "Collider"}
-    assert [item[3] for item in items] == [
-        "MOD_CLOTH", "CURVE_DATA", "MOD_SOFT", "MESH_CUBE"]
-    assert [item[4] for item in items] == [0, 1, 2, 3]
-    assert role.keywords["default"] == 0
+                      "SOFT_BODY": "Soft Body", "COLLIDER": "Collider",
+                      "FORCE": "Force"}
+    assert role.keywords["default"] == "CLOTH"
     assert props["enabled"].keywords["default"] is False
 
 
@@ -87,6 +85,23 @@ def test_supported_object_types_set_authoritative_role(blender_env, role):
     operator.role = role
     assert operator.execute(context) == {"FINISHED"}
     assert obj.cloth_next.role == role
+    env.registration.unregister()
+
+
+def test_force_role_is_empty_only_and_add_defaults_empty_to_force(blender_env):
+    env = blender_env
+    env.registration.register()
+    empty = env.bpy.types.Object(name="Wind", type="EMPTY")
+    context = make_context(empty)
+    add = env.physics_operators.CLOTHNEXT_OT_add_physics()
+    assert add.execute(context) == {"FINISHED"}
+    assert empty.cloth_next.role == "FORCE"
+    operator = env.physics_operators.CLOTHNEXT_OT_set_object_type()
+    operator.role = "FORCE"
+    assert operator.execute(context) == {"FINISHED"}
+    mesh = make_mesh(env)
+    mesh.cloth_next.enabled = True
+    assert operator.execute(make_context(mesh)) == {"CANCELLED"}
     env.registration.unregister()
 
 
@@ -126,10 +141,10 @@ def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(ble
     menu = env.physics_ui.CLOTHNEXT_MT_object_type()
     menu.layout = Layout()
     menu.draw(None)
-    assert len(menu.layout.rows) == 2
-    assert all(row.alert and not row.enabled for row in menu.layout.rows)
-    assert all(row.operator_value.kwargs["icon"] == "LOCKED" for row in menu.layout.rows)
-    tooltips = [row.operator_value.tooltip for row in menu.layout.rows]
+    unavailable = menu.layout.rows[-2:]
+    assert all(row.alert and not row.enabled for row in unavailable)
+    assert all(row.operator_value.kwargs["icon"] == "LOCKED" for row in unavailable)
+    tooltips = [row.operator_value.tooltip for row in unavailable]
     assert all(tooltip.startswith("Coming soon.") for tooltip in tooltips)
     assert {"PPF PDRD", "Granular"} == {
         next(word for word in ("Volumetric", "PPF Rod", "PPF PDRD", "Granular")
@@ -139,9 +154,39 @@ def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(ble
 def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
     role = fake_bpy._resolved_props(
         blender_env.object_properties.CLOTHNEXT_PG_object_settings)["role"]
-    items = role.keywords["items"](None, None)
+    items = role.keywords["items"]
     assert tuple(item[0] for item in items) == (
-        "CLOTH", "ROD", "SOFT_BODY", "COLLIDER")
+        "CLOTH", "ROD", "SOFT_BODY", "COLLIDER", "FORCE")
+
+
+def test_object_type_menu_uses_distinct_role_icons(blender_env):
+    env = blender_env
+
+    class Layout:
+        def __init__(self, operators=None):
+            self.operators = [] if operators is None else operators
+        def operator(self, *_args, **kwargs):
+            operator = SimpleNamespace(kwargs=kwargs)
+            self.operators.append(operator)
+            return operator
+        def separator(self):
+            pass
+        def row(self):
+            row = Layout(self.operators)
+            row.alert = False
+            row.enabled = True
+            return row
+
+    menu = env.physics_ui.CLOTHNEXT_MT_object_type()
+    menu.layout = Layout()
+    context = SimpleNamespace(object=SimpleNamespace(
+        cloth_next=SimpleNamespace(role="ROD")))
+    menu.draw(context)
+    active = menu.layout.operators[:5]
+    assert [item.kwargs["icon"] for item in active] == [
+        "MOD_CLOTH", "CURVE_DATA", "MOD_SOFT", "MESH_CUBE", "FORCE_FORCE"]
+    assert [item.kwargs["depress"] for item in active] == [
+        False, True, False, False, False]
 
 
 # --- 3+4: add operator ------------------------------------------------------------

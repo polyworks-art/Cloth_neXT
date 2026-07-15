@@ -145,6 +145,7 @@ def test_param_payload_structure_and_values():
     assert scene["cg-max-iter"] == 10000
     assert scene["cg-tol"] == float32_wire(0.001)
     assert scene["gravity"] == [0.0, -9.81, -0.0]
+    assert scene["wind"] == [0.0, 0.0, 0.0]
     assert scene["friction-mode"] == "min"
     assert scene["disable-contact"] is False
     shell, shell_names, shell_uuids = payload["group"][0]
@@ -156,6 +157,16 @@ def test_param_payload_structure_and_values():
     assert list(static) == STATIC_KEYS
     assert static_uuids == ["cn-collider-0001"]
     assert payload["pin_config"] == {}
+
+
+def test_wind_vector_is_encoded_in_ppf_coordinates():
+    settings = SimulationSettings(
+        frame_count=8, fps=24, gravity_blender=(0.0, 0.0, -9.81),
+        wind_blender=(1.0, 2.0, 3.0))
+    payload = build_param_payload(
+        settings, "Cloth", "cloth", "Collider", "collider",
+        shell=DEFAULT_SHELL_SETTINGS, static=DEFAULT_STATIC_SETTINGS)
+    assert payload["scene"]["wind"] == [1.0, 3.0, -2.0]
 
 
 def test_param_golden_bytes_match_shipped_cbor2_output():

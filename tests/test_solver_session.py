@@ -21,7 +21,7 @@ from cloth_next.ppf.resolver import ResolvedSolver, SolverMode
 from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf_run import import_result, session as session_module
 from cloth_next.ppf_run.session import (SessionCancelled, SessionScene,
-                                       SolverFrame, SolverSession,
+                                       SessionDeformable, SolverFrame, SolverSession,
                                        new_project_name)
 
 
@@ -149,6 +149,44 @@ def test_full_lifecycle_order_and_frames(monkeypatch):
     assert phases[0] == "STARTING_SOLVER"
     assert "UPLOADING" in phases and "BUILDING" in phases
     assert "FETCHING" in phases
+
+
+def test_frames_are_split_for_multiple_deformables(monkeypatch):
+    class MultiWire(ScriptedWire):
+        def _data_receive(self, address, config, *, project_name, path,
+                          max_bytes=0):
+            self.log.append(("receive", project_name, path))
+            if path == "session/map.pickle":
+                return cbor_codec.dumps({
+                    "version": 1, "kind": "VertexMap",
+                    "payload": {"uuid-cloth": [0, 1, 2, 3],
+                                "uuid-rod": [4, 5],
+                                "uuid-collider": [6, 7, 8, 9]}})
+            match = re.fullmatch(r"session/output/vert_(\d+)\.bin", path)
+            assert match, path
+            return _frame_blob(count=10, offset=float(match[1]))
+
+    scripted = MultiWire(monkeypatch)
+    scene = _scene()
+    scene = SessionScene(
+        scene.project_name, scene.cloth_name, scene.cloth_uuid,
+        scene.cloth_vertex_count, scene.collider_name, scene.collider_uuid,
+        scene.frame_count, scene.data_payload, scene.param_payload,
+        scene.data_hash, scene.param_hash,
+        deformables=(
+            SessionDeformable("Cloth", "uuid-cloth", 4, "SHELL"),
+            SessionDeformable("Cable", "uuid-rod", 2, "ROD")))
+    frames = []
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene, work_directory=Path("."),
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        frame_sink=frames.append, poll_interval=0.001)
+    session.run()
+    assert len(frames) == 7
+    assert set(frames[0].positions_by_uuid) == {"uuid-cloth", "uuid-rod"}
+    assert frames[0].positions_by_uuid["uuid-cloth"].shape == (4, 3)
+    assert frames[0].positions_by_uuid["uuid-rod"].shape == (2, 3)
+    assert frames[0].positions_solver_world is frames[0].positions_by_uuid["uuid-cloth"]
 
 
 def test_upload_hash_mismatch_aborts(monkeypatch):

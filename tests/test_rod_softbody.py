@@ -6,16 +6,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from cloth_next.materials import DEFAULT_STATIC_SETTINGS
+from cloth_next.materials import DEFAULT_STATIC_SETTINGS, ShellMaterialSettings
 from cloth_next.materials.deformables import (
     DeformableMaterialError, RodMaterialSettings, SoftBodyMaterialSettings)
 from cloth_next.ppf.schema import envelope
 from cloth_next.ppf.schema.data import (
-    GROUP_ROD, GROUP_SOLID, SceneObject, build_deformable_scene_payload,
+    GROUP_ROD, GROUP_SHELL, GROUP_SOLID, SceneObject,
+    build_deformable_scene_payload, build_multi_deformable_scene_payload,
     encode_deformable_scene)
 from cloth_next.ppf.schema.params import (
-    SimulationSettings, build_deformable_param_payload)
+    SimulationSettings, build_deformable_param_payload,
+    build_multi_deformable_param_payload)
 from cloth_next.curve_rod import CurveRodError, sample_curve
+from cloth_next.pinning import StaticPinConfig
 
 IDENTITY = ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0),
             (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0))
@@ -74,6 +77,43 @@ def test_rod_parameters_and_material_validation():
     assert wire["strain-limit"] == pytest.approx(0.05)
     with pytest.raises(DeformableMaterialError):
         replace(rod, linear_density=0.0)
+
+
+def test_mixed_deformables_share_one_scene_and_keep_own_materials():
+    cloth = SceneObject("cloth", "shell-1",
+        ((0, 0, 1), (1, 0, 1), (0, 1, 1)), ((0, 1, 2),), IDENTITY)
+    rod = SceneObject("cable", "rod-1", ((0, 0, 2), (0, 0, 3)), (),
+                      IDENTITY, edges=((0, 1),))
+    scene = build_multi_deformable_scene_payload(
+        ((cloth, GROUP_SHELL), (rod, GROUP_ROD)), COLLIDER)
+    assert [group["type"] for group in scene] == ["SHELL", "ROD", "STATIC"]
+    assert [group["object"][0]["uuid"] for group in scene] == [
+        "shell-1", "rod-1", "static-1"]
+    params = build_multi_deformable_param_payload(
+        SETTINGS,
+        (("cloth", "shell-1", "SHELL", ShellMaterialSettings(), None),
+         ("cable", "rod-1", "ROD", RodMaterialSettings(), None)),
+        STATIC_SPEC)
+    assert [group[2][0] for group in params["group"]] == [
+        "shell-1", "rod-1", "static-1"]
+    assert params["group"][0][0]["model"] == "baraff-witkin"
+    assert params["group"][1][0]["model"] == "arap"
+
+
+def test_multi_deformables_keep_separate_animated_pin_tracks():
+    pins_a = StaticPinConfig((0,), pin_group_id="pins-a", times=(0.0, 1.0),
+        positions=(((0.0, 0.0, 0.0),), ((0.0, 0.0, 1.0),)))
+    pins_b = StaticPinConfig((1,), pin_group_id="pins-b", times=(0.0, 1.0),
+        positions=(((2.0, 0.0, 0.0),), ((2.0, 1.0, 0.0),)))
+    payload = build_multi_deformable_param_payload(
+        SETTINGS,
+        (("a", "uuid-a", "SHELL", ShellMaterialSettings(), pins_a),
+         ("b", "uuid-b", "SHELL", ShellMaterialSettings(), pins_b)),
+        STATIC_SPEC)
+    assert set(payload["pin_config"]) == {"uuid-a", "uuid-b"}
+    assert payload["pin_config"]["uuid-a"][0]["pin_group_id"] == "pins-a"
+    assert payload["pin_config"]["uuid-b"][1]["pin_group_id"] == "pins-b"
+    assert payload["pin_config"]["uuid-a"][0]["pin_anim"][0]["position"][-1] == [0.0, 0.0, 1.0]
 
 
 def test_poly_curve_sampling_preserves_splines_and_cyclic_edges():

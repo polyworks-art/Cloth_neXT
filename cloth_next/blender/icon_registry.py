@@ -6,7 +6,7 @@ from pathlib import Path
 import bpy
 
 _collection = None
-_NAMES = ("cloth_next", "cloth", "rod", "soft_body", "collider", "solver", "quality", "physical",
+_NAMES = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "solver", "quality", "physical",
           "damping", "collision", "pressure", "pinning", "cache", "advanced",
           "bake", "play", "pause", "cancel", "success", "warning", "error",
           "info", "folder", "timer")

@@ -6,6 +6,8 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
+import numpy as np
+
 from cloth_next.bake import cache_metadata
 from cloth_next.bake.status import BakeState
 from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
@@ -113,6 +115,56 @@ def test_worker_publishes_authenticated_phase4_pair(blender_env, monkeypatch,
     assert inspection.condition is cache_metadata.CacheCondition.READY
 
 
+def test_multi_worker_writes_one_authenticated_cache_per_object(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+
+    class StubSession:
+        def __init__(self, **kwargs):
+            self.sink = kwargs["frame_sink"]
+
+        def run(self):
+            positions = {
+                "uuid-a": np.asarray(((0.0, 0.0, 1.0),), dtype=np.float32),
+                "uuid-b": np.asarray(((2.0, 0.0, 0.0),), dtype=np.float32)}
+            self.sink(module.SolverFrame(1, positions["uuid-a"], positions))
+            return SimpleNamespace(
+                timings={}, solver_mode="OWNED_PROCESS",
+                package_version="0.1.0", protocol_version="0.11",
+                schema_version="1", bytes_transferred=0)
+
+    monkeypatch.setattr(module, "SolverSession", StubSession)
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    meta_a, meta_b = _phase4_meta(), _phase4_meta()
+    meta_a["expected"]["frame_count"] = 2
+    meta_b["expected"]["frame_count"] = 2
+    targets = (
+        module.DeformablePlan(((0.0, 0.0, 0.0),), identity, "A", "uuid-a",
+            tmp_path / "a.pc2", "topology-a", meta_a, "CLOTH"),
+        module.DeformablePlan(((1.0, 0.0, 0.0),), identity, "B", "uuid-b",
+            tmp_path / "b.pc2", "topology-b", meta_b, "CLOTH"))
+    scene = SimpleNamespace(cloth_uuid="uuid-a")
+    plan = module.RunPlan(
+        scene, SimpleNamespace(), targets[0].initial_local, identity, "A",
+        tmp_path / "run", targets[0].pc2_path, 2,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        deformables=targets)
+
+    module._worker_main(plan)
+
+    messages = []
+    while not module._queue.empty():
+        messages.append(module._queue.get_nowait())
+    assert messages[-1][0] == "finished"
+    assert set(messages[-1][1]) == {"uuid-a", "uuid-b"}
+    for target in targets:
+        inspection = cache_metadata.inspect_cache(
+            target.pc2_path, settings_fingerprint="settings",
+            geometry_fingerprint="geometry")
+        assert inspection.condition is cache_metadata.CacheCondition.READY
+
+
 def test_failed_worker_leaves_unusable_failure_record(blender_env, monkeypatch,
                                                        tmp_path):
     module = blender_env.solver_test
@@ -156,6 +208,27 @@ def test_convergence_failure_names_blender_frame_and_action(blender_env):
     assert summary == "Simulation could not converge at Blender frame 42."
     assert "Stage: collision and constraint solve" in details
     assert "What to do:" in details
+
+
+def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+
+    def force(name, force_type, strength):
+        return SimpleNamespace(
+            name=name, name_full=name, type="EMPTY", matrix_world=identity,
+            cloth_next=SimpleNamespace(enabled=True, role="FORCE",
+                force=SimpleNamespace(force_type=force_type,
+                                      strength=strength)))
+
+    context = SimpleNamespace(scene=SimpleNamespace(
+        objects=(force("Gravity", "GRAVITY", 4.0),
+                 force("Wind", "WIND", 2.5)),
+        gravity=(0.0, 0.0, -9.81), use_gravity=True))
+    gravity, wind = module._force_vectors(context)
+    assert gravity == (0.0, 0.0, -4.0)
+    assert wind == (0.0, 0.0, 2.5)
 
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test

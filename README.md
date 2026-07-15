@@ -62,7 +62,7 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Official PPF-derived fabric presets (Silk, Flag, Cotton, Wool, Denim,
   Leather) bundled as read-only data, with exact provenance and the
   Apache-2.0 upstream notice preserved
-- An optional display-only bake status HUD
+- An optional display-only CPU, RAM, and VRAM history monitor during Bake
 - Transactional playback caches with versioned metadata, deterministic
   invalidation, and SHA-256 integrity checks
 
@@ -79,7 +79,8 @@ exposed.
 > [!NOTE]
 > Phase 3B connects the Material, Damping, and Collision properties to the
 > real PPF solver: every visible, editable value is actually encoded and
-> sent. The current scope is one cloth and one or more colliders, with an
+> sent. The current scope is one or more deformables and one or more colliders,
+> with an
 > artist-selected Bake range. Developer Test Tools retain diagnostics and
 > test-scene creation. Note that PPF's stiffness is a
 > density-normalized value, not a textbook Young's modulus in pascals (see
@@ -174,18 +175,24 @@ PPF solver, and solver updates never touch the add-on.
 
 ## Quick start
 
-The current production slice supports one Cloth object and one or more Colliders:
+The current production slice supports multiple Cloth, Rod, and Soft Body
+objects in one interacting solve with one or more Colliders:
 
-1. Add Cloth NeXt physics to the mesh that should behave as cloth.
+1. Add Cloth NeXt physics to every object that should participate as Cloth,
+   Rod, or Soft Body. All enabled deformables must use the same Bake range and
+   scene-wide Contact setting.
 2. Add Cloth NeXt physics to each collision mesh and set its role to
    **Collider**. Leave **Collider Motion** at **Static** for a fixed obstacle,
    or choose **Animated** to capture evaluated Blender object animation and
    topology-preserving deformation over the Bake range.
-3. Configure material, damping, collision, pressure, quality, and optional
+3. Optionally add Empty objects, enable Cloth NeXt, and choose **Force**.
+   Gravity points along local `-Z`; Wind points along local `+Z`. Rotate the
+   Empty to aim it. Multiple forces of the same type are added together.
+4. Configure material, damping, collision, pressure, quality, and optional
    vertex-group pinning in Physics Properties.
-4. Choose the Bake Start and End frames in the Cloth NeXt Solver panel.
-5. Verify that the external solver is ready, then click **Bake**.
-6. Review the resulting constant-topology Mesh Cache animation; use **Rebake**
+5. Choose the same Bake Start and End frames for every deformable.
+6. Verify that the external solver is ready, then click **Bake**.
+7. Review the resulting constant-topology Mesh Cache animation; use **Rebake**
    after changing settings or **Cancel** while a bake is active.
 
 Animated Colliders support evaluated transforms (including parenting,

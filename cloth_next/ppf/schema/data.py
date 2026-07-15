@@ -164,19 +164,41 @@ def build_scene_payload(cloth: SceneObject, collider) -> list:
 
 def build_deformable_scene_payload(deformable: SceneObject, collider, *,
                                    group_type: str) -> list:
-    if group_type not in {GROUP_SHELL, GROUP_ROD, GROUP_SOLID}:
-        raise SceneEncodeError(f"unsupported deformable group: {group_type}")
+    return build_multi_deformable_scene_payload(
+        ((deformable, group_type),), collider)
+
+
+def build_multi_deformable_scene_payload(deformables, collider) -> list:
+    """Build one scene containing every dynamic object and shared colliders.
+
+    Dynamic objects are grouped by PPF element type while preserving their
+    input order within each group.  The group order is fixed so payload hashes
+    stay deterministic across runs.
+    """
+    entries = tuple(deformables)
+    if not entries:
+        raise SceneEncodeError("at least one deformable is required")
+    grouped = {GROUP_SHELL: [], GROUP_ROD: [], GROUP_SOLID: []}
+    for deformable, group_type in entries:
+        if not isinstance(deformable, SceneObject):
+            raise SceneEncodeError("deformables must be SceneObject values")
+        if group_type not in grouped:
+            raise SceneEncodeError(f"unsupported deformable group: {group_type}")
+        grouped[group_type].append(deformable)
     colliders = _collider_sequence(collider)
     if not colliders:
         raise SceneEncodeError("at least one collider is required")
-    uuids = [deformable.uuid, *(item.uuid for item in colliders)]
+    uuids = [item.uuid for item, _group in entries]
+    uuids.extend(item.uuid for item in colliders)
     if len(set(uuids)) != len(uuids):
-        raise SceneEncodeError("deformable and colliders need distinct UUIDs")
-    return [
-        {"object": [deformable.info_dict()], "type": group_type},
-        {"object": [item.info_dict() for item in colliders],
-         "type": GROUP_STATIC},
+        raise SceneEncodeError("deformables and colliders need distinct UUIDs")
+    payload = [
+        {"object": [item.info_dict() for item in grouped[kind]], "type": kind}
+        for kind in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID) if grouped[kind]
     ]
+    payload.append({"object": [item.info_dict() for item in colliders],
+                    "type": GROUP_STATIC})
+    return payload
 
 
 def encode_deformable_scene(deformable: SceneObject, collider, *,
@@ -185,6 +207,13 @@ def encode_deformable_scene(deformable: SceneObject, collider, *,
         envelope.KIND_SCENE,
         build_deformable_scene_payload(deformable, collider,
                                        group_type=group_type))
+    return blob, envelope.payload_sha256(blob)
+
+
+def encode_multi_deformable_scene(deformables, collider) -> tuple[bytes, str]:
+    blob = envelope.dumps_envelope(
+        envelope.KIND_SCENE,
+        build_multi_deformable_scene_payload(deformables, collider))
     return blob, envelope.payload_sha256(blob)
 
 

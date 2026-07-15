@@ -11,12 +11,14 @@ import math
 import random
 import sys
 import tkinter as tk
+import time
 import traceback
 from tkinter import messagebox, ttk
 
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
+from companion.particle_motion import advance_particle, smooth_rate
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
@@ -62,22 +64,28 @@ PARTICLE_ASSETS=("particle_bake_12.png","particle_cloth_16.png",
 
 class IconParticleField:
     """Small Houdini-inspired icon flow with smooth path noise."""
-    WIDTH=76; HEIGHT=72; FRAME_MS=45; COUNT=9
+    WIDTH=76; HEIGHT=72; FRAME_MS=16; COUNT=9
     def __init__(self,parent,reduced_motion=False):
         self.canvas=tk.Canvas(parent,width=self.WIDTH,height=self.HEIGHT,bg=PANEL,highlightthickness=0,borderwidth=0)
         self.reduced_motion=reduced_motion; self._after=None; self._running=False; self._closed=False
-        self._rate=.18; self._target=.18; self._time=0.; self._images=[]; self._particles=[]
+        self._rate=.18; self._target=.18; self._last_tick=None; self._images=[]; self._particles=[]
         try:
             self._images=[tk.PhotoImage(file=str(_asset(name))) for name in PARTICLE_ASSETS]
             rng=random.Random()
             for index in range(self.COUNT):
-                angle=rng.uniform(0,math.tau); speed=rng.uniform(.16,.38)
-                particle={"x":rng.uniform(0,self.WIDTH),"y":rng.uniform(0,self.HEIGHT),
-                    "vx":math.cos(angle)*speed,"vy":math.sin(angle)*speed,
-                    "phase":rng.uniform(0,math.tau),"noise":rng.uniform(.018,.045),
-                    "amplitude":rng.uniform(.12,.32)}
+                angle=rng.uniform(0,math.tau)
+                particle={"base_x":rng.uniform(0,self.WIDTH),
+                    "base_y":rng.uniform(0,self.HEIGHT),
+                    "direction_x":math.cos(angle),"direction_y":math.sin(angle),
+                    "speed":rng.uniform(10.,24.),"noise_time":0.,
+                    "phase":rng.uniform(0,math.tau),
+                    "phase_2":rng.uniform(0,math.tau),
+                    "frequency":rng.uniform(.5,1.2),
+                    "frequency_2":rng.uniform(1.1,2.),
+                    "amplitude":rng.uniform(1.4,4.)}
                 particle["item"]=self.canvas.create_image(
-                    particle["x"],particle["y"],image=self._images[index%len(self._images)])
+                    particle["base_x"],particle["base_y"],
+                    image=self._images[index%len(self._images)])
                 self._particles.append(particle)
             self.available=True
         except Exception:
@@ -85,7 +93,7 @@ class IconParticleField:
             self.available=False; self.canvas.delete("all"); self._images=[]; self._particles=[]
     def start(self):
         if self._running or self._closed or not self.available:return
-        self._running=True; self._tick()
+        self._running=True; self._last_tick=time.perf_counter(); self._tick()
     def set_state(self,state,activity=BakeActivity.IDLE):
         self._target={BakeState.IDLE:.16,BakeState.PREPARING:.52,BakeState.SIMULATING:1.,
             BakeState.FETCHING:.42,BakeState.IMPORTING:.30,BakeState.FINISHED:.24,
@@ -94,19 +102,13 @@ class IconParticleField:
         elif activity in {BakeActivity.BUILDING_PC2,BakeActivity.APPLYING_PLAYBACK}:self._target=.24
     def _tick(self):
         if self._closed or not self._running:return
-        self._rate+=(self._target-self._rate)*.08
+        now=time.perf_counter()
+        elapsed=max(0.,min(now-(self._last_tick or now),.1)); self._last_tick=now
+        self._rate=smooth_rate(self._rate,self._target,elapsed)
         if not self.reduced_motion:
-            self._time+=self._rate
-            margin=12
             for particle in self._particles:
-                phase=particle["phase"]+self._time*particle["noise"]
-                particle["x"]+=particle["vx"]*self._rate+math.sin(phase)*particle["amplitude"]
-                particle["y"]+=particle["vy"]*self._rate+math.cos(phase*.83)*particle["amplitude"]
-                if particle["x"] < -margin:particle["x"]=self.WIDTH+margin
-                elif particle["x"] > self.WIDTH+margin:particle["x"]=-margin
-                if particle["y"] < -margin:particle["y"]=self.HEIGHT+margin
-                elif particle["y"] > self.HEIGHT+margin:particle["y"]=-margin
-                self.canvas.coords(particle["item"],particle["x"],particle["y"])
+                x,y=advance_particle(particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
+                self.canvas.coords(particle["item"],x,y)
         try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
         except tk.TclError:self._running=False
     def close(self):

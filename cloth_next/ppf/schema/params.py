@@ -32,7 +32,7 @@ main thread. The full artist-name -> wire-key table lives in
   bit-for-bit.
 
 Scene keys (unchanged from Phase 3A except ``disable-contact``):
-``dt`` (1e-3 s solver default), swapped Blender ``gravity``, zero ``wind``,
+``dt`` (1e-3 s solver default), axis-swapped ``gravity`` and ``wind``,
 ``frames`` (Blender N -> solver N-1), ``fps``, ``friction-mode`` "min"
 (solver default combination mode; both surfaces need high friction for a
 grippy contact), and ``disable-contact`` from the cloth's Enable Contact
@@ -148,6 +148,7 @@ class SimulationSettings:
     fps: int
     gravity_blender: tuple[float, float, float]
     quality: SolverQualitySettings = field(default_factory=SolverQualitySettings)
+    wind_blender: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     def __post_init__(self) -> None:
         if self.frame_count < 2:
@@ -157,6 +158,9 @@ class SimulationSettings:
         if len(self.gravity_blender) != 3 or any(
                 not math.isfinite(c) for c in self.gravity_blender):
             raise ParamEncodeError("gravity must be a finite 3-vector")
+        if len(self.wind_blender) != 3 or any(
+                not math.isfinite(c) for c in self.wind_blender):
+            raise ParamEncodeError("wind must be a finite 3-vector")
 
 
 def build_param_payload(settings: SimulationSettings,
@@ -177,7 +181,8 @@ def build_param_payload(settings: SimulationSettings,
         "cg-max-iter": int(settings.quality.cg_max_iter),
         "cg-tol": float32_wire(settings.quality.cg_tol),
         "gravity": list(blender_vector_to_ppf(settings.gravity_blender)),
-        "wind": [0.0, 0.0, 0.0],
+        "wind": [0.0 if value == 0.0 else value
+                 for value in blender_vector_to_ppf(settings.wind_blender)],
         # Blender frames 1..N map to solver frames 0..N-1 (upstream contract).
         "frames": int(settings.frame_count) - 1,
         "fps": int(settings.fps),
@@ -242,28 +247,71 @@ def build_deformable_param_payload(
         material: ShellMaterialSettings | RodMaterialSettings |
         SoftBodyMaterialSettings, contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None) -> dict:
+    return build_multi_deformable_param_payload(
+        settings,
+        ((deformable_name, deformable_uuid, group_type, material,
+          static_pin),),
+        colliders, contact_enabled=contact_enabled)
+
+
+def build_multi_deformable_param_payload(
+        settings: SimulationSettings, deformables, colliders, *,
+        contact_enabled: bool = True) -> dict:
+    """PPF parameters for multiple dynamic objects and shared colliders.
+
+    Each deformable tuple is ``(name, uuid, group_type, material, pin)``.
+    Separate groups deliberately preserve per-object material settings.
+    """
+    dynamic_entries = tuple(deformables)
+    if not dynamic_entries:
+        raise ParamEncodeError("at least one deformable is required")
     entries = tuple(colliders)
     if not entries:
         raise ParamEncodeError("at least one collider is required")
-    if group_type == "SHELL" and isinstance(material, ShellMaterialSettings):
-        params = shell_wire_params(material)
-    elif group_type == "ROD" and isinstance(material, RodMaterialSettings):
-        params = rod_wire_params(material)
-    elif group_type == "SOLID" and isinstance(material, SoftBodyMaterialSettings):
-        params = soft_body_wire_params(material, deformable_uuid)
-    else:
-        raise ParamEncodeError(
-            f"material does not match deformable group {group_type!r}")
+    dynamic_groups = []
+    pin_config = {}
+    seen = set()
+    for name, uuid, group_type, material, static_pin in dynamic_entries:
+        if not name.strip() or not uuid.strip():
+            raise ParamEncodeError("deformable name and uuid must not be empty")
+        if uuid in seen:
+            raise ParamEncodeError(f"duplicate deformable uuid {uuid!r}")
+        seen.add(uuid)
+        if group_type == "SHELL" and isinstance(material, ShellMaterialSettings):
+            params = shell_wire_params(material)
+        elif group_type == "ROD" and isinstance(material, RodMaterialSettings):
+            params = rod_wire_params(material)
+        elif group_type == "SOLID" and isinstance(material, SoftBodyMaterialSettings):
+            params = soft_body_wire_params(material, uuid)
+        else:
+            raise ParamEncodeError(
+                f"material does not match deformable group {group_type!r}")
+        dynamic_groups.append((params, [name], [uuid]))
+        if static_pin is not None:
+            object_pins = {}
+            for offset, index in enumerate(static_pin.indices):
+                config = {"pin_group_id": static_pin.pin_group_id,
+                          "operations": []}
+                if static_pin.times:
+                    config["embedded_move_index"] = 0
+                    config["pin_anim"] = {
+                        index: {"time": list(static_pin.times),
+                                "position": [list(frame[offset])
+                                             for frame in static_pin.positions]}}
+                object_pins[index] = config
+            pin_config[uuid] = object_pins
     first_name, first_uuid, first_static = entries[0]
+    first_dynamic = dynamic_entries[0]
     payload = build_param_payload(
-        settings, deformable_name, deformable_uuid, first_name, first_uuid,
+        settings, first_dynamic[0], first_dynamic[1], first_name, first_uuid,
         shell=ShellMaterialSettings(), static=first_static,
-        contact_enabled=contact_enabled, static_pin=static_pin)
+        contact_enabled=contact_enabled)
     payload["group"] = [
-        (params, [deformable_name], [deformable_uuid]),
+        *dynamic_groups,
         *((static_wire_params(static), [name], [uuid])
           for name, uuid, static in entries),
     ]
+    payload["pin_config"] = pin_config
     return payload
 
 
@@ -277,6 +325,15 @@ def encode_deformable_param(
         settings, deformable_name, deformable_uuid, colliders,
         group_type=group_type, material=material,
         contact_enabled=contact_enabled, static_pin=static_pin)
+    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+    return blob, envelope.payload_sha256(blob)
+
+
+def encode_multi_deformable_param(
+        settings: SimulationSettings, deformables, colliders, *,
+        contact_enabled: bool = True) -> tuple[bytes, str]:
+    payload = build_multi_deformable_param_payload(
+        settings, deformables, colliders, contact_enabled=contact_enabled)
     blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
     return blob, envelope.payload_sha256(blob)
 
