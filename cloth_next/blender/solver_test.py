@@ -31,12 +31,14 @@ import threading
 import time
 import traceback
 import uuid as uuid_module
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import bpy
 import numpy as np
 
+from .. import manifest_version
+from ..bake import cache_metadata
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.frame_range import BakeFrameRange, BakeRangeError
@@ -66,13 +68,15 @@ from ..ppf.resolver import (
     SolverResolver,
     development_executable_from_environment,
 )
-from ..ppf.schema.data import SceneObject, encode_scene, zero_area_triangles
+from ..ppf.schema.data import (SceneObject, encode_deformable_scene,
+                               encode_scene, zero_area_triangles)
 from ..ppf.schema.params import (
     SimulationSettings,
     build_param_payload,
-    shell_wire_params,
     static_wire_params,
 )
+from ..materials.deformables import DeformableMaterialError
+from ..curve_rod import CurveRodError, sample_curve
 from ..ppf_run import import_result
 from ..ppf_run.session import (
     SessionCancelled,
@@ -83,11 +87,13 @@ from ..ppf_run.session import (
 )
 from ..telemetry import shared_telemetry
 from ..topology import geometry_fingerprint as combine_geometry_fingerprint
+from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from . import companion_manager, modal_lock, object_properties, validation_state
 from .playback_cache import (
+    has_cloth_next_playback_marker,
     is_cloth_next_playback_modifier,
     mark_owned_playback,
     without_owned_playback,
@@ -175,6 +181,7 @@ class RunPlan:
     topology_signature: str = ""
     preset_identifier: str = ""
     material_meta: dict = field(default_factory=dict)
+    deformable_role: str = "CLOTH"
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +237,7 @@ def _enabled_objects_by_role(context) -> tuple[object, object]:
         settings = getattr(obj, "cloth_next", None)
         if settings is None or not settings.enabled:
             continue
-        if settings.role == "CLOTH":
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
             collider_objects.append(obj)
@@ -252,7 +259,7 @@ def _enabled_objects_for_bake(context) -> tuple[object, tuple[object, ...]]:
         settings = getattr(obj, "cloth_next", None)
         if settings is None or not settings.enabled:
             continue
-        if settings.role == "CLOTH":
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
             collider_objects.append(obj)
@@ -312,6 +319,18 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
         evaluated.to_mesh_clear()
 
 
+def _non_manifold_edge_count(mesh) -> int:
+    """Count boundary/non-manifold edges without entering Blender Edit Mode."""
+    uses: dict[tuple[int, int], int] = {}
+    for polygon in mesh.polygons:
+        vertices = tuple(int(index) for index in polygon.vertices)
+        for offset, first in enumerate(vertices):
+            edge = tuple(sorted((first, vertices[(offset + 1) % len(vertices)])))
+            uses[edge] = uses.get(edge, 0) + 1
+    mesh_edges = {tuple(sorted(map(int, edge.vertices))) for edge in mesh.edges}
+    return sum(1 for edge in mesh_edges if uses.get(edge, 0) != 2)
+
+
 def _cache_directory() -> Path:
     blend_directory = bpy.path.abspath("//")
     if blend_directory:
@@ -328,8 +347,17 @@ def _snapshot_materials(cloth_obj, collider_obj):
     worker or solver process starts.
     """
     try:
-        shell = object_properties.shell_settings_from(cloth_obj.cloth_next)
-    except MaterialValidationError as exc:
+        role = str(cloth_obj.cloth_next.role)
+        if role == "ROD":
+            shell = object_properties.rod_settings_from(cloth_obj.cloth_next)
+            preset_identifier = "ROD_DEFAULT"
+        elif role == "SOFT_BODY":
+            shell = object_properties.soft_body_settings_from(cloth_obj.cloth_next)
+            preset_identifier = "SOFT_BODY_DEFAULT"
+        else:
+            shell = object_properties.shell_settings_from(cloth_obj.cloth_next)
+            preset_identifier = str(cloth_obj.cloth_next.material.preset)
+    except (MaterialValidationError, DeformableMaterialError) as exc:
         raise SceneValidationError(
             f"{cloth_obj.name}: invalid material value — {exc}") from exc
     try:
@@ -339,7 +367,6 @@ def _snapshot_materials(cloth_obj, collider_obj):
         raise SceneValidationError(
             f"{collider_obj.name}: invalid contact value — {exc}") from exc
     contact_enabled = bool(cloth_obj.cloth_next.collision.enabled)
-    preset_identifier = str(cloth_obj.cloth_next.material.preset)
     return shell, static, contact_enabled, preset_identifier
 
 
@@ -483,8 +510,8 @@ def _snapshot_static_pin(cloth_obj, *,
 #                           Requires a full mesh scan. Expensive.
 #   bake fingerprint      — both halves combined; written into the sidecar.
 
-SETTINGS_FINGERPRINT_VERSION = 1
-BAKE_FINGERPRINT_VERSION = 1
+SETTINGS_FINGERPRINT_VERSION = 2
+BAKE_FINGERPRINT_VERSION = 2
 
 
 def _cheap_pinning_fingerprint(cloth_obj) -> str:
@@ -506,25 +533,57 @@ def _scene_fps(context) -> int:
         return 24
 
 
+def _blender_version() -> str:
+    value = str(getattr(bpy.app, "version_string", "") or "")
+    if value:
+        return value
+    version = getattr(bpy.app, "version", ())
+    return ".".join(map(str, version)) if version else "unknown"
+
+
+def _world_matrix_record(obj) -> tuple[tuple[float, ...], ...]:
+    matrix = getattr(obj, "matrix_world", None)
+    if matrix is None:
+        return ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+    return tuple(tuple(float(value) for value in row) for row in matrix)
+
+
 def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                           contact_enabled, preset_identifier, quality) -> str:
     collider_objs = (collider_obj if isinstance(collider_obj, tuple)
                      else (collider_obj,))
     statics = static if isinstance(static, tuple) else (static,)
-    base = material_formatting.settings_fingerprint(
-        shell, statics[0], contact_enabled, preset_identifier,
-        bake_start=int(cloth_obj.cloth_next.bake_start),
-        bake_end=int(cloth_obj.cloth_next.bake_end),
-        pinning_fingerprint=_cheap_pinning_fingerprint(cloth_obj),
-        quality=quality)
+    if str(cloth_obj.cloth_next.role) == "CLOTH":
+        base = material_formatting.settings_fingerprint(
+            shell, statics[0], contact_enabled, preset_identifier,
+            bake_start=int(cloth_obj.cloth_next.bake_start),
+            bake_end=int(cloth_obj.cloth_next.bake_end),
+            pinning_fingerprint=_cheap_pinning_fingerprint(cloth_obj),
+            quality=quality)
+    else:
+        base = json.dumps({"material": asdict(shell),
+            "contact_enabled": contact_enabled,
+            "bake_range": [int(cloth_obj.cloth_next.bake_start),
+                           int(cloth_obj.cloth_next.bake_end)],
+            "quality": asdict(quality)}, sort_keys=True, separators=(",", ":"))
+    collider_settings = []
+    for obj, material in zip(collider_objs, statics):
+        world = _world_matrix_record(obj)
+        collider_settings.append(json.dumps({
+            "object_key": validation_state.object_key(obj),
+            "role": str(obj.cloth_next.role),
+            "motion": str(getattr(obj.cloth_next, "collider_motion", "STATIC")),
+            "world_matrix": world,
+            "material": static_wire_params(material),
+        }, sort_keys=True, separators=(",", ":")))
     record = "\0".join((
         str(SETTINGS_FINGERPRINT_VERSION), base,
         validation_state.object_key(cloth_obj),
         str(cloth_obj.cloth_next.role),
-        *(f"{validation_state.object_key(obj)}\0{obj.cloth_next.role}\0"
-          f"{getattr(obj.cloth_next, 'collider_motion', 'STATIC')}\0"
-          f"{json.dumps(static_wire_params(material), sort_keys=True)}"
-          for obj, material in zip(collider_objs, statics)),
+        json.dumps(_world_matrix_record(cloth_obj),
+                   separators=(",", ":")),
+        *collider_settings,
         str(_scene_fps(context)),
     ))
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
@@ -553,6 +612,64 @@ def bake_fingerprint(settings_fingerprint: str,
     return hashlib.sha256(
         f"{BAKE_FINGERPRINT_VERSION}\0{settings_fingerprint}\0"
         f"{geometry_fingerprint}".encode("utf-8")).hexdigest()
+
+
+def _animation_signature(obj) -> str:
+    """Deterministically identify ordinary Object/Curve Action keyframes."""
+    animation = getattr(obj, "animation_data", None)
+    action = getattr(animation, "action", None)
+    records = []
+    for curve in getattr(action, "fcurves", ()) if action is not None else ():
+        points = []
+        for point in getattr(curve, "keyframe_points", ()):
+            co = getattr(point, "co", ())
+            points.append((float(co[0]), float(co[1]),
+                           str(getattr(point, "interpolation", ""))))
+        records.append({
+            "data_path": str(getattr(curve, "data_path", "")),
+            "array_index": int(getattr(curve, "array_index", 0)),
+            "points": points,
+        })
+    return cache_metadata.deterministic_hash({
+        "action": str(getattr(action, "name", "")) if action else "",
+        "fcurves": sorted(records, key=lambda item: (
+            item["data_path"], item["array_index"])),
+    })
+
+
+def _record_cache_inspection(obj, inspection) -> None:
+    settings = getattr(obj, "cloth_next", None)
+    if settings is None:
+        return
+    settings.baked_cache_condition = inspection.condition.value
+    settings.baked_cache_message = inspection.message
+    metadata = inspection.metadata or {}
+    settings.baked_metadata_digest = str(
+        metadata.get("metadata_digest", ""))
+
+
+def inspect_attached_cache(obj, *, settings_fingerprint: str | None = None,
+                           geometry_fingerprint: str | None = None):
+    """Authenticate the active cache during explicit validation/Bake only."""
+    path = None
+    if getattr(obj, "type", "") == "CURVE":
+        recorded = str(getattr(getattr(obj, "data", None), "get",
+                               lambda *_: "")(
+            "cloth_next_rod_cache", "") or "")
+        if recorded:
+            path = Path(recorded)
+    else:
+        modifier = next((item for item in getattr(obj, "modifiers", ())
+                         if has_cloth_next_playback_marker(obj, item)), None)
+        if modifier is not None and getattr(modifier, "filepath", ""):
+            path = Path(bpy.path.abspath(modifier.filepath))
+    if path is None:
+        return None
+    inspection = cache_metadata.inspect_cache(
+        path, settings_fingerprint=settings_fingerprint,
+        geometry_fingerprint=geometry_fingerprint)
+    _record_cache_inspection(obj, inspection)
+    return inspection
 
 
 # ---------------------------------------------------------------------------
@@ -611,19 +728,60 @@ def validate_scene(context) -> ValidationSnapshot:
             quality = object_properties.solver_quality_from(context.scene)
         except ValueError as exc:
             raise SceneValidationError(str(exc)) from exc
-        topology_signature = mesh_topology_signature(
-            getattr(cloth_obj, "data", None))
-        pin_membership = _snapshot_static_pin(
-            cloth_obj, topology_signature=topology_signature)
+        role = str(cloth_obj.cloth_next.role)
+        if role == "ROD":
+            vertices, edges, _splines = sample_curve(cloth_obj)
+            action = getattr(getattr(cloth_obj.data, "animation_data", None),
+                             "action", None)
+            if (action is not None
+                    and not bool(action.get("cloth_next_rod_action", False))):
+                raise SceneValidationError(
+                    f"{cloth_obj.name} already has Curve animation. Remove or "
+                    "stash it before baking Rod playback.")
+            topology_signature = hashlib.sha256(json.dumps(
+                {"vertices": len(vertices), "edges": edges},
+                separators=(",", ":")).encode("utf-8")).hexdigest()
+            deformable_shape_signature = cache_metadata.deterministic_hash({
+                "vertices": vertices, "edges": edges})
+            if bool(cloth_obj.cloth_next.pinning_enabled):
+                raise SceneValidationError(
+                    "Rod pinning is not available yet; disable Pinning.")
+            pin_membership = StaticPinSnapshot(
+                False, "", str(cloth_obj.name), len(vertices), (),
+                source_topology_signature=topology_signature)
+        else:
+            topology_signature = mesh_topology_signature(
+                getattr(cloth_obj, "data", None))
+            deformable_shape_signature = mesh_geometry_signature(
+                getattr(cloth_obj, "data", None),
+                topology_signature=topology_signature)
+            if role == "SOFT_BODY" and bool(cloth_obj.cloth_next.pinning_enabled):
+                raise SceneValidationError(
+                    "Soft Body pinning is not available yet; disable Pinning.")
+            pin_membership = _snapshot_static_pin(
+                cloth_obj, topology_signature=topology_signature)
         settings_fp = _settings_fingerprint(
             context, cloth_obj, collider_objs, shell, statics, contact_enabled,
             preset_identifier, quality)
+        collider_geometry = []
+        for collider in collider_objs:
+            collider_geometry.append({
+                "object_key": validation_state.object_key(collider),
+                "shape": mesh_geometry_signature(getattr(collider, "data", None)),
+                "animation": _animation_signature(collider),
+            })
+        scene_geometry_signature = cache_metadata.deterministic_hash({
+            "deformable": deformable_shape_signature,
+            "deformable_animation": _animation_signature(cloth_obj),
+            "colliders": collider_geometry,
+        })
         geometry_fp = combine_geometry_fingerprint(
-            topology_signature,
+            scene_geometry_signature,
             pin_indices_signature(
                 pin_membership.vertex_indices,
                 vertex_count=pin_membership.source_vertex_count))
-    except (SceneValidationError, ClothNextError, MaterialValidationError) as exc:
+    except (SceneValidationError, ClothNextError, MaterialValidationError,
+            DeformableMaterialError, CurveRodError) as exc:
         message = (exc.record.user_message if isinstance(exc, ClothNextError)
                    else str(exc))
         validation_state.store_invalid(cloth_obj, message)
@@ -633,6 +791,11 @@ def validate_scene(context) -> ValidationSnapshot:
         pin_group=pin_membership.group_name,
         topology_signature=topology_signature,
         geometry_fingerprint=geometry_fp, settings_fingerprint=settings_fp)
+    if str(getattr(cloth_obj.cloth_next,
+                   "baked_cache_condition", "") or ""):
+        inspect_attached_cache(
+            cloth_obj, settings_fingerprint=settings_fp,
+            geometry_fingerprint=geometry_fp)
     return ValidationSnapshot(
         cloth_obj=cloth_obj, collider_obj=collider_obj,
         collider_objs=collider_objs, bake_range=bake_range,
@@ -895,6 +1058,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     if snapshot is None:
         snapshot = validate_scene(context)
     cloth_obj = snapshot.cloth_obj
+    deformable_role = str(cloth_obj.cloth_next.role)
     collider_objs = snapshot.collider_objs
     bake_range = snapshot.bake_range
     # Material validation is deliberately first after role/scope validation:
@@ -923,8 +1087,21 @@ def build_run_plan(context, *, animated_pin_samples=None,
         with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
             scene.frame_set(bake_range.start); _depsgraph_update(context)
             depsgraph = context.evaluated_depsgraph_get()
-            cloth_vertices, cloth_triangles = _extract_mesh(
-                cloth_obj, depsgraph, needs_edges=True)
+            if deformable_role == "ROD":
+                cloth_vertices, cloth_edges, _curve_splines = sample_curve(cloth_obj)
+                cloth_triangles = ()
+            else:
+                if deformable_role == "SOFT_BODY":
+                    mesh = cloth_obj.data
+                    open_edges = _non_manifold_edge_count(mesh)
+                    if open_edges:
+                        raise SceneValidationError(
+                            f"{cloth_obj.name} is not a closed manifold surface "
+                            f"({open_edges} boundary/non-manifold edges). Seal the "
+                            "mesh before Soft Body tetrahedralization.")
+                cloth_vertices, cloth_triangles = _extract_mesh(
+                    cloth_obj, depsgraph, needs_edges=True)
+                cloth_edges = ()
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
         for current in collider_objs:
@@ -986,7 +1163,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
                               cloth_triangles, solver_world_matrix(cloth_world),
-                              pin_snapshot.vertex_indices)
+                              pin_snapshot.vertex_indices, edges=cloth_edges)
     scene_colliders = []
     collider_specs = []
     motion_meta = []
@@ -1014,7 +1191,12 @@ def build_run_plan(context, *, animated_pin_samples=None,
                             "vertex_count": len(vertices),
                             "triangle_count": len(triangles)})
     try:
-        data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
+        if deformable_role == "CLOTH":
+            data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
+        else:
+            data_payload, data_hash = encode_deformable_scene(
+                scene_cloth, scene_colliders,
+                group_type="ROD" if deformable_role == "ROD" else "SOLID")
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -1025,24 +1207,69 @@ def build_run_plan(context, *, animated_pin_samples=None,
         frame_count=frame_count, fps=int(scene.render.fps),
         gravity_blender=tuple(scene.gravity) if scene.use_gravity
         else (0.0, 0.0, 0.0), quality=quality)
-    from ..ppf.schema.params import encode_multi_collider_param
-    param_payload, param_hash = encode_multi_collider_param(
-        settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
-        contact_enabled=contact_enabled, static_pin=pin_config)
+    if deformable_role == "CLOTH":
+        from ..ppf.schema.params import encode_multi_collider_param
+        param_payload, param_hash = encode_multi_collider_param(
+            settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
+            contact_enabled=contact_enabled, static_pin=pin_config)
+    else:
+        from ..ppf.schema.params import encode_deformable_param
+        param_payload, param_hash = encode_deformable_param(
+            settings, cloth_obj.name, cloth_uuid, collider_specs,
+            group_type="ROD" if deformable_role == "ROD" else "SOLID",
+            material=shell, contact_enabled=contact_enabled)
     # Reused from the single authoritative validation — the topology is not
     # hashed and the pin group is not scanned a second time here.
     settings_fp = snapshot.settings_fingerprint
     geometry_fp = snapshot.geometry_fingerprint
     fingerprint = bake_fingerprint(settings_fp, geometry_fp)
-    material_meta = {
-        "version": 2,
-        "fingerprint": fingerprint,
+    object_identity = {
+        "object_key": validation_state.object_key(cloth_obj),
+        "deformable_type": deformable_role,
+        "topology_signature": snapshot.topology_signature,
+        "geometry_fingerprint": geometry_fp,
+    }
+    scene_identity = {
         "settings_fingerprint": settings_fp,
         "geometry_fingerprint": geometry_fp,
-        "topology_signature": snapshot.topology_signature,
+        "fps": int(scene.render.fps),
+        "frame_start": bake_range.start,
+        "frame_end": bake_range.end,
+        "colliders": [{key: value for key, value in item.items()
+                       if key != "uuid"} for item in motion_meta],
+    }
+    material_meta = {
+        "fingerprints": {
+            "settings": settings_fp,
+            "geometry": geometry_fp,
+            "combined": fingerprint,
+            "topology": snapshot.topology_signature,
+            "object": cache_metadata.deterministic_hash(object_identity),
+            "scene": cache_metadata.deterministic_hash(scene_identity),
+        },
+        "identities": {
+            "cloth_next_version": manifest_version(),
+            "blender_version": _blender_version(),
+            "object": object_identity,
+            "solver": {
+                "mode": resolved.mode.name,
+                "package_version": resolved.package_version or "unknown",
+                "protocol_version": resolved.protocol_version or "unknown",
+                "schema_version": resolved.schema_version or "unknown",
+                "source_metadata": getattr(resolved, "source_metadata", None) or {},
+            },
+        },
+        "expected": {
+            "vertex_count": len(cloth_vertices),
+            "frame_count": frame_count,
+            "start_frame": import_result.PC2_START_FRAME,
+            "sample_rate": import_result.PC2_SAMPLE_RATE,
+        },
+        "details": {
         "preset": preset_identifier,
         "contact_enabled": contact_enabled,
-        "shell": shell_wire_params(shell),
+        "deformable_type": deformable_role,
+        "material": asdict(shell),
         "static": static_wire_params(static),
         "colliders": motion_meta,
         "quality": {
@@ -1051,16 +1278,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
             "cg-max-iter": settings.quality.cg_max_iter,
             "cg-tol": settings.quality.cg_tol,
         },
-        "pressure": {"enabled": shell.enable_inflate,
-                     "stored": shell.inflate_pressure,
-                     "wire": shell_wire_params(shell)["pressure"]},
         "blender_start_frame": bake_range.start,
         "blender_end_frame": bake_range.end,
         "output_frame_count": frame_count,
         "solver_step_count": bake_range.solver_steps,
         "fps": int(scene.render.fps),
-        "pc2_sample_count": frame_count,
-        "completion_state": "complete",
         "pinning": {
             "enabled": pin_snapshot.enabled,
             "mode": pin_snapshot.mode.value,
@@ -1068,6 +1290,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
             "count": len(pin_snapshot.vertex_indices),
             "threshold": pin_snapshot.threshold,
             "fingerprint": pin_snapshot.fingerprint,
+        },
         },
     }
 
@@ -1079,7 +1302,10 @@ def build_run_plan(context, *, animated_pin_samples=None,
         collider_name=collider_specs[0][0], collider_uuid=collider_specs[0][1],
         frame_count=frame_count,
         data_payload=data_payload, param_payload=param_payload,
-        data_hash=data_hash, param_hash=param_hash)
+        data_hash=data_hash, param_hash=param_hash,
+        deformable_type=("ROD" if deformable_role == "ROD" else
+                         "SOLID" if deformable_role == "SOFT_BODY" else "SHELL"),
+        deformable_world_matrix=solver_world_matrix(cloth_world))
 
     configured_cache = str(getattr(cloth_obj.cloth_next,
                                    "cache_directory", "") or "").strip()
@@ -1098,7 +1324,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
                    geometry_fingerprint=geometry_fp,
                    topology_signature=snapshot.topology_signature,
                    preset_identifier=preset_identifier,
-                   material_meta=material_meta)
+                   material_meta=material_meta,
+                   deformable_role=deformable_role)
 
 
 # ---------------------------------------------------------------------------
@@ -1121,6 +1348,17 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
              if is_cloth_next_playback_modifier(obj,mod)]
     targets: list[Path] = []
     cache_root = plan.pc2_path.parent.resolve()
+    if getattr(obj, "type", "") == "CURVE":
+        recorded = str(getattr(getattr(obj, "data", None), "get",
+                               lambda *_: "")("cloth_next_rod_cache", "") or "")
+        if recorded:
+            path = Path(recorded).resolve()
+            if (not _is_within(path, cache_root)
+                    or not path.name.startswith("cn_test_cloth_")
+                    or path.suffix.lower() != ".pc2"):
+                raise SceneValidationError(
+                    "The previous Rod cache could not be replaced. Rebake was not started.")
+            targets.extend((path, path.with_suffix(".meta.json")))
     for mod in owned:
         value = str(getattr(mod, "filepath", "") or "")
         if not value:
@@ -1142,13 +1380,36 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
                 "Rebake was not started.")
 
 
-def _discard_incomplete(plan: RunPlan | None) -> None:
+def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
+                        reason: str = "") -> None:
     if plan is None:
         return
-    for target in (plan.pc2_path, plan.pc2_path.with_suffix(".meta.json")):
-        if _is_within(target, plan.pc2_path.parent):
-            try: target.unlink(missing_ok=True)
-            except OSError: pass
+    if _is_within(plan.pc2_path, plan.pc2_path.parent):
+        try:
+            plan.pc2_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+    sidecar = cache_metadata.sidecar_path(plan.pc2_path)
+    if not _is_within(sidecar, plan.pc2_path.parent):
+        return
+    try:
+        existing = (json.loads(sidecar.read_text(encoding="utf-8"))
+                    if sidecar.is_file() else {})
+        if not isinstance(existing, dict):
+            existing = {}
+        existing.update({
+            "schema_version": cache_metadata.CACHE_METADATA_SCHEMA_VERSION,
+            "completion_state": state,
+            "cache_format": "POINTCACHE2",
+            "cache_file": plan.pc2_path.name,
+            "failure_reason": reason,
+        })
+        cache_metadata.write_atomic(sidecar, existing)
+    except (OSError, ValueError, TypeError):
+        try:
+            sidecar.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _record_worker_failure(plan: RunPlan, summary: str, details: str) -> str:
@@ -1200,6 +1461,15 @@ def _worker_main(plan: RunPlan) -> None:
 
     writer = None
     try:
+        if plan.material_meta:
+            partial = cache_metadata.partial_metadata(
+                cache_path=plan.pc2_path,
+                fingerprints=plan.material_meta["fingerprints"],
+                identities=plan.material_meta["identities"],
+                expected=plan.material_meta["expected"],
+                details=plan.material_meta["details"])
+            cache_metadata.write_atomic(
+                cache_metadata.sidecar_path(plan.pc2_path), partial)
         writer = pc2.StreamingPc2Writer(
             plan.pc2_path, vertex_count=len(plan.initial_local),
             frame_count=plan.frame_count,
@@ -1254,19 +1524,21 @@ def _worker_main(plan: RunPlan) -> None:
         diagnostics.timings["pc2_validate"] = writer.validation_seconds
         diagnostics.timings["total"] = time.monotonic() - _run_started_at
         if plan.material_meta:
-            metadata = dict(plan.material_meta)
-            metadata.update({"cache_format": "POINTCACHE2",
-                "vertex_count": header.vertex_count, "frame_count": header.frame_count,
-                "expected_bytes": writer.expected_size,
-                "actual_bytes": plan.pc2_path.stat().st_size,
-                "writer_version": pc2.PC2_WRITER_VERSION,
-                "timings": dict(diagnostics.timings),
-                "solver_mode": diagnostics.solver_mode,
-                "solver_release_identity": diagnostics.package_version or "unknown"})
-            sidecar = plan.pc2_path.with_suffix(".meta.json")
-            temporary = sidecar.with_name(f".{sidecar.name}.{uuid_module.uuid4().hex}.tmp")
-            temporary.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-            os.replace(temporary, sidecar)
+            identities = dict(partial["identities"])
+            solver_identity = dict(identities.get("solver", {}))
+            solver_identity.update({
+                "mode": diagnostics.solver_mode,
+                "package_version": diagnostics.package_version or "unknown",
+                "protocol_version": diagnostics.protocol_version or "unknown",
+                "schema_version": diagnostics.schema_version or "unknown",
+            })
+            identities["solver"] = solver_identity
+            partial["identities"] = identities
+            metadata = cache_metadata.completed_metadata(
+                partial, cache_path=plan.pc2_path,
+                timings=diagnostics.timings)
+            cache_metadata.write_atomic(
+                cache_metadata.sidecar_path(plan.pc2_path), metadata)
         log_with_context(get_logger("playback.cache"), 20,
                          "streaming PC2 completed", {
             "vertices": header.vertex_count, "frames": header.frame_count,
@@ -1279,19 +1551,21 @@ def _worker_main(plan: RunPlan) -> None:
     except SessionCancelled:
         if writer is not None:
             writer.abort()
-        _discard_incomplete(plan)
+        _discard_incomplete(plan, state="cancelled",
+                            reason="Bake cancelled before publication")
         _queue.put(("cancelled", None, None))
     except ClothNextError as exc:
         if writer is not None:
             writer.abort()
-        _discard_incomplete(plan)
+        _discard_incomplete(plan, state="failed", reason=str(exc))
         summary, details = _present_worker_error(plan, exc)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details)))
-    except Exception as exc:  # noqa: BLE001 — surfaced as a visible ERROR state
+    except Exception:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
-        _discard_incomplete(plan)
+        _discard_incomplete(plan, state="failed",
+                            reason="Unexpected Bake worker failure")
         summary = "The solver test failed unexpectedly."
         details = traceback.format_exc()
         _queue.put(("error", summary,
@@ -1309,6 +1583,94 @@ def _configure_playback_modifier(modifier, frame_start: int) -> None:
     modifier.up_axis = "POS_Z"
 
 
+_ROD_FCURVE_GROUP = "Cloth NeXt Rod Cache"
+
+
+def _attach_curve_rod_playback(obj, plan: RunPlan,
+                               header: pc2.Pc2Header) -> None:
+    """Attach a Curve rod result without converting the artist's Curve.
+
+    Blender's Mesh Cache modifier and shape keys cannot deform Curve
+    datablocks. Control points and Bezier handles are therefore keyframed
+    directly while preserving Curve bevel/material setup.
+    """
+    if obj.type != "CURVE":
+        raise ValueError("Rod playback requires the original Curve object")
+    if header.vertex_count != len(plan.initial_local):
+        raise ValueError("Rod cache point count no longer matches the Curve")
+    animation = getattr(obj.data, "animation_data", None)
+    action = getattr(animation, "action", None)
+    if action is not None:
+        if not bool(action.get("cloth_next_rod_action", False)):
+            raise ValueError(
+                "Curve has user animation; Rod playback was not attached")
+        obj.data.animation_data_clear()
+        bpy.data.actions.remove(action)
+    for offset, positions in enumerate(pc2.iter_frames(plan.pc2_path)):
+        blender_frame = plan.frame_start + offset
+        cursor = 0
+        for spline in obj.data.splines:
+            points = (spline.bezier_points if spline.type == "BEZIER"
+                      else spline.points)
+            count = len(points)
+            values = positions[cursor:cursor + count]
+            cursor += count
+            if spline.type == "BEZIER":
+                cyclic = bool(spline.use_cyclic_u)
+                for index, (point, position) in enumerate(zip(points, values)):
+                    previous = values[(index - 1) % count]
+                    following = values[(index + 1) % count]
+                    if not cyclic and index == 0:
+                        tangent = (following - position) / 3.0
+                    elif not cyclic and index == count - 1:
+                        tangent = (position - previous) / 3.0
+                    else:
+                        tangent = (following - previous) / 6.0
+                    point.handle_left_type = "FREE"
+                    point.handle_right_type = "FREE"
+                    point.co = tuple(map(float, position))
+                    point.handle_left = tuple(map(float, position - tangent))
+                    point.handle_right = tuple(map(float, position + tangent))
+                    for path in ("co", "handle_left", "handle_right"):
+                        point.keyframe_insert(path, frame=blender_frame,
+                                              group=_ROD_FCURVE_GROUP)
+            else:
+                for point, position in zip(points, values):
+                    point.co = (*map(float, position), float(point.co[3]))
+                    point.keyframe_insert("co", frame=blender_frame,
+                                          group=_ROD_FCURVE_GROUP)
+        if cursor != header.vertex_count:
+            raise ValueError("Curve topology changed before Rod import")
+    action = obj.data.animation_data.action
+    action["cloth_next_rod_action"] = True
+    previous = ""
+    try:
+        previous = str(obj.data.get("cloth_next_rod_cache", "") or "")
+        obj.data["cloth_next_rod_cache"] = str(plan.pc2_path)
+    except TypeError:
+        setattr(obj.data, "cloth_next_rod_cache", str(plan.pc2_path))
+    settings = getattr(obj, "cloth_next", None)
+    if settings is not None and plan.settings_fingerprint:
+        settings.baked_settings_fingerprint = plan.settings_fingerprint
+        settings.baked_geometry_fingerprint = plan.geometry_fingerprint
+        settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+        validation_state.store_valid(
+            obj, pin_count=0, pin_group="",
+            topology_signature=plan.topology_signature,
+            geometry_fingerprint=plan.geometry_fingerprint,
+            settings_fingerprint=plan.settings_fingerprint)
+    if previous and Path(previous) != plan.pc2_path:
+        old = Path(previous)
+        if (_is_within(old, plan.pc2_path.parent)
+                and old.name.startswith("cn_test_cloth_")
+                and old.suffix.lower() == ".pc2"):
+            for target in (old, old.with_suffix(".meta.json")):
+                try:
+                    target.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+
 def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
     verified = pc2.read_header(plan.pc2_path)
     if verified != header:
@@ -1317,12 +1679,34 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
         raise ValueError("PC2 vertex count does not match the cloth")
     if verified.frame_count != plan.frame_count:
         raise ValueError("PC2 frame count is not the requested range")
+    inspection = None
+    if plan.material_meta:
+        inspection = cache_metadata.inspect_cache(
+            plan.pc2_path,
+            settings_fingerprint=plan.settings_fingerprint,
+            geometry_fingerprint=plan.geometry_fingerprint)
+        if not inspection.usable:
+            raise ValueError(inspection.message)
     obj = bpy.data.objects.get(plan.cloth_object_name)
     if obj is None:
         raise ValueError(f"cloth object {plan.cloth_object_name!r} no longer "
                          "exists")
+    settings = getattr(obj, "cloth_next", None)
+    if inspection is not None and settings is not None:
+        settings.baked_cache_condition = inspection.condition.value
+        settings.baked_cache_message = inspection.message
+        settings.baked_metadata_digest = str(
+            inspection.metadata.get("metadata_digest", ""))
+    if getattr(obj, "type", "") == "CURVE" or plan.deformable_role == "ROD":
+        _attach_curve_rod_playback(obj, plan, verified)
+        return
+    # Modifier ownership is established by the marker itself. The stricter
+    # path equality check is for destructive file operations; it cannot be
+    # used here because the object stores only the newest cache path. After
+    # two bakes that would make every older, still-marked modifier invisible
+    # and a fresh modifier would be added on each subsequent bake.
     stale = [mod for mod in obj.modifiers
-             if is_cloth_next_playback_modifier(obj,mod)]
+             if has_cloth_next_playback_marker(obj, mod)]
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
     # Reuse the active modifier. Removing and recreating it forces Blender to
@@ -1348,12 +1732,19 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
             settings.baked_settings_fingerprint = plan.settings_fingerprint
             settings.baked_geometry_fingerprint = plan.geometry_fingerprint
             settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+            if inspection is not None:
+                settings.baked_cache_condition = inspection.condition.value
+                settings.baked_cache_message = inspection.message
+                settings.baked_metadata_digest = str(
+                    inspection.metadata.get("metadata_digest", ""))
             # The bake just validated this mesh; record it so the Cache panel
             # can honestly say "ready" instead of "needs validation".
             validation_state.store_valid(
                 obj,
-                pin_count=plan.material_meta.get("pinning", {}).get("count", 0),
-                pin_group=plan.material_meta.get("pinning", {}).get("group", ""),
+                pin_count=plan.material_meta.get("details", {}).get(
+                    "pinning", {}).get("count", 0),
+                pin_group=plan.material_meta.get("details", {}).get(
+                    "pinning", {}).get("group", ""),
                 topology_signature=plan.topology_signature,
                 geometry_fingerprint=plan.geometry_fingerprint,
                 settings_fingerprint=plan.settings_fingerprint)
@@ -1363,10 +1754,12 @@ def _attach_playback(plan: RunPlan, header: pc2.Pc2Header) -> None:
         for old_path in previous_paths:
             if (old_path != plan.pc2_path
                     and old_path.name.startswith("cn_test_cloth_")):
-                try:
-                    old_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                for target in (old_path,
+                               cache_metadata.sidecar_path(old_path)):
+                    try:
+                        target.unlink(missing_ok=True)
+                    except OSError:
+                        pass
     except Exception as exc:  # noqa: BLE001 -- playback is already attached
         log_with_context(get_logger("playback.cache"), 30,
                          "playback attached; post-import housekeeping failed", {
@@ -2060,27 +2453,50 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         target = getattr(context, "object", None)
         objects = (target,) if target is not None else bpy.data.objects
         for obj in objects:
+            settings = getattr(obj, "cloth_next", None)
+            owned_paths = []
+            if getattr(obj, "type", "") == "CURVE":
+                recorded = str(getattr(getattr(obj, "data", None), "get",
+                                       lambda *_: "")(
+                    "cloth_next_rod_cache", "") or "")
+                if recorded and Path(recorded).name.startswith("cn_test_cloth_"):
+                    owned_paths.append(Path(recorded))
+                    action = getattr(getattr(obj.data, "animation_data", None),
+                                     "action", None)
+                    if (action is not None
+                            and bool(action.get("cloth_next_rod_action", False))):
+                        obj.data.animation_data_clear()
+                        bpy.data.actions.remove(action)
+                    try:
+                        del obj.data["cloth_next_rod_cache"]
+                    except (KeyError, TypeError, AttributeError):
+                        pass
             for mod in list(obj.modifiers):
                 if is_cloth_next_playback_modifier(obj,mod):
                     filepath = getattr(mod, "filepath", "")
                     obj.modifiers.remove(mod)
                     removed_modifiers += 1
-                    settings = getattr(obj, "cloth_next", None)
-                    if settings is not None:
-                        settings.baked_settings_fingerprint = ""
-                        settings.baked_geometry_fingerprint = ""
-                        settings.baked_fingerprint_version = 0
-                        validation_state.forget(obj)
                     if filepath:
-                        path = Path(bpy.path.abspath(filepath))
-                        if path.name.startswith("cn_test_cloth_"):
-                            try:
-                                path.unlink(missing_ok=True)
-                                path.with_suffix(".meta.json").unlink(
-                                    missing_ok=True)
-                                removed_files += 1
-                            except OSError:
-                                pass
+                        owned_paths.append(Path(bpy.path.abspath(filepath)))
+            for path in set(owned_paths):
+                if not path.name.startswith("cn_test_cloth_"):
+                    continue
+                try:
+                    existed = path.exists() or cache_metadata.sidecar_path(
+                        path).exists()
+                    path.unlink(missing_ok=True)
+                    cache_metadata.sidecar_path(path).unlink(missing_ok=True)
+                    removed_files += int(existed)
+                except OSError:
+                    pass
+            if settings is not None and (owned_paths or removed_modifiers):
+                settings.baked_settings_fingerprint = ""
+                settings.baked_geometry_fingerprint = ""
+                settings.baked_fingerprint_version = 0
+                settings.baked_cache_condition = ""
+                settings.baked_cache_message = ""
+                settings.baked_metadata_digest = ""
+                validation_state.forget(obj)
         self.report({"INFO"},
                     f"Removed {removed_modifiers} Cloth NeXt test cache "
                     f"modifier(s) and {removed_files} cache file(s); nothing "

@@ -110,8 +110,8 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
 
 
 @pytest.mark.parametrize("cloths,colliders,reason", [
-    (0, 1, "Exactly one Cloth object is currently supported."),
-    (2, 1, "Exactly one Cloth object is currently supported."),
+    (0, 1, "Exactly one deformable object is currently supported."),
+    (2, 1, "Exactly one deformable object is currently supported."),
     (1, 0, "At least one Collider is required."),
 ])
 def test_bake_disabled_for_invalid_scene_scope(blender_env, cloths,

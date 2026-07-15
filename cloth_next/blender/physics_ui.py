@@ -38,10 +38,6 @@ from .playback_cache import has_cloth_next_playback_marker
 _add_entry_appended = False
 
 UNAVAILABLE_OBJECT_TYPES = (
-    ("SOFT_BODY", "Soft Body",
-     "Coming soon. Volumetric deformable bodies are not supported yet."),
-    ("ROPE_CABLE", "Rope / Cable",
-     "Coming soon. PPF Rod simulation is not supported yet."),
     ("RIGID_BODY", "Rigid Body",
      "Coming soon. PPF PDRD rigid bodies are not supported yet."),
     ("SAND", "Sand",
@@ -102,7 +98,7 @@ def _draw_object_type_selector(layout, settings) -> None:
 def _draw_add_physics_entry(panel, context) -> None:
     """Appended to PHYSICS_PT_add; draws the Cloth NeXt add/remove entry."""
     obj = getattr(context, "object", None)
-    if obj is None or obj.type != "MESH":
+    if obj is None or obj.type not in {"MESH", "CURVE"}:
         return
     settings = getattr(obj, "cloth_next", None)
     col = panel.layout.column()
@@ -161,7 +157,7 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         obj = getattr(context, "object", None)
-        if obj is None or obj.type != "MESH":
+        if obj is None or obj.type not in {"MESH", "CURVE"}:
             return False
         settings = getattr(obj, "cloth_next", None)
         return settings is not None and settings.enabled
@@ -204,7 +200,12 @@ class _ClothNextSubpanel:
     def poll(cls, context):
         if not CLOTHNEXT_PT_physics.poll(context):
             return False
-        return not getattr(cls, "cloth_only", False) or context.object.cloth_next.role == "CLOTH"
+        role = context.object.cloth_next.role
+        if getattr(cls, "cloth_only", False):
+            return role == "CLOTH"
+        if getattr(cls, "deformable_only", False):
+            return role in {"CLOTH", "ROD", "SOFT_BODY"}
+        return True
 
 
 class CLOTHNEXT_PT_overview(_ClothNextSubpanel, bpy.types.Panel):
@@ -393,9 +394,20 @@ def _cache_state(context) -> tuple[str, str]:
     # Marker-only check: no Path.resolve(), so no filesystem syscall in draw.
     modifier = next((mod for mod in cloth.modifiers
                      if has_cloth_next_playback_marker(cloth, mod)), None)
+    rod_cache = (str(getattr(cloth.data, "get", lambda *_: "")(
+        "cloth_next_rod_cache", "") or "") if cloth.type == "CURVE" else "")
     baked_settings = getattr(settings, "baked_settings_fingerprint", "")
-    if modifier is None or not baked_settings:
+    if (modifier is None and not rod_cache) or not baked_settings:
         return "EMPTY", "Cache empty"
+
+    disk_condition = str(getattr(settings, "baked_cache_condition", "") or "")
+    disk_message = str(getattr(settings, "baked_cache_message", "") or "")
+    if disk_condition == "CORRUPT":
+        return "INVALID", disk_message or "Cache invalid · file damaged"
+    if disk_condition == "PARTIAL":
+        return "INVALID", disk_message or "Cache incomplete · Rebake required"
+    if disk_condition == "MISSING":
+        return "INVALID", disk_message or "Cache invalid · files missing"
 
     record = validation_state.record_for(cloth)
     if record.state is validation_state.ValidationState.INVALID:
@@ -453,13 +465,15 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     objects = getattr(getattr(context, "scene", None), "objects", ())
     cloths = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
                                                 "enabled", False)
-              and obj.cloth_next.role == "CLOTH"]
+              and obj.cloth_next.role in {"CLOTH", "ROD", "SOFT_BODY"}]
     colliders = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
                                                    "enabled", False)
                  and obj.cloth_next.role == "COLLIDER"]
+    role = cloths[0].cloth_next.role if len(cloths) == 1 else ""
     preset = (cloths[0].cloth_next.material.preset.replace("_", " ").title()
-              if len(cloths) == 1 else "No material")
-    summary = f"{preset} · {len(cloths)} Cloth · {len(colliders)} Collider"
+              if role == "CLOTH" else role.replace("_", " ").title()
+              if role else "No material")
+    summary = f"{preset} · {len(cloths)} Deformable · {len(colliders)} Collider"
     cache_state, cache_label = _cache_state(context)
     action = {"STALE": "REBAKE", "INVALID": "REBAKE",
               "NEEDS_VALIDATION": "REBAKE",
@@ -468,7 +482,7 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     if not status.ready:
         reason = "PPF is not configured."
     elif len(cloths) != 1:
-        reason = "Exactly one Cloth object is currently supported."
+        reason = "Exactly one deformable object is currently supported."
     elif not colliders:
         reason = "At least one Collider is required."
     else:
@@ -517,14 +531,33 @@ def _preset_description(identifier: str) -> str:
 
 
 class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Material"; bl_idname = "CLOTHNEXT_PT_material"; cloth_only = True
+    bl_label = "Material"; bl_idname = "CLOTHNEXT_PT_material"; deformable_only = True
     header_icon = "physical"
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        material = context.object.cloth_next.material
+        settings = context.object.cloth_next
+        if settings.role == "ROD":
+            rod = settings.rod
+            layout.label(text="PPF Rod · ARAP")
+            layout.prop(rod, "linear_density")
+            layout.prop(rod, "stretch_resistance")
+            layout.prop(rod, "bend_resistance")
+            layout.prop(rod, "length_factor")
+            layout.prop(rod, "stretch_limit_percent")
+            return
+        if settings.role == "SOFT_BODY":
+            soft = settings.soft_body
+            layout.label(text="PPF Solid · automatic tetrahedralization")
+            layout.prop(soft, "volume_density")
+            layout.prop(soft, "stretch_resistance")
+            layout.prop(soft, "poisson_ratio")
+            layout.prop(soft, "volume_scale")
+            layout.prop(soft, "tetrahedralizer")
+            return
+        material = settings.material
         error = material_presets.load_error()
         if error:
             layout.label(text="Bundled presets unavailable:", icon="ERROR")
@@ -603,7 +636,7 @@ def _pin_status_lines(summary):
 
 
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Damping"; bl_idname = "CLOTHNEXT_PT_damping"; cloth_only = True
+    bl_label = "Damping"; bl_idname = "CLOTHNEXT_PT_damping"; deformable_only = True
     header_icon = "damping"
     def draw(self, context):
         layout = self.layout
@@ -611,7 +644,8 @@ class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
         layout.use_property_decorate = False
         damping = context.object.cloth_next.damping
         layout.prop(damping, "shape_damping")
-        layout.prop(damping, "fold_damping")
+        if context.object.cloth_next.role in {"CLOTH", "ROD"}:
+            layout.prop(damping, "fold_damping")
 
 
 class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
@@ -625,10 +659,10 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         collision = settings.collision
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
-        if settings.role == "CLOTH":
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             layout.prop(collision, "enabled")
         column = layout.column()
-        if settings.role == "CLOTH":
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             column.enabled = collision.enabled
         column.prop(collision, "surface_grip")
         column.prop(collision, "collision_gap")

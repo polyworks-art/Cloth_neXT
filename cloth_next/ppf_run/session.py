@@ -32,7 +32,7 @@ from ..ppf.health import start_owned_and_wait
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.models import ConnectionOwnership
 from ..ppf.process import SolverProcessConfig, SolverProcessManager
-from ..ppf.resolver import ResolvedSolver, SolverMode
+from ..ppf.resolver import ResolvedSolver
 from ..ppf.transport import TransportConfig
 from ..updater.health_runner import bundle_root_for, free_port
 
@@ -68,6 +68,8 @@ class SessionScene:
     param_payload: bytes
     data_hash: str
     param_hash: str
+    deformable_type: str = "SHELL"
+    deformable_world_matrix: tuple | None = None
 
     @property
     def solver_frame_count(self) -> int:
@@ -168,6 +170,7 @@ class SolverSession:
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
         self._cloth_indices: np.ndarray | None = None
+        self._surface_map: results.SurfaceMap | None = None
         self.diagnostics = SessionDiagnostics(project_name=scene.project_name,
                                               solver_mode=resolved.mode.name,
                                               data_hash=scene.data_hash,
@@ -326,8 +329,22 @@ class SolverSession:
         output_map = results.parse_output_map(blob)
         self.diagnostics.bytes_transferred += len(blob)
         # The cloth must map back onto the original vertex order/count.
-        raw_indices = output_map.indices_for(self.scene.cloth_uuid,
-                                             self.scene.cloth_vertex_count)
+        if self.scene.deformable_type == "SOLID":
+            raw_indices = output_map.indices_by_uuid.get(self.scene.cloth_uuid)
+            if raw_indices is None:
+                raise results.ResultValidationError(
+                    f"solver output map has no entry for {self.scene.cloth_uuid}")
+            surface_blob = wire.data_receive(
+                self._address, self.transport,
+                project_name=self.scene.project_name,
+                path=results.SURFACE_MAP_PATH)
+            self.diagnostics.bytes_transferred += len(surface_blob)
+            self._surface_map = results.parse_surface_map(
+                surface_blob, self.scene.cloth_uuid,
+                self.scene.cloth_vertex_count)
+        else:
+            raw_indices = output_map.indices_for(self.scene.cloth_uuid,
+                                                 self.scene.cloth_vertex_count)
         total_vertices = max(index for values in output_map.indices_by_uuid.values()
                              for index in values) + 1
         self._cloth_indices = results.object_index_array(
@@ -353,10 +370,35 @@ class SolverSession:
             + time.monotonic() - step)
         step = time.monotonic()
         assert self._cloth_indices is not None
-        cloth = results.extract_object_frame_numpy(
-            positions, self._cloth_indices, frame=frame,
-            uuid=self.scene.cloth_uuid,
-            expected_count=self.scene.cloth_vertex_count)
+        if self._surface_map is None:
+            cloth = results.extract_object_frame_numpy(
+                positions, self._cloth_indices, frame=frame,
+                uuid=self.scene.cloth_uuid,
+                expected_count=self.scene.cloth_vertex_count)
+        else:
+            tet_world = positions[self._cloth_indices]
+            world = np.asarray(self.scene.deformable_world_matrix,
+                               dtype=np.float64)
+            inverse = np.linalg.inv(world)
+            homogeneous = np.concatenate(
+                (tet_world.astype(np.float64),
+                 np.ones((len(tet_world), 1))), axis=1)
+            tet_local = (homogeneous @ inverse.T)[:, :3]
+            smap = self._surface_map
+            triangles = smap.surface_triangles[smap.tri_indices]
+            v0, v1, v2 = (tet_local[triangles[:, index]] for index in range(3))
+            b1, b2 = v1 - v0, v2 - v0
+            normal = np.cross(b1, b2)
+            length = np.linalg.norm(normal, axis=1)
+            safe = length > 1e-10
+            normal[safe] /= length[safe, None]
+            normal[~safe] = 0.0
+            c = smap.coefficients
+            source_local = (v0 + c[:, 0:1] * b1 + c[:, 1:2] * b2
+                            + c[:, 2:3] * normal)
+            source_h = np.concatenate(
+                (source_local, np.ones((len(source_local), 1))), axis=1)
+            cloth = (source_h @ world.T)[:, :3].astype(np.float32)
         self.diagnostics.timings["frame_extract"] = (
             self.diagnostics.timings.get("frame_extract", 0.0)
             + time.monotonic() - step)

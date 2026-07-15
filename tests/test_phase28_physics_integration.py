@@ -58,8 +58,9 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     role = props["role"]
     identifiers = [item[0] for item in role.keywords["items"]]
     labels = {item[0]: item[1] for item in role.keywords["items"]}
-    assert identifiers == ["CLOTH", "COLLIDER"]
-    assert labels == {"CLOTH": "Cloth", "COLLIDER": "Collider"}
+    assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "COLLIDER"]
+    assert labels == {"CLOTH": "Cloth", "ROD": "Rod / Cable",
+                      "SOFT_BODY": "Soft Body", "COLLIDER": "Collider"}
     assert role.keywords["default"] == "CLOTH"
     assert props["enabled"].keywords["default"] is False
 
@@ -85,7 +86,7 @@ def test_supported_object_types_set_authoritative_role(blender_env, role):
     env.registration.unregister()
 
 
-@pytest.mark.parametrize("role", ["SOFT_BODY", "ROPE_CABLE", "RIGID_BODY", "SAND"])
+@pytest.mark.parametrize("role", ["ROPE_CABLE", "RIGID_BODY", "SAND"])
 def test_unsupported_object_types_cannot_change_stored_role(blender_env, role):
     env = blender_env
     env.registration.register()
@@ -121,12 +122,12 @@ def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(ble
     menu = env.physics_ui.CLOTHNEXT_MT_object_type()
     menu.layout = Layout()
     menu.draw(None)
-    assert len(menu.layout.rows) == 4
+    assert len(menu.layout.rows) == 2
     assert all(row.alert and not row.enabled for row in menu.layout.rows)
     assert all(row.operator_value.kwargs["icon"] == "LOCKED" for row in menu.layout.rows)
     tooltips = [row.operator_value.tooltip for row in menu.layout.rows]
     assert all(tooltip.startswith("Coming soon.") for tooltip in tooltips)
-    assert {"Volumetric", "PPF Rod", "PPF PDRD", "Granular"} == {
+    assert {"PPF PDRD", "Granular"} == {
         next(word for word in ("Volumetric", "PPF Rod", "PPF PDRD", "Granular")
              if word in tooltip) for tooltip in tooltips}
 
@@ -135,7 +136,8 @@ def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
     role = fake_bpy._resolved_props(
         blender_env.object_properties.CLOTHNEXT_PG_object_settings)["role"]
     assert role.keywords["items"] == blender_env.object_properties.ROLE_ITEMS
-    assert tuple(item[0] for item in role.keywords["items"]) == ("CLOTH", "COLLIDER")
+    assert tuple(item[0] for item in role.keywords["items"]) == (
+        "CLOTH", "ROD", "SOFT_BODY", "COLLIDER")
 
 
 # --- 3+4: add operator ------------------------------------------------------------

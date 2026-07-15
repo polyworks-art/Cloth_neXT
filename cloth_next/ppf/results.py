@@ -27,6 +27,7 @@ import numpy as np
 from .schema import envelope
 
 MAP_PATH = "session/map.pickle"
+SURFACE_MAP_PATH = "session/surface_map.pickle"
 OUTPUT_DIR_PATH = "session/output"
 
 
@@ -78,6 +79,40 @@ def parse_output_map(blob: bytes) -> OutputMap:
             indices.append(value)
         result[uuid] = tuple(indices)
     return OutputMap(result)
+
+
+@dataclass(frozen=True, slots=True)
+class SurfaceMap:
+    tri_indices: np.ndarray
+    coefficients: np.ndarray
+    surface_triangles: np.ndarray
+
+
+def parse_surface_map(blob: bytes, uuid: str,
+                      expected_count: int) -> SurfaceMap:
+    raw = __import__("cloth_next.ppf.schema.cbor_codec", fromlist=["loads"]).loads(blob)
+    if not isinstance(raw, dict) or raw.get("kind") != "SurfaceMap":
+        raise ResultValidationError("surface map envelope kind mismatch")
+    payload = raw.get("payload")
+    if not isinstance(payload, dict) or payload.get("version") != 2:
+        raise ResultValidationError("surface map payload version mismatch")
+    maps = payload.get("maps")
+    if not isinstance(maps, dict) or uuid not in maps:
+        raise ResultValidationError(f"surface map has no entry for {uuid}")
+    try:
+        tri, coefficients, surface_triangles = maps[uuid]
+        tri = np.asarray(tri, dtype=np.intp)
+        coefficients = np.asarray(coefficients, dtype=np.float64)
+        surface_triangles = np.asarray(surface_triangles, dtype=np.intp)
+    except (TypeError, ValueError) as exc:
+        raise ResultValidationError("surface map arrays are invalid") from exc
+    if tri.shape != (expected_count,) or coefficients.shape != (expected_count, 3):
+        raise ResultValidationError("surface map does not match source vertices")
+    if surface_triangles.ndim != 2 or surface_triangles.shape[1] != 3:
+        raise ResultValidationError("surface map triangles have invalid shape")
+    if np.any(tri < 0) or np.any(tri >= len(surface_triangles)):
+        raise ResultValidationError("surface triangle index is out of range")
+    return SurfaceMap(tri, coefficients, surface_triangles)
 
 
 def decode_frame_payload(blob: bytes) -> tuple[tuple[float, float, float], ...]:

@@ -36,6 +36,7 @@ except ImportError:  # pragma: no cover
 # Bump when the hashed field set or byte layout changes. It is folded into the
 # digest, so an older signature can never collide with a newer one.
 TOPOLOGY_SCHEMA_VERSION = 1
+GEOMETRY_SCHEMA_VERSION = 1
 
 _HEADER = struct.Struct("<5I")
 _UINT32 = "<u4"
@@ -68,17 +69,45 @@ def mesh_topology_signature(mesh) -> str:
     # block of its own — positions are deliberately not hashed.
     digest.update(_header(counts))
 
+    edges = getattr(mesh, "edges", ())
+    polygons = getattr(mesh, "polygons", ())
+    loops = getattr(mesh, "loops", ())
     for collection, attribute, length in (
-            (mesh.edges, "vertices", edge_count * 2),
-            (mesh.polygons, "loop_start", polygon_count),
-            (mesh.polygons, "loop_total", polygon_count),
-            (mesh.loops, "vertex_index", loop_count)):
+            (edges, "vertices", edge_count * 2),
+            (polygons, "loop_start", polygon_count),
+            (polygons, "loop_total", polygon_count),
+            (loops, "vertex_index", loop_count)):
         if length == 0:
             continue
         buffer = numpy.empty(length, dtype=_UINT32)
         collection.foreach_get(attribute, buffer)
         # memoryview keeps SHA-256 reading the buffer in place: no bytes copy.
         digest.update(memoryview(buffer).cast("B"))
+    return digest.hexdigest()
+
+
+def mesh_geometry_signature(mesh, *, topology_signature: str | None = None) -> str:
+    """SHA-256 over connectivity and object-local vertex positions.
+
+    Unlike :func:`mesh_topology_signature`, this identifies the actual solver
+    input shape. It is reserved for explicit validation/Bake paths.
+    """
+    topology = topology_signature or mesh_topology_signature(mesh)
+    digest = hashlib.sha256()
+    digest.update(struct.pack("<II", GEOMETRY_SCHEMA_VERSION,
+                              len(getattr(mesh, "vertices", ()))))
+    digest.update(topology.encode("ascii"))
+    vertices = getattr(mesh, "vertices", ())
+    count = len(vertices)
+    if count:
+        if numpy is not None and hasattr(vertices, "foreach_get"):
+            coordinates = numpy.empty(count * 3, dtype="<f8")
+            vertices.foreach_get("co", coordinates)
+            digest.update(memoryview(coordinates).cast("B"))
+        else:  # pragma: no cover - Blender and test runtime provide NumPy
+            for vertex in vertices:
+                digest.update(struct.pack("<3d", *(float(value)
+                                                   for value in vertex.co)))
     return digest.hexdigest()
 
 

@@ -6,16 +6,30 @@ from contextlib import contextmanager
 from pathlib import Path
 
 OWNERSHIP_MARKER="cloth_next_playback_v1"
+OBJECT_OWNERSHIP_KEY="cloth_next_playback_owner"
 
 def _property(value,key,default=None):
     try:return value.get(key,default)
     except (AttributeError,TypeError):return getattr(value,key,default)
 
 def mark_owned_playback(obj,modifier,cache_path:str)->None:
-    for target,key,value in ((modifier,"cloth_next_owner",OWNERSHIP_MARKER),
-                             (obj,"cloth_next_cache_path",str(cache_path))):
-        try:target[key]=value
-        except (TypeError,AttributeError):setattr(target,key,value)
+    # Blender 5.2 modifiers do not necessarily support ID properties. The
+    # Object is an ID datablock and therefore owns the authoritative marker;
+    # the modifier marker remains a compatible best-effort hint.
+    for target,key,value,required in (
+            (modifier,"cloth_next_owner",OWNERSHIP_MARKER,False),
+            (obj,OBJECT_OWNERSHIP_KEY,OWNERSHIP_MARKER,True),
+            (obj,"cloth_next_cache_path",str(cache_path),True)):
+        try:
+            target[key]=value
+            continue
+        except (TypeError,AttributeError):
+            pass
+        try:
+            setattr(target,key,value)
+        except (TypeError,AttributeError):
+            if required:
+                raise
 
 def has_cloth_next_playback_marker(obj,modifier)->bool:
     """Cheap, syscall-free ownership classification for read-only UI paths.
@@ -27,7 +41,8 @@ def has_cloth_next_playback_marker(obj,modifier)->bool:
     replaces a cache file.
     """
     if str(getattr(modifier,"type",""))!="MESH_CACHE":return False
-    marker=_property(modifier,"cloth_next_owner","")
+    marker=(_property(modifier,"cloth_next_owner","")
+            or _property(obj,OBJECT_OWNERSHIP_KEY,""))
     actual=str(getattr(modifier,"filepath","") or "")
     if marker!=OWNERSHIP_MARKER:
         settings=getattr(obj,"cloth_next",None)
@@ -47,7 +62,8 @@ def is_cloth_next_playback_modifier(obj,modifier)->bool:
     therefore never called from a draw path.
     """
     if not has_cloth_next_playback_marker(obj,modifier):return False
-    marker=_property(modifier,"cloth_next_owner","")
+    marker=(_property(modifier,"cloth_next_owner","")
+            or _property(obj,OBJECT_OWNERSHIP_KEY,""))
     if marker!=OWNERSHIP_MARKER:return True  # legacy: fully classified above
     recorded=str(_property(obj,"cloth_next_cache_path","") or "")
     actual=str(getattr(modifier,"filepath","") or "")

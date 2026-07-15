@@ -37,6 +37,33 @@ All notable Cloth NeXt changes. Versioning follows
 
 ## Unreleased
 
+### Added — Phase 4 production cache metadata and integrity
+
+- Publish a versioned sidecar for every new PC2 with explicit partial/complete
+  states, deterministic scene/object/settings/geometry fingerprints, runtime
+  identities, exact layout, and material/quality/range details.
+- Authenticate every PC2 byte and every semantic metadata field independently
+  with SHA-256 before attaching playback.
+- Detect missing, partial, corrupt, settings-stale, and geometry-stale caches;
+  failed or cancelled Bakes can never be presented as complete.
+- Invalidate for deformable/Collider position or topology changes, transforms,
+  ordinary Action keyframes, Pinning, FPS/range, materials, and quality while
+  keeping the panel draw path mesh-free.
+- Extend Clear Result to remove owned Rod playback and sidecars without
+  traversing or modifying unrelated files.
+
+### Added — experimental Rod / Cable and Soft Body workflow
+
+- Add Rod / Cable and Soft Body Physics roles alongside Cloth and Collider.
+- Encode PPF `ROD` edge geometry and volumetric `SOLID` surface input with
+  validated ARAP material parameters and selectable PPF tetrahedralization.
+- Preserve Bezier and Poly Curve objects during Rod playback by keyframing
+  control points and handles from the verified result stream.
+- Map tetrahedral Soft Body output back to the original surface through the
+  solver-provided surface map, while rejecting open/non-manifold source meshes.
+- Add pure-Python contract tests, a real-solver Rod/Solid harness, and a Blender
+  workflow smoke test. Pinning for these two roles remains intentionally hidden.
+
 ### Changed — bounded-memory PC2 playback generation
 
 - Stream complete PPF frames directly through NumPy extraction and vectorized

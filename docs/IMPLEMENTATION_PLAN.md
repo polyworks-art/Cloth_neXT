@@ -1,5 +1,32 @@
 # Cloth NeXt implementation plan
 
+## Phase 4 production cache — complete
+
+- Every new Bake has a versioned metadata sidecar with explicit partial and
+  complete states, exact PC2 layout, scene/object/settings/geometry hashes,
+  Cloth NeXt/Blender/solver identities, and material/quality/range details.
+- PC2 bytes and semantic metadata are independently SHA-256 authenticated.
+  Size, header, frame/vertex counts, and the requested layout are revalidated
+  before playback attachment.
+- Settings comparisons stay mesh-free; explicit validation hashes positions
+  and connectivity for the deformable and all Colliders. Relevant transforms,
+  Actions, Pinning, range, FPS, materials, and solver quality invalidate the
+  cache deterministically.
+- Failed/cancelled Bakes never become playable, the previous result survives a
+  failed Rebake, and Clear Result removes only marked Cloth NeXt cache pairs.
+- The format and classifications are specified in `docs/CACHE_FORMAT.md`.
+
+## Experimental Rod / Cable and Soft Body slice — implementation complete
+
+- The single-deformable production path now accepts a Curve-based PPF Rod or a
+  closed-manifold PPF Solid in addition to a Cloth shell.
+- Rod and Solid schema/material contracts, result validation, surface-map
+  reconstruction, Curve playback, UI roles, and actionable validation errors
+  are covered by source tests and dedicated real-solver/Blender smoke tools.
+- Release gate: the source suite and real PPF Rod/Solid harness must pass, and
+  CI must run the Blender workflow smoke. Rod/Soft Body pinning and multiple
+  deformables remain out of scope.
+
 ## Phase 3B.1 production Bake entry — complete
 
 - Solver readiness, Bake/Rebake/Bake Again, typed progress, cancellation,

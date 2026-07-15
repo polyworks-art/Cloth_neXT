@@ -202,3 +202,17 @@ def read_header(path: Path) -> Pc2Header:
         raise Pc2Error(f"PC2 size mismatch: file has {actual_size} bytes, "
                        f"header implies {expected}")
     return Pc2Header(vertex_count, start_frame, sample_rate, frame_count)
+
+
+def iter_frames(path: Path):
+    """Yield validated PC2 frames one at a time as ``(N, 3)`` float arrays."""
+    header = read_header(path)
+    frame_bytes = header.vertex_count * 12
+    with path.open("rb") as stream:
+        stream.seek(PC2_HEADER_SIZE)
+        for index in range(header.frame_count):
+            raw = stream.read(frame_bytes)
+            if len(raw) != frame_bytes:
+                raise Pc2Error(f"short PC2 frame {index}")
+            yield np.frombuffer(raw, dtype="<f4").reshape(
+                header.vertex_count, 3).copy()

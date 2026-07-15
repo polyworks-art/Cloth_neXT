@@ -29,6 +29,8 @@ from . import envelope
 
 GROUP_SHELL = "SHELL"
 GROUP_STATIC = "STATIC"
+GROUP_ROD = "ROD"
+GROUP_SOLID = "SOLID"
 
 
 class SceneEncodeError(ValueError):
@@ -53,6 +55,7 @@ class SceneObject:
     pin_indices: tuple[int, ...] = ()
     transform_animation: dict | None = None
     static_deform_animation: dict | None = None
+    edges: tuple[tuple[int, int], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -61,8 +64,8 @@ class SceneObject:
             raise SceneEncodeError("object uuid must not be empty")
         if not self.vertices_local:
             raise SceneEncodeError(f"{self.name}: mesh has no vertices")
-        if not self.triangles:
-            raise SceneEncodeError(f"{self.name}: mesh has no triangles")
+        if not self.triangles and not self.edges:
+            raise SceneEncodeError(f"{self.name}: object has no elements")
         count = len(self.vertices_local)
         for vertex in self.vertices_local:
             if len(vertex) != 3 or any(not math.isfinite(c) for c in vertex):
@@ -76,6 +79,10 @@ class SceneObject:
                 if not 0 <= index < count:
                     raise SceneEncodeError(
                         f"{self.name}: triangle index {index} out of range")
+        for edge in self.edges:
+            if len(edge) != 2 or edge[0] == edge[1] or any(
+                    not 0 <= index < count for index in edge):
+                raise SceneEncodeError(f"{self.name}: invalid edge {edge}")
         if tuple(sorted(set(self.pin_indices))) != self.pin_indices or any(
                 not 0 <= index < count for index in self.pin_indices):
             raise SceneEncodeError(f"{self.name}: invalid pin indices")
@@ -121,8 +128,11 @@ class SceneObject:
             "vert": [[_float32(c) for c in vertex]
                      for vertex in self.vertices_local],
             "transform": [list(row) for row in self.transform],
-            "face": [list(tri) for tri in self.triangles],
         }
+        if self.triangles:
+            info["face"] = [list(tri) for tri in self.triangles]
+        if self.edges:
+            info["edge"] = [list(edge) for edge in self.edges]
         if self.pin_indices:
             info["pin"] = list(self.pin_indices)
         if self.transform_animation is not None:
@@ -150,6 +160,32 @@ def build_scene_payload(cloth: SceneObject, collider) -> list:
         {"object": [item.info_dict() for item in colliders],
          "type": GROUP_STATIC},
     ]
+
+
+def build_deformable_scene_payload(deformable: SceneObject, collider, *,
+                                   group_type: str) -> list:
+    if group_type not in {GROUP_SHELL, GROUP_ROD, GROUP_SOLID}:
+        raise SceneEncodeError(f"unsupported deformable group: {group_type}")
+    colliders = _collider_sequence(collider)
+    if not colliders:
+        raise SceneEncodeError("at least one collider is required")
+    uuids = [deformable.uuid, *(item.uuid for item in colliders)]
+    if len(set(uuids)) != len(uuids):
+        raise SceneEncodeError("deformable and colliders need distinct UUIDs")
+    return [
+        {"object": [deformable.info_dict()], "type": group_type},
+        {"object": [item.info_dict() for item in colliders],
+         "type": GROUP_STATIC},
+    ]
+
+
+def encode_deformable_scene(deformable: SceneObject, collider, *,
+                            group_type: str) -> tuple[bytes, str]:
+    blob = envelope.dumps_envelope(
+        envelope.KIND_SCENE,
+        build_deformable_scene_payload(deformable, collider,
+                                       group_type=group_type))
+    return blob, envelope.payload_sha256(blob)
 
 
 def encode_scene(cloth: SceneObject, collider) -> tuple[bytes, str]:

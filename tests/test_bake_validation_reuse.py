@@ -62,13 +62,14 @@ def test_bake_start_hashes_topology_and_scans_pins_exactly_once(env,
     scene.counters.reset()
     module.begin_production_bake(scene.context)
 
-    # One topology hash (four foreach_get buffers) and one pass over the pin
-    # group for the whole Bake start. The old path repeated both several times
+    # One full geometry hash for Cloth and Collider (connectivity + coordinates)
+    # and one pass over the pin group for the whole Bake start. The old path
+    # repeated both several times
     # (panel model, cache state, pin panel, begin_production_bake, run plan).
     #
     # Reading the vertices themselves is *not* counted here: exporting the mesh
     # to the solver legitimately reads every coordinate once.
-    assert scene.counters.foreach_get_calls == 4
+    assert scene.counters.foreach_get_calls == 10
     assert scene.counters.vertex_group_scans == vertex_count
 
 
@@ -90,6 +91,25 @@ def test_run_plan_reuses_the_supplied_snapshot(env, monkeypatch):
     assert scene.counters.vertex_group_scans == 0, "pin group scanned twice"
     assert plan.settings_fingerprint == snapshot.settings_fingerprint
     assert plan.geometry_fingerprint == snapshot.geometry_fingerprint
+
+
+def test_phase4_scene_and_object_hashes_are_deterministic(env, monkeypatch):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    module = env.solver_test
+    monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())
+    monkeypatch.setattr(module, "_extract_mesh",
+                        lambda obj, _d, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+
+    first = module.build_run_plan(scene.context)
+    second = module.build_run_plan(scene.context)
+
+    assert first.material_meta["fingerprints"]["scene"] == \
+        second.material_meta["fingerprints"]["scene"]
+    assert first.material_meta["fingerprints"]["object"] == \
+        second.material_meta["fingerprints"]["object"]
+    assert first.scene.data_hash != second.scene.data_hash, \
+        "transport UUIDs may differ without changing the semantic scene hash"
 
 
 def test_unregister_completes_even_mid_bake(blender_env, monkeypatch):

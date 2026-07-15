@@ -20,7 +20,7 @@ from ..solver_quality import (SolverQualityValidationError,
 
 def _active_mesh(context):
     obj = getattr(context, "active_object", None)
-    if obj is None or obj.type != "MESH":
+    if obj is None or obj.type not in {"MESH", "CURVE"}:
         return None
     return obj
 
@@ -47,7 +47,15 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
         if self.role not in {item[0] for item in object_properties.ROLE_ITEMS}:
             self.report({"WARNING"}, "This Cloth NeXt object type is not supported yet.")
             return {"CANCELLED"}
-        context.active_object.cloth_next.role = self.role
+        obj = context.active_object
+        if self.role == "ROD" and obj.type != "CURVE":
+            self.report({"WARNING"}, "Rod / Cable requires a Curve object.")
+            return {"CANCELLED"}
+        if self.role != "ROD" and obj.type != "MESH":
+            self.report({"WARNING"},
+                        "Cloth, Soft Body and Collider require a Mesh object.")
+            return {"CANCELLED"}
+        obj.cloth_next.role = self.role
         return {"FINISHED"}
 
 

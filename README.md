@@ -54,6 +54,8 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Open-source Blender extension
 - Clear separation between the add-on and external solver
 - A native, role-aware Physics Properties configuration workflow
+- Experimental Rod / Cable simulation for Bezier and Poly Curves, plus
+  volumetric Soft Body simulation for closed manifold meshes
 - Real material parameters with understandable artist terminology
   (Surface Weight, Stretch Resistance, Bend Resistance, Surface Grip, …),
   each mapped one-to-one to a documented PPF solver parameter
@@ -61,6 +63,8 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
   Leather) bundled as read-only data, with exact provenance and the
   Apache-2.0 upstream notice preserved
 - An optional display-only bake status HUD
+- Transactional playback caches with versioned metadata, deterministic
+  invalidation, and SHA-256 integrity checks
 
 ### Vertex-group Pinning
 
@@ -191,6 +195,16 @@ starts. Blender remains the source of Collider animation: Collider objects are
 never assigned a Cloth NeXt playback cache or result modifier; only Cloth is
 written back from solver output.
 
+### Experimental Rod and Soft Body roles
+
+The Dev workflow also accepts one **Rod / Cable** or **Soft Body** instead of
+the Cloth object. Rods preserve the original Curve and write solver motion to
+its control points; supported splines are Bezier and Poly. Soft Bodies use a
+closed manifold mesh and request PPF tetrahedralization before simulation.
+Both roles use the normal Bake range, Collider, quality, material, and cache
+workflow. Rod/Soft Body pinning, NURBS Rod splines, dynamic material animation,
+and multiple deformable objects are not supported yet.
+
 > [!NOTE]
 > The exact workflow and available controls may depend on the installed
 > Cloth NeXt and solver versions.
@@ -246,6 +260,7 @@ When reporting an issue, please include:
 - [Solver installation](docs/SOLVER_INSTALLATION.md)
 - [Update channels](docs/UPDATE_CHANNELS.md)
 - [Limitations](docs/LIMITATIONS.md)
+- [Playback Cache Format](docs/CACHE_FORMAT.md)
 
 </details>
 

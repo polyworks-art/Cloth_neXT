@@ -47,6 +47,8 @@ from dataclasses import dataclass, field
 
 from ...materials import WIRE_MODEL_NAMES, ShellMaterialSettings, StaticMaterialSettings
 from ...materials.validation import validate_shell_values, validate_static_values
+from ...materials.deformables import (RodMaterialSettings,
+                                      SoftBodyMaterialSettings)
 from ...pinning import StaticPinConfig
 from ...solver_quality import DEFAULT_SOLVER_QUALITY, SolverQualitySettings
 from ..coordinates import blender_vector_to_ppf
@@ -105,6 +107,36 @@ def static_wire_params(static: StaticMaterialSettings) -> dict[str, object]:
         "friction": float32_wire(static.surface_grip),
         "contact-gap": float32_wire(static.collision_gap),
         "contact-offset": float32_wire(static.surface_offset),
+    }
+
+
+def rod_wire_params(rod: RodMaterialSettings) -> dict[str, object]:
+    return {
+        "model": "arap", "density": float32_wire(rod.linear_density),
+        "young-mod": float32_wire(rod.stretch_resistance),
+        "friction": float32_wire(rod.surface_grip),
+        "deformation-damping": float32_wire(rod.shape_damping),
+        "bending-damping": float32_wire(rod.bend_damping),
+        "contact-gap": float32_wire(rod.collision_gap),
+        "contact-offset": float32_wire(rod.surface_offset),
+        "bend": float32_wire(rod.bend_resistance),
+        "strain-limit": float32_wire(rod.stretch_limit),
+        "length-factor": float32_wire(rod.length_factor),
+    }
+
+
+def soft_body_wire_params(soft: SoftBodyMaterialSettings, uuid: str) -> dict[str, object]:
+    tet = {} if soft.tetrahedralizer == "ftetwild" else {uuid: {"backend": "tetgen"}}
+    return {
+        "model": "arap", "density": float32_wire(soft.volume_density),
+        "young-mod": float32_wire(soft.stretch_resistance),
+        "poiss-rat": float32_wire(soft.poisson_ratio),
+        "shrink": float32_wire(soft.volume_scale),
+        "friction": float32_wire(soft.surface_grip),
+        "deformation-damping": float32_wire(soft.shape_damping),
+        "contact-gap": float32_wire(soft.collision_gap),
+        "contact-offset": float32_wire(soft.surface_offset),
+        "ftetwild": tet,
     }
 
 
@@ -199,6 +231,51 @@ def encode_multi_collider_param(
         static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
     payload = build_multi_collider_param_payload(
         settings, cloth_name, cloth_uuid, colliders, shell=shell,
+        contact_enabled=contact_enabled, static_pin=static_pin)
+    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+    return blob, envelope.payload_sha256(blob)
+
+
+def build_deformable_param_payload(
+        settings: SimulationSettings, deformable_name: str,
+        deformable_uuid: str, colliders, *, group_type: str,
+        material: ShellMaterialSettings | RodMaterialSettings |
+        SoftBodyMaterialSettings, contact_enabled: bool = True,
+        static_pin: StaticPinConfig | None = None) -> dict:
+    entries = tuple(colliders)
+    if not entries:
+        raise ParamEncodeError("at least one collider is required")
+    if group_type == "SHELL" and isinstance(material, ShellMaterialSettings):
+        params = shell_wire_params(material)
+    elif group_type == "ROD" and isinstance(material, RodMaterialSettings):
+        params = rod_wire_params(material)
+    elif group_type == "SOLID" and isinstance(material, SoftBodyMaterialSettings):
+        params = soft_body_wire_params(material, deformable_uuid)
+    else:
+        raise ParamEncodeError(
+            f"material does not match deformable group {group_type!r}")
+    first_name, first_uuid, first_static = entries[0]
+    payload = build_param_payload(
+        settings, deformable_name, deformable_uuid, first_name, first_uuid,
+        shell=ShellMaterialSettings(), static=first_static,
+        contact_enabled=contact_enabled, static_pin=static_pin)
+    payload["group"] = [
+        (params, [deformable_name], [deformable_uuid]),
+        *((static_wire_params(static), [name], [uuid])
+          for name, uuid, static in entries),
+    ]
+    return payload
+
+
+def encode_deformable_param(
+        settings: SimulationSettings, deformable_name: str,
+        deformable_uuid: str, colliders, *, group_type: str,
+        material: ShellMaterialSettings | RodMaterialSettings |
+        SoftBodyMaterialSettings, contact_enabled: bool = True,
+        static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
+    payload = build_deformable_param_payload(
+        settings, deformable_name, deformable_uuid, colliders,
+        group_type=group_type, material=material,
         contact_enabled=contact_enabled, static_pin=static_pin)
     blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
     return blob, envelope.payload_sha256(blob)

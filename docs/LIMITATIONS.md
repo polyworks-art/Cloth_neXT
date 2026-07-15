@@ -137,16 +137,25 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
 ## Phase 3B production slice
 
-- One cloth shell, one or more static/animated colliders, and an artist-selected Bake Start/End
-  range with a 10,000-output-frame safety limit.
-- Static and Follow Animation hard pins through one vertex group and uniform
-  object-local pressure are supported. Soft Pull, timed pin release, shrink,
-  stitching, plasticity, tearing, multiple cloths,
-  solids, rods, sand, PDRD, dynamic material/pressure animation, and a separate
+- One deformable object (Cloth shell, experimental Rod / Cable, or experimental
+  Soft Body), one or more static/animated colliders, and an artist-selected
+  Bake Start/End range with a 10,000-output-frame safety limit.
+- For Cloth shells, Static and Follow Animation hard pins through one vertex
+  group and uniform object-local pressure are supported. Soft Pull, timed pin release, shrink,
+  stitching, plasticity, tearing, multiple deformables, sand, PDRD,
+  dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
   keys; unsupported controls remain hidden rather than shown as fake settings.
 - Playback is constant-topology PC2. Bake Start is the exported initial state;
   solver step `n` maps to Blender frame `Bake Start + n`.
+- Rods accept Bezier and Poly Curves only. Playback keyframes Curve control
+  points directly; existing user Curve animation blocks a bake rather than
+  being overwritten. NURBS conversion, Rod pinning, and animated Rod rest
+  topology are unsupported.
+- Soft Bodies require a closed manifold mesh. The external solver performs
+  tetrahedralization and Cloth NeXt maps the simulated tetrahedral surface back
+  to the original vertices. Soft Body pinning and animated source topology are
+  unsupported.
 - GPU telemetry depends on available NVIDIA `nvidia-smi` tooling and may be
   unavailable or temporarily stale. It is system GPU telemetry, not proof that
   PPF selected that exact CUDA device.
@@ -161,9 +170,10 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   supported. Pin indices require topology-preserving evaluated Cloth geometry.
   Timed release, soft Pull, multiple pin groups, animated
   Pressure, and native Blender Cloth remain unsupported.
-- Cache invalidation is a minimal versioned material fingerprint (object
-  property + `*.meta.json` sidecar) that marks a result stale; the full
-  production cache metadata system remains Phase-4 work.
+- New Bakes use the versioned, SHA-256-authenticated production cache metadata
+  described in [CACHE_FORMAT.md](CACHE_FORMAT.md). Legacy caches without that
+  schema can remain visible for migration but cannot gain the authenticated
+  Phase-4 status without a Rebake.
 - Bake actions run the compatible external PPF solver; Developer Test Tools remain
   separately labeled diagnostics.
 - The Viewport HUD is display-only; cancellation remains an operator action.

@@ -323,13 +323,31 @@ def _on_depsgraph_update(scene, depsgraph=None) -> None:
         if identifier is None:
             continue
         settings = getattr(identifier, "cloth_next", None)
-        if settings is None or not getattr(settings, "enabled", False):
+        # Actions and other animation datablocks can affect evaluated Collider
+        # or pin targets without carrying Object.cloth_next themselves. Fail
+        # closed by demoting every enabled deformable in that case.
+        if settings is None:
+            if identifier.__class__.__name__ not in {"Action", "FCurve"}:
+                continue
+            for candidate in cloth_next_objects(scene):
+                role = str(getattr(candidate.cloth_next, "role", ""))
+                if role in {"CLOTH", "ROD", "SOFT_BODY"}:
+                    touched = _demote(candidate, geometry=True) or touched
+            continue
+        if not getattr(settings, "enabled", False):
             continue
         if not (getattr(update, "is_updated_geometry", False)
                 or getattr(update, "is_updated_transform", False)):
             continue
-        # `identifier` is an evaluated copy; key by name, never by reference.
-        if _demote(identifier, geometry=True):
+        role = str(getattr(settings, "role", ""))
+        if role == "COLLIDER":
+            for candidate in cloth_next_objects(scene):
+                candidate_role = str(getattr(
+                    candidate.cloth_next, "role", ""))
+                if candidate_role in {"CLOTH", "ROD", "SOFT_BODY"}:
+                    touched = _demote(candidate, geometry=True) or touched
+        # `identifier` may be an evaluated copy; key by name, never reference.
+        elif _demote(identifier, geometry=True):
             touched = True
     if touched:
         _tag_redraw()

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from cloth_next.bake import cache_metadata, pc2
 from tests import mesh_fixtures
 
 
@@ -152,7 +153,8 @@ def test_bake_scans_the_pin_group_exactly_once(env):
     # One membership lookup per vertex, one pass — not two, not four.
     assert scene.counters.vertex_group_scans == vertex_count
     assert scene.counters.vertex_scans == 1
-    assert scene.counters.foreach_get_calls == 4  # exactly one topology hash
+    # Cloth and Collider connectivity plus coordinates are authenticated once.
+    assert scene.counters.foreach_get_calls == 10
 
 
 # ---------------------------------------------------------------------------
@@ -219,8 +221,8 @@ def test_full_validation_detects_a_real_topology_mismatch(env):
     assert (state, label) == ("STALE", "Cache stale · mesh changed")
 
 
-def test_position_only_change_still_validates_as_matching(env):
-    """Moving a vertex is not a topology change; the cache stays valid."""
+def test_position_only_change_invalidates_the_solver_input(env):
+    """Moving a vertex changes the solver input even with fixed topology."""
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
     _bake_and_record(env, scene)
 
@@ -228,8 +230,35 @@ def test_position_only_change_still_validates_as_matching(env):
     _state(env).mark_geometry_dirty(scene.cloth)
     env.solver_test.validate_scene(scene.context)
 
-    assert env.physics_ui._cache_state(scene.context) == ("MATCHING",
-                                                          "Cache ready")
+    assert env.physics_ui._cache_state(scene.context) == (
+        "STALE", "Cache stale · mesh changed")
+
+
+def test_static_collider_vertex_change_invalidates_cache(env):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    _bake_and_record(env, scene)
+
+    scene.collider.data.move_vertex(2, 3.0)
+    _state(env).mark_geometry_dirty(scene.cloth)
+    env.solver_test.validate_scene(scene.context)
+
+    assert env.physics_ui._cache_state(scene.context) == (
+        "STALE", "Cache stale · mesh changed")
+
+
+def test_collider_transform_change_invalidates_without_mesh_scan(env):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=100_000)
+    _bake_and_record(env, scene)
+    scene.counters.reset()
+
+    matrix = [list(row) for row in scene.collider.matrix_world]
+    matrix[0][3] = 2.0
+    scene.collider.matrix_world = tuple(tuple(row) for row in matrix)
+
+    assert env.physics_ui._cache_state(scene.context) == (
+        "STALE", "Cache stale · settings changed")
+    assert scene.counters.foreach_get_calls == 0
+    assert scene.counters.full_mesh_scans == 0
 
 
 def test_unvalidated_session_never_claims_the_cache_is_ready(env):
@@ -275,6 +304,42 @@ def test_failed_validation_preserves_the_existing_cache(env):
             len(scene.cloth.modifiers)) == baked, "the old cache was destroyed"
     state, label = env.physics_ui._cache_state(scene.context)
     assert state == "INVALID" and "Pin Group no longer exists" in label
+
+
+def test_explicit_validation_detects_on_disk_cache_corruption(env, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    snapshot = env.solver_test.validate_scene(scene.context)
+    path = tmp_path / "cn_test_cloth_integrity.pc2"
+    pc2.write_pc2(path, [((0.0, 0.0, 0.0),)])
+    partial = cache_metadata.partial_metadata(
+        cache_path=path,
+        fingerprints={"settings": snapshot.settings_fingerprint,
+                      "geometry": snapshot.geometry_fingerprint,
+                      "combined": snapshot.combined_fingerprint,
+                      "topology": snapshot.topology_signature,
+                      "object": "object", "scene": "scene"},
+        identities={},
+        expected={"vertex_count": 1, "frame_count": 1,
+                  "start_frame": 0.0, "sample_rate": 1.0},
+        details={})
+    complete = cache_metadata.completed_metadata(partial, cache_path=path)
+    cache_metadata.write_atomic(cache_metadata.sidecar_path(path), complete)
+    modifier = mesh_fixtures.attach_cache(
+        scene.cloth, settings_fingerprint=snapshot.settings_fingerprint,
+        geometry_fingerprint=snapshot.geometry_fingerprint,
+        version=env.solver_test.BAKE_FINGERPRINT_VERSION)
+    modifier.filepath = str(path)
+    scene.cloth.cloth_next_cache_path = str(path)
+    scene.cloth.cloth_next.baked_cache_condition = "READY"
+
+    data = bytearray(path.read_bytes())
+    data[-1] ^= 1
+    path.write_bytes(data)
+    env.solver_test.validate_scene(scene.context)
+
+    state, label = env.physics_ui._cache_state(scene.context)
+    assert state == "INVALID"
+    assert "hash mismatch" in label
 
 
 def test_no_cache_state_call_reads_the_mesh_at_any_size(env):

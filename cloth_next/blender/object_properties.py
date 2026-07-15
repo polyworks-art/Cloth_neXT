@@ -44,10 +44,14 @@ from ..solver_quality import (
     MIN_TIME_STEP,
     SolverQualitySettings,
 )
+from ..materials.deformables import (RodMaterialSettings,
+                                     SoftBodyMaterialSettings)
 from . import validation_state
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
+    ("ROD", "Rod / Cable", "Simulate this Curve as a one-dimensional rod"),
+    ("SOFT_BODY", "Soft Body", "Simulate this closed mesh as a tetrahedral solid"),
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
 )
 
@@ -338,6 +342,43 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
                     "parameter: contact-offset")
 
 
+class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
+    linear_density: bpy.props.FloatProperty(name="Linear Density", default=1.0,
+        min=0.01, max=10000.0, update=_on_settings_update,
+        description="Mass per unit length; PPF density")
+    stretch_resistance: bpy.props.FloatProperty(name="Stretch Resistance",
+        default=10000.0, min=0.0, max=1e9, update=_on_settings_update,
+        description="Density-normalized axial stiffness; PPF young-mod")
+    bend_resistance: bpy.props.FloatProperty(name="Bend Resistance", default=10.0,
+        min=0.0, max=1e9, update=_on_settings_update,
+        description="Rod joint bending stiffness; PPF bend")
+    length_factor: bpy.props.FloatProperty(name="Rest Length Scale", default=1.0,
+        min=0.01, max=10.0, update=_on_settings_update,
+        description="Scale applied to rod rest edge lengths; PPF length-factor")
+    stretch_limit_percent: bpy.props.FloatProperty(name="Maximum Stretch",
+        default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE",
+        update=_on_settings_update, description="Zero disables PPF strain-limit")
+
+
+class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
+    volume_density: bpy.props.FloatProperty(name="Volume Density", default=100.0,
+        min=0.01, max=10000.0, update=_on_settings_update,
+        description="Mass per unit volume; PPF density")
+    stretch_resistance: bpy.props.FloatProperty(name="Elastic Stiffness",
+        default=500.0, min=0.0, max=1e9, update=_on_settings_update,
+        description="Density-normalized solid stiffness; PPF young-mod")
+    poisson_ratio: bpy.props.FloatProperty(name="Poisson Ratio", default=0.35,
+        min=0.0, max=0.4999, update=_on_settings_update,
+        description="Solid lateral response; PPF poiss-rat")
+    volume_scale: bpy.props.FloatProperty(name="Rest Volume Scale", default=1.0,
+        min=0.01, max=10.0, update=_on_settings_update,
+        description="Scale applied to solid rest volume; PPF shrink")
+    tetrahedralizer: bpy.props.EnumProperty(name="Tetrahedralizer",
+        items=(("FTETWILD", "fTetWild", "Robust automatic tetrahedralization"),
+               ("TETGEN", "TetGen", "TetGen automatic tetrahedralization")),
+        default="FTETWILD", update=_on_settings_update)
+
+
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
@@ -361,6 +402,8 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
+    rod: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rod_settings)
+    soft_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_soft_body_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False, update=_on_settings_update,
         description="Hold vertices in the selected Blender vertex group at "
@@ -402,6 +445,15 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         description="Internal fingerprint schema of the stored result. Zero "
                     "marks a legacy result from before the split fingerprint; "
                     "it is treated as needing validation, never as matching")
+    baked_cache_condition: bpy.props.StringProperty(
+        name="Baked Cache Condition", default="", options={"HIDDEN"},
+        description="Last authenticated on-disk cache condition")
+    baked_cache_message: bpy.props.StringProperty(
+        name="Baked Cache Message", default="", options={"HIDDEN"},
+        description="Actionable result of the last cache integrity check")
+    baked_metadata_digest: bpy.props.StringProperty(
+        name="Baked Metadata Digest", default="", options={"HIDDEN"},
+        description="Authenticated digest of the current cache sidecar")
 
 
 # ---------------------------------------------------------------------------
@@ -450,6 +502,36 @@ def static_settings_from(settings) -> StaticMaterialSettings:
         surface_offset=float(collision.surface_offset))
 
 
+def rod_settings_from(settings) -> RodMaterialSettings:
+    rod, damping, collision = settings.rod, settings.damping, settings.collision
+    return RodMaterialSettings(
+        linear_density=float(rod.linear_density),
+        stretch_resistance=float(rod.stretch_resistance),
+        bend_resistance=float(rod.bend_resistance),
+        length_factor=float(rod.length_factor),
+        shape_damping=float(damping.shape_damping),
+        bend_damping=float(damping.fold_damping),
+        surface_grip=float(collision.surface_grip),
+        collision_gap=float(collision.collision_gap),
+        surface_offset=float(collision.surface_offset),
+        stretch_limit=float(rod.stretch_limit_percent) / 100.0)
+
+
+def soft_body_settings_from(settings) -> SoftBodyMaterialSettings:
+    soft, damping, collision = (settings.soft_body, settings.damping,
+                                settings.collision)
+    return SoftBodyMaterialSettings(
+        volume_density=float(soft.volume_density),
+        stretch_resistance=float(soft.stretch_resistance),
+        poisson_ratio=float(soft.poisson_ratio),
+        volume_scale=float(soft.volume_scale),
+        shape_damping=float(damping.shape_damping),
+        surface_grip=float(collision.surface_grip),
+        collision_gap=float(collision.collision_gap),
+        surface_offset=float(collision.surface_offset),
+        tetrahedralizer=str(soft.tetrahedralizer).lower())
+
+
 def reset_settings(settings) -> None:
     """Reset object-level settings to safe defaults.
 
@@ -482,5 +564,6 @@ def detach_from_object() -> None:
 CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
            CLOTHNEXT_PG_collision_settings,
+           CLOTHNEXT_PG_rod_settings, CLOTHNEXT_PG_soft_body_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_object_settings)

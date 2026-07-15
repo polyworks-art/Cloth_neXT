@@ -149,6 +149,23 @@ def test_depsgraph_update_marks_geometry_dirty_without_reading_the_mesh(env):
     assert scene.counters.foreach_get_calls == 0
 
 
+def test_collider_depsgraph_update_demotes_the_deformable(env):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=100_000)
+    _validated(env, scene)
+    scene.counters.reset()
+
+    depsgraph = SimpleNamespace(updates=[SimpleNamespace(
+        id=scene.collider, is_updated_geometry=True,
+        is_updated_transform=False)])
+    env.bpy.app.handlers.depsgraph_update_post[0](scene.context.scene,
+                                                  depsgraph)
+
+    record = _state(env).record_for(scene.cloth)
+    assert record.state is _states(env).DIRTY
+    assert record.geometry_dirty
+    assert scene.counters.foreach_get_calls == 0
+
+
 def test_depsgraph_handler_ignores_objects_without_cloth_next(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
     _validated(env, scene)
@@ -222,7 +239,7 @@ def test_validation_is_the_only_thing_that_scans(env):
     env.solver_test.validate_scene(scene.context)
 
     assert scene.counters.vertex_group_scans == 10_000  # exactly one pass
-    assert scene.counters.foreach_get_calls == 4        # one topology hash
+    assert scene.counters.foreach_get_calls == 10       # Cloth + Collider shape
 
 
 # ---------------------------------------------------------------------------

@@ -6,8 +6,23 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
+from cloth_next.bake import cache_metadata
 from cloth_next.bake.status import BakeState
 from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
+
+
+def _phase4_meta():
+    return {
+        "fingerprints": {"settings": "settings", "geometry": "geometry",
+                         "combined": "combined", "topology": "topology",
+                         "object": "object", "scene": "scene"},
+        "identities": {"cloth_next_version": "test",
+                       "blender_version": "test", "object": {},
+                       "solver": {}},
+        "expected": {"vertex_count": 1, "frame_count": 1,
+                     "start_frame": 0.0, "sample_rate": 1.0},
+        "details": {},
+    }
 
 
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
@@ -61,6 +76,69 @@ def test_worker_failure_is_printed_persisted_and_sent_to_ui(
     report = (plan.work_directory / "failure.log").read_text(encoding="utf-8")
     assert "RuntimeError: solver exploded at frame 42" in report
     assert "solver exploded at frame 42" in capsys.readouterr().out
+
+
+def test_worker_publishes_authenticated_phase4_pair(blender_env, monkeypatch,
+                                                    tmp_path):
+    module = blender_env.solver_test
+
+    class StubSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self):
+            return SimpleNamespace(
+                timings={}, solver_mode="OWNED_PROCESS",
+                package_version="0.1.0", protocol_version="0.11",
+                schema_version="1", bytes_transferred=0)
+
+    monkeypatch.setattr(module, "SolverSession", StubSession)
+    path = tmp_path / "cn_test_cloth_phase4.pc2"
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        "cloth", tmp_path / "run", path, 1,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        material_meta=_phase4_meta())
+
+    module._worker_main(plan)
+
+    messages = []
+    while not module._queue.empty():
+        messages.append(module._queue.get_nowait())
+    assert messages[-1][0] == "finished"
+    inspection = cache_metadata.inspect_cache(
+        path, settings_fingerprint="settings",
+        geometry_fingerprint="geometry")
+    assert inspection.condition is cache_metadata.CacheCondition.READY
+
+
+def test_failed_worker_leaves_unusable_failure_record(blender_env, monkeypatch,
+                                                       tmp_path):
+    module = blender_env.solver_test
+
+    class FailingSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self):
+            raise RuntimeError("broken solve")
+
+    monkeypatch.setattr(module, "SolverSession", FailingSession)
+    path = tmp_path / "cn_test_cloth_failed.pc2"
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        "cloth", tmp_path / "run", path, 1,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        material_meta=_phase4_meta())
+
+    module._worker_main(plan)
+
+    assert module._queue.get_nowait()[0] == "error"
+    inspection = cache_metadata.inspect_cache(path)
+    assert inspection.condition is cache_metadata.CacheCondition.PARTIAL
+    assert not path.exists()
 
 
 def test_convergence_failure_names_blender_frame_and_action(blender_env):
@@ -117,6 +195,33 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert len(obj.modifiers) == 1
     assert obj.modifiers[0] is old
     assert old.filepath == str(path)
+
+
+def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    first = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    first.filepath = str(tmp_path / "cn_test_cloth_first.pc2")
+    module.mark_owned_playback(obj, first, first.filepath)
+    second = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    second.filepath = str(tmp_path / "cn_test_cloth_second.pc2")
+    module.mark_owned_playback(obj, second, second.filepath)
+    # mark_owned_playback stores only the second path on the object, so the
+    # old strict ownership predicate intentionally no longer matches first.
+    assert not module.is_cloth_next_playback_modifier(obj, first)
+    path = tmp_path / "cn_test_cloth_third.pc2"
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    plan = module.RunPlan(SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+                          ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
+                          obj.name, tmp_path, path, 1)
+
+    module._attach_playback(plan, header)
+
+    assert list(obj.modifiers) == [first]
+    assert first.filepath == str(path)
 
 
 def test_attach_succeeds_when_post_import_housekeeping_fails(
