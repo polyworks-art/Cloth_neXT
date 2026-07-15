@@ -105,6 +105,33 @@ def test_force_role_is_empty_only_and_add_defaults_empty_to_force(blender_env):
     env.registration.unregister()
 
 
+def test_empty_data_panel_provides_force_enable_entry(blender_env):
+    env = blender_env
+    env.registration.register()
+    empty = env.bpy.types.Object(name="Force Empty", type="EMPTY")
+    context = make_context(empty)
+    context.object = empty
+    panel_type = env.physics_ui.CLOTHNEXT_PT_empty_force
+    assert panel_type.poll(context)
+
+    class Layout:
+        def __init__(self):
+            self.operators = []
+        def operator(self, identifier, **kwargs):
+            self.operators.append((identifier, kwargs))
+            return SimpleNamespace()
+        def label(self, **_kwargs):
+            pass
+
+    panel = panel_type()
+    panel.layout = Layout()
+    panel.draw(context)
+    assert panel.layout.operators == [(
+        "clothnext.add_physics",
+        {"text": "Enable Cloth NeXt Force", "icon": "FORCE_FORCE"})]
+    env.registration.unregister()
+
+
 @pytest.mark.parametrize("role", ["ROPE_CABLE", "RIGID_BODY", "SAND"])
 def test_unsupported_object_types_cannot_change_stored_role(blender_env, role):
     env = blender_env

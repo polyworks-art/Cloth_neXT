@@ -31,6 +31,8 @@ try:
     bpy.ops.object.empty_add(type="ARROWS", location=(0.0, 0.0, 1.5))
     wind = bpy.context.object
     wind.name = "MultiWind"
+    from cloth_next.blender import physics_ui
+    assert physics_ui.CLOTHNEXT_PT_empty_force.poll(bpy.context)
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
     wind.cloth_next.force.force_type = "WIND"

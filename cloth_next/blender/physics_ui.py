@@ -196,6 +196,51 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
                         text="Remove Cloth NeXt", icon="X")
 
 
+class CLOTHNEXT_PT_empty_force(bpy.types.Panel):
+    """Guaranteed Cloth NeXt entry for Emptys in Object Data Properties."""
+
+    bl_label = "Cloth NeXt Force"
+    bl_idname = "CLOTHNEXT_PT_empty_force"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
+
+    @classmethod
+    def poll(cls, context):
+        obj = getattr(context, "object", None)
+        return obj is not None and obj.type == "EMPTY"
+
+    def draw_header(self, _context):
+        self.layout.label(
+            text="", **icon_registry.icon_kwargs("force", "FORCE_FORCE"))
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+        settings = getattr(obj, "cloth_next", None)
+        if settings is None:
+            layout.label(text="Cloth NeXt is not registered", icon="ERROR")
+            return
+        if not settings.enabled:
+            layout.operator(
+                physics_operators.CLOTHNEXT_OT_add_physics.bl_idname,
+                text="Enable Cloth NeXt Force", icon="FORCE_FORCE")
+            return
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        _draw_object_type_selector(layout, settings)
+        layout.prop(settings.force, "force_type")
+        layout.prop(settings.force, "strength")
+        direction = ("local -Z" if settings.force.force_type == "GRAVITY"
+                     else "local +Z")
+        layout.label(text=f"Direction: Empty {direction}",
+                     icon="ORIENTATION_LOCAL")
+        layout.label(text="Rotate the Empty to aim the force")
+        layout.operator(
+            physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
+            text="Remove Cloth NeXt", icon="X")
+
+
 class _ClothNextSubpanel:
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -923,7 +968,8 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
-           CLOTHNEXT_PT_physics, CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
+           CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
+           CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
