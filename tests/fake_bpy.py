@@ -26,7 +26,13 @@ class _PropDef:
     def default_value(self, id_data=None):
         if self.kind == "ENUM":
             items = self.keywords.get("items", ())
-            return self.keywords.get("default", items[0][0] if items else "")
+            if callable(items):
+                items = items(None, None)
+            default = self.keywords.get("default")
+            if isinstance(default, int):
+                return next((item[0] for item in items
+                             if len(item) > 4 and item[4] == default), "")
+            return default if default is not None else (items[0][0] if items else "")
         if self.kind == "POINTER":
             return _instantiate_group(self.keywords["type"], id_data)
         return self.keywords.get("default")

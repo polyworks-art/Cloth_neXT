@@ -46,7 +46,7 @@ from ..solver_quality import (
 )
 from ..materials.deformables import (RodMaterialSettings,
                                      SoftBodyMaterialSettings)
-from . import validation_state
+from . import icon_registry, validation_state
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
@@ -55,7 +55,25 @@ ROLE_ITEMS = (
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
 )
 
+_ROLE_ICONS = (
+    ("cloth", "MOD_CLOTH"),
+    ("rod", "CURVE_DATA"),
+    ("soft_body", "MOD_SOFT"),
+    ("collider", "MESH_CUBE"),
+)
+
 DEFAULT_ROLE = "CLOTH"
+
+
+def role_items(_self, _context):
+    """Return role choices with custom previews and safe built-in fallbacks."""
+    return tuple(
+        (identifier, label, description,
+         icon_registry.icon_id(icon_name) or fallback, number)
+        for number, ((identifier, label, description),
+                     (icon_name, fallback))
+        in enumerate(zip(ROLE_ITEMS, _ROLE_ICONS))
+    )
 
 # ---------------------------------------------------------------------------
 # Preset plumbing.
@@ -386,7 +404,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Enabled", default=False, update=_on_settings_update,
         description="Cloth NeXt is enabled on this object")
     role: bpy.props.EnumProperty(
-        name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
+        name="Object Role", items=role_items, default=0,
         update=_on_settings_update,
         description="How Cloth NeXt treats this object in a simulation")
     collider_motion: bpy.props.EnumProperty(

@@ -11,7 +11,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "cloth_next_icons"
 TARGET = ROOT / "cloth_next" / "assets" / "icons"
-REQUIRED = ("cloth_next", "cloth", "collider", "solver", "quality", "physical",
+REQUIRED = ("cloth_next", "cloth", "rod", "soft_body", "collider", "solver", "quality", "physical",
             "damping", "collision", "pressure", "pinning", "cache", "advanced",
             "bake", "play", "pause", "cancel", "success", "warning", "error",
             "info", "folder", "timer")

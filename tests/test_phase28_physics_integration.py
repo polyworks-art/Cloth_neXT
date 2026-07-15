@@ -56,12 +56,16 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     env = blender_env
     props = fake_bpy._resolved_props(env.object_properties.CLOTHNEXT_PG_object_settings)
     role = props["role"]
-    identifiers = [item[0] for item in role.keywords["items"]]
-    labels = {item[0]: item[1] for item in role.keywords["items"]}
+    items = role.keywords["items"](None, None)
+    identifiers = [item[0] for item in items]
+    labels = {item[0]: item[1] for item in items}
     assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "COLLIDER"]
     assert labels == {"CLOTH": "Cloth", "ROD": "Rod / Cable",
                       "SOFT_BODY": "Soft Body", "COLLIDER": "Collider"}
-    assert role.keywords["default"] == "CLOTH"
+    assert [item[3] for item in items] == [
+        "MOD_CLOTH", "CURVE_DATA", "MOD_SOFT", "MESH_CUBE"]
+    assert [item[4] for item in items] == [0, 1, 2, 3]
+    assert role.keywords["default"] == 0
     assert props["enabled"].keywords["default"] is False
 
 
@@ -135,8 +139,8 @@ def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(ble
 def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
     role = fake_bpy._resolved_props(
         blender_env.object_properties.CLOTHNEXT_PG_object_settings)["role"]
-    assert role.keywords["items"] == blender_env.object_properties.ROLE_ITEMS
-    assert tuple(item[0] for item in role.keywords["items"]) == (
+    items = role.keywords["items"](None, None)
+    assert tuple(item[0] for item in items) == (
         "CLOTH", "ROD", "SOFT_BODY", "COLLIDER")
 
 
