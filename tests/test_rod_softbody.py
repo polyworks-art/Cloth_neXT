@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -22,6 +23,15 @@ COLLIDER = SceneObject("floor", "static-1",
     ((0, 0, 0), (1, 0, 0), (0, 1, 0)), ((0, 1, 2),), IDENTITY)
 STATIC_SPEC = (("floor", "static-1", DEFAULT_STATIC_SETTINGS),)
 SETTINGS = SimulationSettings(3, 24, (0.0, 0.0, -9.81))
+
+
+def test_rod_thickness_limit_is_visible_in_ui_and_docs():
+    root = Path(__file__).resolve().parents[1]
+    ui = (root / "cloth_next/blender/physics_ui.py").read_text("utf-8")
+    readme = (root / "README.md").read_text("utf-8")
+    assert "Curve Bevel is visual only" in ui
+    assert "Surface Offset as cable radius" in ui
+    assert "one-dimensional centerline" in readme
 
 
 def test_rod_scene_uses_edges_without_faces():

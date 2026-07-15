@@ -151,7 +151,9 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 - Rods accept Bezier and Poly Curves only. Playback keyframes Curve control
   points directly; existing user Curve animation blocks a bake rather than
   being overwritten. NURBS conversion, Rod pinning, and animated Rod rest
-  topology are unsupported.
+  topology are unsupported. Curve Bevel/Taper/point radius are visual only;
+  `Surface Offset` provides one uniform collision-radius approximation for the
+  simulated centerline. Variable physical cable thickness is unsupported.
 - Soft Bodies require a closed manifold mesh. The external solver performs
   tetrahedralization and Cloth NeXt maps the simulated tetrahedral surface back
   to the original vertices. Soft Body pinning and animated source topology are

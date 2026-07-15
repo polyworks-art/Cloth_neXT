@@ -542,6 +542,9 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         if settings.role == "ROD":
             rod = settings.rod
             layout.label(text="PPF Rod · ARAP")
+            info = layout.box()
+            info.label(text="Curve Bevel is visual only.", icon="INFO")
+            info.label(text="Use Collisions > Surface Offset as cable radius.")
             layout.prop(rod, "linear_density")
             layout.prop(rod, "stretch_resistance")
             layout.prop(rod, "bend_resistance")

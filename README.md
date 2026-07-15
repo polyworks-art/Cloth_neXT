@@ -205,6 +205,13 @@ Both roles use the normal Bake range, Collider, quality, material, and cache
 workflow. Rod/Soft Body pinning, NURBS Rod splines, dynamic material animation,
 and multiple deformable objects are not supported yet.
 
+Rod simulation uses the Curve as a one-dimensional centerline. Curve Bevel,
+Taper, and per-point radius remain visual; they are not sent to PPF. For a cable
+with physical radius `r`, set **Collisions > Surface Offset** to approximately
+`r` in Blender world units. This gives the centerline a uniform collision skin;
+variable cable thickness is not supported yet. **Collision Gap** remains a
+separate contact-barrier distance and should not be used as the cable radius.
+
 > [!NOTE]
 > The exact workflow and available controls may depend on the installed
 > Cloth NeXt and solver versions.
