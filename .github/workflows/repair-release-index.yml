@@ -80,7 +80,7 @@ jobs:
           Copy-Item -LiteralPath $archive -Destination (Join-Path $repaired $name)
           & "$env:CLOTH_NEXT_BLENDER" --factory-startup --command extension server-generate "--repo-dir=$repaired"
           if ($existing) {
-            python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected $env:REPAIR_VERSION --report "$env:RUNNER_TEMP\release-index-regression.json"
+            python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected $env:REPAIR_VERSION --source-may-be-single --report "$env:RUNNER_TEMP\release-index-regression.json"
           }
           Copy-Item -LiteralPath (Join-Path $repaired 'index.json') -Destination (Join-Path $channel 'index.json') -Force
           $index=Get-Content (Join-Path $channel 'index.json') -Raw | ConvertFrom-Json

@@ -37,6 +37,28 @@ def _run(blender: Path, profile: Path, url: str, index: Path,
     return json.loads(result.read_text(encoding="utf-8"))
 
 
+def validate_results(source: dict, repaired: dict, expected: str, *,
+                     require_duplicate: bool = True) -> None:
+    """Validate either the original duplicate fixture or a clean old index."""
+    if require_duplicate:
+        if source["duplicate_count"] < 2:
+            raise AssertionError("duplicate fixture did not contain duplicate ids")
+        if not (source["duplicate_count"] > 1 or
+                source["installed_manifest"] != source["repository_candidate"]):
+            raise AssertionError("duplicate repository ambiguity was not recorded")
+    else:
+        if source["duplicate_count"] < 1:
+            raise AssertionError("source repository has no candidate")
+        for key in ("installed_manifest", "loaded_manifest"):
+            if source[key] != source["repository_candidate"]:
+                raise AssertionError(f"source {key} does not match its candidate")
+    for key in ("repository_candidate", "installed_manifest", "loaded_manifest"):
+        if repaired[key] != expected:
+            raise AssertionError(f"repaired {key} is {repaired[key]!r}")
+    if repaired["duplicate_count"] != 1 or repaired["update_offered"]:
+        raise AssertionError("repaired repository still offers an update")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--blender", type=Path, required=True)
@@ -44,6 +66,8 @@ def main() -> int:
     parser.add_argument("--repaired-repo", type=Path, required=True)
     parser.add_argument("--expected", default="0.3.21")
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--source-may-be-single", action="store_true",
+                        help="accept a valid existing one-candidate repository")
     args = parser.parse_args()
 
     root = Path(os.path.commonpath([args.duplicate_repo.resolve(),
@@ -79,16 +103,8 @@ def main() -> int:
         server.shutdown()
         server.server_close()
 
-    if duplicate["duplicate_count"] < 2:
-        raise AssertionError("duplicate fixture did not contain duplicate ids")
-    if not (duplicate["duplicate_count"] > 1 or
-            duplicate["installed_manifest"] != duplicate["repository_candidate"]):
-        raise AssertionError("duplicate repository ambiguity was not recorded")
-    for key in ("repository_candidate", "installed_manifest", "loaded_manifest"):
-        if repaired[key] != args.expected:
-            raise AssertionError(f"repaired {key} is {repaired[key]!r}")
-    if repaired["duplicate_count"] != 1 or repaired["update_offered"]:
-        raise AssertionError("repaired repository still offers an update")
+    validate_results(duplicate, repaired, args.expected,
+                     require_duplicate=not args.source_may_be_single)
     report = {"duplicate": duplicate, "repaired": repaired}
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))

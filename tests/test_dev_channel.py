@@ -5,6 +5,7 @@ import json
 import pytest
 from tools.prepare_dev_build import prepare
 from tools.build_extension_repository import generate_single_candidate_index
+from tools.run_blender_dev_repository_regression import validate_results
 
 def test_prepare_dev_build_updates_only_isolated_version_metadata(tmp_path):
     root=tmp_path; package=root/"cloth_next"; package.mkdir()
@@ -102,6 +103,7 @@ def test_release_repository_repair_uses_verified_asset_and_single_candidate():
     assert "release_visible_in" in workflow
     assert "REPAIR_RELEASE_INDEX" in workflow
     assert "run_blender_dev_repository_regression.py" in workflow
+    assert "--source-may-be-single" in workflow
     assert "candidates.Count -ne 1" in workflow
     assert "check_release_manifest" in workflow
     assert "check_sha256sums" in workflow
@@ -111,3 +113,16 @@ def test_release_repository_repair_uses_verified_asset_and_single_candidate():
     assert "changed files outside the selected verified repository" in workflow
     assert "push origin HEAD:gh-pages" in workflow
     assert "Remove-Item" not in workflow
+
+
+def test_release_repair_accepts_clean_existing_repository():
+    source = {"repository_candidate": "0.4.0", "duplicate_count": 1,
+              "installed_manifest": "0.4.0", "loaded_manifest": "0.4.0",
+              "update_offered": False}
+    repaired = {"repository_candidate": "1.0.0", "duplicate_count": 1,
+                "installed_manifest": "1.0.0", "loaded_manifest": "1.0.0",
+                "update_offered": False}
+    validate_results(source, repaired, "1.0.0", require_duplicate=False)
+    source["loaded_manifest"] = "0.3.0"
+    with pytest.raises(AssertionError, match="does not match"):
+        validate_results(source, repaired, "1.0.0", require_duplicate=False)
