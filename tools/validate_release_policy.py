@@ -28,6 +28,7 @@ from tools.scan_release_artifact import scan_names
 from cloth_next.bake.companion_bundle import validate_bundle
 from cloth_next.updater.channel_policy import (allowed_release_channels,
                                                 publication_targets)
+from cloth_next.updater.addon_versions import parse_version as parse_addon_version
 
 RELEASE_PLATFORM = "windows-x64"
 SEMVER_RE = re.compile(
@@ -193,9 +194,9 @@ def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
         for archive in channel_dir.glob("cloth_next-*.zip"):
             name_version = archive.name.removeprefix(
                 "cloth_next-").removesuffix(f"-{RELEASE_PLATFORM}.zip")
-            archived = parse_version(name_version)
-            if archived.channel not in allowed:
-                raise ValueError(f"{archived.channel} artifact {archive.name} "
+            archived = parse_addon_version(name_version)
+            if archived.channel_name not in allowed:
+                raise ValueError(f"{archived.channel_name} artifact {archive.name} "
                                  f"is not allowed in the {channel} repository")
         index = channel_dir / "index.json"
         if not index.is_file():
@@ -212,11 +213,12 @@ def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
             raise ValueError(f"{channel} index.json has ambiguous Cloth NeXt "
                              "candidates")
         for candidate in candidates:
-            candidate_version = parse_version(str(candidate.get("version")))
-            if candidate_version.channel not in allowed:
+            candidate_version = parse_addon_version(
+                str(candidate.get("version")))
+            if candidate_version.channel_name not in allowed:
                 raise ValueError(f"{channel} index.json references disallowed "
-                                 f"{candidate_version.channel} version "
-                                 f"{candidate_version.text}")
+                                 f"{candidate_version.channel_name} version "
+                                 f"{candidate_version}")
         if channel in required:
             if not (channel_dir / archive_name).is_file():
                 raise ValueError(f"{channel} repository misses {archive_name}")

@@ -199,6 +199,8 @@ def test_stable_release_is_required_in_all_three_repositories(tmp_path):
         (site / channel).mkdir(parents=True)
         make_zip(site / channel, "1.0.0")
         write_index(site / channel, "1.0.0")
+    make_zip(site / "dev", "0.3.0-dev.20",
+             name="cloth_next-0.3.0-dev.20-windows-x64.zip")
     check_channel_separation(site, parse_version("1.0.0"))
     (site / "dev" / "index.json").unlink()
     with pytest.raises(ValueError, match="dev repository has no index"):

@@ -95,7 +95,7 @@ def test_index_repair_runs_real_blender_and_changes_only_index():
         assert source in probe
 
 
-def test_release_index_repair_is_index_only_and_single_candidate():
+def test_release_repository_repair_uses_verified_asset_and_single_candidate():
     root = Path(__file__).parents[1]
     workflow = (root / ".github/workflows/repair-release-index.yml").read_text()
     assert "options: [dev, beta, stable]" in workflow
@@ -103,6 +103,9 @@ def test_release_index_repair_is_index_only_and_single_candidate():
     assert "REPAIR_RELEASE_INDEX" in workflow
     assert "run_blender_dev_repository_regression.py" in workflow
     assert "candidates.Count -ne 1" in workflow
-    assert "repair must change only the selected channel index.json" in workflow
+    assert "check_release_manifest" in workflow
+    assert "check_sha256sums" in workflow
+    assert "release manifest commit does not match immutable tag" in workflow
+    assert "changed files outside the selected verified repository" in workflow
     assert "push origin HEAD:gh-pages" in workflow
     assert "Remove-Item" not in workflow

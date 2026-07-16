@@ -1,4 +1,4 @@
-name: repair-release-index
+name: repair-release-repository
 
 on:
   workflow_dispatch:
@@ -17,12 +17,15 @@ jobs:
   repair:
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Require exact repair request
         shell: pwsh
+        env:
+          REPAIR_VERSION: ${{ inputs.version }}
+          REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
           if ('${{ inputs.confirmation }}' -cne 'REPAIR_RELEASE_INDEX') { throw 'confirmation mismatch' }
-          python -c "from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version('${{ inputs.version }}'); assert release_visible_in(v.channel_name, '${{ inputs.channel }}'), 'release is not visible in requested repository'"
-      - uses: actions/checkout@v4
+          python -c "import os; from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version(os.environ['REPAIR_VERSION']); assert release_visible_in(v.channel_name, os.environ['REPAIR_CHANNEL']), 'release is not visible in requested repository'"
       - name: Download Blender 5.1.2
         shell: pwsh
         run: |
@@ -30,38 +33,69 @@ jobs:
           Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
           $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
           "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - name: Download and verify immutable release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPAIR_VERSION: ${{ inputs.version }}
+        run: |
+          $download=Join-Path $env:RUNNER_TEMP 'verified-release'
+          New-Item -ItemType Directory -Force $download | Out-Null
+          $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
+          gh release download "v$env:REPAIR_VERSION" --pattern $name --pattern release-manifest.json --pattern SHA256SUMS.txt --dir $download
+          $archive=Join-Path $download $name
+          $manifest=Join-Path $download 'release-manifest.json'
+          $sums=Join-Path $download 'SHA256SUMS.txt'
+          python -c "import os; from pathlib import Path; from tools.validate_release_policy import check_release_manifest, check_sha256sums, check_zip, parse_version; root=Path(os.environ['RUNNER_TEMP'])/'verified-release'; version=parse_version(os.environ['REPAIR_VERSION']); archive=root/f'cloth_next-{version.text}-windows-x64.zip'; check_zip(archive, version); check_release_manifest(root/'release-manifest.json', archive, version, f'v{version.text}'); check_sha256sums(root/'SHA256SUMS.txt', archive)"
+          $metadata=Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+          git fetch origin --tags --force
+          $tagCommit=git rev-list -n 1 "v$env:REPAIR_VERSION"
+          if ($metadata.git_commit -cne $tagCommit) { throw 'release manifest commit does not match immutable tag' }
       - name: Generate and verify the single release candidate
         shell: pwsh
+        env:
+          REPAIR_VERSION: ${{ inputs.version }}
+          REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
           git fetch origin gh-pages
           git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
-          $channel=Join-Path "$env:RUNNER_TEMP\pages" '${{ inputs.channel }}'
+          $channel=Join-Path "$env:RUNNER_TEMP\pages" $env:REPAIR_CHANNEL
           $duplicate=Join-Path "$env:RUNNER_TEMP" 'duplicate-release'
           $repaired=Join-Path "$env:RUNNER_TEMP" 'repaired-release'
           Copy-Item -LiteralPath $channel -Destination $duplicate -Recurse
           New-Item -ItemType Directory -Force $repaired | Out-Null
-          $name="cloth_next-${{ inputs.version }}-windows-x64.zip"
+          $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
           $archive=Join-Path $channel $name
-          if (-not (Test-Path -LiteralPath $archive)) { throw "missing immutable release archive: $name" }
+          $verified=Join-Path "$env:RUNNER_TEMP\verified-release" $name
+          if (Test-Path -LiteralPath $archive) {
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash -cne (Get-FileHash $verified -Algorithm SHA256).Hash) { throw 'published archive differs from verified release asset' }
+          } else {
+            Copy-Item -LiteralPath $verified -Destination $archive
+          }
           Copy-Item -LiteralPath $archive -Destination (Join-Path $repaired $name)
-          & "$env:CLOTH_NEXT_BLENDER" --command extension server-generate "--repo-dir=$repaired"
-          python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected "${{ inputs.version }}" --report "$env:RUNNER_TEMP\release-index-regression.json"
+          & "$env:CLOTH_NEXT_BLENDER" --factory-startup --command extension server-generate "--repo-dir=$repaired"
+          python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected $env:REPAIR_VERSION --report "$env:RUNNER_TEMP\release-index-regression.json"
           Copy-Item -LiteralPath (Join-Path $repaired 'index.json') -Destination (Join-Path $channel 'index.json') -Force
           $index=Get-Content (Join-Path $channel 'index.json') -Raw | ConvertFrom-Json
           $candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})
-          if ($candidates.Count -ne 1 -or $candidates[0].version -cne '${{ inputs.version }}') { throw 'repaired release index is ambiguous' }
-      - name: Publish index-only repair
+          if ($candidates.Count -ne 1 -or $candidates[0].version -cne $env:REPAIR_VERSION) { throw 'repaired release index is ambiguous' }
+      - name: Publish verified repository repair
         shell: pwsh
+        env:
+          REPAIR_VERSION: ${{ inputs.version }}
+          REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
-          $path='${{ inputs.channel }}/index.json'
-          git -C "$env:RUNNER_TEMP\pages" add $path
+          $indexPath="$env:REPAIR_CHANNEL/index.json"
+          $archivePath="$env:REPAIR_CHANNEL/cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
+          git -C "$env:RUNNER_TEMP\pages" add $indexPath $archivePath
           $changed=@(git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only)
-          if ($changed.Count -ne 1 -or $changed[0] -cne $path) { throw 'repair must change only the selected channel index.json' }
-          git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Repair ${{ inputs.channel }} repository candidate ${{ inputs.version }}"
+          $unexpected=@($changed | Where-Object { $_ -cne $indexPath -and $_ -cne $archivePath })
+          if ($changed.Count -lt 1 -or $unexpected.Count -ne 0) { throw 'repair changed files outside the selected verified repository candidate' }
+          git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Repair $env:REPAIR_CHANNEL repository candidate $env:REPAIR_VERSION"
           git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
       - name: Summary
         shell: pwsh
         run: |
           "${{ inputs.channel }} index repaired to one candidate: ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
           "Blender 5.1.2 duplicate/repaired repository regression passed." >> $env:GITHUB_STEP_SUMMARY
-          "Only the channel index changed; immutable release ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY
+          "Only the selected channel index and missing verified release ZIP may change; older immutable ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY
