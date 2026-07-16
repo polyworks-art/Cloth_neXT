@@ -62,7 +62,12 @@ jobs:
           $channel=Join-Path "$env:RUNNER_TEMP\pages" $env:REPAIR_CHANNEL
           $duplicate=Join-Path "$env:RUNNER_TEMP" 'duplicate-release'
           $repaired=Join-Path "$env:RUNNER_TEMP" 'repaired-release'
-          Copy-Item -LiteralPath $channel -Destination $duplicate -Recurse
+          $existing=Test-Path -LiteralPath $channel
+          if ($existing) {
+            Copy-Item -LiteralPath $channel -Destination $duplicate -Recurse
+          } else {
+            New-Item -ItemType Directory -Force $channel | Out-Null
+          }
           New-Item -ItemType Directory -Force $repaired | Out-Null
           $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
           $archive=Join-Path $channel $name
@@ -74,7 +79,9 @@ jobs:
           }
           Copy-Item -LiteralPath $archive -Destination (Join-Path $repaired $name)
           & "$env:CLOTH_NEXT_BLENDER" --factory-startup --command extension server-generate "--repo-dir=$repaired"
-          python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected $env:REPAIR_VERSION --report "$env:RUNNER_TEMP\release-index-regression.json"
+          if ($existing) {
+            python tools/run_blender_dev_repository_regression.py --blender "$env:CLOTH_NEXT_BLENDER" --duplicate-repo $duplicate --repaired-repo $repaired --expected $env:REPAIR_VERSION --report "$env:RUNNER_TEMP\release-index-regression.json"
+          }
           Copy-Item -LiteralPath (Join-Path $repaired 'index.json') -Destination (Join-Path $channel 'index.json') -Force
           $index=Get-Content (Join-Path $channel 'index.json') -Raw | ConvertFrom-Json
           $candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})
@@ -97,5 +104,5 @@ jobs:
         shell: pwsh
         run: |
           "${{ inputs.channel }} index repaired to one candidate: ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
-          "Blender 5.1.2 duplicate/repaired repository regression passed." >> $env:GITHUB_STEP_SUMMARY
+          "Blender 5.1.2 repository generation passed; existing repositories also passed the duplicate/repaired regression." >> $env:GITHUB_STEP_SUMMARY
           "Only the selected channel index and missing verified release ZIP may change; older immutable ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY

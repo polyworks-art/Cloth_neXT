@@ -106,6 +106,8 @@ def test_release_repository_repair_uses_verified_asset_and_single_candidate():
     assert "check_release_manifest" in workflow
     assert "check_sha256sums" in workflow
     assert "release manifest commit does not match immutable tag" in workflow
+    assert "$existing=Test-Path -LiteralPath $channel" in workflow
+    assert "New-Item -ItemType Directory -Force $channel" in workflow
     assert "changed files outside the selected verified repository" in workflow
     assert "push origin HEAD:gh-pages" in workflow
     assert "Remove-Item" not in workflow
