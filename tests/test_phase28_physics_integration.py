@@ -105,6 +105,20 @@ def test_force_role_is_empty_only_and_add_defaults_empty_to_force(blender_env):
     env.registration.unregister()
 
 
+def test_force_settings_expose_every_dynamic_ppf_environment_parameter(blender_env):
+    props = fake_bpy._resolved_props(
+        blender_env.object_properties.CLOTHNEXT_PG_force_settings)
+    assert [item[0] for item in props["force_type"].keywords["items"]] == [
+        "GRAVITY", "WIND", "AIR_DENSITY", "AIR_FRICTION",
+        "VERTEX_AIR_DAMP"]
+    assert props["air_density"].keywords["default"] == 0.001
+    assert props["air_friction"].keywords["default"] == 0.2
+    assert props["vertex_air_damp"].keywords["default"] == 0.0
+    for name in ("strength", "air_density", "air_friction",
+                 "vertex_air_damp"):
+        assert "SKIP_SAVE" not in props[name].keywords.get("options", set())
+
+
 def test_empty_data_panel_provides_force_enable_entry(blender_env):
     env = blender_env
     env.registration.register()

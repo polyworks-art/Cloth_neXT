@@ -398,11 +398,26 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     force_type: bpy.props.EnumProperty(
         name="Force Type", default="GRAVITY", update=_on_settings_update,
         items=(("GRAVITY", "Gravity", "Acceleration along the Empty's local -Z axis"),
-               ("WIND", "Wind", "PPF wind vector along the Empty's local +Z axis")))
+               ("WIND", "Wind", "PPF wind vector along the Empty's local +Z axis"),
+               ("AIR_DENSITY", "Air Density", "PPF air density used for aerodynamic forces"),
+               ("AIR_FRICTION", "Air Friction", "PPF tangential air friction used for drag and lift"),
+               ("VERTEX_AIR_DAMP", "Vertex Air Damping", "PPF isotropic per-vertex air damping")))
     strength: bpy.props.FloatProperty(
         name="Strength", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
         description="PPF vector magnitude in Blender-space units; rotate the Empty to set direction")
+    air_density: bpy.props.FloatProperty(
+        name="Air Density", default=0.001, min=0.0, soft_max=2.0,
+        precision=4, update=_on_settings_update,
+        description="PPF air-density coefficient for drag and lift")
+    air_friction: bpy.props.FloatProperty(
+        name="Air Friction", default=0.2, min=0.0, soft_max=2.0,
+        precision=4, update=_on_settings_update,
+        description="PPF tangential air-friction ratio")
+    vertex_air_damp: bpy.props.FloatProperty(
+        name="Vertex Air Damping", default=0.0, min=0.0, soft_max=2.0,
+        precision=4, update=_on_settings_update,
+        description="PPF isotropic-air-friction coefficient applied per vertex")
 
 
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):

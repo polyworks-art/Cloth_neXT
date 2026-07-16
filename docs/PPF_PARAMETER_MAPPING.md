@@ -102,7 +102,10 @@ each carry their own friction/gap/offset.
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Gravity | `gravity` | Sum of Gravity Empty local `-Z` vectors, or Blender scene gravity when no Gravity Empty is enabled | axis-swapped to solver Y-up |
 | Wind Force Empty | `wind` | Sum of enabled Wind Empty local `+Z` vectors | axis-swapped to solver Y-up |
-| Wind | `wind` | fixed `(0,0,0)` | no wind this phase |
+| Air Density Force Empty | `air-density` | Sum of enabled Air Density Empty values | solver aerodynamic density |
+| Air Friction Force Empty | `air-friction` | Sum of enabled Air Friction Empty values | tangential drag/lift ratio |
+| Vertex Air Damping Force Empty | `isotropic-air-friction` | Sum of enabled Vertex Air Damping Empty values | isotropic per-vertex damping |
+| Animated Forces | `dyn_param` | Native Blender keyframes sampled once per output frame | PPF linearly interpolates the samples during solver substeps |
 | Frame count | `frames` | Blender frames `N-1` | Blender 1..N → solver 0..N-1; development slice N=8 |
 | FPS | `fps` | Blender scene FPS | frame→time conversion |
 | Friction mode | `friction-mode` | fixed `"min"` | Minimum combination: both touching surfaces need high grip; shown read-only in Advanced PPF |
@@ -156,10 +159,10 @@ metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
-Target volume/compressibility/gas pressure, shrink, stitching, plasticity, dynamic parameter
-animation, collision windows, multiple cloths/collider groups, solids,
-rods, sand, PDRD, arbitrary frame ranges, tearing, live preview, animated
-colliders. No stored or wire-level `substeps` value exists: `dt` is the sole
+Target volume/compressibility/gas pressure, shrink, stitching, plasticity,
+dynamic material-parameter animation, collision windows, sand, PDRD,
+arbitrary frame ranges, tearing, and live preview. No stored or wire-level
+`substeps` value exists: `dt` is the sole
 authoritative time-resolution setting. No placeholder
 Stretch/Shear keys are ever emitted; the encoder sends exactly the audited
 key set and nothing else.

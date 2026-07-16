@@ -7,6 +7,7 @@ import threading
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from cloth_next.bake import cache_metadata
 from cloth_next.bake.status import BakeState
@@ -229,6 +230,68 @@ def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):
     gravity, wind = module._force_vectors(context)
     assert gravity == (0.0, 0.0, -4.0)
     assert wind == (0.0, 0.0, 2.5)
+
+
+def test_scalar_ppf_force_empties_are_aggregated(blender_env):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+
+    def force(name, force_type, **values):
+        settings = dict(strength=1.0, air_density=0.001,
+                        air_friction=0.2, vertex_air_damp=0.0)
+        settings.update(values)
+        return SimpleNamespace(
+            name=name, name_full=name, type="EMPTY", matrix_world=identity,
+            cloth_next=SimpleNamespace(enabled=True, role="FORCE",
+                force=SimpleNamespace(force_type=force_type, **settings)))
+
+    context = SimpleNamespace(scene=SimpleNamespace(
+        objects=(force("Density A", "AIR_DENSITY", air_density=0.8),
+                 force("Density B", "AIR_DENSITY", air_density=0.4),
+                 force("Friction", "AIR_FRICTION", air_friction=0.3),
+                 force("Drag", "VERTEX_AIR_DAMP", vertex_air_damp=0.15)),
+        gravity=(0.0, 0.0, -9.81), use_gravity=True))
+    state, active = module._force_state(context)
+    assert state.air_density == pytest.approx(1.2)
+    assert state.air_friction == pytest.approx(0.3)
+    assert state.vertex_air_damp == pytest.approx(0.15)
+    assert active == {"AIR_DENSITY", "AIR_FRICTION", "VERTEX_AIR_DAMP"}
+
+
+def test_native_force_animation_is_sampled_for_ppf_dyn_params(blender_env):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    force_settings = SimpleNamespace(
+        force_type="WIND", strength=1.0, air_density=0.001,
+        air_friction=0.2, vertex_air_damp=0.0)
+    force = SimpleNamespace(
+        name="Animated Wind", name_full="Animated Wind", type="EMPTY",
+        matrix_world=identity,
+        cloth_next=SimpleNamespace(enabled=True, role="FORCE",
+                                   force=force_settings))
+
+    class Scene:
+        objects = (force,)
+        gravity = (0.0, 0.0, -9.81)
+        use_gravity = True
+        frame_current = 8
+        render = SimpleNamespace(fps=20)
+
+        def frame_set(self, frame, **_kwargs):
+            self.frame_current = frame
+            force_settings.strength = float(frame)
+
+    context = SimpleNamespace(scene=Scene(), view_layer=None)
+    capture = module._capture_force_animation(
+        context, module.BakeFrameRange(1, 3))
+    assert context.scene.frame_current == 8
+    assert capture.initial.wind == (0.0, 0.0, 1.0)
+    assert capture.dynamic_parameters == (("wind", (
+        (0.0, (0.0, 0.0, 1.0), False),
+        (0.05, (0.0, 0.0, 2.0), False),
+        (0.1, (0.0, 0.0, 3.0), False))),)
 
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test

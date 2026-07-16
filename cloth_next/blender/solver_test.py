@@ -337,9 +337,33 @@ def _enabled_force_objects(context) -> tuple[object, ...]:
     return tuple(forces)
 
 
-def _force_vectors(context) -> tuple[tuple[float, float, float],
-                                     tuple[float, float, float]]:
-    """Resolve scene Gravity and Force Empty vectors in Blender space."""
+@dataclass(frozen=True, slots=True)
+class ForceState:
+    gravity: tuple[float, float, float]
+    wind: tuple[float, float, float]
+    air_density: float = 0.001
+    air_friction: float = 0.2
+    vertex_air_damp: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class ForceCapture:
+    initial: ForceState
+    active_scalar_types: frozenset[str]
+    dynamic_parameters: tuple[
+        tuple[str, tuple[tuple[float, tuple[float, ...], bool], ...]], ...
+    ] = ()
+
+
+_SCALAR_FORCE_FIELDS = {
+    "AIR_DENSITY": ("air_density", 0.001),
+    "AIR_FRICTION": ("air_friction", 0.2),
+    "VERTEX_AIR_DAMP": ("vertex_air_damp", 0.0),
+}
+
+
+def _force_state(context) -> tuple[ForceState, frozenset[str]]:
+    """Resolve every PPF force/environment parameter in Blender space."""
     forces = _enabled_force_objects(context)
     gravity_forces = [obj for obj in forces
                       if obj.cloth_next.force.force_type == "GRAVITY"]
@@ -347,7 +371,26 @@ def _force_vectors(context) -> tuple[tuple[float, float, float],
                list(context.scene.gravity) if context.scene.use_gravity else
                [0.0, 0.0, 0.0])
     wind = [0.0, 0.0, 0.0]
+    scalars = {force_type: default
+               for force_type, (_field, default) in _SCALAR_FORCE_FIELDS.items()}
+    active_scalars = set()
     for obj in forces:
+        force = obj.cloth_next.force
+        force_type = str(force.force_type)
+        if force_type in _SCALAR_FORCE_FIELDS:
+            field, _default = _SCALAR_FORCE_FIELDS[force_type]
+            value = float(getattr(force, field))
+            if not math.isfinite(value) or value < 0.0:
+                raise SceneValidationError(
+                    f"{obj.name}: {field.replace('_', ' ')} is invalid.")
+            if force_type not in active_scalars:
+                scalars[force_type] = 0.0
+                active_scalars.add(force_type)
+            scalars[force_type] += value
+            continue
+        if force_type not in {"GRAVITY", "WIND"}:
+            raise SceneValidationError(
+                f"{obj.name}: unsupported Force type {force_type!r}.")
         matrix = obj.matrix_world
         axis = [float(matrix[row][2]) for row in range(3)]
         length = math.sqrt(sum(value * value for value in axis))
@@ -355,14 +398,23 @@ def _force_vectors(context) -> tuple[tuple[float, float, float],
             raise SceneValidationError(
                 f"{obj.name}: Force Empty has an invalid local Z axis.")
         axis = [value / length for value in axis]
-        strength = float(obj.cloth_next.force.strength)
+        strength = float(force.strength)
         if not math.isfinite(strength) or strength < 0.0:
             raise SceneValidationError(f"{obj.name}: Force strength is invalid.")
-        target = gravity if obj.cloth_next.force.force_type == "GRAVITY" else wind
-        sign = -1.0 if obj.cloth_next.force.force_type == "GRAVITY" else 1.0
+        target = gravity if force_type == "GRAVITY" else wind
+        sign = -1.0 if force_type == "GRAVITY" else 1.0
         for index in range(3):
             target[index] += sign * strength * axis[index]
-    return tuple(gravity), tuple(wind)
+    return ForceState(tuple(gravity), tuple(wind),
+        scalars["AIR_DENSITY"], scalars["AIR_FRICTION"],
+        scalars["VERTEX_AIR_DAMP"]), frozenset(active_scalars)
+
+
+def _force_vectors(context) -> tuple[tuple[float, float, float],
+                                     tuple[float, float, float]]:
+    """Compatibility helper returning the two vector-valued PPF forces."""
+    state, _active = _force_state(context)
+    return state.gravity, state.wind
 
 
 def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
@@ -670,7 +722,14 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         "object_key": validation_state.object_key(obj),
         "type": str(obj.cloth_next.force.force_type),
         "strength": float(obj.cloth_next.force.strength),
+        "air_density": float(getattr(obj.cloth_next.force,
+                                     "air_density", 0.001)),
+        "air_friction": float(getattr(obj.cloth_next.force,
+                                      "air_friction", 0.2)),
+        "vertex_air_damp": float(getattr(obj.cloth_next.force,
+                                         "vertex_air_damp", 0.0)),
         "world_matrix": _world_matrix_record(obj),
+        "animation": _animation_signature(obj),
     }, sort_keys=True, separators=(",", ":"))
         for obj in _enabled_force_objects(context)]
     record = "\0".join((
@@ -1090,6 +1149,55 @@ def _depsgraph_update(context):
     view_layer=getattr(context,"view_layer",None)
     if view_layer is not None and hasattr(view_layer,"update"):view_layer.update()
 
+
+def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
+    """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
+    scene = context.scene
+    original = int(scene.frame_current)
+    fps = _scene_fps(context)
+    samples = []
+    active_scalar_types = set()
+    try:
+        for frame in range(bake_range.start, bake_range.end + 1):
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            scene.frame_set(frame)
+            _depsgraph_update(context)
+            state, active = _force_state(context)
+            samples.append(state)
+            active_scalar_types.update(active)
+    finally:
+        scene.frame_set(original)
+        _depsgraph_update(context)
+
+    initial = samples[0]
+    tracks = (
+        ("gravity", lambda state: state.gravity),
+        ("wind", lambda state: state.wind),
+        ("air-density", lambda state: (state.air_density,)),
+        ("air-friction", lambda state: (state.air_friction,)),
+        ("isotropic-air-friction", lambda state: (state.vertex_air_damp,)),
+    )
+    scalar_keys = {
+        "air-density": "AIR_DENSITY",
+        "air-friction": "AIR_FRICTION",
+        "isotropic-air-friction": "VERTEX_AIR_DAMP",
+    }
+    dynamic = []
+    for key, getter in tracks:
+        if key in scalar_keys and scalar_keys[key] not in active_scalar_types:
+            continue
+        values = tuple(tuple(float(value) for value in getter(state))
+                       for state in samples)
+        if all(value == values[0] for value in values[1:]):
+            continue
+        entries = tuple(
+            ((frame - bake_range.start) / float(fps), value, False)
+            for frame, value in zip(
+                range(bake_range.start, bake_range.end + 1), values))
+        dynamic.append((key, entries))
+    return ForceCapture(initial, frozenset(active_scalar_types), tuple(dynamic))
+
 def _solver_position(matrix,position):
     x,y,z=position
     return tuple(sum(float(matrix[row][column])*value for column,value in
@@ -1303,6 +1411,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene = context.scene
     resolved = resolve_solver(context)
     bake_range = snapshot.bake_range
+    force_capture = _capture_force_animation(context, bake_range)
     original_frame = int(scene.frame_current)
     dynamic_records = []
     collider_records = []
@@ -1433,8 +1542,15 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     frame_count = bake_range.output_count
     settings = SimulationSettings(
         frame_count, int(scene.render.fps),
-        snapshot.gravity_blender, snapshot.quality,
-        wind_blender=snapshot.wind_blender)
+        force_capture.initial.gravity, snapshot.quality,
+        wind_blender=force_capture.initial.wind,
+        air_density=(force_capture.initial.air_density
+                     if "AIR_DENSITY" in force_capture.active_scalar_types else None),
+        air_friction=(force_capture.initial.air_friction
+                      if "AIR_FRICTION" in force_capture.active_scalar_types else None),
+        vertex_air_damp=(force_capture.initial.vertex_air_damp
+                         if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
+        dynamic_parameters=force_capture.dynamic_parameters)
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
         contact_enabled=snapshot.contact_enabled)
@@ -1537,6 +1653,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
+    force_capture = _capture_force_animation(context, bake_range)
     original_frame = int(scene.frame_current)
     collider_records = []
     try:
@@ -1661,8 +1778,15 @@ def build_run_plan(context, *, animated_pin_samples=None,
     quality = snapshot.quality
     settings = SimulationSettings(
         frame_count=frame_count, fps=int(scene.render.fps),
-        gravity_blender=snapshot.gravity_blender, quality=quality,
-        wind_blender=snapshot.wind_blender)
+        gravity_blender=force_capture.initial.gravity, quality=quality,
+        wind_blender=force_capture.initial.wind,
+        air_density=(force_capture.initial.air_density
+                     if "AIR_DENSITY" in force_capture.active_scalar_types else None),
+        air_friction=(force_capture.initial.air_friction
+                      if "AIR_FRICTION" in force_capture.active_scalar_types else None),
+        vertex_air_damp=(force_capture.initial.vertex_air_damp
+                         if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
+        dynamic_parameters=force_capture.dynamic_parameters)
     if deformable_role == "CLOTH":
         from ..ppf.schema.params import encode_multi_collider_param
         param_payload, param_hash = encode_multi_collider_param(

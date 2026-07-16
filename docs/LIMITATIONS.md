@@ -5,8 +5,11 @@
 Current production scope is multiple Cloth, Rod, and Soft Body deformables in
 one shared solve with one or more static or animated Colliders. Every
 deformable must use the same Bake range and scene-wide Contact setting.
-Force objects are supported on Emptys: Gravity uses local `-Z`, Wind uses
-local `+Z`, and multiple forces of each type are summed.
+Force objects are supported on Emptys for every dynamic PPF environment
+parameter: Gravity uses local `-Z`, Wind uses local `+Z`, plus Air Density,
+Air Friction, and Vertex Air Damping. Multiple forces of each type are summed.
+Their values and the Empty rotation can use native Blender keyframes; the bake
+samples them at every output frame and PPF interpolates between those samples.
 Animated Colliders require stable evaluated topology. Uniform object-local shell
 pressure and pinning are supported. Bake ranges are limited to
 10,000 output frames, and zero-step (`Start == End`) PPF runs are not supported.

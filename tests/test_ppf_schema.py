@@ -169,6 +169,28 @@ def test_wind_vector_is_encoded_in_ppf_coordinates():
     assert payload["scene"]["wind"] == [1.0, 3.0, -2.0]
 
 
+def test_all_ppf_force_fields_and_native_animation_tracks_are_encoded():
+    settings = SimulationSettings(
+        frame_count=3, fps=20, gravity_blender=(0.0, 0.0, -9.81),
+        wind_blender=(0.0, 0.0, 1.0), air_density=1.2,
+        air_friction=0.3, vertex_air_damp=0.15,
+        dynamic_parameters=(
+            ("wind", ((0.0, (0.0, 0.0, 1.0), False),
+                      (0.05, (0.0, 0.0, 2.0), False))),
+            ("air-density", ((0.0, (1.2,), False),
+                             (0.05, (0.8,), False))),))
+    payload = build_param_payload(
+        settings, "Cloth", "cloth", "Collider", "collider",
+        shell=DEFAULT_SHELL_SETTINGS, static=DEFAULT_STATIC_SETTINGS)
+    assert payload["scene"]["air-density"] == pytest.approx(1.2)
+    assert payload["scene"]["air-friction"] == pytest.approx(0.3)
+    assert payload["scene"]["isotropic-air-friction"] == pytest.approx(0.15)
+    assert payload["dyn_param"]["wind"] == [
+        (0.0, [0.0, 1.0, -0.0], False),
+        (0.05, [0.0, 2.0, -0.0], False)]
+    assert payload["dyn_param"]["air-density"][1][1][0] == pytest.approx(0.8)
+
+
 def test_param_golden_bytes_match_shipped_cbor2_output():
     blob, digest = encode_param(_micro_settings(), "MicroCloth",
                                 "cn-cloth-0001", "MicroCollider",

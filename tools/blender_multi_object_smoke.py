@@ -36,7 +36,19 @@ try:
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
     wind.cloth_next.force.force_type = "WIND"
+    wind.cloth_next.force.strength = 1.0
+    wind.keyframe_insert(data_path="cloth_next.force.strength", frame=1)
     wind.cloth_next.force.strength = 3.0
+    wind.keyframe_insert(data_path="cloth_next.force.strength", frame=3)
+    bpy.ops.object.empty_add(type="PLAIN_AXES", location=(0.0, 0.0, 0.0))
+    air = bpy.context.object
+    air.name = "MultiAirDensity"
+    bpy.ops.clothnext.add_physics()
+    air.cloth_next.force.force_type = "AIR_DENSITY"
+    air.cloth_next.force.air_density = 0.1
+    air.keyframe_insert(data_path="cloth_next.force.air_density", frame=1)
+    air.cloth_next.force.air_density = 0.5
+    air.keyframe_insert(data_path="cloth_next.force.air_density", frame=3)
     for cloth in (cloth_a, cloth_b):
         cloth.cloth_next.bake_start = 1
         cloth.cloth_next.bake_end = 3
@@ -50,9 +62,10 @@ try:
         cloth.keyframe_insert("location", frame=3)
 
     from cloth_next.blender import solver_test
+    bpy.context.scene.frame_set(1)
     snapshot = solver_test.validate_scene(bpy.context)
     assert len(snapshot.deformables) == 2
-    assert snapshot.wind_blender == (0.0, 0.0, 3.0)
+    assert snapshot.wind_blender == (0.0, 0.0, 1.0)
     assert {entry.obj.name for entry in snapshot.deformables} == {
         "MultiClothA", "MultiClothB"}
     samples = {entry.obj.name: solver_test._capture_animated_pin(
@@ -80,6 +93,10 @@ try:
     assert set(params["pin_config"]) == {
         target.uuid for target in plan.deformables}
     assert all(len(config) == 1 for config in params["pin_config"].values())
+    assert abs(params["scene"]["air-density"] - 0.1) < 1e-6
+    assert set(params["dyn_param"]) == {"wind", "air-density"}
+    assert params["dyn_param"]["wind"][-1][1] == [0.0, 3.0, -0.0]
+    assert params["dyn_param"]["air-density"][-1][1] == [0.5]
     print("Cloth NeXt multi-object Blender smoke passed")
 finally:
     addon.unregister()

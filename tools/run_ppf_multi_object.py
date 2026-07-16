@@ -49,7 +49,13 @@ def run(executable: Path, output_dir: Path) -> dict:
         collider.triangles, solver_world_matrix(collider.world_matrix))
     data_payload, data_hash = encode_multi_deformable_scene(objects, (static,))
     settings = SimulationSettings(
-        4, 24, fixture.DEFAULT_GRAVITY, wind_blender=(0.5, 0.0, 0.0))
+        4, 24, fixture.DEFAULT_GRAVITY, wind_blender=(0.5, 0.0, 0.0),
+        air_density=0.001, air_friction=0.2, vertex_air_damp=0.01,
+        dynamic_parameters=(
+            ("wind", ((0.0, (0.5, 0.0, 0.0), False),
+                      (2.0 / 24.0, (1.0, 0.0, 0.0), False))),
+            ("air-density", ((0.0, (0.001,), False),
+                             (2.0 / 24.0, (0.002,), False))),))
     times = tuple(frame / 24.0 for frame in range(4))
     start_a = transform_point(solver_a, cloth.vertices_local[0])
     start_b = transform_point(solver_b, cloth.vertices_local[0])

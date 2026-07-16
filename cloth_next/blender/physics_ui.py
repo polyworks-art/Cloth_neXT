@@ -227,15 +227,24 @@ class CLOTHNEXT_PT_empty_force(bpy.types.Panel):
                 text="Enable Cloth NeXt Force", icon="FORCE_FORCE")
             return
         layout.use_property_split = True
-        layout.use_property_decorate = False
+        layout.use_property_decorate = True
         _draw_object_type_selector(layout, settings)
-        layout.prop(settings.force, "force_type")
-        layout.prop(settings.force, "strength")
-        direction = ("local -Z" if settings.force.force_type == "GRAVITY"
-                     else "local +Z")
-        layout.label(text=f"Direction: Empty {direction}",
-                     icon="ORIENTATION_LOCAL")
-        layout.label(text="Rotate the Empty to aim the force")
+        force = settings.force
+        layout.prop(force, "force_type")
+        if force.force_type in {"GRAVITY", "WIND"}:
+            layout.prop(force, "strength")
+            direction = ("local -Z" if force.force_type == "GRAVITY"
+                         else "local +Z")
+            layout.label(text=f"Direction: Empty {direction}",
+                         icon="ORIENTATION_LOCAL")
+            layout.label(text="Rotate the Empty to aim the force")
+        elif force.force_type == "AIR_DENSITY":
+            layout.prop(force, "air_density")
+        elif force.force_type == "AIR_FRICTION":
+            layout.prop(force, "air_friction")
+        else:
+            layout.prop(force, "vertex_air_damp")
+        layout.label(text="Properties and rotation can be keyframed")
         layout.operator(
             physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
             text="Remove Cloth NeXt", icon="X")
@@ -612,14 +621,22 @@ class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        layout.use_property_decorate = False
+        layout.use_property_decorate = True
         force = context.object.cloth_next.force
         layout.prop(force, "force_type")
-        layout.prop(force, "strength")
-        direction = "local -Z" if force.force_type == "GRAVITY" else "local +Z"
         info = layout.column(align=True)
-        info.label(text=f"Direction: Empty {direction}", icon="ORIENTATION_LOCAL")
-        info.label(text="Rotate the Empty to aim the force")
+        if force.force_type in {"GRAVITY", "WIND"}:
+            layout.prop(force, "strength")
+            direction = "local -Z" if force.force_type == "GRAVITY" else "local +Z"
+            info.label(text=f"Direction: Empty {direction}", icon="ORIENTATION_LOCAL")
+            info.label(text="Rotate the Empty to aim the force")
+        elif force.force_type == "AIR_DENSITY":
+            layout.prop(force, "air_density")
+        elif force.force_type == "AIR_FRICTION":
+            layout.prop(force, "air_friction")
+        else:
+            layout.prop(force, "vertex_air_damp")
+        info.label(text="Properties and rotation can be keyframed")
         info.label(text="Forces of the same type are added together")
 
 

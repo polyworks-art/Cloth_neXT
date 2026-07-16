@@ -31,12 +31,14 @@ main thread. The full artist-name -> wire-key table lives in
   wrapping, so Cloth NeXt payload values match the official client's
   bit-for-bit.
 
-Scene keys (unchanged from Phase 3A except ``disable-contact``):
-``dt`` (1e-3 s solver default), axis-swapped ``gravity`` and ``wind``,
+Scene keys include ``dt`` (1e-3 s solver default), axis-swapped ``gravity``
+and ``wind``, optional ``air-density``, ``air-friction`` and
+``isotropic-air-friction``,
 ``frames`` (Blender N -> solver N-1), ``fps``, ``friction-mode`` "min"
 (solver default combination mode; both surfaces need high friction for a
 grippy contact), and ``disable-contact`` from the cloth's Enable Contact
-toggle.
+toggle. Native Blender Force animation is sampled into PPF's ``dyn_param``
+tracks using the same audited scene keys.
 """
 
 from __future__ import annotations
@@ -57,6 +59,9 @@ from . import envelope
 FIXED_TIME_STEP = DEFAULT_SOLVER_QUALITY.time_step  # compatibility export
 
 FRICTION_MODE = "min"  # fixed this phase; surfaced read-only in Advanced PPF
+_DYNAMIC_VECTOR_KEYS = {"gravity", "wind"}
+_DYNAMIC_SCALAR_KEYS = {
+    "air-density", "air-friction", "isotropic-air-friction"}
 
 
 class ParamEncodeError(ValueError):
@@ -149,6 +154,12 @@ class SimulationSettings:
     gravity_blender: tuple[float, float, float]
     quality: SolverQualitySettings = field(default_factory=SolverQualitySettings)
     wind_blender: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    air_density: float | None = None
+    air_friction: float | None = None
+    vertex_air_damp: float | None = None
+    dynamic_parameters: tuple[
+        tuple[str, tuple[tuple[float, tuple[float, ...], bool], ...]], ...
+    ] = ()
 
     def __post_init__(self) -> None:
         if self.frame_count < 2:
@@ -161,6 +172,35 @@ class SimulationSettings:
         if len(self.wind_blender) != 3 or any(
                 not math.isfinite(c) for c in self.wind_blender):
             raise ParamEncodeError("wind must be a finite 3-vector")
+        for name, value in (("air density", self.air_density),
+                            ("air friction", self.air_friction),
+                            ("vertex air damping", self.vertex_air_damp)):
+            if value is not None and (not math.isfinite(value) or value < 0.0):
+                raise ParamEncodeError(f"{name} must be finite and non-negative")
+        seen = set()
+        for key, entries in self.dynamic_parameters:
+            if key not in _DYNAMIC_VECTOR_KEYS | _DYNAMIC_SCALAR_KEYS:
+                raise ParamEncodeError(f"unsupported dynamic parameter {key!r}")
+            if key in seen:
+                raise ParamEncodeError(f"duplicate dynamic parameter {key!r}")
+            seen.add(key)
+            if len(entries) < 2:
+                raise ParamEncodeError(
+                    f"dynamic parameter {key!r} needs at least two samples")
+            previous = -1.0
+            expected = 3 if key in _DYNAMIC_VECTOR_KEYS else 1
+            for time_seconds, value, _hold in entries:
+                if (not math.isfinite(time_seconds) or time_seconds < 0.0
+                        or time_seconds <= previous):
+                    raise ParamEncodeError(
+                        f"dynamic parameter {key!r} times must increase")
+                if (len(value) != expected
+                        or any(not math.isfinite(component) for component in value)
+                        or (key in _DYNAMIC_SCALAR_KEYS
+                            and any(component < 0.0 for component in value))):
+                    raise ParamEncodeError(
+                        f"dynamic parameter {key!r} has an invalid value")
+                previous = time_seconds
 
 
 def build_param_payload(settings: SimulationSettings,
@@ -189,6 +229,11 @@ def build_param_payload(settings: SimulationSettings,
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
+    for key, value in (("air-density", settings.air_density),
+                       ("air-friction", settings.air_friction),
+                       ("isotropic-air-friction", settings.vertex_air_damp)):
+        if value is not None:
+            scene[key] = float32_wire(value)
     group = [
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
@@ -206,7 +251,19 @@ def build_param_payload(settings: SimulationSettings,
                 config["pin_anim"]={index:{"time":list(static_pin.times),
                     "position":[list(frame[offset]) for frame in static_pin.positions]}}
             pin_config[cloth_uuid][index]=config
-    return {"scene": scene, "group": group, "pin_config": pin_config}
+    payload = {"scene": scene, "group": group, "pin_config": pin_config}
+    if settings.dynamic_parameters:
+        dynamic = {}
+        for key, entries in settings.dynamic_parameters:
+            encoded = []
+            for time_seconds, value, hold in entries:
+                wire_value = (list(blender_vector_to_ppf(value))
+                              if key in _DYNAMIC_VECTOR_KEYS
+                              else [float32_wire(value[0])])
+                encoded.append((float(time_seconds), wire_value, bool(hold)))
+            dynamic[key] = encoded
+        payload["dyn_param"] = dynamic
+    return payload
 
 
 def build_multi_collider_param_payload(
