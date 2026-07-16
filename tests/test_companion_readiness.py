@@ -107,6 +107,22 @@ def test_non_bake_terminal_snapshot_cannot_close_production_companion(
     assert manager._terminal_deadline is None
 
 
+def test_error_releases_blender_but_waits_for_user_window_close(
+        blender_env,monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager); manager._production_session=True
+    manager._production_job_id="bake-job"; released=[]
+    monkeypatch.setattr(manager,"_server",SimpleNamespace(
+        publish=lambda _snapshot:None))
+    monkeypatch.setattr(manager.modal_lock,"release",
+                        lambda job_id=None:released.append(job_id))
+    manager._publish(SimpleNamespace(
+        job_id="bake-job",job_kind=manager.BakeJobKind.BAKE,
+        state=BakeState.ERROR,error_code="CNX-E160"))
+    assert released==["bake-job"]
+    assert manager._terminal_deadline is None
+
+
 def test_terminal_bake_closes_even_if_controller_rotated_job_id(
         blender_env, monkeypatch):
     manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])

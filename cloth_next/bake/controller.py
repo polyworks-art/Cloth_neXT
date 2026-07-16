@@ -64,6 +64,22 @@ _ERROR_STAGE = {
     BakeState.CANCELLING: ("cancellation cleanup", "Wait for cleanup; restart Blender only if the process remains stuck."),
 }
 
+_ERROR_CODE = {
+    BakeState.PREPARING: "CNX-E100",
+    BakeState.STARTING_COMPANION: "CNX-E110",
+    BakeState.WAITING_FOR_COMPANION: "CNX-E110",
+    BakeState.COMPANION_READY: "CNX-E120",
+    BakeState.STARTING_RUN: "CNX-E120",
+    BakeState.EXPORTING: "CNX-E120",
+    BakeState.STARTING_SOLVER: "CNX-E130",
+    BakeState.UPLOADING: "CNX-E140",
+    BakeState.BUILDING: "CNX-E150",
+    BakeState.SIMULATING: "CNX-E160",
+    BakeState.FETCHING: "CNX-E170",
+    BakeState.IMPORTING: "CNX-E180",
+    BakeState.CANCELLING: "CNX-E190",
+}
+
 
 class BakeController:
     def __init__(self) -> None:
@@ -85,6 +101,7 @@ class BakeController:
                 changes.setdefault("elapsed_seconds", 0.0)
                 changes.setdefault("error_summary", "")
                 changes.setdefault("error_details", "")
+                changes.setdefault("error_code", "")
             self._snapshot = normalized(old, state=state, **changes)
             listeners = tuple(self._listeners)
             result = self._snapshot
@@ -111,6 +128,7 @@ class BakeController:
         return self.transition(
             BakeState.ERROR, error_summary=summary,
             error_details="\n".join(lines), status_message=summary,
+            error_code=_ERROR_CODE.get(current.state,"CNX-E199"),
             activity_detail=stage)
 
     def reset(self) -> BakeSnapshot:
@@ -119,7 +137,8 @@ class BakeController:
             return self.snapshot()
         return self.transition(BakeState.IDLE, progress_current=0,
                                progress_total=None, preview=False,
-                               status_message="Ready", job_id="")
+                               status_message="Ready", job_id="",
+                               error_code="")
 
     def subscribe(self, listener: Callable[[BakeSnapshot], None]) -> Callable[[], None]:
         with self._lock:

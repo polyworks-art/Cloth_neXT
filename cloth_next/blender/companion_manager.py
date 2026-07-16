@@ -20,8 +20,7 @@ from ..bake.transport import (BakeWindowReady, EnterBakeMode,
 from . import modal_lock
 
 STARTUP_TIMEOUT_SECONDS = 7.0
-_TERMINAL_GRACE = {BakeState.FINISHED: 1.5, BakeState.CANCELLED: 1.0,
-                   BakeState.ERROR: 2.5}
+_TERMINAL_GRACE = {BakeState.FINISHED: 1.5, BakeState.CANCELLED: 1.0}
 
 _process = None
 _server = None
@@ -76,6 +75,13 @@ def _publish(snapshot) -> None:
     global _terminal_deadline
     if _server is not None:
         _server.publish(snapshot)
+    if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
+            and snapshot.state is BakeState.ERROR):
+        modal_lock.release(snapshot.job_id)
+        _log("error","Companion remains open for user acknowledgement",
+             job_id=snapshot.job_id,
+             error_code=getattr(snapshot,"error_code","") or "CNX-E199")
+        return
     if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
             and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):

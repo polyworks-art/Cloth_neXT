@@ -16,6 +16,8 @@
 - Resource HUD now focuses on CPU, RAM, and VRAM with clearer live graphs and
   a red RAM safety threshold.
 - Bake companion uses smoothly drifting, rotating Cloth NeXt icons.
+- Companion failures show documented `CNX-E…` codes, pulse red, and remain
+  open for explicit acknowledgement through the title-bar close control.
 - Release versions use the `STABLE.BETA.DEV` channel-counter scheme.
 
 ### Fixed

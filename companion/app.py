@@ -25,16 +25,23 @@ MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
 
 def _logger():
     root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
-    root.mkdir(parents=True,exist_ok=True)
     logger=logging.getLogger("cloth_next_companion")
     if not logger.handlers:
-        handler=RotatingFileHandler(root/"companion.log",maxBytes=256*1024,
-                                    backupCount=1,encoding="utf-8")
+        try:
+            root.mkdir(parents=True,exist_ok=True)
+            handler=RotatingFileHandler(root/"companion.log",maxBytes=256*1024,
+                                        backupCount=1,encoding="utf-8")
+        except OSError:
+            handler=logging.NullHandler()
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler); logger.setLevel(logging.INFO)
     return logger
 
 LOG=_logger()
+
+
+def error_activity_label(snapshot: BakeSnapshot) -> str:
+    return f"ERROR · {snapshot.error_code or 'CNX-E199'}"
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -134,6 +141,7 @@ class BakeWindow:
         self.remaining_text=tk.StringVar(value="")
         self.activity_text=tk.StringVar(value="Waiting for a Bake")
         self._activity_pending=None; self._activity_after=None; self._closed=False
+        self._blink_after=None; self._blink_phase=False
         self._progress_fraction=0.0
         self._job_modal=False
         self._error_details=""
@@ -175,7 +183,7 @@ class BakeWindow:
                 "message":f"Bake window could not enter foreground mode: {exc}"})
 
     def _configure_style(self):
-        style=ttk.Style(self.root); style.theme_use("clam")
+        style=ttk.Style(self.root); style.theme_use("clam"); self._style=style
         style.configure("CN.TFrame",background=BG); style.configure("Inset.TFrame",background=PANEL)
         style.configure("CN.TLabel",background=BG,foreground=TEXT,font=("Segoe UI",9))
         style.configure("Muted.TLabel",background=PANEL,foreground=MUTED,font=("Segoe UI",9))
@@ -198,22 +206,9 @@ class BakeWindow:
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
         self.progress.bind("<Configure>",self._resize_progress)
-        status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
+        self.status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
                         highlightbackground="#777777",highlightthickness=1,height=1)
-        status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
-        self.error_panel=ttk.Frame(outer,style="Inset.TFrame",padding=(7,5))
-        self.error_panel.grid(row=1,column=0,sticky="ew",pady=(5,0))
-        self.error_panel.columnconfigure(0,weight=1)
-        tk.Label(self.error_panel,textvariable=self.primary,bg=PANEL,fg="#ffb36a",
-                 font=("Segoe UI Semibold",9),anchor="w",justify="left",
-                 wraplength=315).grid(row=0,column=0,sticky="ew")
-        tk.Label(self.error_panel,textvariable=self.secondary,bg=PANEL,fg=MUTED,
-                 font=("Segoe UI",8),anchor="w",justify="left",
-                 wraplength=315).grid(row=1,column=0,sticky="ew",pady=(3,0))
-        ttk.Button(self.error_panel,text="Details",width=8,style="CN.TButton",
-                   command=self._show_error_details).grid(
-                       row=0,column=1,rowspan=2,padx=(6,0))
-        self.error_panel.grid_remove()
+        self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.pause=ttk.Button(bottom,text="Pause",width=8,style="CN.TButton",state="disabled",command=self._pause)
         self.pause.pack(side="left")
@@ -228,10 +223,6 @@ class BakeWindow:
         self.progress.coords(self.progress_label,width/2,11)
 
     def _about(self): messagebox.showinfo("About Cloth NeXt Bake","SideFX, please don’t sue me.",parent=self.root)
-    def _show_error_details(self):
-        messagebox.showerror(self.primary.get() or "Cloth NeXt Bake failed",
-                             self._error_details or self.secondary.get(),
-                             parent=self.root)
     def _pause(self): pass
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
@@ -248,6 +239,32 @@ class BakeWindow:
                 self._activity_after=None
                 if not self._closed and self._activity_pending:self.activity_text.set(self._activity_pending)
             self._activity_after=self.root.after(180,apply)
+
+    def _set_error_blink(self,enabled):
+        if enabled and self._blink_after is None:
+            def tick():
+                if self._closed:return
+                self._blink_phase=not self._blink_phase
+                color="#6f1118" if self._blink_phase else BG
+                border="#ff3948" if self._blink_phase else "#777777"
+                self.root.configure(bg=color)
+                self._style.configure("CN.TFrame",background=color)
+                self._style.configure("CN.TLabel",background=color)
+                self.status.configure(bg="#85151e" if self._blink_phase else PANEL,
+                                      highlightbackground=border)
+                self.progress.configure(highlightbackground=border)
+                self._blink_after=self.root.after(380,tick)
+            tick()
+        elif not enabled:
+            if self._blink_after is not None:
+                try:self.root.after_cancel(self._blink_after)
+                except tk.TclError:pass
+                self._blink_after=None
+            self._blink_phase=False; self.root.configure(bg=BG)
+            self._style.configure("CN.TFrame",background=BG)
+            self._style.configure("CN.TLabel",background=BG)
+            self.status.configure(bg=PANEL,highlightbackground="#777777")
+            self.progress.configure(highlightbackground="#777777")
 
     def show(self,snapshot: BakeSnapshot):
         self.root.update_idletasks()
@@ -282,15 +299,12 @@ class BakeWindow:
             if match and match not in concise:concise.append(match)
         self.secondary.set("\n".join(concise[:3]) or snapshot.status_message
                            or "No PPF simulation is running.")
-        if snapshot.state is BakeState.ERROR:
-            self.error_panel.grid()
-            self.root.geometry(f"{max(390,self.root.winfo_width())}x210")
-        else:
-            self.error_panel.grid_remove()
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
-        if snapshot.state is BakeState.ERROR and snapshot.activity_detail:label=f"Failed while {snapshot.activity_detail}"
+        if snapshot.state is BakeState.ERROR:
+            label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
+        self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
@@ -308,6 +322,10 @@ class BakeWindow:
     def close(self):
         if self._closed:return
         self._closed=True; self.particles.close()
+        if self._blink_after is not None:
+            try:self.root.after_cancel(self._blink_after)
+            except tk.TclError:pass
+            self._blink_after=None
         if self._activity_after is not None:
             try:self.root.after_cancel(self._activity_after)
             except tk.TclError:pass

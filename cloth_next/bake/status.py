@@ -111,6 +111,7 @@ class BakeSnapshot:
     is_paused: bool = False
     error_summary: str = ""
     error_details: str = ""
+    error_code: str = ""
     job_id: str = ""
     updated_at: float = 0.0
     preview: bool = False

@@ -19,6 +19,8 @@ for broader testing in Blender 5.x.
   configurable threshold for two telemetry samples. The default is 90%.
 - Show the RAM limit as a red line in the redesigned CPU/RAM/VRAM resource HUD.
 - Use smoothly drifting and rotating Cloth NeXt icons in the Bake companion.
+- Keep failed Bake windows open, pulse them red, and show only a documented
+  `CNX-E…` code in the activity bar; full diagnostics remain in Blender.
 - Use role-specific icons throughout the physics dropdown, including Forces.
 
 ## Compatibility

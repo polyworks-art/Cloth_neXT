@@ -10,6 +10,11 @@ overall progress while the lower bar consumes the dedicated typed
 solver-activity channel with a short debounce. `IconParticleField` owns and
 cancels its single `after()` timer on close.
 
+On failure the activity bar shows only the stable `CNX-E…` code documented in
+`docs/ERROR_CODES.md`. The window pulses red and deliberately remains open
+until the user closes it with the normal title-bar close control. Full technical
+details stay in Blender and its diagnostic logs.
+
 This optional status client visualizes the same immutable real-bake snapshots as
 the Blender panels and HUD. It does not run PPF itself; Blender owns the solver
 session and sends status to the companion.

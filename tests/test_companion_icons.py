@@ -4,6 +4,8 @@ from PIL import Image
 
 from companion.build_assets import build
 from companion.build_assets import PARTICLE_ASSETS
+from companion.app import error_activity_label
+from cloth_next.bake.status import BakeSnapshot,BakeState
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,4 +49,12 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
             visible = [pixel for pixel in image.convert("RGBA").getdata()
                        if pixel[3]]
             assert visible, path
-            assert all(pixel[:3] == (255, 255, 255) for pixel in visible), path
+        assert all(pixel[:3] == (255, 255, 255) for pixel in visible), path
+
+
+def test_companion_error_bar_uses_only_stable_code():
+    snapshot=BakeSnapshot(state=BakeState.ERROR,error_code="CNX-E160",
+        error_summary="private full summary",error_details="private details")
+    label=error_activity_label(snapshot)
+    assert label=="ERROR · CNX-E160"
+    assert "private" not in label

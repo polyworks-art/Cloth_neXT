@@ -77,6 +77,7 @@ def test_error_and_authenticated_bounded_schema():
     c = BakeController()
     c.transition(BakeState.PREPARING)
     snap = c.fail("Preview failure", "details")
+    assert snap.error_code == "CNX-E100"
     assert snap.activity_detail == "scene validation"
     assert snap.error_details.startswith("Stage: scene validation")
     assert "What to do:" in snap.error_details
@@ -91,3 +92,13 @@ def test_error_and_authenticated_bounded_schema():
     validate_localhost("127.0.0.1")
     with pytest.raises(ValueError):
         validate_localhost("0.0.0.0")
+
+
+def test_error_codes_follow_the_failed_bake_stage():
+    c=BakeController(); c.transition(BakeState.PREPARING)
+    c.transition(BakeState.EXPORTING)
+    c.transition(BakeState.STARTING_SOLVER)
+    c.transition(BakeState.UPLOADING)
+    c.transition(BakeState.BUILDING)
+    c.transition(BakeState.SIMULATING)
+    assert c.fail("simulation failed").error_code=="CNX-E160"
