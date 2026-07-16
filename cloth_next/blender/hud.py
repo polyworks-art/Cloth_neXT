@@ -43,7 +43,9 @@ def _draw():
         card = build_resource_card(
             telemetry, anchor=getattr(prefs, "bake_hud_anchor", "BOTTOM_LEFT"),
             scale=getattr(prefs, "bake_hud_scale", 1.0),
-            viewport_width=viewport_width, viewport_height=viewport_height)
+            viewport_width=viewport_width, viewport_height=viewport_height,
+            ram_limit_percent=(getattr(prefs,"auto_cancel_ram_percent",90)
+                if getattr(prefs,"auto_cancel_high_ram",True) else None))
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
 
         def batch(mode, positions, color):
@@ -56,8 +58,10 @@ def _draw():
             batch("TRI_FAN", ((x, y), (x + width, y),
                               (x + width, y + height), (x, y + height)), color)
 
-        rect(card.x, card.y, card.width, card.height, (.035, .04, .05, .9))
-        rect(card.x, card.y, 4 * card.scale, card.height, (.92, .55, .12, 1))
+        rect(card.x-1, card.y-1, card.width+2, card.height+2,
+             (.16, .18, .22, .96))
+        rect(card.x, card.y, card.width, card.height, (.025, .03, .04, .94))
+        rect(card.x, card.y, 3 * card.scale, card.height, (.95, .48, .10, 1))
         font = 0
         left = card.x + 14 * card.scale
         top = card.y + card.height - 24 * card.scale
@@ -65,14 +69,18 @@ def _draw():
         blf.color(font, .94, .94, .94, 1)
         blf.position(font, left, top, 0)
         blf.draw(font, "System Load")
+        blf.size(font, round(8 * card.scale))
+        blf.color(font, .42, .82, .58, 1)
+        blf.position(font, card.x+card.width-38*card.scale, top, 0)
+        blf.draw(font, "● LIVE")
 
         graph_x = card.x + 145 * card.scale
         graph_width = max(20, card.width - 159 * card.scale)
         row_height = 43 * card.scale
         graph_height = 28 * card.scale
-        colors = {"cpu": (.35, .72, 1.0, 1),
-                  "ram": (.55, .88, .48, 1),
-                  "vram": (.95, .58, .22, 1)}
+        colors = {"cpu": (.28, .68, 1.0, 1),
+                  "ram": (.30, .86, .58, 1),
+                  "vram": (1.0, .50, .20, 1)}
         for index, metric in enumerate(card.metrics):
             row_top = top - (25 + index * 43) * card.scale
             blf.size(font, round(11 * card.scale))
@@ -86,7 +94,11 @@ def _draw():
 
             graph_y = row_top - 14 * card.scale
             rect(graph_x, graph_y, graph_width, graph_height,
-                 (.075, .085, .1, .95))
+                 (.055, .065, .08, .98))
+            for grid_fraction in (.25,.5,.75):
+                grid_y=graph_y+graph_height*grid_fraction
+                batch("LINES",((graph_x,grid_y),(graph_x+graph_width,grid_y)),
+                      (.16,.18,.22,.5))
             values = list(_history.series[metric.key])
             valid = [(sample_index, value) for sample_index, value
                      in enumerate(values) if value is not None]
@@ -96,7 +108,22 @@ def _draw():
                     (graph_x + graph_width * sample_index / denominator,
                      graph_y + graph_height * value)
                     for sample_index, value in valid)
+                fill_points=((points[0][0],graph_y),)+points+(
+                    (points[-1][0],graph_y),)
+                batch("TRI_FAN",fill_points,
+                      colors[metric.key][:3]+(.10,))
                 batch("LINE_STRIP", points, colors[metric.key])
+                dot_x,dot_y=points[-1]
+                rect(dot_x-1.5*card.scale,dot_y-1.5*card.scale,
+                     3*card.scale,3*card.scale,colors[metric.key])
+            if metric.key=="ram" and card.ram_limit_fraction is not None:
+                limit_y=graph_y+graph_height*card.ram_limit_fraction
+                dash=8*card.scale; gap=4*card.scale; cursor=graph_x
+                while cursor<graph_x+graph_width:
+                    end=min(cursor+dash,graph_x+graph_width)
+                    batch("LINES",((cursor,limit_y),(end,limit_y)),
+                          (1.0,.22,.20,.95))
+                    cursor=end+gap
     except Exception:
         _draw_failed = True
 

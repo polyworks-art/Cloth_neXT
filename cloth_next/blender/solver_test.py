@@ -46,7 +46,7 @@ from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..bake.transport import EnterBakeMode
 from ..core.errors import ClothNextError
 from ..core.logging import get_logger, log_with_context
-from ..materials import MaterialValidationError
+from ..materials import DEFAULT_STATIC_SETTINGS, MaterialValidationError
 from ..materials import formatting as material_formatting
 from ..pinning import (
     STATIC_PIN_WEIGHT_THRESHOLD,
@@ -71,10 +71,10 @@ from ..ppf.resolver import (
 from ..ppf.schema.data import (GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
                                SceneObject, encode_deformable_scene,
                                encode_multi_deformable_scene, encode_scene,
-                               zero_area_triangles)
+                               internal_static_sentinel, zero_area_triangles)
 from ..ppf.schema.params import (
     SimulationSettings,
-    build_param_payload,
+    build_multi_collider_param_payload,
     encode_multi_deformable_param,
     static_wire_params,
 )
@@ -90,6 +90,7 @@ from ..ppf_run.session import (
     new_project_name,
 )
 from ..telemetry import shared_telemetry
+from ..telemetry.hud_layout import RamAutoCancelGuard
 from ..topology import geometry_fingerprint as combine_geometry_fingerprint
 from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
@@ -121,6 +122,18 @@ _unsubscribe = None
 _pending_plan: "RunPlan | None" = None
 _pending_job_id = ""
 _pin_capture = None
+_ram_auto_cancel = RamAutoCancelGuard()
+_ram_auto_cancel_enabled = False
+
+
+def _ensure_solver_static(scene_colliders, collider_specs):
+    """Satisfy PPF 0.11's internal STATIC-group build requirement."""
+    if collider_specs:
+        return scene_colliders, collider_specs
+    sentinel = internal_static_sentinel()
+    return ([*scene_colliders,sentinel],
+            [*collider_specs,(sentinel.name,sentinel.uuid,
+                              DEFAULT_STATIC_SETTINGS)])
 
 
 def _on_controller_snapshot(snapshot) -> None:
@@ -268,7 +281,7 @@ def resolve_solver(context) -> ResolvedSolver:
 # ---------------------------------------------------------------------------
 # Main-thread scene snapshot and validation
 
-def _enabled_objects_by_role(context) -> tuple[object, object]:
+def _enabled_objects_by_role(context) -> tuple[object, object | None]:
     cloth_objects, collider_objects = [], []
     for obj in context.scene.objects:
         settings = getattr(obj, "cloth_next", None)
@@ -282,11 +295,11 @@ def _enabled_objects_by_role(context) -> tuple[object, object]:
         raise SceneValidationError(
             f"Exactly one enabled Cloth NeXt cloth object is required for the "
             f"test run; found {len(cloth_objects)}.")
-    if len(collider_objects) != 1:
+    if len(collider_objects) > 1:
         raise SceneValidationError(
-            f"Exactly one enabled Cloth NeXt collider object is required for "
+            f"At most one enabled Cloth NeXt collider object is supported by "
             f"the test run; found {len(collider_objects)}.")
-    return cloth_objects[0], collider_objects[0]
+    return cloth_objects[0], collider_objects[0] if collider_objects else None
 
 
 def _enabled_objects_for_bake(context) -> tuple[object, tuple[object, ...]]:
@@ -311,9 +324,6 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
         raise SceneValidationError(
             "At least one enabled Cloth NeXt Cloth, Rod, or Soft Body object "
             "is required.")
-    if not collider_objects:
-        raise SceneValidationError(
-            "At least one enabled Cloth NeXt collider object is required.")
     order = lambda obj: (
         validation_state.object_key(obj),
         str(getattr(obj, "name_full", getattr(obj, "name", ""))))
@@ -501,19 +511,21 @@ def _snapshot_materials(cloth_obj, collider_obj):
     except (MaterialValidationError, DeformableMaterialError) as exc:
         raise SceneValidationError(
             f"{cloth_obj.name}: invalid material value — {exc}") from exc
-    try:
-        static = object_properties.static_settings_from(
-            collider_obj.cloth_next)
-    except MaterialValidationError as exc:
-        raise SceneValidationError(
-            f"{collider_obj.name}: invalid contact value — {exc}") from exc
+    static = None
+    if collider_obj is not None:
+        try:
+            static = object_properties.static_settings_from(
+                collider_obj.cloth_next)
+        except MaterialValidationError as exc:
+            raise SceneValidationError(
+                f"{collider_obj.name}: invalid contact value — {exc}") from exc
     contact_enabled = bool(cloth_obj.cloth_next.collision.enabled)
     return shell, static, contact_enabled, preset_identifier
 
 
 def _snapshot_materials_multi(cloth_obj, collider_objs):
     shell, _first, contact_enabled, preset = _snapshot_materials(
-        cloth_obj, collider_objs[0])
+        cloth_obj, collider_objs[0] if collider_objs else None)
     statics = []
     for collider in collider_objs:
         try:
@@ -693,11 +705,13 @@ def _world_matrix_record(obj) -> tuple[tuple[float, ...], ...]:
 def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                           contact_enabled, preset_identifier, quality) -> str:
     collider_objs = (collider_obj if isinstance(collider_obj, tuple)
-                     else (collider_obj,))
-    statics = static if isinstance(static, tuple) else (static,)
+                     else (() if collider_obj is None else (collider_obj,)))
+    statics = (static if isinstance(static, tuple)
+               else (() if static is None else (static,)))
     if str(cloth_obj.cloth_next.role) == "CLOTH":
         base = material_formatting.settings_fingerprint(
-            shell, statics[0], contact_enabled, preset_identifier,
+            shell, statics[0] if statics else None,
+            contact_enabled, preset_identifier,
             bake_start=int(cloth_obj.cloth_next.bake_start),
             bake_end=int(cloth_obj.cloth_next.bake_end),
             pinning_fingerprint=_cheap_pinning_fingerprint(cloth_obj),
@@ -766,7 +780,7 @@ def cheap_settings_fingerprint(context) -> str | None:
         fingerprints = []
         for obj in deformables:
             material, _static, _contact, preset = _snapshot_materials(
-                obj, collider_objs[0])
+                obj, collider_objs[0] if collider_objs else None)
             fingerprints.append(_settings_fingerprint(
                 context, obj, collider_objs, material, statics,
                 contact_enabled, preset, quality))
@@ -867,11 +881,11 @@ class ValidationSnapshot:
     """
 
     cloth_obj: object
-    collider_obj: object
+    collider_obj: object | None
     collider_objs: tuple[object, ...]
     bake_range: BakeFrameRange
     shell: object
-    static: object
+    static: object | None
     statics: tuple[object, ...]
     contact_enabled: bool
     preset_identifier: str
@@ -898,7 +912,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
     scanning anything a second time.
     """
     cloth_obj, collider_objs = _enabled_objects_for_bake(context)
-    collider_obj = collider_objs[0]
+    collider_obj = collider_objs[0] if collider_objs else None
     validation_state.mark_validating(cloth_obj)
     try:
         try:
@@ -908,7 +922,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
             raise SceneValidationError(str(exc)) from exc
         shell, statics, contact_enabled, preset_identifier = (
             _snapshot_materials_multi(cloth_obj, collider_objs))
-        static = statics[0]
+        static = statics[0] if statics else None
         try:
             quality = object_properties.solver_quality_from(context.scene)
         except ValueError as exc:
@@ -1016,7 +1030,7 @@ def validate_scene(context) -> ValidationSnapshot:
         presets = []
         for obj in deformable_objs:
             material, _static, _contact, preset = _snapshot_materials(
-                obj, collider_objs[0])
+                obj, collider_objs[0] if collider_objs else None)
             materials.append(material)
             presets.append(preset)
         statics = tuple(object_properties.static_settings_from(obj.cloth_next)
@@ -1106,9 +1120,11 @@ def validate_scene(context) -> ValidationSnapshot:
     preset_identifier = (first.preset_identifier if len(entries) == 1
                          else f"MULTI_OBJECT_{len(entries)}")
     return ValidationSnapshot(
-        cloth_obj=first.obj, collider_obj=collider_objs[0],
+        cloth_obj=first.obj,
+        collider_obj=collider_objs[0] if collider_objs else None,
         collider_objs=collider_objs, bake_range=ranges[0],
-        shell=first.material, static=statics[0], statics=statics,
+        shell=first.material, static=statics[0] if statics else None,
+        statics=statics,
         contact_enabled=contact_enabled,
         preset_identifier=preset_identifier, quality=quality,
         pin_membership=first.pin_membership,
@@ -1533,6 +1549,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             motion_meta.append({"name": obj.name, "motion_type": motion_type,
                                 "vertex_count": len(vertices),
                                 "triangle_count": len(triangles)})
+        scene_colliders, collider_specs = _ensure_solver_static(
+            scene_colliders, collider_specs)
         data_payload, data_hash = encode_multi_deformable_scene(
             scene_dynamics, scene_colliders)
     finally:
@@ -1556,8 +1574,10 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         contact_enabled=snapshot.contact_enabled)
     session_scene = SessionScene(
         project_name, session_dynamics[0].name, session_dynamics[0].uuid,
-        session_dynamics[0].vertex_count, collider_specs[0][0],
-        collider_specs[0][1], frame_count, data_payload, param_payload,
+        session_dynamics[0].vertex_count,
+        collider_specs[0][0] if collider_specs else "",
+        collider_specs[0][1] if collider_specs else "",
+        frame_count, data_payload, param_payload,
         data_hash, param_hash, deformables=tuple(session_dynamics))
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     target_plans = []
@@ -1639,7 +1659,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     # exactly that, along with the topology hash and the pin scan.
     shell = snapshot.shell
     statics = snapshot.statics
-    static = statics[0]
+    static = statics[0] if statics else None
     contact_enabled = snapshot.contact_enabled
     preset_identifier = snapshot.preset_identifier
     pin_membership = snapshot.pin_membership
@@ -1763,6 +1783,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
                             "motion_type": motion_type,
                             "vertex_count": len(vertices),
                             "triangle_count": len(triangles)})
+    scene_colliders, collider_specs = _ensure_solver_static(
+        scene_colliders, collider_specs)
     try:
         if deformable_role == "CLOTH":
             data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
@@ -1850,7 +1872,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
         "contact_enabled": contact_enabled,
         "deformable_type": deformable_role,
         "material": asdict(shell),
-        "static": static_wire_params(static),
+        "static": static_wire_params(static) if static is not None else None,
         "colliders": motion_meta,
         "quality": {
             "dt": settings.quality.time_step,
@@ -1879,7 +1901,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
         project_name=project_name,
         cloth_name=cloth_obj.name, cloth_uuid=cloth_uuid,
         cloth_vertex_count=len(cloth_vertices),
-        collider_name=collider_specs[0][0], collider_uuid=collider_specs[0][1],
+        collider_name=collider_specs[0][0] if collider_specs else "",
+        collider_uuid=collider_specs[0][1] if collider_specs else "",
         frame_count=frame_count,
         data_payload=data_payload, param_payload=param_payload,
         data_hash=data_hash, param_hash=param_hash,
@@ -2510,6 +2533,19 @@ def _pump_once() -> float | None:
     plan = _active_plan
     if plan is None:
         return None
+    cancellable_ram_states = {
+        BakeState.EXPORTING, BakeState.STARTING_SOLVER, BakeState.UPLOADING,
+        BakeState.BUILDING, BakeState.SIMULATING, BakeState.FETCHING}
+    if (_ram_auto_cancel_enabled and _worker is not None
+            and _worker.is_alive()
+            and shared_controller.snapshot().state in cancellable_ram_states
+            and _ram_auto_cancel.observe(shared_telemetry.snapshot())):
+        _cancel_event.set()
+        snapshot = shared_controller.snapshot()
+        if snapshot.active and snapshot.state is not BakeState.CANCELLING:
+            shared_controller.request_cancel()
+            shared_controller.update(
+                status_message="Auto-cancelling: system RAM safety limit reached")
     import time as _time
     drained = 0
     while drained < 64:
@@ -2683,6 +2719,8 @@ def _begin_controller(job_kind: BakeJobKind) -> str:
 
 def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> str:
     """Immediate developer diagnostic; production has a readiness gate."""
+    global _ram_auto_cancel_enabled
+    _ram_auto_cancel_enabled = False
     _begin_controller(job_kind)
     try:
         plan = build_run_plan(context)
@@ -2698,12 +2736,17 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
 
 
 def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
-    global _pending_plan,_pending_job_id
+    global _pending_plan,_pending_job_id,_ram_auto_cancel_enabled
     try:
         prefs=context.preferences.addons[__package__.partition(".blender")[0]].preferences
         auto_launch=bool(prefs.auto_launch_bake_window)
         shared_telemetry.configure(prefs.telemetry_refresh_seconds)
-    except (KeyError,AttributeError):auto_launch=True
+        _ram_auto_cancel_enabled=bool(getattr(prefs,"auto_cancel_high_ram",True))
+        _ram_auto_cancel.configure(
+            getattr(prefs,"auto_cancel_ram_percent",90),2)
+    except (KeyError,AttributeError):
+        auto_launch=True; _ram_auto_cancel_enabled=True
+        _ram_auto_cancel.configure(90,2)
     _pending_plan=plan; _pending_job_id=job_id
     if not auto_launch:
         shared_controller.transition(BakeState.STARTING_RUN,status_message="Starting Bake in Blender")
@@ -2944,19 +2987,27 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
         gravity_blender=snapshot.gravity_blender,
         quality=snapshot.quality,
         wind_blender=snapshot.wind_blender)
-    payload = build_param_payload(
-        settings, cloth_obj.name, "inspect-cloth",
-        collider_obj.name, "inspect-collider",
-        shell=shell, static=static, contact_enabled=contact_enabled,
+    collider_specs = (() if collider_obj is None else
+        ((collider_obj.name, "inspect-collider", static),))
+    if not collider_specs:
+        sentinel=internal_static_sentinel()
+        collider_specs=((sentinel.name,sentinel.uuid,DEFAULT_STATIC_SETTINGS),)
+    payload = build_multi_collider_param_payload(
+        settings, cloth_obj.name, "inspect-cloth", collider_specs,
+        shell=shell, contact_enabled=contact_enabled,
         static_pin=pin_config)
     lines: list[str] = [f"Material Preset: {preset}",
                         f"Cloth: {cloth_obj.name} (SHELL)"]
     for artist_label, ppf_key, value in \
             material_formatting.shell_wire_rows(shell):
         lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
-    lines.append(f"Collider: {collider_obj.name} (STATIC)")
-    for artist_label, ppf_key, value in \
-            material_formatting.static_wire_rows(static):
+    if collider_obj is None:
+        lines.append("Colliders: None (optional)")
+        static_rows = ()
+    else:
+        lines.append(f"Collider: {collider_obj.name} (STATIC)")
+        static_rows = material_formatting.static_wire_rows(static)
+    for artist_label, ppf_key, value in static_rows:
         lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
     wire_scene = payload["scene"]
     lines.append(f"Solver Quality — PPF dt: {wire_scene['dt']}, "

@@ -31,6 +31,40 @@ class ResourceCard:
     height: float
     scale: float
     metrics: tuple[ResourceMetric, ...]
+    ram_limit_fraction: float | None = None
+
+
+class RamAutoCancelGuard:
+    """Debounce a total-system RAM safety threshold across telemetry ticks."""
+
+    def __init__(self, threshold_percent: float = 90.0,
+                 consecutive_samples: int = 2):
+        self.configure(threshold_percent, consecutive_samples)
+
+    def configure(self, threshold_percent: float,
+                  consecutive_samples: int = 2) -> None:
+        self.threshold_fraction = max(
+            0.01, min(1.0, float(threshold_percent) / 100.0))
+        self.consecutive_samples = max(1, int(consecutive_samples))
+        self._over_limit = 0
+        self._last_updated_at = None
+
+    def observe(self, telemetry: SystemTelemetrySnapshot) -> bool:
+        if telemetry.updated_at == self._last_updated_at:
+            return False
+        self._last_updated_at = telemetry.updated_at
+        fraction = _fraction(telemetry.ram_used_bytes,
+                             telemetry.ram_total_bytes)
+        if fraction is None or telemetry.stale:
+            self._over_limit = 0
+            return False
+        self._over_limit = (self._over_limit + 1
+                            if fraction >= self.threshold_fraction else 0)
+        return self._over_limit >= self.consecutive_samples
+
+    def reset(self) -> None:
+        self._over_limit = 0
+        self._last_updated_at = None
 
 
 class ResourceHistory:
@@ -79,7 +113,8 @@ def resource_metrics(telemetry: SystemTelemetrySnapshot):
 
 def build_resource_card(telemetry: SystemTelemetrySnapshot, *,
                         anchor="BOTTOM_LEFT", scale=1.0,
-                        viewport_width=800, viewport_height=600):
+                        viewport_width=800, viewport_height=600,
+                        ram_limit_percent: float | None = None):
     scale = max(0.75, min(2.0, scale))
     margin = 16 * scale
     width = min(360 * scale, max(1, viewport_width - 2 * margin))
@@ -87,5 +122,7 @@ def build_resource_card(telemetry: SystemTelemetrySnapshot, *,
     x = margin if anchor.endswith("LEFT") else viewport_width - width - margin
     y = (viewport_height - height - margin
          if anchor.startswith("TOP") else margin)
+    limit = (None if ram_limit_percent is None else
+             max(0.01, min(1.0, float(ram_limit_percent) / 100.0)))
     return ResourceCard(max(0, x), max(0, y), width, height, scale,
-                        resource_metrics(telemetry))
+                        resource_metrics(telemetry), limit)

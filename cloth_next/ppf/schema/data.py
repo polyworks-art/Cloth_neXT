@@ -31,6 +31,8 @@ GROUP_SHELL = "SHELL"
 GROUP_STATIC = "STATIC"
 GROUP_ROD = "ROD"
 GROUP_SOLID = "SOLID"
+INTERNAL_STATIC_NAME = "__cloth_next_solver_static__"
+INTERNAL_STATIC_UUID = "cloth-next-internal-static-v1"
 
 
 class SceneEncodeError(ValueError):
@@ -142,24 +144,32 @@ class SceneObject:
         return info
 
 
+def internal_static_sentinel() -> SceneObject:
+    """Tiny remote tetrahedron for PPF builds that require a STATIC group.
+
+    PPF 0.11 remains BUSY when building a scene with no STATIC group.  The
+    sentinel is an implementation detail, far outside practical scene space,
+    and is added only when the artist supplied no Collider.
+    """
+    return SceneObject(
+        INTERNAL_STATIC_NAME, INTERNAL_STATIC_UUID,
+        ((0.0,0.0,0.1),(0.1,0.0,-0.1),(-0.05,0.0866,-0.1),
+         (-0.05,-0.0866,-0.1)),
+        ((0,1,2),(0,2,3),(0,3,1),(1,3,2)),
+        ((1.0,0.0,0.0,1_000_000.0),(0.0,1.0,0.0,1_000_000.0),
+         (0.0,0.0,1.0,1_000_000.0),(0.0,0.0,0.0,1.0)))
+
+
 def _collider_sequence(collider) -> tuple[SceneObject, ...]:
-    return ((collider,) if isinstance(collider, SceneObject)
+    return (() if collider is None else
+            (collider,) if isinstance(collider, SceneObject)
             else tuple(collider))
 
 
 def build_scene_payload(cloth: SceneObject, collider) -> list:
-    """One SHELL group followed by a deterministic STATIC object group."""
-    colliders = _collider_sequence(collider)
-    if not colliders:
-        raise SceneEncodeError("at least one collider is required")
-    uuids = [cloth.uuid, *(item.uuid for item in colliders)]
-    if len(set(uuids)) != len(uuids):
-        raise SceneEncodeError("cloth and colliders must have distinct UUIDs")
-    return [
-        {"object": [cloth.info_dict()], "type": GROUP_SHELL},
-        {"object": [item.info_dict() for item in colliders],
-         "type": GROUP_STATIC},
-    ]
+    """One SHELL group and, when present, one STATIC collider group."""
+    return build_multi_deformable_scene_payload(((cloth, GROUP_SHELL),),
+                                                collider)
 
 
 def build_deformable_scene_payload(deformable: SceneObject, collider, *,
@@ -186,8 +196,6 @@ def build_multi_deformable_scene_payload(deformables, collider) -> list:
             raise SceneEncodeError(f"unsupported deformable group: {group_type}")
         grouped[group_type].append(deformable)
     colliders = _collider_sequence(collider)
-    if not colliders:
-        raise SceneEncodeError("at least one collider is required")
     uuids = [item.uuid for item, _group in entries]
     uuids.extend(item.uuid for item in colliders)
     if len(set(uuids)) != len(uuids):
@@ -196,8 +204,9 @@ def build_multi_deformable_scene_payload(deformables, collider) -> list:
         {"object": [item.info_dict() for item in grouped[kind]], "type": kind}
         for kind in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID) if grouped[kind]
     ]
-    payload.append({"object": [item.info_dict() for item in colliders],
-                    "type": GROUP_STATIC})
+    if colliders:
+        payload.append({"object": [item.info_dict() for item in colliders],
+                        "type": GROUP_STATIC})
     return payload
 
 

@@ -90,7 +90,7 @@ FINGERPRINT_VERSION = 2
 
 
 def settings_fingerprint(shell: ShellMaterialSettings,
-                         static: StaticMaterialSettings,
+                         static: StaticMaterialSettings | None,
                          contact_enabled: bool,
                          preset_identifier: str,
                          *, bake_start: int | None = None,
@@ -111,8 +111,9 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "shell_stretch_limit_enabled": shell.stretch_limit_enabled,
         "shell_maximum_stretch_percent": shell.maximum_stretch_percent,
         "shell_enable_inflate": shell.enable_inflate,
-        "static": {info.field: getattr(static, info.field)
-                   for info in STATIC_FIELD_INFO},
+        "static": ({info.field: getattr(static, info.field)
+                    for info in STATIC_FIELD_INFO}
+                   if static is not None else None),
         "bake_range": ([int(bake_start), int(bake_end)]
                        if bake_start is not None and bake_end is not None
                        else None),

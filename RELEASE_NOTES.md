@@ -1,62 +1,30 @@
-# Cloth NeXt 0.3.0-dev.2 — experimental Dev test build
+# Cloth NeXt 0.4.0 Beta
 
-## Streaming cache update
+This first numeric-channel Beta brings the production Bake workflow together
+for broader testing in Blender 5.x.
 
-The next Dev snapshot replaces the memory-heavy playback-cache post-process
-with incremental PC2 streaming. Large bakes no longer retain or duplicate the
-complete animation in Python memory; cache files and sidecars publish
-atomically, cancellation preserves the previous valid result, and the UI
-reports real cache-frame and finalization progress. No solver or quality
-parameter changed.
+## Simulation workflow
 
-This Dev-only snapshot is for practical Blender 5.1.2 testing. It adds guarded
-no-downgrade update handoff, object-local uniform Pressure, and scene-wide
-Solver Quality (`dt`, Newton, and PCG controls). Pressure and all quality values
-participate in bake metadata and stale detection. `dt` defaults to `0.001` to
-preserve Cloth NeXt's established behavior; Newton/PCG defaults come from the
-pinned official PPF source at commit `7193f158`. No solver values were invented.
+- Bake multiple Cloth, Rod, and Soft Body objects in one shared PPF project.
+- Use Follow Animation pins in multi-object bakes.
+- Add every force supported by the current PPF mapping to Empties and animate
+  those properties with Blender keyframes.
+- Bake without creating a Collider. Cloth NeXt supplies a tiny remote internal
+  STATIC sentinel because PPF 0.11 currently requires a STATIC group to build;
+  it never appears in the Blender scene or cache metadata.
 
-It is not a Beta or Stable release. Back up scenes and caches before testing.
+## Safety and interface
 
-## Previous beta notes
+- Automatically cancel a Bake when total system RAM remains above a
+  configurable threshold for two telemetry samples. The default is 90%.
+- Show the RAM limit as a red line in the redesigned CPU/RAM/VRAM resource HUD.
+- Use smoothly drifting and rotating Cloth NeXt icons in the Bake companion.
+- Use role-specific icons throughout the physics dropdown, including Forces.
 
-# Cloth NeXt 0.3.0-beta.1
+## Compatibility
 
-This beta advances the real PPF workflow from the initial vertical slice to a
-production-facing Bake flow with arbitrary frame ranges, cache-safe Rebake,
-material controls, vertex-group Pinning, and a reusable Bake companion.
+The PPF Contact Solver remains an external dependency and is not included in
+the add-on. This Beta uses the `STABLE.BETA.DEV` numbering scheme: `0.4.0` is
+the Beta build and `0.4.1` is its matching Dev snapshot.
 
-## Production-facing Bake workflow
-
-Cloth NeXt can now:
-
-- bake one Cloth NeXt cloth object against one static collider
-- use artist-selected Bake ranges instead of a fixed eight-frame slice
-- preserve the previous valid cache until replacement startup succeeds
-- Rebake without Cloth NeXt's own Mesh Cache causing false topology errors
-- use static or animated hard Pin targets from a Blender vertex group
-- encode the documented PPF material, damping, and collision parameters
-- show synchronized progress in Physics Properties, the HUD, and the companion
-- cancel and clean up Cloth NeXt-owned solver sessions
-
-## Stability and release hardening
-
-- Developer Tools fail closed outside explicitly prepared Dev snapshots.
-- The normal Pytest command excludes tests that require an explicit built ZIP;
-  release workflows still run those artifact tests against the real candidate.
-- Dev publishing accepts policy-valid release lines and retains builds by full
-  semantic version rather than only the trailing Dev counter.
-- The known `cloth_next.ppf.health` import is verified in the source tree,
-  installed package, and extracted release ZIP.
-
-## Beta scope
-
-The current scope remains one cloth, one static collider, constant topology,
-and the verified PPF 0.11 protocol. It is a prerelease intended for Blender
-5.1.2 testing and is not a Stable release.
-
-## External solver
-
-The PPF Contact Solver is external software developed by ST Tech / ZOZO. It is
-not bundled, mirrored, or redistributed with Cloth NeXt. A compatible separately
-installed solver is required.
+Back up production scenes and caches before Beta testing.

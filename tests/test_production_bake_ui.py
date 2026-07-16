@@ -111,7 +111,6 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
 
 @pytest.mark.parametrize("cloths,colliders,reason", [
     (0, 1, "At least one deformable object is required."),
-    (1, 0, "At least one Collider is required."),
 ])
 def test_bake_disabled_for_invalid_scene_scope(blender_env, cloths,
                                                 colliders, reason):
@@ -121,6 +120,16 @@ def test_bake_disabled_for_invalid_scene_scope(blender_env, cloths,
     model = ui._bake_panel_model(
         context, ui._SolverStatus(True, "Ready · Protocol 0.11"))
     assert not model.enabled and model.reason == reason
+
+
+def test_bake_allows_scene_without_collider(blender_env):
+    env=blender_env; env.registration.register()
+    context=_context(env,_objects(env,1,0))
+    model=env.physics_ui._bake_panel_model(
+        context,env.physics_ui._SolverStatus(True,"Ready · Protocol 0.11"))
+    assert model.enabled and model.reason==""
+    assert "0 Collider" in model.summary_line
+    env.registration.unregister()
 
 
 def test_bake_enabled_for_multiple_deformables(blender_env):

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0 — 2026-07-16 (Beta channel)
+
+### Added
+
+- Multi-object Cloth, Rod, and Soft Body bakes with Follow Animation pins.
+- All PPF-supported Empty forces with keyframe animation.
+- Optional Colliders; colliderless projects use a remote internal PPF STATIC
+  sentinel without adding an object to the Blender scene.
+- Configurable Bake RAM auto-cancel, enabled at 90% by default and debounced
+  across two telemetry samples.
+
+### Changed
+
+- Resource HUD now focuses on CPU, RAM, and VRAM with clearer live graphs and
+  a red RAM safety threshold.
+- Bake companion uses smoothly drifting, rotating Cloth NeXt icons.
+- Release versions use the `STABLE.BETA.DEV` channel-counter scheme.
+
+### Fixed
+
+- Soft Body and Rod bake paths, multi-object material/pin encoding, Empty
+  registration, dropdown icons, and numeric Dev-channel update detection.
+
 ## 0.3.0-dev.13 — 2026-07-14 (Dev test channel)
 
 ### Added — animated and deforming Colliders

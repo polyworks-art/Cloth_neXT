@@ -473,6 +473,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")
     bake_hud_scale: bpy.props.FloatProperty(name="HUD Scale", default=1.0, min=0.75, max=2.0)
     telemetry_refresh_seconds: bpy.props.FloatProperty(name="Telemetry Refresh", default=1.0, min=0.25, max=10.0, subtype="TIME")
+    auto_cancel_high_ram: bpy.props.BoolProperty(
+        name="Auto-Cancel on High RAM", default=True,
+        description="Cancel an active Bake after RAM stays above the safety "
+                    "threshold for two telemetry samples")
+    auto_cancel_ram_percent: bpy.props.IntProperty(
+        name="RAM Safety Threshold", default=90, min=50, max=99,
+        subtype="PERCENTAGE",
+        description="Total system RAM usage that automatically cancels the Bake")
 
     def draw(self, _context) -> None:
         layout = self.layout
@@ -483,6 +491,11 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "auto_launch_bake_window")
         hud_box=layout.box(); hud_box.label(text="Bake Resource Monitor")
         for name in ("show_bake_hud","bake_hud_anchor","bake_hud_scale","telemetry_refresh_seconds"): hud_box.prop(self,name)
+        safety=hud_box.box(); safety.label(text="Memory Safety", icon="MEMORY")
+        safety.prop(self,"auto_cancel_high_ram")
+        threshold=safety.row(); threshold.enabled=getattr(
+            self,"auto_cancel_high_ram",True)
+        threshold.prop(self,"auto_cancel_ram_percent")
 
     def _draw_addon_update_section(self, layout) -> None:
         """Cloth NeXt's own update status; never performs network work."""

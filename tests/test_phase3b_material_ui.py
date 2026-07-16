@@ -490,3 +490,16 @@ def test_parameter_inspection_shows_artist_and_wire_names(blender_env):
     _lines, payload = env.solver_test.build_parameter_inspection(context)
     assert payload["scene"]["disable-contact"] is True
     env.registration.unregister()
+
+
+def test_parameter_inspection_allows_no_collider(blender_env):
+    env=blender_env; env.registration.register()
+    cloth_obj,cloth_settings=_settings(env)
+    cloth_settings.enabled=True
+    context=_scene_context(env,cloth_obj,cloth_obj)
+    context.scene.objects=[cloth_obj]
+    lines,payload=env.solver_test.build_parameter_inspection(context)
+    assert "Colliders: None (optional)" in lines
+    assert len(payload["group"])==2
+    assert payload["group"][1][2]==["cloth-next-internal-static-v1"]
+    env.registration.unregister()

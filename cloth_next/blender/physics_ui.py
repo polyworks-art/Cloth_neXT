@@ -553,8 +553,6 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
         reason = "PPF is not configured."
     elif not cloths:
         reason = "At least one deformable object is required."
-    elif not colliders:
-        reason = "At least one Collider is required."
     else:
         try:
             from ..bake.frame_range import BakeFrameRange
@@ -570,7 +568,8 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
                     "All deformables need the same Enable Contact setting.")
             # Property-only validation: touches no mesh.
             for obj in cloths:
-                solver_test._snapshot_materials(obj, colliders[0])
+                solver_test._snapshot_materials(
+                    obj, colliders[0] if colliders else None)
         except Exception as exc:  # noqa: BLE001 — an invalid value stays visible
             reason = str(exc) or "Material settings are invalid."
         else:

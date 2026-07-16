@@ -203,18 +203,8 @@ class SimulationSettings:
                 previous = time_seconds
 
 
-def build_param_payload(settings: SimulationSettings,
-                        cloth_name: str, cloth_uuid: str,
-                        collider_name: str, collider_uuid: str, *,
-                        shell: ShellMaterialSettings,
-                        static: StaticMaterialSettings,
-                        contact_enabled: bool = True,
-                        static_pin: StaticPinConfig | None = None) -> dict:
-    for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
-                         ("collider name", collider_name),
-                         ("collider uuid", collider_uuid)):
-        if not value.strip():
-            raise ParamEncodeError(f"{label} must not be empty")
+def _scene_wire_params(settings: SimulationSettings,
+                       contact_enabled: bool) -> dict:
     scene = {
         "dt": float32_wire(settings.quality.time_step),
         "min-newton-steps": int(settings.quality.min_newton_steps),
@@ -234,6 +224,38 @@ def build_param_payload(settings: SimulationSettings,
                        ("isotropic-air-friction", settings.vertex_air_damp)):
         if value is not None:
             scene[key] = float32_wire(value)
+    return scene
+
+
+def _attach_dynamic_params(payload: dict, settings: SimulationSettings) -> dict:
+    if not settings.dynamic_parameters:
+        return payload
+    dynamic = {}
+    for key, entries in settings.dynamic_parameters:
+        encoded = []
+        for time_seconds, value, hold in entries:
+            wire_value = (list(blender_vector_to_ppf(value))
+                          if key in _DYNAMIC_VECTOR_KEYS
+                          else [float32_wire(value[0])])
+            encoded.append((float(time_seconds), wire_value, bool(hold)))
+        dynamic[key] = encoded
+    payload["dyn_param"] = dynamic
+    return payload
+
+
+def build_param_payload(settings: SimulationSettings,
+                        cloth_name: str, cloth_uuid: str,
+                        collider_name: str, collider_uuid: str, *,
+                        shell: ShellMaterialSettings,
+                        static: StaticMaterialSettings,
+                        contact_enabled: bool = True,
+                        static_pin: StaticPinConfig | None = None) -> dict:
+    for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
+                         ("collider name", collider_name),
+                         ("collider uuid", collider_uuid)):
+        if not value.strip():
+            raise ParamEncodeError(f"{label} must not be empty")
+    scene = _scene_wire_params(settings, contact_enabled)
     group = [
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
@@ -252,18 +274,7 @@ def build_param_payload(settings: SimulationSettings,
                     "position":[list(frame[offset]) for frame in static_pin.positions]}}
             pin_config[cloth_uuid][index]=config
     payload = {"scene": scene, "group": group, "pin_config": pin_config}
-    if settings.dynamic_parameters:
-        dynamic = {}
-        for key, entries in settings.dynamic_parameters:
-            encoded = []
-            for time_seconds, value, hold in entries:
-                wire_value = (list(blender_vector_to_ppf(value))
-                              if key in _DYNAMIC_VECTOR_KEYS
-                              else [float32_wire(value[0])])
-                encoded.append((float(time_seconds), wire_value, bool(hold)))
-            dynamic[key] = encoded
-        payload["dyn_param"] = dynamic
-    return payload
+    return _attach_dynamic_params(payload, settings)
 
 
 def build_multi_collider_param_payload(
@@ -274,7 +285,9 @@ def build_multi_collider_param_payload(
     """PPF Param payload with one material group per STATIC collider."""
     entries = tuple(colliders)
     if not entries:
-        raise ParamEncodeError("at least one collider is required")
+        return build_multi_deformable_param_payload(
+            settings, ((cloth_name, cloth_uuid, "SHELL", shell,
+                        static_pin),), (), contact_enabled=contact_enabled)
     first_name, first_uuid, first_static = entries[0]
     payload = build_param_payload(
         settings, cloth_name, cloth_uuid, first_name, first_uuid,
@@ -323,8 +336,6 @@ def build_multi_deformable_param_payload(
     if not dynamic_entries:
         raise ParamEncodeError("at least one deformable is required")
     entries = tuple(colliders)
-    if not entries:
-        raise ParamEncodeError("at least one collider is required")
     dynamic_groups = []
     pin_config = {}
     seen = set()
@@ -357,19 +368,13 @@ def build_multi_deformable_param_payload(
                                              for frame in static_pin.positions]}}
                 object_pins[index] = config
             pin_config[uuid] = object_pins
-    first_name, first_uuid, first_static = entries[0]
-    first_dynamic = dynamic_entries[0]
-    payload = build_param_payload(
-        settings, first_dynamic[0], first_dynamic[1], first_name, first_uuid,
-        shell=ShellMaterialSettings(), static=first_static,
-        contact_enabled=contact_enabled)
-    payload["group"] = [
+    payload = {"scene": _scene_wire_params(settings, contact_enabled),
+               "group": [
         *dynamic_groups,
         *((static_wire_params(static), [name], [uuid])
           for name, uuid, static in entries),
-    ]
-    payload["pin_config"] = pin_config
-    return payload
+    ], "pin_config": pin_config}
+    return _attach_dynamic_params(payload, settings)
 
 
 def encode_deformable_param(

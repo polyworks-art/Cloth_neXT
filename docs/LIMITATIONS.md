@@ -3,7 +3,7 @@
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
 Current production scope is multiple Cloth, Rod, and Soft Body deformables in
-one shared solve with one or more static or animated Colliders. Every
+one shared solve with zero or more static or animated Colliders. Every
 deformable must use the same Bake range and scene-wide Contact setting.
 Force objects are supported on Emptys for every dynamic PPF environment
 parameter: Gravity uses local `-Z`, Wind uses local `+Z`, plus Air Density,
@@ -146,7 +146,7 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
 
 - Multiple deformable objects (Cloth shells, experimental Rod / Cable, and
   experimental Soft Body) in one interacting solve, one or more
-  static/animated colliders, and an artist-selected
+  optional static/animated colliders, and an artist-selected
   Bake Start/End range with a 10,000-output-frame safety limit.
 - For Cloth shells, Static and Follow Animation hard pins through one vertex
   group and uniform object-local pressure are supported. Soft Pull, timed pin release, shrink,

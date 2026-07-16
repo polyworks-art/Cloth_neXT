@@ -92,6 +92,17 @@ def test_scene_payload_structure_and_types():
     assert info["transform"][2][1] == -1.0
 
 
+def test_scene_and_params_allow_no_collider():
+    cloth,_collider=_micro_objects()
+    scene=build_scene_payload(cloth,())
+    assert [group["type"] for group in scene]==["SHELL"]
+    params=build_multi_collider_param_payload(
+        _micro_settings(),cloth.name,cloth.uuid,(),
+        shell=DEFAULT_SHELL_SETTINGS)
+    assert len(params["group"])==1
+    assert params["group"][0][2]==[cloth.uuid]
+
+
 def test_official_static_deform_animation_roundtrip():
     cloth, collider = _micro_objects()
     frames = np.asarray([collider.vertices_local, collider.vertices_local],

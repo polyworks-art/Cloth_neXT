@@ -15,7 +15,7 @@ from cloth_next.materials import DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS
 from cloth_next.ppf.coordinates import solver_world_matrix, transform_point
 from cloth_next.ppf.resolver import SolverResolutionContext, SolverResolver
 from cloth_next.ppf.schema.data import (GROUP_SHELL, SceneObject,
-    encode_multi_deformable_scene)
+    encode_multi_deformable_scene,internal_static_sentinel)
 from cloth_next.ppf.schema.params import (SimulationSettings,
     encode_multi_deformable_param)
 from cloth_next.ppf_run import fixture
@@ -25,7 +25,7 @@ from cloth_next.pinning import StaticPinConfig
 from tools.run_ppf_vertical_slice import _version_probe
 
 
-def run(executable: Path, output_dir: Path) -> dict:
+def run(executable: Path, output_dir: Path, *, include_collider: bool = True) -> dict:
     cloth, collider = fixture.vertical_slice_fixture()
     resolved = SolverResolver(_version_probe).resolve(
         SolverResolutionContext(development_executable=executable))
@@ -47,7 +47,8 @@ def run(executable: Path, output_dir: Path) -> dict:
                      solver_b, (0,)), GROUP_SHELL))
     static = SceneObject("Floor", collider_uuid, collider.vertices_local,
         collider.triangles, solver_world_matrix(collider.world_matrix))
-    data_payload, data_hash = encode_multi_deformable_scene(objects, (static,))
+    statics = (static,) if include_collider else (internal_static_sentinel(),)
+    data_payload, data_hash = encode_multi_deformable_scene(objects, statics)
     settings = SimulationSettings(
         4, 24, fixture.DEFAULT_GRAVITY, wind_blender=(0.5, 0.0, 0.0),
         air_density=0.001, air_friction=0.2, vertex_air_damp=0.01,
@@ -68,12 +69,16 @@ def run(executable: Path, output_dir: Path) -> dict:
     deformables = (
         ("ClothA", uuid_a, GROUP_SHELL, DEFAULT_SHELL_SETTINGS, pins_a),
         ("ClothB", uuid_b, GROUP_SHELL, DEFAULT_SHELL_SETTINGS, pins_b))
-    colliders = (("Floor", collider_uuid, DEFAULT_STATIC_SETTINGS),)
+    colliders = ((("Floor", collider_uuid, DEFAULT_STATIC_SETTINGS),)
+                 if include_collider else ((statics[0].name,statics[0].uuid,
+                                             DEFAULT_STATIC_SETTINGS),))
     param_payload, param_hash = encode_multi_deformable_param(
         settings, deformables, colliders)
     scene = SessionScene(
         new_project_name(), "ClothA", uuid_a, len(cloth.vertices_local),
-        "Floor", collider_uuid, 4, data_payload, param_payload, data_hash,
+        ("Floor" if include_collider else ""),
+        (collider_uuid if include_collider else ""),
+        4, data_payload, param_payload, data_hash,
         param_hash, deformables=(
             SessionDeformable("ClothA", uuid_a, len(cloth.vertices_local)),
             SessionDeformable("ClothB", uuid_b, len(cloth.vertices_local))))
@@ -88,6 +93,8 @@ def run(executable: Path, output_dir: Path) -> dict:
     assert all(frame.positions_by_uuid[uuid_a].shape ==
                (len(cloth.vertices_local), 3) for frame in frames)
     report = {"result": "PASS", "frames": len(frames),
+              "user_collider_count": int(include_collider),
+              "internal_static_sentinel": not include_collider,
               "objects": sorted(frames[-1].positions_by_uuid),
               "vertices_per_object": len(cloth.vertices_local),
               "status_transitions": diagnostics.status_transitions}
@@ -100,8 +107,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--solver", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--no-collider", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(run(args.solver.resolve(), args.output_dir.resolve()),
+    print(json.dumps(run(args.solver.resolve(), args.output_dir.resolve(),
+                         include_collider=not args.no_collider),
                      indent=2))
     return 0
 
