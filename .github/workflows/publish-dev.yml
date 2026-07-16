@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ref: {description: "Exact 40-character source commit SHA", required: true}
-      version: {description: "Immutable Dev version (MAJOR.MINOR.PATCH-dev.N)", required: true}
+      version: {description: "Immutable Dev version (STABLE.BETA.DEV)", required: true}
       build_note: {description: "Optional public build note", required: false}
       confirmation: {description: "Type PUBLISH_DEV", required: true}
 
@@ -24,7 +24,7 @@ jobs:
         run: |
           if ('${{ inputs.confirmation }}' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
           if ('${{ inputs.ref }}' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }
-          if ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-dev\.[1-9][0-9]*$') { throw 'invalid Dev version' }
+          if ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }
       - uses: actions/checkout@v4
         with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
       - shell: pwsh
@@ -69,11 +69,13 @@ jobs:
           if (Test-Path $destination) { throw 'Dev version already exists and is immutable' }
           Copy-Item -LiteralPath $zip -Destination $destination
           $archives=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | ForEach-Object {
-            $match=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-dev\.(\d+)-windows-x64\.zip$')
-            if (-not $match.Success) { throw "invalid Dev archive name: $($_.Name)" }
-            [pscustomobject]@{File=$_; Major=[int]$match.Groups[1].Value; Minor=[int]$match.Groups[2].Value; Patch=[int]$match.Groups[3].Value; Dev=[int]$match.Groups[4].Value}
+            $current=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-windows-x64\.zip$')
+            $legacy=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-dev\.(\d+)-windows-x64\.zip$')
+            if ($current.Success) { [pscustomobject]@{File=$_; Stable=[int]$current.Groups[1].Value; Beta=[int]$current.Groups[2].Value; Dev=[int]$current.Groups[3].Value} }
+            elseif ($legacy.Success) { [pscustomobject]@{File=$_; Stable=[int]$legacy.Groups[1].Value; Beta=[int]$legacy.Groups[2].Value; Dev=[int]$legacy.Groups[4].Value} }
+            else { throw "invalid Dev archive name: $($_.Name)" }
           }
-          $old=$archives | Sort-Object @{Expression='Major';Descending=$true},@{Expression='Minor';Descending=$true},@{Expression='Patch';Descending=$true},@{Expression='Dev';Descending=$true} | Select-Object -Skip 5
+          $old=$archives | Sort-Object @{Expression='Stable';Descending=$true},@{Expression='Beta';Descending=$true},@{Expression='Dev';Descending=$true} | Select-Object -Skip 5
           $old.File | Remove-Item -Force
           $indexStage=Join-Path "$env:RUNNER_TEMP" "dev-index-current"
           python -c "from pathlib import Path; from tools.build_extension_repository import generate_single_candidate_index; generate_single_candidate_index(r'$env:CLOTH_NEXT_BLENDER', Path(r'$dev'), Path(r'$destination'), Path(r'$indexStage'))"

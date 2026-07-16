@@ -46,8 +46,8 @@ class UpdateChannel(Enum):
 
 
 def default_channel(installed: AddonVersion) -> UpdateChannel:
-    """Beta when the installed version is itself a prerelease, else Stable."""
-    return UpdateChannel.BETA if installed.is_prerelease else UpdateChannel.STABLE
+    """Derive the channel from STABLE.BETA.DEV or a legacy prerelease."""
+    return UpdateChannel[installed.channel_name.upper()]
 
 
 class AddonUpdateState(Enum):
@@ -132,9 +132,9 @@ def parse_index_versions(payload: dict,
                          channel: UpdateChannel) -> tuple[AddonVersion, ...]:
     """Extract this extension's versions; enforce channel content rules.
 
-    Stable may list only plain releases, Beta only prereleases
-    (docs/RELEASE_POLICY.md section 4). A violation is an error, never a
-    silently offered update.
+    Every entry must encode the selected STABLE.BETA.DEV channel position.
+    Legacy suffixed versions remain readable, but a cross-channel entry is an
+    error and is never silently offered as an update.
     """
     data = payload.get("data")
     if not isinstance(data, list):
@@ -145,16 +145,15 @@ def parse_index_versions(payload: dict,
         if not isinstance(entry, dict) or entry.get("id") != EXTENSION_ID:
             continue
         version = parse_version(str(entry.get("version")))
-        if channel is UpdateChannel.STABLE and version.is_prerelease:
-            raise ValueError(f"the stable channel offers prerelease {version}; "
-                             "refusing the policy-violating index")
-        if channel is UpdateChannel.BETA and not version.is_prerelease:
-            raise ValueError(f"the beta channel offers stable release {version}; "
-                             "refusing the policy-violating index")
-        if channel is UpdateChannel.BETA and version.stage == "dev":
-            raise ValueError(f"the beta channel offers Dev snapshot {version}; refusing it")
-        if channel is UpdateChannel.DEV and version.stage != "dev":
-            raise ValueError(f"the Dev channel offers non-Dev version {version}; refusing it")
+        expected = channel.name.lower()
+        try:
+            actual = version.channel_name
+        except ValueError as exc:
+            raise ValueError(f"the {channel.label} channel offers invalid "
+                             f"version {version}; refusing it") from exc
+        if actual != expected:
+            raise ValueError(f"the {channel.label} channel offers {actual} "
+                             f"version {version}; refusing it")
         if version in seen:
             raise ValueError(f"ambiguous channel index: Cloth NeXt {version} "
                              "is listed more than once")

@@ -9,9 +9,9 @@ tooling (`blender --command extension server-generate`). Governed by
 
 | Channel | Accepted versions | Repository URL |
 |---|---|---|
-| stable | `vX.Y.Z` | `https://polyworks-art.github.io/Cloth_neXT/stable/index.json` |
-| beta | `vX.Y.Z-beta.N`, `vX.Y.Z-rc.N` | `https://polyworks-art.github.io/Cloth_neXT/beta/index.json` |
-| dev | `X.Y.Z-dev.N` (no tag) | `https://polyworks-art.github.io/Cloth_neXT/dev/index.json` |
+| stable | `vSTABLE.0.0` | `https://polyworks-art.github.io/Cloth_neXT/stable/index.json` |
+| beta | `vSTABLE.BETA.0` | `https://polyworks-art.github.io/Cloth_neXT/beta/index.json` |
+| dev | `STABLE.BETA.DEV` (no tag) | `https://polyworks-art.github.io/Cloth_neXT/dev/index.json` |
 
 GitHub Pages must be configured (repository settings → Pages) to serve the
 `gh-pages` branch from its root. The release workflow updates only the channel
@@ -22,8 +22,8 @@ directory of the release being published and never removes the other channel.
 Either through Cloth NeXt (preferred):
 
 1. Edit → Preferences → Add-ons → Cloth NeXt.
-2. Pick the *Update Channel* (Stable or Beta; Beta is preselected while a
-   prerelease is installed). Dev is never automatic and requires Developer
+2. Pick the *Update Channel*. The installed `STABLE.BETA.DEV` positions select
+   the matching default channel. Dev still requires Developer
    Tools plus explicit risk acknowledgement.
 3. Click *Add Channel Repository* — this registers the channel URL in
    Blender's Get Extensions repositories. Setup happens only on this explicit

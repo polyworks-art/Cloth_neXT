@@ -30,7 +30,8 @@ extension ZIP. It is validated by `companion_manifest.json` (version, platform,
 size, and SHA-256), is never a separate release asset, and does not authorize any
 other executable, third-party binary, solver DLL, archive, or runtime.
 
-Developer-only UI is permitted only in explicitly prepared `-dev.N` snapshots.
+Developer-only UI is permitted only in explicitly prepared `STABLE.BETA.DEV`
+snapshots with `DEV >= 1`.
 Beta, release-candidate, and stable packages must not contain `dev_build.json`;
 without that CI-generated metadata all Developer Tools UI fails closed. The
 release policy validator rejects any production-channel ZIP carrying this Dev
@@ -41,7 +42,7 @@ metadata, even if its manifest version otherwise appears valid.
 The canonical Cloth NeXt version lives exclusively in:
 
 ```text
-cloth_next/blender_manifest.toml   →   version = "X.Y.Z[-prerelease]"
+cloth_next/blender_manifest.toml   →   version = "STABLE.BETA.DEV"
 ```
 
 For every release, the following must be identical (modulo the leading `v` on tags):
@@ -60,16 +61,18 @@ Any mismatch aborts the release. No component may derive or invent its own versi
 
 ## 3. Semantic Versioning Rules
 
-Cloth NeXt uses Semantic Versioning. Allowed forms:
+Cloth NeXt uses a three-position channel counter, written as
+`STABLE.BETA.DEV`:
 
 ```text
-MAJOR.MINOR.PATCH               e.g. 0.2.0, 0.2.1, 1.0.0
-MAJOR.MINOR.PATCH-beta.N        e.g. 0.3.0-beta.1
-MAJOR.MINOR.PATCH-rc.N          e.g. 0.3.0-rc.1
-MAJOR.MINOR.PATCH-dev.N         e.g. 0.2.0-dev.1
+STABLE.0.0                     e.g. 1.0.0
+STABLE.BETA.0                  e.g. 0.4.0
+STABLE.BETA.DEV                e.g. 0.3.21
 ```
 
-No other prerelease identifiers, no build metadata, no leading zeros. Versions are
+Legacy `-beta.N`, `-rc.N`, and `-dev.N` versions remain readable for installed
+build and repository compatibility but are never produced again. No build metadata
+or leading zeros are allowed. Versions are
 never reused and never decreased. An AI assistant or automation must never choose a
 version on its own; the version is supplied by the human release manager.
 
@@ -77,13 +80,13 @@ version on its own; the version is supplied by the human release manager.
 
 Three channels exist: `stable`, `beta`, and `dev`.
 
-- Stable accepts only plain `MAJOR.MINOR.PATCH` tags (`v0.2.0`, `v1.0.0`).
-- Beta accepts only prerelease tags (`v0.3.0-beta.1`, `v0.3.0-rc.1`).
+- Stable accepts only `vSTABLE.0.0` tags (`v1.0.0`).
+- Beta accepts only `vSTABLE.BETA.0` tags with `BETA >= 1` (`v0.4.0`).
 - Prerelease versions must never appear in the stable repository.
 - A stable release requires a previously successful beta end-to-end test.
 - New release infrastructure is exercised in the beta channel first.
 - Automation never promotes beta to stable on its own.
-- Dev accepts only `MAJOR.MINOR.PATCH-dev.N`, is never selected automatically,
+- Dev accepts only `STABLE.BETA.DEV` with `DEV >= 1`, is never selected automatically,
   and is published only by its confirmation-gated manual workflow.
 - Dev creates no tag or GitHub Release, retains at most five immutable ZIPs,
   and never skips packaging, secret, companion-integrity, or solver scans.
@@ -298,7 +301,7 @@ regenerated from verified artifacts.
 
 ## Public Dev snapshots
 
-A Dev workflow may derive an authorized `X.Y.Z-dev.N` version only in its
+A Dev workflow may derive an authorized `STABLE.BETA.DEV` version only in its
 isolated exact-commit checkout and must update package-internal metadata
 consistently. It may modify only `gh-pages/dev/`; Stable, Beta, tags, GitHub
 Releases, and the canonical source manifest are outside its authority.

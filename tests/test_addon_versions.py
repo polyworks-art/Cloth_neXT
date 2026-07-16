@@ -54,6 +54,13 @@ def test_dev_ordering_is_independent_and_monotonic():
     assert parse_version("0.2.0-dev.2") < parse_version("0.2.0-beta.7")
 
 
+def test_numeric_channel_positions():
+    assert parse_version("1.0.0").channel_name == "stable"
+    assert parse_version("0.3.0").channel_name == "beta"
+    assert parse_version("0.3.21").channel_name == "dev"
+    assert parse_version("0.3.20") < parse_version("0.3.21")
+
+
 def test_is_prerelease():
     assert parse_version("0.2.0-beta.1").is_prerelease
     assert parse_version("0.2.0-rc.1").is_prerelease

@@ -51,8 +51,9 @@ def test_channel_urls_are_the_policy_urls():
 def test_default_channel_follows_installed_version():
     assert default_channel(parse_version("0.2.0-beta.1")) is UpdateChannel.BETA
     assert default_channel(parse_version("0.3.0-rc.1")) is UpdateChannel.BETA
-    assert default_channel(parse_version("0.2.0")) is UpdateChannel.STABLE
-    assert default_channel(parse_version("0.2.0-dev.1")) is UpdateChannel.BETA
+    assert default_channel(parse_version("1.0.0")) is UpdateChannel.STABLE
+    assert default_channel(parse_version("0.3.21")) is UpdateChannel.DEV
+    assert default_channel(parse_version("0.2.0-dev.1")) is UpdateChannel.DEV
 
 
 def test_validate_index_url_rejects_foreign_hosts_and_http():
@@ -91,26 +92,26 @@ def test_parse_index_versions_reads_cloth_next_entries():
 
 
 def test_stable_channel_never_accepts_prereleases():
-    payload = index_payload("0.2.0", "0.3.0-beta.1")
-    with pytest.raises(ValueError, match="prerelease"):
+    payload = index_payload("1.0.0", "0.3.0-beta.1")
+    with pytest.raises(ValueError):
         parse_index_versions(payload, UpdateChannel.STABLE)
 
 
 def test_beta_channel_never_accepts_stable_releases():
-    payload = index_payload("0.2.0")
+    payload = index_payload("1.0.0")
     with pytest.raises(ValueError, match="stable"):
         parse_index_versions(payload, UpdateChannel.BETA)
 
 def test_dev_channel_accepts_only_dev_versions():
-    versions=parse_index_versions(index_payload("0.2.0-dev.1"),UpdateChannel.DEV)
-    assert str(versions[0])=="0.2.0-dev.1"
-    for invalid in ("0.2.0","0.2.0-beta.7","0.2.0-rc.1"):
+    versions=parse_index_versions(index_payload("0.3.21"),UpdateChannel.DEV)
+    assert str(versions[0])=="0.3.21"
+    for invalid in ("1.0.0","0.3.0","0.2.0-beta.7","0.2.0-rc.1"):
         with pytest.raises(ValueError):
             parse_index_versions(index_payload(invalid),UpdateChannel.DEV)
 
 def test_beta_rejects_dev_versions():
     with pytest.raises(ValueError):
-        parse_index_versions(index_payload("0.2.0-dev.1"),UpdateChannel.BETA)
+        parse_index_versions(index_payload("0.3.21"),UpdateChannel.BETA)
 
 
 def test_parse_index_ignores_other_extensions():

@@ -42,7 +42,7 @@ def main() -> int:
     parser.add_argument("--blender", type=Path, required=True)
     parser.add_argument("--duplicate-repo", type=Path, required=True)
     parser.add_argument("--repaired-repo", type=Path, required=True)
-    parser.add_argument("--expected", default="0.2.0-dev.5")
+    parser.add_argument("--expected", default="0.3.21")
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
 

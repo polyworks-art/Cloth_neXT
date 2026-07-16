@@ -10,9 +10,9 @@ def test_prepare_dev_build_updates_only_isolated_version_metadata(tmp_path):
     root=tmp_path; package=root/"cloth_next"; package.mkdir()
     (package/"blender_manifest.toml").write_text('id="cloth_next"\nversion = "0.2.0-beta.6"\n')
     (package/"solver_compatibility.json").write_text('{"cloth_next_version":"0.2.0-beta.6"}')
-    prepare(root,"0.2.0-dev.1","a"*40,"123")
-    assert '0.2.0-dev.1' in (package/"blender_manifest.toml").read_text()
-    assert json.loads((package/"solver_compatibility.json").read_text())["cloth_next_version"]=="0.2.0-dev.1"
+    prepare(root,"0.3.21","a"*40,"123")
+    assert '0.3.21' in (package/"blender_manifest.toml").read_text()
+    assert json.loads((package/"solver_compatibility.json").read_text())["cloth_next_version"]=="0.3.21"
     metadata=json.loads((package/"dev_build.json").read_text())
     assert metadata["experimental"] is True and metadata["source_commit"]=="a"*40
 
@@ -20,13 +20,13 @@ def test_prepare_accepts_next_release_line(tmp_path):
     package=tmp_path/"cloth_next"; package.mkdir()
     (package/"blender_manifest.toml").write_text('version = "0.2.0-beta.6"\n')
     (package/"solver_compatibility.json").write_text('{"cloth_next_version":"0.2.0-beta.6"}')
-    prepare(tmp_path,"0.3.0-dev.1","b"*40,"456")
-    assert 'version = "0.3.0-dev.1"' in (package/"blender_manifest.toml").read_text()
+    prepare(tmp_path,"0.3.21","b"*40,"456")
+    assert 'version = "0.3.21"' in (package/"blender_manifest.toml").read_text()
 
 def test_prepare_rejects_invalid_or_reused_style(tmp_path):
     with pytest.raises(ValueError): prepare(tmp_path,"0.2.0-beta.7","a"*40,"1")
-    with pytest.raises(ValueError): prepare(tmp_path,"00.3.0-dev.1","a"*40,"1")
-    with pytest.raises(ValueError): prepare(tmp_path,"0.3.0-dev.0","a"*40,"1")
+    with pytest.raises(ValueError): prepare(tmp_path,"00.3.21","a"*40,"1")
+    with pytest.raises(ValueError): prepare(tmp_path,"0.3.0","a"*40,"1")
 
 def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     text=(Path(__file__).parents[1]/".github/workflows/publish-dev.yml").read_text()
@@ -36,13 +36,12 @@ def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     assert "generate_single_candidate_index" in text
     assert "candidates.Count -ne 1" in text
     assert "LastWriteTimeUtc" not in text
-    assert "Major=[int]$match.Groups[1].Value" in text
-    assert "Minor=[int]$match.Groups[2].Value" in text
-    assert "Patch=[int]$match.Groups[3].Value" in text
-    assert "Dev=[int]$match.Groups[4].Value" in text
-    assert "Expression='Major'" in text and "Expression='Dev'" in text
+    assert "Stable=[int]$current.Groups[1].Value" in text
+    assert "Beta=[int]$current.Groups[2].Value" in text
+    assert "Dev=[int]$current.Groups[3].Value" in text
+    assert "Expression='Stable'" in text and "Expression='Dev'" in text
     assert "$old.File | Remove-Item -Force" in text
-    assert "MAJOR.MINOR.PATCH-dev.N" in text
+    assert "STABLE.BETA.DEV" in text
     assert "^0\\.2\\.0-dev" not in text
 
 

@@ -67,13 +67,15 @@ def test_semver_rejects_invalid_versions(text):
 
 
 def test_channel_derivation_and_stable_prerelease_rejection():
-    assert parse_version("0.2.0").channel == "stable"
+    assert parse_version("1.0.0").channel == "stable"
+    assert parse_version("0.2.0").channel == "beta"
+    assert parse_version("0.2.1").channel == "dev"
     assert parse_version("0.3.0-beta.2").channel == "beta"
     assert parse_version("0.3.0-rc.1").channel == "beta"
     with pytest.raises(ValueError):
         check_channel(parse_version("0.3.0-beta.1"), "stable")
     with pytest.raises(ValueError):
-        check_channel(parse_version("0.3.0"), "beta")
+        check_channel(parse_version("1.0.0"), "beta")
 
 
 def test_tag_manifest_match_and_mismatch(tmp_path):
@@ -167,21 +169,21 @@ def test_stable_and_beta_channels_stay_separated(tmp_path):
     site = tmp_path / "site"
     (site / "stable").mkdir(parents=True)
     (site / "beta").mkdir(parents=True)
-    make_zip(site / "beta", "0.3.0-beta.1")
-    check_channel_separation(site, parse_version("0.3.0-beta.1"))
-    make_zip(site / "stable", "0.3.0-beta.1")
+    make_zip(site / "beta", "0.3.0")
+    check_channel_separation(site, parse_version("0.3.0"))
+    make_zip(site / "stable", "0.3.0")
     with pytest.raises(ValueError, match="stable channel"):
-        check_channel_separation(site, parse_version("0.3.0-beta.1"))
+        check_channel_separation(site, parse_version("0.3.0"))
 
 
 def test_stable_index_must_not_reference_prereleases(tmp_path):
     site = tmp_path / "site"
     (site / "stable").mkdir(parents=True)
     (site / "stable" / "index.json").write_text(
-        json.dumps({"data": [{"id": "cloth_next", "version": "0.3.0-beta.1"}]}),
+        json.dumps({"data": [{"id": "cloth_next", "version": "0.3.0"}]}),
         encoding="utf-8")
-    with pytest.raises(ValueError, match="prerelease"):
-        check_channel_separation(site, parse_version("0.3.0-beta.1"))
+    with pytest.raises(ValueError, match="non-stable"):
+        check_channel_separation(site, parse_version("0.3.0"))
 
 
 def test_tag_requires_v_prefix():

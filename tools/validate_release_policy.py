@@ -43,7 +43,15 @@ class ReleaseVersion:
 
     @property
     def channel(self) -> str:
-        return "beta" if self.prerelease else "stable"
+        if self.prerelease:
+            return "beta"  # legacy tagged release compatibility
+        if self.patch > 0:
+            return "dev"
+        if self.minor > 0:
+            return "beta"
+        if self.major > 0:
+            return "stable"
+        raise ValueError("0.0.0 does not encode a release channel")
 
 
 def parse_version(text: str) -> ReleaseVersion:
@@ -66,10 +74,8 @@ def tag_to_version(tag: str) -> ReleaseVersion:
 def check_channel(version: ReleaseVersion, channel: str) -> None:
     if channel not in ("stable", "beta"):
         raise ValueError(f"unknown release channel {channel!r}")
-    if channel == "stable" and version.prerelease:
-        raise ValueError(f"prerelease {version.text} must never enter the stable channel")
-    if channel == "beta" and not version.prerelease:
-        raise ValueError(f"stable version {version.text} does not belong in the beta channel")
+    if version.channel != channel:
+        raise ValueError(f"{version.text} encodes channel {version.channel}, not {channel}")
 
 
 def expected_zip_name(version: ReleaseVersion) -> str:
@@ -171,18 +177,29 @@ def check_sha256sums(path: Path, zip_path: Path) -> None:
 
 
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
-    """A prerelease artifact must never appear in the stable repository."""
+    """Only versions encoding the stable channel may appear in stable."""
     stable_dir = site_dir / "stable"
     if not stable_dir.is_dir():
         return
     for entry in stable_dir.glob("cloth_next-*.zip"):
         name_version = entry.name.removeprefix("cloth_next-").removesuffix(
             f"-{RELEASE_PLATFORM}.zip")
-        if parse_version(name_version).prerelease:
-            raise ValueError(f"prerelease artifact {entry.name} found in the stable channel")
+        archived = parse_version(name_version)
+        if archived.channel != "stable":
+            raise ValueError(
+                f"non-stable artifact {entry.name} found in the stable channel")
     index = stable_dir / "index.json"
-    if index.is_file() and re.search(r"-(?:beta|rc)\.\d+", index.read_text(encoding="utf-8")):
-        raise ValueError("stable index.json references a prerelease version")
+    if index.is_file():
+        payload = json.loads(index.read_text(encoding="utf-8"))
+        entries = payload.get("data")
+        if not isinstance(entries, list):
+            raise ValueError("stable index.json has no package list")
+        for entry in entries:
+            if (isinstance(entry, dict) and entry.get("id") == "cloth_next"
+                    and parse_version(str(entry.get("version"))).channel
+                    != "stable"):
+                raise ValueError(
+                    "stable index.json references a non-stable version")
 
 
 def main() -> int:

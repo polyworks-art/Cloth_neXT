@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-_DEV_VERSION = re.compile(r"^\d+\.\d+\.\d+-dev\.[1-9]\d*$")
+_DEV_VERSION = re.compile(r"^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.[1-9]\d*$")
 
 
 def is_dev_build(package_root: Path | None = None) -> bool:

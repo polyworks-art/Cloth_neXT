@@ -16,5 +16,5 @@ def test_dev_build_gate_fails_closed_without_valid_ci_metadata(tmp_path):
 
 def test_dev_build_gate_accepts_only_explicit_dev_snapshot(tmp_path):
     (tmp_path / "dev_build.json").write_text(json.dumps({
-        "experimental": True, "dev_version": "0.2.0-dev.14"}), encoding="utf-8")
+        "experimental": True, "dev_version": "0.3.21"}), encoding="utf-8")
     assert is_dev_build(tmp_path) is True
