@@ -7,15 +7,21 @@ tooling (`blender --command extension server-generate`). Governed by
 
 ## Channels
 
-| Channel | Accepted versions | Repository URL |
+| Channel | Active candidate may be | Repository URL |
 |---|---|---|
-| stable | `vSTABLE.0.0` | `https://polyworks-art.github.io/Cloth_neXT/stable/index.json` |
-| beta | `vSTABLE.BETA.0` | `https://polyworks-art.github.io/Cloth_neXT/beta/index.json` |
-| dev | `STABLE.BETA.DEV` (no tag) | `https://polyworks-art.github.io/Cloth_neXT/dev/index.json` |
+| stable | Stable | `https://polyworks-art.github.io/Cloth_neXT/stable/index.json` |
+| beta | Beta or Stable | `https://polyworks-art.github.io/Cloth_neXT/beta/index.json` |
+| dev | Dev, Beta, or Stable | `https://polyworks-art.github.io/Cloth_neXT/dev/index.json` |
+
+Visibility is cumulative: Stable releases are published to all repositories,
+Beta releases to Beta and Dev, and Dev snapshots only to Dev. Each repository
+still exposes exactly one active `cloth_next` candidate, and every copied ZIP is
+byte-identical. Therefore users on an experimental channel always receive a
+newer Stable release when it supersedes the current Beta/Dev line.
 
 GitHub Pages must be configured (repository settings → Pages) to serve the
-`gh-pages` branch from its root. The release workflow updates only the channel
-directory of the release being published and never removes the other channel.
+`gh-pages` branch from its root. Channel publication is serialized so Stable,
+Beta, Dev, and repair workflows cannot race while updating cumulative indices.
 
 ## Adding a channel in Blender
 
@@ -45,7 +51,7 @@ install button exists.
 ### Dev repository cache repair
 
 The Dev repository exposes exactly one active `cloth_next` candidate: the
-newest immutable Dev build. Older retained ZIPs remain downloadable, but are
+newest eligible Dev, Beta, or Stable build. Older retained ZIPs remain downloadable, but are
 not repeated as package records in `index.json`; duplicate package IDs make
 Blender's displayed and installed candidate ambiguous.
 
@@ -68,6 +74,8 @@ Or manually:
 ## Rules
 
 - Prereleases never appear in the stable repository.
+- Beta repositories accept Stable and Beta candidates; Dev repositories accept
+  Stable, Beta, and Dev candidates.
 - The channel ZIP is byte-identical (SHA-256 verified) to the GitHub release asset.
 - A GitHub release alone is not an update mechanism; only these repositories are.
 - The channels distribute Cloth NeXt only — never the external PPF Contact Solver.

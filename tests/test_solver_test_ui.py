@@ -399,6 +399,29 @@ def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
     assert snapshot.state is BakeState.ERROR
     assert "attach boom" in snapshot.error_details
 
+
+def test_ram_safety_cancel_becomes_actionable_error(blender_env, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.EXPORTING)
+    module.shared_controller.request_cancel()
+    module._active_plan = SimpleNamespace()
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    module._ram_auto_cancel_enabled = False
+    module._ram_auto_cancel_triggered = True
+    monkeypatch.setattr(module, "_discard_incomplete", lambda *_a, **_k: None)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._queue.put(("cancelled", None, None))
+
+    assert module._pump_once() is None
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.state is BakeState.ERROR
+    assert snapshot.error_code == "CNX-E166"
+    assert module._ram_auto_cancel_triggered is False
+
 def test_run_operator_reports_optional_companion_warning(blender_env, monkeypatch):
     module=blender_env.solver_test
     monkeypatch.setattr(module,"start_run",lambda _context, **_kw:"bundle unavailable")

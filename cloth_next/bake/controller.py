@@ -10,6 +10,7 @@ import time
 import uuid
 
 from .status import BakeSnapshot, BakeState, normalized
+from ..core.error_codes import classify_error, valid_error_code
 
 
 class InvalidTransition(ValueError):
@@ -64,23 +65,6 @@ _ERROR_STAGE = {
     BakeState.CANCELLING: ("cancellation cleanup", "Wait for cleanup; restart Blender only if the process remains stuck."),
 }
 
-_ERROR_CODE = {
-    BakeState.PREPARING: "CNX-E100",
-    BakeState.STARTING_COMPANION: "CNX-E110",
-    BakeState.WAITING_FOR_COMPANION: "CNX-E110",
-    BakeState.COMPANION_READY: "CNX-E120",
-    BakeState.STARTING_RUN: "CNX-E120",
-    BakeState.EXPORTING: "CNX-E120",
-    BakeState.STARTING_SOLVER: "CNX-E130",
-    BakeState.UPLOADING: "CNX-E140",
-    BakeState.BUILDING: "CNX-E150",
-    BakeState.SIMULATING: "CNX-E160",
-    BakeState.FETCHING: "CNX-E170",
-    BakeState.IMPORTING: "CNX-E180",
-    BakeState.CANCELLING: "CNX-E190",
-}
-
-
 class BakeController:
     def __init__(self) -> None:
         self._lock = RLock()
@@ -116,7 +100,8 @@ class BakeController:
         return self.transition(BakeState.CANCELLING,
                                status_message="Cancellation requested")
 
-    def fail(self, summary: str, details: str = "") -> BakeSnapshot:
+    def fail(self, summary: str, details: str = "", *,
+             error_code: str = "") -> BakeSnapshot:
         current = self.snapshot()
         stage, action = _ERROR_STAGE.get(
             current.state, ("internal operation", "Open the diagnostic log and retry."))
@@ -125,10 +110,12 @@ class BakeController:
             lines.insert(0, f"Stage: {stage}")
         if "What to do:" not in details and "Recommended:" not in details:
             lines.append(f"What to do: {action}")
+        code = (error_code if valid_error_code(error_code)
+                else classify_error(current.state, summary, details))
         return self.transition(
             BakeState.ERROR, error_summary=summary,
             error_details="\n".join(lines), status_message=summary,
-            error_code=_ERROR_CODE.get(current.state,"CNX-E199"),
+            error_code=code,
             activity_detail=stage)
 
     def reset(self) -> BakeSnapshot:

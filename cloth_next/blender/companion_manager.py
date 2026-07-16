@@ -35,6 +35,7 @@ _force_deadline = None
 _kill_deadline = None
 _production_session = False
 _production_job_id = ""
+_last_error_key: tuple[str, str, float] | None = None
 
 
 def _log_path() -> Path:
@@ -49,6 +50,10 @@ def _log_path() -> Path:
 
 def log_directory() -> Path:
     return _log_path().parent
+
+
+def _error_log_path() -> Path:
+    return log_directory() / "bake-errors.log"
 
 
 def _log(stage: str, message: str, **details) -> None:
@@ -67,14 +72,56 @@ def _log(stage: str, message: str, **details) -> None:
         pass
 
 
+def _persist_bake_error(snapshot) -> None:
+    """Persist one complete local diagnostic record per terminal failure."""
+    global _last_error_key
+    key = (str(getattr(snapshot, "job_id", "")),
+           str(getattr(snapshot, "error_code", "") or "CNX-E199"),
+           float(getattr(snapshot, "updated_at", 0.0) or 0.0))
+    if key == _last_error_key:
+        return
+    try:
+        path = _error_log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.stat().st_size > 1024 * 1024:
+            backup = path.with_suffix(".log.1")
+            backup.unlink(missing_ok=True)
+            path.replace(backup)
+        record = {
+            "time": time.time(), "job_id": key[0], "error_code": key[1],
+            "state": str(getattr(getattr(snapshot, "state", ""),
+                                 "value", getattr(snapshot, "state", ""))),
+            "activity": str(getattr(getattr(snapshot, "activity_code", ""),
+                                    "value", getattr(snapshot, "activity_code", ""))),
+            "stage": str(getattr(snapshot, "activity_detail", ""))[:1024],
+            "summary": str(getattr(snapshot, "error_summary", ""))[:8192],
+            "details": str(getattr(snapshot, "error_details", ""))[:65536],
+        }
+        with path.open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(record, sort_keys=True,
+                                    ensure_ascii=False) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        _last_error_key = key
+    except (OSError, TypeError, ValueError):
+        # Error reporting must never replace or mask the original Bake error.
+        pass
+
+
 def running() -> bool:
     return _process is not None and _process.poll() is None
 
 
 def _publish(snapshot) -> None:
     global _terminal_deadline
+    if snapshot.state is BakeState.ERROR:
+        _persist_bake_error(snapshot)
     if _server is not None:
-        _server.publish(snapshot)
+        try:
+            _server.publish(snapshot)
+        except (OSError, TypeError, ValueError) as exc:
+            _log("transport", "Bake status publication failed",
+                 error_type=type(exc).__name__, error=str(exc)[:2048])
     if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
             and snapshot.state is BakeState.ERROR):
         modal_lock.release(snapshot.job_id)

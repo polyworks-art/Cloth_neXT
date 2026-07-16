@@ -13,6 +13,7 @@ import sys
 import tkinter as tk
 import time
 import traceback
+from dataclasses import replace
 from tkinter import messagebox, ttk
 
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
@@ -145,6 +146,8 @@ class BakeWindow:
         self._progress_fraction=0.0
         self._job_modal=False
         self._error_details=""
+        self._last_snapshot=BakeSnapshot()
+        self._connection_failed=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.particles.start()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
@@ -267,6 +270,7 @@ class BakeWindow:
             self.progress.configure(highlightbackground="#777777")
 
     def show(self,snapshot: BakeSnapshot):
+        self._last_snapshot=snapshot
         self.root.update_idletasks()
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
         self._progress_fraction=fraction
@@ -314,10 +318,29 @@ class BakeWindow:
         self.pause.configure(text="Resume" if snapshot.is_paused else "Pause")
 
     def disconnected(self):
+        if self._connection_failed:
+            return
+        if self._last_snapshot.active:
+            self.connection_error("CNX-E142",
+                                  "The connection to Blender was lost.")
+            return
         self._job_modal=False
         self.root.attributes("-topmost",False)
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
         self.cancel.state(["disabled"]); self.pause.state(["disabled"])
+
+    def connection_error(self,code,message):
+        """Keep a failed active window visible until explicit user close."""
+        self._connection_failed=True
+        previous=self._last_snapshot
+        self.show(replace(previous,state=BakeState.ERROR,error_code=code,
+            error_summary=message,error_details=(
+                "Stage: Companion transport\n"
+                f"Cause: {message}\n"
+                "What to do: Preserve Blender's bake-errors.log, then retry."),
+            status_message=message,can_cancel=False,can_pause=False,
+            activity_code=BakeActivity.ERROR,
+            activity_detail="Companion transport"))
 
     def close(self):
         if self._closed:return
@@ -339,7 +362,11 @@ class BakeWindow:
                 elif message and message["type"]=="enter_bake_mode": self.enter_bake_mode(message["payload"])
                 elif message and message["type"]=="shutdown": self.close(); return
                 elif getattr(self.transport,"closed",False): self.disconnected()
-            except (OSError,ValueError,PermissionError): self.disconnected()
+            except (ValueError,PermissionError):
+                self.connection_error("CNX-E116",
+                                      "The Companion status protocol failed.")
+            except OSError:
+                self.disconnected()
             if self.root.winfo_exists(): self.root.after(50,poll)
         self.root.after(10,poll); self.root.mainloop()
 

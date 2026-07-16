@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.0.0 — 2026-07-16 (Stable channel)
+
+### Added
+
+- First Stable release of the production Cloth NeXt Bake workflow.
+- Multi-object Cloth, Rod / Cable, and Soft Body Bakes, including Follow
+  Animation Pins and colliderless projects.
+- Keyframeable Empty Forces for every PPF force parameter exposed by Cloth NeXt.
+- Seventy-four stable, documented Bake error codes with persistent local
+  diagnostics and atomic per-run failure reports.
+
+### Changed
+
+- Release repositories now use cumulative visibility: Stable publishes to
+  Stable, Beta, and Dev; Beta publishes to Beta and Dev; Dev remains Dev-only.
+- Companion transport failures remain visible, pulse red, and require explicit
+  user acknowledgement instead of silently closing.
+- Authenticated Companion status messages are size-bounded and tolerate unknown
+  future enum values without crashing the UI.
+
+### Fixed
+
+- RAM safety cancellation now terminates as actionable `CNX-E166` instead of
+  losing its cause in a generic cancellation state.
+- Worker tracebacks are published atomically, full Bake failures persist in a
+  rotating `bake-errors.log`, and IPC publication can no longer mask the
+  original solver error.
+- Channel validation accepts more-stable candidates while still rejecting any
+  less-stable candidate and ambiguous repository index.
+
 ## 0.4.0 — 2026-07-16 (Beta channel)
 
 ### Added

@@ -123,6 +123,25 @@ def test_error_releases_blender_but_waits_for_user_window_close(
     assert manager._terminal_deadline is None
 
 
+def test_complete_bake_error_is_persisted_once(blender_env, monkeypatch,
+                                               tmp_path):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    path=tmp_path/"bake-errors.log"
+    manager._last_error_key=None
+    monkeypatch.setattr(manager,"_error_log_path",lambda:path)
+    snapshot=SimpleNamespace(
+        job_id="job-1",error_code="CNX-E161",updated_at=123.0,
+        state=BakeState.ERROR,activity_code="SOLVING_CONSTRAINTS",
+        activity_detail="simulation",error_summary="Could not converge",
+        error_details="Cause: frame 12\nWhat to do: reduce Time Step")
+    manager._persist_bake_error(snapshot)
+    manager._persist_bake_error(snapshot)
+    lines=path.read_text(encoding="utf-8").splitlines()
+    assert len(lines)==1
+    assert '"error_code": "CNX-E161"' in lines[0]
+    assert '"details": "Cause: frame 12' in lines[0]
+
+
 def test_terminal_bake_closes_even_if_controller_rotated_job_id(
         blender_env, monkeypatch):
     manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])

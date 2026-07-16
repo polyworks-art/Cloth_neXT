@@ -98,7 +98,8 @@ def test_index_repair_runs_real_blender_and_changes_only_index():
 def test_release_index_repair_is_index_only_and_single_candidate():
     root = Path(__file__).parents[1]
     workflow = (root / ".github/workflows/repair-release-index.yml").read_text()
-    assert "options: [beta, stable]" in workflow
+    assert "options: [dev, beta, stable]" in workflow
+    assert "release_visible_in" in workflow
     assert "REPAIR_RELEASE_INDEX" in workflow
     assert "run_blender_dev_repository_regression.py" in workflow
     assert "candidates.Count -ne 1" in workflow

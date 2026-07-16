@@ -3,12 +3,12 @@ name: repair-release-index
 on:
   workflow_dispatch:
     inputs:
-      channel: {description: "Release channel to repair", required: true, type: choice, options: [beta, stable]}
+      channel: {description: "Repository channel to repair", required: true, type: choice, options: [dev, beta, stable]}
       version: {description: "Existing immutable release version", required: true}
       confirmation: {description: "Type REPAIR_RELEASE_INDEX", required: true}
 
 permissions: {contents: write}
-concurrency: {group: publish-release, cancel-in-progress: false}
+concurrency: {group: publish-channels, cancel-in-progress: false}
 env:
   BLENDER_VERSION: "5.1.2"
   BLENDER_SERIES: "5.1"
@@ -21,11 +21,7 @@ jobs:
         shell: pwsh
         run: |
           if ('${{ inputs.confirmation }}' -cne 'REPAIR_RELEASE_INDEX') { throw 'confirmation mismatch' }
-          if ('${{ inputs.channel }}' -eq 'beta') {
-            if ('${{ inputs.version }}' -notmatch '^((0|[1-9][0-9]*)\.[1-9][0-9]*\.0|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(beta|rc)\.[1-9][0-9]*)$') { throw 'invalid Beta version' }
-          } elseif ('${{ inputs.version }}' -notmatch '^[1-9][0-9]*\.0\.0$') {
-            throw 'invalid Stable version'
-          }
+          python -c "from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version('${{ inputs.version }}'); assert release_visible_in(v.channel_name, '${{ inputs.channel }}'), 'release is not visible in requested repository'"
       - uses: actions/checkout@v4
       - name: Download Blender 5.1.2
         shell: pwsh

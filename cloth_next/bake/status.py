@@ -141,6 +141,22 @@ class BakeSnapshot:
         data["progress_fraction"] = self.progress_fraction
         return data
 
+    def to_transport_dict(self) -> dict[str, Any]:
+        """Return a bounded snapshot that always fits the local IPC budget."""
+        data = self.to_dict()
+        limits = {
+            "error_details": 32 * 1024, "error_summary": 4096,
+            "status_message": 4096, "activity_detail": 2048,
+            "activity_label": 1024, "status_title": 512,
+            "active_object_name": 1024, "solver_version": 512,
+            "solver_mode": 128, "job_id": 128, "error_code": 32,
+        }
+        for key, limit in limits.items():
+            value = data.get(key)
+            if isinstance(value, str) and len(value) > limit:
+                data[key] = value[:limit - 16] + "\n[truncated]"
+        return data
+
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), separators=(",", ":"), sort_keys=True)
 
@@ -148,10 +164,33 @@ class BakeSnapshot:
     def from_dict(cls, data: dict[str, Any]) -> "BakeSnapshot":
         allowed = {field for field in cls.__dataclass_fields__}
         values = {key: value for key, value in data.items() if key in allowed}
-        values["state"] = BakeState(values.get("state", "IDLE"))
-        values["job_kind"] = BakeJobKind(values.get("job_kind", "BAKE"))
+        try:
+            values["state"] = BakeState(values.get("state", "IDLE"))
+        except (TypeError, ValueError):
+            values["state"] = BakeState.ERROR
+            values["error_code"] = "CNX-E116"
+            values["error_summary"] = "Unsupported Companion status received."
+        try:
+            values["job_kind"] = BakeJobKind(values.get("job_kind", "BAKE"))
+        except (TypeError, ValueError):
+            values["job_kind"] = BakeJobKind.BAKE
         try: values["activity_code"] = BakeActivity(values.get("activity_code", "IDLE"))
-        except ValueError: values["activity_code"] = BakeActivity.UNKNOWN
+        except (TypeError, ValueError): values["activity_code"] = BakeActivity.UNKNOWN
+        for key in ("progress_current", "current_frame", "frame_start",
+                    "frame_end", "solver_process_id"):
+            if key in values and values[key] is not None:
+                try: values[key] = int(values[key])
+                except (TypeError, ValueError): values[key] = None if key != "progress_current" else 0
+        if "progress_total" in values and values["progress_total"] is not None:
+            try: values["progress_total"] = max(0, int(values["progress_total"]))
+            except (TypeError, ValueError): values["progress_total"] = None
+        for key in ("elapsed_seconds", "estimated_remaining_seconds"):
+            if key in values and values[key] is not None:
+                try:
+                    number = float(values[key])
+                    values[key] = number if math.isfinite(number) and number >= 0 else None
+                except (TypeError, ValueError):
+                    values[key] = None
         return cls(**values)
 
     @classmethod

@@ -156,8 +156,8 @@ through a custom self-updater — from three official repositories
 (see [Update Channels](docs/UPDATE_CHANNELS.md)):
 
 - **Stable** — normal releases only.
-- **Beta** — beta and release-candidate prereleases.
-- **Dev** — unsupported experimental snapshots, available only after enabling
+- **Beta** — Beta builds plus every newer Stable release.
+- **Dev** — Dev and Beta builds plus every newer Stable release; available only after enabling
   Developer Tools and explicitly acknowledging the risk.
 
 In the add-on preferences, the *Cloth NeXt* section shows the installed

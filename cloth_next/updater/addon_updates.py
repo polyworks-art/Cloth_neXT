@@ -24,6 +24,7 @@ from enum import Enum, auto
 from urllib.parse import urlsplit
 
 from .addon_versions import AddonVersion, parse_version
+from .channel_policy import allowed_release_channels
 
 EXTENSION_ID = "cloth_next"
 RELEASES_PAGE_URL = "https://github.com/polyworks-art/Cloth_neXT/releases"
@@ -132,9 +133,9 @@ def parse_index_versions(payload: dict,
                          channel: UpdateChannel) -> tuple[AddonVersion, ...]:
     """Extract this extension's versions; enforce channel content rules.
 
-    Every entry must encode the selected STABLE.BETA.DEV channel position.
-    Legacy suffixed versions remain readable, but a cross-channel entry is an
-    error and is never silently offered as an update.
+    Repositories are cumulative: Stable accepts Stable; Beta accepts Beta and
+    Stable; Dev accepts Dev, Beta, and Stable. Legacy suffixed versions remain
+    readable. A less-stable entry than the selected repository is rejected.
     """
     data = payload.get("data")
     if not isinstance(data, list):
@@ -145,15 +146,16 @@ def parse_index_versions(payload: dict,
         if not isinstance(entry, dict) or entry.get("id") != EXTENSION_ID:
             continue
         version = parse_version(str(entry.get("version")))
-        expected = channel.name.lower()
+        repository_channel = channel.name.lower()
         try:
             actual = version.channel_name
         except ValueError as exc:
             raise ValueError(f"the {channel.label} channel offers invalid "
                              f"version {version}; refusing it") from exc
-        if actual != expected:
-            raise ValueError(f"the {channel.label} channel offers {actual} "
-                             f"version {version}; refusing it")
+        allowed = allowed_release_channels(repository_channel)
+        if actual not in allowed:
+            raise ValueError(f"the {channel.label} repository cannot offer "
+                             f"{actual} version {version}; refusing it")
         if version in seen:
             raise ValueError(f"ambiguous channel index: Cloth NeXt {version} "
                              "is listed more than once")

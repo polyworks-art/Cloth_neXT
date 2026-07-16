@@ -55,7 +55,7 @@ def encode_message(kind: str, token: str, snapshot: BakeSnapshot | None = None,
         raise ValueError("unsupported message kind")
     data = {"type": kind, "token": token}
     if snapshot is not None:
-        data["snapshot"] = snapshot.to_dict()
+        data["snapshot"] = snapshot.to_transport_dict()
     if payload is not None:
         data["payload"] = payload
     value = json.dumps(data, separators=(",", ":")).encode("utf-8")

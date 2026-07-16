@@ -90,6 +90,13 @@ Three channels exist: `stable`, `beta`, and `dev`.
   and is published only by its confirmation-gated manual workflow.
 - Dev creates no tag or GitHub Release, retains at most five immutable ZIPs,
   and never skips packaging, secret, companion-integrity, or solver scans.
+- Repository visibility is cumulative toward stability: a Dev repository may
+  expose Dev, Beta, or Stable; Beta may expose Beta or Stable; Stable may expose
+  only Stable. Every repository index exposes exactly one active Cloth NeXt
+  candidate.
+- Publication follows the inverse matrix: Stable updates `stable/`, `beta/`,
+  and `dev/`; Beta updates `beta/` and `dev/`; Dev updates only `dev/`. Every
+  target receives the same byte-identical, SHA-256-verified release ZIP.
 
 Generated paths: `site/stable/`, `site/beta/`, and `site/dev/`, each with its own
 Blender-generated `index.json`. See `docs/UPDATE_CHANNELS.md`.
@@ -180,10 +187,12 @@ byte-identical (SHA-256 verified) to the tested GitHub release asset.
 
 ## 11. GitHub Pages Deployment
 
-GitHub Pages serves the `gh-pages` branch. The release workflow updates only the
-channel directory of the release being published (`stable/` or `beta/`), never the
-other channel, and never deletes previously published versions. Pages never hosts
-solver files. URLs are documented in `docs/UPDATE_CHANNELS.md`.
+GitHub Pages serves the `gh-pages` branch. The release workflow atomically updates
+every directory required by the cumulative visibility matrix: Stable updates all
+three repositories, Beta updates Beta and Dev, and Dev updates Dev only. It never
+deletes previously published immutable release versions merely because their index
+is superseded. Pages never hosts solver files. URLs are documented in
+`docs/UPDATE_CHANNELS.md`.
 
 ## 12. Add-on Update Behavior
 
@@ -294,8 +303,8 @@ A defective published release is rolled back by publishing a new, higher version
 optionally marking the defective GitHub release as such in its notes. Channel
 repositories are regenerated so the defective version is no longer the latest entry;
 previously downloaded artifacts are never mutated. Tags are never deleted or moved.
-If Pages content must be corrected, only the affected channel directory is
-regenerated from verified artifacts.
+If Pages content must be corrected, only the explicitly selected repository
+directory is regenerated from verified artifacts.
 
 ## 20. Policy Change Procedure
 
@@ -304,7 +313,8 @@ regenerated from verified artifacts.
 A Dev workflow may derive an authorized `STABLE.BETA.DEV` version only in its
 isolated exact-commit checkout and must update package-internal metadata
 consistently. It may modify only `gh-pages/dev/`; Stable, Beta, tags, GitHub
-Releases, and the canonical source manifest are outside its authority.
+Releases, and the canonical source manifest are outside its authority. This is
+consistent with cumulative visibility because Dev is the least-stable repository.
 
 Changes to this policy require an explicit, human-approved commit that modifies this
 file, with the rationale in the commit message. Automation and AI assistants may

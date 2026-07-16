@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "cloth_next_version": "0.4.0",
+  "cloth_next_version": "1.0.0",
   "platforms": {
     "windows-x86_64": {
       "solver_package_version": "0.1.0",

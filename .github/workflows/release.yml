@@ -8,7 +8,7 @@ on:
       tag: {description: "Existing release tag", required: true}
 
 permissions: {contents: write, actions: read}
-concurrency: {group: release, cancel-in-progress: false}
+concurrency: {group: publish-channels, cancel-in-progress: false}
 env:
   BLENDER_VERSION: "5.1.2"
   BLENDER_SERIES: "5.1"
@@ -60,14 +60,29 @@ jobs:
           git fetch origin gh-pages || true
           mkdir -p site
           if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then git worktree add site-publish origin/gh-pages; cp -r site-publish/. site/ || true; rm -rf site/.git; fi
-      - run: python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "${{ needs.candidate.outputs.channel }}" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
+      - name: Build every cumulative channel repository
+        shell: bash
+        run: |
+          case "${{ needs.candidate.outputs.channel }}" in
+            stable) TARGETS="stable beta dev" ;;
+            beta) TARGETS="beta dev" ;;
+            *) echo "unsupported tagged release channel" >&2; exit 1 ;;
+          esac
+          for TARGET in $TARGETS; do
+            python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "$TARGET" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
+          done
       - run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
       - run: |
           CHANNEL="${{ needs.candidate.outputs.channel }}"
+          if [ "$CHANNEL" = stable ]; then TARGETS="stable beta dev"; else TARGETS="beta dev"; fi
           if [ ! -d site-publish ]; then git worktree add --detach site-publish; git -C site-publish checkout --orphan gh-pages; git -C site-publish rm -rf --quiet . || true; fi
-          rm -rf "site-publish/$CHANNEL"; cp -r "site/$CHANNEL" "site-publish/$CHANNEL"; touch site-publish/.nojekyll
+          for TARGET in $TARGETS; do
+            rm -rf "site-publish/$TARGET"
+            cp -r "site/$TARGET" "site-publish/$TARGET"
+          done
+          touch site-publish/.nojekyll
           git -C site-publish add -A
-          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL channel for ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL release to $TARGETS for ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           git -C site-publish push origin HEAD:gh-pages
       - env: {GH_TOKEN: "${{ github.token }}"}
         run: gh release edit "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --draft=false

@@ -26,6 +26,8 @@ from cloth_next.ppf.bootstrap import sha256_file
 from cloth_next.updater.solver_manifest import parse_manifest
 from tools.scan_release_artifact import scan_names
 from cloth_next.bake.companion_bundle import validate_bundle
+from cloth_next.updater.channel_policy import (allowed_release_channels,
+                                                publication_targets)
 
 RELEASE_PLATFORM = "windows-x64"
 SEMVER_RE = re.compile(
@@ -177,29 +179,51 @@ def check_sha256sums(path: Path, zip_path: Path) -> None:
 
 
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
-    """Only versions encoding the stable channel may appear in stable."""
-    stable_dir = site_dir / "stable"
-    if not stable_dir.is_dir():
-        return
-    for entry in stable_dir.glob("cloth_next-*.zip"):
-        name_version = entry.name.removeprefix("cloth_next-").removesuffix(
-            f"-{RELEASE_PLATFORM}.zip")
-        archived = parse_version(name_version)
-        if archived.channel != "stable":
-            raise ValueError(
-                f"non-stable artifact {entry.name} found in the stable channel")
-    index = stable_dir / "index.json"
-    if index.is_file():
+    """Enforce cumulative Stable -> Beta -> Dev repository visibility."""
+    required = publication_targets(version.channel)
+    archive_name = expected_zip_name(version)
+    for channel in ("stable", "beta", "dev"):
+        channel_dir = site_dir / channel
+        if channel in required and not channel_dir.is_dir():
+            raise ValueError(f"{channel} repository was not published for "
+                             f"{version.channel} release {version.text}")
+        if not channel_dir.is_dir():
+            continue
+        allowed = allowed_release_channels(channel)
+        for archive in channel_dir.glob("cloth_next-*.zip"):
+            name_version = archive.name.removeprefix(
+                "cloth_next-").removesuffix(f"-{RELEASE_PLATFORM}.zip")
+            archived = parse_version(name_version)
+            if archived.channel not in allowed:
+                raise ValueError(f"{archived.channel} artifact {archive.name} "
+                                 f"is not allowed in the {channel} repository")
+        index = channel_dir / "index.json"
+        if not index.is_file():
+            if channel in required:
+                raise ValueError(f"{channel} repository has no index.json")
+            continue
         payload = json.loads(index.read_text(encoding="utf-8"))
         entries = payload.get("data")
         if not isinstance(entries, list):
-            raise ValueError("stable index.json has no package list")
-        for entry in entries:
-            if (isinstance(entry, dict) and entry.get("id") == "cloth_next"
-                    and parse_version(str(entry.get("version"))).channel
-                    != "stable"):
-                raise ValueError(
-                    "stable index.json references a non-stable version")
+            raise ValueError(f"{channel} index.json has no package list")
+        candidates = [entry for entry in entries if isinstance(entry, dict)
+                      and entry.get("id") == "cloth_next"]
+        if len(candidates) > 1:
+            raise ValueError(f"{channel} index.json has ambiguous Cloth NeXt "
+                             "candidates")
+        for candidate in candidates:
+            candidate_version = parse_version(str(candidate.get("version")))
+            if candidate_version.channel not in allowed:
+                raise ValueError(f"{channel} index.json references disallowed "
+                                 f"{candidate_version.channel} version "
+                                 f"{candidate_version.text}")
+        if channel in required:
+            if not (channel_dir / archive_name).is_file():
+                raise ValueError(f"{channel} repository misses {archive_name}")
+            if (len(candidates) != 1
+                    or str(candidates[0].get("version")) != version.text):
+                raise ValueError(f"{channel} index.json does not expose released "
+                                 f"version {version.text}")
 
 
 def main() -> int:

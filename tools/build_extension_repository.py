@@ -24,6 +24,8 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from cloth_next.ppf.bootstrap import sha256_file
+from cloth_next.updater.addon_versions import parse_version
+from cloth_next.updater.channel_policy import release_visible_in
 
 
 def assemble_channel(zip_path: Path, channel_dir: Path, expected_sha256: str) -> Path:
@@ -44,7 +46,7 @@ def assemble_channel(zip_path: Path, channel_dir: Path, expected_sha256: str) ->
 
 def generate_index(blender: str, channel_dir: Path) -> Path:
     subprocess.run(
-        [blender, "--command", "extension", "server-generate",
+        [blender, "--factory-startup", "--command", "extension", "server-generate",
          f"--repo-dir={channel_dir}"],
         check=True, shell=False)
     index = channel_dir / "index.json"
@@ -106,6 +108,10 @@ def main() -> int:
         manifest = tomllib.loads(
             (args.repository_root / "cloth_next" / "blender_manifest.toml")
             .read_text(encoding="utf-8"))
+        release_channel = parse_version(manifest["version"]).channel_name
+        if not release_visible_in(release_channel, args.channel):
+            raise ValueError(f"{release_channel} release {manifest['version']} "
+                             f"is not eligible for the {args.channel} repository")
         channel_dir = args.site_dir / args.channel
         archive = assemble_channel(args.zip, channel_dir, args.sha256)
         generate_single_candidate_index(

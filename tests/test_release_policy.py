@@ -165,25 +165,44 @@ def test_release_manifest_hash_mismatch_rejected(tmp_path):
         check_sha256sums(sums_path, zip_path)
 
 
-def test_stable_and_beta_channels_stay_separated(tmp_path):
-    site = tmp_path / "site"
-    (site / "stable").mkdir(parents=True)
-    (site / "beta").mkdir(parents=True)
-    make_zip(site / "beta", "0.3.0")
-    check_channel_separation(site, parse_version("0.3.0"))
-    make_zip(site / "stable", "0.3.0")
-    with pytest.raises(ValueError, match="stable channel"):
-        check_channel_separation(site, parse_version("0.3.0"))
-
-
-def test_stable_index_must_not_reference_prereleases(tmp_path):
-    site = tmp_path / "site"
-    (site / "stable").mkdir(parents=True)
-    (site / "stable" / "index.json").write_text(
-        json.dumps({"data": [{"id": "cloth_next", "version": "0.3.0"}]}),
+def write_index(directory, version):
+    (directory / "index.json").write_text(json.dumps({"data": [{
+        "id": "cloth_next", "version": version,
+        "archive_url": f"./{expected_zip_name(parse_version(version))}"}]}),
         encoding="utf-8")
-    with pytest.raises(ValueError, match="non-stable"):
+
+
+def test_beta_release_is_published_to_beta_and_dev(tmp_path):
+    site = tmp_path / "site"
+    for channel in ("beta", "dev"):
+        (site / channel).mkdir(parents=True)
+        make_zip(site / channel, "0.3.0")
+        write_index(site / channel, "0.3.0")
+    check_channel_separation(site, parse_version("0.3.0"))
+
+
+def test_beta_release_is_rejected_from_stable_repository(tmp_path):
+    site = tmp_path / "site"
+    for channel in ("beta", "dev"):
+        (site / channel).mkdir(parents=True)
+        make_zip(site / channel, "0.3.0")
+        write_index(site / channel, "0.3.0")
+    (site / "stable").mkdir(parents=True)
+    make_zip(site / "stable", "0.3.0")
+    with pytest.raises(ValueError, match="not allowed"):
         check_channel_separation(site, parse_version("0.3.0"))
+
+
+def test_stable_release_is_required_in_all_three_repositories(tmp_path):
+    site = tmp_path / "site"
+    for channel in ("stable", "beta", "dev"):
+        (site / channel).mkdir(parents=True)
+        make_zip(site / channel, "1.0.0")
+        write_index(site / channel, "1.0.0")
+    check_channel_separation(site, parse_version("1.0.0"))
+    (site / "dev" / "index.json").unlink()
+    with pytest.raises(ValueError, match="dev repository has no index"):
+        check_channel_separation(site, parse_version("1.0.0"))
 
 
 def test_tag_requires_v_prefix():

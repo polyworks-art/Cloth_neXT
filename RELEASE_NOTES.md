@@ -1,32 +1,53 @@
-# Cloth NeXt 0.4.0 Beta
+# Cloth NeXt 1.0.0 Stable
 
-This first numeric-channel Beta brings the production Bake workflow together
-for broader testing in Blender 5.x.
+Cloth NeXt 1.0.0 is the first Stable release of the production Blender-to-PPF
+Bake workflow. It promotes the tested 0.4 Beta line with final persistence,
+diagnostics, Companion, and release-channel hardening.
 
-## Simulation workflow
+## Production simulation workflow
 
-- Bake multiple Cloth, Rod, and Soft Body objects in one shared PPF project.
-- Use Follow Animation pins in multi-object bakes.
-- Add every force supported by the current PPF mapping to Empties and animate
-  those properties with Blender keyframes.
-- Bake without creating a Collider. Cloth NeXt supplies a tiny remote internal
-  STATIC sentinel because PPF 0.11 currently requires a STATIC group to build;
-  it never appears in the Blender scene or cache metadata.
+- Bake multiple Cloth, Rod / Cable, and Soft Body objects in one shared PPF
+  project.
+- Use Follow Animation Pins in multi-object Bakes.
+- Add every supported Cloth NeXt Force to Empties and animate its properties
+  with Blender keyframes.
+- Bake without a Collider. The required internal PPF STATIC sentinel remains
+  remote and never appears as a Blender object or playback result.
+- Stream verified solver frames into transactional PC2 caches while preserving
+  the previous complete result until the replacement is valid.
 
-## Safety and interface
+## Failure safety and persistence
 
-- Automatically cancel a Bake when total system RAM remains above a
-  configurable threshold for two telemetry samples. The default is 90%.
-- Show the RAM limit as a red line in the redesigned CPU/RAM/VRAM resource HUD.
-- Use smoothly drifting and rotating Cloth NeXt icons in the Bake companion.
-- Keep failed Bake windows open, pulse them red, and show only a documented
-  `CNX-E…` code in the activity bar; full diagnostics remain in Blender.
-- Use role-specific icons throughout the physics dropdown, including Forces.
+- Seventy-four stable `CNX-E…` codes distinguish validation, Companion, solver
+  startup, upload, build, simulation, transfer, cache, and cleanup failures.
+- Full failures persist locally in rotating `bake-errors.log`; per-run
+  `failure.log` reports are replaced atomically.
+- Failed Companion windows pulse red, show the concise error code, remain open
+  for inspection, and close only through explicit user action.
+- Authenticated status messages are bounded so a large traceback cannot break
+  Companion IPC or mask the original error.
+- RAM Auto Cancel defaults to 90%, uses two-sample debouncing, and reports
+  actionable code `CNX-E166` when triggered.
+
+## Interface
+
+- CPU, RAM, and VRAM graphs focus on system load and show the RAM safety limit.
+- Smooth, freely rotating Cloth NeXt icons drift through the Bake Companion.
+- Physics roles and Forces use role-specific dropdown icons.
+
+## Update channels
+
+Channel visibility is cumulative:
+
+- Stable releases are published byte-identically to Stable, Beta, and Dev.
+- Beta releases are published to Beta and Dev.
+- Dev snapshots remain available only through Dev.
+
+Each repository exposes exactly one active Cloth NeXt candidate. Users who stay
+on Beta or Dev therefore still receive a newer Stable release when it supersedes
+their current test build.
 
 ## Compatibility
 
-The PPF Contact Solver remains an external dependency and is not included in
-the add-on. This Beta uses the `STABLE.BETA.DEV` numbering scheme: `0.4.0` is
-the Beta build and `0.4.1` is its matching Dev snapshot.
-
-Back up production scenes and caches before Beta testing.
+Cloth NeXt requires Blender 5.0 or newer on Windows x64. The PPF Contact Solver
+remains a separate external dependency and is never bundled with the extension.

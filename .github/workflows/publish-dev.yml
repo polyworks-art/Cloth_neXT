@@ -9,7 +9,7 @@ on:
       confirmation: {description: "Type PUBLISH_DEV", required: true}
 
 permissions: {contents: write}
-concurrency: {group: publish-dev, cancel-in-progress: false}
+concurrency: {group: publish-channels, cancel-in-progress: false}
 env:
   BLENDER_VERSION: "5.1.2"
   BLENDER_SERIES: "5.1"

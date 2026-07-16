@@ -97,17 +97,16 @@ def test_stable_channel_never_accepts_prereleases():
         parse_index_versions(payload, UpdateChannel.STABLE)
 
 
-def test_beta_channel_never_accepts_stable_releases():
+def test_beta_channel_accepts_stable_releases():
     payload = index_payload("1.0.0")
-    with pytest.raises(ValueError, match="stable"):
-        parse_index_versions(payload, UpdateChannel.BETA)
+    versions = parse_index_versions(payload, UpdateChannel.BETA)
+    assert tuple(map(str, versions)) == ("1.0.0",)
 
-def test_dev_channel_accepts_only_dev_versions():
-    versions=parse_index_versions(index_payload("0.3.21"),UpdateChannel.DEV)
-    assert str(versions[0])=="0.3.21"
-    for invalid in ("1.0.0","0.3.0","0.2.0-beta.7","0.2.0-rc.1"):
-        with pytest.raises(ValueError):
-            parse_index_versions(index_payload(invalid),UpdateChannel.DEV)
+def test_dev_channel_accepts_dev_beta_and_stable_versions():
+    for value in ("0.3.21", "0.3.0", "0.2.0-beta.7",
+                  "0.2.0-rc.1", "1.0.0"):
+        versions = parse_index_versions(index_payload(value), UpdateChannel.DEV)
+        assert str(versions[0]) == value
 
 def test_beta_rejects_dev_versions():
     with pytest.raises(ValueError):

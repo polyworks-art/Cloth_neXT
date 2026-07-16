@@ -45,6 +45,7 @@ from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..bake.transport import EnterBakeMode
 from ..core.errors import ClothNextError
+from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
 from ..materials import DEFAULT_STATIC_SETTINGS, MaterialValidationError
 from ..materials import formatting as material_formatting
@@ -124,6 +125,7 @@ _pending_job_id = ""
 _pin_capture = None
 _ram_auto_cancel = RamAutoCancelGuard()
 _ram_auto_cancel_enabled = False
+_ram_auto_cancel_triggered = False
 
 
 def _ensure_solver_static(scene_colliders, collider_specs):
@@ -2024,20 +2026,36 @@ def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
             pass
 
 
-def _record_worker_failure(plan: RunPlan, summary: str, details: str) -> str:
+def _record_worker_failure(plan: RunPlan, summary: str, details: str,
+                           error_code: str = "CNX-E199") -> str:
     """Persist and print worker diagnostics without masking the real error."""
     failure_path = plan.work_directory / "failure.log"
-    report = f"{summary}\n\n{details}\n"
+    project_name = str(getattr(plan.scene, "project_name", "unknown"))
+    report = (f"Cloth NeXt Bake failure\n"
+              f"Error code: {error_code}\n"
+              f"Job: {project_name}\n"
+              f"Summary: {summary}\n\n{details.rstrip()}\n")
+    temporary = failure_path.with_name(
+        f".{failure_path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
         failure_path.parent.mkdir(parents=True, exist_ok=True)
-        failure_path.write_text(report, encoding="utf-8")
+        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(report)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, failure_path)
         location = str(failure_path.resolve())
     except OSError as exc:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
         location = f"unavailable ({type(exc).__name__}: {exc})"
     visible = f"{details}\nDiagnostic log: {location}"
     print(f"Cloth NeXt Bake failed: {summary}\n{visible}", flush=True)
     log_with_context(get_logger("solver.worker"), 40, summary, {
-        "details": details, "diagnostic_log": location,
+        "error_code": error_code, "details": details,
+        "diagnostic_log": location,
     })
     return visible
 
@@ -2166,16 +2184,18 @@ def _worker_main_multi(plan: RunPlan) -> None:
             writer.abort()
         _discard_incomplete(plan, state="failed", reason=str(exc))
         summary, details = _present_worker_error(plan, exc)
+        code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details)))
+                    _record_worker_failure(plan, summary, details, code), code))
     except Exception:
         for writer in writers.values():
             writer.abort()
         details = traceback.format_exc()
         _discard_incomplete(plan, state="failed", reason=details[-2000:])
         summary = "Creating the multi-object playback caches failed."
+        code = classify_error("IMPORTING", summary, details)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details)))
+                    _record_worker_failure(plan, summary, details, code), code))
 
 
 def _worker_main(plan: RunPlan) -> None:
@@ -2285,8 +2305,9 @@ def _worker_main(plan: RunPlan) -> None:
             writer.abort()
         _discard_incomplete(plan, state="failed", reason=str(exc))
         summary, details = _present_worker_error(plan, exc)
+        code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details)))
+                    _record_worker_failure(plan, summary, details, code), code))
     except Exception:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
@@ -2294,8 +2315,9 @@ def _worker_main(plan: RunPlan) -> None:
                             reason="Unexpected Bake worker failure")
         summary = "The solver test failed unexpectedly."
         details = traceback.format_exc()
+        code = classify_error("SIMULATING", summary, details)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details)))
+                    _record_worker_failure(plan, summary, details, code), code))
 
 
 def _configure_playback_modifier(modifier, frame_start: int) -> None:
@@ -2529,7 +2551,7 @@ def _safe_transition(state: BakeState, **changes) -> None:
 
 
 def _pump_once() -> float | None:
-    global _worker, _active_plan
+    global _worker, _active_plan, _ram_auto_cancel_triggered
     plan = _active_plan
     if plan is None:
         return None
@@ -2540,6 +2562,7 @@ def _pump_once() -> float | None:
             and _worker.is_alive()
             and shared_controller.snapshot().state in cancellable_ram_states
             and _ram_auto_cancel.observe(shared_telemetry.snapshot())):
+        _ram_auto_cancel_triggered = True
         _cancel_event.set()
         snapshot = shared_controller.snapshot()
         if snapshot.active and snapshot.state is not BakeState.CANCELLING:
@@ -2607,15 +2630,25 @@ def _pump_once() -> float | None:
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "cancelled":
-            _safe_transition(BakeState.CANCELLED,
-                             status_message="Solver test cancelled")
+            if _ram_auto_cancel_triggered:
+                shared_controller.fail(
+                    "Bake stopped at the RAM safety limit.",
+                    "Cause: System RAM remained above the configured Auto "
+                    "Cancel threshold.\nWhat to do: Lower scene complexity "
+                    "or raise the threshold cautiously.",
+                    error_code="CNX-E166")
+                _ram_auto_cancel_triggered = False
+            else:
+                _safe_transition(BakeState.CANCELLED,
+                                 status_message="Solver test cancelled")
             _discard_incomplete(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "error":
-            shared_controller.fail(message[1], message[2])
+            code = message[3] if len(message) > 3 else ""
+            shared_controller.fail(message[1], message[2], error_code=code)
             _discard_incomplete(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
@@ -2671,7 +2704,7 @@ def run_active() -> bool:
 def _start_prepared_run(plan: RunPlan) -> None:
     """Create runtime files and worker only after startup prerequisites."""
     global _worker, _active_plan, _run_started_at, _last_work_directory
-    global _unsubscribe
+    global _unsubscribe, _ram_auto_cancel_triggered
     import time as _time
     for target in _plan_deformables(plan):
         target.pc2_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2686,6 +2719,7 @@ def _start_prepared_run(plan: RunPlan) -> None:
         current_frame=plan.frame_start, progress_current=1,
         progress_total=plan.frame_count)
     _cancel_event.clear()
+    _ram_auto_cancel_triggered = False
     while not _queue.empty():
         try: _queue.get_nowait()
         except queue.Empty: break
@@ -2768,12 +2802,14 @@ def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
 def begin_production_bake(context) -> tuple[str, bool]:
     """Validate and reserve production Bake without worker or modal lock."""
     global _pending_plan, _pending_job_id, _pin_capture
+    global _ram_auto_cancel_triggered
     if run_active() or _pending_plan is not None or _pin_capture is not None:
         raise SceneValidationError("A Cloth NeXt bake is already active.")
     # Cancellation belongs to one Bake attempt. It may still be set after a
     # previous Cancel or add-on shutdown, while animated Collider capture runs
     # before _start_prepared_run() gets a chance to clear it.
     _cancel_event.clear()
+    _ram_auto_cancel_triggered = False
     job_id = _begin_controller(BakeJobKind.BAKE)
     try:
         # One authoritative validation for the whole Bake start: it hashes the
