@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09110f">
+  <meta name="description" content="Cloth NeXt brings the PPF Contact Solver into a focused Blender workflow for cloth, rods, soft bodies, animated pins, colliders and forces.">
+  <title>Cloth NeXt — GPU simulation for Blender</title>
+  <link rel="icon" href="assets/cloth-next.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Cloth NeXt home">
+      <img src="assets/cloth-next.svg" alt="" width="44" height="34">
+      <span>Cloth NeXt</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#channels">Channels</a>
+      <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> Built for Blender artists</div>
+        <h1>Serious cloth simulation.<br><em>Still feels like Blender.</em></h1>
+        <p class="hero-lede">Cloth NeXt connects Blender to the GPU-powered PPF Contact Solver with an artist-focused workflow for cloth, cables, soft bodies and production bakes.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#install">Install Cloth NeXt <span aria-hidden="true">↓</span></a>
+          <a class="button button-secondary" href="https://github.com/polyworks-art/Cloth_neXT">Explore the source <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-facts" aria-label="Compatibility summary">
+          <span>Blender 5.0+</span>
+          <span>Windows x64</span>
+          <span>GPL-3.0</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-label="Cloth NeXt simulation workflow preview">
+        <div class="visual-grid" aria-hidden="true"></div>
+        <div class="orbit orbit-one" aria-hidden="true"></div>
+        <div class="orbit orbit-two" aria-hidden="true"></div>
+        <img class="hero-mark" src="assets/cloth-next.svg" alt="Cloth NeXt logo">
+        <div class="solver-card">
+          <div class="solver-card-head"><span class="status-dot"></span> PPF Contact Solver <small>READY</small></div>
+          <div class="progress-track"><span></span></div>
+          <div class="solver-card-meta"><strong>Building contact constraints</strong><span>GPU accelerated</span></div>
+        </div>
+        <div class="role-chip role-cloth"><img src="assets/cloth.svg" alt=""> Cloth</div>
+        <div class="role-chip role-force"><img src="assets/force.svg" alt=""> Forces</div>
+        <div class="role-chip role-pin"><img src="assets/pinning.svg" alt=""> Animated Pins</div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Core capabilities">
+      <div><strong>Multi-object</strong><span>One interacting solve</span></div>
+      <div><strong>Transactional cache</strong><span>Safe rebakes and recovery</span></div>
+      <div><strong>Actionable errors</strong><span>Stable CNX diagnostics</span></div>
+      <div><strong>Native workflow</strong><span>Physics Properties first</span></div>
+    </section>
+
+    <section class="section features" id="features">
+      <div class="section-heading">
+        <div><span class="kicker">THE WORKFLOW</span><h2>Power where it matters.<br>Clarity everywhere else.</h2></div>
+        <p>The solver stays technical under the hood. Cloth NeXt turns it into a workflow that makes sense from setup through playback.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature feature-wide">
+          <div class="feature-icon"><img src="assets/bake.svg" alt=""></div>
+          <span class="feature-number">01</span>
+          <h3>Production Bake Companion</h3>
+          <p>Follow real solver activity, system load and progress without losing control of Blender. Cancel safely when a scene exceeds its memory budget.</p>
+          <div class="mini-monitor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </article>
+        <article class="feature">
+          <div class="feature-icon"><img src="assets/cloth.svg" alt=""></div>
+          <span class="feature-number">02</span>
+          <h3>One shared simulation</h3>
+          <p>Bake multiple deformables and colliders together, including Follow Animation pins.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon"><img src="assets/force.svg" alt=""></div>
+          <span class="feature-number">03</span>
+          <h3>Animated forces</h3>
+          <p>Drive supported gravity, wind and air behavior from keyframe-ready Empty objects.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-icon"><img src="assets/rod.svg" alt=""></div>
+          <span class="feature-number">04</span>
+          <h3>More than cloth</h3>
+          <p>Experiment with Rod / Cable curves and volumetric Soft Bodies using the same focused interface.</p>
+        </article>
+        <article class="feature feature-accent">
+          <div class="feature-icon"><img src="assets/error.svg" alt=""></div>
+          <span class="feature-number">05</span>
+          <h3>Failures you can act on</h3>
+          <p>Persistent logs and stable error codes turn a failed solve into a useful next step instead of a dead end.</p>
+          <code>CNX-E161 · CONSTRAINTS DID NOT CONVERGE</code>
+        </article>
+      </div>
+    </section>
+
+    <section class="section install" id="install">
+      <div class="install-card">
+        <div class="install-copy">
+          <span class="kicker">GET STARTED</span>
+          <h2>Install through Blender.<br>Update through Blender.</h2>
+          <p>Choose a repository channel, add its URL in Blender Preferences, then install Cloth NeXt from Get Extensions.</p>
+          <ol>
+            <li><span>1</span><div><strong>Open Repositories</strong><small>Preferences → Get Extensions → Repositories</small></div></li>
+            <li><span>2</span><div><strong>Add a remote repository</strong><small>Paste the Stable URL shown below</small></div></li>
+            <li><span>3</span><div><strong>Install Cloth NeXt</strong><small>The add-on can register the selected channel for future updates</small></div></li>
+          </ol>
+        </div>
+        <div class="repository-box">
+          <div class="repository-label"><span>Recommended repository</span><strong>STABLE</strong></div>
+          <div class="copy-field"><code id="stable-url">https://polyworks-art.github.io/Cloth_neXT/stable/</code><button type="button" data-copy="stable-url">Copy</button></div>
+          <p>Stable builds are intended for regular production use.</p>
+          <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/UPDATE_CHANNELS.md">Detailed installation guide <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section channels" id="channels">
+      <div class="section-heading channel-heading">
+        <div><span class="kicker">RELEASE CHANNELS</span><h2>Pick your edge.</h2></div>
+        <p>Channels are cumulative: Stable reaches everyone, Beta reaches Beta and Dev, and experimental snapshots stay in Dev.</p>
+      </div>
+      <div class="channel-grid">
+        <article class="channel-card recommended" data-channel="stable">
+          <div class="channel-top"><span>STABLE</span><small>RECOMMENDED</small></div>
+          <h3 data-version>Checking…</h3>
+          <p>Tested releases for regular work.</p>
+          <button class="channel-copy" type="button" data-copy-value="https://polyworks-art.github.io/Cloth_neXT/stable/">Copy repository URL</button>
+        </article>
+        <article class="channel-card" data-channel="beta">
+          <div class="channel-top"><span>BETA</span><small>EARLY ACCESS</small></div>
+          <h3 data-version>Checking…</h3>
+          <p>Upcoming features with broader testing.</p>
+          <button class="channel-copy" type="button" data-copy-value="https://polyworks-art.github.io/Cloth_neXT/beta/">Copy repository URL</button>
+        </article>
+        <article class="channel-card" data-channel="dev">
+          <div class="channel-top"><span>DEV</span><small>EXPERIMENTAL</small></div>
+          <h3 data-version>Checking…</h3>
+          <p>Fresh snapshots for active bug hunting.</p>
+          <button class="channel-copy" type="button" data-copy-value="https://polyworks-art.github.io/Cloth_neXT/dev/">Copy repository URL</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="solver-note">
+      <img src="assets/solver.svg" alt="" width="54" height="54">
+      <div><span class="kicker">IMPORTANT</span><h2>Cloth NeXt is the bridge.<br>PPF is the engine.</h2></div>
+      <p>The PPF Contact Solver is separate software developed and distributed by ST Tech / ZOZO. Cloth NeXt never bundles or redistributes it.</p>
+      <a class="button button-secondary" href="https://github.com/st-tech/ppf-contact-solver">Official PPF project <span aria-hidden="true">↗</span></a>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="#top"><img src="assets/cloth-next.svg" alt="" width="42" height="32"><span>Cloth NeXt</span></a>
+    <p>Open-source Blender integration for the external PPF Contact Solver.</p>
+    <div><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a><a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/ERROR_CODES.md">Error codes</a><a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/LICENSE">License</a></div>
+  </footer>
+  <div class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
