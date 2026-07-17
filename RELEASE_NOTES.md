@@ -1,5 +1,14 @@
 # Upcoming Dev Snapshot
 
+- System Load is quieter and easier to read: monochrome graphs, a neutral
+  accent, no outer frame, and red reserved for the RAM safety limit.
+- The Companion is centered before its first visible frame and expanded Details
+  now keep all controls comfortably inside the window.
+- Animated Pin capture locks interactive input behind a wait cursor and allows
+  explicit Escape cancellation while capture is active.
+- Solver connection failures now retain owned-process exit evidence and output
+  so `CNX-E141` reports identify early solver termination more reliably.
+
 - Follow Animation Pin capture is substantially faster on rigged characters:
   frames are evaluated sequentially, cache playback is suspended once, and
   evaluated coordinates are read in bulk without per-frame mesh copies.

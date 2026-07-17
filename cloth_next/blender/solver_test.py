@@ -3519,6 +3519,8 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     bl_idname = "clothnext.bake"
     bl_label = "Bake"
+    _capture_timer = None
+    _capture_modal_cleaned = False
 
     @classmethod
     def poll(cls, _context):
@@ -3536,7 +3538,47 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             self.report({"ERROR"}, message); return {"CANCELLED"}
         self.report({"INFO"}, "Opening Bake window…" if waiting
                     else "Cloth NeXt bake started in Blender.")
+        if _pin_capture is not None:
+            manager = getattr(context, "window_manager", None)
+            if manager is not None and hasattr(manager, "event_timer_add"):
+                self._capture_modal_cleaned = False
+                self._capture_timer = manager.event_timer_add(
+                    .1, window=getattr(context, "window", None))
+                manager.modal_handler_add(self)
+                window = getattr(context, "window", None)
+                if window is not None and hasattr(window, "cursor_modal_set"):
+                    window.cursor_modal_set("WAIT")
+                return {"RUNNING_MODAL"}
         return {"FINISHED"}
+
+    def _cleanup_capture_modal(self, context):
+        if self._capture_modal_cleaned:
+            return
+        self._capture_modal_cleaned = True
+        manager = getattr(context, "window_manager", None)
+        if self._capture_timer is not None and manager is not None:
+            manager.event_timer_remove(self._capture_timer)
+            self._capture_timer = None
+        window = getattr(context, "window", None)
+        if window is not None and hasattr(window, "cursor_modal_restore"):
+            window.cursor_modal_restore()
+
+    def modal(self, context, event):
+        if _pin_capture is None:
+            self._cleanup_capture_modal(context)
+            return ({"CANCELLED"} if shared_controller.snapshot().state
+                    is BakeState.CANCELLED else {"FINISHED"})
+        if event.type == "ESC":
+            request_cancel()
+            return {"RUNNING_MODAL"}
+        if event.type == "TIMER":
+            for area in getattr(getattr(context, "screen", None), "areas", ()):
+                area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def cancel(self, context):
+        request_cancel()
+        self._cleanup_capture_modal(context)
 
 
 class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):

@@ -32,7 +32,8 @@ def test_hud_uses_public_website_palette(blender_env):
     hud=__import__("cloth_next.blender.hud",fromlist=["x"])
     assert hud.HUD_BG == (.027,.063,.055,.96)
     assert hud.HUD_MINT == (.329,.937,.765,1.0)
-    assert hud.HUD_MINT_BRIGHT == (.620,1.0,.875,1.0)
+    assert hud.HUD_ACCENT == (.42,.50,.47,1.0)
+    assert hud.HUD_GRAPH == (.78,.82,.81,1.0)
     assert hud.HUD_DANGER == (1.0,.420,.443,.96)
 
 

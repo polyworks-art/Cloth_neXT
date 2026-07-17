@@ -202,6 +202,9 @@ class IconParticleField:
 class BakeWindow:
     def __init__(self,transport=None,root=None):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
+        # Prevent Tk's default top-left placement from flashing before the
+        # preparation window receives its first Bake command.
+        self.root.withdraw()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
         self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.minsize(390,COMPACT_HEIGHT)
@@ -224,7 +227,19 @@ class BakeWindow:
         self._details_visible=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.particles.start()
+        self.root.update_idletasks()
+        self._center_on_screen()
+        if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") != "hidden":
+            self.root.deiconify()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
+
+    def _center_on_screen(self):
+        width=max(390,self.root.winfo_width())
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
+        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
+        x=max(0,(self.root.winfo_screenwidth()-width)//2)
+        y=max(0,(self.root.winfo_screenheight()-height)//2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def enter_bake_mode(self,payload):
         job_id=str(payload.get("job_id", ""))
@@ -236,13 +251,8 @@ class BakeWindow:
             if self.root.winfo_width()<100 or self.root.winfo_height()<80:
                 self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.update_idletasks()
             if not already_visible:
+                self._center_on_screen()
                 self.root.deiconify()
-                width=max(390,self.root.winfo_width())
-                height=(DETAILS_HEIGHT if self._details_visible
-                        else COMPACT_HEIGHT)
-                x=max(0,(self.root.winfo_screenwidth()-width)//2)
-                y=max(0,(self.root.winfo_screenheight()-height)//2)
-                self.root.geometry(f"{width}x{height}+{x}+{y}")
             self.root.update_idletasks()
             if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden":
                 self.root.withdraw(); self.root.update_idletasks()
@@ -339,7 +349,8 @@ class BakeWindow:
             text="Hide" if self._details_visible else "Details")
         self.root.update_idletasks()
         width=max(390,self.root.winfo_width())
-        height=DETAILS_HEIGHT if self._details_visible else COMPACT_HEIGHT
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
+        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
         self.root.geometry(
             f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
     def _cancel(self):

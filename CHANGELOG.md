@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.7 — 2026-07-17 (Dev channel)
+
+### Changed
+
+- System Load uses restrained monochrome traces, a neutral left accent, and no
+  outer frame; only the RAM Auto Cancel threshold remains red.
+- Animated Pin capture now owns a modal wait state with a wait cursor and
+  explicit Escape cancellation so Blender cannot be edited during capture.
+
+### Fixed
+
+- The Bake Companion is centered before it first becomes visible and no longer
+  appears at the top-left before jumping into place.
+- Expanded Bake Details reserve their requested height so action buttons remain
+  visible instead of being pushed against the bottom edge.
+- Owned solver connection failures preserve early-exit evidence and process
+  output, making `CNX-E141` timeouts substantially more actionable.
+
 ## 1.0.6 — 2026-07-17 (Dev channel)
 
 ### Added

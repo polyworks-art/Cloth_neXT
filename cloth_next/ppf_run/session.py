@@ -252,6 +252,29 @@ class SolverSession:
             self.diagnostics.contact_last = poll.contact_last
             self.diagnostics.contact_samples = poll.contact_samples
 
+    def _owned_connection_error(self, exc: ClothNextError) -> ClothNextError:
+        """Replace opaque socket failures with owned-process evidence."""
+        if self._manager is None:
+            return exc
+        poll = self._manager.poll()
+        self.diagnostics.stdout_tail = poll.stdout_tail
+        self.diagnostics.stderr_tail = poll.stderr_tail
+        if not poll.running:
+            return self._manager.early_exit_error(poll)
+        record = exc.record
+        return ClothNextError(ErrorRecord.create(
+            category=record.category,
+            user_message=record.user_message,
+            technical_message=(f"{record.technical_message}; "
+                f"owned_process_id={poll.process_id}; "
+                f"stdout_tail={poll.stdout_tail}; "
+                f"stderr_tail={poll.stderr_tail}; "
+                f"progress_tail={poll.progress.tail}"),
+            recommended_action=record.recommended_action,
+            recoverable=record.recoverable,
+            context={"process_id": poll.process_id,
+                     "exit_code": poll.exit_code}))
+
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
         error_text = str(response.get("error", "") or "no server error text")
@@ -616,6 +639,10 @@ class SolverSession:
             self._event("CANCELLING", "Cancelling solver run",
                         indeterminate=True)
             self._cancel_server_side()
+            raise
+        except ClothNextError as exc:
+            if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
+                raise self._owned_connection_error(exc) from exc
             raise
         finally:
             try:

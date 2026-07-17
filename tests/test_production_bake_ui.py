@@ -393,6 +393,30 @@ def test_bake_validation_failure_is_printed_to_system_console(
     assert "Animated collider topology changed" in output
 
 
+def test_pin_capture_uses_wait_cursor_and_modal_input_lock(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    calls = []
+    manager = SimpleNamespace(
+        event_timer_add=lambda *_a, **_kw: calls.append("timer") or object(),
+        event_timer_remove=lambda _timer: calls.append("remove"),
+        modal_handler_add=lambda _operator: calls.append("modal"))
+    window = SimpleNamespace(
+        cursor_modal_set=lambda value: calls.append(("cursor", value)),
+        cursor_modal_restore=lambda: calls.append("restore"))
+    context = SimpleNamespace(window_manager=manager, window=window,
+                              screen=SimpleNamespace(areas=[]))
+    monkeypatch.setattr(module, "begin_production_bake",
+                        lambda _context: ("job", True))
+    module._pin_capture = {"active": True}
+    operator = module.CLOTHNEXT_OT_bake()
+    assert operator.execute(context) == {"RUNNING_MODAL"}
+    assert calls[:3] == ["timer", "modal", ("cursor", "WAIT")]
+    module._pin_capture = None
+    assert operator.modal(context, SimpleNamespace(type="TIMER")) == {"FINISHED"}
+    assert calls[-2:] == ["remove", "restore"]
+
+
 def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,
                                                                monkeypatch):
     module = blender_env.solver_test

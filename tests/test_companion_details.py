@@ -37,6 +37,22 @@ def test_existing_companion_transitions_to_bake_in_place():
     assert "if not already_visible" in source
     assert source.index("if not already_visible") < source.index(
         "self.root.deiconify()")
+    assert source.index("self._center_on_screen()") < source.index(
+        "self.root.deiconify()")
+
+
+def test_companion_is_centered_before_first_visible_frame():
+    source=inspect.getsource(app.BakeWindow.__init__)
+    assert source.index("self.root.withdraw()") < source.index(
+        "self._center_on_screen()")
+    assert source.index("self._center_on_screen()") < source.index(
+        "self.root.deiconify()")
+
+
+def test_details_height_uses_requested_content_height():
+    source=inspect.getsource(app.BakeWindow._toggle_details)
+    assert "self.root.winfo_reqheight()" in source
+    assert "max(DETAILS_HEIGHT,requested)" in source
 
 
 def test_details_replaces_nonfunctional_pause_control():

@@ -16,13 +16,13 @@ _history = ResourceHistory()
 
 # Public website palette, mirrored in the viewport overlay.
 HUD_BG = (.027, .063, .055, .96)          # #07100e
-HUD_SURFACE = (.067, .110, .098, .98)     # #111c19
-HUD_BORDER = (.808, 1.0, .929, .18)       # rgba(206, 255, 237, .18)
+HUD_SURFACE = (.055, .063, .061, .98)
+HUD_GRID = (.62, .66, .65, .18)
 HUD_TEXT = (.937, .984, .969, 1.0)        # #effbf7
 HUD_MUTED = (.616, .694, .667, 1.0)       # #9db1aa
 HUD_MINT = (.329, .937, .765, 1.0)        # #54efc3
-HUD_MINT_BRIGHT = (.620, 1.0, .875, 1.0)  # #9effdf
-HUD_TEAL = (.173, .655, .514, 1.0)
+HUD_ACCENT = (.42, .50, .47, 1.0)
+HUD_GRAPH = (.78, .82, .81, 1.0)
 HUD_DANGER = (1.0, .420, .443, .96)       # #ff6b71
 
 
@@ -84,9 +84,8 @@ def _draw():
             batch("TRI_FAN", ((x, y), (x + width, y),
                               (x + width, y + height), (x, y + height)), color)
 
-        rect(card.x-1, card.y-1, card.width+2, card.height+2, HUD_BORDER)
         rect(card.x, card.y, card.width, card.height, HUD_BG)
-        rect(card.x, card.y, 3 * card.scale, card.height, HUD_MINT)
+        rect(card.x, card.y, 3 * card.scale, card.height, HUD_ACCENT)
         font = 0
         left = card.x + 14 * card.scale
         top = card.y + card.height - 24 * card.scale
@@ -103,9 +102,6 @@ def _draw():
         graph_width = max(20, card.width - 159 * card.scale)
         row_height = 43 * card.scale
         graph_height = 28 * card.scale
-        colors = {"cpu": HUD_MINT_BRIGHT,
-                  "ram": HUD_MINT,
-                  "vram": HUD_TEAL}
         for index, metric in enumerate(card.metrics):
             row_top = top - (25 + index * 43) * card.scale
             blf.size(font, round(11 * card.scale))
@@ -122,7 +118,7 @@ def _draw():
             for grid_fraction in (.25,.5,.75):
                 grid_y=graph_y+graph_height*grid_fraction
                 batch("LINES",((graph_x,grid_y),(graph_x+graph_width,grid_y)),
-                      HUD_BORDER[:3]+(.32,))
+                      HUD_GRID)
             values = list(_history.series[metric.key])
             valid = [(sample_index, value) for sample_index, value
                      in enumerate(values) if value is not None]
@@ -135,11 +131,11 @@ def _draw():
                 fill_points=((points[0][0],graph_y),)+points+(
                     (points[-1][0],graph_y),)
                 batch("TRI_FAN",fill_points,
-                      colors[metric.key][:3]+(.10,))
-                batch("LINE_STRIP", points, colors[metric.key])
+                      HUD_GRAPH[:3]+(.10,))
+                batch("LINE_STRIP", points, HUD_GRAPH)
                 dot_x,dot_y=points[-1]
                 rect(dot_x-1.5*card.scale,dot_y-1.5*card.scale,
-                     3*card.scale,3*card.scale,colors[metric.key])
+                     3*card.scale,3*card.scale,HUD_GRAPH)
             if metric.key=="ram" and card.ram_limit_fraction is not None:
                 limit_y=graph_y+graph_height*card.ram_limit_fraction
                 dash=8*card.scale; gap=4*card.scale; cursor=graph_x
