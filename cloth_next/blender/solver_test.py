@@ -1384,11 +1384,15 @@ def _capture_collider_motion(context, collider_obj,
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
                 raise SessionCancelled()
-            shared_controller.update(
-                status_message=(f"Capturing collider animation · frame "
-                                f"{frame + subframe:g} / {bake_range.end}"),
-                current_frame=frame, progress_current=offset + 1,
-                progress_total=sample_count)
+            # A frame-level update is sufficient for visible progress. Avoid
+            # putting every motion sub-sample ahead of the later job-bound
+            # readiness command in the Companion socket.
+            if offset == 0 or offset + 1 == sample_count or subframe == 0.0:
+                shared_controller.update(
+                    status_message=(f"Capturing collider animation · frame "
+                                    f"{frame + subframe:g} / {bake_range.end}"),
+                    current_frame=frame, progress_current=offset + 1,
+                    progress_total=sample_count)
             scene.frame_set(frame, subframe=subframe)
             _depsgraph_update(context)
             evaluated = collider_obj.evaluated_get(

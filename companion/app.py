@@ -21,6 +21,21 @@ from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from companion.particle_motion import advance_particle, smooth_rate
 
+COMPANION_MESSAGE_BATCH_LIMIT=2048
+
+
+def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
+    """Drain buffered status traffic so it cannot delay control messages."""
+    messages=[]
+    first=transport.receive(.01)
+    if first is None:return messages
+    messages.append(first)
+    while len(messages)<limit:
+        message=transport.receive(0.0)
+        if message is None:break
+        messages.append(message)
+    return messages
+
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
 ABOUT_TOOLTIP="SideFX, please don’t sue me."
@@ -430,12 +445,14 @@ class BakeWindow:
     def run(self):
         def poll():
             try:
-                message=self.transport.receive(.01)
-                if message and message["type"]=="bake_status": self.show(message["snapshot"])
-                elif message and message["type"]=="session_hello": self.transport.send("ready")
-                elif message and message["type"]=="enter_bake_mode": self.enter_bake_mode(message["payload"])
-                elif message and message["type"]=="shutdown": self.close(); return
-                elif getattr(self.transport,"closed",False): self.disconnected()
+                latest_status=None
+                for message in receive_message_batch(self.transport):
+                    if message["type"]=="bake_status":latest_status=message["snapshot"]
+                    elif message["type"]=="session_hello":self.transport.send("ready")
+                    elif message["type"]=="enter_bake_mode":self.enter_bake_mode(message["payload"])
+                    elif message["type"]=="shutdown":self.close(); return
+                if latest_status is not None:self.show(latest_status)
+                if getattr(self.transport,"closed",False):self.disconnected()
             except (ValueError,PermissionError):
                 self.connection_error("CNX-E116",
                                       "The Companion status protocol failed.")

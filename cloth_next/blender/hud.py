@@ -15,6 +15,21 @@ _draw_failed = False
 _history = ResourceHistory()
 
 
+def _redraw_pulse():
+    """Refresh active resource graphs independently of viewport input."""
+    prefs = _preferences()
+    if (shared_controller.snapshot().state is not BakeState.IDLE
+            and (prefs is None or getattr(prefs, "show_bake_hud", True))):
+        windows = getattr(
+            getattr(bpy.context, "window_manager", None), "windows", ())
+        for window in windows:
+            for area in getattr(getattr(window, "screen", None), "areas", ()):
+                if getattr(area, "type", "") == "VIEW_3D":
+                    area.tag_redraw()
+    return max(.25, min(10.0, float(getattr(
+        prefs, "telemetry_refresh_seconds", 1.0))))
+
+
 def _preferences():
     try:
         return bpy.context.preferences.addons[
@@ -137,12 +152,16 @@ def register():
     _history.clear()
     _handle = bpy.types.SpaceView3D.draw_handler_add(
         _draw, (), "WINDOW", "POST_PIXEL")
+    if not bpy.app.timers.is_registered(_redraw_pulse):
+        bpy.app.timers.register(_redraw_pulse, first_interval=.25)
 
 
 def unregister():
     global _handle
     shared_telemetry.stop()
     _history.clear()
+    if bpy.app.timers.is_registered(_redraw_pulse):
+        bpy.app.timers.unregister(_redraw_pulse)
     if _handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_handle, "WINDOW")
         _handle = None
