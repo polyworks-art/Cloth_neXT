@@ -32,7 +32,8 @@ from ..developer import is_dev_build
 from ..materials import formatting
 from ..materials import presets as material_presets
 from ..solver_quality import QUALITY_PRESETS, matching_quality_preset
-from . import icon_registry, object_properties, physics_operators, validation_state
+from . import (beta_tools, icon_registry, object_properties,
+               physics_operators, validation_state)
 from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
@@ -771,6 +772,18 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         collision = settings.collision
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
+            if settings.collider_motion == "ANIMATED":
+                layout.prop(settings, "collider_samples_per_frame")
+                samples = int(settings.collider_samples_per_frame)
+                if samples < 8:
+                    layout.label(text="Low sampling can let fast colliders cross cloth",
+                                 icon="ERROR")
+                elif samples < 12:
+                    layout.label(text="Fast or curved motion: consider 12–16 samples",
+                                 icon="INFO")
+                else:
+                    layout.label(text="High-fidelity animated Collider sampling",
+                                 icon="CHECKMARK")
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             layout.prop(collision, "enabled")
         column = layout.column()
@@ -945,6 +958,56 @@ class CLOTHNEXT_PT_developer_tools(_ClothNextSubpanel, bpy.types.Panel):
         _draw_ui_diagnostics_controls(developer_box, context)
 
 
+class CLOTHNEXT_PT_beta_readiness(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Scene Health & Recovery"
+    bl_idname = "CLOTHNEXT_PT_beta_readiness"
+    bl_parent_id = "CLOTHNEXT_PT_cache"
+    bl_options = {"DEFAULT_CLOSED"}
+    cloth_only = True
+    header_icon = "validate"
+
+    def draw(self, context):
+        layout = self.layout
+        actions = layout.column(align=True)
+        actions.enabled = not shared_controller.snapshot().active
+        actions.operator("clothnext.scene_health", text="Run Scene Health Check",
+                         icon="CHECKMARK")
+        for check in beta_tools._last_health[:8]:
+            icon = ("ERROR" if check.severity.value == "ERROR" else
+                    "INFO" if check.severity.value == "WARNING" else "CHECKMARK")
+            row = layout.row(align=True)
+            row.alert = check.severity.value == "ERROR"
+            row.label(text=f"{check.title}: {check.detail}", icon=icon)
+            if check.action:
+                layout.label(text=check.action, icon="BLANK1")
+        layout.separator()
+        cache = layout.box()
+        cache.label(text="Cache Recovery", icon="FILE_CACHE")
+        cache.operator("clothnext.cache_scan", text="Scan Cache Directory",
+                       icon="VIEWZOOM")
+        if beta_tools._last_cache_root is not None:
+            invalid = sum(entry.deletable for entry in beta_tools._last_cache)
+            total = sum(entry.size_bytes for entry in beta_tools._last_cache)
+            cache.label(text=(f"{len(beta_tools._last_cache)} cache(s) · "
+                              f"{beta_tools.human_bytes(total)} · "
+                              f"{invalid} safely removable"))
+            for entry in beta_tools._last_cache[:5]:
+                cache.label(text=f"{entry.cache_path.name}: {entry.condition}",
+                            icon=("ERROR" if entry.deletable else "INFO"))
+            clear = cache.row()
+            clear.enabled = invalid > 0 and not shared_controller.snapshot().active
+            clear.operator("clothnext.cache_clear_invalid",
+                           text="Remove Invalid Caches", icon="TRASH")
+        layout.separator()
+        support = layout.box()
+        support.label(text="Support", icon="HELP")
+        support.operator("clothnext.export_support_report",
+                         text="Export Privacy-Safe Report", icon="TEXT")
+        if beta_tools._last_support_report is not None:
+            support.label(text=beta_tools._last_support_report.name,
+                          icon="CHECKMARK")
+
+
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Advanced PPF"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
     header_icon = "advanced"
@@ -989,5 +1052,6 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
+           CLOTHNEXT_PT_beta_readiness,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_advanced)

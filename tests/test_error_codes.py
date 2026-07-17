@@ -34,6 +34,12 @@ def test_specific_causes_win_over_stage_fallbacks():
                           "Curve topology changed before Rod import") == "CNX-E188"
     assert classify_error("SIMULATING", details=
                           "RAM safety threshold reached") == "CNX-E166"
+    assert classify_error("IMPORTING", details=
+                          "Multi-object playback cache is invalid") == "CNX-E187"
+    assert classify_error("IMPORTING", details=
+                          "Multi-object playback cache topology mismatch") == "CNX-E187"
+    assert classify_error("IMPORTING", details=
+                          "Cache is damaged: metadata missing/invalid fields") == "CNX-E186"
 
 
 def test_typed_category_and_stage_fallbacks_remain_compatible():

@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cloth_next.ppf.models import ConnectionOwnership
-from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
+from cloth_next.ppf.process import (
+    SolverProcessConfig, SolverProcessManager, _contact_counts)
 
 
 def config(tmp_path, ownership=ConnectionOwnership.OWNED_PROCESS):
@@ -65,3 +66,17 @@ def test_owned_process_is_terminated_waited_and_reaped(tmp_path):
         manager.stop()
     process.terminate.assert_called_once()
     process.wait.assert_called()
+
+
+def test_contact_metric_parser_supports_scalar_and_ppf_series():
+    assert _contact_counts("num-contact: 123456") == (123456,)
+    assert _contact_counts("num_contact=[(0.0, 12), (0.1, 34)]") == (12, 34)
+    assert _contact_counts("frame=9 vertices=12000") == ()
+
+
+def test_process_poll_aggregates_contact_peak(tmp_path):
+    manager = SolverProcessManager(config(tmp_path))
+    manager._lines.put(("stdout", "num-contact: 120"))
+    manager._lines.put(("stderr", "num-contact: 85"))
+    poll = manager.poll()
+    assert (poll.contact_last, poll.contact_peak, poll.contact_samples) == (85, 120, 2)

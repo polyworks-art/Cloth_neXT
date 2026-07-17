@@ -333,6 +333,69 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.filepath == str(path)
 
 
+def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
+        blender_env):
+    module = blender_env.solver_test
+    points = module._collider_sample_points(
+        module.BakeFrameRange(10, 11), 24)
+    assert len(points) == 9
+    assert points[0] == (10, 0.0, 0.0)
+    assert points[-1] == (11, 0.0, 1.0 / 24.0)
+    assert points[1] == (10, 0.125, 1.0 / 192.0)
+    with pytest.raises(ValueError):
+        module._collider_sample_points(module.BakeFrameRange(1, 2), 24, 1)
+
+
+def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    objects = []
+    targets = []
+    headers = {}
+    for index in range(2):
+        obj = blender_env.bpy.types.Object(name=f"cloth-{index}", type="MESH")
+        blender_env.bpy.data.objects[obj.name] = obj
+        objects.append(obj)
+        path = tmp_path / f"cn_test_cloth_new_{index}.pc2"
+        target = module.DeformablePlan(
+            ((0, 0, 0),), identity, obj.name, f"uuid-{index}", path,
+            "topology", {"details": {}}, "CLOTH")
+        targets.append(target)
+        headers[target.uuid] = SimpleNamespace(vertex_count=1, frame_count=1)
+    old_path = tmp_path / "cn_test_cloth_old.pc2"
+    old_path.write_bytes(b"old")
+    old = objects[0].modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    old.filepath = str(old_path)
+    module.mark_owned_playback(objects[0], old, old.filepath)
+    monkeypatch.setattr(module.pc2, "read_header",
+                        lambda path: headers[next(
+                            target.uuid for target in targets
+                            if target.pc2_path == path)])
+    monkeypatch.setattr(module.cache_metadata, "inspect_cache",
+                        lambda *_args, **_kwargs: SimpleNamespace(
+                            usable=True, condition=SimpleNamespace(value="VALID"),
+                            message="", metadata={}))
+    monkeypatch.setattr(objects[1].modifiers, "new",
+                        lambda **_kwargs: (_ for _ in ()).throw(
+                            RuntimeError("second modifier failed")))
+    first = targets[0]
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), first.initial_local, identity,
+        first.object_name, tmp_path, first.pc2_path, 1,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        material_meta=first.material_meta, deformables=tuple(targets))
+
+    with pytest.raises(RuntimeError, match="second modifier failed"):
+        module._attach_playback(plan, headers)
+
+    assert old.filepath == str(old_path)
+    assert old_path.exists()
+    assert len(objects[1].modifiers) == 0
+
+
 def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

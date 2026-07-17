@@ -322,6 +322,11 @@ def test_collider_collisions_show_only_contact_values(blender_env):
     panel.draw(_context(obj))
     assert panel.layout.props == ["collider_motion", "surface_grip", "collision_gap",
                                   "surface_offset"]
+    settings.collider_motion = "ANIMATED"
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.props[:2] == ["collider_motion",
+                                     "collider_samples_per_frame"]
     settings.role = "CLOTH"
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))

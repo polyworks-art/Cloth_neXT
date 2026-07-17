@@ -1,3 +1,22 @@
+# Upcoming Dev Snapshot
+
+- Animated Colliders now default to eight evaluated samples per frame and can
+  be adjusted from 2–32 for fast or strongly curved motion.
+- Multi-object cache publication includes a shared scene identity and rolls
+  playback modifiers back if any target fails to attach.
+- PPF contact diagnostics retain last, peak and sample counts in logs and
+  authenticated cache metadata.
+- Scene Health preflight reports validation, storage, RAM, scope and animated
+  Collider sampling risks before a long Bake.
+- Cache Recovery inventories owned PC2 pairs and removes only authenticated
+  partial or corrupt results; legacy unverified PC2 files remain untouched.
+- Privacy-safe support reports redact object names and filesystem locations and
+  include versions, resource state, error code and available contact metrics.
+- The public Dev update channel requires its explicit risk acknowledgement but
+  no longer requires the unrelated Developer Tools UI toggle.
+- A generated and headless-validated Superhive Quick Start scene, product-page
+  draft, FAQ and review checklist prepare the next Beta marketplace submission.
+
 # Cloth NeXt 1.0.0 Stable
 
 Cloth NeXt 1.0.0 is the first Stable release of the production Blender-to-PPF

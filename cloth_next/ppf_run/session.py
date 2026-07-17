@@ -144,6 +144,9 @@ class SessionDiagnostics:
     timings: dict[str, float] = field(default_factory=dict)
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
+    contact_peak: int = 0
+    contact_last: int = 0
+    contact_samples: int = 0
     cancelled: bool = False
     bytes_transferred: int = 0
 
@@ -238,6 +241,9 @@ class SolverSession:
             poll = self._manager.poll()
             self.diagnostics.stdout_tail = poll.stdout_tail
             self.diagnostics.stderr_tail = poll.stderr_tail
+            self.diagnostics.contact_peak = poll.contact_peak
+            self.diagnostics.contact_last = poll.contact_last
+            self.diagnostics.contact_samples = poll.contact_samples
 
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
@@ -245,6 +251,10 @@ class SolverSession:
         return _session_error(
             f"The solver reported a failure while {phase}.",
             f"server status FAILED during {phase}: {error_text}; "
+            f"contacts(last={self.diagnostics.contact_last}, "
+            f"peak={self.diagnostics.contact_peak}, "
+            f"samples={self.diagnostics.contact_samples}); "
+            f"stdout_tail={self.diagnostics.stdout_tail}; "
             f"stderr_tail={self.diagnostics.stderr_tail}")
 
     # -- lifecycle ----------------------------------------------------------
@@ -536,7 +546,12 @@ class SolverSession:
         if self._manager is not None:
             self._capture_process_tails()
             try:
-                self._manager.stop()
+                poll = self._manager.stop()
+                self.diagnostics.stdout_tail = poll.stdout_tail
+                self.diagnostics.stderr_tail = poll.stderr_tail
+                self.diagnostics.contact_peak = poll.contact_peak
+                self.diagnostics.contact_last = poll.contact_last
+                self.diagnostics.contact_samples = poll.contact_samples
             finally:
                 self._manager = None
 
@@ -600,6 +615,9 @@ class SolverSession:
                     "mode": self.diagnostics.solver_mode,
                     "fetched": len(self.diagnostics.fetched_frames),
                     "cancelled": self.diagnostics.cancelled,
+                    "contact_peak": self.diagnostics.contact_peak,
+                    "contact_last": self.diagnostics.contact_last,
+                    "contact_samples": self.diagnostics.contact_samples,
                 })
 
 

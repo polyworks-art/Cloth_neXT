@@ -99,6 +99,7 @@ from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from . import companion_manager, modal_lock, object_properties, validation_state
 from .playback_cache import (
+    OBJECT_OWNERSHIP_KEY,
     has_cloth_next_playback_marker,
     is_cloth_next_playback_modifier,
     mark_owned_playback,
@@ -731,6 +732,9 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             "object_key": validation_state.object_key(obj),
             "role": str(obj.cloth_next.role),
             "motion": str(getattr(obj.cloth_next, "collider_motion", "STATIC")),
+            "motion_samples_per_frame": int(getattr(
+                obj.cloth_next, "collider_samples_per_frame",
+                COLLIDER_SAMPLES_PER_FRAME)),
             "world_matrix": world,
             "material": static_wire_params(material),
         }, sort_keys=True, separators=(",", ":")))
@@ -1268,20 +1272,24 @@ def _matrix_trs(matrix):
             [float(value) for value in scale])
 
 
-COLLIDER_SAMPLES_PER_FRAME = 2
+COLLIDER_SAMPLES_PER_FRAME = 8
 
 
-def _collider_sample_points(bake_range: BakeFrameRange, fps: int):
-    """Half-frame evaluated samples, including both Bake endpoints."""
+def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
+                            samples_per_frame: int = COLLIDER_SAMPLES_PER_FRAME):
+    """Dense evaluated samples, including both Bake endpoints exactly."""
+    if not 2 <= int(samples_per_frame) <= 32:
+        raise ValueError("Collider samples per frame must be between 2 and 32")
+    samples_per_frame = int(samples_per_frame)
     intervals = bake_range.output_count - 1
-    count = intervals * COLLIDER_SAMPLES_PER_FRAME + 1
+    count = intervals * samples_per_frame + 1
     result = []
     for index in range(count):
-        position = bake_range.start + index / COLLIDER_SAMPLES_PER_FRAME
+        position = bake_range.start + index / samples_per_frame
         frame = math.floor(position)
         subframe = position - frame
         result.append((frame, subframe,
-                       index / (float(fps) * COLLIDER_SAMPLES_PER_FRAME)))
+                       index / (float(fps) * samples_per_frame)))
     return tuple(result)
 
 
@@ -1291,7 +1299,9 @@ def _capture_collider_motion(context, collider_obj,
     scene = context.scene
     original_frame = int(scene.frame_current)
     sample_points = _collider_sample_points(
-        bake_range, _scene_fps(context))
+        bake_range, _scene_fps(context),
+        int(getattr(collider_obj.cloth_next,
+                    "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
     sample_count = len(sample_points)
     times = [point[2] for point in sample_points]
     reference_vertices = None
@@ -1549,6 +1559,11 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 motion_type = capture.motion_type
             scene_colliders.append(exported)
             motion_meta.append({"name": obj.name, "motion_type": motion_type,
+                                "samples_per_frame": (int(getattr(
+                                    obj.cloth_next,
+                                    "collider_samples_per_frame",
+                                    COLLIDER_SAMPLES_PER_FRAME))
+                                    if capture is not None else 0),
                                 "vertex_count": len(vertices),
                                 "triangle_count": len(triangles)})
         scene_colliders, collider_specs = _ensure_solver_static(
@@ -1582,6 +1597,20 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         frame_count, data_payload, param_payload,
         data_hash, param_hash, deformables=tuple(session_dynamics))
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
+    scene_identity = {
+        "settings_fingerprint": snapshot.settings_fingerprint,
+        "geometry_fingerprint": snapshot.geometry_fingerprint,
+        "fps": int(scene.render.fps),
+        "frame_start": bake_range.start,
+        "frame_end": bake_range.end,
+        "deformables": [{
+            "object_key": validation_state.object_key(entry.obj),
+            "deformable_type": entry.role,
+            "topology_signature": entry.topology_signature,
+        } for entry in snapshot.deformables],
+        "colliders": motion_meta,
+    }
+    scene_fingerprint = cache_metadata.deterministic_hash(scene_identity)
     target_plans = []
     for index, ((entry, pin_snapshot, vertices, _triangles, _edges, world), dynamic_uuid) in enumerate(
             zip(dynamic_records, uuids)):
@@ -1601,7 +1630,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             "geometry": snapshot.geometry_fingerprint,
             "combined": snapshot.combined_fingerprint,
             "topology": entry.topology_signature,
-            "object": cache_metadata.deterministic_hash(object_identity)}
+            "object": cache_metadata.deterministic_hash(object_identity),
+            "scene": scene_fingerprint}
         meta = {
             "fingerprints": fingerprints,
             "identities": {"cloth_next_version": manifest_version(),
@@ -1783,6 +1813,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
         scene_colliders.append(exported)
         motion_meta.append({"name": current.name, "uuid": collider_uuid,
                             "motion_type": motion_type,
+                            "samples_per_frame": (int(getattr(
+                                current.cloth_next,
+                                "collider_samples_per_frame",
+                                COLLIDER_SAMPLES_PER_FRAME))
+                                if capture is not None else 0),
                             "vertex_count": len(vertices),
                             "triangle_count": len(triangles)})
     scene_colliders, collider_specs = _ensure_solver_static(
@@ -2166,6 +2201,13 @@ def _worker_main_multi(plan: RunPlan) -> None:
                     "schema_version": diagnostics.schema_version or "unknown"})
                 identities["solver"] = solver_identity
                 partial["identities"] = identities
+                if getattr(diagnostics, "contact_samples", 0):
+                    details = dict(partial.get("details", {}))
+                    details["contacts"] = {
+                        "last": diagnostics.contact_last,
+                        "peak": diagnostics.contact_peak,
+                        "samples": diagnostics.contact_samples}
+                    partial["details"] = details
                 metadata = cache_metadata.completed_metadata(
                     partial, cache_path=target.pc2_path,
                     timings=diagnostics.timings)
@@ -2280,6 +2322,13 @@ def _worker_main(plan: RunPlan) -> None:
             })
             identities["solver"] = solver_identity
             partial["identities"] = identities
+            if getattr(diagnostics, "contact_samples", 0):
+                details = dict(partial.get("details", {}))
+                details["contacts"] = {
+                    "last": diagnostics.contact_last,
+                    "peak": diagnostics.contact_peak,
+                    "samples": diagnostics.contact_samples}
+                partial["details"] = details
             metadata = cache_metadata.completed_metadata(
                 partial, cache_path=plan.pc2_path,
                 timings=diagnostics.timings)
@@ -2419,21 +2468,119 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
                     pass
 
 
-def _attach_playback(plan: RunPlan, header) -> None:
+_PLAYBACK_MODIFIER_FIELDS = (
+    "name", "filepath", "cache_format", "frame_start", "interpolation",
+    "deform_mode", "play_mode", "forward_axis", "up_axis")
+_PLAYBACK_OBJECT_FIELDS = (OBJECT_OWNERSHIP_KEY, "cloth_next_cache_path")
+_PLAYBACK_SETTINGS_FIELDS = (
+    "baked_settings_fingerprint", "baked_geometry_fingerprint",
+    "baked_fingerprint_version", "baked_cache_condition",
+    "baked_cache_message", "baked_metadata_digest")
+
+
+def _snapshot_value(owner, name):
+    try:
+        marker = object()
+        value = owner.get(name, marker)
+        if value is not marker:
+            return True, value
+    except (AttributeError, TypeError):
+        pass
+    return ((True, getattr(owner, name)) if hasattr(owner, name)
+            else (False, None))
+
+
+def _restore_value(owner, name, snapshot) -> None:
+    existed, value = snapshot
+    if existed:
+        try:
+            owner[name] = value
+            return
+        except (AttributeError, TypeError):
+            setattr(owner, name, value)
+            return
+    try:
+        del owner[name]
+    except (AttributeError, KeyError, TypeError):
+        try:
+            delattr(owner, name)
+        except AttributeError:
+            pass
+
+
+@dataclass(slots=True)
+class _PlaybackRecord:
+    obj: object
+    modifier: object
+    created: bool
+    modifier_fields: dict
+    extras: tuple
+    previous_paths: set
+    new_path: Path
+    object_fields: dict
+    settings: object | None
+    settings_fields: dict
+
+
+def _rollback_playback(records) -> None:
+    """Best-effort rollback for a failed multi-object playback commit."""
+    for record in reversed(records):
+        obj, modifier = record.obj, record.modifier
+        try:
+            if record.created:
+                obj.modifiers.remove(modifier)
+            else:
+                for name, value in record.modifier_fields.items():
+                    setattr(modifier, name, value)
+            for name, snapshot in record.object_fields.items():
+                _restore_value(obj, name, snapshot)
+            if record.settings is not None:
+                for name, snapshot in record.settings_fields.items():
+                    _restore_value(record.settings, name, snapshot)
+        except Exception as exc:  # noqa: BLE001 -- retain the original error
+            log_with_context(get_logger("playback.cache"), 40,
+                "multi-object playback rollback failed", {
+                    "object": getattr(obj, "name", ""),
+                    "error": f"{type(exc).__name__}: {exc}"})
+
+
+def _commit_playback_cleanup(records) -> None:
+    """Remove stale modifiers/files only after every target is attached."""
+    for record in records:
+        for extra in record.extras:
+            try:
+                record.obj.modifiers.remove(extra)
+            except Exception as exc:  # noqa: BLE001 -- all new caches are live
+                log_with_context(get_logger("playback.cache"), 30,
+                    "stale playback modifier cleanup failed", {
+                        "object": getattr(record.obj, "name", ""),
+                        "error": f"{type(exc).__name__}: {exc}"})
+        for old_path in record.previous_paths:
+            if (old_path != record.new_path
+                    and old_path.name.startswith("cn_test_cloth_")):
+                for target in (old_path, cache_metadata.sidecar_path(old_path)):
+                    try:
+                        target.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+
+
+def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
     if plan.deformables:
         # Preflight every cache and object before changing a single modifier.
         for target in plan.deformables:
             expected = header.get(target.uuid) if isinstance(header, dict) else None
             if expected is None:
-                raise ValueError(f"missing cache for {target.object_name}")
+                raise ValueError("Multi-object playback cache is missing for "
+                                 f"{target.object_name}")
             verified = pc2.read_header(target.pc2_path)
             if verified != expected:
-                raise ValueError(
-                    f"{target.object_name}: PC2 changed before attach")
+                raise ValueError("Multi-object playback cache changed before "
+                                 f"attach for {target.object_name}")
             if (verified.vertex_count != len(target.initial_local)
                     or verified.frame_count != plan.frame_count):
-                raise ValueError(
-                    f"{target.object_name}: PC2 topology or frame count mismatch")
+                raise ValueError("Multi-object playback cache topology or frame "
+                                 f"count mismatch for {target.object_name}")
             if bpy.data.objects.get(target.object_name) is None:
                 raise ValueError(
                     f"deformable object {target.object_name!r} no longer exists")
@@ -2442,10 +2589,18 @@ def _attach_playback(plan: RunPlan, header) -> None:
                 settings_fingerprint=plan.settings_fingerprint,
                 geometry_fingerprint=plan.geometry_fingerprint)
             if not inspection.usable:
-                raise ValueError(f"{target.object_name}: {inspection.message}")
-        for target in plan.deformables:
-            _attach_playback(_plan_for_target(plan, target),
-                             header[target.uuid])
+                raise ValueError("Multi-object playback cache is invalid for "
+                                 f"{target.object_name}: {inspection.message}")
+        transaction = []
+        try:
+            for target in plan.deformables:
+                _attach_playback(_plan_for_target(plan, target),
+                                 header[target.uuid],
+                                 _transaction=transaction)
+            _commit_playback_cleanup(transaction)
+        except Exception:
+            _rollback_playback(transaction)
+            raise
         return
     verified = pc2.read_header(plan.pc2_path)
     if verified != header:
@@ -2490,10 +2645,25 @@ def _attach_playback(plan: RunPlan, header) -> None:
     # single assignment is the handoff from the old valid cache.
     if stale:
         modifier, extras = stale[0], stale[1:]
+        created = False
     else:
         modifier = getattr(obj.modifiers, "new")(
             name=import_result.MODIFIER_NAME, type="MESH_CACHE")
         extras = []
+        created = True
+    fields = {name: getattr(modifier, name) for name in
+              _PLAYBACK_MODIFIER_FIELDS if hasattr(modifier, name)}
+    settings = getattr(obj, "cloth_next", None)
+    record = _PlaybackRecord(
+        obj, modifier, created, fields, tuple(extras), previous_paths,
+        plan.pc2_path,
+        {name: _snapshot_value(obj, name) for name in
+         _PLAYBACK_OBJECT_FIELDS},
+        settings,
+        ({name: _snapshot_value(settings, name) for name in
+          _PLAYBACK_SETTINGS_FIELDS} if settings is not None else {}))
+    if _transaction is not None:
+        _transaction.append(record)
     modifier.name = import_result.MODIFIER_NAME
     _configure_playback_modifier(modifier, plan.frame_start)
     modifier.filepath = str(plan.pc2_path)
@@ -2523,18 +2693,11 @@ def _attach_playback(plan: RunPlan, header) -> None:
                 topology_signature=plan.topology_signature,
                 geometry_fingerprint=plan.geometry_fingerprint,
                 settings_fingerprint=plan.settings_fingerprint)
-        # Only after the new cache is attached, drop older Cloth NeXt caches.
-        for extra in extras:
-            obj.modifiers.remove(extra)
-        for old_path in previous_paths:
-            if (old_path != plan.pc2_path
-                    and old_path.name.startswith("cn_test_cloth_")):
-                for target in (old_path,
-                               cache_metadata.sidecar_path(old_path)):
-                    try:
-                        target.unlink(missing_ok=True)
-                    except OSError:
-                        pass
+        # Multi-object runs defer destructive cleanup until every target has
+        # crossed its filepath commit point, so an attach failure can roll all
+        # earlier modifiers back to their previous valid caches.
+        if _transaction is None:
+            _commit_playback_cleanup((record,))
     except Exception as exc:  # noqa: BLE001 -- playback is already attached
         log_with_context(get_logger("playback.cache"), 30,
                          "playback attached; post-import housekeeping failed", {
@@ -2623,8 +2786,13 @@ def _pump_once() -> float | None:
                     frame_start=plan.frame_start,
                     frame_end=plan.frame_end)
             except (ValueError, RuntimeError, InvalidTransition) as exc:
+                details = str(exc)
                 shared_controller.fail("Importing the solver result failed.",
-                                       str(exc))
+                                       details,
+                                       error_code=classify_error(
+                                           "IMPORTING",
+                                           "Importing the solver result failed.",
+                                           details))
             _worker, _active_plan = None, None
             modal_lock.release()
             shared_telemetry.set_solver_pid(None)

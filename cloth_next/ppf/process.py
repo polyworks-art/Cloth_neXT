@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import queue
 import os
+import re
 import subprocess
 import threading
 import time
@@ -21,6 +22,25 @@ from ..core.logging import get_logger, log_with_context
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress
+
+
+_CONTACT_LABEL = re.compile(r"\bnum[-_ ]?contacts?\b", re.IGNORECASE)
+_CONTACT_SCALAR = re.compile(
+    r"\bnum[-_ ]?contacts?\b\s*[:=]\s*(\d+)", re.IGNORECASE)
+_CONTACT_TUPLE = re.compile(r"[,;]\s*(\d+)\s*[\)\]]")
+
+
+def _contact_counts(line: str) -> tuple[int, ...]:
+    """Extract PPF ``num-contact`` metrics without treating other numbers as contacts."""
+    label = _CONTACT_LABEL.search(line)
+    if label is None:
+        return ()
+    tail = line[label.start():]
+    scalar = _CONTACT_SCALAR.search(tail)
+    if scalar is not None:
+        return (int(scalar.group(1)),)
+    # PPF metrics may be logged as ``[(simulation_time, count), ...]``.
+    return tuple(int(match.group(1)) for match in _CONTACT_TUPLE.finditer(tail))
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +100,9 @@ class ProcessPoll:
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
     progress: ProgressSnapshot = field(default_factory=lambda: ProgressSnapshot(False, False, ()))
+    contact_peak: int = 0
+    contact_last: int = 0
+    contact_samples: int = 0
 
 
 class SolverProcessManager:
@@ -90,6 +113,9 @@ class SolverProcessManager:
         self._stdout: list[str] = []
         self._stderr: list[str] = []
         self._threads: list[threading.Thread] = []
+        self._contact_peak = 0
+        self._contact_last = 0
+        self._contact_samples = 0
         self._logger = get_logger("ppf.process")
 
     @property
@@ -166,6 +192,10 @@ class SolverProcessManager:
             target = self._stdout if label == "stdout" else self._stderr
             target.append(line)
             del target[:-100]
+            for count in _contact_counts(line):
+                self._contact_last = count
+                self._contact_peak = max(self._contact_peak, count)
+                self._contact_samples += 1
 
     def poll(self) -> ProcessPoll:
         self._drain()
@@ -174,6 +204,9 @@ class SolverProcessManager:
             running=self._process is not None and code is None,
             process_id=None if self._process is None else self._process.pid,
             exit_code=code, stdout_tail=tuple(self._stdout[-40:]), stderr_tail=tuple(self._stderr[-40:]),
+            contact_peak=self._contact_peak,
+            contact_last=self._contact_last,
+            contact_samples=self._contact_samples,
             progress=read_progress(self.config.progress_file),
         )
 
@@ -213,7 +246,10 @@ class SolverProcessManager:
         return ClothNextError(ErrorRecord.create(
             category=ErrorCategory.SOLVER_INSTALLATION,
             user_message="The PPF solver exited before it became ready.",
-            technical_message=f"exit_code={poll.exit_code}; stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}",
+            technical_message=(f"exit_code={poll.exit_code}; "
+                f"contacts(last={poll.contact_last}, peak={poll.contact_peak}, "
+                f"samples={poll.contact_samples}); stdout_tail={poll.stdout_tail}; "
+                f"stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}"),
             recommended_action="Inspect the solver and Cloth NeXt logs, verify CUDA requirements, and retry.",
             recoverable=True,
             context={"exit_code": poll.exit_code},

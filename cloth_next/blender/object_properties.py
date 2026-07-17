@@ -439,6 +439,12 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         ),
         description="Choose whether this Collider stays fixed or follows its "
                     "evaluated Blender animation during the bake")
+    collider_samples_per_frame: bpy.props.IntProperty(
+        name="Motion Samples / Frame", default=8, min=2, max=32,
+        update=_on_settings_update,
+        description="Animated Collider samples per Blender frame. Increase "
+                    "this for fast or strongly curved motion to prevent the "
+                    "interpolated Collider from crossing the cloth")
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
@@ -583,6 +589,7 @@ def reset_settings(settings) -> None:
     settings.enabled = False
     settings.role = DEFAULT_ROLE
     settings.collider_motion = "STATIC"
+    settings.collider_samples_per_frame = 8
     owner = getattr(settings, "id_data", None)
     if owner is not None:
         validation_state.forget(owner)
