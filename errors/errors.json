@@ -1,0 +1,450 @@
+{
+  "schema": 1,
+  "source": "cloth_next/core/error_codes.py",
+  "errors": [
+    {
+      "code": "CNX-E100",
+      "stage": "Scene validation",
+      "cause": "Unclassified scene validation failure",
+      "action": "Correct the highlighted scene setting and retry."
+    },
+    {
+      "code": "CNX-E101",
+      "stage": "Scene validation",
+      "cause": "No enabled deformable object",
+      "action": "Enable Cloth NeXt on at least one supported Mesh or Curve."
+    },
+    {
+      "code": "CNX-E102",
+      "stage": "Scene validation",
+      "cause": "Invalid or inconsistent Bake range",
+      "action": "Use a valid common Bake range on all deformables."
+    },
+    {
+      "code": "CNX-E103",
+      "stage": "Scene validation",
+      "cause": "Unsupported or changing topology",
+      "action": "Apply topology-changing modifiers or keep evaluated topology constant."
+    },
+    {
+      "code": "CNX-E104",
+      "stage": "Scene validation",
+      "cause": "Invalid material or solver-quality values",
+      "action": "Correct the highlighted material or quality value."
+    },
+    {
+      "code": "CNX-E105",
+      "stage": "Scene validation",
+      "cause": "Invalid Pin group or Pin animation",
+      "action": "Check the Pin vertex group, mode, and animated target topology."
+    },
+    {
+      "code": "CNX-E106",
+      "stage": "Scene validation",
+      "cause": "Incompatible multi-object settings",
+      "action": "Give all deformables a compatible range and supported configuration."
+    },
+    {
+      "code": "CNX-E107",
+      "stage": "Scene validation",
+      "cause": "Object disappeared during preparation",
+      "action": "Restore the named object and do not delete it while Bake is starting."
+    },
+    {
+      "code": "CNX-E108",
+      "stage": "Scene validation",
+      "cause": "Invalid Force configuration",
+      "action": "Use a supported Force on an Empty and verify its animated values."
+    },
+    {
+      "code": "CNX-E109",
+      "stage": "Scene validation",
+      "cause": "Non-finite or malformed geometry",
+      "action": "Repair NaN/Inf coordinates, degenerate geometry, or invalid transforms."
+    },
+    {
+      "code": "CNX-E110",
+      "stage": "Companion startup",
+      "cause": "Unclassified Companion startup failure",
+      "action": "Close stale Bake windows and retry."
+    },
+    {
+      "code": "CNX-E111",
+      "stage": "Companion startup",
+      "cause": "Companion bundle missing or failed integrity validation",
+      "action": "Repair or reinstall the Cloth NeXt extension."
+    },
+    {
+      "code": "CNX-E112",
+      "stage": "Companion startup",
+      "cause": "Local Companion transport could not start",
+      "action": "Close stale Bake windows and retry; check local security software."
+    },
+    {
+      "code": "CNX-E113",
+      "stage": "Companion startup",
+      "cause": "Companion process launch failed",
+      "action": "Check Windows execution permissions, then repair or reinstall the extension."
+    },
+    {
+      "code": "CNX-E114",
+      "stage": "Companion startup",
+      "cause": "Companion readiness handshake timed out",
+      "action": "Close the existing Bake window and retry."
+    },
+    {
+      "code": "CNX-E115",
+      "stage": "Companion startup",
+      "cause": "Companion window was not visible or topmost",
+      "action": "Restore normal desktop/window access and retry."
+    },
+    {
+      "code": "CNX-E116",
+      "stage": "Companion startup",
+      "cause": "Companion authentication or protocol mismatch",
+      "action": "Close all Bake windows and reinstall the matching extension build."
+    },
+    {
+      "code": "CNX-E120",
+      "stage": "Bake preparation",
+      "cause": "Unclassified preparation or export failure",
+      "action": "Check evaluated geometry and the cache folder, then retry."
+    },
+    {
+      "code": "CNX-E121",
+      "stage": "Bake preparation",
+      "cause": "Cache/work directory is not writable",
+      "action": "Choose a writable cache location and check free disk space."
+    },
+    {
+      "code": "CNX-E122",
+      "stage": "Bake preparation",
+      "cause": "Evaluated geometry export failed",
+      "action": "Check modifiers, transforms, and evaluated object geometry."
+    },
+    {
+      "code": "CNX-E123",
+      "stage": "Bake preparation",
+      "cause": "PPF scene or parameter encoding failed",
+      "action": "Check geometry, materials, Pins, Forces, and finite numeric values."
+    },
+    {
+      "code": "CNX-E124",
+      "stage": "Bake preparation",
+      "cause": "Animated Pin target capture failed",
+      "action": "Keep pinned topology and objects unchanged throughout the Bake range."
+    },
+    {
+      "code": "CNX-E125",
+      "stage": "Bake preparation",
+      "cause": "Insufficient disk space",
+      "action": "Free disk space or move the cache to a larger writable volume."
+    },
+    {
+      "code": "CNX-E126",
+      "stage": "Bake preparation",
+      "cause": "Bake worker could not start",
+      "action": "Retry after other heavy jobs finish; restart Blender if thread creation keeps failing."
+    },
+    {
+      "code": "CNX-E127",
+      "stage": "Bake preparation",
+      "cause": "Interrupted or stale partial Bake state",
+      "action": "Clear the partial result or Rebake; the last complete cache remains safe."
+    },
+    {
+      "code": "CNX-E130",
+      "stage": "Solver startup",
+      "cause": "Unclassified solver startup failure",
+      "action": "Run the solver health check and repair the managed solver."
+    },
+    {
+      "code": "CNX-E131",
+      "stage": "Solver startup",
+      "cause": "Solver executable or runtime dependency missing",
+      "action": "Repair the managed solver installation."
+    },
+    {
+      "code": "CNX-E132",
+      "stage": "Solver startup",
+      "cause": "Solver protocol, schema, or package is incompatible",
+      "action": "Install the solver version required by this Cloth NeXt release."
+    },
+    {
+      "code": "CNX-E133",
+      "stage": "Solver startup",
+      "cause": "Solver health check failed",
+      "action": "Repair the managed solver and inspect its startup diagnostics."
+    },
+    {
+      "code": "CNX-E134",
+      "stage": "Solver startup",
+      "cause": "Solver process exited during startup",
+      "action": "Inspect the solver stderr tail; update GPU drivers or repair dependencies."
+    },
+    {
+      "code": "CNX-E135",
+      "stage": "Solver startup",
+      "cause": "Solver execution permission denied",
+      "action": "Allow the signed solver executable and retry."
+    },
+    {
+      "code": "CNX-E140",
+      "stage": "Scene upload",
+      "cause": "Unclassified scene upload failure",
+      "action": "Check the local solver connection and retry."
+    },
+    {
+      "code": "CNX-E141",
+      "stage": "Scene upload",
+      "cause": "Solver connection or response timed out",
+      "action": "Retry and check whether security software blocks localhost traffic."
+    },
+    {
+      "code": "CNX-E142",
+      "stage": "Scene upload",
+      "cause": "Solver connection closed or broke",
+      "action": "Retry after the solver health check succeeds."
+    },
+    {
+      "code": "CNX-E143",
+      "stage": "Scene upload",
+      "cause": "Solver rejected or did not acknowledge upload",
+      "action": "Inspect the diagnostic log and verify the matching solver version."
+    },
+    {
+      "code": "CNX-E144",
+      "stage": "Scene upload",
+      "cause": "Uploaded payload hash or identity mismatch",
+      "action": "Repair the solver installation and retry with a fresh Bake."
+    },
+    {
+      "code": "CNX-E145",
+      "stage": "Scene upload",
+      "cause": "Malformed or oversized solver response",
+      "action": "Repair or update the solver to the supported protocol version."
+    },
+    {
+      "code": "CNX-E150",
+      "stage": "Project build",
+      "cause": "Unclassified solver project build failure",
+      "action": "Inspect scene geometry and the solver diagnostic log."
+    },
+    {
+      "code": "CNX-E151",
+      "stage": "Project build",
+      "cause": "Solver rejected project build",
+      "action": "Inspect geometry, materials, Pins, and Forces in the diagnostic log."
+    },
+    {
+      "code": "CNX-E152",
+      "stage": "Project build",
+      "cause": "Project build timed out",
+      "action": "Simplify the scene or increase stability/performance headroom, then retry."
+    },
+    {
+      "code": "CNX-E153",
+      "stage": "Project build",
+      "cause": "Contact or geometry initialization failed",
+      "action": "Repair intersections, degenerate faces, and invalid collision geometry."
+    },
+    {
+      "code": "CNX-E154",
+      "stage": "Project build",
+      "cause": "Solver project was unexpectedly busy",
+      "action": "Wait for the owned solver to stop, then retry."
+    },
+    {
+      "code": "CNX-E160",
+      "stage": "Simulation",
+      "cause": "Unclassified simulation failure",
+      "action": "Inspect the failing frame and solver diagnostic log."
+    },
+    {
+      "code": "CNX-E161",
+      "stage": "Simulation",
+      "cause": "Constraint solver did not converge",
+      "action": "Reduce Time Step, improve collision geometry, or reduce extreme stiffness."
+    },
+    {
+      "code": "CNX-E162",
+      "stage": "Simulation",
+      "cause": "Initial intersection prevented simulation",
+      "action": "Separate intersecting geometry at the first Bake frame."
+    },
+    {
+      "code": "CNX-E163",
+      "stage": "Simulation",
+      "cause": "Simulation stalled or timed out",
+      "action": "Inspect the last frame, reduce scene complexity, and retry."
+    },
+    {
+      "code": "CNX-E164",
+      "stage": "Simulation",
+      "cause": "Solver process crashed or exited",
+      "action": "Inspect the solver stderr tail and verify GPU/driver stability."
+    },
+    {
+      "code": "CNX-E165",
+      "stage": "Simulation",
+      "cause": "Non-finite simulation result",
+      "action": "Reduce Time Step and extreme Forces/stiffness; repair invalid input geometry."
+    },
+    {
+      "code": "CNX-E166",
+      "stage": "Simulation",
+      "cause": "RAM safety limit reached",
+      "action": "Lower scene complexity or raise the RAM Auto Cancel threshold cautiously."
+    },
+    {
+      "code": "CNX-E167",
+      "stage": "Simulation",
+      "cause": "Solver completed without every requested frame",
+      "action": "Keep the diagnostic log and retry after a solver health check."
+    },
+    {
+      "code": "CNX-E168",
+      "stage": "Simulation",
+      "cause": "Force or parameter instability",
+      "action": "Reduce animated Force magnitude and extreme material parameters."
+    },
+    {
+      "code": "CNX-E169",
+      "stage": "Simulation",
+      "cause": "Unexpected solver state",
+      "action": "Stop other solver work and retry with a fresh owned project."
+    },
+    {
+      "code": "CNX-E170",
+      "stage": "Result transfer",
+      "cause": "Unclassified result transfer failure",
+      "action": "Check disk space and the local solver connection."
+    },
+    {
+      "code": "CNX-E171",
+      "stage": "Result transfer",
+      "cause": "Result transfer timed out",
+      "action": "Check disk performance and localhost security software, then retry."
+    },
+    {
+      "code": "CNX-E172",
+      "stage": "Result transfer",
+      "cause": "Connection broke during result transfer",
+      "action": "Retry after a successful solver health check."
+    },
+    {
+      "code": "CNX-E173",
+      "stage": "Result transfer",
+      "cause": "Invalid or missing solver output map",
+      "action": "Keep the diagnostic log and repair/update the solver."
+    },
+    {
+      "code": "CNX-E174",
+      "stage": "Result transfer",
+      "cause": "Requested result frame is missing",
+      "action": "Retry; report the diagnostic log if the same frame is missing again."
+    },
+    {
+      "code": "CNX-E175",
+      "stage": "Result transfer",
+      "cause": "Result frame is corrupt or cannot be decoded",
+      "action": "Check disk integrity and repair/update the solver."
+    },
+    {
+      "code": "CNX-E176",
+      "stage": "Result transfer",
+      "cause": "Result size or vertex count mismatch",
+      "action": "Restore the original topology and Rebake."
+    },
+    {
+      "code": "CNX-E180",
+      "stage": "Playback cache",
+      "cause": "Unclassified playback-cache failure",
+      "action": "Check cache access and target topology."
+    },
+    {
+      "code": "CNX-E181",
+      "stage": "Playback cache",
+      "cause": "Playback cache could not be written",
+      "action": "Choose a writable cache folder with sufficient free space."
+    },
+    {
+      "code": "CNX-E182",
+      "stage": "Playback cache",
+      "cause": "PC2 finalization failed",
+      "action": "Check disk space and filesystem reliability, then Rebake."
+    },
+    {
+      "code": "CNX-E183",
+      "stage": "Playback cache",
+      "cause": "Object topology changed before import",
+      "action": "Restore the topology used when the Bake began and Rebake."
+    },
+    {
+      "code": "CNX-E184",
+      "stage": "Playback cache",
+      "cause": "Target object no longer exists",
+      "action": "Restore the target object and Rebake."
+    },
+    {
+      "code": "CNX-E185",
+      "stage": "Playback cache",
+      "cause": "Playback attachment failed",
+      "action": "Remove conflicting cache modifiers or animation and retry."
+    },
+    {
+      "code": "CNX-E186",
+      "stage": "Playback cache",
+      "cause": "Cache integrity validation failed",
+      "action": "Do not use the partial cache; Rebake to create a verified result."
+    },
+    {
+      "code": "CNX-E187",
+      "stage": "Playback cache",
+      "cause": "Multi-object cache set is incomplete or inconsistent",
+      "action": "Keep every target object unchanged and Rebake the full set."
+    },
+    {
+      "code": "CNX-E188",
+      "stage": "Playback cache",
+      "cause": "Rod Curve playback could not be applied",
+      "action": "Restore the original Curve topology and remove conflicting Curve animation."
+    },
+    {
+      "code": "CNX-E190",
+      "stage": "Cleanup",
+      "cause": "Unclassified cancellation cleanup failure",
+      "action": "Wait for cleanup; restart Blender only if the owned process remains stuck."
+    },
+    {
+      "code": "CNX-E191",
+      "stage": "Cleanup",
+      "cause": "Cancellation did not complete in time",
+      "action": "Wait briefly, then restart Blender if the owned solver remains active."
+    },
+    {
+      "code": "CNX-E192",
+      "stage": "Cleanup",
+      "cause": "Owned solver process could not be stopped",
+      "action": "Close Blender after preserving diagnostics, then retry."
+    },
+    {
+      "code": "CNX-E193",
+      "stage": "Cleanup",
+      "cause": "Temporary or partial files could not be removed",
+      "action": "Close programs using the cache folder and clear the partial result."
+    },
+    {
+      "code": "CNX-E198",
+      "stage": "Internal",
+      "cause": "Bake worker stopped without a terminal result",
+      "action": "Preserve diagnostics and restart Blender before retrying."
+    },
+    {
+      "code": "CNX-E199",
+      "stage": "Internal",
+      "cause": "Unexpected internal failure",
+      "action": "Preserve the diagnostic log and report the code and full Blender error."
+    }
+  ]
+}

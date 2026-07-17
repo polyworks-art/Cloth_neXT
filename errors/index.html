@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09110f">
+  <meta name="description" content="Search and resolve Cloth NeXt CNX Bake error codes.">
+  <title>Error codes — Cloth NeXt</title>
+  <link rel="icon" href="../assets/cloth-next.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="errors.css">
+</head>
+<body>
+  <a class="skip-link" href="#error-list">Skip to error list</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <header class="site-header error-header">
+    <a class="brand" href="../" aria-label="Cloth NeXt home">
+      <img src="../assets/cloth-next.svg" alt="" width="44" height="34">
+      <span>Cloth NeXt</span>
+    </a>
+    <nav aria-label="Error documentation navigation">
+      <a href="../">Overview</a>
+      <a href="#diagnostics">Diagnostic files</a>
+      <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="error-hero">
+      <div class="eyebrow"><span></span> CLOTH NEXT DIAGNOSTICS</div>
+      <h1>Turn an error code<br><em>into a next step.</em></h1>
+      <p>Enter the code shown in the Bake window to find the verified cause and the first recovery action. Diagnostics stay on your machine.</p>
+      <label class="search-box" for="error-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+        <input id="error-search" type="search" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Search CNX-E161, topology, cache…">
+        <kbd>ESC</kbd>
+      </label>
+      <div class="error-stats" aria-label="Error code documentation summary">
+        <div><strong id="code-count">74</strong><span>Stable codes</span></div>
+        <div><strong id="stage-count">11</strong><span>Workflow stages</span></div>
+        <div><strong>Local</strong><span>Private diagnostics</span></div>
+      </div>
+    </section>
+
+    <section class="error-browser" id="error-list">
+      <div class="browser-toolbar">
+        <div>
+          <span class="kicker">ERROR DIRECTORY</span>
+          <h2><span id="result-count">74</span> documented codes</h2>
+        </div>
+        <button class="expand-all" type="button">Expand all</button>
+      </div>
+      <div class="stage-filters" role="group" aria-label="Filter by workflow stage">
+        <button class="active" type="button" data-stage="all">All codes</button>
+      </div>
+      <div class="error-groups" aria-live="polite"></div>
+      <div class="empty-state" hidden>
+        <img src="../assets/error.svg" alt="" width="38" height="38">
+        <h3>No matching error code</h3>
+        <p>Check the spelling or search for a broader term such as “cache” or “solver”.</p>
+        <button type="button">Clear search</button>
+      </div>
+    </section>
+
+    <section class="diagnostics" id="diagnostics">
+      <div class="diagnostics-heading">
+        <span class="kicker">WHEN YOU NEED MORE CONTEXT</span>
+        <h2>The code is the index.<br>The log tells the story.</h2>
+        <p>Cloth NeXt never uploads scene data or diagnostics automatically. These files remain local until you choose to share them.</p>
+      </div>
+      <div class="log-grid">
+        <article>
+          <span>01</span>
+          <h3>Bake failures</h3>
+          <code>cloth_next/logs/bake-errors.log</code>
+          <p>Code, frame, stage, solver cause and recommended action for recent failures.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Companion lifecycle</h3>
+          <code>cloth_next/logs/companion-startup.log</code>
+          <p>Window startup, authentication, readiness and shutdown events.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Per-run diagnostics</h3>
+          <code>Diagnostic log: …/failure.log</code>
+          <p>The exact solver or worker tail for one failed Bake attempt.</p>
+        </article>
+      </div>
+      <div class="report-note">
+        <img src="../assets/info.svg" alt="" width="22" height="22">
+        <p><strong>Reporting a repeatable bug?</strong> Include the exact CNX code, its matching line from <code>bake-errors.log</code>, and the per-run <code>failure.log</code>. Remove project-sensitive names if needed.</p>
+        <a href="https://github.com/polyworks-art/Cloth_neXT/issues">Open GitHub Issues <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="../"><img src="../assets/cloth-next.svg" alt="" width="42" height="32"><span>Cloth NeXt</span></a>
+    <p>Stable, local-first diagnostics for production Bakes.</p>
+    <div><a href="../">Overview</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a><a href="#error-list">All codes</a></div>
+  </footer>
+  <div class="toast" role="status" aria-live="polite"></div>
+  <script src="errors.js" defer></script>
+</body>
+</html>
