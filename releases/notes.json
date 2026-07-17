@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "source": "CHANGELOG.md and immutable published Dev source commits",
+  "releases": {
+    "1.0.0": {
+      "date": "July 16, 2026",
+      "title": "First Stable release",
+      "summary": "The production Cloth NeXt Bake workflow, with multi-object simulation, documented diagnostics and cumulative update channels.",
+      "sections": [
+        {
+          "label": "Added",
+          "entries": [
+            "Multi-object Cloth, Rod / Cable and Soft Body Bakes, including Follow Animation Pins and colliderless projects.",
+            "Keyframeable Empty Forces for every PPF force parameter exposed by Cloth NeXt.",
+            "Seventy-four stable CNX error codes with persistent local diagnostics and atomic per-run failure reports."
+          ]
+        },
+        {
+          "label": "Changed",
+          "entries": [
+            "Stable publishes to Stable, Beta and Dev; Beta publishes to Beta and Dev; Dev remains Dev-only.",
+            "Companion transport failures remain visible, pulse red and require explicit acknowledgement.",
+            "Authenticated Companion status messages are bounded and tolerate unknown future enum values."
+          ]
+        },
+        {
+          "label": "Fixed",
+          "entries": [
+            "RAM safety cancellation now terminates as actionable CNX-E166.",
+            "Worker tracebacks and complete Bake failures persist without masking the original solver error.",
+            "Channel validation accepts more-stable candidates while rejecting less-stable or ambiguous indices."
+          ]
+        }
+      ]
+    },
+    "1.0.5": {
+      "date": "July 17, 2026",
+      "title": "Animated preparation reliability",
+      "summary": "A focused Dev snapshot for heavy animated-collider preparation and continuously updating resource telemetry.",
+      "sections": [
+        {
+          "label": "Changed",
+          "entries": [
+            "Animated Collider capture publishes frame-level progress instead of flooding the Companion with every motion sub-sample.",
+            "The Companion drains buffered preparation status in bounded batches and keeps only the latest visual update.",
+            "System Load graphs refresh on the telemetry timer even when the Blender viewport is idle."
+          ]
+        },
+        {
+          "label": "Fixed",
+          "entries": [
+            "Bake readiness commands can no longer sit behind a large animated-capture status backlog.",
+            "Non-blocking Companion socket reads no longer surface BlockingIOError as a transport failure."
+          ]
+        },
+        {
+          "label": "Validation",
+          "entries": [
+            "Source imports, Companion build and hash, Blender extension validation, and forbidden-artifact scans passed.",
+            "Real PPF integration, interactive Blender acceptance, and full release preflight were not part of this Dev snapshot."
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09110f">
+  <meta name="description" content="Release notes for the current Cloth NeXt Stable, Beta and Dev channel builds.">
+  <title>Release Notes — Cloth NeXt</title>
+  <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="releases.css">
+</head>
+<body>
+  <a class="skip-link" href="#current-releases">Skip to current releases</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <header class="site-header release-header">
+    <a class="brand" href="../" aria-label="Cloth NeXt home">
+      <img src="../assets/cloth-next-white.svg" alt="" width="44" height="34">
+      <span>Cloth NeXt</span>
+    </a>
+    <nav aria-label="Release documentation navigation">
+      <a href="../">Overview</a>
+      <a href="../errors/">Errors</a>
+      <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="release-hero">
+      <div class="eyebrow"><span></span> CLOTH NEXT RELEASES</div>
+      <h1>What changed.<br><em>What ships now.</em></h1>
+      <p>The current Stable, Beta and Dev candidates—read directly from the same repositories Blender uses for updates.</p>
+      <div class="release-legend" aria-label="Channel stability order">
+        <span><i class="stable-dot"></i> Stable</span>
+        <span><i class="beta-dot"></i> Beta</span>
+        <span><i class="dev-dot"></i> Dev</span>
+      </div>
+    </section>
+
+    <section class="current-releases" id="current-releases">
+      <div class="section-intro">
+        <div><span class="kicker">CURRENT CHANNEL BUILDS</span><h2>Choose your confidence level.</h2></div>
+        <p>Channels are cumulative: a Stable build may also be the current Beta and Dev candidate until a newer experimental build is published.</p>
+      </div>
+      <div class="channel-release-grid" aria-live="polite">
+        <article class="channel-release loading" data-channel="stable"><span class="channel-label">Stable</span><strong>Loading…</strong><p>Production-ready releases.</p></article>
+        <article class="channel-release loading" data-channel="beta"><span class="channel-label">Beta</span><strong>Loading…</strong><p>Release candidates and Stable builds.</p></article>
+        <article class="channel-release loading" data-channel="dev"><span class="channel-label">Dev</span><strong>Loading…</strong><p>Latest experimental snapshots.</p></article>
+      </div>
+    </section>
+
+    <section class="notes-section">
+      <div class="notes-heading"><span class="kicker">RELEASE NOTES</span><h2>Details for every current candidate.</h2></div>
+      <div class="release-notes" aria-live="polite"></div>
+      <div class="notes-error" hidden>
+        <h3>Release notes could not be loaded</h3>
+        <p>The channel repositories remain available. Refresh this page or view the source changelog on GitHub.</p>
+        <a class="button button-secondary" href="https://github.com/polyworks-art/Cloth_neXT/blob/main/CHANGELOG.md">Open changelog <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+
+    <section class="release-footnote">
+      <div><span class="kicker">HONEST CHANNELS</span><h2>Dev is a test build.<br>Stable is the promise.</h2></div>
+      <p>Dev snapshots pass packaging, companion integrity, Blender validation and artifact scans, but may skip interactive acceptance and real-scene PPF integration. Use Stable for production unless you are intentionally testing a fix.</p>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="../"><img src="../assets/cloth-next-white.svg" alt="" width="42" height="32"><span>Cloth NeXt</span></a>
+    <p>Transparent release notes for every update channel.</p>
+    <div><a href="../">Overview</a><a href="../errors/">Error codes</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a></div>
+  </footer>
+  <script src="releases.js" defer></script>
+</body>
+</html>
