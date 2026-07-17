@@ -363,6 +363,39 @@ def test_animated_collider_topology_detects_real_changes(blender_env):
         4, polygons, 4, ((0, 1, 2), (0, 2, 3)))
 
 
+def test_dense_animated_collider_capture_is_rejected_before_evaluation(
+        blender_env):
+    module = blender_env.solver_test
+    vertices = range(214_050)
+    collider = SimpleNamespace(name="Character Proxy",
+        data=SimpleNamespace(vertices=vertices),
+        cloth_next=SimpleNamespace(collider_motion="ANIMATED",
+                                   collider_samples_per_frame=8))
+    snapshot = SimpleNamespace(
+        collider_objs=(collider,), bake_range=module.BakeFrameRange(1, 150))
+
+    with pytest.raises(module.SceneValidationError) as caught:
+        module._validate_animated_collider_capture_budget(snapshot)
+
+    message = str(caught.value)
+    assert "214,050 vertices" in message
+    assert "2.85 GiB" in message
+    assert "low-poly collision proxy" in message
+
+
+def test_reasonable_animated_collider_capture_stays_allowed(blender_env):
+    module = blender_env.solver_test
+    vertices = range(10_000)
+    collider = SimpleNamespace(name="Character Proxy",
+        data=SimpleNamespace(vertices=vertices),
+        cloth_next=SimpleNamespace(collider_motion="ANIMATED",
+                                   collider_samples_per_frame=8))
+    snapshot = SimpleNamespace(
+        collider_objs=(collider,), bake_range=module.BakeFrameRange(1, 150))
+
+    module._validate_animated_collider_capture_budget(snapshot)
+
+
 def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

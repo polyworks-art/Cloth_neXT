@@ -230,6 +230,32 @@ def test_new_bake_clears_stale_cancel_before_run_plan(blender_env,
     assert not module._cancel_event.is_set()
 
 
+def test_preparation_window_launches_before_animated_collider_capture(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    blender_env.registration.register()
+    cloth, collider = _objects(blender_env, 1, 1)
+    collider.cloth_next.collider_motion = "ANIMATED"
+    context = _context(blender_env, [cloth, collider])
+    snapshot = SimpleNamespace(
+        bake_range=module.BakeFrameRange(1, 2), deformables=(),
+        collider_objs=(collider,))
+    calls = []
+    monkeypatch.setattr(module, "validate_scene", lambda _context: snapshot)
+    monkeypatch.setattr(module, "build_run_plan",
+                        lambda *_args, **_kwargs: calls.append("build") or
+                        SimpleNamespace())
+    monkeypatch.setattr(module, "_continue_production_bake",
+                        lambda _context, job_id, _plan: (job_id, True))
+    monkeypatch.setattr(module.companion_manager, "ensure_running",
+                        lambda: calls.append("window") or (True, "ready"))
+
+    module.begin_production_bake(context)
+
+    assert calls == ["window", "build"]
+    blender_env.registration.unregister()
+
+
 def test_material_validation_precedes_companion_or_worker(blender_env,
                                                            monkeypatch):
     module = blender_env.solver_test

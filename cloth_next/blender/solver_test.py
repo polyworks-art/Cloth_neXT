@@ -1284,6 +1284,7 @@ def _matrix_trs(matrix):
 
 
 COLLIDER_SAMPLES_PER_FRAME = 8
+ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
 def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
@@ -1302,6 +1303,45 @@ def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
         result.append((frame, subframe,
                        index / (float(fps) * samples_per_frame)))
     return tuple(result)
+
+
+def _animated_collider_capture_bytes(vertex_count: int,
+                                     bake_range: BakeFrameRange,
+                                     samples_per_frame: int) -> int:
+    sample_count = len(_collider_sample_points(
+        bake_range, 1, samples_per_frame))
+    return int(vertex_count) * sample_count * 3 * 4
+
+
+def _validate_animated_collider_capture_budget(snapshot) -> None:
+    """Reject captures large enough to make Blender appear frozen.
+
+    Deforming collider samples are float32 XYZ memmaps. The limit bounds only
+    their irreducible position storage; evaluated Blender meshes and solver
+    contact data add further cost, so this intentionally fails conservatively.
+    """
+    rows = []
+    total = 0
+    for obj in snapshot.collider_objs:
+        if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) != "ANIMATED":
+            continue
+        vertex_count = len(getattr(getattr(obj, "data", None), "vertices", ()))
+        samples = int(getattr(obj.cloth_next, "collider_samples_per_frame",
+                              COLLIDER_SAMPLES_PER_FRAME))
+        size = _animated_collider_capture_bytes(
+            vertex_count, snapshot.bake_range, samples)
+        total += size
+        rows.append((obj.name, vertex_count, samples, size))
+    if total <= ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES:
+        return
+    name, vertices, samples, largest = max(rows, key=lambda row: row[3])
+    gib = total / float(1024 ** 3)
+    raise SceneValidationError(
+        f'Animated Collider "{name}" is too dense to capture safely: '
+        f'{vertices:,} vertices at {samples} samples/frame require about '
+        f'{gib:.2f} GiB of raw position data. Use a low-poly collision proxy '
+        'driven by the same Armature, shorten the Bake range, or reduce '
+        'Motion Samples / Frame.')
 
 
 def _collider_polygon_topology(mesh) -> tuple[tuple[int, ...], ...]:
@@ -3036,6 +3076,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
         objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
         snapshot=validate_scene(context) if objects else None
         if snapshot is not None:
+            _validate_animated_collider_capture_budget(snapshot)
             bake_range=snapshot.bake_range
             animated_targets = tuple(
                 (entry.obj.name, entry.pin_membership)
@@ -3043,6 +3084,21 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 if (entry.pin_membership.enabled and str(getattr(
                     entry.obj.cloth_next, "pin_mode", "STATIC")) ==
                     "FOLLOW_ANIMATION"))
+            animated_colliders = any(
+                str(getattr(obj.cloth_next, "collider_motion", "STATIC")) ==
+                "ANIMATED" for obj in snapshot.collider_objs)
+            if animated_targets or animated_colliders:
+                try:
+                    prefs = context.preferences.addons[
+                        __package__.partition(".blender")[0]].preferences
+                    open_preparation_window = bool(
+                        prefs.auto_launch_bake_window)
+                except (KeyError, AttributeError):
+                    open_preparation_window = True
+                if open_preparation_window:
+                    ok, message = companion_manager.ensure_running()
+                    if not ok:
+                        raise SceneValidationError(message)
             if animated_targets:
                 _pin_capture={"context":context,"targets":animated_targets,
                     "range":bake_range,"next":bake_range.start,
