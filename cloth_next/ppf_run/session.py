@@ -114,6 +114,7 @@ class SessionEvent:
     schema_version: str | None = None
     host: str = ""
     port: int = 0
+    activity_code: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +230,12 @@ class SolverSession:
         self.diagnostics.note_status(status)
         return response
 
+    def _runtime_activity(self) -> tuple[str, str]:
+        if self._manager is None:
+            return "", ""
+        poll = self._manager.poll()
+        return poll.activity_code, poll.activity_message
+
     def _request(self, request: str) -> dict:
         assert self._address is not None
         response = wire.send_tcmd(self._address, self.transport,
@@ -334,12 +341,17 @@ class SolverSession:
             if status == STATUS_BUILDING:
                 progress = response.get("progress")
                 info = str(response.get("info", "") or "Building solver project")
+                activity_code, activity_message = self._runtime_activity()
+                if activity_message:
+                    info = activity_message
                 if isinstance(progress, (int, float)):
                     self._event("BUILDING", info,
                                 frame_current=int(progress * 100),
-                                frame_total=100)
+                                frame_total=100,
+                                activity_code=activity_code)
                 else:
-                    self._event("BUILDING", info, indeterminate=True)
+                    self._event("BUILDING", info, indeterminate=True,
+                                activity_code=activity_code)
             elif status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT):
                 raise _session_error(
                     "The solver project is unexpectedly busy.",
@@ -500,9 +512,12 @@ class SolverSession:
                     f"{sorted(fetched)} of {total} frames on disk")
             if status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT, STATUS_BUILDING):
                 current = min(available + 1, total)
+                activity_code, activity_message = self._runtime_activity()
                 self._event("SIMULATING",
+                            activity_message or
                             f"Simulating frame {current} of {total}",
-                            frame_current=available, frame_total=total)
+                            frame_current=available, frame_total=total,
+                            activity_code=activity_code)
             else:
                 self._event("SIMULATING",
                             f"Waiting for the solver ({status})",

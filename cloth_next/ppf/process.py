@@ -43,6 +43,33 @@ def _contact_counts(line: str) -> tuple[int, ...]:
     return tuple(int(match.group(1)) for match in _CONTACT_TUPLE.finditer(tail))
 
 
+def _solver_activity(line: str) -> tuple[str, str] | None:
+    """Translate known PPF stdout markers into stable, user-facing activity."""
+    value = line.strip()
+    contacts = _contact_counts(value)
+    if contacts:
+        return "BUILDING_CONTACTS", f"Assembling contacts · {contacts[-1]:,} contacts"
+    match = re.search(r"newton step\s+(\d+)", value, re.IGNORECASE)
+    if match:
+        return "SOLVING_CONSTRAINTS", f"Newton solve · step {match.group(1)}"
+    match = re.match(r"\*\s*iter\s*:\s*(\d+)", value, re.IGNORECASE)
+    if match:
+        return "SOLVING_CONSTRAINTS", f"Solving linear system · {match.group(1)} iterations"
+    markers = (
+        ("asm_contact", "BUILDING_CONTACTS", "Assembling contacts"),
+        ("matrix_assembly", "SOLVING_CONSTRAINTS", "Assembling system matrix"),
+        ("linsolve", "SOLVING_CONSTRAINTS", "Solving linear system"),
+        ("line_search", "SOLVING_CONSTRAINTS", "Line search"),
+        ("check_intersection", "DETECTING_COLLISIONS", "Checking intersections"),
+        ("error reduction step", "SOLVING_CONSTRAINTS", "Reducing solver error"),
+    )
+    lowered = value.lower()
+    for marker, code, label in markers:
+        if marker in lowered:
+            return code, label
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class SolverProcessConfig:
     executable_path: Path
@@ -103,6 +130,8 @@ class ProcessPoll:
     contact_peak: int = 0
     contact_last: int = 0
     contact_samples: int = 0
+    activity_code: str = ""
+    activity_message: str = ""
 
 
 class SolverProcessManager:
@@ -116,6 +145,8 @@ class SolverProcessManager:
         self._contact_peak = 0
         self._contact_last = 0
         self._contact_samples = 0
+        self._activity_code = ""
+        self._activity_message = ""
         self._logger = get_logger("ppf.process")
 
     @property
@@ -196,6 +227,9 @@ class SolverProcessManager:
                 self._contact_last = count
                 self._contact_peak = max(self._contact_peak, count)
                 self._contact_samples += 1
+            activity = _solver_activity(line)
+            if activity is not None:
+                self._activity_code, self._activity_message = activity
 
     def poll(self) -> ProcessPoll:
         self._drain()
@@ -207,6 +241,8 @@ class SolverProcessManager:
             contact_peak=self._contact_peak,
             contact_last=self._contact_last,
             contact_samples=self._contact_samples,
+            activity_code=self._activity_code,
+            activity_message=self._activity_message,
             progress=read_progress(self.config.progress_file),
         )
 

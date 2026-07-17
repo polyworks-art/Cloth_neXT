@@ -90,7 +90,8 @@ def test_solver_panel_contains_large_main_bake_action(blender_env, monkeypatch):
     panel.draw(context)
     assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
     assert "PPF Contact Solver" in panel.layout.labels
-    assert "Ready · Protocol 0.11" in panel.layout.labels
+    assert "Ready · Protocol 0.11" not in panel.layout.labels
+    assert "Schema 1" not in panel.layout.labels
     env.registration.unregister()
 
 
@@ -129,6 +130,65 @@ def test_bake_allows_scene_without_collider(blender_env):
         context,env.physics_ui._SolverStatus(True,"Ready · Protocol 0.11"))
     assert model.enabled and model.reason==""
     assert "0 Collider" in model.summary_line
+    env.registration.unregister()
+
+
+def test_large_animated_collider_warns_below_enabled_bake_button(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.bake_start = 1
+    cloth.cloth_next.bake_end = 150
+    collider.cloth_next.collider_motion = "ANIMATED"
+    collider.cloth_next.collider_samples_per_frame = 8
+    collider.data = SimpleNamespace(vertices=range(214_050))
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+
+    panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
+    panel.draw(context)
+
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert "Large animated Collider capture: ~2.85 GiB" in panel.layout.labels
+    assert "Bake allowed · Low-poly collision proxy recommended." in \
+        panel.layout.labels
+    env.registration.unregister()
+
+
+def test_high_collider_gap_and_grip_warn_without_blocking_bake(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    collider.cloth_next.collision.collision_gap = 0.05
+    collider.cloth_next.collision.surface_grip = 0.5
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+
+    panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
+    panel.draw(context)
+
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert "High Collider Gap + Grip can destabilize pinned Cloth." in \
+        panel.layout.labels
+    assert "Bake allowed - try Gap 0.001 and Grip 0.2-0.3." in \
+        panel.layout.labels
+    env.registration.unregister()
+
+
+def test_contact_stability_warning_needs_both_high_values(blender_env):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    context = _context(env, [cloth, collider])
+    collider.cloth_next.collision.collision_gap = 0.05
+    collider.cloth_next.collision.surface_grip = 0.2
+    assert env.physics_ui._contact_stability_warning(context) == ""
+    collider.cloth_next.collision.collision_gap = 0.001
+    collider.cloth_next.collision.surface_grip = 0.8
+    assert env.physics_ui._contact_stability_warning(context) == ""
     env.registration.unregister()
 
 

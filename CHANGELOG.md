@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.0.6 — 2026-07-17 (Dev channel)
+
+### Added
+
+- Bake Details now include an estimated time to finish and link documented
+  `CNX-E…` failures directly to the public error-code reference.
+- The solver activity line surfaces useful PPF runtime progress instead of a
+  generic advancing-simulation message.
+- Non-blocking warnings identify unusually large animated-Collider captures
+  and destabilizing high Collider Gap plus Surface Grip combinations.
+
+### Changed
+
+- Animated Follow Animation Pin capture now evaluates frames sequentially,
+  suspends owned playback once per capture, and reads evaluated coordinates in
+  bulk without allocating a complete temporary mesh for every frame.
+- The Bake Companion stays in one window across export and simulation, while
+  System Load visuals now follow the public website's mint-on-dark palette.
+- Bake Details expose the remaining-time estimate without changing the compact
+  default window layout.
+
+### Fixed
+
+- Pin-capture cancellation, add-on shutdown, and capture failures restore the
+  artist's frame and playback flags deterministically.
+- Animated Pin capture failures now produce a visible console message, stable
+  error code, and persistent Bake diagnostics instead of silently ending a
+  Blender timer.
+- Runtime activity parsing tolerates partial solver output and retains the
+  latest useful solver stage.
+
 ## 1.0.0 — 2026-07-16 (Stable channel)
 
 ### Added

@@ -28,6 +28,35 @@ def _phase4_meta():
     }
 
 
+def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
+    module = blender_env.solver_test
+
+    class Vertices:
+        def __len__(self):
+            return 2
+
+        def foreach_get(self, attribute, target):
+            assert attribute == "co"
+            target[:] = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+
+    evaluated = SimpleNamespace(
+        data=SimpleNamespace(vertices=Vertices()),
+        matrix_world=((1.0, 0.0, 0.0, 0.0),
+                      (0.0, 1.0, 0.0, 0.0),
+                      (0.0, 0.0, 1.0, 0.0),
+                      (0.0, 0.0, 0.0, 1.0)))
+    obj = SimpleNamespace(
+        name="Rigged Cloth",
+        evaluated_get=lambda _depsgraph: evaluated)
+    context = SimpleNamespace(evaluated_depsgraph_get=lambda: object())
+    membership = SimpleNamespace(source_vertex_count=2, vertex_indices=(1,))
+
+    positions = module._sample_evaluated_pin_positions(
+        context, obj, membership)
+
+    assert positions == ((4.0, 6.0, -5.0),)
+
+
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     main_ident = threading.get_ident()
@@ -363,7 +392,7 @@ def test_animated_collider_topology_detects_real_changes(blender_env):
         4, polygons, 4, ((0, 1, 2), (0, 2, 3)))
 
 
-def test_dense_animated_collider_capture_is_rejected_before_evaluation(
+def test_dense_animated_collider_capture_returns_non_blocking_warning(
         blender_env):
     module = blender_env.solver_test
     vertices = range(214_050)
@@ -371,16 +400,14 @@ def test_dense_animated_collider_capture_is_rejected_before_evaluation(
         data=SimpleNamespace(vertices=vertices),
         cloth_next=SimpleNamespace(collider_motion="ANIMATED",
                                    collider_samples_per_frame=8))
-    snapshot = SimpleNamespace(
-        collider_objs=(collider,), bake_range=module.BakeFrameRange(1, 150))
+    warning = module.animated_collider_capture_warning(
+        (collider,), module.BakeFrameRange(1, 150))
 
-    with pytest.raises(module.SceneValidationError) as caught:
-        module._validate_animated_collider_capture_budget(snapshot)
-
-    message = str(caught.value)
-    assert "214,050 vertices" in message
-    assert "2.85 GiB" in message
-    assert "low-poly collision proxy" in message
+    assert warning is not None
+    assert warning.collider_name == "Character Proxy"
+    assert warning.vertex_count == 214_050
+    assert warning.samples_per_frame == 8
+    assert warning.size_label == "2.85 GiB"
 
 
 def test_reasonable_animated_collider_capture_stays_allowed(blender_env):
@@ -390,10 +417,10 @@ def test_reasonable_animated_collider_capture_stays_allowed(blender_env):
         data=SimpleNamespace(vertices=vertices),
         cloth_next=SimpleNamespace(collider_motion="ANIMATED",
                                    collider_samples_per_frame=8))
-    snapshot = SimpleNamespace(
-        collider_objs=(collider,), bake_range=module.BakeFrameRange(1, 150))
+    warning = module.animated_collider_capture_warning(
+        (collider,), module.BakeFrameRange(1, 150))
 
-    module._validate_animated_collider_capture_budget(snapshot)
+    assert warning is None
 
 
 def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(

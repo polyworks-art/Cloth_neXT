@@ -42,7 +42,8 @@ from ..bake import cache_metadata
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.frame_range import BakeFrameRange, BakeRangeError
-from ..bake.status import BakeActivity, BakeJobKind, BakeState
+from ..bake.status import (BakeActivity, BakeJobKind, BakeState,
+                           FrameEtaEstimator)
 from ..bake.transport import EnterBakeMode
 from ..core.errors import ClothNextError
 from ..core.error_codes import classify_error
@@ -127,6 +128,7 @@ _pin_capture = None
 _ram_auto_cancel = RamAutoCancelGuard()
 _ram_auto_cancel_enabled = False
 _ram_auto_cancel_triggered = False
+_eta_estimator = FrameEtaEstimator()
 
 
 def _ensure_solver_static(scene_colliders, collider_specs):
@@ -1287,6 +1289,22 @@ COLLIDER_SAMPLES_PER_FRAME = 8
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
+@dataclass(frozen=True, slots=True)
+class AnimatedColliderCaptureWarning:
+    """Non-blocking estimate for an unusually large Collider capture."""
+
+    collider_name: str
+    vertex_count: int
+    samples_per_frame: int
+    total_bytes: int
+
+    @property
+    def size_label(self) -> str:
+        if self.total_bytes >= 1024 ** 3:
+            return f"{self.total_bytes / float(1024 ** 3):.2f} GiB"
+        return f"{self.total_bytes / float(1024 ** 2):.0f} MiB"
+
+
 def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
                             samples_per_frame: int = COLLIDER_SAMPLES_PER_FRAME):
     """Dense evaluated samples, including both Bake endpoints exactly."""
@@ -1313,35 +1331,28 @@ def _animated_collider_capture_bytes(vertex_count: int,
     return int(vertex_count) * sample_count * 3 * 4
 
 
-def _validate_animated_collider_capture_budget(snapshot) -> None:
-    """Reject captures large enough to make Blender appear frozen.
-
-    Deforming collider samples are float32 XYZ memmaps. The limit bounds only
-    their irreducible position storage; evaluated Blender meshes and solver
-    contact data add further cost, so this intentionally fails conservatively.
-    """
+def animated_collider_capture_warning(
+        collider_objs, bake_range: BakeFrameRange
+) -> AnimatedColliderCaptureWarning | None:
+    """Estimate raw animated-Collider storage without preventing a Bake."""
     rows = []
     total = 0
-    for obj in snapshot.collider_objs:
+    for obj in collider_objs:
         if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) != "ANIMATED":
             continue
         vertex_count = len(getattr(getattr(obj, "data", None), "vertices", ()))
         samples = int(getattr(obj.cloth_next, "collider_samples_per_frame",
                               COLLIDER_SAMPLES_PER_FRAME))
         size = _animated_collider_capture_bytes(
-            vertex_count, snapshot.bake_range, samples)
+            vertex_count, bake_range, samples)
         total += size
         rows.append((obj.name, vertex_count, samples, size))
     if total <= ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES:
-        return
-    name, vertices, samples, largest = max(rows, key=lambda row: row[3])
-    gib = total / float(1024 ** 3)
-    raise SceneValidationError(
-        f'Animated Collider "{name}" is too dense to capture safely: '
-        f'{vertices:,} vertices at {samples} samples/frame require about '
-        f'{gib:.2f} GiB of raw position data. Use a low-poly collision proxy '
-        'driven by the same Armature, shorten the Bake range, or reduce '
-        'Motion Samples / Frame.')
+        return None
+    name, vertices, samples, _largest = max(rows, key=lambda row: row[3])
+    return AnimatedColliderCaptureWarning(
+        collider_name=name, vertex_count=vertices,
+        samples_per_frame=samples, total_bytes=total)
 
 
 def _collider_polygon_topology(mesh) -> tuple[tuple[int, ...], ...]:
@@ -2854,13 +2865,23 @@ def _pump_once() -> float | None:
                     solver_step = min(plan.frame_count - 1, int(current))
                     current = plan.frame_start + solver_step
                     total = plan.frame_count
+                activity_code = None
+                if getattr(event, "activity_code", ""):
+                    try:
+                        activity_code = BakeActivity(event.activity_code)
+                    except ValueError:
+                        activity_code = BakeActivity.UNKNOWN
+                activity_changes = ({"activity_code": activity_code,
+                                     "activity_label": event.message}
+                                    if activity_code is not None else
+                                    {"activity_label": ""})
                 _safe_transition(
                     state, status_message=event.message,
                     current_frame=current,
                     progress_current=(current - plan.frame_start + 1
                                       if current is not None else 0),
                     progress_total=(None if event.indeterminate
-                                    else total))
+                                    else total), **activity_changes)
         elif kind == "finished":
             header, diagnostics = message[1], message[2]
             try:
@@ -2878,7 +2899,8 @@ def _pump_once() -> float | None:
                     progress_total=plan.frame_count,
                     current_frame=plan.frame_end,
                     frame_start=plan.frame_start,
-                    frame_end=plan.frame_end)
+                    frame_end=plan.frame_end,
+                    estimated_remaining_seconds=None)
             except (ValueError, RuntimeError, InvalidTransition) as exc:
                 details = str(exc)
                 shared_controller.fail("Importing the solver result failed.",
@@ -2902,7 +2924,8 @@ def _pump_once() -> float | None:
                 _ram_auto_cancel_triggered = False
             else:
                 _safe_transition(BakeState.CANCELLED,
-                                 status_message="Solver test cancelled")
+                                 status_message="Solver test cancelled",
+                                 estimated_remaining_seconds=None)
             _discard_incomplete(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
@@ -2924,8 +2947,15 @@ def _pump_once() -> float | None:
         modal_lock.release()
         _worker, _active_plan = None, None
         return None
+    now = _time.monotonic()
+    snapshot = shared_controller.snapshot()
+    eta = (_eta_estimator.observe(
+        snapshot.current_frame, snapshot.frame_end, now)
+        if snapshot.state in {BakeState.SIMULATING, BakeState.FETCHING}
+        else None)
     shared_controller.update(
-        elapsed_seconds=_time.monotonic() - _run_started_at)
+        elapsed_seconds=now - _run_started_at,
+        estimated_remaining_seconds=eta)
     return 0.2
 
 
@@ -2987,6 +3017,7 @@ def _start_prepared_run(plan: RunPlan) -> None:
         except queue.Empty: break
     _active_plan = plan
     _run_started_at = _time.monotonic()
+    _eta_estimator.reset()
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
     _worker = threading.Thread(target=_worker_main, args=(plan,),
@@ -3080,7 +3111,6 @@ def begin_production_bake(context) -> tuple[str, bool]:
         objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
         snapshot=validate_scene(context) if objects else None
         if snapshot is not None:
-            _validate_animated_collider_capture_budget(snapshot)
             bake_range=snapshot.bake_range
             animated_targets = tuple(
                 (entry.obj.name, entry.pin_membership)
@@ -3104,11 +3134,13 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     if not ok:
                         raise SceneValidationError(message)
             if animated_targets:
-                _pin_capture={"context":context,"targets":animated_targets,
+                capture={"context":context,"targets":animated_targets,
                     "range":bake_range,"next":bake_range.start,
                     "samples":{name: [] for name, _membership in animated_targets},
                     "original":int(context.scene.frame_current),"job_id":job_id,
                     "snapshot":snapshot}
+                _suspend_pin_capture_playback(capture)
+                _pin_capture=capture
                 _pending_job_id=job_id
                 shared_controller.update(status_message="Capturing animated Pin targets",
                     activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
@@ -3132,6 +3164,69 @@ def begin_production_bake(context) -> tuple[str, bool]:
             f"{summary} Error code: {code}. Check the Bake logs.") from exc
     return _continue_production_bake(context,job_id,plan)
 
+
+def _suspend_pin_capture_playback(state) -> None:
+    """Disable owned caches once for the complete sequential capture."""
+    saved = []
+    try:
+        for object_name, _membership in state["targets"]:
+            obj = bpy.data.objects.get(object_name)
+            if obj is None:
+                raise SceneValidationError(
+                    f"The Cloth object {object_name!r} no longer exists.")
+            for modifier in getattr(obj, "modifiers", ()):
+                if not is_cloth_next_playback_modifier(obj, modifier):
+                    continue
+                saved.append((modifier,
+                              bool(getattr(modifier, "show_viewport", True)),
+                              bool(getattr(modifier, "show_render", True))))
+                modifier.show_viewport = False
+                modifier.show_render = False
+        state["playback_states"] = saved
+        if saved:
+            _depsgraph_update(state["context"])
+    except Exception:
+        for modifier, viewport, render in reversed(saved):
+            modifier.show_viewport = viewport
+            modifier.show_render = render
+        raise
+
+
+def _restore_pin_capture_state(state) -> None:
+    """Idempotently restore playback flags and the artist's original frame."""
+    for modifier, viewport, render in reversed(
+            state.pop("playback_states", ())):
+        try:
+            modifier.show_viewport = viewport
+            modifier.show_render = render
+        except (ReferenceError, AttributeError):
+            pass
+    context = state["context"]
+    context.scene.frame_set(state["original"])
+    _depsgraph_update(context)
+
+
+def _sample_evaluated_pin_positions(context, obj, membership):
+    """Read one evaluated mesh in bulk without allocating a to_mesh copy."""
+    evaluated = obj.evaluated_get(context.evaluated_depsgraph_get())
+    mesh = evaluated.data
+    count = len(mesh.vertices)
+    if count != membership.source_vertex_count:
+        raise SceneValidationError(
+            f"Animated Pinning changed {obj.name} topology: "
+            f"{membership.source_vertex_count} source vertices and "
+            f"{count} evaluated vertices.")
+    coordinates = np.empty(count * 3, dtype=np.float32)
+    mesh.vertices.foreach_get("co", coordinates)
+    selected = coordinates.reshape((-1, 3))[
+        np.asarray(membership.vertex_indices, dtype=np.intp)]
+    matrix = np.asarray(solver_world_matrix(
+        tuple(tuple(row) for row in evaluated.matrix_world)),
+        dtype=np.float64)
+    positions = selected @ matrix[:3, :3].T + matrix[:3, 3]
+    return tuple(tuple(float(value) for value in row) for row in positions)
+
+
 def _pin_capture_pump():
     global _pin_capture,_pending_job_id
     state=_pin_capture
@@ -3145,23 +3240,10 @@ def _pin_capture_pump():
             if obj is None:
                 raise SceneValidationError(
                     f"The Cloth object {object_name!r} no longer exists.")
-            with without_owned_playback(obj,lambda:_depsgraph_update(context)):
-                evaluated=obj.evaluated_get(context.evaluated_depsgraph_get())
-                mesh=evaluated.to_mesh()
-                try:
-                    if len(mesh.vertices)!=membership.source_vertex_count:
-                        raise SceneValidationError(
-                            f"Animated Pinning changed {object_name} topology "
-                            f"at frame {frame}.")
-                    matrix=solver_world_matrix(
-                        tuple(tuple(row) for row in evaluated.matrix_world))
-                    positions=tuple(_solver_position(
-                        matrix,tuple(mesh.vertices[i].co))
-                        for i in membership.vertex_indices)
-                    state["samples"][object_name].append(
-                        AnimatedPinTargetSample(frame,positions))
-                finally:evaluated.to_mesh_clear()
-        scene.frame_set(state["original"]); _depsgraph_update(context)
+            positions = _sample_evaluated_pin_positions(
+                context, obj, membership)
+            state["samples"][object_name].append(
+                AnimatedPinTargetSample(frame, positions))
         shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",
             activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
             progress_current=frame-state["range"].start+1)
@@ -3174,15 +3256,23 @@ def _pin_capture_pump():
         samples=(sample_map if snapshot is not None
                  and len(snapshot.deformables)>1
                  else next(iter(sample_map.values())))
+        _restore_pin_capture_state(state)
         _pin_capture=None
         # Reuses the Bake's single validation; no second topology hash or pin scan.
         plan=build_run_plan(context,animated_pin_samples=samples,
                             snapshot=state.get("snapshot"))
         _continue_production_bake(context,job_id,plan); return None
     except Exception as exc:
-        try:scene.frame_set(state["original"]); _depsgraph_update(context)
+        try:_restore_pin_capture_state(state)
         except Exception:pass
-        _pin_capture=None; _pending_job_id=""; shared_controller.fail(str(exc)); return None
+        _pin_capture=None; _pending_job_id=""
+        details=traceback.format_exc()
+        summary=str(exc) or "Capturing animated Pin targets failed."
+        code=classify_error("PREPARING",summary,details)
+        shared_controller.fail(summary,details,error_code=code)
+        _console_error("PREPARING",summary,details,code)
+        companion_manager.persist_bake_error(shared_controller.snapshot())
+        return None
 
 
 def _startup_pump() -> float | None:
@@ -3212,8 +3302,7 @@ def cancel_pending_startup() -> None:
     companion_manager.cancel_startup(job_id)
     if _pin_capture is not None:
         try:
-            context=_pin_capture["context"]
-            context.scene.frame_set(_pin_capture["original"]); _depsgraph_update(context)
+            _restore_pin_capture_state(_pin_capture)
         except Exception:pass
         _pin_capture=None
         if bpy.app.timers.is_registered(_pin_capture_pump):
@@ -3241,6 +3330,11 @@ def shutdown(join_timeout: float = 30.0) -> None:
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
+    if _pin_capture is not None:
+        try:
+            _restore_pin_capture_state(_pin_capture)
+        except Exception:
+            pass
     _pending_plan = None; _pending_job_id = ""; _pin_capture=None; modal_lock.release()
     _cancel_event.set()
     worker = _worker

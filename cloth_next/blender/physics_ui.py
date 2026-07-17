@@ -299,10 +299,8 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         header = layout.column(align=True)
         header.label(text="PPF Contact Solver",
                      **icon_registry.icon_kwargs("solver", "SETTINGS"))
-        header.label(text=status.title)
-        for detail in status.details:
-            header.label(text=detail)
         if not status.ready:
+            header.label(text=status.title)
             layout.operator("clothnext.open_preferences",
                             text="Open Add-on Preferences")
 
@@ -313,6 +311,22 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         action.enabled = model.enabled and not snapshot.active
         action.operator("clothnext.bake", text=model.action,
                         **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
+        if not snapshot.active:
+            warning = _animated_collider_capture_warning(context, solver_test)
+            if warning is not None:
+                warning_row = layout.row()
+                warning_row.alert = True
+                warning_row.label(
+                    text=(f'Large animated Collider capture: '
+                          f'~{warning.size_label}'), icon="ERROR")
+                layout.label(
+                    text="Bake allowed · Low-poly collision proxy recommended.")
+            contact_warning = _contact_stability_warning(context)
+            if contact_warning:
+                warning_row = layout.row()
+                warning_row.alert = True
+                warning_row.label(text=contact_warning, icon="ERROR")
+                layout.label(text="Bake allowed - try Gap 0.001 and Grip 0.2-0.3.")
         if snapshot.active:
             progress_text = _run_state_text(snapshot)
             layout.label(text=progress_text)
@@ -584,6 +598,43 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 
 
+def _animated_collider_capture_warning(context, solver_test):
+    """Cheap panel warning; malformed scene state is handled by Bake itself."""
+    try:
+        deformables, colliders = solver_test._enabled_objects_for_solve(context)
+        ranges = {(int(obj.cloth_next.bake_start),
+                   int(obj.cloth_next.bake_end)) for obj in deformables}
+        if len(ranges) != 1:
+            return None
+        from ..bake.frame_range import BakeFrameRange
+        bake_range = BakeFrameRange(*next(iter(ranges)))
+        return solver_test.animated_collider_capture_warning(
+            colliders, bake_range)
+    except Exception:  # noqa: BLE001 - Panel.draw must remain failure-safe
+        return None
+
+
+def _contact_stability_warning(context) -> str:
+    """Warn without overriding deliberate, scale-dependent contact values."""
+    objects = getattr(getattr(context, "scene", None), "objects", ())
+    deformables = [obj for obj in objects
+        if getattr(getattr(obj, "cloth_next", None), "enabled", False)
+        and obj.cloth_next.role in {"CLOTH", "ROD", "SOFT_BODY"}]
+    if not deformables or not any(
+            bool(obj.cloth_next.collision.enabled) for obj in deformables):
+        return ""
+    for obj in objects:
+        settings = getattr(obj, "cloth_next", None)
+        if (settings is None or not bool(getattr(settings, "enabled", False))
+                or getattr(settings, "role", "") != "COLLIDER"):
+            continue
+        collision = settings.collision
+        if (float(collision.collision_gap) >= 0.01
+                and float(collision.surface_grip) >= 0.4):
+            return "High Collider Gap + Grip can destabilize pinned Cloth."
+    return ""
+
+
 def _cheap_pin_reason(solver_test, cloth) -> str:
     """Pin problems detectable without reading a single vertex."""
     summary = solver_test.cheap_pin_summary(cloth)
@@ -791,6 +842,14 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         column.prop(collision, "surface_grip")
         column.prop(collision, "collision_gap")
         column.prop(collision, "surface_offset")
+        if (settings.role == "COLLIDER"
+                and float(collision.collision_gap) >= 0.01
+                and float(collision.surface_grip) >= 0.4):
+            warning = layout.row()
+            warning.alert = True
+            warning.label(
+                text="High Gap + Grip may destabilize pinned Cloth",
+                icon="ERROR")
 
 
 def _developer_tools_enabled(context) -> bool:

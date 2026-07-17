@@ -83,6 +83,7 @@ class BakeController:
             if state is BakeState.PREPARING:
                 changes.setdefault("job_id", uuid.uuid4().hex)
                 changes.setdefault("elapsed_seconds", 0.0)
+                changes.setdefault("estimated_remaining_seconds", None)
                 changes.setdefault("error_summary", "")
                 changes.setdefault("error_details", "")
                 changes.setdefault("error_code", "")
@@ -116,6 +117,7 @@ class BakeController:
             BakeState.ERROR, error_summary=summary,
             error_details="\n".join(lines), status_message=summary,
             error_code=code,
+            estimated_remaining_seconds=None,
             activity_detail=stage)
 
     def reset(self) -> BakeSnapshot:
@@ -125,7 +127,8 @@ class BakeController:
         return self.transition(BakeState.IDLE, progress_current=0,
                                progress_total=None, preview=False,
                                status_message="Ready", job_id="",
-                               error_code="")
+                               error_code="",
+                               estimated_remaining_seconds=None)
 
     def subscribe(self, listener: Callable[[BakeSnapshot], None]) -> Callable[[], None]:
         with self._lock:

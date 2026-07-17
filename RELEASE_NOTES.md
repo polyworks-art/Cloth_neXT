@@ -1,5 +1,16 @@
 # Upcoming Dev Snapshot
 
+- Follow Animation Pin capture is substantially faster on rigged characters:
+  frames are evaluated sequentially, cache playback is suspended once, and
+  evaluated coordinates are read in bulk without per-frame mesh copies.
+- Pin-capture failures now restore Blender state and surface a persistent error
+  code in the Companion, logs, and System Console.
+- Bake Details show an estimated time to finish, useful PPF runtime activity,
+  and a direct link to the matching public CNX error documentation.
+- The same Companion window now remains open from preparation through the
+  actual solve, and its System Load presentation matches the website palette.
+- Large animated-Collider captures and risky high Gap plus Surface Grip
+  combinations produce clear non-blocking warnings before a Bake.
 - Animated Colliders now default to eight evaluated samples per frame and can
   be adjusted from 2–32 for fast or strongly curved motion.
 - Multi-object cache publication includes a shared scene identity and rolls
