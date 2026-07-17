@@ -14,7 +14,7 @@ import tkinter as tk
 import time
 import traceback
 from dataclasses import replace
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
@@ -23,6 +23,8 @@ from companion.particle_motion import advance_particle, smooth_rate
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
+ABOUT_TOOLTIP="SideFX, please don’t sue me."
+COMPACT_HEIGHT=118; DETAILS_HEIGHT=214
 
 def _logger():
     root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
@@ -41,8 +43,54 @@ def _logger():
 LOG=_logger()
 
 
+class HoverTooltip:
+    """Small non-modal tooltip; never steals focus from the Bake window."""
+    def __init__(self, widget, text, delay_ms=350):
+        self.widget=widget; self.text=text; self.delay_ms=delay_ms
+        self._after=None; self._window=None
+        widget.bind("<Enter>",self._schedule,add="+")
+        widget.bind("<Leave>",self.hide,add="+")
+        widget.bind("<ButtonPress>",self.hide,add="+")
+    def _schedule(self,_event=None):
+        self.hide()
+        self._after=self.widget.after(self.delay_ms,self.show)
+    def show(self):
+        self._after=None
+        if self._window is not None or not self.widget.winfo_exists():return
+        window=tk.Toplevel(self.widget); self._window=window
+        window.wm_overrideredirect(True); window.attributes("-topmost",True)
+        x=self.widget.winfo_rootx(); y=self.widget.winfo_rooty()+self.widget.winfo_height()+5
+        window.wm_geometry(f"+{x}+{y}")
+        tk.Label(window,text=self.text,bg="#171717",fg=TEXT,
+                 relief="solid",borderwidth=1,padx=7,pady=4,
+                 font=("Segoe UI",8)).pack()
+    def hide(self,_event=None):
+        if self._after is not None:
+            try:self.widget.after_cancel(self._after)
+            except tk.TclError:pass
+            self._after=None
+        if self._window is not None:
+            try:self._window.destroy()
+            except tk.TclError:pass
+            self._window=None
+
+
 def error_activity_label(snapshot: BakeSnapshot) -> str:
     return f"ERROR · {snapshot.error_code or 'CNX-E199'}"
+
+
+def details_meta(snapshot: BakeSnapshot) -> str:
+    """Compact diagnostic facts shown by the in-window Details foldout."""
+    parts=[]
+    if snapshot.active_object_name:parts.append(snapshot.active_object_name)
+    solver=" ".join(value for value in
+                    (snapshot.solver_mode,snapshot.solver_version) if value)
+    if solver:parts.append(solver)
+    remaining=format_duration(snapshot.estimated_remaining_seconds,
+                              approximate=True)
+    if remaining!="Unknown":parts.append(f"Remaining {remaining}")
+    if snapshot.error_code:parts.append(snapshot.error_code)
+    return "  ·  ".join(parts) or "No additional Bake details yet."
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -132,7 +180,7 @@ class BakeWindow:
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
-        self.root.geometry("390x118"); self.root.minsize(390,118)
+        self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.minsize(390,COMPACT_HEIGHT)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
         self.root.iconphoto(True,self._app_icon)
         self.primary=tk.StringVar(value="Ready")
@@ -140,6 +188,7 @@ class BakeWindow:
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self.details_meta_text=tk.StringVar(value="No additional Bake details yet.")
         self.activity_text=tk.StringVar(value="Waiting for a Bake")
         self._activity_pending=None; self._activity_after=None; self._closed=False
         self._blink_after=None; self._blink_phase=False
@@ -148,6 +197,7 @@ class BakeWindow:
         self._error_details=""
         self._last_snapshot=BakeSnapshot()
         self._connection_failed=False
+        self._details_visible=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.particles.start()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
@@ -155,11 +205,12 @@ class BakeWindow:
     def enter_bake_mode(self,payload):
         job_id=str(payload.get("job_id", ""))
         try:
-            self.root.deiconify(); self.root.minsize(390,118)
+            self.root.deiconify(); self.root.minsize(390,COMPACT_HEIGHT)
             self.root.update_idletasks()
             if self.root.winfo_width()<100 or self.root.winfo_height()<80:
-                self.root.geometry("390x118"); self.root.update_idletasks()
-            width=max(390,self.root.winfo_width()); height=max(118,self.root.winfo_height())
+                self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.update_idletasks()
+            width=max(390,self.root.winfo_width())
+            height=DETAILS_HEIGHT if self._details_visible else COMPACT_HEIGHT
             x=max(0,(self.root.winfo_screenwidth()-width)//2)
             y=max(0,(self.root.winfo_screenheight()-height)//2)
             self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -212,21 +263,45 @@ class BakeWindow:
         self.status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
                         highlightbackground="#777777",highlightthickness=1,height=1)
         self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
+        self.details_panel=tk.Frame(outer,bg=PANEL,highlightbackground=BORDER,
+                                    highlightthickness=1,padx=8,pady=6)
+        self.details_panel.grid(row=1,column=0,sticky="ew",pady=(5,0))
+        self.details_panel.grid_remove()
+        tk.Label(self.details_panel,textvariable=self.primary,bg=PANEL,fg=TEXT,
+                 font=("Segoe UI Semibold",9),anchor="w").pack(fill="x")
+        tk.Label(self.details_panel,textvariable=self.secondary,bg=PANEL,fg=MUTED,
+                 font=("Segoe UI",8),anchor="w",justify="left",
+                 wraplength=350).pack(fill="x",pady=(2,0))
+        tk.Label(self.details_panel,textvariable=self.details_meta_text,bg=PANEL,
+                 fg=MUTED,font=("Segoe UI",8),anchor="w",justify="left",
+                 wraplength=350).pack(fill="x",pady=(3,0))
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
-        self.pause=ttk.Button(bottom,text="Pause",width=8,style="CN.TButton",state="disabled",command=self._pause)
-        self.pause.pack(side="left")
+        self.details_button=ttk.Button(bottom,text="Details",width=8,
+            style="CN.TButton",command=self._toggle_details)
+        self.details_button.pack(side="left")
         ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",anchor="center",justify="center").place(relx=.5,rely=.5,anchor="center")
         self.cancel=ttk.Button(bottom,text="Cancel",width=8,style="CN.TButton",command=self._cancel)
         self.cancel.pack(side="right")
-        ttk.Button(bottom,text="?",width=3,style="CN.TButton",command=self._about).pack(side="right",padx=(5,5))
+        about=ttk.Button(bottom,text="?",width=3,style="CN.TButton")
+        about.pack(side="right",padx=(5,5))
+        self.about_tooltip=HoverTooltip(about,ABOUT_TOOLTIP)
 
     def _resize_progress(self,event=None):
         width=max(1,event.width if event is not None else self.progress.winfo_width())
         self.progress.coords(self.progress_fill,0,0,width*self._progress_fraction,22)
         self.progress.coords(self.progress_label,width/2,11)
 
-    def _about(self): messagebox.showinfo("About Cloth NeXt Bake","SideFX, please don’t sue me.",parent=self.root)
-    def _pause(self): pass
+    def _toggle_details(self):
+        self._details_visible=not self._details_visible
+        if self._details_visible:self.details_panel.grid()
+        else:self.details_panel.grid_remove()
+        self.details_button.configure(
+            text="Hide" if self._details_visible else "Details")
+        self.root.update_idletasks()
+        width=max(390,self.root.winfo_width())
+        height=DETAILS_HEIGHT if self._details_visible else COMPACT_HEIGHT
+        self.root.geometry(
+            f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
 
@@ -303,6 +378,7 @@ class BakeWindow:
             if match and match not in concise:concise.append(match)
         self.secondary.set("\n".join(concise[:3]) or snapshot.status_message
                            or "No PPF simulation is running.")
+        self.details_meta_text.set(details_meta(snapshot))
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR:
@@ -314,8 +390,6 @@ class BakeWindow:
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
         self.remaining_text.set("" if remaining=="Unknown" else f"remaining {remaining}")
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
-        self.pause.state(["!disabled"] if snapshot.can_pause else ["disabled"])
-        self.pause.configure(text="Resume" if snapshot.is_paused else "Pause")
 
     def disconnected(self):
         if self._connection_failed:
@@ -327,7 +401,7 @@ class BakeWindow:
         self._job_modal=False
         self.root.attributes("-topmost",False)
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
-        self.cancel.state(["disabled"]); self.pause.state(["disabled"])
+        self.cancel.state(["disabled"])
 
     def connection_error(self,code,message):
         """Keep a failed active window visible until explicit user close."""

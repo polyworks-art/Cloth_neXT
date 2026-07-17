@@ -108,6 +108,16 @@ def _persist_bake_error(snapshot) -> None:
         pass
 
 
+def persist_bake_error(snapshot) -> None:
+    """Persist an immediate failure even before Companion subscription.
+
+    Normal production errors arrive through ``_publish``.  Validation and
+    preparation can fail before a Companion exists, so the Bake entry point
+    calls this public, idempotent wrapper as a second safety net.
+    """
+    _persist_bake_error(snapshot)
+
+
 def running() -> bool:
     return _process is not None and _process.poll() is None
 

@@ -132,6 +132,44 @@ def test_bake_allows_scene_without_collider(blender_env):
     env.registration.unregister()
 
 
+def test_only_extreme_quality_button_uses_red_alert_style(blender_env):
+    env = blender_env
+    env.registration.register()
+    context = _context(env, _objects(env))
+    context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=0.002, min_newton_steps=1, cg_max_iter=1000,
+        cg_tol=0.0001, show_advanced=False)
+    drawn = []
+
+    class AlertLayout:
+        def __init__(self):
+            self.enabled = True
+            self.alert = False
+            self.use_property_split = False
+            self.use_property_decorate = False
+
+        def label(self, **_kw):
+            pass
+
+        def row(self, **_kw):
+            return AlertLayout()
+
+        def column(self, **_kw):
+            return AlertLayout()
+
+        def prop(self, *_args, **_kwargs):
+            pass
+
+        def operator(self, _identifier, text="", **_kw):
+            drawn.append((text, self.alert))
+            return SimpleNamespace()
+
+    env.physics_ui._draw_solver_quality(AlertLayout(), context, False)
+    assert drawn == [("Low", False), ("Medium", False), ("High", False),
+                     ("Extreme", True)]
+    env.registration.unregister()
+
+
 def test_bake_enabled_for_multiple_deformables(blender_env):
     env = blender_env
     env.registration.register()
@@ -208,6 +246,28 @@ def test_production_companion_failure_is_fatal_before_worker(blender_env,
         module.begin_production_bake(context)
     assert module._worker is None
     assert not module.modal_lock.active()
+
+
+def test_unexpected_bake_preparation_failure_is_visible_and_persisted(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    context = _context(blender_env, [])
+    monkeypatch.setattr(module, "build_run_plan",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                            RuntimeError("Blender modifier evaluation failed")))
+    persisted = []
+    monkeypatch.setattr(module.companion_manager, "persist_bake_error",
+                        persisted.append)
+
+    with pytest.raises(module.SceneValidationError,
+                       match="Preparing the Bake failed"):
+        module.begin_production_bake(context)
+
+    snapshot = shared_controller.snapshot()
+    assert snapshot.state is BakeState.ERROR
+    assert snapshot.error_code
+    assert "Blender modifier evaluation failed" in snapshot.error_details
+    assert persisted == [snapshot]
 
 
 def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,

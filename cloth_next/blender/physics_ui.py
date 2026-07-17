@@ -353,7 +353,9 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     buttons = section.row(align=True)
     buttons.enabled = not bake_active
     for preset in QUALITY_PRESETS:
-        operator = buttons.operator(
+        button = buttons.row(align=True)
+        button.alert = preset.identifier == "EXTREME"
+        operator = button.operator(
             physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
             text=preset.label, depress=current is preset)
         operator.preset = preset.identifier

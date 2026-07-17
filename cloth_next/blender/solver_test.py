@@ -1434,6 +1434,33 @@ def _capture_collider_motion(context, collider_obj,
         _depsgraph_update(context)
 
 
+def _validate_deformable_modifier_path(obj, pin_membership) -> None:
+    """Reject unsupported unpinned modifier workflows with useful guidance.
+
+    An Armature is a supported source for Follow Animation pins: evaluated
+    positions are sampled for the selected pin group at every Bake frame.  It
+    is not meaningful on an otherwise unpinned deformable because Cloth NeXt
+    would have no vertex subset that should keep following the animation.
+    """
+    modifiers = tuple(getattr(obj, "modifiers", ()))
+    relevant = tuple(
+        modifier for modifier in modifiers
+        if (getattr(modifier, "show_viewport", True)
+            and not is_cloth_next_playback_modifier(obj, modifier)))
+    if not relevant or pin_membership.enabled:
+        return
+    if any(getattr(modifier, "type", "") == "ARMATURE"
+           for modifier in relevant):
+        raise SceneValidationError(
+            f"{obj.name} has an Armature modifier, but Cloth NeXt Pinning is "
+            "disabled. Enable Pinning, select the animated Pin Group, and "
+            "set Pin Mode to Follow Animation.")
+    raise SceneValidationError(
+        f"{obj.name} has modifiers; the current unpinned solver path "
+        "requires a plain mesh. Enable Pinning for a supported animated-pin "
+        "workflow, or apply/remove the modifiers.")
+
+
 def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           animated_pin_samples=None) -> RunPlan:
     scene = context.scene
@@ -1452,13 +1479,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                            if isinstance(animated_pin_samples, dict) else None)
             pin_snapshot = _capture_animated_pin(
                 context, obj, bake_range, entry.pin_membership, precomputed)
-            modifiers = tuple(getattr(obj, "modifiers", ()))
-            relevant = tuple(mod for mod in modifiers
-                if not is_cloth_next_playback_modifier(obj, mod))
-            if relevant and not pin_snapshot.enabled:
-                raise SceneValidationError(
-                    f"{obj.name} has modifiers; the current unpinned solver "
-                    "path requires a plain mesh.")
+            _validate_deformable_modifier_path(obj, pin_snapshot)
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
                 depsgraph = context.evaluated_depsgraph_get()
@@ -1695,13 +1716,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     contact_enabled = snapshot.contact_enabled
     preset_identifier = snapshot.preset_identifier
     pin_membership = snapshot.pin_membership
-    modifiers = tuple(getattr(cloth_obj, "modifiers", ()))
-    relevant_modifiers=tuple(mod for mod in modifiers
-                             if not is_cloth_next_playback_modifier(cloth_obj,mod))
-    if relevant_modifiers and not pin_membership.enabled:
-        raise SceneValidationError(
-            f"{cloth_obj.name} has modifiers; the current unpinned solver "
-            "slice requires a plain mesh.")
+    _validate_deformable_modifier_path(cloth_obj, pin_membership)
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
@@ -3009,7 +3024,17 @@ def begin_production_bake(context) -> tuple[str, bool]:
         plan=build_run_plan(context,snapshot=snapshot)
     except (SceneValidationError, ClothNextError) as exc:
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
-        shared_controller.fail(message); raise
+        shared_controller.fail(message)
+        companion_manager.persist_bake_error(shared_controller.snapshot())
+        raise
+    except Exception as exc:  # noqa: BLE001 -- Blender API failures stay visible
+        details = traceback.format_exc()
+        summary = "Preparing the Bake failed."
+        code = classify_error("PREPARING", summary, details)
+        shared_controller.fail(summary, details, error_code=code)
+        companion_manager.persist_bake_error(shared_controller.snapshot())
+        raise SceneValidationError(
+            f"{summary} Error code: {code}. Check the Bake logs.") from exc
     return _continue_production_bake(context,job_id,plan)
 
 def _pin_capture_pump():
@@ -3361,7 +3386,21 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             _start_prepared_run(plan)
         except (SceneValidationError, ClothNextError, OSError) as exc:
             modal_lock.release(self.job_id); self._cleanup_modal(context)
-            shared_controller.fail(str(exc)); _pending_plan = None; _pending_job_id = ""
+            details = traceback.format_exc()
+            summary = str(exc) or "Starting the Bake failed."
+            code = classify_error("PREPARING", summary, details)
+            shared_controller.fail(summary, details, error_code=code)
+            companion_manager.persist_bake_error(shared_controller.snapshot())
+            _pending_plan = None; _pending_job_id = ""
+            return {"CANCELLED"}
+        except Exception:  # noqa: BLE001 -- never let Blender hide startup errors
+            modal_lock.release(self.job_id); self._cleanup_modal(context)
+            details = traceback.format_exc()
+            summary = "Starting the Bake failed unexpectedly."
+            code = classify_error("PREPARING", summary, details)
+            shared_controller.fail(summary, details, error_code=code)
+            companion_manager.persist_bake_error(shared_controller.snapshot())
+            _pending_plan = None; _pending_job_id = ""
             return {"CANCELLED"}
         _pending_plan = None; _pending_job_id = ""
         return {"RUNNING_MODAL"}
