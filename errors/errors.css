@@ -80,6 +80,7 @@
 .log-grid code { display: block; overflow: hidden; padding: .55rem; border-radius: .4rem; background: #08110e; color: var(--mint); font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
 .log-grid p { margin: .8rem 0 0; color: #7f948c; font-size: .76rem; }
 .report-note { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; margin-top: 1rem; padding: 1.15rem; border: 1px solid rgba(84, 239, 195, .18); border-radius: .75rem; background: rgba(84, 239, 195, .035); }
+.info-icon { color: var(--mint); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .report-note p { margin: 0; color: #94a8a0; font-size: .78rem; }
 .report-note a { color: var(--mint); font-size: .76rem; white-space: nowrap; }
 
