@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07100e">
+  <meta name="description" content="Cloth NeXt — production-focused GPU cloth simulation for Blender.">
+  <title>Cloth NeXt — Superhive Overview</title>
+  <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="superhive.css">
+</head>
+<body>
+  <main class="showcase">
+    <header class="product-bar">
+      <a class="brand" href="https://polyworks-art.github.io/Cloth_neXT/" target="_blank" rel="noopener">
+        <img src="../assets/cloth-next-white.svg" alt="" width="52" height="40">
+        <span><strong>Cloth NeXt</strong><small>FOR BLENDER</small></span>
+      </a>
+      <span class="production-pill"><i></i> Production workflow</span>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">GPU CONTACT SIMULATION</span>
+        <h1>Serious cloth.<br><em>Artist-first control.</em></h1>
+        <p>Cloth NeXt connects Blender to the PPF Contact Solver through a focused workflow built for character clothing, layered garments, cables and production Bakes.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://polyworks-art.github.io/Cloth_neXT/" target="_blank" rel="noopener">Explore Cloth NeXt <span>↗</span></a>
+          <a class="button secondary" href="https://polyworks-art.github.io/Cloth_neXT/releases/" target="_blank" rel="noopener">Release notes</a>
+        </div>
+      </div>
+      <div class="solver-visual" aria-label="Cloth NeXt simulation workflow illustration">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="visual-mark"><img src="../assets/cloth-next.svg" alt="Cloth NeXt"></div>
+        <div class="node node-cloth"><img src="../assets/cloth.svg" alt=""> Cloth</div>
+        <div class="node node-force"><img src="../assets/force.svg" alt=""> Forces</div>
+        <div class="node node-pin"><img src="../assets/pinning.svg" alt=""> Animated Pins</div>
+        <div class="solve-card"><span><i></i> PPF Contact Solver</span><b>GPU ACCELERATED</b><div><em></em></div><small>Building contact constraints</small></div>
+      </div>
+    </section>
+
+    <nav class="capability-strip" aria-label="Supported simulation roles">
+      <span>Cloth</span><span>Rod / Cable</span><span>Soft Body</span><span>Colliders</span><span>Forces</span>
+    </nav>
+
+    <section class="intro split-section">
+      <div><span class="section-kicker">DESIGNED AROUND THE ARTIST</span><h2>Physics power without leaving Blender.</h2></div>
+      <div class="prose">
+        <p>Set up materials, pins, collisions and quality from familiar Physics Properties. Cloth NeXt handles scene validation, solver communication, cache creation and playback behind one deliberate Bake workflow.</p>
+        <p>Multi-object Bakes let garments interact in the same solve. Follow Animation Pins keep waistbands, cuffs and attachment points driven by character motion while the free cloth remains under solver control.</p>
+      </div>
+    </section>
+
+    <section class="feature-grid">
+      <article><div class="feature-icon"><img src="../assets/cloth.svg" alt=""></div><span>01</span><h3>Multi-object contact</h3><p>Layered garments and multiple deformables interact inside one shared PPF simulation.</p></article>
+      <article><div class="feature-icon"><img src="../assets/pinning.svg" alt=""></div><span>02</span><h3>Animation-aware pins</h3><p>Follow rigged characters with animated Pin targets while unpinned vertices remain fully simulated.</p></article>
+      <article><div class="feature-icon"><img src="../assets/force.svg" alt=""></div><span>03</span><h3>Keyframeable forces</h3><p>Drive Gravity, Wind and every supported Cloth NeXt PPF force from Empty objects.</p></article>
+      <article><div class="feature-icon"><img src="../assets/rod.svg" alt=""></div><span>04</span><h3>Beyond cloth</h3><p>Bake Rod / Cable curves and volumetric Soft Bodies through the same consistent workflow.</p></article>
+    </section>
+
+    <section class="workflow">
+      <div class="workflow-heading"><span class="section-kicker">ONE CLEAR BAKE PIPELINE</span><h2>From Blender scene<br>to reliable playback.</h2></div>
+      <ol>
+        <li><span>01</span><div><strong>Assign roles</strong><small>Cloth, Collider, Rod, Soft Body or Force</small></div></li>
+        <li><span>02</span><div><strong>Tune the material</strong><small>Artist-facing presets with advanced control when needed</small></div></li>
+        <li><span>03</span><div><strong>Bake once</strong><small>Validated export, simulation and transactional cache writing</small></div></li>
+        <li><span>04</span><div><strong>Play it back</strong><small>Blender-native cached results ready for the scene</small></div></li>
+      </ol>
+    </section>
+
+    <section class="production-grid">
+      <article class="production-lead"><span class="section-kicker">BUILT FOR LONG BAKES</span><h2>Failure should be actionable.</h2><p>Cloth NeXt treats diagnostics and cache safety as part of the product—not an afterthought.</p><a href="https://polyworks-art.github.io/Cloth_neXT/errors/" target="_blank" rel="noopener">Browse all 74 error codes <span>↗</span></a></article>
+      <article><span class="signal">CNX</span><h3>Stable error codes</h3><p>Every known failure maps to a documented cause and a practical first action.</p></article>
+      <article><span class="signal">SHA</span><h3>Transactional caches</h3><p>Partial or invalid results are never presented as a completed production Bake.</p></article>
+      <article><span class="signal">90%</span><h3>RAM safety</h3><p>Optional automatic cancellation protects the workstation at a configurable threshold.</p></article>
+      <article><span class="signal">LIVE</span><h3>Resource telemetry</h3><p>CPU, RAM and VRAM graphs stay visible while the simulation is running.</p></article>
+    </section>
+
+    <section class="requirements">
+      <div><span class="section-kicker">SYSTEM REQUIREMENTS</span><h2>Ready for your Blender pipeline.</h2></div>
+      <div class="requirement-list"><span><small>BLENDER</small><strong>5.0+</strong></span><span><small>PLATFORM</small><strong>Windows x64</strong></span><span><small>SOLVER</small><strong>Official PPF</strong></span></div>
+      <p>The external PPF Contact Solver is installed separately from its verified official source. Cloth NeXt does not bundle or redistribute the solver.</p>
+    </section>
+
+    <section class="final-cta">
+      <img src="../assets/cloth-next-white.svg" alt="" width="72" height="54">
+      <span class="section-kicker">CLOTH NEXT</span>
+      <h2>Make the cloth move.<br><em>Keep the workflow yours.</em></h2>
+      <div class="hero-actions centered"><a class="button primary" href="https://polyworks-art.github.io/Cloth_neXT/" target="_blank" rel="noopener">Visit the official site <span>↗</span></a><a class="button secondary" href="https://github.com/polyworks-art/Cloth_neXT" target="_blank" rel="noopener">View source</a></div>
+    </section>
+
+    <footer><span>Cloth NeXt</span><p>GPU simulation workflow for Blender artists.</p><a href="https://polyworks-art.github.io/Cloth_neXT/releases/" target="_blank" rel="noopener">Current releases ↗</a></footer>
+  </main>
+</body>
+</html>
