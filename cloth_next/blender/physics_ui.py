@@ -529,8 +529,9 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     animated collider, a broken frame range, an invalid mapped material value,
     a missing pin group) disable the button immediately. Everything that needs
     the mesh — topology, pin indices — is validated when Bake is clicked, not
-    on every redraw. A previously *recorded* INVALID verdict is shown too:
-    that is reading a stored result, not computing a new one.
+    on every redraw. A previously recorded INVALID verdict remains visible,
+    but never disables retry: otherwise correcting a scene could leave the
+    artist permanently locked out of the validation path.
     """
     from . import solver_test
     status = solver_status or _solver_status(context)
@@ -579,10 +580,6 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
             for obj in cloths:
                 reason = _cheap_pin_reason(solver_test, obj)
                 if reason:
-                    break
-                record = validation_state.record_for(obj)
-                if record.state is validation_state.ValidationState.INVALID:
-                    reason = record.message
                     break
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 

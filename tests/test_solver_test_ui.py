@@ -346,6 +346,23 @@ def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
         module._collider_sample_points(module.BakeFrameRange(1, 2), 24, 1)
 
 
+def test_animated_collider_topology_ignores_quad_diagonal_flip(blender_env):
+    """Armature deformation may retessellate a quad without changing it."""
+    module = blender_env.solver_test
+    polygons = ((0, 1, 2, 3), (3, 2, 4))
+    assert module._collider_topology_change(
+        5, polygons, 5, polygons) == ""
+
+
+def test_animated_collider_topology_detects_real_changes(blender_env):
+    module = blender_env.solver_test
+    polygons = ((0, 1, 2, 3),)
+    assert "vertex count changed" in module._collider_topology_change(
+        4, polygons, 5, polygons)
+    assert "polygon topology changed" in module._collider_topology_change(
+        4, polygons, 4, ((0, 1, 2), (0, 2, 3)))
+
+
 def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

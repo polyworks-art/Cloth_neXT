@@ -150,6 +150,17 @@ class SceneValidationError(ValueError):
     pass
 
 
+def _console_error(stage: str, message: str, details: str = "",
+                   error_code: str = "") -> str:
+    """Make artist-facing failures unmissable in Blender's System Console."""
+    code = error_code or classify_error(stage, message, details)
+    output = f"[Cloth NeXt] ERROR {code} · {stage}\n{message}"
+    if details and details.strip() != message.strip():
+        output += f"\n{details.rstrip()}"
+    print(output, flush=True)
+    return code
+
+
 @dataclass(slots=True)
 class ColliderMotionCapture:
     """Compact main-thread capture ready for the official PPF scene fields."""
@@ -1293,6 +1304,25 @@ def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
     return tuple(result)
 
 
+def _collider_polygon_topology(mesh) -> tuple[tuple[int, ...], ...]:
+    """Evaluated topology independent of Blender's changing tessellation."""
+    return tuple(tuple(int(index) for index in polygon.vertices)
+                 for polygon in mesh.polygons)
+
+
+def _collider_topology_change(expected_vertex_count: int,
+                              expected_polygons: tuple[tuple[int, ...], ...],
+                              vertex_count: int,
+                              polygons: tuple[tuple[int, ...], ...]) -> str:
+    if vertex_count != expected_vertex_count:
+        return (f"vertex count changed from {expected_vertex_count} to "
+                f"{vertex_count}")
+    if polygons != expected_polygons:
+        return (f"polygon topology changed from {len(expected_polygons)} to "
+                f"{len(polygons)} polygons")
+    return ""
+
+
 def _capture_collider_motion(context, collider_obj,
                              bake_range: BakeFrameRange) -> ColliderMotionCapture:
     """Capture and classify one animated Collider on Blender's main thread."""
@@ -1306,6 +1336,7 @@ def _capture_collider_motion(context, collider_obj,
     times = [point[2] for point in sample_points]
     reference_vertices = None
     reference_triangles = None
+    reference_polygons = None
     matrices = []
     local_samples = None
     temporary_path = None
@@ -1325,26 +1356,19 @@ def _capture_collider_motion(context, collider_obj,
             mesh = evaluated.to_mesh()
             try:
                 count = len(mesh.vertices)
-                mesh.calc_loop_triangles()
-                triangles = tuple(tuple(int(i) for i in tri.vertices)
-                                  for tri in mesh.loop_triangles)
-                if count == 0 or not triangles:
+                polygons = _collider_polygon_topology(mesh)
+                if count == 0 or not polygons:
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an empty '
                         f'evaluated mesh at frame {frame + subframe:g}.')
-                if reference_triangles is not None and (
-                        count != len(reference_vertices)
-                        or triangles != reference_triangles):
-                    expected_triangles = len(reference_triangles)
-                    detail = ("triangle indices changed" if
-                              len(triangles) == expected_triangles
-                              else "triangle count changed")
+                detail = (_collider_topology_change(
+                    len(reference_vertices), reference_polygons,
+                    count, polygons) if reference_polygons is not None else "")
+                if detail:
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" changes topology at '
-                        f'frame {frame + subframe:g}. Expected {len(reference_vertices)} '
-                        f'vertices and {expected_triangles} triangles; got '
-                        f'{count} vertices and {len(triangles)} triangles '
-                        f'({detail}). Animated colliders must keep a '
+                        f'frame {frame + subframe:g}: {detail}. '
+                        f'Animated colliders must keep a '
                         f'consistent mesh structure.')
                 local = np.empty((count, 3), dtype=np.float32)
                 mesh.vertices.foreach_get("co", local.reshape(-1))
@@ -1360,8 +1384,19 @@ def _capture_collider_motion(context, collider_obj,
                         f'transform at frame {frame + subframe:g}.')
                 matrices.append(solver_world_matrix(world))
                 if reference_vertices is None:
+                    # Freeze the first tessellation. Blender may flip a quad
+                    # diagonal as an Armature makes it non-planar; the polygon
+                    # loop is unchanged and remains the authoritative topology.
+                    mesh.calc_loop_triangles()
+                    triangles = tuple(tuple(int(i) for i in tri.vertices)
+                                      for tri in mesh.loop_triangles)
+                    if not triangles:
+                        raise SceneValidationError(
+                            f'Collider "{collider_obj.name}" cannot be '
+                            'triangulated for collision.')
                     reference_vertices = local.copy()
                     reference_triangles = triangles
+                    reference_polygons = polygons
                     temporary_path = (Path(bpy.app.tempdir)
                         / f"cloth_next_collider_{uuid_module.uuid4().hex}.bin")
                     local_samples = np.memmap(
@@ -3314,6 +3349,7 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
         except (SceneValidationError, ClothNextError) as exc:
             message = (exc.record.user_message
                        if isinstance(exc, ClothNextError) else str(exc))
+            _console_error("SOLVER_TEST", message)
             self.report({"ERROR"}, message)
             return {"CANCELLED"}
         if warning:
@@ -3340,6 +3376,9 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             _job_id, waiting = begin_production_bake(context)
         except (SceneValidationError, ClothNextError) as exc:
             message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
+            snapshot = shared_controller.snapshot()
+            _console_error("PREPARING", message, snapshot.error_details,
+                           snapshot.error_code)
             self.report({"ERROR"}, message); return {"CANCELLED"}
         self.report({"INFO"}, "Opening Bake window…" if waiting
                     else "Cloth NeXt bake started in Blender.")
@@ -3390,6 +3429,7 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             summary = str(exc) or "Starting the Bake failed."
             code = classify_error("PREPARING", summary, details)
             shared_controller.fail(summary, details, error_code=code)
+            _console_error("PREPARING", summary, details, code)
             companion_manager.persist_bake_error(shared_controller.snapshot())
             _pending_plan = None; _pending_job_id = ""
             return {"CANCELLED"}
@@ -3399,6 +3439,7 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             summary = "Starting the Bake failed unexpectedly."
             code = classify_error("PREPARING", summary, details)
             shared_controller.fail(summary, details, error_code=code)
+            _console_error("PREPARING", summary, details, code)
             companion_manager.persist_bake_error(shared_controller.snapshot())
             _pending_plan = None; _pending_job_id = ""
             return {"CANCELLED"}
@@ -3601,6 +3642,7 @@ class CLOTHNEXT_OT_validate(bpy.types.Operator):
                 ClothNextError) as exc:
             message = (exc.record.user_message
                        if isinstance(exc, ClothNextError) else str(exc))
+            _console_error("VALIDATING", message)
             self.report({"ERROR"}, message)
             return {"CANCELLED"}
         pinned = len(snapshot.pin_membership.vertex_indices)

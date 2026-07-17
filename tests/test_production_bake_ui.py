@@ -181,6 +181,26 @@ def test_bake_enabled_for_multiple_deformables(blender_env):
     assert "2 Deformable" in model.summary_line
 
 
+def test_previous_validation_error_never_locks_out_retry(blender_env,
+                                                          monkeypatch):
+    env = blender_env
+    env.registration.register()
+    objects = _objects(env, 1, 0)
+    context = _context(env, objects)
+    env.physics_ui.validation_state.store_invalid(
+        objects[0], "Old Armature/Pinning validation failure")
+    monkeypatch.setattr(env.physics_ui, "_cache_state",
+                        lambda _context: ("INVALID", "Cache invalid"))
+
+    model = env.physics_ui._bake_panel_model(
+        context, env.physics_ui._SolverStatus(True, "Ready"))
+
+    assert model.enabled
+    assert model.action == "REBAKE"
+    assert model.reason == ""
+    env.registration.unregister()
+
+
 def test_bake_allows_multiple_colliders(blender_env):
     env = blender_env
     env.registration.register()
@@ -268,6 +288,23 @@ def test_unexpected_bake_preparation_failure_is_visible_and_persisted(
     assert snapshot.error_code
     assert "Blender modifier evaluation failed" in snapshot.error_details
     assert persisted == [snapshot]
+
+
+def test_bake_validation_failure_is_printed_to_system_console(
+        blender_env, monkeypatch, capsys):
+    module = blender_env.solver_test
+    context = _context(blender_env, [])
+    monkeypatch.setattr(module, "begin_production_bake",
+                        lambda _context: (_ for _ in ()).throw(
+                            module.SceneValidationError(
+                                "Animated collider topology changed")))
+
+    operator = module.CLOTHNEXT_OT_bake()
+    assert operator.execute(context) == {"CANCELLED"}
+
+    output = capsys.readouterr().out
+    assert "[Cloth NeXt] ERROR CNX-" in output
+    assert "Animated collider topology changed" in output
 
 
 def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,
