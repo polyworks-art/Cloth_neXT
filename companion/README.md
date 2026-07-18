@@ -6,11 +6,14 @@ independent random directions, and follow bounded perpendicular sine noise
 along a frame-rate-independent linear path. Build-time Pillow derivatives keep
 the runtime lightweight; reduced motion freezes the field, and an asset failure
 leaves the background empty without affecting readiness. The upper bar shows
-overall progress while the lower bar consumes the dedicated typed
-solver-activity channel with a short debounce. `IconParticleField` owns and
-cancels its single `after()` timer on close.
+overall progress while the live graph plots one relative performance score per
+solver frame and the lower center keeps the typed ETA visible. On failure the
+graph and ETA are replaced by the stable error code, a concise cause/recovery
+summary, and a direct documentation link. The lower bar consumes the ETA
+supplied by Blender. `IconParticleField` owns and cancels its single `after()`
+timer on close.
 
-On failure the activity bar shows only the stable `CNX-E…` code documented in
+On failure the inline error panel shows the stable `CNX-E…` code documented in
 `docs/ERROR_CODES.md`. The window pulses red and deliberately remains open
 until the user closes it with the normal title-bar close control. Full technical
 details stay in Blender and its diagnostic logs.
