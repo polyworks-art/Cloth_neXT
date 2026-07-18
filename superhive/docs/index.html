@@ -7,11 +7,10 @@
   <title>Cloth NeXt Documentation</title>
   <link rel="icon" href="../../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="embed.css">
 </head>
 <body>
-  <header><a class="brand" href="../"><img src="../../assets/cloth-next-white.svg" alt="" width="42"><span><b>Cloth NeXt</b><small>DOCUMENTATION</small></span></a><nav><a href="../">Overview</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub ↗</a></nav></header>
   <div class="shell">
-    <aside><span>GET STARTED</span><a href="#requirements">Requirements</a><a href="#install">Installation</a><a href="#solver">Solver setup</a><a href="#first-bake">First Bake</a><span>WORKFLOW</span><a href="#roles">Object roles</a><a href="#materials">Materials & quality</a><a href="#pins">Pinning</a><a href="#contact">Collisions</a><a href="#forces">Forces</a><a href="#results">Results & cache</a><span>HELP</span><a href="#errors">Troubleshooting</a><a href="#limits">Limitations</a><a href="#support">Support</a></aside>
     <main>
       <section class="hero"><label>DOCUMENTATION</label><h1>From installation<br>to your first production Bake.</h1><p>Cloth NeXt brings the external PPF Contact Solver into a focused Blender workflow. This guide covers the supported setup from scene roles to cached playback.</p></section>
 
@@ -35,12 +34,11 @@
 
       <section id="results"><label>10 · RESULTS</label><h2>Bake Companion, cache and playback</h2><div class="split reverse"><figure class="bake"><img src="../media/cloth-next-bake-window.png" alt="Cloth NeXt Bake Companion"><figcaption>Live frame and solver activity</figcaption></figure><div><p>The Companion reports frame progress and current solver activity. Expand Details for performance history, ETA and diagnostic context.</p><ul><li>Results are written as object-local PC2 playback caches.</li><li>Incomplete output is never presented as complete.</li><li>A failed Rebake preserves the previous valid result.</li><li>Clear Result removes only Cloth NeXt-owned files and playback.</li></ul></div></div></section>
 
-      <section id="errors"><label>11 · TROUBLESHOOTING</label><h2>When a Bake fails</h2><ol class="steps"><li><b>1</b><div><strong>Read the CNX code</strong><p>The Companion and Blender show a stable code such as <code>CNX-E161</code>.</p></div></li><li><b>2</b><div><strong>Open its guide</strong><p>Use the direct error link for the cause and corrective action.</p></div></li><li><b>3</b><div><strong>Retry after correction</strong><p>Fix validation, topology, memory, readiness or convergence as directed.</p></div></li></ol><a class="button" href="../../errors/">Browse all error codes ↗</a></section>
+      <section id="errors"><label>11 · TROUBLESHOOTING</label><h2>When a Bake fails</h2><ol class="steps"><li><b>1</b><div><strong>Read the CNX code</strong><p>The Companion and Blender show a stable code such as <code>CNX-E161</code>.</p></div></li><li><b>2</b><div><strong>Read the displayed guidance</strong><p>The error state names the cause, affected stage and recommended first action.</p></div></li><li><b>3</b><div><strong>Retry after correction</strong><p>Fix validation, topology, memory, readiness or convergence as directed.</p></div></li></ol></section>
 
       <section id="limits"><label>12 · LIMITATIONS</label><h2>Important limitations</h2><ul><li>Windows x64 is the currently packaged platform.</li><li>Topology-changing deformation across a Bake is rejected.</li><li>PC2 playback requires constant vertex order and count.</li><li>Capacity depends on topology, contacts, samples, quality, VRAM and RAM.</li><li>Rod / Cable and Soft Body are less mature than the primary cloth workflow.</li><li>The external solver has its own license and provenance.</li></ul></section>
 
-      <section id="support"><label>13 · SUPPORT</label><h2>What to include in a report</h2><p>Include the Cloth NeXt version, Blender version, exact PPF release identity, OS, GPU, CNX error code, minimal reproduction steps and the relevant diagnostic-log excerpt.</p><div class="links"><a href="https://github.com/polyworks-art/Cloth_neXT/issues">GitHub issues ↗</a><a href="../../releases/">Release notes ↗</a><a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/LIMITATIONS.md">Full limitations ↗</a></div></section>
+      <section id="support"><label>13 · SUPPORT</label><h2>What to include in a report</h2><p>Include the Cloth NeXt version, Blender version, exact PPF release identity, operating system, GPU, CNX error code, minimal reproduction steps and the relevant diagnostic-log excerpt. This information is available from the add-on preferences, Bake error state and local diagnostic logs.</p></section>
     </main>
   </div>
-  <footer><b>Cloth NeXt</b><span>Documentation for the Blender integration around the external PPF Contact Solver.</span><a href="../">Product overview ↑</a></footer>
 </body></html>

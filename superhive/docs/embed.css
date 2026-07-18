@@ -1,0 +1,4 @@
+/* Superhive embeds this as one continuous manual, not a standalone site. */
+.shell{display:block}
+.shell main{border-left:0}
+main>section{scroll-margin-top:0}
