@@ -314,8 +314,6 @@ def _enabled_objects_by_role(context) -> tuple[object, object | None]:
                 resolved_collider = collider_proxy.resolve_proxy(obj)
             except collider_proxy.ColliderProxyError as exc:
                 raise SceneValidationError(str(exc)) from exc
-            if resolved_collider is not obj:
-                collider_proxy.sync_proxy_settings(obj, resolved_collider)
             collider_objects.append(resolved_collider)
     if len(cloth_objects) != 1:
         raise SceneValidationError(
@@ -354,8 +352,6 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
                 resolved_collider = collider_proxy.resolve_proxy(obj)
             except collider_proxy.ColliderProxyError as exc:
                 raise SceneValidationError(str(exc)) from exc
-            if resolved_collider is not obj:
-                collider_proxy.sync_proxy_settings(obj, resolved_collider)
             collider_objects.append(resolved_collider)
     if not cloth_objects:
         raise SceneValidationError(
@@ -382,6 +378,27 @@ def _enabled_force_objects(context) -> tuple[object, ...]:
         validation_state.object_key(obj),
         str(getattr(obj, "name_full", getattr(obj, "name", "")))))
     return tuple(forces)
+
+
+def _sync_enabled_proxy_settings(context) -> None:
+    """Synchronize generated proxies from an explicit mutable operation.
+
+    Object discovery is also used by Blender panel drawing and therefore must
+    stay read-only.  Validation and Bake operators call this helper before
+    taking their scene snapshot, where writing ID properties is permitted.
+    """
+    for obj in context.scene.objects:
+        settings = getattr(obj, "cloth_next", None)
+        if (settings is None or not settings.enabled or
+                settings.role != "COLLIDER" or
+                collider_proxy.is_generated_proxy(obj)):
+            continue
+        try:
+            resolved = collider_proxy.resolve_proxy(obj)
+        except collider_proxy.ColliderProxyError as exc:
+            raise SceneValidationError(str(exc)) from exc
+        if resolved is not obj:
+            collider_proxy.sync_proxy_settings(obj, resolved)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1048,6 +1065,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
 
 def validate_scene(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
+    _sync_enabled_proxy_settings(context)
     deformable_objs, collider_objs = _enabled_objects_for_solve(context)
     for obj in deformable_objs:
         validation_state.mark_validating(obj)

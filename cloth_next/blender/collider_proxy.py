@@ -158,6 +158,32 @@ def _apply_modifier(context, obj, modifier_name: str) -> None:
             f"Blender could not apply Proxy modifier {modifier_name!r}.")
 
 
+def _reduce_to_vertex_target(context, obj, target: int) -> None:
+    """Reduce ``obj`` until its vertex count reaches the requested ceiling.
+
+    Blender's Decimate ratio controls faces, not vertices.  A single ratio
+    derived from the vertex count can consequently leave a proxy far above
+    the value shown in the UI.  Correct the remaining error with bounded
+    follow-up passes; stop if Blender can no longer make progress.
+    """
+    previous = len(obj.data.vertices)
+    for pass_number in range(4):
+        if previous <= target:
+            return
+        decimate = obj.modifiers.new(
+            "Cloth NeXt Proxy Reduction" if pass_number == 0 else
+            f"Cloth NeXt Proxy Reduction {pass_number + 1}", "DECIMATE")
+        decimate.decimate_type = "COLLAPSE"
+        decimate.ratio = max(0.001, min(1.0, target / float(previous)))
+        decimate.use_collapse_triangulate = True
+        obj.modifiers.move(len(obj.modifiers) - 1, 0)
+        _apply_modifier(context, obj, decimate.name)
+        current = len(obj.data.vertices)
+        if current >= previous:
+            return
+        previous = current
+
+
 def generate_proxy(context, source):
     settings = source.cloth_next
     if (getattr(source, "type", "") != "MESH" or
@@ -214,14 +240,7 @@ def generate_proxy(context, source):
                     "be destructively decimated. Use at least "
                     f"{base_vertices:,} target vertices or provide a manual "
                     "low-poly Collider.")
-            decimate = created.modifiers.new("Cloth NeXt Proxy Reduction",
-                                             "DECIMATE")
-            decimate.decimate_type = "COLLAPSE"
-            decimate.ratio = max(0.001, min(1.0,
-                target / float(base_vertices)))
-            decimate.use_collapse_triangulate = True
-            created.modifiers.move(len(created.modifiers) - 1, 0)
-            _apply_modifier(context, created, decimate.name)
+            _reduce_to_vertex_target(context, created, target)
 
         _copy_collider_settings(source, created)
         created.cloth_next.collider_proxy_enabled = False

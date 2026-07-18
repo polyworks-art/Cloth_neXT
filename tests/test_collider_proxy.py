@@ -51,10 +51,15 @@ def test_enabled_source_is_replaced_by_owned_proxy(blender_env):
     context = SimpleNamespace(scene=SimpleNamespace(
         objects=[cloth, source, proxy]))
 
+    # Discovery is used from Panel.draw and must never mutate Blender IDs.
     deformables, colliders = env.solver_test._enabled_objects_for_solve(context)
 
     assert deformables == (cloth,)
     assert colliders == (proxy,)
+    assert proxy.cloth_next.collider_motion != "ANIMATED"
+
+    # Explicit validation/Bake preparation owns the synchronization write.
+    env.solver_test._sync_enabled_proxy_settings(context)
     assert proxy.cloth_next.collider_motion == "ANIMATED"
     env.registration.unregister()
 
