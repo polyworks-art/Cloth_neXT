@@ -25,10 +25,14 @@ notes = """Preset values are derived from the Apache-2.0 licensed data file
 above (see docs/THIRD_PARTY_NOTICES.md for the full notice). Cloth NeXt is
 an independent project; the external PPF Contact Solver is separate
 software installed by the user and is never bundled with Cloth NeXt."""
+research_dataset = "MIT Fabric Properties Dataset (Bouman et al., ICCV 2013)"
+research_citation = "Bouman et al., Estimating the Material Properties of Fabric from Video, ICCV 2013"
+research_method = "Area weight is converted exactly from oz/yd^2 to kg/m^2. PPF bend = mean measured bending in lbf-in^2 * 14.3491 / area weight in kg/m^2. Stretch, Poisson response, friction and stretch limit are category-calibrated because the dataset does not measure compatible PPF values."
 
 [[preset]]
 id = "DEFAULT_CLOTH"
 label = "Default Cloth"
+category = "ESSENTIALS"
 description = "Neutral starting cloth using the PPF shell defaults"
 upstream_calibrated = false
 model = "FABRIC"
@@ -39,6 +43,7 @@ bend_resistance = 10.0
 surface_grip = 0.5
 stretch_limit_enabled = false
 maximum_stretch_percent = 5.0
+
 shape_damping = 0.0
 fold_damping = 0.0
 collision_gap = 0.001
@@ -47,6 +52,7 @@ surface_offset = 0.0
 [[preset]]
 id = "SILK"
 label = "Silk"
+category = "ESSENTIALS"
 description = "Light, fluid silk: very drapey, smooth, low friction"
 upstream_calibrated = true
 model = "FABRIC"
@@ -61,6 +67,7 @@ maximum_stretch_percent = 6.0
 [[preset]]
 id = "FLAG"
 label = "Flag"
+category = "ESSENTIALS"
 description = "Lightweight synthetic banner cloth: light, limp, low friction"
 upstream_calibrated = true
 model = "FABRIC"
@@ -75,6 +82,7 @@ maximum_stretch_percent = 4.0
 [[preset]]
 id = "COTTON"
 label = "Cotton"
+category = "ESSENTIALS"
 description = "Plain woven cotton: medium stiffness and drape"
 upstream_calibrated = true
 model = "FABRIC"
@@ -89,6 +97,7 @@ maximum_stretch_percent = 5.0
 [[preset]]
 id = "WOOL"
 label = "Wool"
+category = "ESSENTIALS"
 description = "Woven wool suiting: soft membrane, lofty folds"
 upstream_calibrated = true
 model = "FABRIC"
@@ -103,6 +112,7 @@ maximum_stretch_percent = 8.0
 [[preset]]
 id = "DENIM"
 label = "Denim"
+category = "ESSENTIALS"
 description = "Heavy cotton twill: stiff and resistant to stretching"
 upstream_calibrated = true
 model = "FABRIC"
@@ -117,6 +127,7 @@ maximum_stretch_percent = 3.0
 [[preset]]
 id = "LEATHER"
 label = "Leather"
+category = "ESSENTIALS"
 description = "Garment leather: firm, shape-holding and low-stretch"
 upstream_calibrated = true
 model = "FABRIC"
@@ -127,3 +138,549 @@ bend_resistance = 1.8
 surface_grip = 0.50
 stretch_limit_enabled = true
 maximum_stretch_percent = 2.0
+
+# Research-backed library. The two measured_* fields are the arithmetic means
+# of the orthogonal lab measurements published with the MIT dataset. Density
+# is the exact unit conversion; bend_resistance uses the documented global PPF
+# calibration in research_method above. The remaining PPF-only parameters are
+# conservative category calibrations, not claimed laboratory measurements.
+
+[[preset]]
+id = "MIT_LYCRA_LIGHT"
+label = "Lycra · Light"
+category = "KNITS_STRETCH"
+description = "Light Lycra; lab-measured area weight and bending, calibrated stretch behavior"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_01"
+measured_area_weight_oz_yd2 = 7.060908
+measured_bending_stiffness_lbf_in2 = 0.025
+model = "FABRIC"
+surface_weight = 0.239405
+stretch_resistance = 250.0
+sideways_response = 0.45
+bend_resistance = 1.498
+surface_grip = 0.30
+stretch_limit_enabled = true
+maximum_stretch_percent = 25.0
+
+[[preset]]
+id = "MIT_FAUX_FUR"
+label = "Faux Fur"
+category = "PILE_SOFT"
+description = "Dense faux fur; measured weight and bending with soft pile calibration"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_02"
+measured_area_weight_oz_yd2 = 13.538742
+measured_bending_stiffness_lbf_in2 = 0.05125
+model = "FABRIC"
+surface_weight = 0.459041
+stretch_resistance = 900.0
+sideways_response = 0.35
+bend_resistance = 1.602
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "MIT_SILK_LIGHT"
+label = "Silk · Ultralight"
+category = "LIGHTWEIGHT"
+description = "Ultralight silk with measured low mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_03"
+measured_area_weight_oz_yd2 = 1.975126
+measured_bending_stiffness_lbf_in2 = 0.0075
+model = "FABRIC"
+surface_weight = 0.066968
+stretch_resistance = 500.0
+sideways_response = 0.40
+bend_resistance = 1.607
+surface_grip = 0.25
+stretch_limit_enabled = true
+maximum_stretch_percent = 7.0
+
+[[preset]]
+id = "MIT_SILK_SATIN"
+label = "Silk · Satin"
+category = "LIGHTWEIGHT"
+description = "Satin-weight silk with measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_04"
+measured_area_weight_oz_yd2 = 2.639357
+measured_bending_stiffness_lbf_in2 = 0.011
+model = "FABRIC"
+surface_weight = 0.089489
+stretch_resistance = 650.0
+sideways_response = 0.40
+bend_resistance = 1.764
+surface_grip = 0.25
+stretch_limit_enabled = true
+maximum_stretch_percent = 6.0
+
+[[preset]]
+id = "MIT_COTTON_LIGHT"
+label = "Cotton · Lightweight"
+category = "NATURAL_WOVENS"
+description = "Light woven cotton based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_05"
+measured_area_weight_oz_yd2 = 2.938974
+measured_bending_stiffness_lbf_in2 = 0.010
+model = "FABRIC"
+surface_weight = 0.099648
+stretch_resistance = 4500.0
+sideways_response = 0.35
+bend_resistance = 1.440
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 7.0
+
+[[preset]]
+id = "MIT_WOOL_HEAVY"
+label = "Wool · Heavy"
+category = "NATURAL_WOVENS"
+description = "Heavy wool with measured area weight and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_06"
+measured_area_weight_oz_yd2 = 11.342613
+measured_bending_stiffness_lbf_in2 = 0.0375
+model = "FABRIC"
+surface_weight = 0.384580
+stretch_resistance = 2200.0
+sideways_response = 0.40
+bend_resistance = 1.399
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 9.0
+
+[[preset]]
+id = "MIT_TAFFETA"
+label = "Taffeta"
+category = "LIGHTWEIGHT"
+description = "Crisp taffeta based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_07"
+measured_area_weight_oz_yd2 = 3.466767
+measured_bending_stiffness_lbf_in2 = 0.022
+model = "FABRIC"
+surface_weight = 0.117543
+stretch_resistance = 3500.0
+sideways_response = 0.38
+bend_resistance = 2.686
+surface_grip = 0.30
+stretch_limit_enabled = true
+maximum_stretch_percent = 5.0
+
+[[preset]]
+id = "MIT_LINEN"
+label = "Linen"
+category = "NATURAL_WOVENS"
+description = "Structured linen based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_08"
+measured_area_weight_oz_yd2 = 4.476746
+measured_bending_stiffness_lbf_in2 = 0.0225
+model = "FABRIC"
+surface_weight = 0.151787
+stretch_resistance = 7000.0
+sideways_response = 0.30
+bend_resistance = 2.127
+surface_grip = 0.40
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "MIT_CORDUROY"
+label = "Corduroy"
+category = "PILE_SOFT"
+description = "Ribbed corduroy based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_09"
+measured_area_weight_oz_yd2 = 4.514790
+measured_bending_stiffness_lbf_in2 = 0.0185
+model = "FABRIC"
+surface_weight = 0.153077
+stretch_resistance = 6500.0
+sideways_response = 0.32
+bend_resistance = 1.734
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 5.0
+
+[[preset]]
+id = "MIT_COTTON_MEDIUM"
+label = "Cotton · Medium"
+category = "NATURAL_WOVENS"
+description = "Medium woven cotton based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_10"
+measured_area_weight_oz_yd2 = 4.104414
+measured_bending_stiffness_lbf_in2 = 0.0225
+model = "FABRIC"
+surface_weight = 0.139163
+stretch_resistance = 5500.0
+sideways_response = 0.35
+bend_resistance = 2.320
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 5.0
+
+[[preset]]
+id = "MIT_VELVET"
+label = "Velvet"
+category = "PILE_SOFT"
+description = "Soft velvet based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_11"
+measured_area_weight_oz_yd2 = 3.923020
+measured_bending_stiffness_lbf_in2 = 0.020
+model = "FABRIC"
+surface_weight = 0.133013
+stretch_resistance = 3000.0
+sideways_response = 0.38
+bend_resistance = 2.158
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 7.0
+
+[[preset]]
+id = "MIT_FLEECE"
+label = "Fleece"
+category = "PILE_SOFT"
+description = "Lofty fleece based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_12"
+measured_area_weight_oz_yd2 = 5.629548
+measured_bending_stiffness_lbf_in2 = 0.0205
+model = "FABRIC"
+surface_weight = 0.190874
+stretch_resistance = 1200.0
+sideways_response = 0.40
+bend_resistance = 1.541
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "MIT_DENIM"
+label = "Denim · 8.75 oz"
+category = "HEAVY_STRUCTURED"
+description = "8.75 oz denim based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_13"
+measured_area_weight_oz_yd2 = 8.75
+measured_bending_stiffness_lbf_in2 = 0.025
+model = "FABRIC"
+surface_weight = 0.296675
+stretch_resistance = 10000.0
+sideways_response = 0.25
+bend_resistance = 1.209
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "MIT_UPHOLSTERY_LIGHT"
+label = "Upholstery · Light"
+category = "HEAVY_STRUCTURED"
+description = "Light upholstery based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_14"
+measured_area_weight_oz_yd2 = 9.811642
+measured_bending_stiffness_lbf_in2 = 0.040
+model = "FABRIC"
+surface_weight = 0.332671
+stretch_resistance = 11000.0
+sideways_response = 0.30
+bend_resistance = 1.725
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "MIT_UPHOLSTERY_HEAVY"
+label = "Upholstery · Heavy"
+category = "HEAVY_STRUCTURED"
+description = "Heavy upholstery based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_15"
+measured_area_weight_oz_yd2 = 14.16
+measured_bending_stiffness_lbf_in2 = 0.075
+model = "FABRIC"
+surface_weight = 0.480105
+stretch_resistance = 14000.0
+sideways_response = 0.28
+bend_resistance = 2.242
+surface_grip = 0.60
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "MIT_PLEATHER"
+label = "Pleather"
+category = "TECHNICAL_COATED"
+description = "Pleather based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_16"
+measured_area_weight_oz_yd2 = 16.66
+measured_bending_stiffness_lbf_in2 = 0.10
+model = "FABRIC"
+surface_weight = 0.564870
+stretch_resistance = 13000.0
+sideways_response = 0.40
+bend_resistance = 2.540
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.0
+
+[[preset]]
+id = "MIT_MINKY"
+label = "Minky"
+category = "PILE_SOFT"
+description = "Plush minky based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_17"
+measured_area_weight_oz_yd2 = 7.510542
+measured_bending_stiffness_lbf_in2 = 0.060
+model = "FABRIC"
+surface_weight = 0.254651
+stretch_resistance = 1000.0
+sideways_response = 0.40
+bend_resistance = 3.381
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "MIT_DAMASK_UPHOLSTERY"
+label = "Damask Upholstery"
+category = "HEAVY_STRUCTURED"
+description = "Damask upholstery based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_18"
+measured_area_weight_oz_yd2 = 14.665849
+measured_bending_stiffness_lbf_in2 = 0.080
+model = "FABRIC"
+surface_weight = 0.497257
+stretch_resistance = 13500.0
+sideways_response = 0.30
+bend_resistance = 2.309
+surface_grip = 0.60
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "MIT_FLANNEL_VINYL"
+label = "Flannel-backed Vinyl"
+category = "TECHNICAL_COATED"
+description = "Flannel-backed vinyl based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_19"
+measured_area_weight_oz_yd2 = 5.136108
+measured_bending_stiffness_lbf_in2 = 0.035
+model = "FABRIC"
+surface_weight = 0.174144
+stretch_resistance = 15000.0
+sideways_response = 0.42
+bend_resistance = 2.884
+surface_grip = 0.60
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.0
+
+[[preset]]
+id = "MIT_UPHOLSTERY_MEDIUM"
+label = "Upholstery · Medium"
+category = "HEAVY_STRUCTURED"
+description = "Medium upholstery based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_20"
+measured_area_weight_oz_yd2 = 10.258222
+measured_bending_stiffness_lbf_in2 = 0.0675
+model = "FABRIC"
+surface_weight = 0.347813
+stretch_resistance = 12500.0
+sideways_response = 0.30
+bend_resistance = 2.785
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "MIT_OUTDOOR_POLYESTER"
+label = "Outdoor Polyester"
+category = "TECHNICAL_COATED"
+description = "Outdoor polyester based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_21"
+measured_area_weight_oz_yd2 = 6.113919
+measured_bending_stiffness_lbf_in2 = 0.055
+model = "FABRIC"
+surface_weight = 0.207297
+stretch_resistance = 8000.0
+sideways_response = 0.32
+bend_resistance = 3.807
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "MIT_SILK_MEDIUM"
+label = "Silk · Medium"
+category = "LIGHTWEIGHT"
+description = "Medium silk based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_22"
+measured_area_weight_oz_yd2 = 4.095922
+measured_bending_stiffness_lbf_in2 = 0.030
+model = "FABRIC"
+surface_weight = 0.138875
+stretch_resistance = 800.0
+sideways_response = 0.40
+bend_resistance = 3.100
+surface_grip = 0.25
+stretch_limit_enabled = true
+maximum_stretch_percent = 6.0
+
+[[preset]]
+id = "MIT_WOOL_UPHOLSTERY"
+label = "Wool · Upholstery"
+category = "NATURAL_WOVENS"
+description = "Upholstery wool based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_23"
+measured_area_weight_oz_yd2 = 9.456011
+measured_bending_stiffness_lbf_in2 = 0.050
+model = "FABRIC"
+surface_weight = 0.320613
+stretch_resistance = 4000.0
+sideways_response = 0.38
+bend_resistance = 2.238
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 6.0
+
+[[preset]]
+id = "MIT_CANVAS"
+label = "Canvas"
+category = "HEAVY_STRUCTURED"
+description = "Heavy canvas based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_24"
+measured_area_weight_oz_yd2 = 11.589888
+measured_bending_stiffness_lbf_in2 = 0.10
+model = "FABRIC"
+surface_weight = 0.392964
+stretch_resistance = 15000.0
+sideways_response = 0.25
+bend_resistance = 3.652
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "MIT_NYLON_RIPSTOP"
+label = "Nylon Ripstop"
+category = "LIGHTWEIGHT"
+description = "Ultralight nylon ripstop based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_25"
+measured_area_weight_oz_yd2 = 1.725847
+measured_bending_stiffness_lbf_in2 = 0.0165
+model = "FABRIC"
+surface_weight = 0.058516
+stretch_resistance = 7000.0
+sideways_response = 0.30
+bend_resistance = 4.046
+surface_grip = 0.25
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "MIT_TERRY_KNIT"
+label = "Terry Knit"
+category = "KNITS_STRETCH"
+description = "Terry knit based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_26"
+measured_area_weight_oz_yd2 = 4.984708
+measured_bending_stiffness_lbf_in2 = 0.033
+model = "FABRIC"
+surface_weight = 0.169010
+stretch_resistance = 1500.0
+sideways_response = 0.40
+bend_resistance = 2.802
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "MIT_LYCRA_HEAVY"
+label = "Lycra · Heavy"
+category = "KNITS_STRETCH"
+description = "Heavy Lycra with measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_27"
+measured_area_weight_oz_yd2 = 6.643730
+measured_bending_stiffness_lbf_in2 = 0.055
+model = "FABRIC"
+surface_weight = 0.225261
+stretch_resistance = 300.0
+sideways_response = 0.45
+bend_resistance = 3.503
+surface_grip = 0.30
+stretch_limit_enabled = true
+maximum_stretch_percent = 25.0
+
+[[preset]]
+id = "MIT_LAMINATED_COTTON"
+label = "Laminated Cotton"
+category = "TECHNICAL_COATED"
+description = "Laminated cotton based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_28"
+measured_area_weight_oz_yd2 = 5.318801
+measured_bending_stiffness_lbf_in2 = 0.050
+model = "FABRIC"
+surface_weight = 0.180338
+stretch_resistance = 11000.0
+sideways_response = 0.35
+bend_resistance = 3.978
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "MIT_LYCRA_JERSEY"
+label = "Lycra · Jersey"
+category = "KNITS_STRETCH"
+description = "Lycra jersey with measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_29"
+measured_area_weight_oz_yd2 = 5.210888
+measured_bending_stiffness_lbf_in2 = 0.050
+model = "FABRIC"
+surface_weight = 0.176679
+stretch_resistance = 280.0
+sideways_response = 0.45
+bend_resistance = 4.061
+surface_grip = 0.30
+stretch_limit_enabled = true
+maximum_stretch_percent = 25.0
+
+[[preset]]
+id = "MIT_UPHOLSTERY_DENSE"
+label = "Upholstery · Dense"
+category = "HEAVY_STRUCTURED"
+description = "Dense upholstery based on measured mass and bending stiffness"
+upstream_calibrated = false
+source_reference = "MIT_FABRIC_30"
+measured_area_weight_oz_yd2 = 11.389520
+measured_bending_stiffness_lbf_in2 = 0.0875
+model = "FABRIC"
+surface_weight = 0.386170
+stretch_resistance = 14500.0
+sideways_response = 0.28
+bend_resistance = 3.251
+surface_grip = 0.60
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5

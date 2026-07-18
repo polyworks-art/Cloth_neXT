@@ -16,6 +16,7 @@ from . import object_properties
 from ..bake.controller import shared_controller
 from ..solver_quality import (SolverQualityValidationError,
                               apply_quality_preset)
+from ..materials import presets as material_presets
 
 
 def _active_mesh(context):
@@ -169,7 +170,44 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_apply_material_preset(bpy.types.Operator):
+    """Apply one bundled Cloth NeXt fabric preset."""
+
+    bl_idname = "clothnext.apply_material_preset"
+    bl_label = "Apply Material Preset"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    preset: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def description(cls, _context, properties):
+        preset = material_presets.preset_by_identifier(
+            getattr(properties, "preset", ""))
+        if preset is None:
+            return "Apply this bundled fabric preset"
+        detail = preset.description
+        if preset.source_reference:
+            detail += " · MIT laboratory dataset"
+        return detail
+
+    @classmethod
+    def poll(cls, context):
+        obj = _active_mesh(context)
+        settings = getattr(obj, "cloth_next", None) if obj else None
+        return bool(settings is not None and settings.enabled
+                    and settings.role == "CLOTH"
+                    and not shared_controller.snapshot().active)
+
+    def execute(self, context):
+        settings = context.active_object.cloth_next
+        if not object_properties.select_preset(settings, self.preset):
+            self.report({"ERROR"}, "Material preset is unavailable.")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
 CLASSES = (CLOTHNEXT_OT_set_object_type,
            CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
            CLOTHNEXT_OT_use_scene_range,
-           CLOTHNEXT_OT_apply_solver_quality_preset)
+           CLOTHNEXT_OT_apply_solver_quality_preset,
+           CLOTHNEXT_OT_apply_material_preset)

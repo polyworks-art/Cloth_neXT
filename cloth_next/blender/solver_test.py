@@ -1185,26 +1185,9 @@ def _depsgraph_update(context):
     if view_layer is not None and hasattr(view_layer,"update"):view_layer.update()
 
 
-def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
-    """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
-    scene = context.scene
-    original = int(scene.frame_current)
-    fps = _scene_fps(context)
-    samples = []
-    active_scalar_types = set()
-    try:
-        for frame in range(bake_range.start, bake_range.end + 1):
-            if _cancel_event.is_set():
-                raise SessionCancelled()
-            scene.frame_set(frame)
-            _depsgraph_update(context)
-            state, active = _force_state(context)
-            samples.append(state)
-            active_scalar_types.update(active)
-    finally:
-        scene.frame_set(original)
-        _depsgraph_update(context)
-
+def _force_capture_from_samples(samples, active_scalar_types, bake_range,
+                                fps: int) -> ForceCapture:
+    """Encode already evaluated Force states without revisiting frames."""
     initial = samples[0]
     tracks = (
         ("gravity", lambda state: state.gravity),
@@ -1232,6 +1215,30 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
                 range(bake_range.start, bake_range.end + 1), values))
         dynamic.append((key, entries))
     return ForceCapture(initial, frozenset(active_scalar_types), tuple(dynamic))
+
+
+def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
+    """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
+    scene = context.scene
+    original = int(scene.frame_current)
+    fps = _scene_fps(context)
+    samples = []
+    active_scalar_types = set()
+    try:
+        for frame in range(bake_range.start, bake_range.end + 1):
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            # frame_set updates the dependency graph immediately; repeating a
+            # view-layer update here needlessly evaluates the full rig again.
+            scene.frame_set(frame)
+            state, active = _force_state(context)
+            samples.append(state)
+            active_scalar_types.update(active)
+    finally:
+        scene.frame_set(original)
+        _depsgraph_update(context)
+    return _force_capture_from_samples(
+        samples, active_scalar_types, bake_range, fps)
 
 def _solver_position(matrix,position):
     x,y,z=position
@@ -1402,10 +1409,13 @@ def _capture_collider_motion(context, collider_obj,
                 shared_controller.update(
                     status_message=(f"Capturing collider animation · frame "
                                     f"{frame + subframe:g} / {bake_range.end}"),
+                    activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
                     current_frame=frame, progress_current=offset + 1,
                     progress_total=sample_count)
             scene.frame_set(frame, subframe=subframe)
-            _depsgraph_update(context)
+            # frame_set() already evaluates the dependency graph. Repeating
+            # view_layer.update() doubled the dominant cost on long,
+            # deforming character Collider captures.
             evaluated = collider_obj.evaluated_get(
                 context.evaluated_depsgraph_get())
             mesh = evaluated.to_mesh()
@@ -1552,11 +1562,13 @@ def _validate_deformable_modifier_path(obj, pin_membership) -> None:
 
 
 def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
-                          animated_pin_samples=None) -> RunPlan:
+                          animated_pin_samples=None,
+                          force_capture: ForceCapture | None = None) -> RunPlan:
     scene = context.scene
     resolved = resolve_solver(context)
     bake_range = snapshot.bake_range
-    force_capture = _capture_force_animation(context, bake_range)
+    force_capture = (force_capture or
+                     _capture_force_animation(context, bake_range))
     original_frame = int(scene.frame_current)
     dynamic_records = []
     collider_records = []
@@ -1778,6 +1790,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
 
 
 def build_run_plan(context, *, animated_pin_samples=None,
+                   force_capture: ForceCapture | None = None,
                    snapshot: ValidationSnapshot | None = None) -> RunPlan:
     """Freeze the run inputs from one authoritative validation.
 
@@ -1791,7 +1804,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
         snapshot = validate_scene(context)
     if len(snapshot.deformables) > 1:
         return _build_multi_run_plan(
-            context, snapshot, animated_pin_samples=animated_pin_samples)
+            context, snapshot, animated_pin_samples=animated_pin_samples,
+            force_capture=force_capture)
     cloth_obj = snapshot.cloth_obj
     deformable_role = str(cloth_obj.cloth_next.role)
     collider_objs = snapshot.collider_objs
@@ -1810,7 +1824,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
-    force_capture = _capture_force_animation(context, bake_range)
+    force_capture = (force_capture or
+                     _capture_force_animation(context, bake_range))
     original_frame = int(scene.frame_current)
     collider_records = []
     try:
@@ -3137,6 +3152,11 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 capture={"context":context,"targets":animated_targets,
                     "range":bake_range,"next":bake_range.start,
                     "samples":{name: [] for name, _membership in animated_targets},
+                    "force_samples":[], "active_scalar_types":set(),
+                    "index_arrays":{
+                        name: np.asarray(membership.vertex_indices,
+                                         dtype=np.intp)
+                        for name, membership in animated_targets},
                     "original":int(context.scene.frame_current),"job_id":job_id,
                     "snapshot":snapshot}
                 _suspend_pin_capture_playback(capture)
@@ -3206,9 +3226,12 @@ def _restore_pin_capture_state(state) -> None:
     _depsgraph_update(context)
 
 
-def _sample_evaluated_pin_positions(context, obj, membership):
+def _sample_evaluated_pin_positions(context, obj, membership, *,
+                                    depsgraph=None, index_array=None):
     """Read one evaluated mesh in bulk without allocating a to_mesh copy."""
-    evaluated = obj.evaluated_get(context.evaluated_depsgraph_get())
+    if depsgraph is None:
+        depsgraph = context.evaluated_depsgraph_get()
+    evaluated = obj.evaluated_get(depsgraph)
     mesh = evaluated.data
     count = len(mesh.vertices)
     if count != membership.source_vertex_count:
@@ -3218,8 +3241,9 @@ def _sample_evaluated_pin_positions(context, obj, membership):
             f"{count} evaluated vertices.")
     coordinates = np.empty(count * 3, dtype=np.float32)
     mesh.vertices.foreach_get("co", coordinates)
-    selected = coordinates.reshape((-1, 3))[
-        np.asarray(membership.vertex_indices, dtype=np.intp)]
+    if index_array is None:
+        index_array = np.asarray(membership.vertex_indices, dtype=np.intp)
+    selected = coordinates.reshape((-1, 3))[index_array]
     matrix = np.asarray(solver_world_matrix(
         tuple(tuple(row) for row in evaluated.matrix_world)),
         dtype=np.float64)
@@ -3234,21 +3258,32 @@ def _pin_capture_pump():
     context=state["context"]; scene=context.scene
     try:
         frame=state["next"]
-        scene.frame_set(frame); _depsgraph_update(context)
+        # scene.frame_set() evaluates Blender's dependency graph itself. A
+        # subsequent view_layer.update() repeats the expensive rig/modifier
+        # work and made high-resolution character captures roughly twice as
+        # costly. Share the resulting graph across every Pin target instead.
+        scene.frame_set(frame)
+        depsgraph = context.evaluated_depsgraph_get()
         for object_name, membership in state["targets"]:
             obj=bpy.data.objects.get(object_name)
             if obj is None:
                 raise SceneValidationError(
                     f"The Cloth object {object_name!r} no longer exists.")
             positions = _sample_evaluated_pin_positions(
-                context, obj, membership)
+                context, obj, membership, depsgraph=depsgraph,
+                index_array=state["index_arrays"][object_name])
             state["samples"][object_name].append(
                 AnimatedPinTargetSample(frame, positions))
+        force_state, active_scalar_types = _force_state(context)
+        state["force_samples"].append(force_state)
+        state["active_scalar_types"].update(active_scalar_types)
         shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",
             activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
             progress_current=frame-state["range"].start+1)
         if frame<state["range"].end:
-            state["next"]=frame+1; return .01
+            # Resume on the next Blender timer opportunity without adding an
+            # artificial 10 ms pause for every captured frame.
+            state["next"]=frame+1; return 0.0
         job_id=state["job_id"]
         sample_map={name:tuple(samples)
                     for name,samples in state["samples"].items()}
@@ -3256,10 +3291,32 @@ def _pin_capture_pump():
         samples=(sample_map if snapshot is not None
                  and len(snapshot.deformables)>1
                  else next(iter(sample_map.values())))
+        force_capture = _force_capture_from_samples(
+            state["force_samples"], state["active_scalar_types"],
+            state["range"], _scene_fps(context))
+        animated_colliders = tuple(
+            obj for obj in getattr(snapshot, "collider_objs", ())
+            if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
+            == "ANIMATED") if snapshot is not None else ()
+        collider_sample_total = sum(
+            (state["range"].output_count - 1) * int(getattr(
+                obj.cloth_next, "collider_samples_per_frame",
+                COLLIDER_SAMPLES_PER_FRAME)) + 1
+            for obj in animated_colliders)
+        shared_controller.update(
+            status_message=("Preparing animated Collider capture"
+                            if animated_colliders
+                            else "Preparing evaluated geometry"),
+            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
+                           if animated_colliders
+                           else BakeActivity.CAPTURING_GEOMETRY),
+            progress_current=0,
+            progress_total=collider_sample_total)
         _restore_pin_capture_state(state)
         _pin_capture=None
         # Reuses the Bake's single validation; no second topology hash or pin scan.
         plan=build_run_plan(context,animated_pin_samples=samples,
+                            force_capture=force_capture,
                             snapshot=state.get("snapshot"))
         _continue_production_bake(context,job_id,plan); return None
     except Exception as exc:

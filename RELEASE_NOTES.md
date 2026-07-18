@@ -1,5 +1,12 @@
 # Upcoming Dev Snapshot
 
+- The Material panel now opens a categorized hover library with 37 fabric
+  starting points, including 30 presets grounded in laboratory area-weight and
+  bending measurements from the MIT Fabric Properties Dataset.
+- Research-backed presets retain their source sample and measured values; the
+  density conversion and solver-specific bending calibration are documented
+  without presenting calibrated stretch or friction as lab measurements.
+
 - System Load is quieter and easier to read: monochrome graphs, a neutral
   accent, no outer frame, and red reserved for the RAM safety limit.
 - The Companion is centered before its first visible frame and expanded Details

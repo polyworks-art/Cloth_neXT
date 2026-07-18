@@ -47,6 +47,7 @@ class BakeActivity(str, Enum):
     CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; FINISHED="FINISHED"
     ERROR="ERROR"; UNKNOWN="UNKNOWN"
     CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
+    CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
 
@@ -64,6 +65,7 @@ ACTIVITY_LABELS = {
     BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
     BakeActivity.UNKNOWN:"Running solver",
     BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
+    BakeActivity.CAPTURING_COLLIDER_MOTION:"Capturing animated Colliders",
     BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
     BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
 }

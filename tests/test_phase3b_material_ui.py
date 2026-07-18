@@ -29,6 +29,7 @@ class RecordingLayout:
         if self.sink is self:
             self.props: list[str] = []
             self.labels: list[str] = []
+            self.menus: list[tuple[str, str]] = []
         self.use_property_split = False
         self.use_property_decorate = False
         self.enabled = True
@@ -50,6 +51,9 @@ class RecordingLayout:
 
     def operator(self, *_a, **_kw):
         return SimpleNamespace()
+
+    def menu(self, menu_id, text="", **_kw):
+        self.sink.menus.append((menu_id, text))
 
 
 def _settings(env):
@@ -156,8 +160,10 @@ def test_property_ranges_match_the_pinned_upstream_ui(blender_env):
 def test_preset_items_are_builtin_order_plus_custom(blender_env):
     items = blender_env.object_properties.PRESET_ITEMS
     identifiers = [item[0] for item in items]
-    assert identifiers == ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON",
-                           "WOOL", "DENIM", "LEATHER", "CUSTOM"]
+    assert identifiers[:7] == ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON",
+                              "WOOL", "DENIM", "LEATHER"]
+    assert len(identifiers) == 38
+    assert identifiers[-1] == "CUSTOM"
     assert items[-1][1] == "Custom"
 
 
@@ -264,7 +270,8 @@ def test_panel_draw_never_reads_the_preset_file(blender_env, monkeypatch):
     panel = env.physics_ui.CLOTHNEXT_PT_material()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert "preset" in panel.layout.props
+    assert panel.layout.menus == [
+        ("CLOTHNEXT_MT_material_presets", "Default Cloth")]
     env.registration.unregister()
 
 
@@ -286,7 +293,7 @@ def test_material_panel_displays_artist_facing_names(blender_env):
     panel = env.physics_ui.CLOTHNEXT_PT_material()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["preset", "surface_weight",
+    assert panel.layout.props == ["surface_weight",
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
                                   "stretch_limit_enabled",
@@ -494,6 +501,36 @@ def test_parameter_inspection_shows_artist_and_wire_names(blender_env):
     cloth_settings.collision.enabled = False
     _lines, payload = env.solver_test.build_parameter_inspection(context)
     assert payload["scene"]["disable-contact"] is True
+    env.registration.unregister()
+
+
+def test_material_library_is_a_hover_category_menu(blender_env):
+    env = blender_env
+    env.registration.register()
+    main = env.physics_ui.CLOTHNEXT_MT_material_presets()
+    main.layout = RecordingLayout()
+    main.draw(SimpleNamespace())
+    assert [text for _menu_id, text in main.layout.menus] == list(
+        material_presets.CATEGORY_LABELS.values())
+    category = next(menu for menu in env.physics_ui.MATERIAL_PRESET_CATEGORY_MENUS
+                    if menu.category == "LIGHTWEIGHT")()
+    category.layout = RecordingLayout()
+    obj, _settings_unused = _settings(env)
+    category.draw(_context(obj))
+    assert len(material_presets.presets_in_category("LIGHTWEIGHT")) == 5
+    env.registration.unregister()
+
+
+def test_material_preset_operator_applies_and_selects(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    operator = env.physics_operators.CLOTHNEXT_OT_apply_material_preset()
+    operator.preset = "MIT_NYLON_RIPSTOP"
+    assert operator.execute(_context(obj)) == {"FINISHED"}
+    assert settings.material.preset == "MIT_NYLON_RIPSTOP"
+    assert settings.material.surface_weight == pytest.approx(0.058516)
     env.registration.unregister()
 
 

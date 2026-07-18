@@ -30,6 +30,8 @@ def _phase4_meta():
 
 def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
     module = blender_env.solver_test
+    depsgraph = object()
+    indices = np.asarray((1,), dtype=np.intp)
 
     class Vertices:
         def __len__(self):
@@ -47,14 +49,58 @@ def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
                       (0.0, 0.0, 0.0, 1.0)))
     obj = SimpleNamespace(
         name="Rigged Cloth",
-        evaluated_get=lambda _depsgraph: evaluated)
-    context = SimpleNamespace(evaluated_depsgraph_get=lambda: object())
+        evaluated_get=lambda value: evaluated if value is depsgraph else None)
+    context = SimpleNamespace(evaluated_depsgraph_get=lambda: (_ for _ in ()).throw(
+        AssertionError("a supplied depsgraph must be reused")))
     membership = SimpleNamespace(source_vertex_count=2, vertex_indices=(1,))
 
     positions = module._sample_evaluated_pin_positions(
-        context, obj, membership)
+        context, obj, membership, depsgraph=depsgraph, index_array=indices)
 
     assert positions == ((4.0, 6.0, -5.0),)
+
+
+def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    depsgraph = object()
+    frames = []
+    scene = SimpleNamespace(frame_current=1,
+                            frame_set=lambda frame: frames.append(frame))
+    context = SimpleNamespace(
+        scene=scene, evaluated_depsgraph_get=lambda: depsgraph)
+    obj = SimpleNamespace(name="Skirt")
+    membership = SimpleNamespace(vertex_indices=(2, 4))
+    indices = np.asarray((2, 4), dtype=np.intp)
+    calls = []
+
+    monkeypatch.setattr(module.bpy.data, "objects", {"Skirt": obj})
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: (_ for _ in ()).throw(
+        AssertionError("frame_set already updates the dependency graph")))
+    monkeypatch.setattr(module, "_sample_evaluated_pin_positions",
+        lambda passed_context, passed_obj, passed_membership, **kwargs:
+            calls.append((passed_context, passed_obj, passed_membership,
+                          kwargs["depsgraph"], kwargs["index_array"])) or
+            ((1.0, 2.0, 3.0),))
+    force_state = module.ForceState((0.0, 0.0, -9.81), (0.0, 0.0, 0.0))
+    monkeypatch.setattr(module, "_force_state",
+                        lambda _context: (force_state, frozenset()))
+    monkeypatch.setattr(module.shared_controller, "update", lambda **_kwargs: None)
+
+    module._pin_capture = {
+        "context": context, "targets": (("Skirt", membership),),
+        "range": SimpleNamespace(start=1, end=2), "next": 1,
+        "samples": {"Skirt": []}, "index_arrays": {"Skirt": indices},
+        "force_samples": [], "active_scalar_types": set(),
+    }
+    try:
+        assert module._pin_capture_pump() == 0.0
+        assert frames == [1]
+        assert calls == [(context, obj, membership, depsgraph, indices)]
+        assert module._pin_capture["next"] == 2
+        assert module._pin_capture["force_samples"] == [force_state]
+    finally:
+        module._pin_capture = None
 
 
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.8 — 2026-07-18 (Dev channel)
+
+### Added
+
+- Categorized, hover-opened Material Preset menus with a 37-material library.
+- Thirty research-backed fabric starting points derived from Bouman et al.'s
+  MIT Fabric Properties laboratory measurements, with explicit provenance and
+  conversion documentation.
+
+### Changed
+
+- Animated Follow Animation Pin capture reuses one evaluated dependency graph
+  per frame, precomputes pin-index arrays, and removes the artificial timer
+  delay between frames.
+- Force animation is sampled during Pin capture instead of walking the complete
+  frame range a second time afterward.
+- Animated Collider and Force capture no longer repeat Blender dependency-graph
+  updates already performed by `scene.frame_set()`.
+
+### Fixed
+
+- The preparation stage now switches from completed Pin progress to explicit
+  animated-Collider or evaluated-geometry progress instead of appearing stuck
+  at values such as `1000 / 1000`.
+
 ## 1.0.7 — 2026-07-17 (Dev channel)
 
 ### Changed

@@ -170,6 +170,20 @@ def apply_preset(settings, identifier: str) -> bool:
     return True
 
 
+def select_preset(settings, identifier: str) -> bool:
+    """Apply a bundled preset and make it the visible selection atomically."""
+    if not apply_preset(settings, identifier):
+        return False
+    global _applying_preset
+    _applying_preset = True
+    try:
+        settings.material.preset = identifier
+        _mark_dirty(settings.material)
+    finally:
+        _applying_preset = False
+    return True
+
+
 def mark_custom(settings) -> None:
     """Switch the visible preset to Custom without touching any value."""
     if _applying_preset or settings is None:

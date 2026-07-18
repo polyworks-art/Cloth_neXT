@@ -662,6 +662,51 @@ def _preset_description(identifier: str) -> str:
     return ""
 
 
+def _preset_label(identifier: str) -> str:
+    preset = material_presets.preset_by_identifier(identifier)
+    if preset is not None:
+        return preset.label
+    return material_presets.CUSTOM_LABEL
+
+
+def _draw_material_category(self, context):
+    selected = getattr(context.object.cloth_next.material, "preset", "")
+    for preset in material_presets.presets_in_category(self.category):
+        operator = self.layout.operator(
+            "clothnext.apply_material_preset", text=preset.label,
+            icon="CHECKMARK" if preset.identifier == selected else "NONE")
+        operator.preset = preset.identifier
+
+
+def _make_material_category_menu(category: str):
+    class_name = f"CLOTHNEXT_MT_material_{category.lower()}"
+    return type(class_name, (bpy.types.Menu,), {
+        "__module__": __name__,
+        "bl_idname": class_name,
+        "bl_label": material_presets.CATEGORY_LABELS[category],
+        "category": category,
+        "draw": _draw_material_category,
+    })
+
+
+MATERIAL_PRESET_CATEGORY_MENUS = tuple(
+    _make_material_category_menu(category)
+    for category in material_presets.CATEGORY_ORDER
+)
+
+
+class CLOTHNEXT_MT_material_presets(bpy.types.Menu):
+    """Categorized, hover-opened fabric material library."""
+
+    bl_idname = "CLOTHNEXT_MT_material_presets"
+    bl_label = "Material Presets"
+
+    def draw(self, _context):
+        for menu in MATERIAL_PRESET_CATEGORY_MENUS:
+            if material_presets.presets_in_category(menu.category):
+                self.layout.menu(menu.bl_idname, text=menu.bl_label)
+
+
 class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Force"
     bl_idname = "CLOTHNEXT_PT_force"
@@ -725,7 +770,10 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         if error:
             layout.label(text="Bundled presets unavailable:", icon="ERROR")
             layout.label(text=error)
-        layout.prop(material, "preset")
+        preset_row = layout.row()
+        preset_row.label(text="Material Preset")
+        preset_row.menu(CLOTHNEXT_MT_material_presets.bl_idname,
+                        text=_preset_label(material.preset))
         description = _preset_description(material.preset)
         if description:
             layout.label(text=description)
@@ -1105,6 +1153,7 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
+           *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
            CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
