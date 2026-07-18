@@ -462,6 +462,33 @@ def test_animated_collider_topology_detects_real_changes(blender_env):
         4, polygons, 4, ((0, 1, 2), (0, 2, 3)))
 
 
+def test_animated_collider_bulk_topology_reuses_buffers(blender_env):
+    module = blender_env.solver_test
+
+    class BulkCollection:
+        def __init__(self, **columns):
+            self.columns = columns
+
+        def __len__(self):
+            return len(next(iter(self.columns.values())))
+
+        def foreach_get(self, name, target):
+            target[:] = self.columns[name]
+
+    mesh = SimpleNamespace(
+        polygons=BulkCollection(loop_start=[0, 4], loop_total=[4, 3]),
+        loops=BulkCollection(vertex_index=[0, 1, 2, 3, 3, 2, 4]))
+    first = module._collider_topology_arrays(mesh)
+    second = module._collider_topology_arrays(mesh, first)
+
+    assert all(left is right for left, right in zip(first, second))
+    assert module._collider_array_topology_change(5, first, 5, second) == ""
+    mesh.loops.columns["vertex_index"][-1] = 1
+    changed = module._collider_topology_arrays(mesh)
+    assert "polygon topology changed" in module._collider_array_topology_change(
+        5, first, 5, changed)
+
+
 def test_dense_animated_collider_capture_returns_non_blocking_warning(
         blender_env):
     module = blender_env.solver_test

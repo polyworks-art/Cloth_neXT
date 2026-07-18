@@ -12,6 +12,7 @@ does the same on decode.
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from typing import Any
 
 from . import cbor_codec
@@ -32,6 +33,34 @@ def dumps_envelope(kind: str, payload: Any) -> bytes:
         raise EnvelopeError(f"unknown payload kind {kind!r}")
     return cbor_codec.dumps(
         {"version": SCHEMA_VERSION, "kind": kind, "payload": payload})
+
+
+def dump_envelope_file(kind: str, payload: Any, path: Path, *,
+                       progress=None) -> str:
+    """Write a large envelope incrementally and return its wire hash."""
+    if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
+        raise EnvelopeError(f"unknown payload kind {kind!r}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256()
+
+    class HashingWriter:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def write(self, chunk):
+            digest.update(chunk)
+            return self.stream.write(chunk)
+
+    try:
+        with path.open("wb") as stream:
+            cbor_codec.dump(
+                {"version": SCHEMA_VERSION, "kind": kind,
+                 "payload": payload},
+                HashingWriter(stream), progress=progress)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return digest.hexdigest()
 
 
 def loads_envelope(blob: bytes, expected_kind: str) -> Any:

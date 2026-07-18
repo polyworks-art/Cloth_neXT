@@ -72,7 +72,8 @@ from ..ppf.resolver import (
 )
 from ..ppf.schema.data import (GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
                                SceneObject, encode_deformable_scene,
-                               encode_multi_deformable_scene, encode_scene,
+                               encode_multi_deformable_scene,
+                               encode_multi_deformable_scene_file, encode_scene,
                                internal_static_sentinel, zero_area_triangles)
 from ..ppf.schema.params import (
     SimulationSettings,
@@ -1368,6 +1369,42 @@ def _collider_polygon_topology(mesh) -> tuple[tuple[int, ...], ...]:
                  for polygon in mesh.polygons)
 
 
+def _collider_topology_arrays(mesh, buffers=None):
+    """Read evaluated polygon topology through Blender's bulk API.
+
+    Large animated character colliders used to construct a Python tuple for
+    every polygon at every motion sample.  Reusing three compact arrays keeps
+    the same exact topology validation while moving the copying into Blender's
+    C-level ``foreach_get`` implementation.
+    """
+    polygon_count = len(mesh.polygons)
+    loop_count = len(mesh.loops)
+    if (buffers is None or len(buffers[0]) != polygon_count or
+            len(buffers[2]) != loop_count):
+        starts = np.empty(polygon_count, dtype=np.int32)
+        totals = np.empty(polygon_count, dtype=np.int32)
+        vertices = np.empty(loop_count, dtype=np.int32)
+    else:
+        starts, totals, vertices = buffers
+    mesh.polygons.foreach_get("loop_start", starts)
+    mesh.polygons.foreach_get("loop_total", totals)
+    mesh.loops.foreach_get("vertex_index", vertices)
+    return starts, totals, vertices
+
+
+def _collider_array_topology_change(expected_vertex_count: int,
+                                    expected, vertex_count: int,
+                                    current) -> str:
+    if vertex_count != expected_vertex_count:
+        return (f"vertex count changed from {expected_vertex_count} to "
+                f"{vertex_count}")
+    if any(left.shape != right.shape or not np.array_equal(left, right)
+           for left, right in zip(expected, current)):
+        return (f"polygon topology changed from {len(expected[0])} to "
+                f"{len(current[0])} polygons")
+    return ""
+
+
 def _collider_topology_change(expected_vertex_count: int,
                               expected_polygons: tuple[tuple[int, ...], ...],
                               vertex_count: int,
@@ -1394,10 +1431,12 @@ def _capture_collider_motion(context, collider_obj,
     times = [point[2] for point in sample_points]
     reference_vertices = None
     reference_triangles = None
-    reference_polygons = None
+    reference_topology = None
+    topology_buffers = None
     matrices = []
     local_samples = None
     temporary_path = None
+    deforming = False
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
@@ -1421,14 +1460,14 @@ def _capture_collider_motion(context, collider_obj,
             mesh = evaluated.to_mesh()
             try:
                 count = len(mesh.vertices)
-                polygons = _collider_polygon_topology(mesh)
-                if count == 0 or not polygons:
+                topology = _collider_topology_arrays(mesh, topology_buffers)
+                if count == 0 or not len(topology[0]):
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an empty '
                         f'evaluated mesh at frame {frame + subframe:g}.')
-                detail = (_collider_topology_change(
-                    len(reference_vertices), reference_polygons,
-                    count, polygons) if reference_polygons is not None else "")
+                detail = (_collider_array_topology_change(
+                    len(reference_vertices), reference_topology,
+                    count, topology) if reference_topology is not None else "")
                 if detail:
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" changes topology at '
@@ -1447,7 +1486,8 @@ def _capture_collider_motion(context, collider_obj,
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an invalid '
                         f'transform at frame {frame + subframe:g}.')
-                matrices.append(solver_world_matrix(world))
+                solver_matrix = solver_world_matrix(world)
+                matrices.append(solver_matrix)
                 if reference_vertices is None:
                     # Freeze the first tessellation. Blender may flip a quad
                     # diagonal as an Armature makes it non-planar; the polygon
@@ -1461,22 +1501,31 @@ def _capture_collider_motion(context, collider_obj,
                             'triangulated for collision.')
                     reference_vertices = local.copy()
                     reference_triangles = triangles
-                    reference_polygons = polygons
+                    reference_topology = tuple(array.copy()
+                                               for array in topology)
                     temporary_path = (Path(bpy.app.tempdir)
                         / f"cloth_next_collider_{uuid_module.uuid4().hex}.bin")
                     local_samples = np.memmap(
                         temporary_path, dtype="<f4", mode="w+",
                         shape=(sample_count, count, 3))
-                local_samples[offset] = local
+                elif not deforming:
+                    # Classify while Blender is already handing us this
+                    # sample.  A second full memmap scan after N/N made a
+                    # completed capture look hung for large character meshes.
+                    deforming = not np.allclose(
+                        local, reference_vertices, rtol=0.0, atol=1e-6)
+                if reference_topology is not None:
+                    topology_buffers = topology
+                # Store solver-world positions immediately.  This replaces
+                # the former second pass over every frame and every vertex.
+                transform = np.asarray(solver_matrix, dtype=np.float64)
+                local_samples[offset] = (
+                    local @ transform[:3, :3].T + transform[:3, 3])
             finally:
                 evaluated.to_mesh_clear()
 
         assert reference_vertices is not None and reference_triangles is not None
         assert local_samples is not None
-        deforming = any(not np.allclose(local_samples[index],
-                                        reference_vertices, rtol=0.0,
-                                        atol=1e-6)
-                                        for index in range(1, sample_count))
         if not deforming:
             translations, quaternions, scales = [], [], []
             for matrix in matrices:
@@ -1503,13 +1552,6 @@ def _capture_collider_motion(context, collider_obj,
             temporary_path.unlink(missing_ok=True)
             return result
 
-        # Reuse the local-position memmap in place for absolute solver-world
-        # positions; peak numeric storage stays frames x vertices x 12 bytes.
-        for index, matrix in enumerate(matrices):
-            transform = np.asarray(matrix, dtype=np.float64)
-            local_samples[index] = (
-                local_samples[index] @ transform[:3, :3].T
-                + transform[:3, 3])
         local_samples.flush()
         identity = tuple(tuple(1.0 if row == column else 0.0
                                for column in range(4)) for row in range(4))
@@ -1638,6 +1680,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         _depsgraph_update(context)
 
     project_name = new_project_name()
+    work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     scene_dynamics = []
     param_dynamics = []
     session_dynamics = []
@@ -1691,8 +1734,37 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                                 "triangle_count": len(triangles)})
         scene_colliders, collider_specs = _ensure_solver_static(
             scene_colliders, collider_specs)
-        data_payload, data_hash = encode_multi_deformable_scene(
-            scene_dynamics, scene_colliders)
+        deforming_capture = any(
+            capture is not None and
+            capture.motion_type == "DEFORMING_ANIMATED"
+            for _obj, _vertices, _triangles, _world, capture
+            in collider_records)
+        if deforming_capture:
+            encoding_total = max(
+                int(capture.animation["vert_frames"].shape[0])
+                for _obj, _vertices, _triangles, _world, capture
+                in collider_records
+                if capture is not None and
+                capture.motion_type == "DEFORMING_ANIMATED")
+            shared_controller.update(
+                status_message="Encoding animated Collider data",
+                activity_code=BakeActivity.ENCODING_SCENE,
+                progress_current=0, progress_total=encoding_total)
+            def encoding_progress(current, total):
+                if _cancel_event.is_set():
+                    raise SessionCancelled()
+                shared_controller.update(
+                    status_message=(f"Encoding animated Colliders · "
+                                    f"{current} / {total}"),
+                    activity_code=BakeActivity.ENCODING_SCENE,
+                    progress_current=current, progress_total=total)
+            data_payload, data_hash = encode_multi_deformable_scene_file(
+                scene_dynamics, scene_colliders,
+                work_directory / "scene.cbor",
+                progress=encoding_progress)
+        else:
+            data_payload, data_hash = encode_multi_deformable_scene(
+                scene_dynamics, scene_colliders)
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -1719,7 +1791,6 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         collider_specs[0][1] if collider_specs else "",
         frame_count, data_payload, param_payload,
         data_hash, param_hash, deformables=tuple(session_dynamics))
-    work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     scene_identity = {
         "settings_fingerprint": snapshot.settings_fingerprint,
         "geometry_fingerprint": snapshot.geometry_fingerprint,
@@ -1942,8 +2013,40 @@ def build_run_plan(context, *, animated_pin_samples=None,
                             "triangle_count": len(triangles)})
     scene_colliders, collider_specs = _ensure_solver_static(
         scene_colliders, collider_specs)
+    project_name = new_project_name()
+    work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     try:
-        if deformable_role == "CLOTH":
+        deforming_capture = any(
+            capture is not None and
+            capture.motion_type == "DEFORMING_ANIMATED"
+            for _obj, _vertices, _triangles, _world, capture
+            in collider_records)
+        if deforming_capture:
+            encoding_total = max(
+                int(capture.animation["vert_frames"].shape[0])
+                for _obj, _vertices, _triangles, _world, capture
+                in collider_records
+                if capture is not None and
+                capture.motion_type == "DEFORMING_ANIMATED")
+            shared_controller.update(
+                status_message="Encoding animated Collider data",
+                activity_code=BakeActivity.ENCODING_SCENE,
+                progress_current=0, progress_total=encoding_total)
+            def encoding_progress(current, total):
+                if _cancel_event.is_set():
+                    raise SessionCancelled()
+                shared_controller.update(
+                    status_message=(f"Encoding animated Colliders · "
+                                    f"{current} / {total}"),
+                    activity_code=BakeActivity.ENCODING_SCENE,
+                    progress_current=current, progress_total=total)
+            group = (GROUP_SHELL if deformable_role == "CLOTH" else
+                     GROUP_ROD if deformable_role == "ROD" else GROUP_SOLID)
+            data_payload, data_hash = encode_multi_deformable_scene_file(
+                ((scene_cloth, group),), scene_colliders,
+                work_directory / "scene.cbor",
+                progress=encoding_progress)
+        elif deformable_role == "CLOTH":
             data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
         else:
             data_payload, data_hash = encode_deformable_scene(
@@ -2053,7 +2156,6 @@ def build_run_plan(context, *, animated_pin_samples=None,
         },
     }
 
-    project_name = new_project_name()
     session_scene = SessionScene(
         project_name=project_name,
         cloth_name=cloth_obj.name, cloth_uuid=cloth_uuid,
@@ -2071,7 +2173,6 @@ def build_run_plan(context, *, animated_pin_samples=None,
                                    "cache_directory", "") or "").strip()
     cache_directory = (Path(bpy.path.abspath(configured_cache))
                        if configured_cache else _cache_directory())
-    work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     pc2_path = cache_directory / f"cn_test_cloth_{project_name[10:]}.pc2"
     return RunPlan(scene=session_scene, resolved=resolved,
                    initial_local=cloth_vertices, world_matrix=cloth_world,

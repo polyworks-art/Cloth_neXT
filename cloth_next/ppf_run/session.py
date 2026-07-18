@@ -73,7 +73,7 @@ class SessionScene:
     collider_name: str
     collider_uuid: str
     frame_count: int  # Blender frames 1..frame_count
-    data_payload: bytes
+    data_payload: bytes | Path
     param_payload: bytes
     data_hash: str
     param_hash: str
@@ -650,6 +650,13 @@ class SolverSession:
             finally:
                 if owned:
                     self._stop_owned()
+                payload = self.scene.data_payload
+                if isinstance(payload, Path):
+                    try:
+                        if payload.parent.resolve() == self.work_directory.resolve():
+                            payload.unlink(missing_ok=True)
+                    except OSError:
+                        pass
                 self.diagnostics.timings["total"] = time.monotonic() - started
                 log_with_context(self._logger, 20, "session finished", {
                     "run_id": self.diagnostics.run_id,
