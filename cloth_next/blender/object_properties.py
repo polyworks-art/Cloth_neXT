@@ -459,6 +459,26 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         description="Animated Collider samples per Blender frame. Increase "
                     "this for fast or strongly curved motion to prevent the "
                     "interpolated Collider from crossing the cloth")
+    collider_proxy_enabled: bpy.props.BoolProperty(
+        name="Use Experimental Proxy", default=False,
+        update=_on_settings_update,
+        description="Replace this logical Collider with its generated "
+                    "low-poly simulation Proxy during Bake")
+    collider_proxy_target_vertices: bpy.props.IntProperty(
+        name="Target Vertices", default=12000, min=500, max=250000,
+        update=_on_settings_update,
+        description="Approximate vertex target for the generated "
+                    "experimental Collider Proxy")
+    collider_proxy_object: bpy.props.PointerProperty(
+        name="Generated Proxy", type=bpy.types.Object,
+        description="Generated low-poly Collider used in place of this source")
+    collider_proxy_source: bpy.props.PointerProperty(
+        name="Proxy Source", type=bpy.types.Object, options={"HIDDEN"},
+        description="Dense source object followed by this generated Proxy")
+    collider_proxy_source_vertices: bpy.props.IntProperty(
+        name="Proxy Source Vertices", default=0, options={"HIDDEN"})
+    collider_proxy_result_vertices: bpy.props.IntProperty(
+        name="Proxy Result Vertices", default=0, options={"HIDDEN"})
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
@@ -604,6 +624,7 @@ def reset_settings(settings) -> None:
     settings.role = DEFAULT_ROLE
     settings.collider_motion = "STATIC"
     settings.collider_samples_per_frame = 8
+    settings.collider_proxy_enabled = False
     owner = getattr(settings, "id_data", None)
     if owner is not None:
         validation_state.forget(owner)

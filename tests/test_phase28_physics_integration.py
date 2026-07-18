@@ -303,9 +303,13 @@ def test_add_operator_creates_no_native_cloth_modifier(blender_env):
     env.registration.unregister()
 
 
-def test_blender_modules_never_call_modifiers_new():
+def test_only_explicit_proxy_and_playback_paths_create_modifiers():
     for path in BLENDER_PACKAGE.glob("*.py"):
-        assert "modifiers.new" not in path.read_text(encoding="utf-8"), path
+        source = path.read_text(encoding="utf-8")
+        if path.name == "collider_proxy.py":
+            assert '"CLOTH"' not in source
+            continue
+        assert "modifiers.new" not in source, path
 
 
 # --- 7+8: UI placement, no N-panel -------------------------------------------------

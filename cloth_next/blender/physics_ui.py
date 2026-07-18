@@ -32,7 +32,7 @@ from ..developer import is_dev_build
 from ..materials import formatting
 from ..materials import presets as material_presets
 from ..solver_quality import QUALITY_PRESETS, matching_quality_preset
-from . import (beta_tools, icon_registry, object_properties,
+from . import (beta_tools, collider_proxy, icon_registry, object_properties,
                physics_operators, validation_state)
 from .playback_cache import has_cloth_next_playback_marker
 
@@ -882,6 +882,35 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                 else:
                     layout.label(text="High-fidelity animated Collider sampling",
                                  icon="CHECKMARK")
+                if not collider_proxy.is_generated_proxy(context.object):
+                    proxy_box = layout.box()
+                    proxy_box.label(text="Simulation Proxy · Experimental",
+                                    icon="ERROR")
+                    proxy_box.prop(settings, "collider_proxy_target_vertices")
+                    proxy = getattr(settings, "collider_proxy_object", None)
+                    action = proxy_box.row(align=True)
+                    action.operator(
+                        "clothnext.generate_collider_proxy",
+                        text="Regenerate Proxy" if proxy else "Generate Proxy")
+                    if proxy:
+                        proxy_box.prop(settings, "collider_proxy_enabled")
+                        estimate = collider_proxy.proxy_estimate(
+                            context.object, proxy)
+                        proxy_box.label(
+                            text=(f"Geometry: {estimate.source_vertices:,} → "
+                                  f"{estimate.proxy_vertices:,} vertices"))
+                        proxy_box.label(
+                            text=(f"Estimated PPF peak: "
+                                  f"{collider_proxy.format_bytes(estimate.source_peak_bytes)} "
+                                  f"→ {collider_proxy.format_bytes(estimate.proxy_peak_bytes)}"),
+                            icon="MEMORY")
+                        proxy_box.label(
+                            text="Regenerate after topology or deformer changes",
+                            icon="INFO")
+                    else:
+                        proxy_box.label(
+                            text="Original Collider remains active until generated",
+                            icon="INFO")
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             layout.prop(collision, "enabled")
         column = layout.column()

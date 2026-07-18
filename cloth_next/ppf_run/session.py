@@ -48,6 +48,35 @@ STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 
 _POLL_INTERVAL = 0.25
 
+_SOLVER_METRICS = {
+    "contacts": "advance.num_contact.out",
+    "newton": "advance.newton_steps.out",
+    "iterations": "advance.iter.out",
+}
+
+
+def _tail_numeric_metric(path: Path) -> int | None:
+    """Read one live PPF metric without loading its growing history."""
+    try:
+        with path.open("rb") as stream:
+            stream.seek(0, 2)
+            size = stream.tell()
+            if size <= 0:
+                return None
+            stream.seek(max(0, size - 4096))
+            lines = stream.read().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+        try:
+            return int(float(fields[-1]))
+        except ValueError:
+            continue
+    return None
+
 
 class SessionCancelled(Exception):
     """The run was cancelled cooperatively; not an error."""
@@ -231,6 +260,26 @@ class SolverSession:
         return response
 
     def _runtime_activity(self) -> tuple[str, str]:
+        metric_root = (self.work_directory / "server-data" /
+                       self.scene.project_name / "session" / "output" /
+                       "data")
+        values = {name: _tail_numeric_metric(metric_root / filename)
+                  for name, filename in _SOLVER_METRICS.items()}
+        if any(value is not None for value in values.values()):
+            contacts = values["contacts"]
+            if contacts is not None:
+                self.diagnostics.contact_last = contacts
+                self.diagnostics.contact_peak = max(
+                    self.diagnostics.contact_peak, contacts)
+                self.diagnostics.contact_samples += 1
+            parts = []
+            if contacts is not None:
+                parts.append(f"{contacts:,} contacts")
+            if values["newton"] is not None:
+                parts.append(f"Newton {values['newton']}")
+            if values["iterations"] is not None:
+                parts.append(f"{values['iterations']:,} linear iterations")
+            return "SOLVING_CONSTRAINTS", "Solver · " + " · ".join(parts)
         if self._manager is None:
             return "", ""
         poll = self._manager.poll()

@@ -99,7 +99,8 @@ from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths, read_current
-from . import companion_manager, modal_lock, object_properties, validation_state
+from . import (collider_proxy, companion_manager, modal_lock,
+               object_properties, validation_state)
 from .playback_cache import (
     OBJECT_OWNERSHIP_KEY,
     has_cloth_next_playback_marker,
@@ -307,7 +308,15 @@ def _enabled_objects_by_role(context) -> tuple[object, object | None]:
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
-            collider_objects.append(obj)
+            if collider_proxy.is_generated_proxy(obj):
+                continue
+            try:
+                resolved_collider = collider_proxy.resolve_proxy(obj)
+            except collider_proxy.ColliderProxyError as exc:
+                raise SceneValidationError(str(exc)) from exc
+            if resolved_collider is not obj:
+                collider_proxy.sync_proxy_settings(obj, resolved_collider)
+            collider_objects.append(resolved_collider)
     if len(cloth_objects) != 1:
         raise SceneValidationError(
             f"Exactly one enabled Cloth NeXt cloth object is required for the "
@@ -336,7 +345,18 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
-            collider_objects.append(obj)
+            # Generated proxies are implementation objects owned by their
+            # logical source Collider; never count them a second time merely
+            # because their copied settings are enabled.
+            if collider_proxy.is_generated_proxy(obj):
+                continue
+            try:
+                resolved_collider = collider_proxy.resolve_proxy(obj)
+            except collider_proxy.ColliderProxyError as exc:
+                raise SceneValidationError(str(exc)) from exc
+            if resolved_collider is not obj:
+                collider_proxy.sync_proxy_settings(obj, resolved_collider)
+            collider_objects.append(resolved_collider)
     if not cloth_objects:
         raise SceneValidationError(
             "At least one enabled Cloth NeXt Cloth, Rod, or Soft Body object "

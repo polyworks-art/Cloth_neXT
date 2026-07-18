@@ -4,7 +4,7 @@
 
 import inspect
 
-from cloth_next.bake.status import BakeSnapshot
+from cloth_next.bake.status import BakeSnapshot, BakeState
 from companion import app
 
 
@@ -13,8 +13,23 @@ def test_details_meta_collects_useful_snapshot_facts():
         solver_version="1.2.3",estimated_remaining_seconds=65,
         error_code="CNX-E180")
     assert app.details_meta(snapshot)==(
-        "Cape  ·  MANAGED 1.2.3  ·  Estimated time to finish ~01:05  ·  "
-        "CNX-E180")
+        "Object     Cape\nSolver     Managed · 1.2.3\n"
+        "ETA        ~01:05\nError      CNX-E180")
+
+
+def test_simulation_details_do_not_duplicate_the_progress_frame():
+    snapshot = BakeSnapshot(
+        state=BakeState.SIMULATING,
+        status_message="Simulating frame 67 of 137")
+    assert app.details_status(snapshot) == ""
+
+
+def test_error_details_remain_visible_while_simulating():
+    snapshot = BakeSnapshot(
+        state=BakeState.SIMULATING,
+        error_details="Stage: Solver\nCause: Contact overflow")
+    assert app.details_status(snapshot) == (
+        "Stage: Solver\nCause: Contact overflow")
 
 
 def test_about_gag_is_a_hover_tooltip_not_a_dialog():

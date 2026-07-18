@@ -104,17 +104,37 @@ def error_docs_url(error_code: str) -> str:
 
 
 def details_meta(snapshot: BakeSnapshot) -> str:
-    """Compact diagnostic facts shown by the in-window Details foldout."""
+    """Readable diagnostic rows shown by the in-window Details foldout."""
     parts=[]
-    if snapshot.active_object_name:parts.append(snapshot.active_object_name)
-    solver=" ".join(value for value in
-                    (snapshot.solver_mode,snapshot.solver_version) if value)
-    if solver:parts.append(solver)
+    if snapshot.active_object_name:
+        parts.append(f"Object     {snapshot.active_object_name}")
+    mode={"MANAGED_INSTALLATION":"Managed","MANAGED":"Managed",
+          "EXTERNAL_INSTALLATION":"External","EXTERNAL_SERVER":"Server"}.get(
+              snapshot.solver_mode,snapshot.solver_mode.replace("_"," ").title())
+    solver=" · ".join(value for value in (mode,snapshot.solver_version) if value)
+    if solver:parts.append(f"Solver     {solver}")
     remaining=format_duration(snapshot.estimated_remaining_seconds,
                               approximate=True)
-    if remaining!="Unknown":parts.append(f"Estimated time to finish {remaining}")
-    if snapshot.error_code:parts.append(snapshot.error_code)
-    return "  ·  ".join(parts) or "No additional Bake details yet."
+    if remaining!="Unknown":parts.append(f"ETA        {remaining}")
+    if snapshot.error_code:parts.append(f"Error      {snapshot.error_code}")
+    return "\n".join(parts) or "No additional Bake details yet."
+
+
+def details_status(snapshot: BakeSnapshot) -> str:
+    """Concise detail text without duplicating the progress-bar frame."""
+    lines = [line.strip() for line in (snapshot.error_details or "").splitlines()
+             if line.strip()]
+    concise = []
+    for prefix in ("Stage:", "Blender frame:", "Cause:", "What to do:",
+                   "Diagnostic log:"):
+        match = next((line for line in lines if line.startswith(prefix)), None)
+        if match and match not in concise:
+            concise.append(match)
+    if concise:
+        return "\n".join(concise[:3])
+    if snapshot.state is BakeState.SIMULATING:
+        return ""
+    return snapshot.status_message or "No PPF simulation is running."
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -435,15 +455,7 @@ class BakeWindow:
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
         self._error_details=snapshot.error_details or ""
-        detail_lines=[line.strip() for line in self._error_details.splitlines()
-                      if line.strip()]
-        concise=[]
-        for prefix in ("Stage:","Blender frame:","Cause:","What to do:",
-                       "Diagnostic log:"):
-            match=next((line for line in detail_lines if line.startswith(prefix)),None)
-            if match and match not in concise:concise.append(match)
-        self.secondary.set("\n".join(concise[:3]) or snapshot.status_message
-                           or "No PPF simulation is running.")
+        self.secondary.set(details_status(snapshot))
         self.details_meta_text.set(details_meta(snapshot))
         self._update_error_docs_link(snapshot.error_code)
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
