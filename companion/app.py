@@ -324,36 +324,11 @@ class BakeWindow:
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
         self.progress.bind("<Configure>",self._resize_progress)
-        self.performance=tk.Canvas(
-            right,width=270,height=44,bg=PANEL,highlightbackground="#777777",
-            highlightthickness=1,borderwidth=0)
-        self.performance.grid(row=1,column=0,sticky="ew",pady=(5,0))
-        self.performance.bind("<Configure>",self._draw_performance)
-        self.error_panel=tk.Frame(
-            right,bg=PANEL,highlightbackground=ERROR,highlightthickness=1,
-            height=44)
-        self.error_panel.grid(row=1,column=0,sticky="nsew",pady=(5,0))
-        self.error_panel.grid_propagate(False)
-        self.inline_error_title=tk.Label(
-            self.error_panel,text="",bg=PANEL,fg=ERROR,
-            font=("Segoe UI Semibold",8),anchor="w")
-        self.inline_error_title.pack(fill="x",padx=7,pady=(4,0))
-        error_line=tk.Frame(self.error_panel,bg=PANEL)
-        error_line.pack(fill="x",padx=7,pady=(1,3))
-        self.inline_error_description=tk.Label(
-            error_line,text="",bg=PANEL,fg=MUTED,font=("Segoe UI",7),
-            anchor="w")
-        self.inline_error_description.pack(side="left",fill="x",expand=True)
-        self.inline_error_link=tk.Label(
-            error_line,text="Details  ↗",bg=PANEL,fg=GRAPH,
-            activebackground=PANEL,activeforeground="#9effdf",
-            font=("Segoe UI Semibold",7,"underline"),cursor="hand2",
-            takefocus=True)
-        self.inline_error_link.pack(side="right",padx=(6,0))
-        self.inline_error_link.bind("<Button-1>",self._open_error_docs)
-        self.inline_error_link.bind("<Return>",self._open_error_docs)
-        self.inline_error_link.bind("<space>",self._open_error_docs)
-        self.error_panel.grid_remove()
+        self.status=tk.Label(
+            right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,
+            font=("Segoe UI",8),anchor="center",justify="center",
+            highlightbackground="#777777",highlightthickness=1,height=1)
+        self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
         self.details_panel=tk.Frame(outer,bg=PANEL,highlightbackground=BORDER,
                                     highlightthickness=1,padx=8,pady=6)
         self.details_panel.grid(row=1,column=0,sticky="ew",pady=(5,0))
@@ -375,14 +350,24 @@ class BakeWindow:
         self.error_docs_link.bind("<Return>",self._open_error_docs)
         self.error_docs_link.bind("<space>",self._open_error_docs)
         self._error_docs_url=""
+        self.performance_section=tk.Frame(self.details_panel,bg=PANEL)
+        self.performance_section.pack(fill="x",pady=(7,0))
+        self.performance=tk.Canvas(
+            self.performance_section,height=54,bg="#202322",
+            highlightbackground=BORDER,highlightthickness=1,borderwidth=0)
+        self.performance.pack(fill="x")
+        self.performance.bind("<Configure>",self._draw_performance)
+        self.performance_eta=tk.Label(
+            self.performance_section,textvariable=self.remaining_text,
+            bg=PANEL,fg=TEXT,font=("Segoe UI Semibold",8),anchor="center")
+        self.performance_eta.pack(fill="x",pady=(4,0))
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
             style="CN.TButton",command=self._toggle_details)
         self.details_button.pack(side="left")
-        self.eta_label=ttk.Label(
-            bottom,textvariable=self.time_text,style="CN.TLabel",
-            anchor="center",justify="center")
-        self.eta_label.place(relx=.5,rely=.5,anchor="center")
+        ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",
+                  anchor="center",justify="center").place(
+                      relx=.5,rely=.5,anchor="center")
         self.cancel=ttk.Button(bottom,text="Cancel",width=8,style="CN.TButton",command=self._cancel)
         self.cancel.pack(side="right")
         about=ttk.Button(bottom,text="?",width=3,style="CN.TButton")
@@ -425,22 +410,11 @@ class BakeWindow:
         canvas.create_text(width-7,6,text=str(self._performance.latest),
                            fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
 
-    def _show_error_panel(self,snapshot):
-        is_error=snapshot.state is BakeState.ERROR
-        if is_error:
-            self.performance.grid_remove(); self.error_panel.grid()
-            code=snapshot.error_code or "CNX-E199"
-            self.inline_error_title.configure(
-                text=f"{code}  ·  {snapshot.error_summary or 'Bake failed'}")
-            concise=details_status(snapshot).replace("\n","  ·  ")
-            self.inline_error_description.configure(
-                text=(concise or "Open the error guide for recovery steps.")[:82])
-            self.inline_error_link.configure(text=f"Open {code}  ↗")
-            self.eta_label.place_forget()
-        else:
-            self.error_panel.grid_remove(); self.performance.grid()
-            if not self.eta_label.winfo_manager():
-                self.eta_label.place(relx=.5,rely=.5,anchor="center")
+    def _show_performance_details(self,snapshot):
+        if snapshot.state is BakeState.ERROR:
+            self.performance_section.pack_forget()
+        elif not self.performance_section.winfo_manager():
+            self.performance_section.pack(fill="x",pady=(7,0))
 
     def _toggle_details(self):
         self._details_visible=not self._details_visible
@@ -495,7 +469,8 @@ class BakeWindow:
                 self.root.configure(bg=color)
                 self._style.configure("CN.TFrame",background=color)
                 self._style.configure("CN.TLabel",background=color)
-                self.error_panel.configure(highlightbackground=border)
+                self.status.configure(bg="#85151e" if self._blink_phase else PANEL,
+                                      highlightbackground=border)
                 self.progress.configure(highlightbackground=border)
                 self._blink_after=self.root.after(380,tick)
             tick()
@@ -507,7 +482,7 @@ class BakeWindow:
             self._blink_phase=False; self.root.configure(bg=BG)
             self._style.configure("CN.TFrame",background=BG)
             self._style.configure("CN.TLabel",background=BG)
-            self.error_panel.configure(bg=PANEL,highlightbackground=ERROR)
+            self.status.configure(bg=PANEL,highlightbackground="#777777")
             self.progress.configure(highlightbackground="#777777")
 
     def show(self,snapshot: BakeSnapshot):
@@ -544,20 +519,15 @@ class BakeWindow:
         if snapshot.state is BakeState.ERROR:
             label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
-        self._show_error_panel(snapshot)
+        self._show_performance_details(snapshot)
         if performance_changed or snapshot.state is not BakeState.ERROR:
             self._draw_performance()
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
-        self.remaining_text.set("" if remaining=="Unknown" else f"remaining {remaining}")
-        if snapshot.state is BakeState.FINISHED:
-            self.time_text.set(f"Finished in {format_duration(snapshot.elapsed_seconds)}")
-        elif snapshot.active:
-            self.time_text.set("ETA calculating…" if remaining=="Unknown"
-                               else f"ETA  {remaining}")
-        else:
-            self.time_text.set("Ready")
+        self.remaining_text.set("ETA calculating…" if remaining=="Unknown"
+                                else f"ETA  {remaining}")
+        self.time_text.set(format_duration(snapshot.elapsed_seconds))
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
 
     def disconnected(self):
