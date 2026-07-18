@@ -35,6 +35,7 @@ _force_deadline = None
 _kill_deadline = None
 _production_session = False
 _production_job_id = ""
+_transport_ready = False
 _last_error_key: tuple[str, str, float] | None = None
 
 
@@ -152,12 +153,13 @@ def _publish(snapshot) -> None:
 
 def _launch() -> tuple[bool, str, bool]:
     """Launch or reuse. Success means process creation, never readiness."""
-    global _process, _server, _unsubscribe
+    global _process, _server, _unsubscribe, _transport_ready
     if running() and _server is not None:
         _log("process", "reusing running companion")
         return True, "Bake window process reused", False
     if _process is not None or _server is not None or _unsubscribe is not None:
         shutdown()
+    _transport_ready = False
     extension_root = Path(__file__).resolve().parents[1]
     root = extension_root.parent
     python = os.environ.get("CLOTH_NEXT_COMPANION_PYTHON", sys.executable)
@@ -238,6 +240,20 @@ def ensure_running() -> tuple[bool, str]:
     return launch()
 
 
+def preparation_status() -> tuple[str, str]:
+    """Readiness of a preparation-only Companion launch.
+
+    ``ready`` is emitted from the Tk event loop after the window has been
+    constructed. Waiting for it before expensive Blender evaluation prevents
+    the first capture frame from starving Companion startup.
+    """
+    if _transport_ready:
+        return "READY", "Bake window transport ready"
+    if _process is not None and not running():
+        return "ERROR", "Bake window process exited during preparation."
+    return "WAITING", "Opening Bake window…"
+
+
 def startup_status(job_id: str) -> tuple[str, str]:
     if _ready is not None and _ready.job_id == job_id:
         return "READY", "Bake window ready"
@@ -294,17 +310,22 @@ def _handle_ready(payload: dict) -> None:
 
 
 def _pulse():
-    global _pending_request, _pending_deadline, _startup_error
+    global _pending_request, _pending_deadline, _startup_error, _transport_ready
     global _terminal_deadline, _force_deadline, _kill_deadline
     if _server is None:
         return None
     message = _server.poll_request()
     if message:
         kind = message["type"] if isinstance(message, dict) else message
-        if kind == "ready" and _pending_request is not None:
-            _server.enter_bake_mode(_pending_request)
-            _log("transport", "companion transport ready",
-                 job_id=_pending_request.job_id)
+        if kind == "ready":
+            _transport_ready = True
+            _server.publish(shared_controller.snapshot())
+            if _pending_request is not None:
+                _server.enter_bake_mode(_pending_request)
+                _log("transport", "companion transport ready",
+                     job_id=_pending_request.job_id)
+            else:
+                _log("transport", "preparation window ready")
         elif kind == "bake_window_ready":
             _handle_ready(message["payload"])
         elif kind == "startup_error" and _pending_request is not None:
@@ -370,20 +391,21 @@ def _request_close_now() -> None:
 def _dispose_transport() -> None:
     global _process, _server, _unsubscribe, _terminal_deadline
     global _force_deadline, _kill_deadline, _production_session
-    global _production_job_id, _owned_for_attempt
+    global _production_job_id, _owned_for_attempt, _transport_ready
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
     if _server: _server.close(join=False)
     _process = None; _server = None; _terminal_deadline = None
     _force_deadline = None; _kill_deadline = None; _production_session = False
     _production_job_id = ""; _owned_for_attempt = False
+    _transport_ready = False
 
 
 def shutdown() -> None:
     global _process, _server, _unsubscribe, _pending_request, _ready
     global _production_session, _production_job_id, _owned_for_attempt
     global _terminal_deadline, _force_deadline, _kill_deadline
-    global _pending_deadline, _startup_error
+    global _pending_deadline, _startup_error, _transport_ready
     modal_lock.release()
     _pending_request = None; _ready = None
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
@@ -402,3 +424,4 @@ def shutdown() -> None:
     _owned_for_attempt = False
     _terminal_deadline = None; _force_deadline = None; _kill_deadline = None
     _pending_deadline = None; _startup_error = ""
+    _transport_ready = False

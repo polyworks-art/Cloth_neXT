@@ -94,11 +94,35 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
         "force_samples": [], "active_scalar_types": set(),
     }
     try:
-        assert module._pin_capture_pump() == 0.0
+        assert module._pin_capture_pump() == 0.005
         assert frames == [1]
         assert calls == [(context, obj, membership, depsgraph, indices)]
         assert module._pin_capture["next"] == 2
         assert module._pin_capture["force_samples"] == [force_state]
+    finally:
+        module._pin_capture = None
+
+
+def test_pin_capture_waits_for_companion_before_evaluating_frame(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    calls = []
+    monkeypatch.setattr(module.companion_manager, "preparation_status",
+                        lambda: ("WAITING", "Opening Bake window…"))
+    monkeypatch.setattr(module.shared_controller, "update",
+                        lambda **kwargs: calls.append(kwargs))
+    scene = SimpleNamespace(frame_set=lambda _frame: (_ for _ in ()).throw(
+        AssertionError("frame evaluation started before Companion readiness")))
+    module._pin_capture = {
+        "context": SimpleNamespace(scene=scene), "targets": (),
+        "range": SimpleNamespace(start=1, end=2), "next": 1,
+        "samples": {}, "force_samples": [], "active_scalar_types": set(),
+        "index_arrays": {}, "wait_for_companion": True,
+        "companion_deadline": module.time.monotonic() + 5.0,
+    }
+    try:
+        assert module._pin_capture_pump() == 0.05
+        assert calls[-1]["status_message"] == "Opening Bake window…"
     finally:
         module._pin_capture = None
 
@@ -621,6 +645,18 @@ def test_companion_ensure_running_reuses_existing(blender_env, monkeypatch):
     monkeypatch.setattr(manager,"running",lambda:True)
     monkeypatch.setattr(manager,"launch",lambda: (_ for _ in ()).throw(AssertionError("duplicate")))
     assert manager.ensure_running()==(True,"Bake window reused")
+
+
+def test_companion_preparation_ready_requires_tk_ready_message(blender_env,
+                                                                 monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    manager._transport_ready=False
+    manager._process=SimpleNamespace(poll=lambda:None)
+    assert manager.preparation_status()[0]=="WAITING"
+    manager._transport_ready=True
+    assert manager.preparation_status()[0]=="READY"
+    manager._transport_ready=False
+    manager._process=None
 
 def test_companion_replaces_exited_session_without_leaking(blender_env,
                                                             monkeypatch):

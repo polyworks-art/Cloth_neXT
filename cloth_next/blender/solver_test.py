@@ -3148,7 +3148,8 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     ok, message = companion_manager.ensure_running()
                     if not ok:
                         raise SceneValidationError(message)
-            if animated_targets:
+            if animated_targets or (animated_colliders and
+                                    open_preparation_window):
                 capture={"context":context,"targets":animated_targets,
                     "range":bake_range,"next":bake_range.start,
                     "samples":{name: [] for name, _membership in animated_targets},
@@ -3158,15 +3159,24 @@ def begin_production_bake(context) -> tuple[str, bool]:
                                          dtype=np.intp)
                         for name, membership in animated_targets},
                     "original":int(context.scene.frame_current),"job_id":job_id,
-                    "snapshot":snapshot}
+                    "snapshot":snapshot,
+                    "wait_for_companion":open_preparation_window,
+                    "companion_deadline":time.monotonic() +
+                        companion_manager.STARTUP_TIMEOUT_SECONDS}
                 _suspend_pin_capture_playback(capture)
                 _pin_capture=capture
                 _pending_job_id=job_id
-                shared_controller.update(status_message="Capturing animated Pin targets",
-                    activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
+                activity = (BakeActivity.CAPTURING_PIN_TARGETS
+                            if animated_targets else
+                            BakeActivity.CAPTURING_COLLIDER_MOTION)
+                message = ("Opening Bake window before animated Pin capture"
+                           if animated_targets else
+                           "Opening Bake window before animated Collider capture")
+                shared_controller.update(status_message=message,
+                    activity_code=activity,
                     progress_current=0,progress_total=bake_range.output_count)
                 if not bpy.app.timers.is_registered(_pin_capture_pump):
-                    bpy.app.timers.register(_pin_capture_pump,first_interval=.01)
+                    bpy.app.timers.register(_pin_capture_pump,first_interval=.05)
                 return job_id,True
         plan=build_run_plan(context,snapshot=snapshot)
     except (SceneValidationError, ClothNextError) as exc:
@@ -3257,6 +3267,18 @@ def _pin_capture_pump():
     if state is None:return None
     context=state["context"]; scene=context.scene
     try:
+        if state.get("wait_for_companion"):
+            status, message = companion_manager.preparation_status()
+            if status == "READY":
+                state["wait_for_companion"] = False
+            elif (status == "ERROR" or time.monotonic() >=
+                  state["companion_deadline"]):
+                raise SceneValidationError(
+                    message if status == "ERROR" else
+                    "The Bake window did not become ready before capture.")
+            else:
+                shared_controller.update(status_message=message)
+                return .05
         frame=state["next"]
         # scene.frame_set() evaluates Blender's dependency graph itself. A
         # subsequent view_layer.update() repeats the expensive rig/modifier
@@ -3281,14 +3303,16 @@ def _pin_capture_pump():
             activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
             progress_current=frame-state["range"].start+1)
         if frame<state["range"].end:
-            # Resume on the next Blender timer opportunity without adding an
-            # artificial 10 ms pause for every captured frame.
-            state["next"]=frame+1; return 0.0
+            # A short yield keeps Blender's native event loop, Companion IPC,
+            # redraw, Escape cancellation and the OS window watchdog alive.
+            # Zero-delay rescheduling can monopolize app timers on heavy rigs.
+            state["next"]=frame+1; return .005
         job_id=state["job_id"]
         sample_map={name:tuple(samples)
                     for name,samples in state["samples"].items()}
         snapshot=state.get("snapshot")
-        samples=(sample_map if snapshot is not None
+        samples=(None if not sample_map else
+                 sample_map if snapshot is not None
                  and len(snapshot.deformables)>1
                  else next(iter(sample_map.values())))
         force_capture = _force_capture_from_samples(

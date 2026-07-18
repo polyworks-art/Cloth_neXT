@@ -1,5 +1,11 @@
 # Upcoming Dev Snapshot
 
+- Animated preparation now opens and verifies the Bake window before the first
+  heavy frame evaluation, and yields between frames to keep Blender responsive.
+- Animated-Collider-only Bakes share the asynchronous preparation path, while
+  early Companion exits become visible preparation errors instead of a missing
+  window beside an apparently frozen Blender process.
+
 - The Material panel now opens a categorized hover library with 37 fabric
   starting points, including 30 presets grounded in laboratory area-weight and
   bending measurements from the MIT Fabric Properties Dataset.

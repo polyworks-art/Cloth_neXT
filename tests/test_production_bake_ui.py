@@ -297,6 +297,9 @@ def test_preparation_window_launches_before_animated_collider_capture(
     cloth, collider = _objects(blender_env, 1, 1)
     collider.cloth_next.collider_motion = "ANIMATED"
     context = _context(blender_env, [cloth, collider])
+    context.scene.frame_current = 1
+    context.scene.frame_set = lambda frame: setattr(
+        context.scene, "frame_current", frame)
     snapshot = SimpleNamespace(
         bake_range=module.BakeFrameRange(1, 2), deformables=(),
         collider_objs=(collider,))
@@ -310,9 +313,13 @@ def test_preparation_window_launches_before_animated_collider_capture(
     monkeypatch.setattr(module.companion_manager, "ensure_running",
                         lambda: calls.append("window") or (True, "ready"))
 
-    module.begin_production_bake(context)
+    _job_id, waiting = module.begin_production_bake(context)
 
-    assert calls == ["window", "build"]
+    assert waiting is True
+    assert calls == ["window"]
+    assert module._pin_capture is not None
+    assert module._pin_capture["wait_for_companion"] is True
+    module.request_cancel()
     blender_env.registration.unregister()
 
 

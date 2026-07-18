@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.9 — 2026-07-18 (Dev channel)
+
+### Fixed
+
+- Animated preparation now waits for the Companion's Tk event loop to report
+  ready before evaluating the first expensive Blender frame.
+- Pin and Collider preparation yields briefly between frames so Blender window
+  events, Companion IPC, redraw and Escape cancellation remain responsive.
+- Animated-Collider-only Bakes use the same asynchronous preparation gate
+  instead of blocking Blender immediately after launching the Bake window.
+
 ## 1.0.8 — 2026-07-18 (Dev channel)
 
 ### Added
