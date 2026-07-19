@@ -144,12 +144,18 @@ def main() -> None:
     # final sync boundary. This proves the raw/filtered repository-index bug is
     # fixed without making required CI depend on a live remote response.
     original_sync_step4 = updates._blender_repo_sync
+    original_refresh_step4 = updates.refresh_update_session
+    original_view_step4 = updates._blender_show_update_view
     sync_calls = []
     try:
         def record_sync(directory):
             sync_calls.append(directory)
             Path(directory, ".blender_ext").mkdir(parents=True, exist_ok=True)
         updates._blender_repo_sync = record_sync
+        # Refresh behavior is covered by pure update-model tests with local
+        # index payloads. Keep this real-Blender test free of remote I/O.
+        updates.refresh_update_session = lambda *_args, **_kwargs: None
+        updates._blender_show_update_view = lambda: None
         result = run_handoff()
         assert "Repository not set" not in session.message, session.message
         assert session.state is state_cls.READY_IN_BLENDER, (
@@ -161,6 +167,8 @@ def main() -> None:
         assert "was installed" not in session.message.lower()
     finally:
         updates._blender_repo_sync = original_sync_step4
+        updates.refresh_update_session = original_refresh_step4
+        updates._blender_show_update_view = original_view_step4
     # the running extension was not uninstalled, disabled, or unregistered
     assert updates.CLOTHNEXT_OT_addon_update_through_blender.is_registered
 
@@ -191,10 +199,12 @@ def main() -> None:
     # --- 6. manual path when the update view cannot open ---------------------
     original_view = updates._blender_show_update_view
     original_sync = updates._blender_repo_sync
+    original_refresh = updates.refresh_update_session
     calls = []
     try:
         updates._blender_repo_sync = lambda directory: calls.append(
             ("sync", directory))
+        updates.refresh_update_session = lambda *_args, **_kwargs: None
         def unavailable():
             raise RuntimeError("simulated: update UI context unavailable")
         updates._blender_show_update_view = unavailable
@@ -207,6 +217,7 @@ def main() -> None:
     finally:
         updates._blender_show_update_view = original_view
         updates._blender_repo_sync = original_sync
+        updates.refresh_update_session = original_refresh
 
     extension.unregister()
     print("Cloth NeXt add-on update smoke test passed "
