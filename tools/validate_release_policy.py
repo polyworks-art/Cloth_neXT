@@ -69,9 +69,7 @@ def parse_version(text: str) -> ReleaseVersion:
 
 
 def tag_to_version(tag: str) -> ReleaseVersion:
-    if not tag.startswith("v"):
-        raise ValueError(f"release tags must look like v<version>, got {tag!r}")
-    return parse_version(tag[1:])
+    return parse_version(tag[1:] if tag.startswith("v") else tag)
 
 
 def check_channel(version: ReleaseVersion, channel: str) -> None:
