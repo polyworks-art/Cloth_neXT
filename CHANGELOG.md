@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.2.0 — 2026-07-19 (Beta channel)
+
+### Changed
+
+- Artist-facing collision terminology now uses **Friction** instead of
+  **Surface Grip** while retaining the existing internal property for scene
+  compatibility.
+- Material, collision, Rod, Soft Body, solver-quality, support, and marketplace
+  copy now leads with practical effects and keeps technical PPF mappings in
+  supporting tooltip context.
+- The redundant Overview panel was removed from Physics Properties.
+- Release tooling and documentation consistently use plain tags such as
+  `1.2.0` without a leading `v`.
+
+### Fixed
+
+- The Blender update-handoff smoke test no longer depends on live repository
+  responses and now completes deterministically while retaining real Blender
+  repository, RNA, registration, and operator coverage.
+- Required update smoke tests have an explicit timeout so an external or future
+  regression cannot occupy a CI runner for six hours.
+
+### Documentation
+
+- Superhive product copy, FAQ, embedded documentation, and support instructions
+  now match the current add-on UI and privacy-safe reporting workflow.
+
 ## 1.1.0 — 2026-07-19 (Beta channel)
 
 ### Added
