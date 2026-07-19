@@ -9,7 +9,7 @@
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
-  <a href="https://github.com/polyworks-art/Cloth_neXT/releases/tag/1.2.0"><img alt="Release 1.2.0" src="https://img.shields.io/badge/release-1.2.0-303030"></a>
+  <a href="https://github.com/polyworks-art/Cloth_neXT/releases/tag/2.0.0"><img alt="Release 2.0.0" src="https://img.shields.io/badge/release-2.0.0-303030"></a>
   <img alt="Blender 5.0+" src="https://img.shields.io/badge/Blender-5.0%2B-f5792a">
   <img alt="Windows x64" src="https://img.shields.io/badge/platform-Windows%20x64-303030">
   <img alt="GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-303030">

@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.0.0 — 2026-07-19 (Stable channel)
+
+### Added
+
+- Rod, Soft Body, and multi-object Cloth workflows alongside the established
+  Cloth and Collider simulation roles.
+- A categorized library of 37 fabric presets, including 30 research-backed
+  starting points derived from the MIT Fabric Properties Dataset.
+- Animated Collider sampling, opt-in generated Collider proxies, animated
+  Forces, Scene Health, authenticated cache recovery, privacy-safe support
+  reports, solver telemetry, ETA, and per-frame performance history.
+
+### Changed
+
+- Artist-facing controls and documentation consistently use practical terms,
+  including **Friction**, while retaining exact PPF mappings in supporting
+  technical context.
+- The Bake Companion follows preparation through simulation in one window and
+  keeps its performance graph, centered ETA, cancellation controls, and error
+  details within the fixed compact layout.
+- Error recovery actions can be refreshed from the public Cloth NeXt error
+  directory without uploading scene data or diagnostics; every installed build
+  retains an offline fallback.
+
+### Fixed
+
+- Collider Proxy discovery no longer writes Blender data during panel drawing,
+  generated reduction follows the requested target more closely, and animated
+  preparation keeps Blender responsive between captured frames.
+- Multi-object cache publication is transactional, update handoff tests are
+  deterministic, and Companion/solver failure paths preserve actionable CNX
+  codes and local diagnostics.
+
+### Release
+
+- Promotes the successfully published and tested 1.2.0 Beta line to the 2.0.0
+  Stable channel. The release updates Stable, Beta, and Dev repositories with
+  one byte-identical verified ZIP.
+
 ## 1.2.0 — 2026-07-19 (Beta channel)
 
 ### Changed

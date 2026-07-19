@@ -1,35 +1,49 @@
-# Cloth NeXt 1.2.0 Beta
+# Cloth NeXt 2.0.0 Stable
 
-Cloth NeXt 1.2.0 refines the artist-facing Blender workflow and completes the
-Superhive release-preparation pass. It does not change the Bake Companion.
+Cloth NeXt 2.0.0 is the Stable promotion of the successfully published 1.2.0
+Beta line. It brings the complete current Cloth NeXt workflow to the Stable,
+Beta, and Dev update channels through one verified release artifact.
 
-## Clearer simulation controls
+## Simulation workflow
 
-- **Surface Grip** is now presented as **Friction** throughout the interface,
-  documentation, presets, and warnings. Existing scenes remain compatible
-  because the stored property and solver mapping are unchanged.
-- Cloth, Rod, Soft Body, collision, and advanced solver tooltips now explain
-  the visible result first while retaining useful units and exact PPF mappings.
-- Rod and Soft Body panels use practical descriptions instead of terse solver
-  implementation labels.
+- Cloth, Rod, Soft Body, static Collider, and animated Collider roles are
+  available in the same multi-object solve.
+- Animated Collider sampling and optional generated low-poly proxies support
+  moving and deforming collision geometry while keeping memory requirements
+  visible before Bake.
+- Multiple Gravity, Wind, Air Density, Air Friction, and Vertex Air Damping
+  Forces can be combined and animated.
+- Thirty-seven categorized fabric presets provide practical starting points;
+  thirty are derived from the MIT Fabric Properties Dataset with documented
+  provenance and conversion.
+
+## Artist-facing controls
+
+- Collision controls use the direct terms **Friction**, **Collision Gap**, and
+  **Surface Offset**.
+- Cloth, Rod, Soft Body, collision, quality, and solver controls describe the
+  visible effect first while retaining exact PPF names and units where useful.
 - The redundant Overview panel has been removed from Physics Properties.
 
-## Release and update reliability
+## Bake reliability and diagnostics
 
-- Release documentation and workflows consistently use plain tags such as
-  `1.2.0`, without a leading `v`.
-- The Blender update-handoff smoke test is deterministic and no longer waits on
-  a live public repository during required CI.
-- A strict timeout prevents future update-smoke regressions from occupying a CI
-  runner indefinitely.
+- The continuous Bake Companion covers preparation and simulation without
+  opening a replacement window. Details contain a full-width per-frame
+  performance graph with the ETA centered below it.
+- Error states replace the graph with the stable CNX code, recovery guidance,
+  and a direct documentation link while keeping the bottom controls visible.
+- Recovery actions can update from the public Cloth NeXt error directory
+  without sending scene data, filenames, or diagnostics. Bundled offline
+  guidance remains available when the network is unavailable.
+- Scene Health, authenticated cache recovery, transactional multi-object cache
+  publication, local diagnostics, and privacy-safe support reports make failed
+  or interrupted Bakes easier to inspect and recover.
 
-## Marketplace and support
+## Distribution
 
-- Superhive product copy and FAQ now describe requirements, supported roles,
-  limitations, solver separation, and the first-Bake workflow consistently.
-- Support guidance directs users to the stable CNX error code and
-  **Export Privacy-Safe Report**. The report excludes geometry, object names,
-  file contents, and full filesystem paths.
-
-Cloth NeXt 1.2.0 remains a **Beta-channel** release. Under the numeric channel
-scheme, the next Stable line is `2.0.0`.
+- Release tag: `2.0.0` — no leading `v`.
+- Channel: **Stable**.
+- The PPF Contact Solver remains separate and is downloaded only from its
+  manifest-pinned official upstream release after explicit confirmation.
+- The release workflow publishes the same SHA-256-verified extension ZIP to
+  the Stable, Beta, and Dev Blender repositories.
