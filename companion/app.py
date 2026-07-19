@@ -41,7 +41,7 @@ def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
-GRAPH="#54efc3"; GRAPH_FILL="#24483f"; GRID="#343a39"; ERROR="#ff5964"
+GRAPH=AMBER; GRAPH_FILL="#4b3b25"; GRID="#3b3b3b"; ERROR="#ff5964"
 ABOUT_TOOLTIP="SideFX, please don’t sue me."
 ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
 COMPACT_HEIGHT=118; DETAILS_HEIGHT=232
@@ -115,9 +115,6 @@ def details_meta(snapshot: BakeSnapshot) -> str:
               snapshot.solver_mode,snapshot.solver_mode.replace("_"," ").title())
     solver=" · ".join(value for value in (mode,snapshot.solver_version) if value)
     if solver:parts.append(f"Solver     {solver}")
-    remaining=format_duration(snapshot.estimated_remaining_seconds,
-                              approximate=True)
-    if remaining!="Unknown":parts.append(f"ETA        {remaining}")
     if snapshot.error_code:parts.append(f"Error      {snapshot.error_code}")
     return "\n".join(parts) or "No additional Bake details yet."
 
@@ -312,7 +309,7 @@ class BakeWindow:
     def _build(self):
         self.root.columnconfigure(0,weight=1); self.root.rowconfigure(0,weight=1)
         outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
-        outer.columnconfigure(0,weight=1)
+        outer.columnconfigure(0,weight=1); outer.rowconfigure(1,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
         icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=78,height=74)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
@@ -331,19 +328,20 @@ class BakeWindow:
         self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
         self.details_panel=tk.Frame(outer,bg=PANEL,highlightbackground=BORDER,
                                     highlightthickness=1,padx=8,pady=6)
-        self.details_panel.grid(row=1,column=0,sticky="ew",pady=(5,0))
+        self.details_panel.grid(row=1,column=0,sticky="nsew",pady=(5,0))
         self.details_panel.grid_remove()
-        tk.Label(self.details_panel,textvariable=self.primary,bg=PANEL,fg=TEXT,
-                 font=("Segoe UI Semibold",9),anchor="w").pack(fill="x")
-        tk.Label(self.details_panel,textvariable=self.secondary,bg=PANEL,fg=MUTED,
+        self.diagnostics_section=tk.Frame(self.details_panel,bg=PANEL)
+        tk.Label(self.diagnostics_section,textvariable=self.primary,bg=PANEL,
+                 fg=TEXT,font=("Segoe UI Semibold",9),anchor="w").pack(fill="x")
+        tk.Label(self.diagnostics_section,textvariable=self.secondary,bg=PANEL,fg=MUTED,
                  font=("Segoe UI",8),anchor="w",justify="left",
                  wraplength=350).pack(fill="x",pady=(2,0))
-        tk.Label(self.details_panel,textvariable=self.details_meta_text,bg=PANEL,
+        tk.Label(self.diagnostics_section,textvariable=self.details_meta_text,bg=PANEL,
                  fg=MUTED,font=("Segoe UI",8),anchor="w",justify="left",
                  wraplength=350).pack(fill="x",pady=(3,0))
         self.error_docs_link=tk.Label(
-            self.details_panel,text="",bg=PANEL,fg="#54efc3",
-            activebackground=PANEL,activeforeground="#9effdf",
+            self.diagnostics_section,text="",bg=PANEL,fg=AMBER,
+            activebackground=PANEL,activeforeground="#efbd69",
             font=("Segoe UI Semibold",8,"underline"),anchor="w",
             cursor="hand2",takefocus=True)
         self.error_docs_link.bind("<Button-1>",self._open_error_docs)
@@ -351,9 +349,9 @@ class BakeWindow:
         self.error_docs_link.bind("<space>",self._open_error_docs)
         self._error_docs_url=""
         self.performance_section=tk.Frame(self.details_panel,bg=PANEL)
-        self.performance_section.pack(fill="x",pady=(7,0))
+        self.performance_section.pack(fill="both",expand=True)
         self.performance=tk.Canvas(
-            self.performance_section,height=54,bg="#202322",
+            self.performance_section,height=92,bg=PANEL,
             highlightbackground=BORDER,highlightthickness=1,borderwidth=0)
         self.performance.pack(fill="x")
         self.performance.bind("<Configure>",self._draw_performance)
@@ -413,8 +411,20 @@ class BakeWindow:
     def _show_performance_details(self,snapshot):
         if snapshot.state is BakeState.ERROR:
             self.performance_section.pack_forget()
+            if not self.diagnostics_section.winfo_manager():
+                self.diagnostics_section.pack(fill="both",expand=True)
         elif not self.performance_section.winfo_manager():
-            self.performance_section.pack(fill="x",pady=(7,0))
+            self.diagnostics_section.pack_forget()
+            self.performance_section.pack(fill="both",expand=True)
+
+    def _fit_window_to_content(self):
+        """Keep content from displacing the fixed bottom controls."""
+        self.root.update_idletasks()
+        width=max(390,self.root.winfo_width())
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
+        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
+        self.root.geometry(
+            f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
 
     def _toggle_details(self):
         self._details_visible=not self._details_visible
@@ -422,12 +432,7 @@ class BakeWindow:
         else:self.details_panel.grid_remove()
         self.details_button.configure(
             text="Hide" if self._details_visible else "Details")
-        self.root.update_idletasks()
-        width=max(390,self.root.winfo_width())
-        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
-        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
-        self.root.geometry(
-            f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
+        self._fit_window_to_content()
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
 
@@ -529,6 +534,8 @@ class BakeWindow:
                                 else f"ETA  {remaining}")
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
+        if self._details_visible:
+            self._fit_window_to_content()
 
     def disconnected(self):
         if self._connection_failed:

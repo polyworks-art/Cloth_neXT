@@ -14,7 +14,7 @@ def test_details_meta_collects_useful_snapshot_facts():
         error_code="CNX-E180")
     assert app.details_meta(snapshot)==(
         "Object     Cape\nSolver     Managed · 1.2.3\n"
-        "ETA        ~01:05\nError      CNX-E180")
+        "Error      CNX-E180")
 
 
 def test_simulation_details_do_not_duplicate_the_progress_frame():
@@ -65,9 +65,26 @@ def test_companion_is_centered_before_first_visible_frame():
 
 
 def test_details_height_uses_requested_content_height():
-    source=inspect.getsource(app.BakeWindow._toggle_details)
+    source=inspect.getsource(app.BakeWindow._fit_window_to_content)
     assert "self.root.winfo_reqheight()" in source
     assert "max(DETAILS_HEIGHT,requested)" in source
+
+
+def test_details_graph_owns_normal_panel_and_eta_sits_below_it():
+    source=inspect.getsource(app.BakeWindow._build)
+    states=inspect.getsource(app.BakeWindow._show_performance_details)
+    assert 'self.performance_section.pack(fill="both",expand=True)' in source
+    assert 'height=92' in source
+    assert 'self.performance_eta.pack(fill="x",pady=(4,0))' in source
+    assert "self.diagnostics_section.pack_forget()" in states
+
+
+def test_error_details_replace_graph_and_window_refits_after_updates():
+    states=inspect.getsource(app.BakeWindow._show_performance_details)
+    show=inspect.getsource(app.BakeWindow.show)
+    assert "self.performance_section.pack_forget()" in states
+    assert 'self.diagnostics_section.pack(fill="both",expand=True)' in states
+    assert "self._fit_window_to_content()" in show
 
 
 def test_details_replaces_nonfunctional_pause_control():

@@ -1,4 +1,8 @@
-# Upcoming Dev Snapshot
+# Cloth NeXt 1.1.0
+
+Cloth NeXt 1.1.0 brings the current Dev line together for the next marketplace
+build. It expands material choice, improves animated preparation and Collider
+workflows, and strengthens Bake diagnostics, cache safety, and responsiveness.
 
 - Animated preparation now opens and verifies the Bake window before the first
   heavy frame evaluation, and yields between frames to keep Blender responsive.

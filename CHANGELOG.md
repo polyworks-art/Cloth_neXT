@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.0 — 2026-07-19 (Beta channel)
+
+### Added
+
+- A categorized library of 37 fabric presets, including 30 research-backed
+  starting points derived from the MIT Fabric Properties Dataset.
+- Animated Collider sampling controls and opt-in generated simulation proxies.
+- Scene Health, authenticated cache recovery, privacy-safe support reports,
+  solver telemetry, remaining-time estimates, and per-frame performance
+  history in Bake Details.
+
+### Changed
+
+- Animated Pin and Collider preparation yields to Blender between frames and
+  performs less repeated dependency-graph and mesh work.
+- The Bake window remains continuous from preparation through simulation;
+  its Details view gives the performance graph the full panel with a centered
+  ETA while preserving the bottom controls.
+- Multi-object cache publication is transactional across every playback target.
+
+### Fixed
+
+- Collider Proxy discovery no longer writes Blender ID properties during panel
+  drawing, and generated reduction performs bounded follow-up passes toward
+  the requested vertex ceiling.
+- Companion startup, solver early exits, Pin-capture failures, cancellation,
+  and Blender-state restoration retain actionable diagnostics.
+
 ## 1.0.9 — 2026-07-18 (Dev channel)
 
 ### Fixed
