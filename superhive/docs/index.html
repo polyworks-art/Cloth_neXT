@@ -28,7 +28,7 @@
 
       <section id="pins"><label>07 · PINNING</label><h2>Static and animation-aware pins</h2><p>Create a Blender vertex group on the deformable and assign it as the Pin Group.</p><ul><li><b>Static:</b> pinned vertices stay at their evaluated Bake Start positions.</li><li><b>Follow Animation:</b> pinned vertices follow evaluated Blender animation across the Bake.</li></ul><p>Follow Animation is intended for rig-driven waistbands, cuffs, collars and straps. Evaluated topology must remain constant.</p></section>
 
-      <section id="contact"><label>08 · CONTACT</label><h2>Collisions and animated colliders</h2><p>Surface Offset represents the simulated contact thickness; Collision Gap controls separation behavior. Animated colliders are sampled from evaluated Blender geometry.</p><div class="notice"><b>Use intentional collider topology</b><p>Dense animated colliders multiply memory use across every captured sample. Prefer a stable, purpose-built low-poly collision surface when practical.</p></div></section>
+      <section id="contact"><label>08 · CONTACT</label><h2>Collisions and animated colliders</h2><p>Friction controls how easily surfaces slide, Surface Offset represents simulated thickness, and Collision Gap controls when collision response begins. Animated colliders are sampled from evaluated Blender geometry.</p><div class="notice"><b>Use intentional collider topology</b><p>Dense animated colliders multiply memory use across every captured sample. Prefer a stable, purpose-built low-poly collision surface when practical.</p></div></section>
 
       <section id="forces"><label>09 · FORCES</label><h2>Keyframeable direction and motion</h2><p>Add an Empty, enable Cloth NeXt and choose the Force role. Supported gravity, wind and air controls can be animated through normal Blender properties and are evaluated with the rest of the Bake scene.</p></section>
 
@@ -38,7 +38,7 @@
 
       <section id="limits"><label>12 · LIMITATIONS</label><h2>Important limitations</h2><ul><li>Windows x64 is the currently packaged platform.</li><li>Topology-changing deformation across a Bake is rejected.</li><li>PC2 playback requires constant vertex order and count.</li><li>Capacity depends on topology, contacts, samples, quality, VRAM and RAM.</li><li>Rod / Cable and Soft Body are less mature than the primary cloth workflow.</li><li>The external solver has its own license and provenance.</li></ul></section>
 
-      <section id="support"><label>13 · SUPPORT</label><h2>What to include in a report</h2><p>Include the Cloth NeXt version, Blender version, exact PPF release identity, operating system, GPU, CNX error code, minimal reproduction steps and the relevant diagnostic-log excerpt. This information is available from the add-on preferences, Bake error state and local diagnostic logs.</p></section>
+      <section id="support"><label>13 · SUPPORT</label><h2>What to include in a report</h2><p>Run Scene Health and choose <b>Export Privacy-Safe Report</b>. Send the report with the visible CNX error code, Blender version, GPU model and short reproduction steps. The report excludes mesh geometry, object names, file contents and full filesystem paths.</p></section>
     </main>
   </div>
 </body></html>
