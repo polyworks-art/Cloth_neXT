@@ -64,7 +64,8 @@ def main() -> None:
     extension, updates = _load_updates_module()
     from_module = updates.addon_updates
     state_cls = from_module.AddonUpdateState
-    beta_url = from_module.UpdateChannel.BETA.index_url
+    channel = updates.DEFAULT_CHANNEL
+    channel_url = channel.index_url
     session = updates.session()
 
     # The unsafe self-install helper must stay deleted.
@@ -109,7 +110,7 @@ def main() -> None:
 
     # --- 1. no repository configured: distinct state, nothing raised ---------
     repos = bpy.context.preferences.extensions.repos
-    assert from_module.find_channel_repo(repos, from_module.UpdateChannel.BETA) is None, \
+    assert from_module.find_channel_repo(repos, channel) is None, \
         "test requires a profile without a preconfigured Cloth NeXt repository"
     run_handoff()
     assert session.state is state_cls.REPOSITORY_NOT_CONFIGURED, session.state
@@ -123,8 +124,9 @@ def main() -> None:
         if repo.module == "blender_org":
             repo.enabled = False
     bpy.ops.preferences.extension_repo_add(
-        name="Cloth NeXt Beta Smoke", remote_url=beta_url, type="REMOTE")
-    index = from_module.find_channel_repo(repos, from_module.UpdateChannel.BETA)
+        name=f"Cloth NeXt {channel.label} Smoke",
+        remote_url=channel_url, type="REMOTE")
+    index = from_module.find_channel_repo(repos, channel)
     assert index is not None, "channel repository was not found after adding it"
     channel_directory = repos[index].directory
     assert channel_directory, "repository directory RNA is empty"
@@ -212,7 +214,7 @@ def main() -> None:
         assert result == {"FINISHED"}
         assert session.state is state_cls.READY_IN_BLENDER, session.state
         assert "Get Extensions" in session.message
-        assert beta_url in session.message
+        assert channel_url in session.message
         assert calls == [("sync", channel_directory)]
     finally:
         updates._blender_show_update_view = original_view
