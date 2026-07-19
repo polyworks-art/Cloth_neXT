@@ -264,7 +264,7 @@
       "code": "CNX-E161",
       "stage": "Simulation",
       "cause": "Constraint solver did not converge",
-      "action": "Reduce Time Step, improve collision geometry, or reduce extreme stiffness."
+      "action": "Lower Friction first. If it still fails, reduce Collision Gap, increase animated Collider sampling, then try a smaller Time Step."
     },
     {
       "code": "CNX-E162",
