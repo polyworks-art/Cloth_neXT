@@ -23,6 +23,7 @@ from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from companion.particle_motion import advance_particle, smooth_rate
 from companion.performance_graph import FramePerformanceHistory
+from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
 
 COMPANION_MESSAGE_BATCH_LIMIT=2048
 
@@ -124,7 +125,9 @@ def details_status(snapshot: BakeSnapshot) -> str:
     lines = [line.strip() for line in (snapshot.error_details or "").splitlines()
              if line.strip()]
     concise = []
-    for prefix in ("Stage:", "Blender frame:", "Cause:", "What to do:",
+    # Recovery is more useful in the compact panel than repeating the complete
+    # solver cause. The documentation link retains all deeper context.
+    for prefix in ("Stage:", "Blender frame:", "What to do:", "Cause:",
                    "Diagnostic log:"):
         match = next((line for line in lines if line.startswith(prefix)), None)
         if match and match not in concise:
@@ -240,6 +243,8 @@ class BakeWindow:
         self._blink_after=None; self._blink_phase=False
         self._progress_fraction=0.0
         self._performance=FramePerformanceHistory()
+        self._error_guidance=ErrorGuidanceClient()
+        self._guidance_code=""
         self._job_modal=False
         self._error_details=""
         self._last_snapshot=BakeSnapshot()
@@ -451,6 +456,23 @@ class BakeWindow:
         else:
             self.error_docs_link.pack_forget()
 
+    def _request_error_guidance(self,error_code):
+        code=str(error_code or "").strip().upper()
+        self._guidance_code=code
+        if not code:return
+        self._error_guidance.request(code)
+
+    def _apply_error_guidance(self):
+        code=self._guidance_code
+        action=self._error_guidance.get(code)
+        if not action:return
+        updated=replace_recommendation(self._error_details,action)
+        if updated==self._error_details:return
+        self._error_details=updated
+        snapshot=replace(self._last_snapshot,error_details=updated)
+        self.secondary.set(details_status(snapshot))
+        if self._details_visible:self._fit_window_to_content()
+
     def _set_activity(self,value,immediate=False):
         value=" ".join(str(value).replace("\\","/").split())
         if ":/" in value or "0x" in value:value="Running solver"
@@ -519,6 +541,10 @@ class BakeWindow:
         self.secondary.set(details_status(snapshot))
         self.details_meta_text.set(details_meta(snapshot))
         self._update_error_docs_link(snapshot.error_code)
+        if snapshot.state is BakeState.ERROR:
+            self._request_error_guidance(snapshot.error_code)
+        else:
+            self._guidance_code=""
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR:
@@ -583,6 +609,7 @@ class BakeWindow:
                     elif message["type"]=="enter_bake_mode":self.enter_bake_mode(message["payload"])
                     elif message["type"]=="shutdown":self.close(); return
                 if latest_status is not None:self.show(latest_status)
+                self._apply_error_guidance()
                 if getattr(self.transport,"closed",False):self.disconnected()
             except (ValueError,PermissionError):
                 self.connection_error("CNX-E116",

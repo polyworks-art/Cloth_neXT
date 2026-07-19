@@ -32,6 +32,15 @@ def test_error_details_remain_visible_while_simulating():
         "Stage: Solver\nCause: Contact overflow")
 
 
+def test_recovery_action_is_prioritized_in_compact_error_details():
+    snapshot = BakeSnapshot(
+        state=BakeState.ERROR,
+        error_details=("Stage: Solve\nBlender frame: 89\nCause: PCG failed\n"
+                       "What to do: Lower Friction first."))
+    assert app.details_status(snapshot) == (
+        "Stage: Solve\nBlender frame: 89\nWhat to do: Lower Friction first.")
+
+
 def test_about_gag_is_a_hover_tooltip_not_a_dialog():
     source=inspect.getsource(app.BakeWindow._build)
     assert app.ABOUT_TOOLTIP=="SideFX, please don’t sue me."

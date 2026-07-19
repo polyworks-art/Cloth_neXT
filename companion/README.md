@@ -18,6 +18,10 @@ On failure the inline error panel shows the stable `CNX-E…` code documented in
 until the user closes it with the normal title-bar close control. Full technical
 details stay in Blender and its diagnostic logs.
 
+Recovery actions are refreshed from the public Cloth NeXt error directory when
+available, with the bundled action retained as an offline fallback. The request
+does not contain scene data, filenames, or diagnostics.
+
 This optional status client visualizes the same immutable real-bake snapshots as
 the Blender panels and HUD. It does not run PPF itself; Blender owns the solver
 session and sends status to the companion.

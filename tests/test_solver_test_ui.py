@@ -307,7 +307,8 @@ def test_convergence_failure_names_blender_frame_and_action(blender_env):
 
     assert summary == "Simulation could not converge at Blender frame 42."
     assert "Stage: collision and constraint solve" in details
-    assert "What to do:" in details
+    assert "What to do: Lower Friction first." in details
+    assert details.index("Friction") < details.index("Time Step")
 
 
 def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):

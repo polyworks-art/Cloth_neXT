@@ -68,7 +68,7 @@ _ROWS = (
     ("CNX-E153", "Project build", "Contact or geometry initialization failed", "Repair intersections, degenerate faces, and invalid collision geometry."),
     ("CNX-E154", "Project build", "Solver project was unexpectedly busy", "Wait for the owned solver to stop, then retry."),
     ("CNX-E160", "Simulation", "Unclassified simulation failure", "Inspect the failing frame and solver diagnostic log."),
-    ("CNX-E161", "Simulation", "Constraint solver did not converge", "Reduce Time Step, improve collision geometry, or reduce extreme stiffness."),
+    ("CNX-E161", "Simulation", "Constraint solver did not converge", "Lower Friction first. If it still fails, reduce Collision Gap, increase animated Collider sampling, then try a smaller Time Step."),
     ("CNX-E162", "Simulation", "Initial intersection prevented simulation", "Separate intersecting geometry at the first Bake frame."),
     ("CNX-E163", "Simulation", "Simulation stalled or timed out", "Inspect the last frame, reduce scene complexity, and retry."),
     ("CNX-E164", "Simulation", "Solver process crashed or exited", "Inspect the solver stderr tail and verify GPU/driver stability."),
