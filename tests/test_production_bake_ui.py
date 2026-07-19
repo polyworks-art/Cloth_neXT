@@ -172,9 +172,9 @@ def test_high_collider_gap_and_grip_warn_without_blocking_bake(
     panel.draw(context)
 
     assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
-    assert "High Collider Gap + Grip can destabilize pinned Cloth." in \
+    assert "High Collision Gap and Friction can destabilize pinned Cloth." in \
         panel.layout.labels
-    assert "Bake allowed - try Gap 0.001 and Grip 0.2-0.3." in \
+    assert "Bake allowed · Try Gap 0.001 and Friction 0.2–0.3" in \
         panel.layout.labels
     env.registration.unregister()
 

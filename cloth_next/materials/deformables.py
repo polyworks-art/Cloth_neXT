@@ -38,7 +38,7 @@ class RodMaterialSettings:
         _number("Rest Length Scale", self.length_factor, 0.01, 10.0)
         _number("Shape Damping", self.shape_damping, 0.0, 1000.0)
         _number("Bend Damping", self.bend_damping, 0.0, 1000.0)
-        _number("Surface Grip", self.surface_grip, 0.0, 1.0)
+        _number("Friction", self.surface_grip, 0.0, 1.0)
         _number("Collision Gap", self.collision_gap, 0.0, 1e6)
         _number("Surface Offset", self.surface_offset, 0.0, 1e6)
         _number("Stretch Limit", self.stretch_limit, 0.0, 1.0)
@@ -62,7 +62,7 @@ class SoftBodyMaterialSettings:
         _number("Poisson Ratio", self.poisson_ratio, 0.0, 0.4999)
         _number("Volume Scale", self.volume_scale, 0.01, 10.0)
         _number("Shape Damping", self.shape_damping, 0.0, 1000.0)
-        _number("Surface Grip", self.surface_grip, 0.0, 1.0)
+        _number("Friction", self.surface_grip, 0.0, 1.0)
         _number("Collision Gap", self.collision_gap, 0.0, 1e6)
         _number("Surface Offset", self.surface_offset, 0.0, 1e6)
         if self.tetrahedralizer not in {"ftetwild", "tetgen"}:

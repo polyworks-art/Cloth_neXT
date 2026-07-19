@@ -37,7 +37,7 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
     FieldInfo("shape_damping", "Shape Damping",
               "deformation-damping", "s"),
     FieldInfo("fold_damping", "Fold Damping", "bending-damping", "s"),
-    FieldInfo("surface_grip", "Surface Grip", "friction", ""),
+    FieldInfo("surface_grip", "Friction", "friction", ""),
     FieldInfo("collision_gap", "Collision Gap", "contact-gap",
               "world units"),
     FieldInfo("surface_offset", "Surface Offset", "contact-offset",
@@ -46,7 +46,7 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
 )
 
 STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (
-    FieldInfo("surface_grip", "Surface Grip", "friction", ""),
+    FieldInfo("surface_grip", "Friction", "friction", ""),
     FieldInfo("collision_gap", "Collision Gap", "contact-gap",
               "world units"),
     FieldInfo("surface_offset", "Surface Offset", "contact-offset",

@@ -38,7 +38,7 @@ def main() -> int:
         "validate", str(archive))
     run(py, "tools/scan_release_artifact.py", str(archive))
     run(py, "tools/validate_release_policy.py", "--phase", "post-build",
-        "--tag", f"v{version}", "--zip", str(archive))
+        "--tag", version, "--zip", str(archive))
     print(f"unpublished release preflight passed: {archive}")
     return 0
 

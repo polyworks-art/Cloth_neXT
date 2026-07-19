@@ -69,7 +69,7 @@ NeXt's *Stretch Resistance* stores this direct wire value:
 | Maximum Stretch | `material.maximum_stretch_percent` | `maximum_stretch_percent` | `strain-limit` | % (soft max 20) | > 0 … 100 | percent / 100 when enabled | 5.0 % | yes |
 | Shape Damping | `damping.shape_damping` | `shape_damping` | `deformation-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
 | Fold Damping | `damping.fold_damping` | `fold_damping` | `bending-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
-| Surface Grip | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 | yes |
+| Friction | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 | yes |
 | Collision Gap | `collision.collision_gap` | `collision_gap` | `contact-gap` | Blender world units (soft max 0.01) | ≥ 0 | direct float32 | 0.001 | yes |
 | Surface Offset | `collision.surface_offset` | `surface_offset` | `contact-offset` | Blender world units (soft max 0.03) | ≥ 0 | direct float32 | 0.0 | yes |
 | Enable Contact | `collision.enabled` | (`contact_enabled` argument) | `scene.disable-contact` | bool | — | enabled ⇒ `false`, disabled ⇒ `true` | on | no |
@@ -81,7 +81,7 @@ validated on construction; no `bpy`, no paths, no processes).
 
 | UI name | Internal property | Pure dataclass field | PPF key | Unit | Range | Conversion | Default |
 |---|---|---|---|---|---|---|---|
-| Surface Grip | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 |
+| Friction | `collision.surface_grip` | `surface_grip` | `friction` | coefficient | 0 … 1 | direct float32 | 0.5 |
 | Collision Gap | `collision.collision_gap` | `collision_gap` | `contact-gap` | world units | ≥ 0 | direct float32 | 0.001 |
 | Surface Offset | `collision.surface_offset` | `surface_offset` | `contact-offset` | world units | ≥ 0 | direct float32 | 0.0 |
 

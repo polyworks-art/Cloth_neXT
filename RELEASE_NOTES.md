@@ -35,7 +35,7 @@ workflows, and strengthens Bake diagnostics, cache safety, and responsiveness.
   and a direct link to the matching public CNX error documentation.
 - The same Companion window now remains open from preparation through the
   actual solve, and its System Load presentation matches the website palette.
-- Large animated-Collider captures and risky high Gap plus Surface Grip
+- Large animated-Collider captures and risky high Collision Gap plus Friction
   combinations produce clear non-blocking warnings before a Bake.
 - Animated Colliders now default to eight evaluated samples per frame and can
   be adjusted from 2–32 for fast or strongly curved motion.

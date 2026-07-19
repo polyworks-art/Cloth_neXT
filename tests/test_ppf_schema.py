@@ -231,7 +231,7 @@ def test_shell_artist_names_map_to_exact_wire_keys():
     assert wire["bend"] == float32_wire(4.3)             # Bend Resistance
     assert wire["deformation-damping"] == float32_wire(0.01)  # Shape Damping
     assert wire["bending-damping"] == float32_wire(0.002)     # Fold Damping
-    assert wire["friction"] == float32_wire(0.35)        # Surface Grip
+    assert wire["friction"] == float32_wire(0.35)        # Friction
     assert wire["contact-gap"] == float32_wire(0.004)    # Collision Gap
     assert wire["contact-offset"] == float32_wire(0.002)  # Surface Offset
     assert wire["strain-limit"] == float32_wire(0.05)    # 5% -> 0.05

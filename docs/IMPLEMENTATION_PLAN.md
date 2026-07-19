@@ -161,7 +161,7 @@ Phase 3B status: real Shell/Static material mapping is implemented. A pure
 read-only PPF fabric presets with pinned provenance, artist/wire-name
 formatting) feeds the schema encoder; the Physics UI exposes artist-facing
 names (Surface Weight, Stretch Resistance, Sideways Response, Bend
-Resistance, Surface Grip, Stretch Limit, Shape/Fold Damping, Collision Gap,
+Resistance, Friction, Stretch Limit, Shape/Fold Damping, Collision Gap,
 Surface Offset) with technical PPF names in tooltips and Advanced PPF;
 misleading placeholder controls (Quality, Pressure, Shape,
 Stretch/Shear/Thickness, editable Cache range) are removed; a minimal

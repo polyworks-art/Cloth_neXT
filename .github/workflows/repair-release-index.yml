@@ -42,14 +42,14 @@ jobs:
           $download=Join-Path $env:RUNNER_TEMP 'verified-release'
           New-Item -ItemType Directory -Force $download | Out-Null
           $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
-          gh release download "v$env:REPAIR_VERSION" --pattern $name --pattern release-manifest.json --pattern SHA256SUMS.txt --dir $download
+          gh release download "$env:REPAIR_VERSION" --pattern $name --pattern release-manifest.json --pattern SHA256SUMS.txt --dir $download
           $archive=Join-Path $download $name
           $manifest=Join-Path $download 'release-manifest.json'
           $sums=Join-Path $download 'SHA256SUMS.txt'
-          python -c "import os; from pathlib import Path; from tools.validate_release_policy import check_release_manifest, check_sha256sums, check_zip, parse_version; root=Path(os.environ['RUNNER_TEMP'])/'verified-release'; version=parse_version(os.environ['REPAIR_VERSION']); archive=root/f'cloth_next-{version.text}-windows-x64.zip'; check_zip(archive, version); check_release_manifest(root/'release-manifest.json', archive, version, f'v{version.text}'); check_sha256sums(root/'SHA256SUMS.txt', archive)"
+          python -c "import os; from pathlib import Path; from tools.validate_release_policy import check_release_manifest, check_sha256sums, check_zip, parse_version; root=Path(os.environ['RUNNER_TEMP'])/'verified-release'; version=parse_version(os.environ['REPAIR_VERSION']); archive=root/f'cloth_next-{version.text}-windows-x64.zip'; check_zip(archive, version); check_release_manifest(root/'release-manifest.json', archive, version, version.text); check_sha256sums(root/'SHA256SUMS.txt', archive)"
           $metadata=Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
           git fetch origin --tags --force
-          $tagCommit=git rev-list -n 1 "v$env:REPAIR_VERSION"
+          $tagCommit=git rev-list -n 1 "$env:REPAIR_VERSION"
           if ($metadata.git_commit -cne $tagCommit) { throw 'release manifest commit does not match immutable tag' }
       - name: Generate and verify the single release candidate
         shell: pwsh

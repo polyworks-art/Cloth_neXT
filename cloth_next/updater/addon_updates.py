@@ -202,7 +202,7 @@ def release_notes_url(version: AddonVersion | None) -> str:
     """Release notes are human documentation only, never an update source."""
     if version is None:
         return RELEASES_PAGE_URL
-    return f"{RELEASES_PAGE_URL}/tag/v{version}"
+    return f"{RELEASES_PAGE_URL}/tag/{version}"
 
 
 STATUS_LABELS = {

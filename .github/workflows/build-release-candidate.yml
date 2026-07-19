@@ -46,7 +46,7 @@ jobs:
         run: |
           VERSION="$(python -c 'import tomllib; print(tomllib.load(open("cloth_next/blender_manifest.toml","rb"))["version"])')"
           TAG="${{ inputs.tag }}"
-          [ -n "$TAG" ] || TAG="v$VERSION"
+          [ -n "$TAG" ] || TAG="$VERSION"
           python tools/validate_release_policy.py --phase pre-build --tag "$TAG"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "channel=$(python tools/validate_release_policy.py --phase pre-build --tag "$TAG" --print-channel)" >> "$GITHUB_OUTPUT"
@@ -100,7 +100,7 @@ jobs:
       - run: pytest -m built_artifact --extension-zip "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: python tools/scan_release_artifact.py "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: python tools/validate_extension.py "dist/${{ needs.validate-source.outputs.zip-name }}" --phase packaged
-      - run: python tools/validate_release_policy.py --phase post-build --tag "v${{ needs.validate-source.outputs.version }}" --zip "dist/${{ needs.validate-source.outputs.zip-name }}"
+      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate-source.outputs.version }}" --zip "dist/${{ needs.validate-source.outputs.zip-name }}"
       - uses: actions/upload-artifact@v4
         with:
           name: cloth-next-release-candidate
