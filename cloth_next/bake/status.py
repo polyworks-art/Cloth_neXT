@@ -47,6 +47,7 @@ class BakeActivity(str, Enum):
     CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; FINISHED="FINISHED"
     ERROR="ERROR"; UNKNOWN="UNKNOWN"
     CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
+    CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
 
@@ -64,13 +65,14 @@ ACTIVITY_LABELS = {
     BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
     BakeActivity.UNKNOWN:"Running solver",
     BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
+    BakeActivity.CAPTURING_COLLIDER_MOTION:"Capturing animated Colliders",
     BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
     BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
 }
 
 PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":BakeActivity.ENCODING_SCENE,
     "STARTING_SOLVER":BakeActivity.STARTING_SOLVER, "UPLOADING":BakeActivity.ENCODING_SCENE,
-    "BUILDING":BakeActivity.UNKNOWN, "SIMULATING":BakeActivity.ADVANCING_SIMULATION,
+    "BUILDING":BakeActivity.BUILDING_CONTACTS, "SIMULATING":BakeActivity.ADVANCING_SIMULATION,
     "FETCHING":BakeActivity.READING_RESULTS, "IMPORTING":BakeActivity.BUILDING_PC2}
 
 
@@ -91,6 +93,55 @@ def format_duration(seconds: float | None, *, approximate: bool = False) -> str:
     minutes, secs = divmod(value, 60)
     text = f"{hours:02d}:{minutes:02d}:{secs:02d}" if hours else f"{minutes:02d}:{secs:02d}"
     return f"~{text}" if approximate else text
+
+
+@dataclass(slots=True)
+class FrameEtaEstimator:
+    """Smoothed frame-rate ETA that waits for real solver progress."""
+
+    smoothing: float = 0.35
+    minimum_samples: int = 2
+    _last_frame: int | None = None
+    _last_time: float | None = None
+    _seconds_per_frame: float | None = None
+    _samples: int = 0
+
+    def reset(self) -> None:
+        self._last_frame = None
+        self._last_time = None
+        self._seconds_per_frame = None
+        self._samples = 0
+
+    def observe(self, frame: int | None, frame_end: int | None,
+                now: float) -> float | None:
+        if frame is None or frame_end is None or not math.isfinite(now):
+            return None
+        frame, frame_end, now = int(frame), int(frame_end), float(now)
+        if frame >= frame_end:
+            return 0.0
+        if self._last_frame is not None and frame < self._last_frame:
+            self.reset()
+            return None
+        if self._last_frame is None:
+            self._last_frame, self._last_time = frame, now
+            return None
+        if frame > self._last_frame and now > float(self._last_time):
+            sample = ((now - float(self._last_time)) /
+                      (frame - self._last_frame))
+            if math.isfinite(sample) and sample > 0.0:
+                if self._seconds_per_frame is None:
+                    self._seconds_per_frame = sample
+                else:
+                    weight = min(1.0, max(0.0, float(self.smoothing)))
+                    self._seconds_per_frame = (
+                        weight * sample +
+                        (1.0 - weight) * self._seconds_per_frame)
+                self._samples += 1
+            self._last_frame, self._last_time = frame, now
+        if (self._samples < max(1, int(self.minimum_samples))
+                or self._seconds_per_frame is None):
+            return None
+        return max(0.0, (frame_end - frame) * self._seconds_per_frame)
 
 
 @dataclass(frozen=True, slots=True)

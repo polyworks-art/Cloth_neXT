@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import bpy
 
-from . import (addon_update_operators, bake_operators, bake_preview, companion_manager, hud,
+from . import (addon_update_operators, bake_operators, bake_preview, beta_tools, collider_proxy, companion_manager, hud,
                icon_registry, object_properties, physics_operators, physics_ui,
                preferences, solver_test, test_scene, validation_state)
 
@@ -26,8 +26,10 @@ _CLASSES = (
     preferences.CLASSES
     + addon_update_operators.CLASSES
     + object_properties.CLASSES
+    + collider_proxy.CLASSES
     + physics_operators.CLASSES
     + bake_operators.CLASSES
+    + beta_tools.CLASSES
     + test_scene.CLASSES
     + solver_test.CLASSES
     + physics_ui.CLASSES

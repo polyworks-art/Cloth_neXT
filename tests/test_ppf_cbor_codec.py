@@ -12,6 +12,7 @@ compatibility with the exact library the PPF ecosystem uses.
 from __future__ import annotations
 
 import math
+import io
 import struct
 from pathlib import Path
 
@@ -26,6 +27,17 @@ def test_numpy_arrays_encode_without_python_materialization():
     value = np.arange(12, dtype=np.float32).reshape(2, 2, 3)
     decoded = cbor_codec.loads(cbor_codec.dumps(value))
     assert decoded == value.tolist()
+
+
+def test_streamed_vec3_frames_are_byte_identical_and_report_progress():
+    value = np.arange(60, dtype=np.float32).reshape(4, 5, 3) / 7.0
+    stream = io.BytesIO()
+    progress = []
+    cbor_codec.dump({"frames": value}, stream,
+                    progress=lambda current, total:
+                    progress.append((current, total)))
+    assert stream.getvalue() == cbor_codec.dumps({"frames": value})
+    assert progress == [(1, 4), (2, 4), (3, 4), (4, 4)]
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"

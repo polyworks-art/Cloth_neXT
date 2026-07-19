@@ -32,6 +32,7 @@ EXPECTED_PRESETS = {
 }
 EXPECTED_ORDER = ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON", "WOOL",
                   "DENIM", "LEATHER"]
+RESEARCH_IDS = [f"MIT_FABRIC_{index:02d}" for index in range(1, 31)]
 
 
 def test_pure_material_models_use_artist_facing_field_contract():
@@ -50,7 +51,8 @@ def test_pure_material_models_use_artist_facing_field_contract():
 
 def test_every_bundled_preset_parses_and_is_shell():
     presets = material_presets.builtin_presets()
-    assert [p.identifier for p in presets] == EXPECTED_ORDER
+    assert [p.identifier for p in presets[:7]] == EXPECTED_ORDER
+    assert len(presets) == 37
     for preset in presets:
         # every preset is a Shell material (the only supported group type)
         assert isinstance(preset.settings, ShellMaterialSettings)
@@ -109,7 +111,8 @@ def test_preset_order_is_stable_and_cached():
     first = material_presets.builtin_presets()
     second = material_presets.builtin_presets()
     assert first is second  # single parse, cached
-    assert [p.identifier for p in first] == EXPECTED_ORDER
+    assert [p.identifier for p in first[:7]] == EXPECTED_ORDER
+    assert [p.source_reference for p in first[7:]] == RESEARCH_IDS
 
 
 def test_malformed_preset_bundle_is_atomic():
@@ -129,7 +132,7 @@ def test_malformed_preset_bundle_is_atomic():
     with pytest.raises(material_presets.PresetError):
         material_presets.parse_presets(missing_provenance)
     # the cached good bundle is unaffected by failed parses
-    assert [p.identifier for p in material_presets.builtin_presets()] == \
+    assert [p.identifier for p in material_presets.builtin_presets()[:7]] == \
         EXPECTED_ORDER
     assert material_presets.load_error() is None
 
@@ -155,6 +158,35 @@ def test_unknown_identifier_returns_none():
     assert material_presets.preset_by_identifier("NOT_A_PRESET") is None
     assert material_presets.preset_by_identifier(
         material_presets.PRESET_CUSTOM) is None
+
+
+def test_research_library_has_complete_categories_and_measurements():
+    presets = material_presets.builtin_presets()
+    research = presets[7:]
+    assert len(research) == 30
+    assert {preset.source_reference for preset in research} == set(RESEARCH_IDS)
+    assert all(preset.measured_area_weight_oz_yd2 > 0 for preset in research)
+    assert all(preset.measured_bending_stiffness_lbf_in2 > 0
+               for preset in research)
+    assert sum(len(material_presets.presets_in_category(category))
+               for category in material_presets.CATEGORY_ORDER) == 37
+    assert set(p.category for p in presets) == set(
+        material_presets.CATEGORY_ORDER)
+
+
+def test_representative_mit_measurements_and_conversion_are_pinned():
+    silk = material_presets.preset_by_identifier("MIT_SILK_LIGHT")
+    denim = material_presets.preset_by_identifier("MIT_DENIM")
+    canvas = material_presets.preset_by_identifier("MIT_CANVAS")
+    assert silk.measured_area_weight_oz_yd2 == pytest.approx(1.975126)
+    assert silk.settings.surface_weight == pytest.approx(0.066968)
+    assert denim.measured_bending_stiffness_lbf_in2 == pytest.approx(0.025)
+    assert canvas.measured_bending_stiffness_lbf_in2 == pytest.approx(0.1)
+    for preset in (silk, denim, canvas):
+        expected = (preset.measured_bending_stiffness_lbf_in2 * 14.3491
+                    / preset.settings.surface_weight)
+        assert preset.settings.bend_resistance == pytest.approx(
+            expected, abs=0.001)
 
 
 def test_fingerprint_changes_for_every_mapped_value():

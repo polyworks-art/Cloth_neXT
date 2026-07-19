@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from cloth_next.bake.controller import InvalidTransition, shared_controller
@@ -110,6 +112,92 @@ def test_phase4_scene_and_object_hashes_are_deterministic(env, monkeypatch):
         second.material_meta["fingerprints"]["object"]
     assert first.scene.data_hash != second.scene.data_hash, \
         "transport UUIDs may differ without changing the semantic scene hash"
+
+
+def test_three_separate_cloths_publish_and_attach_authenticated_caches(
+        env, monkeypatch, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=9)
+    module = env.solver_test
+
+    def add_cloth(name, vertex_count):
+        obj = env.bpy.types.Object(name=name, type="MESH")
+        obj.data = mesh_fixtures.build_mesh(vertex_count, name=f"{name}Mesh")
+        obj.animation_data = None
+        obj.constraints = ()
+        obj.matrix_world = tuple(
+            tuple(1.0 if row == column else 0.0 for column in range(4))
+            for row in range(4))
+        obj.vertex_groups = mesh_fixtures.VertexGroups()
+        obj.cloth_next.enabled = True
+        obj.cloth_next.role = "CLOTH"
+        obj.cloth_next.bake_start = 1
+        obj.cloth_next.bake_end = 24
+        scene.context.scene.objects.insert(-1, obj)
+        return obj
+
+    cloths = (scene.cloth, add_cloth("Cloth B", 16),
+              add_cloth("Cloth C", 25))
+    for obj in cloths:
+        env.bpy.data.objects[obj.name] = obj
+
+    monkeypatch.setattr(module, "resolve_solver", lambda _context: _FakeResolved())
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda obj, _depsgraph, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    plan = module.build_run_plan(scene.context)
+    assert len(plan.deformables) == 3
+    scene_hashes = {
+        target.material_meta["fingerprints"]["scene"]
+        for target in plan.deformables}
+    assert len(scene_hashes) == 1
+    assert next(iter(scene_hashes))
+    repeated = module.build_run_plan(scene.context)
+    assert {
+        target.material_meta["fingerprints"]["scene"]
+        for target in repeated.deformables} == scene_hashes
+    assert repeated.scene.data_hash != plan.scene.data_hash, \
+        "transport UUIDs may change without changing the shared scene hash"
+
+    class StubSession:
+        def __init__(self, **kwargs):
+            self.sink = kwargs["frame_sink"]
+
+        def run(self):
+            positions = {
+                target.uuid: np.asarray(target.initial_local, dtype=np.float32)
+                for target in plan.deformables}
+            first = plan.deformables[0]
+            for frame in range(1, plan.frame_count):
+                self.sink(module.SolverFrame(
+                    frame, positions[first.uuid], positions))
+            return SimpleNamespace(
+                timings={}, solver_mode="OWNED_PROCESS",
+                package_version="0.1.0", protocol_version="0.11",
+                schema_version="1", bytes_transferred=0)
+
+    monkeypatch.setattr(module, "SolverSession", StubSession)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._worker_main(plan)
+    messages = []
+    while not module._queue.empty():
+        messages.append(module._queue.get_nowait())
+    assert messages[-1][0] == "finished"
+
+    module._attach_playback(plan, messages[-1][1])
+
+    for obj, target in zip(cloths, plan.deformables):
+        assert len(obj.modifiers) == 1
+        assert Path(obj.modifiers[0].filepath) == target.pc2_path
+        inspection = module.cache_metadata.inspect_cache(
+            target.pc2_path,
+            settings_fingerprint=plan.settings_fingerprint,
+            geometry_fingerprint=plan.geometry_fingerprint)
+        assert inspection.usable, inspection.message
 
 
 def test_unregister_completes_even_mid_bake(blender_env, monkeypatch):

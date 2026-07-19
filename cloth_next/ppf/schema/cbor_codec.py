@@ -31,7 +31,7 @@ the exact ``cbor2`` build shipped inside the official solver package (see
 from __future__ import annotations
 
 import struct
-from typing import Any
+from typing import Any, BinaryIO, Callable
 
 MAX_DECODE_ITEMS = 50_000_000  # hard bound: no payload we decode is larger
 MAX_NESTING = 32
@@ -65,7 +65,7 @@ def _encode_head(major: int, argument: int, out: bytearray) -> None:
         raise CborError("integer exceeds 64-bit CBOR argument range")
 
 
-def _encode_item(value: Any, out: bytearray, depth: int) -> None:
+def _encode_item(value: Any, out, depth: int, progress=None) -> None:
     if depth > MAX_NESTING:
         raise CborError("value nests deeper than the protocol subset allows")
     # bool must be tested before int (bool is an int subclass)
@@ -91,18 +91,18 @@ def _encode_item(value: Any, out: bytearray, depth: int) -> None:
         _encode_head(2, len(value), out)
         out.extend(value)
     elif _is_numpy_array(value):
-        _encode_numpy_array(value, out, depth)
+        _encode_numpy_array(value, out, depth, progress)
     elif isinstance(value, (list, tuple)):
         _encode_head(4, len(value), out)
         for item in value:
-            _encode_item(item, out, depth + 1)
+            _encode_item(item, out, depth + 1, progress)
     elif isinstance(value, dict):
         _encode_head(5, len(value), out)
         for key, item in value.items():
             if not isinstance(key, (str, int)) or isinstance(key, bool):
                 raise CborError(f"unsupported map key type {type(key).__name__}")
-            _encode_item(key, out, depth + 1)
-            _encode_item(item, out, depth + 1)
+            _encode_item(key, out, depth + 1, progress)
+            _encode_item(item, out, depth + 1, progress)
     else:
         raise CborError(f"unsupported type {type(value).__name__} "
                         "(outside the verified PPF wire subset)")
@@ -114,7 +114,39 @@ def _is_numpy_array(value: Any) -> bool:
             and hasattr(value, "shape") and hasattr(value, "flat"))
 
 
-def _encode_numpy_array(value: Any, out: bytearray, depth: int) -> None:
+def _encode_numpy_vec3_frames(value: Any, out, progress=None) -> bool:
+    """Vectorize ``(frames, vertices, 3)`` float animation encoding.
+
+    The scalar encoder made large animated colliders spend minutes in Python
+    after capture had already reached N/N.  This produces byte-identical CBOR
+    in bounded vertex blocks and works directly from a memmap.
+    """
+    shape = tuple(int(size) for size in value.shape)
+    dtype = getattr(value, "dtype", None)
+    if len(shape) != 3 or shape[2] != 3 or getattr(dtype, "kind", "") != "f":
+        return False
+    import numpy as np
+    _encode_head(4, shape[0], out)
+    for frame in range(shape[0]):
+        _encode_head(4, shape[1], out)
+        for start in range(0, shape[1], 16_384):
+            stop = min(start + 16_384, shape[1])
+            count = stop - start
+            values = np.asarray(value[frame, start:stop], dtype=">f8")
+            encoded = np.empty((count, 28), dtype=np.uint8)
+            encoded[:, 0] = 0x83
+            for axis, marker in enumerate((1, 10, 19)):
+                encoded[:, marker] = 0xFB
+                raw = values[:, axis].reshape(count, 1).view(np.uint8)
+                encoded[:, marker + 1:marker + 9] = raw
+            out.extend(memoryview(encoded).cast("B"))
+        if progress is not None:
+            progress(frame + 1, shape[0])
+    return True
+
+
+def _encode_numpy_array(value: Any, out: bytearray, depth: int,
+                        progress=None) -> None:
     """Encode an ndarray as nested CBOR arrays without ``tolist()``.
 
     Animated collider captures can contain millions of coordinates.  Walking
@@ -125,7 +157,9 @@ def _encode_numpy_array(value: Any, out: bytearray, depth: int) -> None:
     """
     shape = tuple(int(size) for size in value.shape)
     if not shape:
-        _encode_item(value.item(), out, depth + 1)
+        _encode_item(value.item(), out, depth + 1, progress)
+        return
+    if _encode_numpy_vec3_frames(value, out, progress):
         return
 
     def emit(axis: int, prefix: tuple[int, ...]) -> None:
@@ -136,7 +170,7 @@ def _encode_numpy_array(value: Any, out: bytearray, depth: int) -> None:
         else:
             for index in range(shape[axis]):
                 scalar = value[prefix + (index,)].item()
-                _encode_item(scalar, out, depth + axis + 1)
+                _encode_item(scalar, out, depth + axis + 1, progress)
 
     emit(0, ())
 
@@ -146,6 +180,29 @@ def dumps(value: Any) -> bytes:
     out = bytearray()
     _encode_item(value, out, 0)
     return bytes(out)
+
+
+class _StreamOutput:
+    """Small bytearray-compatible adapter around a binary stream."""
+
+    __slots__ = ("stream",)
+
+    def __init__(self, stream: BinaryIO) -> None:
+        self.stream = stream
+
+    def append(self, value: int) -> None:
+        self.stream.write(bytes((value,)))
+
+    def extend(self, value) -> None:
+        self.stream.write(value)
+
+
+def dump(value: Any, stream: BinaryIO, *,
+         progress: Callable[[int, int], None] | None = None) -> None:
+    """Encode to a stream without retaining the complete payload in RAM."""
+    out = _StreamOutput(stream)
+
+    _encode_item(value, out, 0, progress)
 
 
 # ---------------------------------------------------------------------------

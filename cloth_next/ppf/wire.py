@@ -26,6 +26,8 @@ typed helpers below. The existing side-effect-free status ping stays in
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 import socket
 from dataclasses import dataclass
 
@@ -34,7 +36,9 @@ from .transport import TransportConfig
 
 TCMD_HEADER = b"TCMD"
 JSON_HEADER = b"JSON"
-CHUNK_SIZE = 32 * 1024
+# One MiB amortizes Python and socket overhead for multi-gigabyte deforming
+# collider scenes while remaining comfortably bounded for frame downloads.
+CHUNK_SIZE = 1024 * 1024
 MAX_JSON_LINE = 64 * 1024
 # Bound on one received file (map.pickle / vert_<N>.bin). The vertical-slice
 # meshes are tiny; 256 MiB leaves room for future scenes while still
@@ -176,11 +180,24 @@ def send_tcmd(address: ServerAddress, config: TransportConfig,
 
 
 def upload_atomic(address: ServerAddress, config: TransportConfig, *,
-                  project_name: str, data_payload: bytes, param_payload: bytes,
+                  project_name: str, data_payload, param_payload,
                   data_hash: str, param_hash: str) -> None:
     """Stream both payloads through the server-side atomic upload."""
     _validate_project_name(project_name)
-    if not data_payload or not param_payload:
+    def payload_size(payload) -> int:
+        return os.path.getsize(payload) if isinstance(payload, (str, Path)) else len(payload)
+
+    def payload_chunks(payload):
+        if isinstance(payload, (str, Path)):
+            with open(payload, "rb") as stream:
+                while chunk := stream.read(CHUNK_SIZE):
+                    yield chunk
+        else:
+            for offset in range(0, len(payload), CHUNK_SIZE):
+                yield payload[offset:offset + CHUNK_SIZE]
+
+    data_size, param_size = payload_size(data_payload), payload_size(param_payload)
+    if not data_size or not param_size:
         raise ValueError("the vertical slice always uploads both payloads")
     header = json.dumps({
         "request": "upload_atomic",
@@ -188,16 +205,16 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
         # Accepted for protocol compatibility; the server resolves the real
         # project root itself (wire/upload.rs).
         "path": "",
-        "data_size": len(data_payload),
-        "param_size": len(param_payload),
+        "data_size": data_size,
+        "param_size": param_size,
         "data_hash": data_hash,
         "param_hash": param_hash,
     }).encode("utf-8") + b"\n"
     with _connect(address, config) as connection:
         _send_all(connection, JSON_HEADER + header)
         for payload in (data_payload, param_payload):
-            for offset in range(0, len(payload), CHUNK_SIZE):
-                _send_all(connection, payload[offset:offset + CHUNK_SIZE])
+            for chunk in payload_chunks(payload):
+                _send_all(connection, chunk)
         line, _rest = _read_line(connection)
     if b"OK" not in line:
         parsed = None

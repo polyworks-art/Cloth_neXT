@@ -59,7 +59,7 @@ NeXt's *Stretch Resistance* stores this direct wire value:
 
 | UI name | Internal property | Pure dataclass field | PPF key | Unit | Range (hard) | Conversion | Default | Preset-controlled |
 |---|---|---|---|---|---|---|---|---|
-| Material Preset | `material.preset` | — (preset id) | — | — | bundled ids + `CUSTOM` | selection applies mapped values | `DEFAULT_CLOTH` | — |
+| Material Preset | `material.preset` | — (preset id) | — | — | 37 bundled ids + `CUSTOM` | categorized selection applies mapped values | `DEFAULT_CLOTH` | research method in `MATERIAL_LIBRARY.md` |
 | Solver Model | `material.model` | `model` | `model` | enum | `FABRIC`, `SHAPE_PRESERVING` | `FABRIC`→`baraff-witkin`, `SHAPE_PRESERVING`→`arap` | `FABRIC` | yes |
 | Surface Weight | `material.surface_weight` | `surface_weight` | `density` | kg/m² (area density — **not** kg/m³) | > 0 … 10000 | direct float32 | 1.0 | yes |
 | Stretch Resistance | `material.stretch_resistance` | `stretch_resistance` | `young-mod` | density-normalized (soft max 100000) | 0 … 1e9 | direct float32, **no density division** | 1000.0 | yes |

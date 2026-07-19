@@ -360,3 +360,26 @@ def test_new_bake_states_transition_paths():
     controller.transition(BakeState.FETCHING)
     assert controller.request_cancel().state is BakeState.CANCELLING
     controller.transition(BakeState.CANCELLED)
+
+
+def test_runtime_activity_reads_live_ppf_metric_files(tmp_path):
+    scene = _scene()
+    root = (tmp_path / "server-data" / scene.project_name / "session" /
+            "output" / "data")
+    root.mkdir(parents=True)
+    (root / "advance.num_contact.out").write_text(
+        "2.84 438\n2.85 408\n", encoding="ascii")
+    (root / "advance.newton_steps.out").write_text(
+        "2.85 2\n", encoding="ascii")
+    (root / "advance.iter.out").write_text(
+        "2.85 187\n", encoding="ascii")
+    solver = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+
+    code, message = solver._runtime_activity()
+
+    assert code == "SOLVING_CONSTRAINTS"
+    assert message == "Solver · 408 contacts · Newton 2 · 187 linear iterations"
+    assert solver.diagnostics.contact_last == 408

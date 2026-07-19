@@ -22,6 +22,7 @@ from __future__ import annotations
 import math
 import struct
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
 from ..coordinates import Mat4
@@ -224,6 +225,15 @@ def encode_multi_deformable_scene(deformables, collider) -> tuple[bytes, str]:
         envelope.KIND_SCENE,
         build_multi_deformable_scene_payload(deformables, collider))
     return blob, envelope.payload_sha256(blob)
+
+
+def encode_multi_deformable_scene_file(deformables, collider, path: Path, *,
+                                       progress=None) -> tuple[Path, str]:
+    digest = envelope.dump_envelope_file(
+        envelope.KIND_SCENE,
+        build_multi_deformable_scene_payload(deformables, collider), path,
+        progress=progress)
+    return path, digest
 
 
 def encode_scene(cloth: SceneObject, collider) -> tuple[bytes, str]:

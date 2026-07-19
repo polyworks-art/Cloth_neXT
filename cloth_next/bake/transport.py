@@ -217,7 +217,7 @@ class LocalSocketClient:
         self._socket.settimeout(timeout)
         while b"\n" not in self._buffer:
             try: chunk=self._socket.recv(4096)
-            except socket.timeout: return None
+            except (socket.timeout, BlockingIOError): return None
             if not chunk: self.closed=True; return None
             self._buffer += chunk
             if len(self._buffer)>MAX_MESSAGE_BYTES: raise ValueError("message too large")

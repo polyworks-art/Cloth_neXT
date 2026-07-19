@@ -9,20 +9,42 @@ import os
 from pathlib import Path
 import math
 import random
+import re
 import sys
 import tkinter as tk
 import time
 import traceback
+import webbrowser
 from dataclasses import replace
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from companion.particle_motion import advance_particle, smooth_rate
+from companion.performance_graph import FramePerformanceHistory
+
+COMPANION_MESSAGE_BATCH_LIMIT=2048
+
+
+def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
+    """Drain buffered status traffic so it cannot delay control messages."""
+    messages=[]
+    first=transport.receive(.01)
+    if first is None:return messages
+    messages.append(first)
+    while len(messages)<limit:
+        message=transport.receive(0.0)
+        if message is None:break
+        messages.append(message)
+    return messages
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
+GRAPH=AMBER; GRAPH_FILL="#4b3b25"; GRID="#3b3b3b"; ERROR="#ff5964"
+ABOUT_TOOLTIP="SideFX, please don’t sue me."
+ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
+COMPACT_HEIGHT=118; DETAILS_HEIGHT=232
 
 def _logger():
     root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
@@ -41,8 +63,77 @@ def _logger():
 LOG=_logger()
 
 
+class HoverTooltip:
+    """Small non-modal tooltip; never steals focus from the Bake window."""
+    def __init__(self, widget, text, delay_ms=350):
+        self.widget=widget; self.text=text; self.delay_ms=delay_ms
+        self._after=None; self._window=None
+        widget.bind("<Enter>",self._schedule,add="+")
+        widget.bind("<Leave>",self.hide,add="+")
+        widget.bind("<ButtonPress>",self.hide,add="+")
+    def _schedule(self,_event=None):
+        self.hide()
+        self._after=self.widget.after(self.delay_ms,self.show)
+    def show(self):
+        self._after=None
+        if self._window is not None or not self.widget.winfo_exists():return
+        window=tk.Toplevel(self.widget); self._window=window
+        window.wm_overrideredirect(True); window.attributes("-topmost",True)
+        x=self.widget.winfo_rootx(); y=self.widget.winfo_rooty()+self.widget.winfo_height()+5
+        window.wm_geometry(f"+{x}+{y}")
+        tk.Label(window,text=self.text,bg="#171717",fg=TEXT,
+                 relief="solid",borderwidth=1,padx=7,pady=4,
+                 font=("Segoe UI",8)).pack()
+    def hide(self,_event=None):
+        if self._after is not None:
+            try:self.widget.after_cancel(self._after)
+            except tk.TclError:pass
+            self._after=None
+        if self._window is not None:
+            try:self._window.destroy()
+            except tk.TclError:pass
+            self._window=None
+
+
 def error_activity_label(snapshot: BakeSnapshot) -> str:
     return f"ERROR · {snapshot.error_code or 'CNX-E199'}"
+
+
+def error_docs_url(error_code: str) -> str:
+    """Return a safe direct documentation URL for one stable CNX code."""
+    code=str(error_code or "").strip().upper()
+    return f"{ERROR_DOCS_BASE}#{code}" if re.fullmatch(r"CNX-E\d{3}",code) else ""
+
+
+def details_meta(snapshot: BakeSnapshot) -> str:
+    """Readable diagnostic rows shown by the in-window Details foldout."""
+    parts=[]
+    if snapshot.active_object_name:
+        parts.append(f"Object     {snapshot.active_object_name}")
+    mode={"MANAGED_INSTALLATION":"Managed","MANAGED":"Managed",
+          "EXTERNAL_INSTALLATION":"External","EXTERNAL_SERVER":"Server"}.get(
+              snapshot.solver_mode,snapshot.solver_mode.replace("_"," ").title())
+    solver=" · ".join(value for value in (mode,snapshot.solver_version) if value)
+    if solver:parts.append(f"Solver     {solver}")
+    if snapshot.error_code:parts.append(f"Error      {snapshot.error_code}")
+    return "\n".join(parts) or "No additional Bake details yet."
+
+
+def details_status(snapshot: BakeSnapshot) -> str:
+    """Concise detail text without duplicating the progress-bar frame."""
+    lines = [line.strip() for line in (snapshot.error_details or "").splitlines()
+             if line.strip()]
+    concise = []
+    for prefix in ("Stage:", "Blender frame:", "Cause:", "What to do:",
+                   "Diagnostic log:"):
+        match = next((line for line in lines if line.startswith(prefix)), None)
+        if match and match not in concise:
+            concise.append(match)
+    if concise:
+        return "\n".join(concise[:3])
+    if snapshot.state is BakeState.SIMULATING:
+        return ""
+    return snapshot.status_message or "No PPF simulation is running."
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -130,9 +221,12 @@ class IconParticleField:
 class BakeWindow:
     def __init__(self,transport=None,root=None):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
+        # Prevent Tk's default top-left placement from flashing before the
+        # preparation window receives its first Bake command.
+        self.root.withdraw()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
         self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
-        self.root.geometry("390x118"); self.root.minsize(390,118)
+        self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.minsize(390,COMPACT_HEIGHT)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
         self.root.iconphoto(True,self._app_icon)
         self.primary=tk.StringVar(value="Ready")
@@ -140,34 +234,52 @@ class BakeWindow:
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self.details_meta_text=tk.StringVar(value="No additional Bake details yet.")
         self.activity_text=tk.StringVar(value="Waiting for a Bake")
         self._activity_pending=None; self._activity_after=None; self._closed=False
         self._blink_after=None; self._blink_phase=False
         self._progress_fraction=0.0
+        self._performance=FramePerformanceHistory()
         self._job_modal=False
         self._error_details=""
         self._last_snapshot=BakeSnapshot()
         self._connection_failed=False
+        self._details_visible=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.particles.start()
+        self.root.update_idletasks()
+        self._center_on_screen()
+        if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") != "hidden":
+            self.root.deiconify()
         self.root.protocol("WM_DELETE_WINDOW",self.close)
+
+    def _center_on_screen(self):
+        width=max(390,self.root.winfo_width())
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
+        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
+        x=max(0,(self.root.winfo_screenwidth()-width)//2)
+        y=max(0,(self.root.winfo_screenheight()-height)//2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def enter_bake_mode(self,payload):
         job_id=str(payload.get("job_id", ""))
         try:
-            self.root.deiconify(); self.root.minsize(390,118)
+            already_visible=bool(
+                self.root.winfo_ismapped() and self.root.winfo_viewable())
+            self.root.minsize(390,COMPACT_HEIGHT)
             self.root.update_idletasks()
             if self.root.winfo_width()<100 or self.root.winfo_height()<80:
-                self.root.geometry("390x118"); self.root.update_idletasks()
-            width=max(390,self.root.winfo_width()); height=max(118,self.root.winfo_height())
-            x=max(0,(self.root.winfo_screenwidth()-width)//2)
-            y=max(0,(self.root.winfo_screenheight()-height)//2)
-            self.root.geometry(f"{width}x{height}+{x}+{y}")
+                self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.update_idletasks()
+            if not already_visible:
+                self._center_on_screen()
+                self.root.deiconify()
             self.root.update_idletasks()
             if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden":
                 self.root.withdraw(); self.root.update_idletasks()
             self.root.attributes("-topmost",True); self.root.lift()
-            self.root.after_idle(self.root.focus_force); self.root.update_idletasks()
+            if not already_visible:
+                self.root.after_idle(self.root.focus_force)
+            self.root.update_idletasks()
             visible=bool(self.root.winfo_ismapped() and self.root.winfo_viewable())
             topmost=bool(self.root.attributes("-topmost"))
             response={"job_id":job_id,"companion_process_id":os.getpid(),
@@ -197,7 +309,7 @@ class BakeWindow:
     def _build(self):
         self.root.columnconfigure(0,weight=1); self.root.rowconfigure(0,weight=1)
         outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
-        outer.columnconfigure(0,weight=1)
+        outer.columnconfigure(0,weight=1); outer.rowconfigure(1,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
         icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=78,height=74)
         icon_box.grid(row=0,column=0,rowspan=2,sticky="ns",padx=(0,5)); icon_box.grid_propagate(False)
@@ -209,26 +321,135 @@ class BakeWindow:
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
         self.progress.bind("<Configure>",self._resize_progress)
-        self.status=tk.Label(right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,font=("Segoe UI",8),anchor="center",justify="center",
-                        highlightbackground="#777777",highlightthickness=1,height=1)
+        self.status=tk.Label(
+            right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,
+            font=("Segoe UI",8),anchor="center",justify="center",
+            highlightbackground="#777777",highlightthickness=1,height=1)
         self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
+        self.details_panel=tk.Frame(outer,bg=PANEL,highlightbackground=BORDER,
+                                    highlightthickness=1,padx=8,pady=6)
+        self.details_panel.grid(row=1,column=0,sticky="nsew",pady=(5,0))
+        self.details_panel.grid_remove()
+        self.diagnostics_section=tk.Frame(self.details_panel,bg=PANEL)
+        tk.Label(self.diagnostics_section,textvariable=self.primary,bg=PANEL,
+                 fg=TEXT,font=("Segoe UI Semibold",9),anchor="w").pack(fill="x")
+        tk.Label(self.diagnostics_section,textvariable=self.secondary,bg=PANEL,fg=MUTED,
+                 font=("Segoe UI",8),anchor="w",justify="left",
+                 wraplength=350).pack(fill="x",pady=(2,0))
+        tk.Label(self.diagnostics_section,textvariable=self.details_meta_text,bg=PANEL,
+                 fg=MUTED,font=("Segoe UI",8),anchor="w",justify="left",
+                 wraplength=350).pack(fill="x",pady=(3,0))
+        self.error_docs_link=tk.Label(
+            self.diagnostics_section,text="",bg=PANEL,fg=AMBER,
+            activebackground=PANEL,activeforeground="#efbd69",
+            font=("Segoe UI Semibold",8,"underline"),anchor="w",
+            cursor="hand2",takefocus=True)
+        self.error_docs_link.bind("<Button-1>",self._open_error_docs)
+        self.error_docs_link.bind("<Return>",self._open_error_docs)
+        self.error_docs_link.bind("<space>",self._open_error_docs)
+        self._error_docs_url=""
+        self.performance_section=tk.Frame(self.details_panel,bg=PANEL)
+        self.performance_section.pack(fill="both",expand=True)
+        self.performance=tk.Canvas(
+            self.performance_section,height=92,bg=PANEL,
+            highlightbackground=BORDER,highlightthickness=1,borderwidth=0)
+        self.performance.pack(fill="x")
+        self.performance.bind("<Configure>",self._draw_performance)
+        self.performance_eta=tk.Label(
+            self.performance_section,textvariable=self.remaining_text,
+            bg=PANEL,fg=TEXT,font=("Segoe UI Semibold",8),anchor="center")
+        self.performance_eta.pack(fill="x",pady=(4,0))
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
-        self.pause=ttk.Button(bottom,text="Pause",width=8,style="CN.TButton",state="disabled",command=self._pause)
-        self.pause.pack(side="left")
-        ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",anchor="center",justify="center").place(relx=.5,rely=.5,anchor="center")
+        self.details_button=ttk.Button(bottom,text="Details",width=8,
+            style="CN.TButton",command=self._toggle_details)
+        self.details_button.pack(side="left")
+        ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",
+                  anchor="center",justify="center").place(
+                      relx=.5,rely=.5,anchor="center")
         self.cancel=ttk.Button(bottom,text="Cancel",width=8,style="CN.TButton",command=self._cancel)
         self.cancel.pack(side="right")
-        ttk.Button(bottom,text="?",width=3,style="CN.TButton",command=self._about).pack(side="right",padx=(5,5))
+        about=ttk.Button(bottom,text="?",width=3,style="CN.TButton")
+        about.pack(side="right",padx=(5,5))
+        self.about_tooltip=HoverTooltip(about,ABOUT_TOOLTIP)
 
     def _resize_progress(self,event=None):
         width=max(1,event.width if event is not None else self.progress.winfo_width())
         self.progress.coords(self.progress_fill,0,0,width*self._progress_fraction,22)
         self.progress.coords(self.progress_label,width/2,11)
 
-    def _about(self): messagebox.showinfo("About Cloth NeXt Bake","SideFX, please don’t sue me.",parent=self.root)
-    def _pause(self): pass
+    def _draw_performance(self,event=None):
+        canvas=self.performance
+        width=max(2,event.width if event is not None else canvas.winfo_width())
+        height=max(2,event.height if event is not None else canvas.winfo_height())
+        canvas.delete("all")
+        for fraction in (.25,.5,.75):
+            y=round(height*fraction)
+            canvas.create_line(0,y,width,y,fill=GRID)
+        values=tuple(self._performance.scores)
+        if not values:
+            canvas.create_text(
+                7,height/2,text="Collecting frame performance…",fill=MUTED,
+                font=("Segoe UI",7),anchor="w")
+            return
+        usable_width=max(1,width-12); usable_height=max(1,height-12)
+        step=usable_width/max(1,len(values)-1)
+        points=[]
+        for index,value in enumerate(values):
+            points.extend((6+index*step,6+usable_height*(1-value/100.0)))
+        if len(values)>1:
+            area=[points[0],height-5,*points,points[-2],height-5]
+            canvas.create_polygon(area,fill=GRAPH_FILL,outline="")
+            canvas.create_line(*points,fill=GRAPH,width=2,smooth=True)
+        else:
+            canvas.create_oval(points[0]-2,points[1]-2,
+                               points[0]+2,points[1]+2,fill=GRAPH,outline="")
+        canvas.create_text(7,6,text="PERFORMANCE",fill=MUTED,
+                           font=("Segoe UI Semibold",6),anchor="nw")
+        canvas.create_text(width-7,6,text=str(self._performance.latest),
+                           fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
+
+    def _show_performance_details(self,snapshot):
+        if snapshot.state is BakeState.ERROR:
+            self.performance_section.pack_forget()
+            if not self.diagnostics_section.winfo_manager():
+                self.diagnostics_section.pack(fill="both",expand=True)
+        elif not self.performance_section.winfo_manager():
+            self.diagnostics_section.pack_forget()
+            self.performance_section.pack(fill="both",expand=True)
+
+    def _fit_window_to_content(self):
+        """Keep content from displacing the fixed bottom controls."""
+        self.root.update_idletasks()
+        width=max(390,self.root.winfo_width())
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
+        height=max(DETAILS_HEIGHT,requested) if self._details_visible else requested
+        self.root.geometry(
+            f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
+
+    def _toggle_details(self):
+        self._details_visible=not self._details_visible
+        if self._details_visible:self.details_panel.grid()
+        else:self.details_panel.grid_remove()
+        self.details_button.configure(
+            text="Hide" if self._details_visible else "Details")
+        self._fit_window_to_content()
     def _cancel(self):
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
+
+    def _open_error_docs(self,_event=None):
+        if self._error_docs_url:
+            webbrowser.open(self._error_docs_url)
+
+    def _update_error_docs_link(self,error_code):
+        self._error_docs_url=error_docs_url(error_code)
+        if self._error_docs_url:
+            code=str(error_code).strip().upper()
+            self.error_docs_link.configure(
+                text=f"Open {code} documentation  ↗")
+            if not self.error_docs_link.winfo_manager():
+                self.error_docs_link.pack(fill="x",pady=(5,0))
+        else:
+            self.error_docs_link.pack_forget()
 
     def _set_activity(self,value,immediate=False):
         value=" ".join(str(value).replace("\\","/").split())
@@ -271,6 +492,7 @@ class BakeWindow:
 
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
+        performance_changed=self._performance.observe(snapshot)
         self.root.update_idletasks()
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
         self._progress_fraction=fraction
@@ -294,28 +516,26 @@ class BakeWindow:
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
         self._error_details=snapshot.error_details or ""
-        detail_lines=[line.strip() for line in self._error_details.splitlines()
-                      if line.strip()]
-        concise=[]
-        for prefix in ("Stage:","Blender frame:","Cause:","What to do:",
-                       "Diagnostic log:"):
-            match=next((line for line in detail_lines if line.startswith(prefix)),None)
-            if match and match not in concise:concise.append(match)
-        self.secondary.set("\n".join(concise[:3]) or snapshot.status_message
-                           or "No PPF simulation is running.")
+        self.secondary.set(details_status(snapshot))
+        self.details_meta_text.set(details_meta(snapshot))
+        self._update_error_docs_link(snapshot.error_code)
         label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR:
             label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
+        self._show_performance_details(snapshot)
+        if performance_changed or snapshot.state is not BakeState.ERROR:
+            self._draw_performance()
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
-        self.time_text.set(format_duration(snapshot.elapsed_seconds))
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
-        self.remaining_text.set("" if remaining=="Unknown" else f"remaining {remaining}")
+        self.remaining_text.set("ETA calculating…" if remaining=="Unknown"
+                                else f"ETA  {remaining}")
+        self.time_text.set(format_duration(snapshot.elapsed_seconds))
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
-        self.pause.state(["!disabled"] if snapshot.can_pause else ["disabled"])
-        self.pause.configure(text="Resume" if snapshot.is_paused else "Pause")
+        if self._details_visible:
+            self._fit_window_to_content()
 
     def disconnected(self):
         if self._connection_failed:
@@ -327,7 +547,7 @@ class BakeWindow:
         self._job_modal=False
         self.root.attributes("-topmost",False)
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
-        self.cancel.state(["disabled"]); self.pause.state(["disabled"])
+        self.cancel.state(["disabled"])
 
     def connection_error(self,code,message):
         """Keep a failed active window visible until explicit user close."""
@@ -356,12 +576,14 @@ class BakeWindow:
     def run(self):
         def poll():
             try:
-                message=self.transport.receive(.01)
-                if message and message["type"]=="bake_status": self.show(message["snapshot"])
-                elif message and message["type"]=="session_hello": self.transport.send("ready")
-                elif message and message["type"]=="enter_bake_mode": self.enter_bake_mode(message["payload"])
-                elif message and message["type"]=="shutdown": self.close(); return
-                elif getattr(self.transport,"closed",False): self.disconnected()
+                latest_status=None
+                for message in receive_message_batch(self.transport):
+                    if message["type"]=="bake_status":latest_status=message["snapshot"]
+                    elif message["type"]=="session_hello":self.transport.send("ready")
+                    elif message["type"]=="enter_bake_mode":self.enter_bake_mode(message["payload"])
+                    elif message["type"]=="shutdown":self.close(); return
+                if latest_status is not None:self.show(latest_status)
+                if getattr(self.transport,"closed",False):self.disconnected()
             except (ValueError,PermissionError):
                 self.connection_error("CNX-E116",
                                       "The Companion status protocol failed.")

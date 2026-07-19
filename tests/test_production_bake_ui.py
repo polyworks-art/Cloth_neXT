@@ -90,7 +90,8 @@ def test_solver_panel_contains_large_main_bake_action(blender_env, monkeypatch):
     panel.draw(context)
     assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
     assert "PPF Contact Solver" in panel.layout.labels
-    assert "Ready · Protocol 0.11" in panel.layout.labels
+    assert "Ready · Protocol 0.11" not in panel.layout.labels
+    assert "Schema 1" not in panel.layout.labels
     env.registration.unregister()
 
 
@@ -132,6 +133,103 @@ def test_bake_allows_scene_without_collider(blender_env):
     env.registration.unregister()
 
 
+def test_large_animated_collider_warns_below_enabled_bake_button(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.bake_start = 1
+    cloth.cloth_next.bake_end = 150
+    collider.cloth_next.collider_motion = "ANIMATED"
+    collider.cloth_next.collider_samples_per_frame = 8
+    collider.data = SimpleNamespace(vertices=range(214_050))
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+
+    panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
+    panel.draw(context)
+
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert "Large animated Collider capture: ~2.85 GiB" in panel.layout.labels
+    assert "Bake allowed · Low-poly collision proxy recommended." in \
+        panel.layout.labels
+    env.registration.unregister()
+
+
+def test_high_collider_gap_and_grip_warn_without_blocking_bake(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    collider.cloth_next.collision.collision_gap = 0.05
+    collider.cloth_next.collision.surface_grip = 0.5
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+
+    panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
+    panel.draw(context)
+
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert "High Collider Gap + Grip can destabilize pinned Cloth." in \
+        panel.layout.labels
+    assert "Bake allowed - try Gap 0.001 and Grip 0.2-0.3." in \
+        panel.layout.labels
+    env.registration.unregister()
+
+
+def test_contact_stability_warning_needs_both_high_values(blender_env):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    context = _context(env, [cloth, collider])
+    collider.cloth_next.collision.collision_gap = 0.05
+    collider.cloth_next.collision.surface_grip = 0.2
+    assert env.physics_ui._contact_stability_warning(context) == ""
+    collider.cloth_next.collision.collision_gap = 0.001
+    collider.cloth_next.collision.surface_grip = 0.8
+    assert env.physics_ui._contact_stability_warning(context) == ""
+    env.registration.unregister()
+
+
+def test_only_extreme_quality_button_uses_red_alert_style(blender_env):
+    env = blender_env
+    env.registration.register()
+    context = _context(env, _objects(env))
+    context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=0.002, min_newton_steps=1, cg_max_iter=1000,
+        cg_tol=0.0001, show_advanced=False)
+    drawn = []
+
+    class AlertLayout:
+        def __init__(self):
+            self.enabled = True
+            self.alert = False
+            self.use_property_split = False
+            self.use_property_decorate = False
+
+        def label(self, **_kw):
+            pass
+
+        def row(self, **_kw):
+            return AlertLayout()
+
+        def column(self, **_kw):
+            return AlertLayout()
+
+        def prop(self, *_args, **_kwargs):
+            pass
+
+        def operator(self, _identifier, text="", **_kw):
+            drawn.append((text, self.alert))
+            return SimpleNamespace()
+
+    env.physics_ui._draw_solver_quality(AlertLayout(), context, False)
+    assert drawn == [("Low", False), ("Medium", False), ("High", False),
+                     ("Extreme", True)]
+    env.registration.unregister()
+
+
 def test_bake_enabled_for_multiple_deformables(blender_env):
     env = blender_env
     env.registration.register()
@@ -141,6 +239,26 @@ def test_bake_enabled_for_multiple_deformables(blender_env):
     assert model.enabled
     assert model.reason == ""
     assert "2 Deformable" in model.summary_line
+
+
+def test_previous_validation_error_never_locks_out_retry(blender_env,
+                                                          monkeypatch):
+    env = blender_env
+    env.registration.register()
+    objects = _objects(env, 1, 0)
+    context = _context(env, objects)
+    env.physics_ui.validation_state.store_invalid(
+        objects[0], "Old Armature/Pinning validation failure")
+    monkeypatch.setattr(env.physics_ui, "_cache_state",
+                        lambda _context: ("INVALID", "Cache invalid"))
+
+    model = env.physics_ui._bake_panel_model(
+        context, env.physics_ui._SolverStatus(True, "Ready"))
+
+    assert model.enabled
+    assert model.action == "REBAKE"
+    assert model.reason == ""
+    env.registration.unregister()
 
 
 def test_bake_allows_multiple_colliders(blender_env):
@@ -170,6 +288,39 @@ def test_new_bake_clears_stale_cancel_before_run_plan(blender_env,
 
     assert waiting is False
     assert not module._cancel_event.is_set()
+
+
+def test_preparation_window_launches_before_animated_collider_capture(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    blender_env.registration.register()
+    cloth, collider = _objects(blender_env, 1, 1)
+    collider.cloth_next.collider_motion = "ANIMATED"
+    context = _context(blender_env, [cloth, collider])
+    context.scene.frame_current = 1
+    context.scene.frame_set = lambda frame: setattr(
+        context.scene, "frame_current", frame)
+    snapshot = SimpleNamespace(
+        bake_range=module.BakeFrameRange(1, 2), deformables=(),
+        collider_objs=(collider,))
+    calls = []
+    monkeypatch.setattr(module, "validate_scene", lambda _context: snapshot)
+    monkeypatch.setattr(module, "build_run_plan",
+                        lambda *_args, **_kwargs: calls.append("build") or
+                        SimpleNamespace())
+    monkeypatch.setattr(module, "_continue_production_bake",
+                        lambda _context, job_id, _plan: (job_id, True))
+    monkeypatch.setattr(module.companion_manager, "ensure_running",
+                        lambda: calls.append("window") or (True, "ready"))
+
+    _job_id, waiting = module.begin_production_bake(context)
+
+    assert waiting is True
+    assert calls == ["window"]
+    assert module._pin_capture is not None
+    assert module._pin_capture["wait_for_companion"] is True
+    module.request_cancel()
+    blender_env.registration.unregister()
 
 
 def test_material_validation_precedes_companion_or_worker(blender_env,
@@ -208,6 +359,69 @@ def test_production_companion_failure_is_fatal_before_worker(blender_env,
         module.begin_production_bake(context)
     assert module._worker is None
     assert not module.modal_lock.active()
+
+
+def test_unexpected_bake_preparation_failure_is_visible_and_persisted(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    context = _context(blender_env, [])
+    monkeypatch.setattr(module, "build_run_plan",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                            RuntimeError("Blender modifier evaluation failed")))
+    persisted = []
+    monkeypatch.setattr(module.companion_manager, "persist_bake_error",
+                        persisted.append)
+
+    with pytest.raises(module.SceneValidationError,
+                       match="Preparing the Bake failed"):
+        module.begin_production_bake(context)
+
+    snapshot = shared_controller.snapshot()
+    assert snapshot.state is BakeState.ERROR
+    assert snapshot.error_code
+    assert "Blender modifier evaluation failed" in snapshot.error_details
+    assert persisted == [snapshot]
+
+
+def test_bake_validation_failure_is_printed_to_system_console(
+        blender_env, monkeypatch, capsys):
+    module = blender_env.solver_test
+    context = _context(blender_env, [])
+    monkeypatch.setattr(module, "begin_production_bake",
+                        lambda _context: (_ for _ in ()).throw(
+                            module.SceneValidationError(
+                                "Animated collider topology changed")))
+
+    operator = module.CLOTHNEXT_OT_bake()
+    assert operator.execute(context) == {"CANCELLED"}
+
+    output = capsys.readouterr().out
+    assert "[Cloth NeXt] ERROR CNX-" in output
+    assert "Animated collider topology changed" in output
+
+
+def test_pin_capture_uses_wait_cursor_and_modal_input_lock(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    calls = []
+    manager = SimpleNamespace(
+        event_timer_add=lambda *_a, **_kw: calls.append("timer") or object(),
+        event_timer_remove=lambda _timer: calls.append("remove"),
+        modal_handler_add=lambda _operator: calls.append("modal"))
+    window = SimpleNamespace(
+        cursor_modal_set=lambda value: calls.append(("cursor", value)),
+        cursor_modal_restore=lambda: calls.append("restore"))
+    context = SimpleNamespace(window_manager=manager, window=window,
+                              screen=SimpleNamespace(areas=[]))
+    monkeypatch.setattr(module, "begin_production_bake",
+                        lambda _context: ("job", True))
+    module._pin_capture = {"active": True}
+    operator = module.CLOTHNEXT_OT_bake()
+    assert operator.execute(context) == {"RUNNING_MODAL"}
+    assert calls[:3] == ["timer", "modal", ("cursor", "WAIT")]
+    module._pin_capture = None
+    assert operator.modal(context, SimpleNamespace(type="TIMER")) == {"FINISHED"}
+    assert calls[-2:] == ["remove", "restore"]
 
 
 def test_auto_launch_disabled_starts_without_global_modal_lock(blender_env,

@@ -1,16 +1,23 @@
 <p align="center">
-  <img
-    src="assets/Cloth_neXt_icon.svg"
-    alt="Cloth NeXt Logo"
-    width="240"
-  />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/cloth-next-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/cloth_next_icons/cloth_next.svg">
+    <img src="assets/cloth-next-white.svg" alt="Cloth NeXt Logo" width="240">
+  </picture>
 </p>
 
 <h1 align="center">Cloth NeXt</h1>
 
 <p align="center">
-  Cloth NeXt acts as a Blender bridge for the separately installed
-  <strong>PPF Contact Solver</strong>, which is developed and distributed by ST Tech / ZOZO.
+  <a href="https://github.com/polyworks-art/Cloth_neXT/releases/tag/1.1.0"><img alt="Release 1.1.0" src="https://img.shields.io/badge/release-1.1.0-303030"></a>
+  <img alt="Blender 5.0+" src="https://img.shields.io/badge/Blender-5.0%2B-f5792a">
+  <img alt="Windows x64" src="https://img.shields.io/badge/platform-Windows%20x64-303030">
+  <img alt="GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-303030">
+</p>
+
+<p align="center">
+  Production-oriented Cloth, Rod / Cable, and Soft Body baking in Blender,
+  powered by the separately installed <strong>PPF Contact Solver</strong>.
 </p>
 
 
@@ -31,16 +38,17 @@
 
 ## What is Cloth NeXt?
 
-Cloth NeXt brings the external PPF Contact Solver into a workflow that feels familiar to artists who already enjoy Blender’s built-in cloth system.
+Cloth NeXt turns the external GPU-based PPF Contact Solver into a guided
+Blender workflow. Scene setup, validation, materials, baking, diagnostics, and
+cache playback stay inside Blender while the solver remains a separate,
+independently installed application maintained by ST Tech / ZOZO.
 
 It is designed for users who want powerful GPU-based cloth simulation while keeping a clear, Blender-focused setup with familiar object roles, accessible controls, and sensible defaults.
 
-The Physics Properties **Solver** panel is the normal artist-facing entry
-point: it reports solver readiness and provides Bake/Rebake/Cancel controls,
-material/cache summary, and synchronized progress. When enabled in Add-on
-Preferences, the reusable Bake companion opens automatically; Blender's HUD
-and Physics UI remain functional when that optional window is disabled or
-cannot be opened.
+The Physics Properties panel is the artist-facing entry point. It provides
+role-aware controls, scene validation, Bake/Rebake/Cancel actions, cache state,
+and actionable errors. The dedicated Bake window follows preparation and
+simulation with progress, ETA, solver activity, and frame-performance history.
 
 Cloth NeXt also provides a more guided and streamlined alternative for artists who find the existing PPF Blender integration too technical or difficult to navigate, while the solver itself remains a separate, independently installed application.
 
@@ -54,15 +62,19 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Open-source Blender extension
 - Clear separation between the add-on and external solver
 - A native, role-aware Physics Properties configuration workflow
-- Experimental Rod / Cable simulation for Bezier and Poly Curves, plus
-  volumetric Soft Body simulation for closed manifold meshes
+- Cloth, Rod / Cable, and volumetric Soft Body roles in shared scenes
+- Static and animated Colliders, including evaluated transforms and
+  topology-preserving deformation
+- Blender Empty-based Gravity, Wind, Air Density, Air Friction, and Vertex Air
+  Damping forces with keyframe support
 - Real material parameters with understandable artist terminology
   (Surface Weight, Stretch Resistance, Bend Resistance, Surface Grip, …),
   each mapped one-to-one to a documented PPF solver parameter
-- Official PPF-derived fabric presets (Silk, Flag, Cotton, Wool, Denim,
-  Leather) bundled as read-only data, with exact provenance and the
-  Apache-2.0 upstream notice preserved
-- An optional display-only CPU, RAM, and VRAM history monitor during Bake
+- A categorized library of 37 fabric presets, including 30 research-backed
+  starting points derived from the MIT Fabric Properties Dataset
+- Scene Health checks, persistent CNX error codes, support reports, and
+  authenticated cache recovery
+- CPU, RAM, and VRAM monitoring plus frame-performance history during Bake
 - Transactional playback caches with versioned metadata, deterministic
   invalidation, and SHA-256 integrity checks
 
@@ -77,12 +89,8 @@ the previous result until startup is ready. Timed release and soft Pull are not
 exposed.
 
 > [!NOTE]
-> Phase 3B connects the Material, Damping, and Collision properties to the
-> real PPF solver: every visible, editable value is actually encoded and
-> sent. The current scope is one or more deformables and one or more colliders,
-> with an
-> artist-selected Bake range. Developer Test Tools retain diagnostics and
-> test-scene creation. Note that PPF's stiffness is a
+> Material, Damping, Collision, Pressure, Pinning, Force, and quality controls
+> are encoded into the real PPF solve. PPF's stiffness is a
 > density-normalized value, not a textbook Young's modulus in pascals (see
 > [PPF parameter mapping](docs/PPF_PARAMETER_MAPPING.md)). PPF itself
 > remains separate, independently installed software.
@@ -202,15 +210,13 @@ starts. Blender remains the source of Collider animation: Collider objects are
 never assigned a Cloth NeXt playback cache or result modifier; only Cloth is
 written back from solver output.
 
-### Experimental Rod and Soft Body roles
+### Rod / Cable and Soft Body roles
 
-The Dev workflow also accepts one **Rod / Cable** or **Soft Body** instead of
-the Cloth object. Rods preserve the original Curve and write solver motion to
-its control points; supported splines are Bezier and Poly. Soft Bodies use a
-closed manifold mesh and request PPF tetrahedralization before simulation.
-Both roles use the normal Bake range, Collider, quality, material, and cache
-workflow. Rod/Soft Body pinning, NURBS Rod splines, dynamic material animation,
-and multiple deformable objects are not supported yet.
+Rods preserve the original Curve and write solver motion to its control points;
+supported splines are Bezier and Poly. Soft Bodies use a closed manifold mesh
+and request PPF tetrahedralization before simulation. Both roles participate in
+the normal multi-object Bake, Collider, quality, material, and cache workflow.
+NURBS Rod splines and dynamic material animation are not supported.
 
 Rod simulation uses the Curve as a one-dimensional centerline. Curve Bevel,
 Taper, and per-point radius remain visual; they are not sent to PPF. For a cable
@@ -267,6 +273,9 @@ When reporting an issue, please include:
 ---
 
 ## Documentation
+
+Start with the hosted [Cloth NeXt documentation](https://polyworks-art.github.io/Cloth_neXT/superhive/docs/)
+or use the repository references below.
 
 <details>
 <summary><strong>User documentation</strong></summary>

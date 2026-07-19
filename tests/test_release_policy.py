@@ -81,10 +81,9 @@ def test_channel_derivation_and_stable_prerelease_rejection():
 def test_tag_manifest_match_and_mismatch(tmp_path):
     repo = make_repo(tmp_path, "0.2.0")
     assert check_tag_matches_manifest("v0.2.0", repo).text == "0.2.0"
+    assert check_tag_matches_manifest("0.2.0", repo).text == "0.2.0"
     with pytest.raises(ValueError):
         check_tag_matches_manifest("v0.2.1", repo)
-    with pytest.raises(ValueError):
-        check_tag_matches_manifest("0.2.0", repo)
 
 
 def test_zip_name_must_match_version(tmp_path):
@@ -207,7 +206,6 @@ def test_stable_release_is_required_in_all_three_repositories(tmp_path):
         check_channel_separation(site, parse_version("1.0.0"))
 
 
-def test_tag_requires_v_prefix():
+def test_release_tag_accepts_plain_version_and_legacy_v_prefix():
     assert tag_to_version("v1.0.0").text == "1.0.0"
-    with pytest.raises(ValueError):
-        tag_to_version("1.0.0")
+    assert tag_to_version("1.0.0").text == "1.0.0"

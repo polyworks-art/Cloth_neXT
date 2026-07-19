@@ -650,8 +650,20 @@ def test_dev_selection_never_silently_falls_back_to_beta(blender_env):
         preferences=SimpleNamespace(update_channel="DEV",developer_tools=False,
                                     dev_channel_acknowledged=False))
     assert module.selected_channel(env.bpy.context) is UpdateChannel.DEV
-    assert "Developer" in module.dev_access_error(env.bpy.context,UpdateChannel.DEV)
+    assert "Acknowledge" in module.dev_access_error(
+        env.bpy.context, UpdateChannel.DEV)
     op=module.CLOTHNEXT_OT_addon_update_check()
     assert op.execute(env.bpy.context)=={"CANCELLED"}
     assert module.session().state is AddonUpdateState.INSTALL_BLOCKED
     assert "Beta" not in module.session().message
+
+
+def test_dev_channel_does_not_require_developer_tools(blender_env):
+    env = blender_env
+    module = updater(env)
+    env.bpy.context.preferences.addons["cloth_next"] = SimpleNamespace(
+        preferences=SimpleNamespace(
+            update_channel="DEV", developer_tools=False,
+            dev_channel_acknowledged=True))
+    assert module.selected_channel(env.bpy.context) is UpdateChannel.DEV
+    assert module.dev_access_error(env.bpy.context, UpdateChannel.DEV) == ""

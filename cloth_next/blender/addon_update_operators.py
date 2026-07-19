@@ -129,15 +129,17 @@ def selected_channel(context) -> UpdateChannel:
 
 
 def dev_access_error(context, channel: UpdateChannel) -> str:
-    """Return a visible Dev gating error; never substitute another channel."""
+    """Require only explicit risk acknowledgement for the public Dev channel.
+
+    Developer Tools control internal diagnostic UI and are intentionally
+    independent from a user's update-channel choice.
+    """
     if channel is not UpdateChannel.DEV:
         return ""
     try:
         preferences = context.preferences.addons[_ADDON_ID].preferences
     except (KeyError, AttributeError):
-        return "Developer Tools are required to use the Dev channel."
-    if not getattr(preferences, "developer_tools", False):
-        return "Enable Developer Test Tools before using the Dev channel."
+        return "Dev channel preferences are unavailable."
     if not getattr(preferences, "dev_channel_acknowledged", False):
         return ("Acknowledge the Development Channel warning before checking, "
                 "adding, or installing Dev updates.")

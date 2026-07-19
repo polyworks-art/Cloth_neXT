@@ -179,6 +179,31 @@ def test_upload_atomic_frames_header_and_payloads(make_server):
     assert server.received[1] == data_payload + param_payload
 
 
+def test_upload_atomic_streams_payload_from_file(make_server, tmp_path):
+    data_payload = bytes(range(251)) * 200
+    data_path = tmp_path / "scene.cbor"
+    data_path.write_bytes(data_payload)
+    param_payload = b"params"
+
+    def handler(connection, received):
+        assert _read_exact(connection, 4) == b"JSON"
+        line = b""
+        while not line.endswith(b"\n"):
+            line += connection.recv(1)
+        header = json.loads(line)
+        received.append(header)
+        received.append(_read_exact(
+            connection, header["data_size"] + header["param_size"]))
+        connection.sendall(b"OK\n")
+
+    server = make_server(handler)
+    wire.upload_atomic(server.address, CONFIG, project_name="proj",
+                       data_payload=data_path, param_payload=param_payload,
+                       data_hash="dh", param_hash="ph")
+    assert server.received[0]["data_size"] == len(data_payload)
+    assert server.received[1] == data_payload + param_payload
+
+
 def test_upload_atomic_surfaces_server_error(make_server):
     def handler(connection, _received):
         connection.sendall(b'{"error": "Cannot upload while a build is in '

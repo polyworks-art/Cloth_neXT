@@ -28,6 +28,105 @@ def _phase4_meta():
     }
 
 
+def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
+    module = blender_env.solver_test
+    depsgraph = object()
+    indices = np.asarray((1,), dtype=np.intp)
+
+    class Vertices:
+        def __len__(self):
+            return 2
+
+        def foreach_get(self, attribute, target):
+            assert attribute == "co"
+            target[:] = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+
+    evaluated = SimpleNamespace(
+        data=SimpleNamespace(vertices=Vertices()),
+        matrix_world=((1.0, 0.0, 0.0, 0.0),
+                      (0.0, 1.0, 0.0, 0.0),
+                      (0.0, 0.0, 1.0, 0.0),
+                      (0.0, 0.0, 0.0, 1.0)))
+    obj = SimpleNamespace(
+        name="Rigged Cloth",
+        evaluated_get=lambda value: evaluated if value is depsgraph else None)
+    context = SimpleNamespace(evaluated_depsgraph_get=lambda: (_ for _ in ()).throw(
+        AssertionError("a supplied depsgraph must be reused")))
+    membership = SimpleNamespace(source_vertex_count=2, vertex_indices=(1,))
+
+    positions = module._sample_evaluated_pin_positions(
+        context, obj, membership, depsgraph=depsgraph, index_array=indices)
+
+    assert positions == ((4.0, 6.0, -5.0),)
+
+
+def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    depsgraph = object()
+    frames = []
+    scene = SimpleNamespace(frame_current=1,
+                            frame_set=lambda frame: frames.append(frame))
+    context = SimpleNamespace(
+        scene=scene, evaluated_depsgraph_get=lambda: depsgraph)
+    obj = SimpleNamespace(name="Skirt")
+    membership = SimpleNamespace(vertex_indices=(2, 4))
+    indices = np.asarray((2, 4), dtype=np.intp)
+    calls = []
+
+    monkeypatch.setattr(module.bpy.data, "objects", {"Skirt": obj})
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: (_ for _ in ()).throw(
+        AssertionError("frame_set already updates the dependency graph")))
+    monkeypatch.setattr(module, "_sample_evaluated_pin_positions",
+        lambda passed_context, passed_obj, passed_membership, **kwargs:
+            calls.append((passed_context, passed_obj, passed_membership,
+                          kwargs["depsgraph"], kwargs["index_array"])) or
+            ((1.0, 2.0, 3.0),))
+    force_state = module.ForceState((0.0, 0.0, -9.81), (0.0, 0.0, 0.0))
+    monkeypatch.setattr(module, "_force_state",
+                        lambda _context: (force_state, frozenset()))
+    monkeypatch.setattr(module.shared_controller, "update", lambda **_kwargs: None)
+
+    module._pin_capture = {
+        "context": context, "targets": (("Skirt", membership),),
+        "range": SimpleNamespace(start=1, end=2), "next": 1,
+        "samples": {"Skirt": []}, "index_arrays": {"Skirt": indices},
+        "force_samples": [], "active_scalar_types": set(),
+    }
+    try:
+        assert module._pin_capture_pump() == 0.005
+        assert frames == [1]
+        assert calls == [(context, obj, membership, depsgraph, indices)]
+        assert module._pin_capture["next"] == 2
+        assert module._pin_capture["force_samples"] == [force_state]
+    finally:
+        module._pin_capture = None
+
+
+def test_pin_capture_waits_for_companion_before_evaluating_frame(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    calls = []
+    monkeypatch.setattr(module.companion_manager, "preparation_status",
+                        lambda: ("WAITING", "Opening Bake window…"))
+    monkeypatch.setattr(module.shared_controller, "update",
+                        lambda **kwargs: calls.append(kwargs))
+    scene = SimpleNamespace(frame_set=lambda _frame: (_ for _ in ()).throw(
+        AssertionError("frame evaluation started before Companion readiness")))
+    module._pin_capture = {
+        "context": SimpleNamespace(scene=scene), "targets": (),
+        "range": SimpleNamespace(start=1, end=2), "next": 1,
+        "samples": {}, "force_samples": [], "active_scalar_types": set(),
+        "index_arrays": {}, "wait_for_companion": True,
+        "companion_deadline": module.time.monotonic() + 5.0,
+    }
+    try:
+        assert module._pin_capture_pump() == 0.05
+        assert calls[-1]["status_message"] == "Opening Bake window…"
+    finally:
+        module._pin_capture = None
+
+
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     main_ident = threading.get_ident()
@@ -333,6 +432,144 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.filepath == str(path)
 
 
+def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
+        blender_env):
+    module = blender_env.solver_test
+    points = module._collider_sample_points(
+        module.BakeFrameRange(10, 11), 24)
+    assert len(points) == 9
+    assert points[0] == (10, 0.0, 0.0)
+    assert points[-1] == (11, 0.0, 1.0 / 24.0)
+    assert points[1] == (10, 0.125, 1.0 / 192.0)
+    with pytest.raises(ValueError):
+        module._collider_sample_points(module.BakeFrameRange(1, 2), 24, 1)
+
+
+def test_animated_collider_topology_ignores_quad_diagonal_flip(blender_env):
+    """Armature deformation may retessellate a quad without changing it."""
+    module = blender_env.solver_test
+    polygons = ((0, 1, 2, 3), (3, 2, 4))
+    assert module._collider_topology_change(
+        5, polygons, 5, polygons) == ""
+
+
+def test_animated_collider_topology_detects_real_changes(blender_env):
+    module = blender_env.solver_test
+    polygons = ((0, 1, 2, 3),)
+    assert "vertex count changed" in module._collider_topology_change(
+        4, polygons, 5, polygons)
+    assert "polygon topology changed" in module._collider_topology_change(
+        4, polygons, 4, ((0, 1, 2), (0, 2, 3)))
+
+
+def test_animated_collider_bulk_topology_reuses_buffers(blender_env):
+    module = blender_env.solver_test
+
+    class BulkCollection:
+        def __init__(self, **columns):
+            self.columns = columns
+
+        def __len__(self):
+            return len(next(iter(self.columns.values())))
+
+        def foreach_get(self, name, target):
+            target[:] = self.columns[name]
+
+    mesh = SimpleNamespace(
+        polygons=BulkCollection(loop_start=[0, 4], loop_total=[4, 3]),
+        loops=BulkCollection(vertex_index=[0, 1, 2, 3, 3, 2, 4]))
+    first = module._collider_topology_arrays(mesh)
+    second = module._collider_topology_arrays(mesh, first)
+
+    assert all(left is right for left, right in zip(first, second))
+    assert module._collider_array_topology_change(5, first, 5, second) == ""
+    mesh.loops.columns["vertex_index"][-1] = 1
+    changed = module._collider_topology_arrays(mesh)
+    assert "polygon topology changed" in module._collider_array_topology_change(
+        5, first, 5, changed)
+
+
+def test_dense_animated_collider_capture_returns_non_blocking_warning(
+        blender_env):
+    module = blender_env.solver_test
+    vertices = range(214_050)
+    collider = SimpleNamespace(name="Character Proxy",
+        data=SimpleNamespace(vertices=vertices),
+        cloth_next=SimpleNamespace(collider_motion="ANIMATED",
+                                   collider_samples_per_frame=8))
+    warning = module.animated_collider_capture_warning(
+        (collider,), module.BakeFrameRange(1, 150))
+
+    assert warning is not None
+    assert warning.collider_name == "Character Proxy"
+    assert warning.vertex_count == 214_050
+    assert warning.samples_per_frame == 8
+    assert warning.size_label == "2.85 GiB"
+
+
+def test_reasonable_animated_collider_capture_stays_allowed(blender_env):
+    module = blender_env.solver_test
+    vertices = range(10_000)
+    collider = SimpleNamespace(name="Character Proxy",
+        data=SimpleNamespace(vertices=vertices),
+        cloth_next=SimpleNamespace(collider_motion="ANIMATED",
+                                   collider_samples_per_frame=8))
+    warning = module.animated_collider_capture_warning(
+        (collider,), module.BakeFrameRange(1, 150))
+
+    assert warning is None
+
+
+def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    objects = []
+    targets = []
+    headers = {}
+    for index in range(2):
+        obj = blender_env.bpy.types.Object(name=f"cloth-{index}", type="MESH")
+        blender_env.bpy.data.objects[obj.name] = obj
+        objects.append(obj)
+        path = tmp_path / f"cn_test_cloth_new_{index}.pc2"
+        target = module.DeformablePlan(
+            ((0, 0, 0),), identity, obj.name, f"uuid-{index}", path,
+            "topology", {"details": {}}, "CLOTH")
+        targets.append(target)
+        headers[target.uuid] = SimpleNamespace(vertex_count=1, frame_count=1)
+    old_path = tmp_path / "cn_test_cloth_old.pc2"
+    old_path.write_bytes(b"old")
+    old = objects[0].modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    old.filepath = str(old_path)
+    module.mark_owned_playback(objects[0], old, old.filepath)
+    monkeypatch.setattr(module.pc2, "read_header",
+                        lambda path: headers[next(
+                            target.uuid for target in targets
+                            if target.pc2_path == path)])
+    monkeypatch.setattr(module.cache_metadata, "inspect_cache",
+                        lambda *_args, **_kwargs: SimpleNamespace(
+                            usable=True, condition=SimpleNamespace(value="VALID"),
+                            message="", metadata={}))
+    monkeypatch.setattr(objects[1].modifiers, "new",
+                        lambda **_kwargs: (_ for _ in ()).throw(
+                            RuntimeError("second modifier failed")))
+    first = targets[0]
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), first.initial_local, identity,
+        first.object_name, tmp_path, first.pc2_path, 1,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        material_meta=first.material_meta, deformables=tuple(targets))
+
+    with pytest.raises(RuntimeError, match="second modifier failed"):
+        module._attach_playback(plan, headers)
+
+    assert old.filepath == str(old_path)
+    assert old_path.exists()
+    assert len(objects[1].modifiers) == 0
+
+
 def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
@@ -435,6 +672,18 @@ def test_companion_ensure_running_reuses_existing(blender_env, monkeypatch):
     monkeypatch.setattr(manager,"running",lambda:True)
     monkeypatch.setattr(manager,"launch",lambda: (_ for _ in ()).throw(AssertionError("duplicate")))
     assert manager.ensure_running()==(True,"Bake window reused")
+
+
+def test_companion_preparation_ready_requires_tk_ready_message(blender_env,
+                                                                 monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    manager._transport_ready=False
+    manager._process=SimpleNamespace(poll=lambda:None)
+    assert manager.preparation_status()[0]=="WAITING"
+    manager._transport_ready=True
+    assert manager.preparation_status()[0]=="READY"
+    manager._transport_ready=False
+    manager._process=None
 
 def test_companion_replaces_exited_session_without_leaking(blender_env,
                                                             monkeypatch):

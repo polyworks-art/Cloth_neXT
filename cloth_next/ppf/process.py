@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import queue
 import os
+import re
 import subprocess
 import threading
 import time
@@ -21,6 +22,52 @@ from ..core.logging import get_logger, log_with_context
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress
+
+
+_CONTACT_LABEL = re.compile(r"\bnum[-_ ]?contacts?\b", re.IGNORECASE)
+_CONTACT_SCALAR = re.compile(
+    r"\bnum[-_ ]?contacts?\b\s*[:=]\s*(\d+)", re.IGNORECASE)
+_CONTACT_TUPLE = re.compile(r"[,;]\s*(\d+)\s*[\)\]]")
+
+
+def _contact_counts(line: str) -> tuple[int, ...]:
+    """Extract PPF ``num-contact`` metrics without treating other numbers as contacts."""
+    label = _CONTACT_LABEL.search(line)
+    if label is None:
+        return ()
+    tail = line[label.start():]
+    scalar = _CONTACT_SCALAR.search(tail)
+    if scalar is not None:
+        return (int(scalar.group(1)),)
+    # PPF metrics may be logged as ``[(simulation_time, count), ...]``.
+    return tuple(int(match.group(1)) for match in _CONTACT_TUPLE.finditer(tail))
+
+
+def _solver_activity(line: str) -> tuple[str, str] | None:
+    """Translate known PPF stdout markers into stable, user-facing activity."""
+    value = line.strip()
+    contacts = _contact_counts(value)
+    if contacts:
+        return "BUILDING_CONTACTS", f"Assembling contacts · {contacts[-1]:,} contacts"
+    match = re.search(r"newton step\s+(\d+)", value, re.IGNORECASE)
+    if match:
+        return "SOLVING_CONSTRAINTS", f"Newton solve · step {match.group(1)}"
+    match = re.match(r"\*\s*iter\s*:\s*(\d+)", value, re.IGNORECASE)
+    if match:
+        return "SOLVING_CONSTRAINTS", f"Solving linear system · {match.group(1)} iterations"
+    markers = (
+        ("asm_contact", "BUILDING_CONTACTS", "Assembling contacts"),
+        ("matrix_assembly", "SOLVING_CONSTRAINTS", "Assembling system matrix"),
+        ("linsolve", "SOLVING_CONSTRAINTS", "Solving linear system"),
+        ("line_search", "SOLVING_CONSTRAINTS", "Line search"),
+        ("check_intersection", "DETECTING_COLLISIONS", "Checking intersections"),
+        ("error reduction step", "SOLVING_CONSTRAINTS", "Reducing solver error"),
+    )
+    lowered = value.lower()
+    for marker, code, label in markers:
+        if marker in lowered:
+            return code, label
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +127,11 @@ class ProcessPoll:
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
     progress: ProgressSnapshot = field(default_factory=lambda: ProgressSnapshot(False, False, ()))
+    contact_peak: int = 0
+    contact_last: int = 0
+    contact_samples: int = 0
+    activity_code: str = ""
+    activity_message: str = ""
 
 
 class SolverProcessManager:
@@ -90,6 +142,11 @@ class SolverProcessManager:
         self._stdout: list[str] = []
         self._stderr: list[str] = []
         self._threads: list[threading.Thread] = []
+        self._contact_peak = 0
+        self._contact_last = 0
+        self._contact_samples = 0
+        self._activity_code = ""
+        self._activity_message = ""
         self._logger = get_logger("ppf.process")
 
     @property
@@ -166,6 +223,13 @@ class SolverProcessManager:
             target = self._stdout if label == "stdout" else self._stderr
             target.append(line)
             del target[:-100]
+            for count in _contact_counts(line):
+                self._contact_last = count
+                self._contact_peak = max(self._contact_peak, count)
+                self._contact_samples += 1
+            activity = _solver_activity(line)
+            if activity is not None:
+                self._activity_code, self._activity_message = activity
 
     def poll(self) -> ProcessPoll:
         self._drain()
@@ -174,6 +238,11 @@ class SolverProcessManager:
             running=self._process is not None and code is None,
             process_id=None if self._process is None else self._process.pid,
             exit_code=code, stdout_tail=tuple(self._stdout[-40:]), stderr_tail=tuple(self._stderr[-40:]),
+            contact_peak=self._contact_peak,
+            contact_last=self._contact_last,
+            contact_samples=self._contact_samples,
+            activity_code=self._activity_code,
+            activity_message=self._activity_message,
             progress=read_progress(self.config.progress_file),
         )
 
@@ -213,7 +282,10 @@ class SolverProcessManager:
         return ClothNextError(ErrorRecord.create(
             category=ErrorCategory.SOLVER_INSTALLATION,
             user_message="The PPF solver exited before it became ready.",
-            technical_message=f"exit_code={poll.exit_code}; stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}",
+            technical_message=(f"exit_code={poll.exit_code}; "
+                f"contacts(last={poll.contact_last}, peak={poll.contact_peak}, "
+                f"samples={poll.contact_samples}); stdout_tail={poll.stdout_tail}; "
+                f"stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}"),
             recommended_action="Inspect the solver and Cloth NeXt logs, verify CUDA requirements, and retry.",
             recoverable=True,
             context={"exit_code": poll.exit_code},

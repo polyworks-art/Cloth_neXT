@@ -1,5 +1,118 @@
 # Changelog
 
+## 1.1.0 — 2026-07-19 (Beta channel)
+
+### Added
+
+- A categorized library of 37 fabric presets, including 30 research-backed
+  starting points derived from the MIT Fabric Properties Dataset.
+- Animated Collider sampling controls and opt-in generated simulation proxies.
+- Scene Health, authenticated cache recovery, privacy-safe support reports,
+  solver telemetry, remaining-time estimates, and per-frame performance
+  history in Bake Details.
+
+### Changed
+
+- Animated Pin and Collider preparation yields to Blender between frames and
+  performs less repeated dependency-graph and mesh work.
+- The Bake window remains continuous from preparation through simulation;
+  its Details view gives the performance graph the full panel with a centered
+  ETA while preserving the bottom controls.
+- Multi-object cache publication is transactional across every playback target.
+
+### Fixed
+
+- Collider Proxy discovery no longer writes Blender ID properties during panel
+  drawing, and generated reduction performs bounded follow-up passes toward
+  the requested vertex ceiling.
+- Companion startup, solver early exits, Pin-capture failures, cancellation,
+  and Blender-state restoration retain actionable diagnostics.
+
+## 1.0.9 — 2026-07-18 (Dev channel)
+
+### Fixed
+
+- Animated preparation now waits for the Companion's Tk event loop to report
+  ready before evaluating the first expensive Blender frame.
+- Pin and Collider preparation yields briefly between frames so Blender window
+  events, Companion IPC, redraw and Escape cancellation remain responsive.
+- Animated-Collider-only Bakes use the same asynchronous preparation gate
+  instead of blocking Blender immediately after launching the Bake window.
+
+## 1.0.8 — 2026-07-18 (Dev channel)
+
+### Added
+
+- Categorized, hover-opened Material Preset menus with a 37-material library.
+- Thirty research-backed fabric starting points derived from Bouman et al.'s
+  MIT Fabric Properties laboratory measurements, with explicit provenance and
+  conversion documentation.
+
+### Changed
+
+- Animated Follow Animation Pin capture reuses one evaluated dependency graph
+  per frame, precomputes pin-index arrays, and removes the artificial timer
+  delay between frames.
+- Force animation is sampled during Pin capture instead of walking the complete
+  frame range a second time afterward.
+- Animated Collider and Force capture no longer repeat Blender dependency-graph
+  updates already performed by `scene.frame_set()`.
+
+### Fixed
+
+- The preparation stage now switches from completed Pin progress to explicit
+  animated-Collider or evaluated-geometry progress instead of appearing stuck
+  at values such as `1000 / 1000`.
+
+## 1.0.7 — 2026-07-17 (Dev channel)
+
+### Changed
+
+- System Load uses restrained monochrome traces, a neutral left accent, and no
+  outer frame; only the RAM Auto Cancel threshold remains red.
+- Animated Pin capture now owns a modal wait state with a wait cursor and
+  explicit Escape cancellation so Blender cannot be edited during capture.
+
+### Fixed
+
+- The Bake Companion is centered before it first becomes visible and no longer
+  appears at the top-left before jumping into place.
+- Expanded Bake Details reserve their requested height so action buttons remain
+  visible instead of being pushed against the bottom edge.
+- Owned solver connection failures preserve early-exit evidence and process
+  output, making `CNX-E141` timeouts substantially more actionable.
+
+## 1.0.6 — 2026-07-17 (Dev channel)
+
+### Added
+
+- Bake Details now include an estimated time to finish and link documented
+  `CNX-E…` failures directly to the public error-code reference.
+- The solver activity line surfaces useful PPF runtime progress instead of a
+  generic advancing-simulation message.
+- Non-blocking warnings identify unusually large animated-Collider captures
+  and destabilizing high Collider Gap plus Surface Grip combinations.
+
+### Changed
+
+- Animated Follow Animation Pin capture now evaluates frames sequentially,
+  suspends owned playback once per capture, and reads evaluated coordinates in
+  bulk without allocating a complete temporary mesh for every frame.
+- The Bake Companion stays in one window across export and simulation, while
+  System Load visuals now follow the public website's mint-on-dark palette.
+- Bake Details expose the remaining-time estimate without changing the compact
+  default window layout.
+
+### Fixed
+
+- Pin-capture cancellation, add-on shutdown, and capture failures restore the
+  artist's frame and playback flags deterministically.
+- Animated Pin capture failures now produce a visible console message, stable
+  error code, and persistent Bake diagnostics instead of silently ending a
+  Blender timer.
+- Runtime activity parsing tolerates partial solver output and retains the
+  latest useful solver stage.
+
 ## 1.0.0 — 2026-07-16 (Stable channel)
 
 ### Added

@@ -32,6 +32,7 @@ def blender_env():
     env = SimpleNamespace(
         bpy=fake,
         registration=registration,
+        collider_proxy=sys.modules["cloth_next.blender.collider_proxy"],
         object_properties=sys.modules["cloth_next.blender.object_properties"],
         physics_operators=sys.modules["cloth_next.blender.physics_operators"],
         physics_ui=sys.modules["cloth_next.blender.physics_ui"],

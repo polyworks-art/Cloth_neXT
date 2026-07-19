@@ -6,6 +6,7 @@ import pytest
 from cloth_next.bake.transport import (BakeWindowReady, EnterBakeMode,
                                         decode_message, encode_message)
 from cloth_next.bake.status import BakeState
+from companion.app import receive_message_batch
 
 
 def request(job="job"):
@@ -18,6 +19,36 @@ def ready(job="job", **changes):
                 topmost_applied=True, transport_ready=True)
     values.update(changes)
     return values
+
+
+def test_companion_drains_preparation_backlog_in_one_ui_tick():
+    queued = [
+        {"type": "bake_status", "snapshot": index}
+        for index in range(1_000)
+    ] + [{"type": "enter_bake_mode", "payload": {"job_id": "job"}}]
+
+    class Transport:
+        def receive(self, _timeout):
+            return queued.pop(0) if queued else None
+
+    messages = receive_message_batch(Transport())
+
+    assert len(messages) == 1_001
+    assert messages[-1]["type"] == "enter_bake_mode"
+
+
+def test_companion_batch_has_a_hard_fairness_limit():
+    class EndlessTransport:
+        def __init__(self):
+            self.calls = 0
+
+        def receive(self, _timeout):
+            self.calls += 1
+            return {"type": "bake_status", "snapshot": self.calls}
+
+    transport = EndlessTransport()
+    assert len(receive_message_batch(transport, limit=32)) == 32
+    assert transport.calls == 32
 
 
 def reset(manager):

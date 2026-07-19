@@ -48,6 +48,35 @@ STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 
 _POLL_INTERVAL = 0.25
 
+_SOLVER_METRICS = {
+    "contacts": "advance.num_contact.out",
+    "newton": "advance.newton_steps.out",
+    "iterations": "advance.iter.out",
+}
+
+
+def _tail_numeric_metric(path: Path) -> int | None:
+    """Read one live PPF metric without loading its growing history."""
+    try:
+        with path.open("rb") as stream:
+            stream.seek(0, 2)
+            size = stream.tell()
+            if size <= 0:
+                return None
+            stream.seek(max(0, size - 4096))
+            lines = stream.read().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+        try:
+            return int(float(fields[-1]))
+        except ValueError:
+            continue
+    return None
+
 
 class SessionCancelled(Exception):
     """The run was cancelled cooperatively; not an error."""
@@ -73,7 +102,7 @@ class SessionScene:
     collider_name: str
     collider_uuid: str
     frame_count: int  # Blender frames 1..frame_count
-    data_payload: bytes
+    data_payload: bytes | Path
     param_payload: bytes
     data_hash: str
     param_hash: str
@@ -114,6 +143,7 @@ class SessionEvent:
     schema_version: str | None = None
     host: str = ""
     port: int = 0
+    activity_code: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +174,9 @@ class SessionDiagnostics:
     timings: dict[str, float] = field(default_factory=dict)
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
+    contact_peak: int = 0
+    contact_last: int = 0
+    contact_samples: int = 0
     cancelled: bool = False
     bytes_transferred: int = 0
 
@@ -226,6 +259,32 @@ class SolverSession:
         self.diagnostics.note_status(status)
         return response
 
+    def _runtime_activity(self) -> tuple[str, str]:
+        metric_root = (self.work_directory / "server-data" /
+                       self.scene.project_name / "session" / "output" /
+                       "data")
+        values = {name: _tail_numeric_metric(metric_root / filename)
+                  for name, filename in _SOLVER_METRICS.items()}
+        if any(value is not None for value in values.values()):
+            contacts = values["contacts"]
+            if contacts is not None:
+                self.diagnostics.contact_last = contacts
+                self.diagnostics.contact_peak = max(
+                    self.diagnostics.contact_peak, contacts)
+                self.diagnostics.contact_samples += 1
+            parts = []
+            if contacts is not None:
+                parts.append(f"{contacts:,} contacts")
+            if values["newton"] is not None:
+                parts.append(f"Newton {values['newton']}")
+            if values["iterations"] is not None:
+                parts.append(f"{values['iterations']:,} linear iterations")
+            return "SOLVING_CONSTRAINTS", "Solver · " + " · ".join(parts)
+        if self._manager is None:
+            return "", ""
+        poll = self._manager.poll()
+        return poll.activity_code, poll.activity_message
+
     def _request(self, request: str) -> dict:
         assert self._address is not None
         response = wire.send_tcmd(self._address, self.transport,
@@ -238,6 +297,32 @@ class SolverSession:
             poll = self._manager.poll()
             self.diagnostics.stdout_tail = poll.stdout_tail
             self.diagnostics.stderr_tail = poll.stderr_tail
+            self.diagnostics.contact_peak = poll.contact_peak
+            self.diagnostics.contact_last = poll.contact_last
+            self.diagnostics.contact_samples = poll.contact_samples
+
+    def _owned_connection_error(self, exc: ClothNextError) -> ClothNextError:
+        """Replace opaque socket failures with owned-process evidence."""
+        if self._manager is None:
+            return exc
+        poll = self._manager.poll()
+        self.diagnostics.stdout_tail = poll.stdout_tail
+        self.diagnostics.stderr_tail = poll.stderr_tail
+        if not poll.running:
+            return self._manager.early_exit_error(poll)
+        record = exc.record
+        return ClothNextError(ErrorRecord.create(
+            category=record.category,
+            user_message=record.user_message,
+            technical_message=(f"{record.technical_message}; "
+                f"owned_process_id={poll.process_id}; "
+                f"stdout_tail={poll.stdout_tail}; "
+                f"stderr_tail={poll.stderr_tail}; "
+                f"progress_tail={poll.progress.tail}"),
+            recommended_action=record.recommended_action,
+            recoverable=record.recoverable,
+            context={"process_id": poll.process_id,
+                     "exit_code": poll.exit_code}))
 
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
@@ -245,6 +330,10 @@ class SolverSession:
         return _session_error(
             f"The solver reported a failure while {phase}.",
             f"server status FAILED during {phase}: {error_text}; "
+            f"contacts(last={self.diagnostics.contact_last}, "
+            f"peak={self.diagnostics.contact_peak}, "
+            f"samples={self.diagnostics.contact_samples}); "
+            f"stdout_tail={self.diagnostics.stdout_tail}; "
             f"stderr_tail={self.diagnostics.stderr_tail}")
 
     # -- lifecycle ----------------------------------------------------------
@@ -324,12 +413,17 @@ class SolverSession:
             if status == STATUS_BUILDING:
                 progress = response.get("progress")
                 info = str(response.get("info", "") or "Building solver project")
+                activity_code, activity_message = self._runtime_activity()
+                if activity_message:
+                    info = activity_message
                 if isinstance(progress, (int, float)):
                     self._event("BUILDING", info,
                                 frame_current=int(progress * 100),
-                                frame_total=100)
+                                frame_total=100,
+                                activity_code=activity_code)
                 else:
-                    self._event("BUILDING", info, indeterminate=True)
+                    self._event("BUILDING", info, indeterminate=True,
+                                activity_code=activity_code)
             elif status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT):
                 raise _session_error(
                     "The solver project is unexpectedly busy.",
@@ -490,9 +584,12 @@ class SolverSession:
                     f"{sorted(fetched)} of {total} frames on disk")
             if status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT, STATUS_BUILDING):
                 current = min(available + 1, total)
+                activity_code, activity_message = self._runtime_activity()
                 self._event("SIMULATING",
+                            activity_message or
                             f"Simulating frame {current} of {total}",
-                            frame_current=available, frame_total=total)
+                            frame_current=available, frame_total=total,
+                            activity_code=activity_code)
             else:
                 self._event("SIMULATING",
                             f"Waiting for the solver ({status})",
@@ -536,7 +633,12 @@ class SolverSession:
         if self._manager is not None:
             self._capture_process_tails()
             try:
-                self._manager.stop()
+                poll = self._manager.stop()
+                self.diagnostics.stdout_tail = poll.stdout_tail
+                self.diagnostics.stderr_tail = poll.stderr_tail
+                self.diagnostics.contact_peak = poll.contact_peak
+                self.diagnostics.contact_last = poll.contact_last
+                self.diagnostics.contact_samples = poll.contact_samples
             finally:
                 self._manager = None
 
@@ -587,12 +689,23 @@ class SolverSession:
                         indeterminate=True)
             self._cancel_server_side()
             raise
+        except ClothNextError as exc:
+            if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
+                raise self._owned_connection_error(exc) from exc
+            raise
         finally:
             try:
                 self._delete_project()
             finally:
                 if owned:
                     self._stop_owned()
+                payload = self.scene.data_payload
+                if isinstance(payload, Path):
+                    try:
+                        if payload.parent.resolve() == self.work_directory.resolve():
+                            payload.unlink(missing_ok=True)
+                    except OSError:
+                        pass
                 self.diagnostics.timings["total"] = time.monotonic() - started
                 log_with_context(self._logger, 20, "session finished", {
                     "run_id": self.diagnostics.run_id,
@@ -600,6 +713,9 @@ class SolverSession:
                     "mode": self.diagnostics.solver_mode,
                     "fetched": len(self.diagnostics.fetched_frames),
                     "cancelled": self.diagnostics.cancelled,
+                    "contact_peak": self.diagnostics.contact_peak,
+                    "contact_last": self.diagnostics.contact_last,
+                    "contact_samples": self.diagnostics.contact_samples,
                 })
 
 

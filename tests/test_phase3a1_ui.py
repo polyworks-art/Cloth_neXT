@@ -5,6 +5,7 @@ from pathlib import Path
 import inspect
 import json
 import tomllib
+from types import SimpleNamespace
 
 def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypatch):
     ui=blender_env.physics_ui; requested=[]
@@ -25,6 +26,31 @@ def test_hud_draw_source_has_no_hardware_or_process_calls(blender_env):
     source=inspect.getsource(__import__("cloth_next.blender.hud",fromlist=["x"])._draw)
     for forbidden in ("subprocess", "nvidia-smi", "query_nvidia", "Popen(", "open("):
         assert forbidden not in source
+
+
+def test_hud_uses_public_website_palette(blender_env):
+    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
+    assert hud.HUD_BG == (.027,.063,.055,.96)
+    assert hud.HUD_MINT == (.329,.937,.765,1.0)
+    assert hud.HUD_ACCENT == (.42,.50,.47,1.0)
+    assert hud.HUD_GRAPH == (.78,.82,.81,1.0)
+    assert hud.HUD_DANGER == (1.0,.420,.443,.96)
+
+
+def test_hud_redraw_timer_updates_idle_viewport_without_mouse_input(
+        blender_env, monkeypatch):
+    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
+    redraws=[]
+    area=SimpleNamespace(type="VIEW_3D",tag_redraw=lambda:redraws.append(True))
+    blender_env.bpy.context.window_manager=SimpleNamespace(windows=(
+        SimpleNamespace(screen=SimpleNamespace(areas=(area,))),))
+    monkeypatch.setattr(hud,"_preferences",lambda:SimpleNamespace(
+        show_bake_hud=True,telemetry_refresh_seconds=.5))
+    monkeypatch.setattr(hud.shared_controller,"snapshot",lambda:
+        SimpleNamespace(state=hud.BakeState.PREPARING))
+
+    assert hud._redraw_pulse() == .5
+    assert redraws == [True]
 
 def test_release_versions_remain_consistent_and_channel_encoded():
     package=Path(__file__).parents[1]/"cloth_next"

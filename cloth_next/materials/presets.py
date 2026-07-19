@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass
+import math
 from pathlib import Path
 
 from .models import ShellMaterialSettings
@@ -24,17 +25,37 @@ CUSTOM_DESCRIPTION = ("Manually edited values; selecting Custom never "
                       "changes the current settings")
 DEFAULT_PRESET_ID = "DEFAULT_CLOTH"
 
+CATEGORY_ORDER = (
+    "ESSENTIALS", "LIGHTWEIGHT", "NATURAL_WOVENS", "KNITS_STRETCH",
+    "PILE_SOFT", "HEAVY_STRUCTURED", "TECHNICAL_COATED",
+)
+CATEGORY_LABELS = {
+    "ESSENTIALS": "Essentials",
+    "LIGHTWEIGHT": "Light & Flowing",
+    "NATURAL_WOVENS": "Natural Wovens",
+    "KNITS_STRETCH": "Knits & Stretch",
+    "PILE_SOFT": "Pile & Soft",
+    "HEAVY_STRUCTURED": "Heavy & Structured",
+    "TECHNICAL_COATED": "Technical & Coated",
+}
+
 _PRESET_FILE = Path(__file__).resolve().parent / "ppf_fabric_presets.toml"
 
 _REQUIRED_KEYS = frozenset({
-    "id", "label", "description", "upstream_calibrated", "model",
+    "id", "label", "category", "description", "upstream_calibrated", "model",
     "surface_weight", "stretch_resistance", "sideways_response",
     "bend_resistance", "surface_grip", "stretch_limit_enabled",
     "maximum_stretch_percent",
 })
 _OPTIONAL_KEYS = frozenset({
     "shape_damping", "fold_damping", "collision_gap",
-    "surface_offset",
+    "surface_offset", "source_reference", "measured_area_weight_oz_yd2",
+    "measured_bending_stiffness_lbf_in2",
+})
+_METADATA_KEYS = frozenset({
+    "id", "label", "category", "description", "upstream_calibrated",
+    "source_reference", "measured_area_weight_oz_yd2",
+    "measured_bending_stiffness_lbf_in2",
 })
 _REQUIRED_PROVENANCE = frozenset({
     "source_project", "source_commit", "source_path", "source_license",
@@ -51,8 +72,12 @@ class MaterialPreset:
 
     identifier: str
     label: str
+    category: str
     description: str
     upstream_calibrated: bool
+    source_reference: str | None
+    measured_area_weight_oz_yd2: float | None
+    measured_bending_stiffness_lbf_in2: float | None
     settings: ShellMaterialSettings
 
 
@@ -92,8 +117,25 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
             raise PresetError(f"duplicate or reserved preset id "
                               f"{identifier!r}")
         seen.add(identifier)
-        material_keys = (keys - {"id", "label", "description",
-                                 "upstream_calibrated"})
+        category = str(entry["category"])
+        if category not in CATEGORY_LABELS:
+            raise PresetError(f"preset {identifier!r} has unknown category "
+                              f"{category!r}")
+        measured = {}
+        for key in ("measured_area_weight_oz_yd2",
+                    "measured_bending_stiffness_lbf_in2"):
+            value = entry.get(key)
+            if value is not None:
+                try:
+                    value = float(value)
+                except (TypeError, ValueError) as exc:
+                    raise PresetError(f"preset {identifier!r} has invalid "
+                                      f"{key}") from exc
+                if not math.isfinite(value) or value <= 0.0:
+                    raise PresetError(f"preset {identifier!r} requires a "
+                                      f"positive finite {key}")
+            measured[key] = value
+        material_keys = keys - _METADATA_KEYS
         try:
             settings = ShellMaterialSettings(
                 **{key: entry[key] for key in material_keys})
@@ -102,8 +144,15 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
                               f"material values: {exc}") from exc
         presets.append(MaterialPreset(
             identifier=identifier, label=str(entry["label"]),
+            category=category,
             description=str(entry["description"]),
             upstream_calibrated=bool(entry["upstream_calibrated"]),
+            source_reference=(str(entry["source_reference"])
+                              if entry.get("source_reference") else None),
+            measured_area_weight_oz_yd2=
+                measured["measured_area_weight_oz_yd2"],
+            measured_bending_stiffness_lbf_in2=
+                measured["measured_bending_stiffness_lbf_in2"],
             settings=settings))
     return tuple(presets), {key: str(value)
                             for key, value in provenance.items()}
@@ -156,3 +205,14 @@ def preset_by_identifier(identifier: str) -> MaterialPreset | None:
         if preset.identifier == identifier:
             return preset
     return None
+
+
+def presets_in_category(category: str) -> tuple[MaterialPreset, ...]:
+    """Bundled presets in one stable, validated UI category."""
+    if category not in CATEGORY_LABELS:
+        return ()
+    try:
+        return tuple(preset for preset in builtin_presets()
+                     if preset.category == category)
+    except PresetError:
+        return ()

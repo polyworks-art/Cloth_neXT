@@ -32,7 +32,8 @@ from ..developer import is_dev_build
 from ..materials import formatting
 from ..materials import presets as material_presets
 from ..solver_quality import QUALITY_PRESETS, matching_quality_preset
-from . import icon_registry, object_properties, physics_operators, validation_state
+from . import (beta_tools, collider_proxy, icon_registry, object_properties,
+               physics_operators, validation_state)
 from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
@@ -298,10 +299,8 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         header = layout.column(align=True)
         header.label(text="PPF Contact Solver",
                      **icon_registry.icon_kwargs("solver", "SETTINGS"))
-        header.label(text=status.title)
-        for detail in status.details:
-            header.label(text=detail)
         if not status.ready:
+            header.label(text=status.title)
             layout.operator("clothnext.open_preferences",
                             text="Open Add-on Preferences")
 
@@ -312,6 +311,22 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         action.enabled = model.enabled and not snapshot.active
         action.operator("clothnext.bake", text=model.action,
                         **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
+        if not snapshot.active:
+            warning = _animated_collider_capture_warning(context, solver_test)
+            if warning is not None:
+                warning_row = layout.row()
+                warning_row.alert = True
+                warning_row.label(
+                    text=(f'Large animated Collider capture: '
+                          f'~{warning.size_label}'), icon="ERROR")
+                layout.label(
+                    text="Bake allowed · Low-poly collision proxy recommended.")
+            contact_warning = _contact_stability_warning(context)
+            if contact_warning:
+                warning_row = layout.row()
+                warning_row.alert = True
+                warning_row.label(text=contact_warning, icon="ERROR")
+                layout.label(text="Bake allowed - try Gap 0.001 and Grip 0.2-0.3.")
         if snapshot.active:
             progress_text = _run_state_text(snapshot)
             layout.label(text=progress_text)
@@ -352,7 +367,9 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     buttons = section.row(align=True)
     buttons.enabled = not bake_active
     for preset in QUALITY_PRESETS:
-        operator = buttons.operator(
+        button = buttons.row(align=True)
+        button.alert = preset.identifier == "EXTREME"
+        operator = button.operator(
             physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
             text=preset.label, depress=current is preset)
         operator.preset = preset.identifier
@@ -526,8 +543,9 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     animated collider, a broken frame range, an invalid mapped material value,
     a missing pin group) disable the button immediately. Everything that needs
     the mesh — topology, pin indices — is validated when Bake is clicked, not
-    on every redraw. A previously *recorded* INVALID verdict is shown too:
-    that is reading a stored result, not computing a new one.
+    on every redraw. A previously recorded INVALID verdict remains visible,
+    but never disables retry: otherwise correcting a scene could leave the
+    artist permanently locked out of the validation path.
     """
     from . import solver_test
     status = solver_status or _solver_status(context)
@@ -577,11 +595,44 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
                 reason = _cheap_pin_reason(solver_test, obj)
                 if reason:
                     break
-                record = validation_state.record_for(obj)
-                if record.state is validation_state.ValidationState.INVALID:
-                    reason = record.message
-                    break
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
+
+
+def _animated_collider_capture_warning(context, solver_test):
+    """Cheap panel warning; malformed scene state is handled by Bake itself."""
+    try:
+        deformables, colliders = solver_test._enabled_objects_for_solve(context)
+        ranges = {(int(obj.cloth_next.bake_start),
+                   int(obj.cloth_next.bake_end)) for obj in deformables}
+        if len(ranges) != 1:
+            return None
+        from ..bake.frame_range import BakeFrameRange
+        bake_range = BakeFrameRange(*next(iter(ranges)))
+        return solver_test.animated_collider_capture_warning(
+            colliders, bake_range)
+    except Exception:  # noqa: BLE001 - Panel.draw must remain failure-safe
+        return None
+
+
+def _contact_stability_warning(context) -> str:
+    """Warn without overriding deliberate, scale-dependent contact values."""
+    objects = getattr(getattr(context, "scene", None), "objects", ())
+    deformables = [obj for obj in objects
+        if getattr(getattr(obj, "cloth_next", None), "enabled", False)
+        and obj.cloth_next.role in {"CLOTH", "ROD", "SOFT_BODY"}]
+    if not deformables or not any(
+            bool(obj.cloth_next.collision.enabled) for obj in deformables):
+        return ""
+    for obj in objects:
+        settings = getattr(obj, "cloth_next", None)
+        if (settings is None or not bool(getattr(settings, "enabled", False))
+                or getattr(settings, "role", "") != "COLLIDER"):
+            continue
+        collision = settings.collision
+        if (float(collision.collision_gap) >= 0.01
+                and float(collision.surface_grip) >= 0.4):
+            return "High Collider Gap + Grip can destabilize pinned Cloth."
+    return ""
 
 
 def _cheap_pin_reason(solver_test, cloth) -> str:
@@ -609,6 +660,51 @@ def _preset_description(identifier: str) -> str:
         if item_id == identifier:
             return description
     return ""
+
+
+def _preset_label(identifier: str) -> str:
+    preset = material_presets.preset_by_identifier(identifier)
+    if preset is not None:
+        return preset.label
+    return material_presets.CUSTOM_LABEL
+
+
+def _draw_material_category(self, context):
+    selected = getattr(context.object.cloth_next.material, "preset", "")
+    for preset in material_presets.presets_in_category(self.category):
+        operator = self.layout.operator(
+            "clothnext.apply_material_preset", text=preset.label,
+            icon="CHECKMARK" if preset.identifier == selected else "NONE")
+        operator.preset = preset.identifier
+
+
+def _make_material_category_menu(category: str):
+    class_name = f"CLOTHNEXT_MT_material_{category.lower()}"
+    return type(class_name, (bpy.types.Menu,), {
+        "__module__": __name__,
+        "bl_idname": class_name,
+        "bl_label": material_presets.CATEGORY_LABELS[category],
+        "category": category,
+        "draw": _draw_material_category,
+    })
+
+
+MATERIAL_PRESET_CATEGORY_MENUS = tuple(
+    _make_material_category_menu(category)
+    for category in material_presets.CATEGORY_ORDER
+)
+
+
+class CLOTHNEXT_MT_material_presets(bpy.types.Menu):
+    """Categorized, hover-opened fabric material library."""
+
+    bl_idname = "CLOTHNEXT_MT_material_presets"
+    bl_label = "Material Presets"
+
+    def draw(self, _context):
+        for menu in MATERIAL_PRESET_CATEGORY_MENUS:
+            if material_presets.presets_in_category(menu.category):
+                self.layout.menu(menu.bl_idname, text=menu.bl_label)
 
 
 class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
@@ -674,7 +770,10 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         if error:
             layout.label(text="Bundled presets unavailable:", icon="ERROR")
             layout.label(text=error)
-        layout.prop(material, "preset")
+        preset_row = layout.row()
+        preset_row.label(text="Material Preset")
+        preset_row.menu(CLOTHNEXT_MT_material_presets.bl_idname,
+                        text=_preset_label(material.preset))
         description = _preset_description(material.preset)
         if description:
             layout.label(text=description)
@@ -771,6 +870,47 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         collision = settings.collision
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
+            if settings.collider_motion == "ANIMATED":
+                layout.prop(settings, "collider_samples_per_frame")
+                samples = int(settings.collider_samples_per_frame)
+                if samples < 8:
+                    layout.label(text="Low sampling can let fast colliders cross cloth",
+                                 icon="ERROR")
+                elif samples < 12:
+                    layout.label(text="Fast or curved motion: consider 12–16 samples",
+                                 icon="INFO")
+                else:
+                    layout.label(text="High-fidelity animated Collider sampling",
+                                 icon="CHECKMARK")
+                if not collider_proxy.is_generated_proxy(context.object):
+                    proxy_box = layout.box()
+                    proxy_box.label(text="Simulation Proxy · Experimental",
+                                    icon="ERROR")
+                    proxy_box.prop(settings, "collider_proxy_target_vertices")
+                    proxy = getattr(settings, "collider_proxy_object", None)
+                    action = proxy_box.row(align=True)
+                    action.operator(
+                        "clothnext.generate_collider_proxy",
+                        text="Regenerate Proxy" if proxy else "Generate Proxy")
+                    if proxy:
+                        proxy_box.prop(settings, "collider_proxy_enabled")
+                        estimate = collider_proxy.proxy_estimate(
+                            context.object, proxy)
+                        proxy_box.label(
+                            text=(f"Geometry: {estimate.source_vertices:,} → "
+                                  f"{estimate.proxy_vertices:,} vertices"))
+                        proxy_box.label(
+                            text=(f"Estimated PPF peak: "
+                                  f"{collider_proxy.format_bytes(estimate.source_peak_bytes)} "
+                                  f"→ {collider_proxy.format_bytes(estimate.proxy_peak_bytes)}"),
+                            icon="MEMORY")
+                        proxy_box.label(
+                            text="Regenerate after topology or deformer changes",
+                            icon="INFO")
+                    else:
+                        proxy_box.label(
+                            text="Original Collider remains active until generated",
+                            icon="INFO")
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             layout.prop(collision, "enabled")
         column = layout.column()
@@ -779,6 +919,14 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         column.prop(collision, "surface_grip")
         column.prop(collision, "collision_gap")
         column.prop(collision, "surface_offset")
+        if (settings.role == "COLLIDER"
+                and float(collision.collision_gap) >= 0.01
+                and float(collision.surface_grip) >= 0.4):
+            warning = layout.row()
+            warning.alert = True
+            warning.label(
+                text="High Gap + Grip may destabilize pinned Cloth",
+                icon="ERROR")
 
 
 def _developer_tools_enabled(context) -> bool:
@@ -945,6 +1093,56 @@ class CLOTHNEXT_PT_developer_tools(_ClothNextSubpanel, bpy.types.Panel):
         _draw_ui_diagnostics_controls(developer_box, context)
 
 
+class CLOTHNEXT_PT_beta_readiness(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Scene Health & Recovery"
+    bl_idname = "CLOTHNEXT_PT_beta_readiness"
+    bl_parent_id = "CLOTHNEXT_PT_cache"
+    bl_options = {"DEFAULT_CLOSED"}
+    cloth_only = True
+    header_icon = "validate"
+
+    def draw(self, context):
+        layout = self.layout
+        actions = layout.column(align=True)
+        actions.enabled = not shared_controller.snapshot().active
+        actions.operator("clothnext.scene_health", text="Run Scene Health Check",
+                         icon="CHECKMARK")
+        for check in beta_tools._last_health[:8]:
+            icon = ("ERROR" if check.severity.value == "ERROR" else
+                    "INFO" if check.severity.value == "WARNING" else "CHECKMARK")
+            row = layout.row(align=True)
+            row.alert = check.severity.value == "ERROR"
+            row.label(text=f"{check.title}: {check.detail}", icon=icon)
+            if check.action:
+                layout.label(text=check.action, icon="BLANK1")
+        layout.separator()
+        cache = layout.box()
+        cache.label(text="Cache Recovery", icon="FILE_CACHE")
+        cache.operator("clothnext.cache_scan", text="Scan Cache Directory",
+                       icon="VIEWZOOM")
+        if beta_tools._last_cache_root is not None:
+            invalid = sum(entry.deletable for entry in beta_tools._last_cache)
+            total = sum(entry.size_bytes for entry in beta_tools._last_cache)
+            cache.label(text=(f"{len(beta_tools._last_cache)} cache(s) · "
+                              f"{beta_tools.human_bytes(total)} · "
+                              f"{invalid} safely removable"))
+            for entry in beta_tools._last_cache[:5]:
+                cache.label(text=f"{entry.cache_path.name}: {entry.condition}",
+                            icon=("ERROR" if entry.deletable else "INFO"))
+            clear = cache.row()
+            clear.enabled = invalid > 0 and not shared_controller.snapshot().active
+            clear.operator("clothnext.cache_clear_invalid",
+                           text="Remove Invalid Caches", icon="TRASH")
+        layout.separator()
+        support = layout.box()
+        support.label(text="Support", icon="HELP")
+        support.operator("clothnext.export_support_report",
+                         text="Export Privacy-Safe Report", icon="TEXT")
+        if beta_tools._last_support_report is not None:
+            support.label(text=beta_tools._last_support_report.name,
+                          icon="CHECKMARK")
+
+
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Advanced PPF"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
     header_icon = "advanced"
@@ -984,10 +1182,12 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
+           *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
            CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
+           CLOTHNEXT_PT_beta_readiness,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_advanced)

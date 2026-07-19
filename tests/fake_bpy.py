@@ -16,6 +16,11 @@ import sys
 import types
 
 
+def _is_property_group_type(target):
+    return (isinstance(target, type) and
+            any(base.__name__ == "PropertyGroup" for base in target.mro()))
+
+
 class _PropDef:
     """Stand-in for a deferred bpy property definition."""
 
@@ -34,7 +39,10 @@ class _PropDef:
                              if len(item) > 4 and item[4] == default), "")
             return default if default is not None else (items[0][0] if items else "")
         if self.kind == "POINTER":
-            return _instantiate_group(self.keywords["type"], id_data)
+            target = self.keywords["type"]
+            if _is_property_group_type(target):
+                return _instantiate_group(target, id_data)
+            return None
         return self.keywords.get("default")
 
     def _name_on(self, owner):
@@ -52,7 +60,10 @@ class _PropDef:
         name = self._name_on(owner)
         # The ID that owns the group — Blender exposes this as `id_data`, and
         # the add-on's update callbacks navigate through it.
-        instance = _instantiate_group(self.keywords["type"], id_data=obj)
+        target = self.keywords["type"]
+        if not _is_property_group_type(target):
+            return obj.__dict__.get(name)
+        instance = _instantiate_group(target, id_data=obj)
         obj.__dict__[name] = instance
         return instance
 
@@ -87,8 +98,10 @@ def _instantiate_group(group_cls, id_data=None):
     instance = group_cls()
     object.__setattr__(instance, "_id_data", id_data)
     for name, prop in _resolved_props(group_cls).items():
-        value = (_instantiate_group(prop.keywords["type"], id_data)
-                 if prop.kind == "POINTER" else prop.default_value())
+        target = prop.keywords.get("type")
+        value = (_instantiate_group(target, id_data)
+                 if prop.kind == "POINTER" and _is_property_group_type(target)
+                 else prop.default_value())
         object.__setattr__(instance, name, value)
     return instance
 
