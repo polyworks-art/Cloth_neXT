@@ -6,6 +6,12 @@ details are retained in Blender and in the rotating `bake-errors.log` described
 below. The broad `x00` code in each group is the compatibility fallback when a
 more specific cause cannot be proven.
 
+When an error is shown, the Companion requests the current recovery text from
+`https://polyworks-art.github.io/Cloth_neXT/errors/errors.json`. Only the error
+code is used locally to select a downloaded entry; no scene data, filenames, or
+diagnostic logs are uploaded. If the request fails, the recommendation bundled
+with the installed build remains visible.
+
 ## Scene validation (`CNX-E10x`)
 
 | Code | Cause | First action |
@@ -83,7 +89,7 @@ more specific cause cannot be proven.
 | Code | Cause | First action |
 | --- | --- | --- |
 | `CNX-E160` | Unclassified simulation failure | Inspect the failing frame and diagnostic log. |
-| `CNX-E161` | Constraints did not converge | Reduce Time Step/extreme stiffness; inspect collision geometry. |
+| `CNX-E161` | Constraints did not converge | Lower Friction first; then reduce Collision Gap, increase animated Collider sampling, or use a smaller Time Step. |
 | `CNX-E162` | Initial intersection | Separate intersecting geometry on the first frame. |
 | `CNX-E163` | Simulation stalled/timed out | Inspect the last frame and reduce complexity. |
 | `CNX-E164` | Solver crashed/exited | Inspect stderr and GPU/driver stability. |

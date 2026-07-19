@@ -30,6 +30,12 @@ def test_specific_causes_win_over_stage_fallbacks():
                           "Initial intersection while building contacts") == "CNX-E162"
     assert classify_error("FETCHING", details=
                           "finished without producing every frame") == "CNX-E167"
+
+
+def test_e161_recommends_the_most_reliable_recovery_first():
+    action = ERROR_CODES["CNX-E161"].action
+    assert action.startswith("Lower Friction first.")
+    assert action.index("Friction") < action.index("Time Step")
     assert classify_error("IMPORTING", details=
                           "Curve topology changed before Rod import") == "CNX-E188"
     assert classify_error("SIMULATING", details=

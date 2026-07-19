@@ -2366,9 +2366,9 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError) -> tuple[str, str]
         blender_frame = plan.frame_start + solver_frame
         summary = ("Simulation could not converge at Blender frame "
                    f"{blender_frame}.")
-        action = ("Try a smaller Time Step or denser Collider motion "
-                  "sampling, then inspect contact around the preceding "
-                  "and failing frames.")
+        action = ("Lower Friction first. If it still fails, reduce Collision "
+                  "Gap, increase animated Collider sampling, then try a "
+                  "smaller Time Step.")
         details = (f"Stage: collision and constraint solve\n"
                    f"Solver frame: {solver_frame}\n"
                    f"Blender frame: {blender_frame}\n"
