@@ -596,7 +596,7 @@ def test_release_notes_operator_opens_documented_urls(blender_env, monkeypatch):
     assert opened == ["https://github.com/polyworks-art/Cloth_neXT/releases"]
     module.session().latest = parse_version("9.9.9-rc.3")
     op.execute(env.bpy.context)
-    assert opened[-1].endswith("/releases/tag/v9.9.9-rc.3")
+    assert opened[-1].endswith("/releases/tag/9.9.9-rc.3")
     env.registration.unregister()
 
 

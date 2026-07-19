@@ -13,8 +13,7 @@ def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypa
                         lambda name,fallback="NONE": requested.append(name) or {"icon":fallback})
     class Layout:
         def label(self,**_kwargs): pass
-    expected={ui.CLOTHNEXT_PT_physics:"cloth_next",ui.CLOTHNEXT_PT_overview:"cloth",
-        ui.CLOTHNEXT_PT_solver:"solver",
+    expected={ui.CLOTHNEXT_PT_physics:"cloth_next",ui.CLOTHNEXT_PT_solver:"solver",
         ui.CLOTHNEXT_PT_material:"physical",ui.CLOTHNEXT_PT_damping:"damping",
         ui.CLOTHNEXT_PT_collisions:"collision",ui.CLOTHNEXT_PT_cache:"cache",
         ui.CLOTHNEXT_PT_advanced:"advanced"}

@@ -216,9 +216,8 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
     preset: bpy.props.EnumProperty(
         name="Material Preset", items=PRESET_ITEMS, default=DEFAULT_PRESET,
         update=_on_preset_update,
-        description="Calibrated PPF fabric presets bundled with Cloth NeXt; "
-                    "editing any mapped value switches to Custom without "
-                    "resetting anything")
+        description="Choose a fabric starting point. Editing a material value "
+                    "switches to Custom without resetting your settings")
     model: bpy.props.EnumProperty(
         name="Solver Model",
         items=((MODEL_FABRIC, "Fabric (Baraff-Witkin)",
@@ -226,56 +225,52 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
                (MODEL_SHAPE_PRESERVING, "Shape Preserving (ARAP)",
                 "Advanced shape-preserving alternative")),
         default=MODEL_FABRIC, update=_on_material_value_update,
-        description="Selects the mathematical shell material model. Fabric "
-                    "(Baraff-Witkin) is the calibrated model used by the "
-                    "bundled PPF fabric presets. Shape Preserving (ARAP) is "
-                    "an advanced alternative. Technical PPF parameter: "
-                    "model")
+        description="Choose how the surface behaves. Fabric (Baraff-Witkin) is "
+                    "recommended for cloth; Shape Preserving (ARAP) retains the "
+                    "original form more strongly. Technical PPF parameter: model")
     surface_weight: bpy.props.FloatProperty(
         name="Surface Weight", default=1.0, min=0.01, soft_max=10.0,
         max=10000.0, precision=3, update=_on_material_value_update,
         description="Mass of the fabric per square meter. Higher values "
                     "give the cloth more inertia and make it react more "
-                    "heavily, but do not directly make it stiffer. "
-                    "Unit: kg/m². Technical PPF parameter: density")
+                    "heavily, but do not directly make it stiffer. Unit: kg/m². "
+                    "Technical PPF parameter: density")
     stretch_resistance: bpy.props.FloatProperty(
         name="Stretch Resistance", default=1000.0, min=0.0,
         soft_max=100000.0, max=1e9, precision=1,
         update=_on_material_value_update,
         description="Controls how strongly the fabric resists being pulled "
                     "longer. Lower values create softer, more stretchable "
-                    "cloth. Higher values preserve its original size more "
-                    "strongly. Sent directly as PPF's density-normalized "
-                    "young-mod value")
+                    "cloth. Higher values preserve its original size more strongly. "
+                    "Technical PPF parameter: density-normalized young-mod")
     sideways_response: bpy.props.FloatProperty(
         name="Sideways Response", default=0.35, min=0.0, max=0.4999,
         precision=4, update=_on_material_value_update,
         description="Controls how strongly stretching in one direction "
                     "affects the fabric sideways. Lower values allow the "
                     "directions to stretch more independently. Higher "
-                    "values make the fabric contract sideways more "
-                    "strongly. Technical PPF parameter: poiss-rat")
+                    "values make the fabric contract sideways more strongly. "
+                    "Technical PPF parameter: poiss-rat")
     bend_resistance: bpy.props.FloatProperty(
         name="Bend Resistance", default=10.0, min=0.0, soft_max=100.0,
         precision=2, update=_on_material_value_update,
         description="Controls how easily the fabric bends and forms folds. "
                     "Lower values create soft, flowing folds. Higher "
-                    "values create broader, stiffer folds and stronger "
-                    "shape retention. Technical PPF parameter: bend")
+                    "values create broader, stiffer folds and stronger shape retention. "
+                    "Technical PPF parameter: bend")
     stretch_limit_enabled: bpy.props.BoolProperty(
         name="Stretch Limit", default=False,
         update=_on_material_value_update,
         description="Prevents the fabric from stretching beyond the "
-                    "specified percentage. When disabled, Cloth NeXt sends "
-                    "a strain-limit value of zero to PPF")
+                    "specified percentage. Disable it for unrestricted stretch. "
+                    "Technical PPF parameter: strain-limit")
     maximum_stretch_percent: bpy.props.FloatProperty(
         name="Maximum Stretch", default=5.0, min=0.01, soft_max=20.0,
         max=100.0, precision=2, subtype="PERCENTAGE",
         update=_on_material_value_update,
         description="Maximum permitted extension beyond the original size. "
-                    "A value of 5% allows approximately five percent "
-                    "stretch. Converted to PPF's fractional strain-limit "
-                    "value")
+                    "A value of 5% allows approximately five percent stretch. "
+                    "Technical PPF parameter: strain-limit")
 
 
 class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
@@ -292,8 +287,8 @@ class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
         name="Fold Damping", default=0.0, min=0.0, soft_max=0.1,
         precision=4, update=_on_material_value_update,
         description="Reduces oscillation and flutter in folds and bending "
-                    "motion. Small values can calm unstable folds. Unit: "
-                    "seconds. Technical PPF parameter: bending-damping")
+                    "motion. Small values can calm unstable folds. Unit: seconds. "
+                    "Technical PPF parameter: bending-damping")
 
 
 class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
@@ -305,8 +300,7 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
     inflate_pressure: bpy.props.FloatProperty(
         name="Pressure", default=0.0, min=0.0, soft_max=100.0, precision=3,
         update=_on_settings_update,
-        description="Uniform pressure along the Cloth surface normals. "
-                    "Technical PPF parameter: pressure")
+        description="Uniform outward pressure along the Cloth surface normals")
 
 
 class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
@@ -317,22 +311,26 @@ class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
         name="Time Step", default=DEFAULT_TIME_STEP,
         min=MIN_TIME_STEP, max=MAX_TIME_STEP, precision=5,
         update=_on_settings_update,
-        description="Scene-wide solver time step in seconds; technical PPF parameter: dt")
+        description="Simulation step size in seconds. Smaller values can improve "
+                    "stability but take longer to calculate")
     min_newton_steps: bpy.props.IntProperty(
         name="Minimum Newton Steps", default=DEFAULT_MIN_NEWTON_STEPS,
         min=MIN_NEWTON_STEPS, max=MAX_NEWTON_STEPS,
         update=_on_settings_update,
-        description="Scene-wide minimum nonlinear solver steps; technical PPF parameter: min-newton-steps")
+        description="Minimum correction passes per simulation step. Increase only "
+                    "when a difficult scene does not converge")
     cg_max_iter: bpy.props.IntProperty(
         name="PCG Max Iterations", default=DEFAULT_CG_MAX_ITER,
         min=MIN_CG_MAX_ITER, max=MAX_CG_MAX_ITER,
         update=_on_settings_update,
-        description="Scene-wide PCG iteration limit; technical PPF parameter: cg-max-iter")
+        description="Maximum internal linear-solver iterations. Higher values may "
+                    "help difficult scenes but increase bake time")
     cg_tol: bpy.props.FloatProperty(
         name="PCG Tolerance", default=DEFAULT_CG_TOL,
         min=MIN_CG_TOL, max=MAX_CG_TOL, precision=5,
         update=_on_settings_update,
-        description="Scene-wide PCG convergence tolerance; technical PPF parameter: cg-tol")
+        description="Linear-solver accuracy target. Lower values are stricter and "
+                    "may increase bake time")
 
 
 class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
@@ -340,68 +338,68 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
 
     enabled: bpy.props.BoolProperty(
         name="Enable Contact", default=True, update=_on_settings_update,
-        description="Turns solver contact handling on or off for the whole "
-                    "run. When disabled, PPF receives disable-contact and "
-                    "the cloth falls through every obstacle. Technical PPF "
-                    "parameter: scene disable-contact")
+        description="Enable collisions for the simulation. When disabled, "
+                    "deformable objects can pass through colliders")
     surface_grip: bpy.props.FloatProperty(
-        name="Surface Grip", default=0.5, min=0.0, max=1.0, precision=2,
+        name="Friction", default=0.5, min=0.0, max=1.0, precision=2,
         update=_on_material_value_update,
-        description="Controls sliding friction at contacts. Lower values "
-                    "slide more easily. Higher values grip more strongly. "
-                    "Cloth NeXt currently uses PPF's Minimum friction "
-                    "combination mode, so both touching surfaces need "
-                    "sufficiently high values for a grippy result. "
+        description="Controls how easily touching surfaces slide. Lower values "
+                    "are slippery; higher values resist sliding. Minimum mode "
+                    "uses the lower Friction value of the two touching objects. "
                     "Technical PPF parameter: friction")
     collision_gap: bpy.props.FloatProperty(
         name="Collision Gap", default=0.001, min=0.0, soft_max=0.01,
         precision=4, update=_on_material_value_update,
-        description="Distance before PPF's contact barrier begins "
-                    "reacting. Larger values keep surfaces farther apart. "
+        description="Distance at which collision response begins. Larger values "
+                    "keep surfaces farther apart. "
                     "Excessive values can make the cloth appear to float. "
-                    "Unit: Blender world units. Technical PPF parameter: "
-                    "contact-gap")
+                    "Unit: Blender world units. Technical PPF parameter: contact-gap")
     surface_offset: bpy.props.FloatProperty(
         name="Surface Offset", default=0.0, min=0.0, soft_max=0.03,
         precision=4, update=_on_material_value_update,
         description="Adds a collision skin around the surface. Use small "
                     "values to represent surface thickness without changing "
                     "the simulated mesh. Excessive values create visible "
-                    "separation. Unit: Blender world units. Technical PPF "
-                    "parameter: contact-offset")
+                    "separation. Unit: Blender world units. Technical PPF parameter: "
+                    "contact-offset")
 
 
 class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
     linear_density: bpy.props.FloatProperty(name="Linear Density", default=1.0,
         min=0.01, max=10000.0, update=_on_settings_update,
-        description="Mass per unit length; PPF density")
+        description="Mass per unit length. Higher values make the cable feel heavier")
     stretch_resistance: bpy.props.FloatProperty(name="Stretch Resistance",
         default=10000.0, min=0.0, max=1e9, update=_on_settings_update,
-        description="Density-normalized axial stiffness; PPF young-mod")
+        description="Resistance to lengthwise stretching. Higher values preserve length")
     bend_resistance: bpy.props.FloatProperty(name="Bend Resistance", default=10.0,
         min=0.0, max=1e9, update=_on_settings_update,
-        description="Rod joint bending stiffness; PPF bend")
+        description="Resistance to bending. Lower values create flexible cables")
     length_factor: bpy.props.FloatProperty(name="Rest Length Scale", default=1.0,
         min=0.01, max=10.0, update=_on_settings_update,
-        description="Scale applied to rod rest edge lengths; PPF length-factor")
+        description="Scale the cable's resting length. Values below 1 contract it; "
+                    "values above 1 make it longer")
     stretch_limit_percent: bpy.props.FloatProperty(name="Maximum Stretch",
         default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE",
-        update=_on_settings_update, description="Zero disables PPF strain-limit")
+        update=_on_settings_update,
+        description="Maximum lengthwise stretch. Set to 0% to disable the limit")
 
 
 class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
     volume_density: bpy.props.FloatProperty(name="Volume Density", default=100.0,
         min=0.01, max=10000.0, update=_on_settings_update,
-        description="Mass per unit volume; PPF density")
+        description="Mass per unit volume. Higher values make the object feel heavier")
     stretch_resistance: bpy.props.FloatProperty(name="Elastic Stiffness",
         default=500.0, min=0.0, max=1e9, update=_on_settings_update,
-        description="Density-normalized solid stiffness; PPF young-mod")
+        description="Overall resistance to deformation. Higher values retain the "
+                    "original shape more strongly")
     poisson_ratio: bpy.props.FloatProperty(name="Poisson Ratio", default=0.35,
         min=0.0, max=0.4999, update=_on_settings_update,
-        description="Solid lateral response; PPF poiss-rat")
+        description="Controls how much the object expands sideways when compressed. "
+                    "Values near 0.5 preserve volume more strongly")
     volume_scale: bpy.props.FloatProperty(name="Rest Volume Scale", default=1.0,
         min=0.01, max=10.0, update=_on_settings_update,
-        description="Scale applied to solid rest volume; PPF shrink")
+        description="Scale the resting volume. Values below 1 shrink the object; "
+                    "values above 1 expand it")
     tetrahedralizer: bpy.props.EnumProperty(name="Tetrahedralizer",
         items=(("FTETWILD", "fTetWild", "Robust automatic tetrahedralization"),
                ("TETGEN", "TetGen", "TetGen automatic tetrahedralization")),

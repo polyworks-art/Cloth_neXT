@@ -49,7 +49,7 @@ For every release, the following must be identical (modulo the leading `v` on ta
 
 ```text
 Manifest version
-Git tag                      v<version>
+Git tag                      <version>
 GitHub release               v<version>
 Extension ZIP file name      cloth_next-<version>-windows-x64.zip
 release-manifest.json        cloth_next_version
@@ -80,8 +80,8 @@ version on its own; the version is supplied by the human release manager.
 
 Three channels exist: `stable`, `beta`, and `dev`.
 
-- Stable accepts only `vSTABLE.0.0` tags (`v1.0.0`).
-- Beta accepts only `vSTABLE.BETA.0` tags with `BETA >= 1` (`v0.4.0`).
+- Stable accepts only `STABLE.0.0` tags (`2.0.0`).
+- Beta accepts only `STABLE.BETA.0` tags with `BETA >= 1` (`1.1.0`).
 - Prerelease versions must never appear in the stable repository.
 - A stable release requires a previously successful beta end-to-end test.
 - New release infrastructure is exercised in the beta channel first.
@@ -168,7 +168,7 @@ A failing check aborts the release; nothing is published.
 
 ## 9. Git Tag and GitHub Release Rules
 
-- Releases are triggered by pushing an annotated tag `v<version>` matching the manifest.
+- Releases are triggered by pushing an annotated tag `<version>` matching the manifest.
 - Existing tags and existing releases are never replaced, moved, or force-pushed.
 - The GitHub release is created as a draft first; it is published only after every
   build, validation, repository-generation, and Pages step succeeded.
@@ -275,7 +275,7 @@ When instructed "Release Cloth NeXt \<version\>", an AI assistant must:
 11. verify no PPF solver is contained,
 12. run the release policy validator,
 13. commit, push the branch,
-14. create and push tag `v<version>`,
+14. create and push tag `<version>`,
 15. let the GitHub Action produce the release — never a parallel manual one,
 16. monitor the workflow, verify the release and the Pages repository,
 17. report success only after everything completed.

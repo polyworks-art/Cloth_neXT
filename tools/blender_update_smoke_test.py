@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Run inside real Blender (5.1.2): add-on update handoff smoke test.
+"""Run inside real Blender (5.1.2): deterministic update handoff smoke test.
 
 Verifies against Blender's real extension machinery — not a fake — that the
 Cloth NeXt "Update through Blender" handoff operator:
@@ -10,7 +10,7 @@ Cloth NeXt "Update through Blender" handoff operator:
   even when a repository earlier in the list is disabled (the condition that
   shifted bl_pkg's filtered ``repo_index`` and broke the previous
   index-based implementation),
-- synchronizes only the selected channel repository (by directory),
+- requests synchronization only for the selected channel repository directory,
 - never selects or synchronizes unrelated repositories,
 - NEVER calls ``extensions.package_install`` — the self-install path that
   could make Blender replace the running extension while its code is still
@@ -20,9 +20,13 @@ Cloth NeXt "Update through Blender" handoff operator:
 - reports a synchronization failure distinctly,
 - shows the manual Get Extensions path when the update view cannot open.
 
-The test never installs or downloads the PPF solver; it only talks to
-Blender's extension system about the Cloth NeXt package. Run it against an
-isolated profile, e.g.:
+The test uses Blender's real repository preferences and the real Cloth NeXt
+operator, but records the final synchronization handoff instead of contacting a
+live repository. Live-network behavior is unsuitable for required CI because a
+stalled remote can block Blender until the runner's six-hour limit. Repository
+generation and installation are covered separately against a local repository.
+The test never installs or downloads the PPF solver. Run it against an isolated
+profile, e.g.:
 
     BLENDER_USER_RESOURCES=<tmpdir> blender --factory-startup --background \
         --online-mode --python tools/blender_update_smoke_test.py
@@ -136,22 +140,35 @@ def main() -> None:
     repos[index].enabled = True
 
     # --- 4. the real handoff path --------------------------------------------
-    # Real repo_sync against the real channel repository; the update view may
-    # be unavailable in background mode, in which case the operator reports
-    # the manual Get Extensions path — still a FINISHED handoff, and still
-    # zero package_install calls.
-    result = run_handoff()
-    assert "Repository not set" not in session.message, session.message
-    assert session.state is state_cls.READY_IN_BLENDER, (
-        session.state, session.message)
-    assert result == {"FINISHED"}
-    assert "synchronized" in session.message.lower()
-    # honest wording: the handoff never claims an installation happened
-    assert "was installed" not in session.message.lower()
-    # the exact repository was synchronized (Blender wrote its extension
-    # cache into the channel repository directory)
-    assert Path(channel_directory, ".blender_ext").exists(), \
-        "channel repository was not synchronized"
+    # Exercise the real operator and repository lookup while recording the
+    # final sync boundary. This proves the raw/filtered repository-index bug is
+    # fixed without making required CI depend on a live remote response.
+    original_sync_step4 = updates._blender_repo_sync
+    original_refresh_step4 = updates.refresh_update_session
+    original_view_step4 = updates._blender_show_update_view
+    sync_calls = []
+    try:
+        def record_sync(directory):
+            sync_calls.append(directory)
+            Path(directory, ".blender_ext").mkdir(parents=True, exist_ok=True)
+        updates._blender_repo_sync = record_sync
+        # Refresh behavior is covered by pure update-model tests with local
+        # index payloads. Keep this real-Blender test free of remote I/O.
+        updates.refresh_update_session = lambda *_args, **_kwargs: None
+        updates._blender_show_update_view = lambda: None
+        result = run_handoff()
+        assert "Repository not set" not in session.message, session.message
+        assert session.state is state_cls.READY_IN_BLENDER, (
+            session.state, session.message)
+        assert result == {"FINISHED"}
+        assert "synchronized" in session.message.lower()
+        assert sync_calls == [channel_directory]
+        # honest wording: the handoff never claims an installation happened
+        assert "was installed" not in session.message.lower()
+    finally:
+        updates._blender_repo_sync = original_sync_step4
+        updates.refresh_update_session = original_refresh_step4
+        updates._blender_show_update_view = original_view_step4
     # the running extension was not uninstalled, disabled, or unregistered
     assert updates.CLOTHNEXT_OT_addon_update_through_blender.is_registered
 
@@ -182,10 +199,12 @@ def main() -> None:
     # --- 6. manual path when the update view cannot open ---------------------
     original_view = updates._blender_show_update_view
     original_sync = updates._blender_repo_sync
+    original_refresh = updates.refresh_update_session
     calls = []
     try:
         updates._blender_repo_sync = lambda directory: calls.append(
             ("sync", directory))
+        updates.refresh_update_session = lambda *_args, **_kwargs: None
         def unavailable():
             raise RuntimeError("simulated: update UI context unavailable")
         updates._blender_show_update_view = unavailable
@@ -198,6 +217,7 @@ def main() -> None:
     finally:
         updates._blender_show_update_view = original_view
         updates._blender_repo_sync = original_sync
+        updates.refresh_update_session = original_refresh
 
     extension.unregister()
     print("Cloth NeXt add-on update smoke test passed "

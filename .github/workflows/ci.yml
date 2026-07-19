@@ -97,6 +97,7 @@ jobs:
       # Exercises the update operator against Blender's real extension
       # machinery, including a sync of the live Beta channel repository.
       - name: Add-on update path smoke test
+        timeout-minutes: 3
         run: |
           set -euo pipefail
           BLENDER_USER_RESOURCES="$RUNNER_TEMP/blender-update-profile" \

@@ -200,7 +200,7 @@ def test_release_notes_url():
     assert release_notes_url(None) == \
         "https://github.com/polyworks-art/Cloth_neXT/releases"
     assert release_notes_url(parse_version("0.2.0-beta.1")) == \
-        "https://github.com/polyworks-art/Cloth_neXT/releases/tag/v0.2.0-beta.1"
+        "https://github.com/polyworks-art/Cloth_neXT/releases/tag/0.2.0-beta.1"
 
 
 # --- section view --------------------------------------------------------------------

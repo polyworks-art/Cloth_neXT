@@ -68,7 +68,7 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 - Blender Empty-based Gravity, Wind, Air Density, Air Friction, and Vertex Air
   Damping forces with keyframe support
 - Real material parameters with understandable artist terminology
-  (Surface Weight, Stretch Resistance, Bend Resistance, Surface Grip, …),
+  (Surface Weight, Stretch Resistance, Bend Resistance, Friction, …),
   each mapped one-to-one to a documented PPF solver parameter
 - A categorized library of 37 fabric presets, including 30 research-backed
   starting points derived from the MIT Fabric Properties Dataset

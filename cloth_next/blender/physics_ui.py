@@ -267,8 +267,7 @@ class _ClothNextSubpanel:
             return False
         role = context.object.cloth_next.role
         if role == "FORCE":
-            return bool(getattr(cls, "force_only", False)
-                        or cls.__name__ == "CLOTHNEXT_PT_overview")
+            return bool(getattr(cls, "force_only", False))
         if getattr(cls, "force_only", False):
             return False
         if getattr(cls, "cloth_only", False):
@@ -276,17 +275,6 @@ class _ClothNextSubpanel:
         if getattr(cls, "deformable_only", False):
             return role in {"CLOTH", "ROD", "SOFT_BODY"}
         return True
-
-
-class CLOTHNEXT_PT_overview(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Overview"; bl_idname = "CLOTHNEXT_PT_overview"
-    header_icon = "cloth"
-    def draw(self, context):
-        s = context.object.cloth_next
-        self.layout.label(text=f"{s.role.title()} · {context.object.name}")
-        self.layout.label(text="Material and contact values map to the real "
-                               "PPF solver parameters",
-                          **icon_registry.icon_kwargs("info","INFO"))
 
 
 class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
@@ -326,7 +314,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                 warning_row = layout.row()
                 warning_row.alert = True
                 warning_row.label(text=contact_warning, icon="ERROR")
-                layout.label(text="Bake allowed - try Gap 0.001 and Grip 0.2-0.3.")
+                layout.label(text="Bake allowed · Try Gap 0.001 and Friction 0.2–0.3")
         if snapshot.active:
             progress_text = _run_state_text(snapshot)
             layout.label(text=progress_text)
@@ -631,7 +619,7 @@ def _contact_stability_warning(context) -> str:
         collision = settings.collision
         if (float(collision.collision_gap) >= 0.01
                 and float(collision.surface_grip) >= 0.4):
-            return "High Collider Gap + Grip can destabilize pinned Cloth."
+            return "High Collision Gap and Friction can destabilize pinned Cloth."
     return ""
 
 
@@ -746,7 +734,7 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         settings = context.object.cloth_next
         if settings.role == "ROD":
             rod = settings.rod
-            layout.label(text="PPF Rod · ARAP")
+            layout.label(text="Cable behavior")
             info = layout.box()
             info.label(text="Curve Bevel is visual only.", icon="INFO")
             info.label(text="Use Collisions > Surface Offset as cable radius.")
@@ -758,7 +746,9 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
             return
         if settings.role == "SOFT_BODY":
             soft = settings.soft_body
-            layout.label(text="PPF Solid · automatic tetrahedralization")
+            layout.label(text="Soft-body behavior")
+            layout.label(text="The closed mesh is filled automatically for simulation",
+                         icon="INFO")
             layout.prop(soft, "volume_density")
             layout.prop(soft, "stretch_resistance")
             layout.prop(soft, "poisson_ratio")
@@ -884,7 +874,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                                  icon="CHECKMARK")
                 if not collider_proxy.is_generated_proxy(context.object):
                     proxy_box = layout.box()
-                    proxy_box.label(text="Simulation Proxy · Experimental",
+                    proxy_box.label(text="Simulation Proxy · Preview",
                                     icon="ERROR")
                     proxy_box.prop(settings, "collider_proxy_target_vertices")
                     proxy = getattr(settings, "collider_proxy_object", None)
@@ -925,7 +915,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
             warning = layout.row()
             warning.alert = True
             warning.label(
-                text="High Gap + Grip may destabilize pinned Cloth",
+                text="High Collision Gap and Friction may destabilize pinned Cloth",
                 icon="ERROR")
 
 
@@ -1184,7 +1174,7 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
-           CLOTHNEXT_PT_overview, CLOTHNEXT_PT_solver,
+           CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material, CLOTHNEXT_PT_pinning,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,

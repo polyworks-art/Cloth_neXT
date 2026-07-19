@@ -140,8 +140,8 @@ REDRAWS = 100
 
 
 def _panels(ui):
-    return (ui.CLOTHNEXT_PT_physics, ui.CLOTHNEXT_PT_overview,
-            ui.CLOTHNEXT_PT_solver, ui.CLOTHNEXT_PT_material,
+    return (ui.CLOTHNEXT_PT_physics, ui.CLOTHNEXT_PT_solver,
+            ui.CLOTHNEXT_PT_material,
             ui.CLOTHNEXT_PT_pinning, ui.CLOTHNEXT_PT_damping,
             ui.CLOTHNEXT_PT_collisions, ui.CLOTHNEXT_PT_cache,
             ui.CLOTHNEXT_PT_advanced)
