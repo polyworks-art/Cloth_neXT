@@ -68,10 +68,10 @@ _ROWS = (
     ("CNX-E153", "Project build", "Contact or geometry initialization failed", "Repair intersections, degenerate faces, and invalid collision geometry."),
     ("CNX-E154", "Project build", "Solver project was unexpectedly busy", "Wait for the owned solver to stop, then retry."),
     ("CNX-E160", "Simulation", "Unclassified simulation failure", "Inspect the failing frame and solver diagnostic log."),
-    ("CNX-E161", "Simulation", "Constraint solver did not converge", "Lower Friction first. If it still fails, reduce Collision Gap, increase animated Collider sampling, then try a smaller Time Step."),
-    ("CNX-E162", "Simulation", "Initial intersection prevented simulation", "Separate intersecting geometry at the first Bake frame."),
+    ("CNX-E161", "Simulation", "Constraint solver did not converge", "Lower Friction first. If it still fails, reduce Pressure and Collision Gap, increase animated Collider sampling, then try a smaller Time Step."),
+    ("CNX-E162", "Simulation", "Intersection blocked the simulation from advancing", "Separate intersecting geometry. If it fails while inflating or self-colliding, lower Pressure, add clearance between layers, or raise solver quality with a smaller Time Step."),
     ("CNX-E163", "Simulation", "Simulation stalled or timed out", "Inspect the last frame, reduce scene complexity, and retry."),
-    ("CNX-E164", "Simulation", "Solver process crashed or exited", "Inspect the solver stderr tail and verify GPU/driver stability."),
+    ("CNX-E164", "Simulation", "Solver process crashed or exited", "Inspect the solver stderr tail for the underlying cause (intersection, non-finite, or convergence) before checking GPU/driver stability."),
     ("CNX-E165", "Simulation", "Non-finite simulation result", "Reduce Time Step and extreme Forces/stiffness; repair invalid input geometry."),
     ("CNX-E166", "Simulation", "RAM safety limit reached", "Lower scene complexity or raise the RAM Auto Cancel threshold cautiously."),
     ("CNX-E167", "Simulation", "Solver completed without every requested frame", "Keep the diagnostic log and retry after a solver health check."),
@@ -119,8 +119,16 @@ _RULES = tuple((re.compile(pattern, re.IGNORECASE), code) for pattern, code in (
     (r"worker (?:stopped|died).*without|no terminal message", "CNX-E198"),
     (r"ram .*?(?:limit|threshold)|auto.?cancel.*ram|memory safety", "CNX-E166"),
     (r"linear solver failed to converge|could not converge|non.?conver", "CNX-E161"),
-    (r"init(?:ialization)? intersection|initial intersection", "CNX-E162"),
+    # Intersection failures at any frame, not only frame 0: the solver's mid-run
+    # "Intersection detected: advance failed at frame N (... intersection_free=false)"
+    # and CCD-failure wrappers must beat the generic crash/fallback below.
+    (r"init(?:ialization)? intersection|initial intersection|intersection detected|"
+     r"intersection.?free\s*=\s*false|continuous collision detection failed", "CNX-E162"),
     (r"\b(?:nan|infinity|non.?finite)\b.*(?:result|simulation|position)", "CNX-E165"),
+    # Explosive parameter/force instability (e.g. extreme Pressure or Force):
+    # the solver reports a numerical/BVH overflow rather than a clean NaN.
+    (r"numerical overflow|overflow detected|bvh.*stack overflow|"
+     r"parameter instability|unstable (?:force|parameter)", "CNX-E168"),
     (r"simulation stalled|no new frame within|simulation timed out", "CNX-E163"),
     (r"finished without producing every frame|without every requested frame", "CNX-E167"),
     (r"process (?:crashed|exited|terminated).*simulat|solver.*(?:crashed|exited)", "CNX-E164"),
