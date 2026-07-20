@@ -32,6 +32,30 @@ def test_specific_causes_win_over_stage_fallbacks():
                           "finished without producing every frame") == "CNX-E167"
 
 
+def test_midrun_intersection_is_not_mistaken_for_a_crash():
+    # The solver's real mid-run failure wraps the StepResult booleans; it must
+    # classify as an intersection (E162), not the generic crash bucket (E164),
+    # so the recovery advice is "separate/relieve geometry", not "check drivers".
+    intersection = ("server error during status: Intersection detected: "
+                    "advance failed at frame 3 "
+                    "(ccd=true, pcg=true, intersection_free=false)")
+    assert classify_error("SIMULATING", details=intersection) == "CNX-E162"
+    assert classify_error("SIMULATING", details=
+                          "Continuous Collision Detection failed: advance failed "
+                          "at frame 5 (ccd=false, pcg=true, intersection_free=true)"
+                          ) == "CNX-E162"
+    # A genuine process exit still lands on E164.
+    assert classify_error("SIMULATING", details=
+                          "solver process exited during simulation") == "CNX-E164"
+
+
+def test_parameter_instability_is_reachable_as_e168():
+    assert classify_error("SIMULATING", details=
+                          "Numerical overflow at frame 12") == "CNX-E168"
+    assert classify_error("SIMULATING", details=
+                          "BVH traversal stack overflow") == "CNX-E168"
+
+
 def test_e161_recommends_the_most_reliable_recovery_first():
     action = ERROR_CODES["CNX-E161"].action
     assert action.startswith("Lower Friction first.")

@@ -89,10 +89,10 @@ with the installed build remains visible.
 | Code | Cause | First action |
 | --- | --- | --- |
 | `CNX-E160` | Unclassified simulation failure | Inspect the failing frame and diagnostic log. |
-| `CNX-E161` | Constraints did not converge | Lower Friction first; then reduce Collision Gap, increase animated Collider sampling, or use a smaller Time Step. |
-| `CNX-E162` | Initial intersection | Separate intersecting geometry on the first frame. |
+| `CNX-E161` | Constraints did not converge | Lower Friction first; then reduce Pressure and Collision Gap, increase animated Collider sampling, or use a smaller Time Step. |
+| `CNX-E162` | Intersection blocked advancing (any frame) | Separate geometry; if it fails while inflating or self-colliding, lower Pressure, add clearance, or raise quality. |
 | `CNX-E163` | Simulation stalled/timed out | Inspect the last frame and reduce complexity. |
-| `CNX-E164` | Solver crashed/exited | Inspect stderr and GPU/driver stability. |
+| `CNX-E164` | Solver crashed/exited | Inspect stderr for the real cause (intersection, non-finite, convergence) before checking GPU/driver. |
 | `CNX-E165` | Non-finite result | Reduce Time Step and extreme Forces/stiffness. |
 | `CNX-E166` | RAM safety limit reached | Lower complexity or cautiously raise Auto Cancel RAM. |
 | `CNX-E167` | Requested frames incomplete | Retry after a health check and retain diagnostics. |
