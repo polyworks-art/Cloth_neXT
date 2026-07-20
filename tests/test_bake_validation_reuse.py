@@ -50,6 +50,7 @@ def test_bake_start_hashes_topology_and_scans_pins_exactly_once(env,
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=10_000,
                                             pinning=True)
     module = env.solver_test
+    scene.cloth.cloth_next.cache_directory = "//cn_cache/"
     vertex_count = len(scene.cloth.data.vertices)
 
     # Stop after the plan is built: the solver itself is out of scope here.
@@ -211,6 +212,7 @@ def test_unregister_completes_even_mid_bake(blender_env, monkeypatch):
     env.registration.register()
     module = env.solver_test
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    scene.cloth.cloth_next.cache_directory = "//cn_cache/"
     monkeypatch.setattr(module, "_continue_production_bake",
                         lambda _c, job_id, plan: (job_id, False))
     monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())

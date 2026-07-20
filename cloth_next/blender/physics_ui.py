@@ -294,11 +294,25 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
 
         model = _bake_panel_model(context, status)
         snapshot = shared_controller.snapshot()
-        action = layout.row()
-        action.scale_y = 1.6
-        action.enabled = model.enabled and not snapshot.active
-        action.operator("clothnext.bake", text=model.action,
-                        **icon_registry.icon_kwargs("bake", "RENDER_ANIMATION"))
+        action = layout.row(align=True)
+        split = action.split(factor=0.86, align=True)
+        # scale_y is set on each leaf row: Blender does not reliably propagate
+        # it into nested split columns, so both sides must set it to keep the
+        # familiar tall Bake button.
+        bake_button = split.row(align=True)
+        bake_button.scale_y = 1.6
+        bake_button.enabled = model.enabled and not snapshot.active
+        bake_button.operator("clothnext.bake", text=model.action,
+                             **icon_registry.icon_kwargs("bake",
+                                                         "RENDER_ANIMATION"))
+        # Small folder button on the right sets the Cache Directory. It stays
+        # enabled even when Bake is disabled for a missing directory, so the
+        # artist can satisfy the requirement without leaving the panel.
+        set_dir = split.row(align=True)
+        set_dir.scale_y = 1.6
+        set_dir.enabled = not snapshot.active
+        set_dir.operator("clothnext.set_cache_directory", text="",
+                         icon="FILE_FOLDER")
         if not snapshot.active:
             warning = _animated_collider_capture_warning(context, solver_test)
             if warning is not None:
@@ -583,6 +597,14 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
                 reason = _cheap_pin_reason(solver_test, obj)
                 if reason:
                     break
+    # A production bake requires a chosen cache folder so the result is not
+    # written to the temp directory and lost on the next Blender launch. Kept
+    # last so more fundamental problems surface first.
+    if not reason and cloths and any(
+            not str(getattr(obj.cloth_next, "cache_directory", "") or "").strip()
+            for obj in cloths):
+        reason = ("Set a Cache Directory (folder button next to Bake) so the "
+                  "result survives a Blender restart.")
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 
 

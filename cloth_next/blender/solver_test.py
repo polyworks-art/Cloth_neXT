@@ -3246,6 +3246,25 @@ def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     if not bpy.app.timers.is_registered(_startup_pump):bpy.app.timers.register(_startup_pump,first_interval=.05)
     return job_id,True
 
+def _require_cache_directories(deformables) -> None:
+    """Production bakes must write to a user-chosen folder.
+
+    Without one, the cache falls back to Blender's temporary directory and is
+    wiped on the next launch. The developer "Run Real Solver Test" path keeps
+    that fallback on purpose; this requirement is enforced only for the artist
+    Bake so a finished result is never silently lost on restart.
+    """
+    missing = [str(getattr(obj, "name", "?")) for obj in deformables
+               if not str(getattr(getattr(obj, "cloth_next", None),
+                                  "cache_directory", "") or "").strip()]
+    if missing:
+        names = ", ".join(missing)
+        raise SceneValidationError(
+            f"Set a Cache Directory for {names} before baking. Use the folder "
+            "button next to Bake — otherwise the result is written to a "
+            "temporary folder and lost when Blender restarts.")
+
+
 def begin_production_bake(context) -> tuple[str, bool]:
     """Validate and reserve production Bake without worker or modal lock."""
     global _pending_plan, _pending_job_id, _pin_capture
@@ -3265,6 +3284,8 @@ def begin_production_bake(context) -> tuple[str, bool]:
         objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
         snapshot=validate_scene(context) if objects else None
         if snapshot is not None:
+            _require_cache_directories(
+                tuple(entry.obj for entry in snapshot.deformables))
             bake_range=snapshot.bake_range
             animated_targets = tuple(
                 (entry.obj.name, entry.pin_membership)
@@ -3828,19 +3849,25 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
         manager = getattr(context, "window_manager", None)
         if manager is None or not hasattr(manager, "event_timer_add"):
             return {"CANCELLED"}
-        self._modal_cleaned = False
-        self._timer = manager.event_timer_add(.1, window=getattr(context, "window", None))
-        manager.modal_handler_add(self)
+        # Do every fallible step (lock, cache prepare, worker start) BEFORE
+        # handing the operator to Blender's modal system. modal_handler_add()
+        # must run only just before returning {"RUNNING_MODAL"}: if a modal
+        # handler is registered and invoke() then returns {"CANCELLED"},
+        # Blender frees the operator while the handler still points at it. The
+        # timer we would have added fires ~0.1s later, modal() reads
+        # self.job_id on freed memory, and Blender crashes with an
+        # EXCEPTION_ACCESS_VIOLATION inside RNA_property_string_get. This is
+        # exactly the E100 "cache could not be removed" path.
         if not modal_lock.acquire(self.job_id,
                                   companion_ready_job_id=self.job_id):
-            self._cleanup_modal(context); return {"CANCELLED"}
+            return {"CANCELLED"}
         try:
             prepare_cache_for_new_run(plan)
             shared_controller.transition(BakeState.STARTING_RUN,
                                          status_message="Starting Bake run")
             _start_prepared_run(plan)
         except (SceneValidationError, ClothNextError, OSError) as exc:
-            modal_lock.release(self.job_id); self._cleanup_modal(context)
+            modal_lock.release(self.job_id)
             details = traceback.format_exc()
             summary = str(exc) or "Starting the Bake failed."
             code = classify_error("PREPARING", summary, details)
@@ -3850,7 +3877,7 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             _pending_plan = None; _pending_job_id = ""
             return {"CANCELLED"}
         except Exception:  # noqa: BLE001 -- never let Blender hide startup errors
-            modal_lock.release(self.job_id); self._cleanup_modal(context)
+            modal_lock.release(self.job_id)
             details = traceback.format_exc()
             summary = "Starting the Bake failed unexpectedly."
             code = classify_error("PREPARING", summary, details)
@@ -3859,6 +3886,12 @@ class CLOTHNEXT_OT_bake_modal(bpy.types.Operator):
             companion_manager.persist_bake_error(shared_controller.snapshot())
             _pending_plan = None; _pending_job_id = ""
             return {"CANCELLED"}
+        # The bake is now live. Only here, certain to return RUNNING_MODAL, do
+        # we register the timer and modal handler.
+        self._modal_cleaned = False
+        self._timer = manager.event_timer_add(
+            .1, window=getattr(context, "window", None))
+        manager.modal_handler_add(self)
         _pending_plan = None; _pending_job_id = ""
         return {"RUNNING_MODAL"}
 
@@ -4068,6 +4101,64 @@ class CLOTHNEXT_OT_validate(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
+    """Choose the folder where Cloth NeXt writes and keeps the bake result.
+
+    A cache left in Blender's temporary folder is deleted on the next launch;
+    a chosen folder keeps every baked result across restarts. The folder is
+    applied to every enabled Cloth, Rod, and Soft Body object at once.
+    """
+
+    bl_idname = "clothnext.set_cache_directory"
+    bl_label = "Set Cache Directory"
+    bl_options = {"INTERNAL", "UNDO"}
+    directory: bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN"})
+    filter_folder: bpy.props.BoolProperty(default=True, options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, _context):
+        return not run_active() and not shared_controller.snapshot().active
+
+    @staticmethod
+    def _deformables(context):
+        scene = getattr(context, "scene", None)
+        objects = getattr(scene, "objects", ()) if scene is not None else ()
+        return [obj for obj in objects
+                if getattr(getattr(obj, "cloth_next", None), "enabled", False)
+                and getattr(obj.cloth_next, "role", "") in
+                {"CLOTH", "ROD", "SOFT_BODY"}]
+
+    def invoke(self, context, _event):
+        deformables = self._deformables(context)
+        if not deformables:
+            self.report({"ERROR"},
+                        "Enable a Cloth, Rod, or Soft Body object first.")
+            return {"CANCELLED"}
+        existing = str(getattr(deformables[0].cloth_next,
+                               "cache_directory", "") or "").strip()
+        if existing:
+            self.directory = bpy.path.abspath(existing)
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        deformables = self._deformables(context)
+        if not deformables:
+            self.report({"ERROR"},
+                        "Enable a Cloth, Rod, or Soft Body object first.")
+            return {"CANCELLED"}
+        directory = str(self.directory or "").strip()
+        if not directory:
+            self.report({"ERROR"}, "No folder was chosen.")
+            return {"CANCELLED"}
+        for obj in deformables:
+            obj.cloth_next.cache_directory = directory
+        self.report({"INFO"},
+                    f"Cache directory set for {len(deformables)} object(s): "
+                    f"{directory}")
+        return {"FINISHED"}
+
+
 def install_validator() -> None:
     """Hand the expensive validator to the cheap runtime state module.
 
@@ -4085,4 +4176,5 @@ CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
            CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
            CLOTHNEXT_OT_companion_open_logs,
+           CLOTHNEXT_OT_set_cache_directory,
            CLOTHNEXT_OT_inspect_parameters)
