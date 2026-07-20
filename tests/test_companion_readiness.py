@@ -330,11 +330,19 @@ def test_cache_deletion_failure_after_ready_prevents_worker_and_releases_lock(
             "The previous Cloth NeXt cache could not be removed. Rebake was not started.")))
     monkeypatch.setattr(module,"_start_prepared_run",lambda _plan:
                         (_ for _ in ()).throw(AssertionError("worker started")))
-    manager=SimpleNamespace(event_timer_add=lambda *_a,**_k:object(),
-                            event_timer_remove=lambda _t:None,
-                            modal_handler_add=lambda _o:None)
+    calls=[]
+    manager=SimpleNamespace(
+        event_timer_add=lambda *_a,**_k:calls.append("timer") or object(),
+        event_timer_remove=lambda _t:calls.append("remove"),
+        modal_handler_add=lambda _o:calls.append("modal"))
     operator=module.CLOTHNEXT_OT_bake_modal(); operator.job_id="job"
     result=operator.invoke(SimpleNamespace(window_manager=manager,window=None),None)
     assert result == {"CANCELLED"} and not module.modal_lock.active()
     assert module._worker is None
+    # Regression: a modal handler registered before a CANCELLED return leaves a
+    # dangling handler on a freed operator; the next timer event then reads
+    # self.job_id on freed memory and crashes Blender (access violation in
+    # RNA_property_string_get). invoke() must add neither the modal handler nor
+    # the timer on any path that does not return RUNNING_MODAL.
+    assert "modal" not in calls and "timer" not in calls
     module.shared_controller.reset()

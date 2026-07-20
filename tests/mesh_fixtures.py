@@ -351,6 +351,9 @@ class _Layout:
     def row(self, **_kw):
         return _Layout(self.sink)
 
+    def split(self, **_kw):
+        return _Layout(self.sink)
+
     def column(self, **_kw):
         return _Layout(self.sink)
 

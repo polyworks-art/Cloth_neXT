@@ -31,6 +31,9 @@ class RecordingLayout:
     def row(self, **_kw):
         return RecordingLayout(self.sink)
 
+    def split(self, **_kw):
+        return RecordingLayout(self.sink)
+
     def column(self, **_kw):
         return RecordingLayout(self.sink)
 
@@ -41,6 +44,10 @@ def _objects(env, cloth_count=1, collider_count=1):
         obj = env.bpy.types.Object(name=f"Cloth{number}", type="MESH")
         obj.cloth_next.enabled = True
         obj.cloth_next.role = "CLOTH"
+        # A production-ready scene has a chosen cache folder; without one the
+        # Bake button is deliberately disabled (results would be lost on a
+        # Blender restart). Tests that exercise that gate clear this.
+        obj.cloth_next.cache_directory = "//cn_cache/"
         obj.animation_data = None
         result.append(obj)
     for number in range(collider_count):
@@ -130,6 +137,59 @@ def test_bake_allows_scene_without_collider(blender_env):
         context,env.physics_ui._SolverStatus(True,"Ready · Protocol 0.11"))
     assert model.enabled and model.reason==""
     assert "0 Collider" in model.summary_line
+    env.registration.unregister()
+
+
+def test_bake_disabled_without_cache_directory(blender_env):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.cache_directory = ""
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    model = ui._bake_panel_model(
+        context, ui._SolverStatus(True, "Ready · Protocol 0.11"))
+    assert not model.enabled
+    assert "Cache Directory" in model.reason
+    env.registration.unregister()
+
+
+def test_solver_panel_offers_cache_directory_button(blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.cache_directory = ""  # requirement unmet
+    context = _context(env, [cloth, collider])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
+    panel.draw(context)
+    # The set-directory button is present and stays enabled even though the
+    # Bake button itself is disabled, so the artist can satisfy the gate.
+    assert ("clothnext.set_cache_directory", "", True) in panel.layout.operators
+    assert ("clothnext.bake", "BAKE", False) in panel.layout.operators
+    env.registration.unregister()
+
+
+def test_require_cache_directories_names_missing_objects(blender_env):
+    module = blender_env.solver_test
+    with_dir = SimpleNamespace(
+        name="A", cloth_next=SimpleNamespace(cache_directory="//c/"))
+    without_dir = SimpleNamespace(
+        name="B", cloth_next=SimpleNamespace(cache_directory=""))
+    module._require_cache_directories((with_dir,))  # all set: no raise
+    with pytest.raises(module.SceneValidationError, match="B"):
+        module._require_cache_directories((with_dir, without_dir))
+
+
+def test_set_cache_directory_operator_applies_to_all_deformables(blender_env):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.cache_directory = ""
+    context = _context(env, [cloth, collider])
+    operator = env.solver_test.CLOTHNEXT_OT_set_cache_directory()
+    operator.directory = "//chosen_cache/"
+    assert operator.execute(context) == {"FINISHED"}
+    assert cloth.cloth_next.cache_directory == "//chosen_cache/"
     env.registration.unregister()
 
 
