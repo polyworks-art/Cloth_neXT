@@ -264,13 +264,13 @@
       "code": "CNX-E161",
       "stage": "Simulation",
       "cause": "Constraint solver did not converge",
-      "action": "Lower Friction first. If it still fails, reduce Collision Gap, increase animated Collider sampling, then try a smaller Time Step."
+      "action": "Lower Friction first. If it still fails, reduce Pressure and Collision Gap, increase animated Collider sampling, then try a smaller Time Step."
     },
     {
       "code": "CNX-E162",
       "stage": "Simulation",
-      "cause": "Initial intersection prevented simulation",
-      "action": "Separate intersecting geometry at the first Bake frame."
+      "cause": "Intersection blocked the simulation from advancing",
+      "action": "Separate intersecting geometry. If it fails while inflating or self-colliding, lower Pressure, add clearance between layers, or raise solver quality with a smaller Time Step."
     },
     {
       "code": "CNX-E163",
@@ -282,7 +282,7 @@
       "code": "CNX-E164",
       "stage": "Simulation",
       "cause": "Solver process crashed or exited",
-      "action": "Inspect the solver stderr tail and verify GPU/driver stability."
+      "action": "Inspect the solver stderr tail for the underlying cause (intersection, non-finite, or convergence) before checking GPU/driver stability."
     },
     {
       "code": "CNX-E165",
