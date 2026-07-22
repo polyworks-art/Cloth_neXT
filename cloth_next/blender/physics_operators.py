@@ -131,9 +131,20 @@ class CLOTHNEXT_OT_use_scene_range(bpy.types.Operator):
                 and not shared_controller.snapshot().active)
 
     def execute(self, context):
-        settings = context.active_object.cloth_next
-        settings.bake_start = int(context.scene.frame_start)
-        settings.bake_end = int(context.scene.frame_end)
+        start = int(context.scene.frame_start)
+        end = int(context.scene.frame_end)
+        dynamic_roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+        changed = 0
+        for obj in context.scene.objects:
+            settings = getattr(obj, "cloth_next", None)
+            if (settings is None or not settings.enabled
+                    or settings.role not in dynamic_roles):
+                continue
+            settings.bake_start = start
+            settings.bake_end = end
+            changed += 1
+        self.report({"INFO"},
+                    f"Scene range applied to {changed} simulated object(s).")
         return {"FINISHED"}
 
 

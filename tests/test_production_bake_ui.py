@@ -74,6 +74,40 @@ def _context(env, objects, *, auto_launch=True):
                                             SimpleNamespace(preferences=prefs)}))
 
 
+def test_mismatched_bake_ranges_name_every_object(blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    objects = _objects(env, cloth_count=2, collider_count=0)
+    objects[0].cloth_next.bake_start = 1
+    objects[0].cloth_next.bake_end = 100
+    objects[1].cloth_next.bake_start = 2
+    objects[1].cloth_next.bake_end = 90
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    model = ui._bake_panel_model(_context(env, objects))
+    assert not model.enabled
+    assert "Cloth0: 1–100" in model.reason
+    assert "Cloth1: 2–90" in model.reason
+    env.registration.unregister()
+
+
+def test_use_scene_range_updates_every_enabled_deformable(blender_env):
+    env = blender_env; env.registration.register()
+    objects = _objects(env, cloth_count=2, collider_count=1)
+    objects[1].cloth_next.role = "RIGID_BODY"
+    objects[0].cloth_next.bake_end = 20
+    objects[1].cloth_next.bake_end = 80
+    context = _context(env, objects)
+    context.active_object = objects[0]
+    context.scene.frame_start = 5
+    context.scene.frame_end = 42
+    operator = env.physics_operators.CLOTHNEXT_OT_use_scene_range()
+    assert operator.execute(context) == {"FINISHED"}
+    assert [(obj.cloth_next.bake_start, obj.cloth_next.bake_end)
+            for obj in objects[:2]] == [(5, 42), (5, 42)]
+    env.registration.unregister()
+
+
 def _reset_controller():
     snapshot = shared_controller.snapshot()
     if snapshot.active:

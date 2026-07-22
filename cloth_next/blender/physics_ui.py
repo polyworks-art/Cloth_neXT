@@ -627,7 +627,10 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
             ranges = {(int(obj.cloth_next.bake_start),
                        int(obj.cloth_next.bake_end)) for obj in cloths}
             if len(ranges) != 1:
-                raise ValueError("All deformables need the same Bake range.")
+                details = ", ".join(
+                    f"{obj.name}: {int(obj.cloth_next.bake_start)}–"
+                    f"{int(obj.cloth_next.bake_end)}" for obj in cloths)
+                raise ValueError(f"Bake ranges differ · {details}")
             BakeFrameRange(*next(iter(ranges)))
             contacts = {bool(obj.cloth_next.collision.enabled)
                         for obj in cloths}
