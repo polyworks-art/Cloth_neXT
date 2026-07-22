@@ -578,6 +578,56 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
     return vertices, triangles
 
 
+def _self_intersection_vertices(vertices, triangles) -> tuple[int, tuple[int, ...]]:
+    """Return intersecting triangle-pair count and their source vertices."""
+    if len(triangles) < 2:
+        return 0, ()
+    try:
+        from mathutils.bvhtree import BVHTree
+    except ImportError:  # Pure-Python test hosts do not ship Blender mathutils.
+        return 0, ()
+    tree = BVHTree.FromPolygons(vertices, triangles, all_triangles=True)
+    pairs = set()
+    marked = set()
+    for first, second in tree.overlap(tree):
+        first, second = int(first), int(second)
+        if first == second:
+            continue
+        pair = (min(first, second), max(first, second))
+        if pair in pairs:
+            continue
+        left, right = triangles[pair[0]], triangles[pair[1]]
+        if set(left).intersection(right):
+            continue
+        pairs.add(pair)
+        marked.update(left)
+        marked.update(right)
+    return len(pairs), tuple(sorted(marked))
+
+
+def _select_problem_vertices(context, obj, indices) -> bool:
+    """Best-effort Edit Mode selection for a failed source-mesh preflight."""
+    try:
+        active = getattr(context, "object", None)
+        if active is not None and getattr(active, "mode", "OBJECT") != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        for candidate in getattr(context, "selected_objects", ()):
+            candidate.select_set(False)
+        obj.hide_set(False)
+        obj.hide_viewport = False
+        obj.select_set(True)
+        context.view_layer.objects.active = obj
+        for vertex in obj.data.vertices:
+            vertex.select = False
+        for index in indices:
+            obj.data.vertices[index].select = True
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_mode(type="VERT")
+        return True
+    except (AttributeError, IndexError, RuntimeError, TypeError):
+        return False
+
+
 def _non_manifold_edge_count(mesh) -> int:
     """Count boundary/non-manifold edges without entering Blender Edit Mode."""
     uses: dict[tuple[int, int], int] = {}
@@ -1726,6 +1776,19 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 raise SceneValidationError(
                     f"{obj.name} has {len(degenerate)} zero-area triangle(s) "
                     f"(first index {degenerate[0]}).")
+            if entry.role == "CLOTH":
+                pair_count, problem_vertices = _self_intersection_vertices(
+                    vertices, triangles)
+                if pair_count:
+                    selected = _select_problem_vertices(
+                        context, obj, problem_vertices)
+                    selection_note = ("The involved vertices are selected in Edit Mode."
+                                      if selected else
+                                      "Select and repair the intersecting region in Edit Mode.")
+                    raise SceneValidationError(
+                        f"{obj.name} has {pair_count} self-intersecting triangle "
+                        f"pair(s) involving {len(problem_vertices)} vertices. "
+                        f"{selection_note}")
             if (pin_snapshot.enabled and
                     len(vertices) != pin_snapshot.source_vertex_count):
                 raise SceneValidationError(

@@ -2,12 +2,41 @@
 
 """Deformable modifiers are accepted independently of export geometry."""
 
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 
 from tests import mesh_fixtures
 
 def _pin_membership(enabled):
     return SimpleNamespace(enabled=enabled)
+
+
+def test_self_intersection_check_deduplicates_pairs_and_ignores_neighbours(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    fake_mathutils = ModuleType("mathutils")
+    fake_bvhtree = ModuleType("mathutils.bvhtree")
+
+    class FakeTree:
+        def overlap(self, _other):
+            return [(0, 0), (0, 1), (1, 0), (0, 2), (2, 0)]
+
+    class FakeBVH:
+        @staticmethod
+        def FromPolygons(_vertices, _triangles, all_triangles=False):
+            assert all_triangles
+            return FakeTree()
+
+    fake_bvhtree.BVHTree = FakeBVH
+    monkeypatch.setitem(sys.modules, "mathutils", fake_mathutils)
+    monkeypatch.setitem(sys.modules, "mathutils.bvhtree", fake_bvhtree)
+    triangles = ((0, 1, 2), (2, 1, 3), (4, 5, 6))
+
+    count, vertices = module._self_intersection_vertices(
+        ((0.0, 0.0, 0.0),) * 7, triangles)
+
+    assert count == 1
+    assert vertices == (0, 1, 2, 4, 5, 6)
 
 
 def test_armature_without_cloth_next_pinning_is_allowed(blender_env):
