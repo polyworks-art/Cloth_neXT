@@ -14,8 +14,12 @@ import bpy
 
 from . import object_properties
 from ..bake.controller import shared_controller
-from ..solver_quality import (SolverQualityValidationError,
-                              apply_quality_preset)
+from ..solver_quality import (
+    SolverQualitySettings,
+    SolverQualityValidationError,
+    apply_quality_preset,
+    remap_quality_for_pdrd,
+)
 from ..materials import presets as material_presets
 
 
@@ -24,6 +28,44 @@ def _active_mesh(context):
     if obj is None or obj.type not in {"MESH", "CURVE", "EMPTY"}:
         return None
     return obj
+
+
+def _scene_has_pdrd(scene) -> bool:
+    """Whether an enabled PDRD/Rigid Body participates in this scene."""
+    return bool(scene is not None and any(
+        getattr(getattr(obj, "cloth_next", None), "enabled", False)
+        and obj.cloth_next.role == "RIGID_BODY"
+        for obj in scene.objects))
+
+
+def _write_solver_quality(scene, values: SolverQualitySettings) -> None:
+    quality = scene.cloth_next_quality
+    quality.time_step = values.time_step
+    quality.min_newton_steps = values.min_newton_steps
+    quality.cg_max_iter = values.cg_max_iter
+    quality.cg_tol = values.cg_tol
+
+
+def _remap_quality_after_pdrd_change(
+        scene, *, previous_has_pdrd: bool) -> None:
+    """Keep a selected preset while switching its standard/PDRD values.
+
+    Manually tuned (Custom) quality values are deliberately left untouched.
+    """
+    has_pdrd = _scene_has_pdrd(scene)
+    if scene is None or has_pdrd == previous_has_pdrd:
+        return
+    try:
+        current = object_properties.solver_quality_from(scene)
+        remapped = remap_quality_for_pdrd(
+            current,
+            from_has_pdrd=previous_has_pdrd,
+            to_has_pdrd=has_pdrd,
+        )
+    except SolverQualityValidationError:
+        return
+    if remapped != current:
+        _write_solver_quality(scene, remapped)
 
 
 class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
@@ -59,7 +101,11 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             self.report({"WARNING"},
                         "Cloth, Soft Body and Collider require a Mesh object.")
             return {"CANCELLED"}
+        scene = getattr(context, "scene", None)
+        previous_has_pdrd = _scene_has_pdrd(scene)
         obj.cloth_next.role = self.role
+        _remap_quality_after_pdrd_change(
+            scene, previous_has_pdrd=previous_has_pdrd)
         return {"FINISHED"}
 
 
@@ -113,7 +159,11 @@ class CLOTHNEXT_OT_remove_physics(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
+        scene = getattr(context, "scene", None)
+        previous_has_pdrd = _scene_has_pdrd(scene)
         object_properties.reset_settings(obj.cloth_next)
+        _remap_quality_after_pdrd_change(
+            scene, previous_has_pdrd=previous_has_pdrd)
         self.report({"INFO"}, f"Cloth NeXt removed from '{obj.name}'.")
         return {"FINISHED"}
 
@@ -168,16 +218,18 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
             self.report({"WARNING"},
                         "Solver Quality cannot change during an active Bake.")
             return {"CANCELLED"}
+        has_pdrd = _scene_has_pdrd(context.scene)
         try:
-            values = apply_quality_preset(self.preset)
+            values = apply_quality_preset(
+                self.preset, has_pdrd=has_pdrd)
         except SolverQualityValidationError as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
-        quality = context.scene.cloth_next_quality
-        quality.time_step = values.time_step
-        quality.min_newton_steps = values.min_newton_steps
-        quality.cg_max_iter = values.cg_max_iter
-        quality.cg_tol = values.cg_tol
+        _write_solver_quality(context.scene, values)
+        if has_pdrd:
+            self.report(
+                {"INFO"},
+                f"{self.preset.title()} uses PDRD-safe solver settings.")
         return {"FINISHED"}
 
 
