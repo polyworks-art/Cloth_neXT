@@ -79,3 +79,14 @@ def test_real_ppf_produces_more_than_eight_frames(tmp_path):
     assert report["blender_frames"] == 20
     assert report["solver_frames_fetched"] == list(range(1, 20))
     assert report["pc2_header"]["frame_count"] == 20
+
+
+@pytest.mark.integration
+def test_per_face_friction_reaches_the_real_solver(tmp_path):
+    # The vertical-slice cloth is an 11x11 grid (200 triangles). Alternating
+    # values exercise the per-face path rather than a scalar-equivalent array.
+    values = tuple(0.05 if index % 2 == 0 else 0.95 for index in range(200))
+    report = run(_solver(), tmp_path / "face_friction",
+                 face_friction=values)
+    assert report["result"] == "PASS"
+    assert report["solver_frames_fetched"] == list(range(1, 8))

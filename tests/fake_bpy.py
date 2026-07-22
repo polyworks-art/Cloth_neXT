@@ -43,6 +43,8 @@ class _PropDef:
             if _is_property_group_type(target):
                 return _instantiate_group(target, id_data)
             return None
+        if self.kind == "COLLECTION":
+            return _FakeCollection(self.keywords["type"], id_data)
         return self.keywords.get("default")
 
     def _name_on(self, owner):
@@ -104,6 +106,21 @@ def _instantiate_group(group_cls, id_data=None):
                  else prop.default_value())
         object.__setattr__(instance, name, value)
     return instance
+
+
+class _FakeCollection(list):
+    def __init__(self, item_type, id_data=None):
+        super().__init__()
+        self.item_type = item_type
+        self.id_data = id_data
+
+    def add(self):
+        item = _instantiate_group(self.item_type, self.id_data)
+        self.append(item)
+        return item
+
+    def remove(self, index):
+        del self[index]
 
 
 class _Modifiers(list):
@@ -199,7 +216,8 @@ def make_module() -> types.ModuleType:
         StringProperty=lambda **kw: _PropDef("STRING", **kw),
         IntProperty=lambda **kw: _PropDef("INT", **kw),
         FloatProperty=lambda **kw: _PropDef("FLOAT", **kw),
-        PointerProperty=lambda **kw: _PropDef("POINTER", **kw))
+        PointerProperty=lambda **kw: _PropDef("POINTER", **kw),
+        CollectionProperty=lambda **kw: _PropDef("COLLECTION", **kw))
 
     registry: list = []
 

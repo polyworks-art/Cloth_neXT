@@ -67,7 +67,8 @@ def _resolve_shell_material(preset_identifier: str) -> ShellMaterialSettings:
 
 def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         preset: str = material_presets.DEFAULT_PRESET_ID,
-        contact_enabled: bool = True, frame_count: int | None = None) -> dict:
+        contact_enabled: bool = True, frame_count: int | None = None,
+        face_friction: tuple[float, ...] = ()) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cloth, collider = fixture.vertical_slice_fixture()
     frame_count = (fixture.FRAME_END - fixture.FRAME_START + 1
@@ -87,7 +88,8 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
     collider_uuid = f"clothnext-collider-{new_project_name()[10:]}"
     scene_cloth = SceneObject(cloth.name, cloth_uuid, cloth.vertices_local,
                               cloth.triangles,
-                              solver_world_matrix(cloth.world_matrix))
+                              solver_world_matrix(cloth.world_matrix),
+                              face_friction=face_friction)
     scene_collider = SceneObject(collider.name, collider_uuid,
                                  collider.vertices_local, collider.triangles,
                                  solver_world_matrix(collider.world_matrix))

@@ -93,6 +93,47 @@ def test_scene_payload_structure_and_types():
     assert info["transform"][2][1] == -1.0
 
 
+def test_scene_payload_encodes_per_triangle_uvs_for_shell_shrink():
+    cloth, collider = _micro_objects()
+    uv_faces = (((0.0, 0.0), (1.0, 0.0), (1.0, 1.0)),
+                ((0.0, 0.0), (1.0, 1.0), (0.0, 1.0)))
+    mapped = SceneObject(
+        cloth.name, cloth.uuid, cloth.vertices_local, cloth.triangles,
+        cloth.transform, uv_faces=uv_faces)
+
+    info = build_scene_payload(mapped, collider)[0]["object"][0]
+
+    assert info["uv"] == [[list(uv) for uv in face] for face in uv_faces]
+
+
+def test_scene_object_rejects_uv_count_that_does_not_match_faces():
+    cloth, _collider = _micro_objects()
+    with pytest.raises(SceneEncodeError, match="UV face count"):
+        SceneObject(
+            cloth.name, cloth.uuid, cloth.vertices_local, cloth.triangles,
+            cloth.transform,
+            uv_faces=(((0.0, 0.0), (1.0, 0.0), (1.0, 1.0)),))
+
+
+def test_scene_payload_encodes_per_face_friction():
+    cloth, collider = _micro_objects()
+    mapped = SceneObject(
+        cloth.name, cloth.uuid, cloth.vertices_local, cloth.triangles,
+        cloth.transform, face_friction=(0.2, 0.8))
+
+    info = build_scene_payload(mapped, collider)[0]["object"][0]
+
+    assert info["face_friction"] == pytest.approx((0.2, 0.8))
+
+
+def test_scene_object_rejects_invalid_per_face_friction():
+    cloth, _collider = _micro_objects()
+    with pytest.raises(SceneEncodeError, match="face friction count"):
+        SceneObject(
+            cloth.name, cloth.uuid, cloth.vertices_local, cloth.triangles,
+            cloth.transform, face_friction=(0.5,))
+
+
 def test_scene_payload_encodes_canonical_loose_edge_stitch():
     cloth, collider = _micro_objects()
     sewn = SceneObject(

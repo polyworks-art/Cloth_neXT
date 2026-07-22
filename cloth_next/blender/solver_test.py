@@ -66,6 +66,7 @@ from ..ppf.coordinates import (
 )
 from ..ppf.resolver import (
     ResolvedSolver,
+    SolverMode,
     SolverResolutionContext,
     SolverResolver,
     development_executable_from_environment,
@@ -277,7 +278,13 @@ def _managed_root() -> Path | None:
         active = read_current(paths)
         if active is None:
             return None
-        return active.executable_path(paths).parent
+        executable = active.executable_path(paths)
+        bundle_root = paths.version_dir(active.installation_id)
+        # Managed installs are owned by Cloth NeXt, so the pinned and tested
+        # frontend extension can be applied safely before the process starts.
+        from ..ppf.solver_overlay import apply_managed_solver_overlay
+        apply_managed_solver_overlay(bundle_root)
+        return bundle_root
     except (OSError, ValueError):
         return None
 
@@ -583,6 +590,92 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
             raise SceneValidationError(
                 f"{obj.name} produced an invalid triangle {tri}.")
     return vertices, triangles
+
+
+def _extract_source_uv_faces(obj) -> tuple[tuple[tuple[float, float], ...], ...]:
+    """Active per-corner UVs aligned with Blender's loop triangles.
+
+    PPF only applies shell shrink-x/shrink-y while a UV rest basis exists.
+    Keeping this separate from geometry extraction preserves the existing
+    source-mesh API used by rods, soft bodies, colliders, and tests.
+    """
+    mesh = obj.data
+    uv_layers = getattr(mesh, "uv_layers", None)
+    active = getattr(uv_layers, "active", None) if uv_layers is not None else None
+    data = getattr(active, "data", None) if active is not None else None
+    mesh.calc_loop_triangles()
+    if data is None or len(data) == 0:
+        # PPF gates shrink-x/y on the presence of a UV basis. Cloth NeXt's
+        # public Shrink control is isotropic, so a neutral non-degenerate
+        # basis is sufficient when the artist has not authored UVs: rotation
+        # cannot affect an equal X/Y scale.
+        neutral = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0))
+        return tuple(neutral for _triangle in mesh.loop_triangles)
+    result = []
+    for triangle in mesh.loop_triangles:
+        loops = getattr(triangle, "loops", ())
+        if len(loops) != 3:
+            raise SceneValidationError(
+                f"{obj.name} produced invalid loop-triangle UV indices.")
+        face = []
+        for loop_index in loops:
+            uv = data[int(loop_index)].uv
+            coords = (float(uv[0]), float(uv[1]))
+            if any(not math.isfinite(c) for c in coords):
+                raise SceneValidationError(
+                    f"{obj.name} contains non-finite UV coordinates.")
+            face.append(coords)
+        result.append(tuple(face))
+    return tuple(result)
+
+
+def _friction_region_settings(obj) -> tuple[tuple[str, float], ...]:
+    settings = getattr(obj, "cloth_next", None)
+    regions = getattr(settings, "friction_regions", ())
+    return tuple((str(region.vertex_group or ""), float(region.friction))
+                 for region in regions)
+
+
+def _extract_face_friction(
+        obj, triangles, base_friction: float) -> tuple[float, ...]:
+    """Blend Vertex Group targets and average vertex friction per triangle."""
+    configured = _friction_region_settings(obj)
+    if not configured:
+        return ()
+    groups = getattr(obj, "vertex_groups", None)
+    resolved = {}
+    names = set()
+    for name, target in configured:
+        if not name:
+            raise SceneValidationError(
+                f"{obj.name}: select a Vertex Group for every Friction entry.")
+        if name in names:
+            raise SceneValidationError(
+                f"{obj.name}: Friction Vertex Group {name!r} is listed twice.")
+        names.add(name)
+        group = groups.get(name) if groups is not None else None
+        if group is None:
+            raise SceneValidationError(
+                f"{obj.name}: Friction Vertex Group {name!r} does not exist.")
+        resolved[int(group.index)] = max(0.0, min(1.0, target))
+
+    vertex_values = []
+    for vertex in obj.data.vertices:
+        weighted_target = 0.0
+        total_weight = 0.0
+        for membership in vertex.groups:
+            target = resolved.get(int(membership.group))
+            if target is None:
+                continue
+            weight = max(0.0, min(1.0, float(membership.weight)))
+            weighted_target += target * weight
+            total_weight += weight
+        blend = min(total_weight, 1.0)
+        target = (weighted_target / total_weight
+                  if total_weight > 0.0 else base_friction)
+        vertex_values.append(base_friction * (1.0 - blend) + target * blend)
+    return tuple(sum(vertex_values[index] for index in triangle) / 3.0
+                 for triangle in triangles)
 
 
 def _detect_sewing_edges(mesh) -> tuple[tuple[tuple[int, int], ...],
@@ -955,6 +1048,8 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         for obj in _enabled_force_objects(context)]
     record = "\0".join((
         str(SETTINGS_FINGERPRINT_VERSION), base,
+        json.dumps(_friction_region_settings(cloth_obj),
+                   separators=(",", ":")),
         validation_state.object_key(cloth_obj),
         str(cloth_obj.cloth_next.role),
         json.dumps(_world_matrix_record(cloth_obj),
@@ -1780,6 +1875,12 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           force_capture: ForceCapture | None = None) -> RunPlan:
     scene = context.scene
     resolved = resolve_solver(context)
+    if (any(_friction_region_settings(entry.obj)
+            for entry in snapshot.deformables)
+            and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
+        raise SceneValidationError(
+            "Friction Vertex Groups require the managed Cloth NeXt solver. "
+            "Disable the external/development solver or remove the regions.")
     bake_range = snapshot.bake_range
     force_capture = (force_capture or
                      _capture_force_animation(context, bake_range))
@@ -1801,6 +1902,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 if entry.role == "ROD":
                     vertices, edges, _splines = sample_curve(obj)
                     triangles = ()
+                    uv_faces = ()
+                    face_friction = ()
                 else:
                     if entry.role == "SOFT_BODY":
                         open_edges = _non_manifold_edge_count(obj.data)
@@ -1811,6 +1914,11 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     vertices, triangles = _extract_source_mesh(
                         obj, needs_edges=True)
                     edges = ()
+                    uv_faces = (_extract_source_uv_faces(obj)
+                                if entry.role == "CLOTH" else ())
+                    face_friction = (_extract_face_friction(
+                        obj, triangles, entry.material.surface_grip)
+                        if entry.role == "CLOTH" else ())
             world = tuple(tuple(row) for row in obj.matrix_world)
             if not matrix_is_finite_and_invertible(world):
                 raise SceneValidationError(
@@ -1853,7 +1961,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     f"{obj.name}: pinning source/evaluated vertex counts differ.")
             dynamic_records.append(
                 (entry, pin_snapshot, vertices, triangles, edges, world,
-                 stitch_pairs))
+                 stitch_pairs, uv_faces, face_friction))
         for obj in snapshot.collider_objs:
             if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) == "ANIMATED":
                 capture = _capture_collider_motion(context, obj, bake_range)
@@ -1887,14 +1995,15 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     group_for_role = {"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
                       "SOFT_BODY": GROUP_SOLID}
     for (entry, pin_snapshot, vertices, triangles, edges, world,
-         stitch_pairs) in dynamic_records:
+         stitch_pairs, uv_faces, face_friction) in dynamic_records:
         dynamic_uuid = f"cn-dynamic-{uuid_module.uuid4().hex[:12]}"
         uuids.append(dynamic_uuid)
         group = group_for_role[entry.role]
         scene_dynamics.append((SceneObject(
             entry.obj.name, dynamic_uuid, vertices, triangles,
             solver_world_matrix(world), pin_snapshot.vertex_indices,
-            edges=edges, stitch_pairs=stitch_pairs), group))
+            edges=edges, stitch_pairs=stitch_pairs,
+            uv_faces=uv_faces, face_friction=face_friction), group))
         param_dynamics.append((entry.obj.name, dynamic_uuid, group,
                                entry.material,
                                static_pin_config(pin_snapshot)))
@@ -2007,7 +2116,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene_fingerprint = cache_metadata.deterministic_hash(scene_identity)
     target_plans = []
     for index, ((entry, pin_snapshot, vertices, _triangles, _edges, world,
-                 stitch_pairs), dynamic_uuid) in enumerate(
+                 stitch_pairs, _uv_faces, _face_friction), dynamic_uuid) in enumerate(
             zip(dynamic_records, uuids)):
         configured = str(getattr(entry.obj.cloth_next,
                                  "cache_directory", "") or "").strip()
@@ -2100,6 +2209,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
+    if (_friction_region_settings(cloth_obj)
+            and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
+        raise SceneValidationError(
+            "Friction Vertex Groups require the managed Cloth NeXt solver. "
+            "Disable the external/development solver or remove the regions.")
     force_capture = (force_capture or
                      _capture_force_animation(context, bake_range))
     original_frame = int(scene.frame_current)
@@ -2110,6 +2224,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
             if deformable_role == "ROD":
                 cloth_vertices, cloth_edges, _curve_splines = sample_curve(cloth_obj)
                 cloth_triangles = ()
+                cloth_uv_faces = ()
+                cloth_face_friction = ()
             else:
                 if deformable_role == "SOFT_BODY":
                     mesh = cloth_obj.data
@@ -2122,6 +2238,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
                 cloth_vertices, cloth_triangles = _extract_source_mesh(
                     cloth_obj, needs_edges=True)
                 cloth_edges = ()
+                cloth_uv_faces = (_extract_source_uv_faces(cloth_obj)
+                                  if deformable_role == "CLOTH" else ())
+                cloth_face_friction = (_extract_face_friction(
+                    cloth_obj, cloth_triangles, shell.surface_grip)
+                    if deformable_role == "CLOTH" else ())
             stitch_pairs = ()
             if deformable_role == "CLOTH" and shell.sewing_enabled:
                 stitch_pairs, hanging = _detect_sewing_edges(cloth_obj.data)
@@ -2197,7 +2318,9 @@ def build_run_plan(context, *, animated_pin_samples=None,
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
                               cloth_triangles, solver_world_matrix(cloth_world),
                               pin_snapshot.vertex_indices, edges=cloth_edges,
-                              stitch_pairs=stitch_pairs)
+                              stitch_pairs=stitch_pairs,
+                              uv_faces=cloth_uv_faces,
+                              face_friction=cloth_face_friction)
     scene_colliders = []
     collider_specs = []
     motion_meta = []

@@ -28,6 +28,63 @@ def _phase4_meta():
     }
 
 
+def test_shell_uv_export_preserves_authored_uvs_and_generates_fallback(
+        blender_env):
+    module = blender_env.solver_test
+    triangle = SimpleNamespace(loops=(0, 1, 2))
+    mesh = SimpleNamespace(
+        loop_triangles=(triangle,), calc_loop_triangles=lambda: None,
+        uv_layers=SimpleNamespace(active=SimpleNamespace(data=(
+            SimpleNamespace(uv=(0.2, 0.3)),
+            SimpleNamespace(uv=(0.8, 0.3)),
+            SimpleNamespace(uv=(0.2, 0.9))))))
+    obj = SimpleNamespace(name="Cloth", data=mesh)
+
+    assert module._extract_source_uv_faces(obj) == (
+        ((0.2, 0.3), (0.8, 0.3), (0.2, 0.9)),)
+
+    mesh.uv_layers.active = None
+    assert module._extract_source_uv_faces(obj) == (
+        ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0)),)
+
+
+def test_vertex_group_friction_blends_weights_and_averages_faces(blender_env):
+    module = blender_env.solver_test
+    region = SimpleNamespace(vertex_group="Rough", friction=0.8)
+    vertices = (
+        SimpleNamespace(groups=()),
+        SimpleNamespace(groups=(SimpleNamespace(group=3, weight=0.5),)),
+        SimpleNamespace(groups=(SimpleNamespace(group=3, weight=1.0),)),
+    )
+    group = SimpleNamespace(index=3)
+    obj = SimpleNamespace(
+        name="Cloth", data=SimpleNamespace(vertices=vertices),
+        vertex_groups=SimpleNamespace(get=lambda name: group if name == "Rough" else None),
+        cloth_next=SimpleNamespace(friction_regions=(region,)))
+
+    result = module._extract_face_friction(obj, ((0, 1, 2),), 0.2)
+
+    # Vertex values are 0.2, 0.5, 0.8; the triangle receives their mean.
+    assert result == pytest.approx((0.5,))
+
+
+def test_overlapping_friction_groups_mix_their_targets(blender_env):
+    module = blender_env.solver_test
+    regions = (SimpleNamespace(vertex_group="A", friction=0.0),
+               SimpleNamespace(vertex_group="B", friction=1.0))
+    memberships = (SimpleNamespace(group=1, weight=1.0),
+                   SimpleNamespace(group=2, weight=1.0))
+    vertex = SimpleNamespace(groups=memberships)
+    groups = {"A": SimpleNamespace(index=1), "B": SimpleNamespace(index=2)}
+    obj = SimpleNamespace(
+        name="Cloth", data=SimpleNamespace(vertices=(vertex, vertex, vertex)),
+        vertex_groups=SimpleNamespace(get=groups.get),
+        cloth_next=SimpleNamespace(friction_regions=regions))
+
+    assert module._extract_face_friction(
+        obj, ((0, 1, 2),), 0.2) == pytest.approx((0.5,))
+
+
 def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
     module = blender_env.solver_test
     depsgraph = object()

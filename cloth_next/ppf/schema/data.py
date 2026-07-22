@@ -12,9 +12,9 @@ cloth SHELL plus one static triangulated collider needs:
 
 Each object info carries exactly ``name``, ``uuid``, ``vert`` (object-local
 float32-precision positions), ``transform`` (4x4 row-major float64,
-``Z2Y @ matrix_world``), and ``face`` (uint32 triangles). Loose Sewing edges
-are emitted through upstream's optional ``stitch`` field. ``uv``, ``mesh_ref``,
-and unsupported animation fields remain deliberately absent.
+``Z2Y @ matrix_world``), and ``face`` (uint32 triangles). Shell UVs and loose
+Sewing edges are emitted through upstream's optional ``uv`` and ``stitch``
+fields. ``mesh_ref`` and unsupported animation fields remain absent.
 """
 
 from __future__ import annotations
@@ -60,6 +60,8 @@ class SceneObject:
     static_deform_animation: dict | None = None
     edges: tuple[tuple[int, int], ...] = ()
     stitch_pairs: tuple[tuple[int, int], ...] = ()
+    uv_faces: tuple[tuple[tuple[float, float], ...], ...] = ()
+    face_friction: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -91,6 +93,21 @@ class SceneObject:
             if len(pair) != 2 or pair[0] == pair[1] or any(
                     not 0 <= index < count for index in pair):
                 raise SceneEncodeError(f"{self.name}: invalid stitch {pair}")
+        if self.uv_faces:
+            if len(self.uv_faces) != len(self.triangles):
+                raise SceneEncodeError(
+                    f"{self.name}: UV face count does not match triangles")
+            for face in self.uv_faces:
+                if (len(face) != 3 or any(len(uv) != 2 for uv in face)
+                        or any(not math.isfinite(c) for uv in face for c in uv)):
+                    raise SceneEncodeError(f"{self.name}: invalid face UVs")
+        if self.face_friction:
+            if len(self.face_friction) != len(self.triangles):
+                raise SceneEncodeError(
+                    f"{self.name}: face friction count does not match triangles")
+            if any(not math.isfinite(value) or not 0.0 <= value <= 1.0
+                   for value in self.face_friction):
+                raise SceneEncodeError(f"{self.name}: invalid face friction")
         if tuple(sorted(set(self.pin_indices))) != self.pin_indices or any(
                 not 0 <= index < count for index in self.pin_indices):
             raise SceneEncodeError(f"{self.name}: invalid pin indices")
@@ -139,6 +156,12 @@ class SceneObject:
         }
         if self.triangles:
             info["face"] = [list(tri) for tri in self.triangles]
+        if self.uv_faces:
+            info["uv"] = [[[_float32(c) for c in uv] for uv in face]
+                          for face in self.uv_faces]
+        if self.face_friction:
+            info["face_friction"] = [
+                _float32(value) for value in self.face_friction]
         if self.edges:
             info["edge"] = [list(edge) for edge in self.edges]
         if self.stitch_pairs:

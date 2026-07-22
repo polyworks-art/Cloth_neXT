@@ -380,6 +380,17 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
                     "contact-offset")
 
 
+class CLOTHNEXT_PG_friction_region(bpy.types.PropertyGroup):
+    vertex_group: bpy.props.StringProperty(
+        name="Vertex Group", default="", update=_on_settings_update,
+        description="Vertices whose weights blend from the general Friction "
+                    "value to this region's Friction")
+    friction: bpy.props.FloatProperty(
+        name="Friction", default=0.5, min=0.0, max=1.0, precision=2,
+        update=_on_settings_update,
+        description="Target friction at full weight in this Vertex Group")
+
+
 class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
     linear_density: bpy.props.FloatProperty(name="Linear Density", default=1.0,
         min=0.01, max=10000.0, update=_on_settings_update,
@@ -501,6 +512,10 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
     collision: bpy.props.PointerProperty(type=CLOTHNEXT_PG_collision_settings)
+    friction_regions: bpy.props.CollectionProperty(
+        type=CLOTHNEXT_PG_friction_region)
+    friction_region_index: bpy.props.IntProperty(
+        default=0, min=0, options={"HIDDEN"})
     rod: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rod_settings)
     soft_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_soft_body_settings)
     force: bpy.props.PointerProperty(type=CLOTHNEXT_PG_force_settings)
@@ -668,7 +683,7 @@ def detach_from_object() -> None:
 
 CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
-           CLOTHNEXT_PG_collision_settings,
+           CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
            CLOTHNEXT_PG_rod_settings, CLOTHNEXT_PG_soft_body_settings,
            CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,

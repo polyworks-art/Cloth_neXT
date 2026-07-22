@@ -96,6 +96,39 @@ class CLOTHNEXT_MT_object_type(bpy.types.Menu):
             operator.tooltip = description
 
 
+class CLOTHNEXT_OT_add_friction_region(bpy.types.Operator):
+    bl_idname = "clothnext.add_friction_region"
+    bl_label = "Add Friction Vertex Group"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        region = settings.friction_regions.add()
+        region.friction = float(settings.collision.surface_grip)
+        settings.friction_region_index = len(settings.friction_regions) - 1
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_remove_friction_region(bpy.types.Operator):
+    bl_idname = "clothnext.remove_friction_region"
+    bl_label = "Remove Friction Vertex Group"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    index: bpy.props.IntProperty(default=-1, options={"HIDDEN"})
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        index = int(self.index)
+        if not 0 <= index < len(settings.friction_regions):
+            return {"CANCELLED"}
+        settings.friction_regions.remove(index)
+        settings.friction_region_index = max(
+            0, min(index, len(settings.friction_regions) - 1))
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
 def _draw_object_type_selector(layout, settings) -> None:
     """Draw a compact menu without introducing any duplicate state."""
     labels = {identifier: label for identifier, label, _ in object_properties.ROLE_ITEMS}
@@ -959,6 +992,24 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
             column.enabled = collision.enabled
         column.prop(collision, "surface_grip")
+        if settings.role == "CLOTH":
+            regions = column.box()
+            header = regions.row(align=True)
+            header.label(text="Friction Vertex Groups")
+            header.operator(CLOTHNEXT_OT_add_friction_region.bl_idname,
+                            text="", icon="ADD")
+            for index, region in enumerate(settings.friction_regions):
+                row = regions.row(align=True)
+                row.prop_search(region, "vertex_group", context.object,
+                                "vertex_groups", text="")
+                row.prop(region, "friction", text="")
+                remove = row.operator(
+                    CLOTHNEXT_OT_remove_friction_region.bl_idname,
+                    text="", icon="REMOVE")
+                remove.index = index
+            if not settings.friction_regions:
+                regions.label(text="All vertices use general Friction",
+                              icon="INFO")
         column.prop(collision, "collision_gap")
         column.prop(collision, "surface_offset")
         if (settings.role == "COLLIDER"
@@ -1224,6 +1275,8 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 
 
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
+           CLOTHNEXT_OT_add_friction_region,
+           CLOTHNEXT_OT_remove_friction_region,
            *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
            CLOTHNEXT_PT_solver,
