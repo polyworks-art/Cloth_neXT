@@ -32,6 +32,7 @@ GROUP_SHELL = "SHELL"
 GROUP_STATIC = "STATIC"
 GROUP_ROD = "ROD"
 GROUP_SOLID = "SOLID"
+GROUP_PDRD = "PDRD"
 INTERNAL_STATIC_NAME = "__cloth_next_solver_static__"
 INTERNAL_STATIC_UUID = "cloth-next-internal-static-v1"
 
@@ -226,7 +227,7 @@ def build_multi_deformable_scene_payload(deformables, collider) -> list:
     entries = tuple(deformables)
     if not entries:
         raise SceneEncodeError("at least one deformable is required")
-    grouped = {GROUP_SHELL: [], GROUP_ROD: [], GROUP_SOLID: []}
+    grouped = {GROUP_SHELL: [], GROUP_ROD: [], GROUP_SOLID: [], GROUP_PDRD: []}
     for deformable, group_type in entries:
         if not isinstance(deformable, SceneObject):
             raise SceneEncodeError("deformables must be SceneObject values")
@@ -240,7 +241,8 @@ def build_multi_deformable_scene_payload(deformables, collider) -> list:
         raise SceneEncodeError("deformables and colliders need distinct UUIDs")
     payload = [
         {"object": [item.info_dict() for item in grouped[kind]], "type": kind}
-        for kind in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID) if grouped[kind]
+        for kind in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID, GROUP_PDRD)
+        if grouped[kind]
     ]
     if colliders:
         payload.append({"object": [item.info_dict() for item in colliders],

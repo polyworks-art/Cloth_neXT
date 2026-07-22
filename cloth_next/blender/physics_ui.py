@@ -39,8 +39,6 @@ from .playback_cache import has_cloth_next_playback_marker
 _add_entry_appended = False
 
 UNAVAILABLE_OBJECT_TYPES = (
-    ("RIGID_BODY", "Rigid Body",
-     "Coming soon. PPF PDRD rigid bodies are not supported yet."),
     ("SAND", "Sand",
      "Coming soon. Granular simulation is not supported yet."),
 )
@@ -322,7 +320,7 @@ class _ClothNextSubpanel:
         if getattr(cls, "cloth_only", False):
             return role == "CLOTH"
         if getattr(cls, "deformable_only", False):
-            return role in {"CLOTH", "ROD", "SOFT_BODY"}
+            return role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
         return True
 
 
@@ -603,7 +601,8 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     objects = getattr(getattr(context, "scene", None), "objects", ())
     cloths = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
                                                 "enabled", False)
-              and obj.cloth_next.role in {"CLOTH", "ROD", "SOFT_BODY"}]
+              and obj.cloth_next.role in {
+                  "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}]
     colliders = [obj for obj in objects if getattr(getattr(obj, "cloth_next", None),
                                                    "enabled", False)
                  and obj.cloth_next.role == "COLLIDER"]
@@ -678,7 +677,8 @@ def _contact_stability_warning(context) -> str:
     objects = getattr(getattr(context, "scene", None), "objects", ())
     deformables = [obj for obj in objects
         if getattr(getattr(obj, "cloth_next", None), "enabled", False)
-        and obj.cloth_next.role in {"CLOTH", "ROD", "SOFT_BODY"}]
+        and obj.cloth_next.role in {
+            "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}]
     if not deformables or not any(
             bool(obj.cloth_next.collision.enabled) for obj in deformables):
         return ""
@@ -828,6 +828,14 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
             layout.prop(soft, "volume_scale")
             layout.prop(soft, "tetrahedralizer")
             return
+        if settings.role == "RIGID_BODY":
+            layout.label(text="Rigid-body behavior")
+            layout.label(text="Keeps its exact shape while moving and colliding",
+                         icon="INFO")
+            layout.label(text="Use a closed mesh with outward-facing normals",
+                         icon="INFO")
+            layout.prop(settings.rigid_body, "volume_density")
+            return
         material = settings.material
         error = material_presets.load_error()
         if error:
@@ -918,6 +926,10 @@ def _pin_status_lines(summary):
 class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Damping"; bl_idname = "CLOTHNEXT_PT_damping"; deformable_only = True
     header_icon = "damping"
+    @classmethod
+    def poll(cls, context):
+        return (super().poll(context)
+                and context.object.cloth_next.role != "RIGID_BODY")
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -980,10 +992,10 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                         proxy_box.label(
                             text="Original Collider remains active until generated",
                             icon="INFO")
-        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}:
             layout.prop(collision, "enabled")
         column = layout.column()
-        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}:
             column.enabled = collision.enabled
         column.prop(collision, "surface_grip")
         if settings.role == "CLOTH":

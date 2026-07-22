@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Real PPF smoke tests for Cloth NeXt ROD and SOLID encoders."""
+"""Real PPF smoke tests for Cloth NeXt ROD, SOLID and PDRD encoders."""
 
 # ruff: noqa: E402 -- executable script adds the repository root before imports.
 
@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from cloth_next.materials import DEFAULT_STATIC_SETTINGS
-from cloth_next.materials.deformables import RodMaterialSettings, SoftBodyMaterialSettings
+from cloth_next.materials.deformables import (
+    RigidBodyMaterialSettings, RodMaterialSettings, SoftBodyMaterialSettings)
 from cloth_next.ppf.coordinates import solver_world_matrix
 from cloth_next.ppf.resolver import SolverResolutionContext, SolverResolver
 from cloth_next.ppf.schema.data import SceneObject, encode_deformable_scene
@@ -42,7 +43,7 @@ def _run(resolved, output: Path, kind: str):
         deformable = SceneObject("Rod", uid, vertices, (), IDENTITY,
                                  edges=((0, 1), (1, 2), (2, 3), (3, 4)))
         material = RodMaterialSettings()
-    else:
+    elif kind == "SOLID":
         # Closed octahedron: exercises tetrahedralization and maps a surface
         # with more vertices/faces than the minimal single tetrahedron.
         vertices = ((0, 0, 1.3), (0, 0, 0.7), (-0.3, 0, 1.0),
@@ -51,6 +52,14 @@ def _run(resolved, output: Path, kind: str):
             ((0, 2, 4), (0, 4, 3), (0, 3, 5), (0, 5, 2),
              (1, 4, 2), (1, 3, 4), (1, 5, 3), (1, 2, 5)), IDENTITY)
         material = SoftBodyMaterialSettings()
+    else:
+        # Closed tetrahedron falling onto the same contact floor. PDRD keeps
+        # these four surface vertices under one exact rigid transform.
+        vertices = ((-0.25, -0.25, 1.2), (0.25, -0.25, 1.2),
+                    (0.0, 0.25, 1.2), (0.0, 0.0, 1.65))
+        deformable = SceneObject("Rigid", uid, vertices,
+            ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)), IDENTITY)
+        material = RigidBodyMaterialSettings()
     collider = SceneObject("Floor", "smoke-floor",
         ((-2, -2, 0), (2, -2, 0), (2, 2, 0), (-2, 2, 0)),
         ((0, 1, 2), (0, 2, 3)), IDENTITY)
@@ -95,7 +104,7 @@ def run(solver: Path, output: Path) -> dict[str, object]:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {kind: _run(resolved, output, kind)
-              for kind in ("ROD", "SOLID")}
+              for kind in ("ROD", "SOLID", "PDRD")}
     return {"result": "PASS", **report}
 
 

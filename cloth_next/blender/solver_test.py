@@ -71,7 +71,7 @@ from ..ppf.resolver import (
     SolverResolver,
     development_executable_from_environment,
 )
-from ..ppf.schema.data import (GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
+from ..ppf.schema.data import (GROUP_PDRD, GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
                                SceneObject, encode_deformable_scene,
                                encode_multi_deformable_scene,
                                encode_multi_deformable_scene_file, encode_scene,
@@ -319,7 +319,7 @@ def _enabled_objects_by_role(context) -> tuple[object, object | None]:
         settings = getattr(obj, "cloth_next", None)
         if settings is None or not settings.enabled:
             continue
-        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
             if collider_proxy.is_generated_proxy(obj):
@@ -354,7 +354,7 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
         settings = getattr(obj, "cloth_next", None)
         if settings is None or not settings.enabled:
             continue
-        if settings.role in {"CLOTH", "ROD", "SOFT_BODY"}:
+        if settings.role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}:
             cloth_objects.append(obj)
         elif settings.role == "COLLIDER":
             # Generated proxies are implementation objects owned by their
@@ -800,6 +800,9 @@ def _snapshot_materials(cloth_obj, collider_obj):
         elif role == "SOFT_BODY":
             shell = object_properties.soft_body_settings_from(cloth_obj.cloth_next)
             preset_identifier = "SOFT_BODY_DEFAULT"
+        elif role == "RIGID_BODY":
+            shell = object_properties.rigid_body_settings_from(cloth_obj.cloth_next)
+            preset_identifier = "RIGID_BODY_DEFAULT"
         else:
             shell = object_properties.shell_settings_from(cloth_obj.cloth_next)
             preset_identifier = str(cloth_obj.cloth_next.material.preset)
@@ -1256,9 +1259,11 @@ def _validate_scene_single(context) -> ValidationSnapshot:
             deformable_shape_signature = mesh_geometry_signature(
                 getattr(cloth_obj, "data", None),
                 topology_signature=topology_signature)
-            if role == "SOFT_BODY" and bool(cloth_obj.cloth_next.pinning_enabled):
+            if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
+                    cloth_obj.cloth_next.pinning_enabled):
                 raise SceneValidationError(
-                    "Soft Body pinning is not available yet; disable Pinning.")
+                    f"{role.replace('_', ' ').title()} pinning is not available "
+                    "yet; disable Pinning.")
             pin_membership = _snapshot_static_pin(
                 cloth_obj, topology_signature=topology_signature)
         settings_fp = _settings_fingerprint(
@@ -1367,9 +1372,11 @@ def validate_scene(context) -> ValidationSnapshot:
                 topology = mesh_topology_signature(getattr(obj, "data", None))
                 shape = mesh_geometry_signature(
                     getattr(obj, "data", None), topology_signature=topology)
-                if role == "SOFT_BODY" and bool(obj.cloth_next.pinning_enabled):
+                if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
+                        obj.cloth_next.pinning_enabled):
                     raise SceneValidationError(
-                        f"{obj.name}: Soft Body pinning is not available yet; "
+                        f"{obj.name}: {role.replace('_', ' ').title()} pinning "
+                        "is not available yet; "
                         "disable Pinning.")
                 pins = _snapshot_static_pin(obj, topology_signature=topology)
             entries.append(DeformableValidation(
@@ -1905,12 +1912,13 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     uv_faces = ()
                     face_friction = ()
                 else:
-                    if entry.role == "SOFT_BODY":
+                    if entry.role in {"SOFT_BODY", "RIGID_BODY"}:
                         open_edges = _non_manifold_edge_count(obj.data)
                         if open_edges:
                             raise SceneValidationError(
                                 f"{obj.name} is not a closed manifold surface "
-                                f"({open_edges} boundary/non-manifold edges).")
+                                f"({open_edges} boundary/non-manifold edges). "
+                                "Seal the mesh and make its normals face outward.")
                     vertices, triangles = _extract_source_mesh(
                         obj, needs_edges=True)
                     edges = ()
@@ -1993,7 +2001,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     session_dynamics = []
     uuids = []
     group_for_role = {"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
-                      "SOFT_BODY": GROUP_SOLID}
+                      "SOFT_BODY": GROUP_SOLID, "RIGID_BODY": GROUP_PDRD}
     for (entry, pin_snapshot, vertices, triangles, edges, world,
          stitch_pairs, uv_faces, face_friction) in dynamic_records:
         dynamic_uuid = f"cn-dynamic-{uuid_module.uuid4().hex[:12]}"
@@ -2227,14 +2235,14 @@ def build_run_plan(context, *, animated_pin_samples=None,
                 cloth_uv_faces = ()
                 cloth_face_friction = ()
             else:
-                if deformable_role == "SOFT_BODY":
+                if deformable_role in {"SOFT_BODY", "RIGID_BODY"}:
                     mesh = cloth_obj.data
                     open_edges = _non_manifold_edge_count(mesh)
                     if open_edges:
                         raise SceneValidationError(
                             f"{cloth_obj.name} is not a closed manifold surface "
                             f"({open_edges} boundary/non-manifold edges). Seal the "
-                            "mesh before Soft Body tetrahedralization.")
+                            "mesh and make its normals face outward before Bake.")
                 cloth_vertices, cloth_triangles = _extract_source_mesh(
                     cloth_obj, needs_edges=True)
                 cloth_edges = ()
@@ -2381,8 +2389,9 @@ def build_run_plan(context, *, animated_pin_samples=None,
                                     f"{current} / {total}"),
                     activity_code=BakeActivity.ENCODING_SCENE,
                     progress_current=current, progress_total=total)
-            group = (GROUP_SHELL if deformable_role == "CLOTH" else
-                     GROUP_ROD if deformable_role == "ROD" else GROUP_SOLID)
+            group = ({"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
+                      "SOFT_BODY": GROUP_SOLID,
+                      "RIGID_BODY": GROUP_PDRD}[deformable_role])
             data_payload, data_hash = encode_multi_deformable_scene_file(
                 ((scene_cloth, group),), scene_colliders,
                 work_directory / "scene.cbor",
@@ -2392,7 +2401,9 @@ def build_run_plan(context, *, animated_pin_samples=None,
         else:
             data_payload, data_hash = encode_deformable_scene(
                 scene_cloth, scene_colliders,
-                group_type="ROD" if deformable_role == "ROD" else "SOLID")
+                group_type=("ROD" if deformable_role == "ROD" else
+                            "PDRD" if deformable_role == "RIGID_BODY" else
+                            "SOLID"))
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -2419,7 +2430,9 @@ def build_run_plan(context, *, animated_pin_samples=None,
         from ..ppf.schema.params import encode_deformable_param
         param_payload, param_hash = encode_deformable_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs,
-            group_type="ROD" if deformable_role == "ROD" else "SOLID",
+            group_type=("ROD" if deformable_role == "ROD" else
+                        "PDRD" if deformable_role == "RIGID_BODY" else
+                        "SOLID"),
             material=shell, contact_enabled=contact_enabled)
     # Reused from the single authoritative validation — the topology is not
     # hashed and the pin group is not scanned a second time here.
@@ -2507,7 +2520,9 @@ def build_run_plan(context, *, animated_pin_samples=None,
         data_payload=data_payload, param_payload=param_payload,
         data_hash=data_hash, param_hash=param_hash,
         deformable_type=("ROD" if deformable_role == "ROD" else
-                         "SOLID" if deformable_role == "SOFT_BODY" else "SHELL"),
+                         "SOLID" if deformable_role == "SOFT_BODY" else
+                         "PDRD" if deformable_role == "RIGID_BODY" else
+                         "SHELL"),
         deformable_world_matrix=solver_world_matrix(cloth_world))
 
     configured_cache = str(getattr(cloth_obj.cloth_next,
@@ -4486,7 +4501,7 @@ class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
         return [obj for obj in objects
                 if getattr(getattr(obj, "cloth_next", None), "enabled", False)
                 and getattr(obj.cloth_next, "role", "") in
-                {"CLOTH", "ROD", "SOFT_BODY"}]
+                {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}]
 
     def invoke(self, context, _event):
         deformables = self._deformables(context)

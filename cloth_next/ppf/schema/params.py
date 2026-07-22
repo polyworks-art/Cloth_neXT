@@ -50,7 +50,8 @@ from dataclasses import dataclass, field
 from ...materials import WIRE_MODEL_NAMES, ShellMaterialSettings, StaticMaterialSettings
 from ...materials.validation import validate_shell_values, validate_static_values
 from ...materials.deformables import (RodMaterialSettings,
-                                      SoftBodyMaterialSettings)
+                                      SoftBodyMaterialSettings,
+                                      RigidBodyMaterialSettings)
 from ...pinning import StaticPinConfig
 from ...solver_quality import DEFAULT_SOLVER_QUALITY, SolverQualitySettings
 from ..coordinates import blender_vector_to_ppf
@@ -149,6 +150,17 @@ def soft_body_wire_params(soft: SoftBodyMaterialSettings, uuid: str) -> dict[str
         "contact-gap": float32_wire(soft.collision_gap),
         "contact-offset": float32_wire(soft.surface_offset),
         "ftetwild": tet,
+    }
+
+
+def rigid_body_wire_params(rigid: RigidBodyMaterialSettings) -> dict[str, object]:
+    """PDRD uses an exact rigid transform; only mass and contact are editable."""
+    return {
+        "model": "pdrd",
+        "density": float32_wire(rigid.volume_density),
+        "friction": float32_wire(rigid.surface_grip),
+        "contact-gap": float32_wire(rigid.collision_gap),
+        "contact-offset": float32_wire(rigid.surface_offset),
     }
 
 
@@ -322,7 +334,8 @@ def build_deformable_param_payload(
         settings: SimulationSettings, deformable_name: str,
         deformable_uuid: str, colliders, *, group_type: str,
         material: ShellMaterialSettings | RodMaterialSettings |
-        SoftBodyMaterialSettings, contact_enabled: bool = True,
+        SoftBodyMaterialSettings | RigidBodyMaterialSettings,
+        contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None) -> dict:
     return build_multi_deformable_param_payload(
         settings,
@@ -358,6 +371,8 @@ def build_multi_deformable_param_payload(
             params = rod_wire_params(material)
         elif group_type == "SOLID" and isinstance(material, SoftBodyMaterialSettings):
             params = soft_body_wire_params(material, uuid)
+        elif group_type == "PDRD" and isinstance(material, RigidBodyMaterialSettings):
+            params = rigid_body_wire_params(material)
         else:
             raise ParamEncodeError(
                 f"material does not match deformable group {group_type!r}")
@@ -388,7 +403,8 @@ def encode_deformable_param(
         settings: SimulationSettings, deformable_name: str,
         deformable_uuid: str, colliders, *, group_type: str,
         material: ShellMaterialSettings | RodMaterialSettings |
-        SoftBodyMaterialSettings, contact_enabled: bool = True,
+        SoftBodyMaterialSettings | RigidBodyMaterialSettings,
+        contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
     payload = build_deformable_param_payload(
         settings, deformable_name, deformable_uuid, colliders,

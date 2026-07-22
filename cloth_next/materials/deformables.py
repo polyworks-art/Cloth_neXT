@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Validated PPF material settings for rods and volumetric soft bodies."""
+"""Validated PPF material settings for rods, soft and rigid bodies."""
 
 from __future__ import annotations
 
@@ -68,3 +68,19 @@ class SoftBodyMaterialSettings:
         if self.tetrahedralizer not in {"ftetwild", "tetgen"}:
             raise DeformableMaterialError(
                 f"Unknown tetrahedralizer: {self.tetrahedralizer!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class RigidBodyMaterialSettings:
+    """Artist-facing subset of the PPF PDRD material parameters."""
+
+    volume_density: float = 100.0
+    surface_grip: float = 0.5
+    collision_gap: float = 0.001
+    surface_offset: float = 0.0
+
+    def __post_init__(self) -> None:
+        _number("Weight Density", self.volume_density, 0.01, 10000.0)
+        _number("Friction", self.surface_grip, 0.0, 1.0)
+        _number("Collision Gap", self.collision_gap, 0.0, 1e6)
+        _number("Surface Offset", self.surface_offset, 0.0, 1e6)

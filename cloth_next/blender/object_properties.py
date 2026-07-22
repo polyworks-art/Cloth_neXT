@@ -45,13 +45,15 @@ from ..solver_quality import (
     SolverQualitySettings,
 )
 from ..materials.deformables import (RodMaterialSettings,
-                                     SoftBodyMaterialSettings)
+                                     SoftBodyMaterialSettings,
+                                     RigidBodyMaterialSettings)
 from . import icon_registry, validation_state
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
     ("ROD", "Rod / Cable", "Simulate this Curve as a one-dimensional rod"),
     ("SOFT_BODY", "Soft Body", "Simulate this closed mesh as a tetrahedral solid"),
+    ("RIGID_BODY", "Rigid Body", "Simulate this closed mesh as a solid moving object"),
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
     ("FORCE", "Force", "Add scene-wide gravity or wind from an Empty"),
 )
@@ -60,6 +62,7 @@ ROLE_ICONS = {
     "CLOTH": ("cloth", "MOD_CLOTH"),
     "ROD": ("rod", "CURVE_DATA"),
     "SOFT_BODY": ("soft_body", "MOD_SOFT"),
+    "RIGID_BODY": ("rigid_body", "MESH_CUBE"),
     "COLLIDER": ("collider", "MESH_CUBE"),
     "FORCE": ("force", "FORCE_FORCE"),
 }
@@ -433,6 +436,14 @@ class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
         default="FTETWILD", update=_on_settings_update)
 
 
+class CLOTHNEXT_PG_rigid_body_settings(bpy.types.PropertyGroup):
+    volume_density: bpy.props.FloatProperty(
+        name="Weight Density", default=100.0, min=0.01, max=10000.0,
+        soft_max=1000.0, update=_on_settings_update,
+        description="Weight per unit volume. Higher values give the object "
+                    "more mass and make impacts feel heavier")
+
+
 class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     force_type: bpy.props.EnumProperty(
         name="Force Type", default="GRAVITY", update=_on_settings_update,
@@ -518,6 +529,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         default=0, min=0, options={"HIDDEN"})
     rod: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rod_settings)
     soft_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_soft_body_settings)
+    rigid_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rigid_body_settings)
     force: bpy.props.PointerProperty(type=CLOTHNEXT_PG_force_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False, update=_on_settings_update,
@@ -650,6 +662,15 @@ def soft_body_settings_from(settings) -> SoftBodyMaterialSettings:
         tetrahedralizer=str(soft.tetrahedralizer).lower())
 
 
+def rigid_body_settings_from(settings) -> RigidBodyMaterialSettings:
+    rigid, collision = settings.rigid_body, settings.collision
+    return RigidBodyMaterialSettings(
+        volume_density=float(rigid.volume_density),
+        surface_grip=float(collision.surface_grip),
+        collision_gap=float(collision.collision_gap),
+        surface_offset=float(collision.surface_offset))
+
+
 def reset_settings(settings) -> None:
     """Reset object-level settings to safe defaults.
 
@@ -685,6 +706,7 @@ CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
            CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
            CLOTHNEXT_PG_rod_settings, CLOTHNEXT_PG_soft_body_settings,
+           CLOTHNEXT_PG_rigid_body_settings,
            CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_object_settings)

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Opt-in real-solver coverage for Rod and Soft Body production sessions."""
+"""Opt-in real-solver coverage for Rod, Soft Body and Rigid Body sessions."""
 
 from __future__ import annotations
 
@@ -31,4 +31,5 @@ def test_real_rod_and_soft_body_sessions(tmp_path):
         "result": "PASS",
         "ROD": {"frames": 4, "vertices": 5},
         "SOLID": {"frames": 4, "vertices": 6},
+        "PDRD": {"frames": 4, "vertices": 4},
     }

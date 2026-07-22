@@ -8,10 +8,11 @@ import pytest
 
 from cloth_next.materials import DEFAULT_STATIC_SETTINGS, ShellMaterialSettings
 from cloth_next.materials.deformables import (
-    DeformableMaterialError, RodMaterialSettings, SoftBodyMaterialSettings)
+    DeformableMaterialError, RigidBodyMaterialSettings, RodMaterialSettings,
+    SoftBodyMaterialSettings)
 from cloth_next.ppf.schema import envelope
 from cloth_next.ppf.schema.data import (
-    GROUP_ROD, GROUP_SHELL, GROUP_SOLID, SceneObject,
+    GROUP_PDRD, GROUP_ROD, GROUP_SHELL, GROUP_SOLID, SceneObject,
     build_deformable_scene_payload, build_multi_deformable_scene_payload,
     encode_deformable_scene)
 from cloth_next.ppf.schema.params import (
@@ -77,6 +78,24 @@ def test_rod_parameters_and_material_validation():
     assert wire["strain-limit"] == pytest.approx(0.05)
     with pytest.raises(DeformableMaterialError):
         replace(rod, linear_density=0.0)
+
+
+def test_rigid_body_uses_pdrd_with_only_mass_and_contact_controls():
+    rigid = SceneObject("box", "rigid-1",
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)), IDENTITY)
+    scene = build_deformable_scene_payload(
+        rigid, COLLIDER, group_type=GROUP_PDRD)
+    assert scene[0]["type"] == "PDRD"
+    params = build_deformable_param_payload(
+        SETTINGS, "box", "rigid-1", STATIC_SPEC, group_type=GROUP_PDRD,
+        material=RigidBodyMaterialSettings(volume_density=250.0))
+    wire = params["group"][0][0]
+    assert wire == {"model": "pdrd", "density": 250.0, "friction": 0.5,
+                    "contact-gap": pytest.approx(0.001),
+                    "contact-offset": 0.0}
+    with pytest.raises(DeformableMaterialError):
+        replace(RigidBodyMaterialSettings(), volume_density=0.0)
 
 
 def test_mixed_deformables_share_one_scene_and_keep_own_materials():

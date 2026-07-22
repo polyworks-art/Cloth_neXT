@@ -59,9 +59,11 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     items = role.keywords["items"]
     identifiers = [item[0] for item in items]
     labels = {item[0]: item[1] for item in items}
-    assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "COLLIDER", "FORCE"]
+    assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY",
+                           "COLLIDER", "FORCE"]
     assert labels == {"CLOTH": "Cloth", "ROD": "Rod / Cable",
-                      "SOFT_BODY": "Soft Body", "COLLIDER": "Collider",
+                      "SOFT_BODY": "Soft Body", "RIGID_BODY": "Rigid Body",
+                      "COLLIDER": "Collider",
                       "FORCE": "Force"}
     assert role.keywords["default"] == "CLOTH"
     assert props["enabled"].keywords["default"] is False
@@ -147,7 +149,7 @@ def test_empty_data_panel_provides_force_enable_entry(blender_env):
     env.registration.unregister()
 
 
-@pytest.mark.parametrize("role", ["ROPE_CABLE", "RIGID_BODY", "SAND"])
+@pytest.mark.parametrize("role", ["ROPE_CABLE", "SAND"])
 def test_unsupported_object_types_cannot_change_stored_role(blender_env, role):
     env = blender_env
     env.registration.register()
@@ -183,14 +185,12 @@ def test_unavailable_menu_rows_are_disabled_alerts_with_coming_soon_tooltips(ble
     menu = env.physics_ui.CLOTHNEXT_MT_object_type()
     menu.layout = Layout()
     menu.draw(None)
-    unavailable = menu.layout.rows[-2:]
+    unavailable = menu.layout.rows[-1:]
     assert all(row.alert and not row.enabled for row in unavailable)
     assert all(row.operator_value.kwargs["icon"] == "LOCKED" for row in unavailable)
     tooltips = [row.operator_value.tooltip for row in unavailable]
     assert all(tooltip.startswith("Coming soon.") for tooltip in tooltips)
-    assert {"PPF PDRD", "Granular"} == {
-        next(word for word in ("Volumetric", "PPF Rod", "PPF PDRD", "Granular")
-             if word in tooltip) for tooltip in tooltips}
+    assert "Granular" in tooltips[0]
 
 
 def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
@@ -198,7 +198,7 @@ def test_existing_role_enum_identifiers_remain_blend_compatible(blender_env):
         blender_env.object_properties.CLOTHNEXT_PG_object_settings)["role"]
     items = role.keywords["items"]
     assert tuple(item[0] for item in items) == (
-        "CLOTH", "ROD", "SOFT_BODY", "COLLIDER", "FORCE")
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE")
 
 
 def test_object_type_menu_uses_distinct_role_icons(blender_env):
@@ -224,11 +224,12 @@ def test_object_type_menu_uses_distinct_role_icons(blender_env):
     context = SimpleNamespace(object=SimpleNamespace(
         cloth_next=SimpleNamespace(role="ROD")))
     menu.draw(context)
-    active = menu.layout.operators[:5]
+    active = menu.layout.operators[:6]
     assert [item.kwargs["icon"] for item in active] == [
-        "MOD_CLOTH", "CURVE_DATA", "MOD_SOFT", "MESH_CUBE", "FORCE_FORCE"]
+        "MOD_CLOTH", "CURVE_DATA", "MOD_SOFT", "MESH_CUBE", "MESH_CUBE",
+        "FORCE_FORCE"]
     assert [item.kwargs["depress"] for item in active] == [
-        False, True, False, False, False]
+        False, True, False, False, False, False]
 
 
 # --- 3+4: add operator ------------------------------------------------------------
