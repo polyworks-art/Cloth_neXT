@@ -47,6 +47,11 @@ def _steps() -> list[tuple]:
     ]
     steps.append((object_properties.attach_to_object,
                   object_properties.detach_from_object))
+    # Existing files can already contain an enabled PDRD object before 2.1.3 is
+    # registered. Migrate recognized quality presets immediately after the RNA
+    # properties exist; Custom values remain untouched.
+    steps.append((physics_operators.synchronize_all_scene_quality,
+                  lambda: None))
     steps.append((physics_ui.append_add_physics_entry,
                   physics_ui.remove_add_physics_entry))
     steps.append((icon_registry.register, icon_registry.unregister))
