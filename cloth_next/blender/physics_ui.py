@@ -296,10 +296,10 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         snapshot = shared_controller.snapshot()
         action = layout.row(align=True)
         split = action.split(factor=0.86, align=True)
-        # scale_y is set on each leaf row: Blender does not reliably propagate
-        # it into nested split columns, so both sides must set it to keep the
-        # familiar tall Bake button.
-        bake_button = split.row(align=True)
+        # Use columns as the split's direct children so both operators fill
+        # their allocated width. An aligned child row shrink-wraps the folder
+        # operator to its icon and leaves part of the panel visibly unused.
+        bake_button = split.column(align=True)
         bake_button.scale_y = 1.6
         bake_button.enabled = model.enabled and not snapshot.active
         bake_button.operator("clothnext.bake", text=model.action,
@@ -308,7 +308,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         # Small folder button on the right sets the Cache Directory. It stays
         # enabled even when Bake is disabled for a missing directory, so the
         # artist can satisfy the requirement without leaving the panel.
-        set_dir = split.row(align=True)
+        set_dir = split.column(align=True)
         set_dir.scale_y = 1.6
         set_dir.enabled = not snapshot.active
         set_dir.operator("clothnext.set_cache_directory", text="",

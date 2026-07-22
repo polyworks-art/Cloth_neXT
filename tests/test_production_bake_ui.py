@@ -18,6 +18,7 @@ class RecordingLayout:
         if sink is None:
             self.labels = []
             self.operators = []
+            self.containers = []
         self.enabled = True
         self.scale_y = 1.0
 
@@ -29,12 +30,15 @@ class RecordingLayout:
         return SimpleNamespace()
 
     def row(self, **_kw):
+        self.sink.containers.append("row")
         return RecordingLayout(self.sink)
 
     def split(self, **_kw):
+        self.sink.containers.append("split")
         return RecordingLayout(self.sink)
 
     def column(self, **_kw):
+        self.sink.containers.append("column")
         return RecordingLayout(self.sink)
 
 
@@ -96,6 +100,9 @@ def test_solver_panel_contains_large_main_bake_action(blender_env, monkeypatch):
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
     assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    split_index = panel.layout.containers.index("split")
+    assert panel.layout.containers[split_index:split_index + 3] == [
+        "split", "column", "column"]
     assert "PPF Contact Solver" in panel.layout.labels
     assert "Ready · Protocol 0.11" not in panel.layout.labels
     assert "Schema 1" not in panel.layout.labels
