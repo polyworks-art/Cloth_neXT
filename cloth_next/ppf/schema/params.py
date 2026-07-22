@@ -85,8 +85,12 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
     division (see the module docstring).
     """
     validate_shell_values(shell)
+    shrink_factor = 1.0 - shell.shrink_percent / 100.0
+    # PPF's shell strain limiter assumes a unit rest scale and is explicitly
+    # incompatible with shrink-x/shrink-y.
     strain_limit = (shell.maximum_stretch_percent / 100.0
-                    if shell.stretch_limit_enabled else 0.0)
+                    if shell.stretch_limit_enabled and shell.shrink_percent == 0.0
+                    else 0.0)
     return {
         "model": WIRE_MODEL_NAMES[shell.model],
         "density": float32_wire(shell.surface_weight),
@@ -99,6 +103,8 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
         "contact-gap": float32_wire(shell.collision_gap),
         "contact-offset": float32_wire(shell.surface_offset),
         "strain-limit": float32_wire(strain_limit),
+        "shrink-x": float32_wire(shrink_factor),
+        "shrink-y": float32_wire(shrink_factor),
         "pressure": float32_wire(shell.inflate_pressure
                                  if shell.enable_inflate else 0.0),
     }

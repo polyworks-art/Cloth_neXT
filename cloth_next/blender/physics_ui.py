@@ -829,6 +829,12 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         pressure_box.label(text="Use consistent normals; closed meshes are "
                                 "recommended for balloon-like results.",
                            icon="INFO")
+        pressure_box.prop(pressure, "shrink_percent")
+        pressure_box.label(text="Contracts the physical rest shape; does not scale geometry.",
+                           icon="INFO")
+        if pressure.shrink_percent > 0.0 and material.stretch_limit_enabled:
+            pressure_box.label(text="Shrink disables Stretch Protection for this Bake.",
+                               icon="ERROR")
 
 
 class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):

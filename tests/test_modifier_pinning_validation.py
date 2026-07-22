@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Deformable modifiers remain downstream of Cloth NeXt playback."""
+"""Deformable modifiers are accepted independently of export geometry."""
 
 from types import SimpleNamespace
 

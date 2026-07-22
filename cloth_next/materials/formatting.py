@@ -43,6 +43,7 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
     FieldInfo("surface_offset", "Surface Offset", "contact-offset",
               "world units"),
     FieldInfo("inflate_pressure", "Pressure", "pressure", "solver pressure"),
+    FieldInfo("shrink_percent", "Shrink", "shrink-x/shrink-y", "%"),
 )
 
 STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (

@@ -81,6 +81,7 @@ def test_solver_visible_property_changes_mark_dirty(env, attribute, value):
     ("collision", "surface_grip", 0.9),
     ("pressure", "enable_inflate", True),
     ("pressure", "inflate_pressure", 3.0),
+    ("pressure", "shrink_percent", 5.0),
     ("damping", "shape_damping", 0.05),
 ])
 def test_nested_group_changes_mark_dirty(env, group, attribute, value):

@@ -298,7 +298,8 @@ def test_material_panel_displays_artist_facing_names(blender_env):
                                   "bend_resistance",
                                   "stretch_limit_enabled",
                                   "maximum_stretch_percent",
-                                  "enable_inflate", "inflate_pressure"]
+                                  "enable_inflate", "inflate_pressure",
+                                  "shrink_percent"]
     assert "Fabric Behavior" in panel.layout.labels
     assert "Stretch Protection" in panel.layout.labels
     env.registration.unregister()

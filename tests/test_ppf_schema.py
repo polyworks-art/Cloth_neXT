@@ -42,7 +42,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 
 SHELL_KEYS = ["model", "density", "young-mod", "poiss-rat", "bend",
               "deformation-damping", "bending-damping", "friction",
-              "contact-gap", "contact-offset", "strain-limit", "pressure"]
+              "contact-gap", "contact-offset", "strain-limit", "shrink-x",
+              "shrink-y", "pressure"]
 STATIC_KEYS = ["friction", "contact-gap", "contact-offset"]
 
 
@@ -202,16 +203,20 @@ def test_all_ppf_force_fields_and_native_animation_tracks_are_encoded():
     assert payload["dyn_param"]["air-density"][1][1][0] == pytest.approx(0.8)
 
 
-def test_param_golden_bytes_match_shipped_cbor2_output():
+def test_param_payload_extends_legacy_golden_only_with_audited_shrink_keys():
     blob, digest = encode_param(_micro_settings(), "MicroCloth",
                                 "cn-cloth-0001", "MicroCollider",
                                 "cn-collider-0001",
                                 shell=DEFAULT_SHELL_SETTINGS,
                                 static=DEFAULT_STATIC_SETTINGS)
     golden = (FIXTURES / "param_micro.cbor").read_bytes()
-    assert blob == golden
-    meta = json.loads((FIXTURES / "phase3a_goldens.json").read_text())
-    assert digest == meta["param_micro_sha256"]
+    current = envelope.loads_envelope(blob, envelope.KIND_PARAM)
+    legacy = envelope.loads_envelope(golden, envelope.KIND_PARAM)
+    current_shell = current["group"][0][0]
+    assert current_shell.pop("shrink-x") == float32_wire(1.0)
+    assert current_shell.pop("shrink-y") == float32_wire(1.0)
+    assert current == legacy
+    assert digest == hashlib.sha256(blob).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +278,16 @@ def test_strain_limit_percent_conversion_and_disable():
     disabled = ShellMaterialSettings(stretch_limit_enabled=False,
                                      maximum_stretch_percent=5.0)
     assert shell_wire_params(disabled)["strain-limit"] == 0.0
+
+
+def test_uniform_cloth_shrink_maps_to_both_rest_axes_and_disables_strain_limit():
+    shrunk = ShellMaterialSettings(
+        shrink_percent=5.0, stretch_limit_enabled=True,
+        maximum_stretch_percent=5.0)
+    wire = shell_wire_params(shrunk)
+    assert wire["shrink-x"] == float32_wire(0.95)
+    assert wire["shrink-y"] == float32_wire(0.95)
+    assert wire["strain-limit"] == float32_wire(0.0)
 
 
 def test_collider_grip_gap_offset_map_independently_of_cloth():

@@ -97,6 +97,8 @@ SHELL_RULES: dict[str, NumericRule] = {
                                            _MATERIAL_PANEL),
     "inflate_pressure": NumericRule(0.0, False, None, "solver pressure",
                                      _MATERIAL_PANEL),
+    "shrink_percent": NumericRule(0.0, False, 90.0, "%",
+                                  _MATERIAL_PANEL),
 }
 
 STATIC_RULES: dict[str, NumericRule] = {

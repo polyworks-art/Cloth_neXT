@@ -1671,12 +1671,12 @@ def _capture_collider_motion(context, collider_obj,
 
 
 def _validate_deformable_modifier_path(obj, pin_membership) -> None:
-    """All artist modifiers are downstream of Cloth NeXt playback.
+    """Artist modifiers are accepted; Armature precedes Cloth NeXt playback.
 
     Deformable export reads ``obj.data`` directly, before the modifier stack,
-    and playback is attached at stack position zero. Consequently modifiers
-    never need a special allow-list and their topology cannot change the
-    solver mesh. ``pin_membership`` remains accepted for call-site stability.
+    while playback is attached after the last Armature modifier. Consequently
+    modifiers never need a special allow-list and their topology cannot change
+    the solver mesh. ``pin_membership`` remains accepted for call-site stability.
     """
     del obj, pin_membership
 
@@ -2677,6 +2677,20 @@ def _configure_playback_modifier(modifier, frame_start: int) -> None:
     modifier.up_axis = "POS_Z"
 
 
+def _playback_stack_index(obj, playback_modifier) -> int:
+    """Return the slot immediately after every Armature modifier.
+
+    The cache must never precede the rig: doing so lets the Armature deform the
+    simulated result a second time. Other modifier types keep their relative
+    ordering.
+    """
+    stack_without_playback = [modifier for modifier in obj.modifiers
+                              if modifier is not playback_modifier]
+    armature_indices = [index for index, modifier in enumerate(stack_without_playback)
+                        if getattr(modifier, "type", "") == "ARMATURE"]
+    return armature_indices[-1] + 1 if armature_indices else 0
+
+
 _ROD_FCURVE_GROUP = "Cloth NeXt Rod Cache"
 
 
@@ -2973,8 +2987,9 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
     _configure_playback_modifier(modifier, plan.frame_start)
     current_index = next(index for index, item in enumerate(obj.modifiers)
                          if item is modifier)
-    if current_index:
-        obj.modifiers.move(current_index, 0)
+    target_index = _playback_stack_index(obj, modifier)
+    if current_index != target_index:
+        obj.modifiers.move(current_index, target_index)
     modifier.filepath = str(plan.pc2_path)
     # Assigning filepath above is the import commit point. Ownership metadata,
     # validation hints, and stale-cache cleanup improve later UX but must not

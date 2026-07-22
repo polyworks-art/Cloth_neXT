@@ -56,8 +56,12 @@ into Blender-only progress without a global workflow lock.
   delivery or a stable frame cadence; UI wording remains Buffered Live/Follow Solver.
 - Cloth NeXt uses PC2 playback for constant topology. It cannot represent
   topology-changing tearing.
-- Pressure is implemented as a uniform shell parameter. Target volume, compressibility,
-  gas behavior and pressure animation are not yet verified and must not be exposed.
+- Pressure is implemented as a uniform shell parameter. Uniform Cloth Shrink maps to
+  PPF's physical `shrink-x`/`shrink-y` rest-shape factors. The pinned solver does not
+  support animating object-local rest factors, so Shrink is active from Bake start and
+  its visible settling time depends on stiffness, damping, contacts, and scene scale.
+  Target volume, compressibility, gas behavior and pressure animation are not yet
+  verified and must not be exposed.
 - Independent Blender-style self-collision controls and tension/compression/shear
   stiffness mappings are not established. PPF contact is unified; fake mappings are
   prohibited.
@@ -149,7 +153,8 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   optional static/animated colliders, and an artist-selected
   Bake Start/End range with a 10,000-output-frame safety limit.
 - For Cloth shells, Static and Follow Animation hard pins through one vertex
-  group and uniform object-local pressure are supported. Soft Pull, timed pin release, shrink,
+  group, uniform object-local pressure, and uniform physical Cloth Shrink are supported.
+  Soft Pull, timed pin release, animated shrink,
   stitching, plasticity, tearing, sand, PDRD,
   dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF

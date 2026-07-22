@@ -57,6 +57,7 @@ class ShellMaterialSettings:
     maximum_stretch_percent: float = 5.0  # % -> PPF strain-limit fraction
     enable_inflate: bool = False          # object-specific pressure toggle
     inflate_pressure: float = 0.0         # -> PPF pressure
+    shrink_percent: float = 0.0           # % contraction -> PPF shrink-x/y
 
     def __post_init__(self) -> None:
         validate_shell_values(self)

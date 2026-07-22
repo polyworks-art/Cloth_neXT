@@ -465,9 +465,14 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert len(obj.modifiers) == 1
     assert obj.modifiers[0] is old
     assert old.filepath == str(path)
+    assert old.cache_format == "PC2"
+    assert old.play_mode == "SCENE"
+    assert old.deform_mode == "OVERWRITE"
+    assert old.forward_axis == "POS_Y"
+    assert old.up_axis == "POS_Z"
 
 
-def test_attach_places_cache_before_every_artist_modifier(
+def test_attach_places_cache_after_armature_and_before_later_modifiers(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
@@ -483,8 +488,40 @@ def test_attach_places_cache_before_every_artist_modifier(
 
     module._attach_playback(plan, header)
 
-    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[0])
-    assert list(obj.modifiers[1:]) == [armature, subdivision]
+    assert obj.modifiers[0] is armature
+    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[1])
+    assert obj.modifiers[2] is subdivision
+
+
+def test_attach_places_cache_after_last_armature(blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    first_rig = obj.modifiers.new("Primary Rig", "ARMATURE")
+    second_rig = obj.modifiers.new("Corrective Rig", "ARMATURE")
+    subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
+    path = tmp_path / "cn_test_cloth_new.pc2"
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    plan = module.RunPlan(SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+                          ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
+                          obj.name, tmp_path, path, 1)
+
+    module._attach_playback(plan, header)
+
+    assert list(obj.modifiers[:2]) == [first_rig, second_rig]
+    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[2])
+    assert obj.modifiers[3] is subdivision
+
+
+def test_playback_stack_index_is_first_without_armature(blender_env):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
+    cache = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+
+    assert module._playback_stack_index(obj, cache) == 0
+    assert obj.modifiers[0] is subdivision  # helper itself never mutates the stack
 
 
 def test_animated_collider_samples_are_dense_and_include_exact_endpoints(

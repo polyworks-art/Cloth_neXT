@@ -100,6 +100,7 @@ each carry their own friction/gap/offset.
 | PCG Max Iterations | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
 | PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
+| Shrink | Object `pressure.shrink_percent` | `shrink-x`, `shrink-y` (SHELL only) | Uniform rest-shape contraction; `5%` encodes both axes as `0.95`. Non-zero Shrink disables `strain-limit`, as required by PPF. |
 | Gravity | `gravity` | Sum of Gravity Empty local `-Z` vectors, or Blender scene gravity when no Gravity Empty is enabled | axis-swapped to solver Y-up |
 | Wind Force Empty | `wind` | Sum of enabled Wind Empty local `+Z` vectors | axis-swapped to solver Y-up |
 | Air Density Force Empty | `air-density` | Sum of enabled Air Density Empty values | solver aerodynamic density |
@@ -159,7 +160,7 @@ metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
-Target volume/compressibility/gas pressure, shrink, stitching, plasticity,
+Target volume/compressibility/gas pressure, animated shrink, stitching, plasticity,
 dynamic material-parameter animation, collision windows, sand, PDRD,
 arbitrary frame ranges, tearing, and live preview. No stored or wire-level
 `substeps` value exists: `dt` is the sole

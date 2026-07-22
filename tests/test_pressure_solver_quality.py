@@ -56,6 +56,18 @@ def test_pressure_is_object_local_and_rejects_invalid_values():
                                   inflate_pressure=invalid)
 
 
+def test_shrink_defaults_validation_and_fingerprint():
+    assert DEFAULT_SHELL_SETTINGS.shrink_percent == 0.0
+    shrunk = replace(DEFAULT_SHELL_SETTINGS, shrink_percent=5.0)
+    assert settings_fingerprint(shrunk, DEFAULT_STATIC_SETTINGS, True,
+                                "DEFAULT", quality=DEFAULT_SOLVER_QUALITY) != \
+        settings_fingerprint(DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS,
+                             True, "DEFAULT", quality=DEFAULT_SOLVER_QUALITY)
+    for invalid in (-0.01, 90.01, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            ShellMaterialSettings(shrink_percent=invalid)
+
+
 def test_quality_defaults_and_wire_mapping_are_central_and_exact():
     quality = DEFAULT_SOLVER_QUALITY
     assert (quality.time_step, quality.min_newton_steps,

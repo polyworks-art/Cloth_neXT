@@ -301,6 +301,13 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
         name="Pressure", default=0.0, min=0.0, soft_max=100.0, precision=3,
         update=_on_settings_update,
         description="Uniform outward pressure along the Cloth surface normals")
+    shrink_percent: bpy.props.FloatProperty(
+        name="Shrink", default=0.0, min=0.0, max=90.0, soft_max=25.0,
+        precision=2, subtype="PERCENTAGE", update=_on_settings_update,
+        description="Physically contract the Cloth rest shape uniformly. "
+                    "For example, 5% sets both warp and weft rest lengths "
+                    "to 95%. This is not object or geometry scaling. The "
+                    "solver applies the target from the start of the Bake")
 
 
 class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
@@ -563,7 +570,8 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
         stretch_limit_enabled=bool(material.stretch_limit_enabled),
         maximum_stretch_percent=float(material.maximum_stretch_percent),
         enable_inflate=bool(settings.pressure.enable_inflate),
-        inflate_pressure=float(settings.pressure.inflate_pressure))
+        inflate_pressure=float(settings.pressure.inflate_pressure),
+        shrink_percent=float(settings.pressure.shrink_percent))
 
 
 def solver_quality_from(scene) -> SolverQualitySettings:
