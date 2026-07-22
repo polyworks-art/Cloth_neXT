@@ -1,29 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Modifier validation for supported animated-pin workflows."""
+"""Deformable modifiers remain downstream of Cloth NeXt playback."""
 
 from types import SimpleNamespace
 
-import pytest
-
+from tests import mesh_fixtures
 
 def _pin_membership(enabled):
     return SimpleNamespace(enabled=enabled)
 
 
-def test_armature_without_cloth_next_pinning_explains_follow_animation(
-        blender_env):
+def test_armature_without_cloth_next_pinning_is_allowed(blender_env):
     obj = blender_env.bpy.types.Object(name="Rigged Cloth", type="MESH")
     obj.modifiers.new("Armature", "ARMATURE")
 
-    with pytest.raises(blender_env.solver_test.SceneValidationError) as caught:
-        blender_env.solver_test._validate_deformable_modifier_path(
-            obj, _pin_membership(False))
-
-    message = str(caught.value)
-    assert "Cloth NeXt Pinning is disabled" in message
-    assert "select the animated Pin Group" in message
-    assert "Pin Mode to Follow Animation" in message
+    blender_env.solver_test._validate_deformable_modifier_path(
+        obj, _pin_membership(False))
 
 
 def test_armature_is_allowed_when_cloth_next_pinning_is_enabled(blender_env):
@@ -34,15 +26,12 @@ def test_armature_is_allowed_when_cloth_next_pinning_is_enabled(blender_env):
         obj, _pin_membership(True))
 
 
-def test_other_modifier_keeps_plain_mesh_guidance(blender_env):
+def test_topology_changing_modifier_without_pinning_is_allowed(blender_env):
     obj = blender_env.bpy.types.Object(name="Subdivided Cloth", type="MESH")
     obj.modifiers.new("Subdivision", "SUBSURF")
 
-    with pytest.raises(blender_env.solver_test.SceneValidationError) as caught:
-        blender_env.solver_test._validate_deformable_modifier_path(
-            obj, _pin_membership(False))
-
-    assert "requires a plain mesh" in str(caught.value)
+    blender_env.solver_test._validate_deformable_modifier_path(
+        obj, _pin_membership(False))
 
 
 def test_render_only_subdivision_does_not_block_viewport_bake(blender_env):
@@ -55,12 +44,26 @@ def test_render_only_subdivision_does_not_block_viewport_bake(blender_env):
         obj, _pin_membership(False))
 
 
-def test_viewport_subdivision_still_requires_supported_workflow(blender_env):
+def test_viewport_subdivision_is_downstream_and_allowed(blender_env):
     obj = blender_env.bpy.types.Object(name="Viewport Subdiv Cloth", type="MESH")
     modifier = obj.modifiers.new("Viewport Subdivision", "SUBSURF")
     modifier.show_viewport = True
 
-    with pytest.raises(blender_env.solver_test.SceneValidationError,
-                       match="requires a plain mesh"):
-        blender_env.solver_test._validate_deformable_modifier_path(
-            obj, _pin_membership(False))
+    blender_env.solver_test._validate_deformable_modifier_path(
+        obj, _pin_membership(False))
+
+
+def test_deformable_export_reads_source_mesh_without_evaluating_modifiers(
+        blender_env):
+    blender_env.registration.register()
+    scene = mesh_fixtures.build_cloth_scene(blender_env.bpy, vertex_count=16)
+    scene.cloth.modifiers.new("Topology Change", "SUBSURF")
+    scene.cloth.evaluated_get = lambda _depsgraph: (_ for _ in ()).throw(
+        AssertionError("deformable modifiers must not be evaluated for export"))
+
+    vertices, triangles = blender_env.solver_test._extract_source_mesh(
+        scene.cloth, needs_edges=True)
+
+    assert len(vertices) == len(scene.cloth.data.vertices)
+    assert triangles
+    blender_env.registration.unregister()

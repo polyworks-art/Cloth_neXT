@@ -482,9 +482,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         subtype="PERCENTAGE",
         description="Total system RAM usage that automatically cancels the Bake")
 
-    def draw(self, _context) -> None:
+    def draw(self, context) -> None:
         layout = self.layout
-        self._draw_addon_update_section(layout)
+        self._draw_addon_update_section(layout, context)
         self._draw_solver_section(layout)
         if is_dev_build():
             layout.prop(self, "developer_tools")
@@ -497,7 +497,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             self,"auto_cancel_high_ram",True)
         threshold.prop(self,"auto_cancel_ram_percent")
 
-    def _draw_addon_update_section(self, layout) -> None:
+    def _draw_addon_update_section(self, layout, context) -> None:
         """Cloth NeXt's own update status; never performs network work."""
         box = layout.box()
         box.label(text="Cloth NeXt")
@@ -508,6 +508,11 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         box.label(text="Installed Version: "
                        f"{addon_update_operators.INSTALLED_VERSION}")
         box.prop(self, "update_channel")
+        channel = addon_updates.UpdateChannel[self.update_channel]
+        repos = context.preferences.extensions.repos
+        if addon_updates.find_channel_repo(repos, channel) is None:
+            box.operator("clothnext.addon_update_repo_setup",
+                         text="Register Update Channel")
         if self.update_channel == "DEV":
             warning=box.box(); warning.label(text="Development Channel", icon="ERROR")
             warning.label(text="Experimental public builds; reduced validation.")
@@ -521,8 +526,6 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         check = actions.row()
         check.enabled = view.check_enabled
         check.operator("clothnext.addon_update_check")
-        if view.show_repo_setup:
-            actions.operator("clothnext.addon_update_repo_setup")
         if view.show_update_handoff:
             actions.operator("clothnext.addon_update_through_blender")
         elif view.show_open_extensions:

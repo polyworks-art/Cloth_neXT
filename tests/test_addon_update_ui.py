@@ -75,6 +75,7 @@ class FakeLayout:
 
     def operator(self, idname, text=None, icon=None):
         self.log.append(("operator", idname))
+        self.log.append(("operator_text", idname, text))
         return SimpleNamespace()
 
     def prop(self, _data, prop_name):
@@ -582,6 +583,43 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     update_block = [entry for entry in log[boxes[0]:boxes[1]] if len(entry) == 2]
     assert all(not (kind == "operator" and value.startswith("clothnext.solver"))
                for kind, value in update_block)
+    env.registration.unregister()
+
+
+def test_preferences_offers_channel_registration_directly_below_selector(
+        blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    import cloth_next.blender.preferences as preferences
+    monkeypatch.setattr(preferences, "_safe_read_current", lambda: (None, True))
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.layout = FakeLayout()
+    prefs.external_solver_path = ""
+    prefs.update_channel = "BETA"
+    prefs.draw(env.bpy.context)
+    log = prefs.layout.log
+    selector = log.index(("prop", "update_channel"))
+    register = log.index(("operator", "clothnext.addon_update_repo_setup"))
+    assert register > selector
+    assert ("operator_text", "clothnext.addon_update_repo_setup",
+            "Register Update Channel") in log
+    env.registration.unregister()
+
+
+def test_preferences_hides_channel_registration_when_repo_exists(
+        blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    add_repo(env, BETA_URL)
+    import cloth_next.blender.preferences as preferences
+    monkeypatch.setattr(preferences, "_safe_read_current", lambda: (None, True))
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.layout = FakeLayout()
+    prefs.external_solver_path = ""
+    prefs.update_channel = "BETA"
+    prefs.draw(env.bpy.context)
+    assert ("operator", "clothnext.addon_update_repo_setup") not in \
+        prefs.layout.log
     env.registration.unregister()
 
 

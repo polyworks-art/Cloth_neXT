@@ -426,7 +426,21 @@ _SCALAR_FORCE_FIELDS = {
 }
 
 
-def _force_state(context) -> tuple[ForceState, frozenset[str]]:
+def _wind_oscillation(obj, frame: int, fps: int) -> float:
+    """Stable smooth pseudo-random gust value in the closed range [-1, 1]."""
+    identity = str(getattr(obj, "name_full", getattr(obj, "name", "Wind")))
+    digest = hashlib.sha256(identity.encode("utf-8")).digest()
+    phase_a = int.from_bytes(digest[:4], "big") / 2**32 * math.tau
+    phase_b = int.from_bytes(digest[4:8], "big") / 2**32 * math.tau
+    rate_a = 0.31 + digest[8] / 255.0 * 0.23
+    rate_b = 0.73 + digest[9] / 255.0 * 0.41
+    seconds = float(frame) / max(1, int(fps))
+    return (math.sin(math.tau * rate_a * seconds + phase_a)
+            + 0.5 * math.sin(math.tau * rate_b * seconds + phase_b)) / 1.5
+
+
+def _force_state(context, *, wind_frame: int | None = None) \
+        -> tuple[ForceState, frozenset[str]]:
     """Resolve every PPF force/environment parameter in Blender space."""
     forces = _enabled_force_objects(context)
     gravity_forces = [obj for obj in forces
@@ -465,6 +479,14 @@ def _force_state(context) -> tuple[ForceState, frozenset[str]]:
         strength = float(force.strength)
         if not math.isfinite(strength) or strength < 0.0:
             raise SceneValidationError(f"{obj.name}: Force strength is invalid.")
+        if force_type == "WIND":
+            variation = float(getattr(force, "wind_variation", 0.0))
+            if not math.isfinite(variation) or variation < 0.0:
+                raise SceneValidationError(
+                    f"{obj.name}: Wind strength variation is invalid.")
+            if wind_frame is not None and variation:
+                strength = max(0.0, strength + variation * _wind_oscillation(
+                    obj, wind_frame, _scene_fps(context)))
         target = gravity if force_type == "GRAVITY" else wind
         sign = -1.0 if force_type == "GRAVITY" else 1.0
         for index in range(3):
@@ -522,6 +544,38 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
         return vertices, triangles
     finally:
         evaluated.to_mesh_clear()
+
+
+def _extract_source_mesh(obj, *, needs_edges: bool):
+    """Original mesh data before every modifier in the artist's stack."""
+    if obj.type != "MESH":
+        raise SceneValidationError(f"{obj.name} is not a mesh object.")
+    mesh = getattr(obj, "data", None)
+    if mesh is None:
+        raise SceneValidationError(f"{obj.name} has no mesh data.")
+    vertex_count = len(mesh.vertices)
+    if vertex_count == 0:
+        raise SceneValidationError(f"{obj.name} has no vertices.")
+    if needs_edges and len(mesh.edges) == 0:
+        raise SceneValidationError(f"{obj.name} has no edges.")
+    if len(mesh.polygons) == 0:
+        raise SceneValidationError(f"{obj.name} has no faces.")
+    vertices = tuple((v.co.x, v.co.y, v.co.z) for v in mesh.vertices)
+    for position in vertices:
+        if any(not math.isfinite(c) for c in position):
+            raise SceneValidationError(
+                f"{obj.name} contains non-finite vertex coordinates.")
+    mesh.calc_loop_triangles()
+    triangles = tuple(tuple(tri.vertices) for tri in mesh.loop_triangles)
+    if not triangles:
+        raise SceneValidationError(
+            f"{obj.name} cannot be triangulated into a shell.")
+    for tri in triangles:
+        if len(set(tri)) != 3 or any(
+                not 0 <= index < vertex_count for index in tri):
+            raise SceneValidationError(
+                f"{obj.name} produced an invalid triangle {tri}.")
+    return vertices, triangles
 
 
 def _non_manifold_edge_count(mesh) -> int:
@@ -793,6 +847,8 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         "object_key": validation_state.object_key(obj),
         "type": str(obj.cloth_next.force.force_type),
         "strength": float(obj.cloth_next.force.strength),
+        "wind_variation": float(getattr(obj.cloth_next.force,
+                                         "wind_variation", 0.0)),
         "air_density": float(getattr(obj.cloth_next.force,
                                      "air_density", 0.001)),
         "air_friction": float(getattr(obj.cloth_next.force,
@@ -1270,7 +1326,7 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
             # frame_set updates the dependency graph immediately; repeating a
             # view-layer update here needlessly evaluates the full rig again.
             scene.frame_set(frame)
-            state, active = _force_state(context)
+            state, active = _force_state(context, wind_frame=frame)
             samples.append(state)
             active_scalar_types.update(active)
     finally:
@@ -1615,30 +1671,14 @@ def _capture_collider_motion(context, collider_obj,
 
 
 def _validate_deformable_modifier_path(obj, pin_membership) -> None:
-    """Reject unsupported unpinned modifier workflows with useful guidance.
+    """All artist modifiers are downstream of Cloth NeXt playback.
 
-    An Armature is a supported source for Follow Animation pins: evaluated
-    positions are sampled for the selected pin group at every Bake frame.  It
-    is not meaningful on an otherwise unpinned deformable because Cloth NeXt
-    would have no vertex subset that should keep following the animation.
+    Deformable export reads ``obj.data`` directly, before the modifier stack,
+    and playback is attached at stack position zero. Consequently modifiers
+    never need a special allow-list and their topology cannot change the
+    solver mesh. ``pin_membership`` remains accepted for call-site stability.
     """
-    modifiers = tuple(getattr(obj, "modifiers", ()))
-    relevant = tuple(
-        modifier for modifier in modifiers
-        if (getattr(modifier, "show_viewport", True)
-            and not is_cloth_next_playback_modifier(obj, modifier)))
-    if not relevant or pin_membership.enabled:
-        return
-    if any(getattr(modifier, "type", "") == "ARMATURE"
-           for modifier in relevant):
-        raise SceneValidationError(
-            f"{obj.name} has an Armature modifier, but Cloth NeXt Pinning is "
-            "disabled. Enable Pinning, select the animated Pin Group, and "
-            "set Pin Mode to Follow Animation.")
-    raise SceneValidationError(
-        f"{obj.name} has modifiers; the current unpinned solver path "
-        "requires a plain mesh. Enable Pinning for a supported animated-pin "
-        "workflow, or apply/remove the modifiers.")
+    del obj, pin_membership
 
 
 def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
@@ -1664,7 +1704,6 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             _validate_deformable_modifier_path(obj, pin_snapshot)
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
-                depsgraph = context.evaluated_depsgraph_get()
                 if entry.role == "ROD":
                     vertices, edges, _splines = sample_curve(obj)
                     triangles = ()
@@ -1675,8 +1714,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                             raise SceneValidationError(
                                 f"{obj.name} is not a closed manifold surface "
                                 f"({open_edges} boundary/non-manifold edges).")
-                    vertices, triangles = _extract_mesh(
-                        obj, depsgraph, needs_edges=True)
+                    vertices, triangles = _extract_source_mesh(
+                        obj, needs_edges=True)
                     edges = ()
             world = tuple(tuple(row) for row in obj.matrix_world)
             if not matrix_is_finite_and_invertible(world):
@@ -1940,7 +1979,6 @@ def build_run_plan(context, *, animated_pin_samples=None,
     try:
         with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
             scene.frame_set(bake_range.start); _depsgraph_update(context)
-            depsgraph = context.evaluated_depsgraph_get()
             if deformable_role == "ROD":
                 cloth_vertices, cloth_edges, _curve_splines = sample_curve(cloth_obj)
                 cloth_triangles = ()
@@ -1953,8 +1991,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
                             f"{cloth_obj.name} is not a closed manifold surface "
                             f"({open_edges} boundary/non-manifold edges). Seal the "
                             "mesh before Soft Body tetrahedralization.")
-                cloth_vertices, cloth_triangles = _extract_mesh(
-                    cloth_obj, depsgraph, needs_edges=True)
+                cloth_vertices, cloth_triangles = _extract_source_mesh(
+                    cloth_obj, needs_edges=True)
                 cloth_edges = ()
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
@@ -2772,6 +2810,7 @@ class _PlaybackRecord:
     obj: object
     modifier: object
     created: bool
+    original_index: int
     modifier_fields: dict
     extras: tuple
     previous_paths: set
@@ -2791,6 +2830,11 @@ def _rollback_playback(records) -> None:
             else:
                 for name, value in record.modifier_fields.items():
                     setattr(modifier, name, value)
+                current_index = next(
+                    (index for index, item in enumerate(obj.modifiers)
+                     if item is modifier), -1)
+                if current_index >= 0 and current_index != record.original_index:
+                    obj.modifiers.move(current_index, record.original_index)
             for name, snapshot in record.object_fields.items():
                 _restore_value(obj, name, snapshot)
             if record.settings is not None:
@@ -2910,11 +2954,13 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
             name=import_result.MODIFIER_NAME, type="MESH_CACHE")
         extras = []
         created = True
+    original_index = next(index for index, item in enumerate(obj.modifiers)
+                          if item is modifier)
     fields = {name: getattr(modifier, name) for name in
               _PLAYBACK_MODIFIER_FIELDS if hasattr(modifier, name)}
     settings = getattr(obj, "cloth_next", None)
     record = _PlaybackRecord(
-        obj, modifier, created, fields, tuple(extras), previous_paths,
+        obj, modifier, created, original_index, fields, tuple(extras), previous_paths,
         plan.pc2_path,
         {name: _snapshot_value(obj, name) for name in
          _PLAYBACK_OBJECT_FIELDS},
@@ -2925,6 +2971,10 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         _transaction.append(record)
     modifier.name = import_result.MODIFIER_NAME
     _configure_playback_modifier(modifier, plan.frame_start)
+    current_index = next(index for index, item in enumerate(obj.modifiers)
+                         if item is modifier)
+    if current_index:
+        obj.modifiers.move(current_index, 0)
     modifier.filepath = str(plan.pc2_path)
     # Assigning filepath above is the import commit point. Ownership metadata,
     # validation hints, and stale-cache cleanup improve later UX but must not
@@ -3456,7 +3506,8 @@ def _pin_capture_pump():
                 index_array=state["index_arrays"][object_name])
             state["samples"][object_name].append(
                 AnimatedPinTargetSample(frame, positions))
-        force_state, active_scalar_types = _force_state(context)
+        force_state, active_scalar_types = _force_state(
+            context, wind_frame=frame)
         state["force_samples"].append(force_state)
         state["active_scalar_types"].update(active_scalar_types)
         shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",

@@ -732,6 +732,8 @@ class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
         info = layout.column(align=True)
         if force.force_type in {"GRAVITY", "WIND"}:
             layout.prop(force, "strength")
+            if force.force_type == "WIND":
+                layout.prop(force, "wind_variation")
             direction = "local -Z" if force.force_type == "GRAVITY" else "local +Z"
             info.label(text=f"Direction: Empty {direction}", icon="ORIENTATION_LOCAL")
             info.label(text="Rotate the Empty to aim the force")

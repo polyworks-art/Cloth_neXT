@@ -84,7 +84,7 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
             ((1.0, 2.0, 3.0),))
     force_state = module.ForceState((0.0, 0.0, -9.81), (0.0, 0.0, 0.0))
     monkeypatch.setattr(module, "_force_state",
-                        lambda _context: (force_state, frozenset()))
+                        lambda _context, **_kwargs: (force_state, frozenset()))
     monkeypatch.setattr(module.shared_controller, "update", lambda **_kwargs: None)
 
     module._pin_capture = {
@@ -393,6 +393,40 @@ def test_native_force_animation_is_sampled_for_ppf_dyn_params(blender_env):
         (0.05, (0.0, 0.0, 2.0), False),
         (0.1, (0.0, 0.0, 3.0), False))),)
 
+
+def test_wind_strength_has_bounded_reproducible_randomized_gusts(blender_env):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    settings = SimpleNamespace(
+        force_type="WIND", strength=2.0, wind_variation=0.5,
+        air_density=0.001, air_friction=0.2, vertex_air_damp=0.0)
+    wind = SimpleNamespace(
+        name="Gusty Wind", name_full="Gusty Wind", type="EMPTY",
+        matrix_world=identity,
+        cloth_next=SimpleNamespace(enabled=True, role="FORCE", force=settings))
+
+    class Scene:
+        objects = (wind,)
+        gravity = (0.0, 0.0, -9.81)
+        use_gravity = True
+        frame_current = 20
+        render = SimpleNamespace(fps=24)
+
+        def frame_set(self, frame, **_kwargs):
+            self.frame_current = frame
+
+    context = SimpleNamespace(scene=Scene(), view_layer=None)
+    bake_range = module.BakeFrameRange(1, 20)
+    first = module._capture_force_animation(context, bake_range)
+    second = module._capture_force_animation(context, bake_range)
+    values = [sample[1][2] for sample in first.dynamic_parameters[0][1]]
+
+    assert first == second
+    assert len(set(values)) > 10
+    assert min(values) >= 1.5
+    assert max(values) <= 2.5
+
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test
     module._cancel_event.clear()
@@ -431,6 +465,26 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert len(obj.modifiers) == 1
     assert obj.modifiers[0] is old
     assert old.filepath == str(path)
+
+
+def test_attach_places_cache_before_every_artist_modifier(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
+    path = tmp_path / "cn_test_cloth_new.pc2"
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    plan = module.RunPlan(SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+                          ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
+                          obj.name, tmp_path, path, 1)
+
+    module._attach_playback(plan, header)
+
+    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[0])
+    assert list(obj.modifiers[1:]) == [armature, subdivision]
 
 
 def test_animated_collider_samples_are_dense_and_include_exact_endpoints(

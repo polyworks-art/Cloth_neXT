@@ -418,6 +418,10 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         name="Strength", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
         description="PPF vector magnitude in Blender-space units; rotate the Empty to set direction")
+    wind_variation: bpy.props.FloatProperty(
+        name="Strength Variation", default=0.25, min=0.0, soft_max=10.0,
+        precision=3, update=_on_settings_update,
+        description="Maximum randomized Wind strength variation above or below Strength; zero disables gusts")
     air_density: bpy.props.FloatProperty(
         name="Air Density", default=0.001, min=0.0, soft_max=2.0,
         precision=4, update=_on_settings_update,

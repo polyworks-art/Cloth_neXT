@@ -112,6 +112,9 @@ class _Modifiers(list):
         self.append(modifier)
         return modifier
 
+    def move(self, from_index, to_index):
+        self.insert(to_index, self.pop(from_index))
+
 
 def make_module() -> types.ModuleType:
     """Build a fresh fake ``bpy`` module with isolated state."""
