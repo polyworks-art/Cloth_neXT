@@ -18,10 +18,10 @@ and `tests/test_solver_compatibility_manifest.py`.
       "protocol_version": "0.11",
       "schema_version": "1",
       "official_repository": "st-tech/ppf-contact-solver",
-      "official_release_tag": "2026-07-09-04-39",
-      "official_asset_name": "ppf-contact-solver-2026-07-09-04-39-win64.zip",
+      "official_release_tag": "2026-07-13-21-05",
+      "official_asset_name": "ppf-contact-solver-2026-07-13-21-05-win64.zip",
       "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/<tag>/<asset>",
-      "download_size": 450996388,
+      "download_size": 445446777,
       "sha256": "<64 lowercase hex>",
       "archive_layout_version": 1,
       "health_check_required": true
@@ -57,7 +57,7 @@ update check instead of being treated as a silent release switch.
 
 ## Current verified entry
 
-The `windows-x86_64` entry pins official release tag `2026-07-09-04-39`
+The `windows-x86_64` entry pins official release tag `2026-07-13-21-05`
 (package `0.1.0`, protocol `0.11`, schema `1`), whose asset hash and health
 check were verified during the Phase 2.5 bootstrap (see
 [SOLVER_DISTRIBUTION.md](SOLVER_DISTRIBUTION.md)).

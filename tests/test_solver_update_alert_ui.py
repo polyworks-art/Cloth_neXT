@@ -17,7 +17,7 @@ import pytest
 
 from cloth_next.updater.install_paths import ActiveInstallation
 
-TAG = "2026-07-09-04-39"
+TAG = "2026-07-13-21-05"
 
 
 class RecordingLayout:

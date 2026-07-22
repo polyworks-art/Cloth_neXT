@@ -14,13 +14,13 @@ by `tools/scan_release_artifact.py`, and the release aborts on any hit.
 ## Current locally validated runtime
 
 - Official project: `st-tech/ppf-contact-solver` (ZOZO, Inc.).
-- Official release tag: `2026-07-09-04-39`.
+- Official release tag: `2026-07-13-21-05`.
 - Release tag commit: `4f42d8c1bcb3945668ff7dbf6e4c768fc7fd6f2e`.
 - Previously audited later commit: `7193f158e3843597070f66cb29af19efd9bdcff7`.
-- Asset: `ppf-contact-solver-2026-07-09-04-39-win64.zip`.
-- URL: <https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-09-04-39/ppf-contact-solver-2026-07-09-04-39-win64.zip>
+- Asset: `ppf-contact-solver-2026-07-13-21-05-win64.zip`.
+- URL: <https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-13-21-05/ppf-contact-solver-2026-07-13-21-05-win64.zip>
 - Asset size: 450,996,388 bytes.
-- Asset SHA-256: `eddac75ed0f3d10d055546ac8ca5e3c625283626a2ad47d5a5e87baab0b2440a`.
+- Asset SHA-256: `ad51f4fedfe1dfdf4c837b8e55cc4fe2a73efb5fe9b6abff3d2e9cc742a0b6f9`.
 - Installed EXE SHA-256: `4deccdd138c17c3b9eb002b49bcf0f5bad9d4befa236239232a1c9b61e9360b3`.
 - Reported package/protocol/schema: `0.1.0` / `0.11` / `1`.
 - Real health check: passed.
@@ -51,4 +51,3 @@ the release policy forbids publishing, mirroring, or repackaging the solver thro
 any Cloth NeXt channel. Users install the solver separately through the add-on
 preferences from the official `st-tech/ppf-contact-solver` release pinned in
 `cloth_next/solver_compatibility.json`.
-

@@ -25,7 +25,7 @@ not include it; the add-on preferences install or select it separately. See
 ```
 
 New managed installations are stored under the immutable official release tag
-(e.g. `versions/2026-07-09-04-39/`), never under the internal solver package
+(e.g. `versions/2026-07-13-21-05/`), never under the internal solver package
 version alone: multiple official releases may report the same internal package
 version and must install side by side. The release id is strictly validated
 (no separators, no traversal). Legacy installations under
@@ -39,9 +39,9 @@ startable and are never touched by an update.
 ```json
 {
   "metadata_version": 2,
-  "installation_id": "2026-07-09-04-39",
-  "official_release_tag": "2026-07-09-04-39",
-  "official_asset_name": "ppf-contact-solver-2026-07-09-04-39-win64.zip",
+  "installation_id": "2026-07-13-21-05",
+  "official_release_tag": "2026-07-13-21-05",
+  "official_asset_name": "ppf-contact-solver-2026-07-13-21-05-win64.zip",
   "asset_sha256": "<64 lowercase hex>",
   "solver_package_version": "0.1.0",
   "executable": "target/release/ppf-cts-server.exe",

@@ -7,11 +7,11 @@
       "protocol_version": "0.11",
       "schema_version": "1",
       "official_repository": "st-tech/ppf-contact-solver",
-      "official_release_tag": "2026-07-09-04-39",
-      "official_asset_name": "ppf-contact-solver-2026-07-09-04-39-win64.zip",
-      "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-09-04-39/ppf-contact-solver-2026-07-09-04-39-win64.zip",
-      "download_size": 450996388,
-      "sha256": "eddac75ed0f3d10d055546ac8ca5e3c625283626a2ad47d5a5e87baab0b2440a",
+      "official_release_tag": "2026-07-13-21-05",
+      "official_asset_name": "ppf-contact-solver-2026-07-13-21-05-win64.zip",
+      "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-13-21-05/ppf-contact-solver-2026-07-13-21-05-win64.zip",
+      "download_size": 445446777,
+      "sha256": "ad51f4fedfe1dfdf4c837b8e55cc4fe2a73efb5fe9b6abff3d2e9cc742a0b6f9",
       "archive_layout_version": 1,
       "health_check_required": true
     }

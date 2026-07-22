@@ -11,6 +11,13 @@
 - Sewing validation selects face-less, massless stitch vertices in Edit Mode
   before they can cause a singular solver system.
 
+### Changed
+
+- The managed solver manifest now offers the verified official
+  `2026-07-13-21-05` Windows release. Older managed releases are shown as an
+  available solver update even though the internal package version remains
+  `0.1.0`.
+
 ## 2.0.0 — 2026-07-19 (Stable channel)
 
 ### Added

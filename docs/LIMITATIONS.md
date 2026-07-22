@@ -90,7 +90,7 @@ guessing an endpoint, parameter or format.
 - The release workflow pins `BLENDER_VERSION` for the official extension
   tooling; the exact Blender 5.x download URL must be confirmed on first CI run.
 - The solver compatibility manifest pins exactly one verified upstream release
-  (`2026-07-09-04-39`). Newer upstream releases are not offered until tested
+  (`2026-07-13-21-05`). Newer upstream releases are not offered until tested
   and added through a reviewed manifest change.
 - Blender-dependent UI paths have automated unit/smoke coverage; final interaction,
   display, DPI, and platform behavior still require testing in Blender itself.

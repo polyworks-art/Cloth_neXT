@@ -40,7 +40,7 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
 
 def test_valid_manifest_parses():
     manifest = parse_manifest(valid_payload())
-    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-09-04-39"
+    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-13-21-05"
 
 
 @pytest.mark.parametrize("missing", ["sha256", "protocol_version", "schema_version"])

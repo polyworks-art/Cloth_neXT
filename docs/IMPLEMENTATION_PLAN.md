@@ -84,7 +84,7 @@ staging, recorded provenance/licenses, and exercised the real health lifecycle. 
 temporary repository/extension-bundle packaging experiment was removed in Phase 2.7
 and is not a supported distribution mode.
 
-Status: implemented. The official `2026-07-09-04-39` Windows release reports package
+Status: implemented. The official `2026-07-13-21-05` Windows release reports package
 `0.1.0`, protocol `0.11`, schema `1`; bootstrap health and the real integration test
 passed. Local binaries were ignored and remained external development state. Current
 builds are always solver-free; see `docs/SOLVER_DISTRIBUTION.md`.
