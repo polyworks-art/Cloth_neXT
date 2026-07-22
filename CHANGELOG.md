@@ -2,14 +2,23 @@
 
 ## Unreleased
 
+## 2.1.0 — 2026-07-22 (Beta channel)
+
 ### Added
 
+- PDRD Rigid Body simulation with artist-facing material controls, shared
+  Cloth interaction, and per-object Bake ranges.
+- Per-vertex-group Friction overrides while unassigned vertices retain the
+  object's general Friction value.
 - Blender-style Cloth Sewing: when enabled below Shrink, mesh edges unused by
   any face become PPF stitch constraints with adjustable Sewing Strength.
 - Solved seams that enter the contact range are closed exactly in the playback
   cache without changing its vertex count, eliminating visible micro-gaps.
 - Sewing validation selects face-less, massless stitch vertices in Edit Mode
   before they can cause a singular solver system.
+- In-panel installed-version and update status backed by the selected GitHub
+  update channel, plus an explicit repository-registration action.
+- Randomized Wind variation around the configured strength.
 
 ### Changed
 
@@ -17,6 +26,22 @@
   `2026-07-13-21-05` Windows release. Older managed releases are shown as an
   available solver update even though the internal package version remains
   `0.1.0`.
+- Modifier capture exports the intended pre-simulation mesh state and places
+  playback after the last enabled Armature modifier when present.
+- Cloth NeXt continues Blender's two-column Physics grid at half width and
+  uses the white Cloth NeXt logo in its add/remove button.
+- Solver-reported self-intersections now produce a concise artist-facing error
+  instead of exposing the complete process tail in Blender.
+
+### Fixed
+
+- Multi-object Bake range validation and synchronization now include every
+  enabled deformable, including Rigid Bodies.
+- Rigged deformables export their Bake-start pose rather than the current
+  viewport frame.
+- Playback-cache attachment remains stable when modifier ordering changes.
+- Several solver startup, status, cache-import, and cancellation failures now
+  preserve a precise stage and actionable error code.
 
 ## 2.0.0 — 2026-07-19 (Stable channel)
 

@@ -2723,6 +2723,19 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError) -> tuple[str, str]
     """Translate technical solver failures into actionable Blender language."""
     record = exc.record
     technical = record.technical_message
+    intersections = re.search(
+        r"(\d+)\s+self[- ]intersections?\s*\((\d+)\s+tri-tri\)",
+        technical, re.IGNORECASE)
+    if intersections:
+        count = int(intersections.group(1))
+        summary = f"Intersections detected ({count})."
+        details = (
+            "Stage: scene validation\n"
+            f"Cause: The solver found {count} self-intersecting triangle "
+            f"pair{'s' if count != 1 else ''}.\n"
+            "What to do: Run Validate, then repair the marked intersecting "
+            "geometry before baking again.")
+        return summary, details
     convergence = re.search(
         r"Linear solver failed to converge: advance failed at frame (\d+)",
         technical, re.IGNORECASE)

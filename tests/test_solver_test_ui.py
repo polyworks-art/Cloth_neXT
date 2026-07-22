@@ -368,6 +368,28 @@ def test_convergence_failure_names_blender_frame_and_action(blender_env):
     assert details.index("Friction") < details.index("Time Step")
 
 
+def test_solver_self_intersection_failure_is_concise(blender_env):
+    module = blender_env.solver_test
+    plan = SimpleNamespace(frame_start=1)
+    long_tail = "trace line; " * 200
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver rejected the status request.",
+        technical_message=(
+            "server error during status: ValidationError: "
+            "20 self-intersections (20 tri-tri); stdout_tail=("
+            f"{long_tail})"),
+        recommended_action="Inspect the logs."))
+
+    summary, details = module._present_worker_error(plan, error)
+
+    assert summary == "Intersections detected (20)."
+    assert "20 self-intersecting triangle pairs" in details
+    assert "Run Validate" in details
+    assert "stdout_tail" not in details
+    assert long_tail not in details
+
+
 def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
