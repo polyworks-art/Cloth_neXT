@@ -23,14 +23,53 @@ KIND_SCENE = "Scene"
 KIND_PARAM = "Param"
 KIND_VERTEX_MAP = "VertexMap"
 
+_INACTIVE_MOMENTUM_KEY = "inactive-momentum"
+
 
 class EnvelopeError(ValueError):
     pass
 
 
+def _payload_for_wire(kind: str, payload: Any) -> Any:
+    """Return the payload with PPF startup momentum suppression disabled.
+
+    Upstream represents enabled inactive momentum as a positive scene-level
+    duration and converts it into a dynamic hold. The permanently disabled
+    representation is omission: PPF's application default is ``False``.
+    Strip both possible activation paths at the final Cloth NeXt wire boundary
+    without mutating the caller's diagnostic payload.
+    """
+    if kind != KIND_PARAM or not isinstance(payload, dict):
+        return payload
+
+    scene = payload.get("scene")
+    dynamic = payload.get("dyn_param")
+    static_enabled = (isinstance(scene, dict)
+                      and _INACTIVE_MOMENTUM_KEY in scene)
+    dynamic_enabled = (isinstance(dynamic, dict)
+                       and _INACTIVE_MOMENTUM_KEY in dynamic)
+    if not static_enabled and not dynamic_enabled:
+        return payload
+
+    wire_payload = dict(payload)
+    if isinstance(scene, dict):
+        wire_scene = dict(scene)
+        wire_scene.pop(_INACTIVE_MOMENTUM_KEY, None)
+        wire_payload["scene"] = wire_scene
+    if isinstance(dynamic, dict):
+        wire_dynamic = dict(dynamic)
+        wire_dynamic.pop(_INACTIVE_MOMENTUM_KEY, None)
+        if wire_dynamic:
+            wire_payload["dyn_param"] = wire_dynamic
+        else:
+            wire_payload.pop("dyn_param", None)
+    return wire_payload
+
+
 def dumps_envelope(kind: str, payload: Any) -> bytes:
     if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
         raise EnvelopeError(f"unknown payload kind {kind!r}")
+    payload = _payload_for_wire(kind, payload)
     return cbor_codec.dumps(
         {"version": SCHEMA_VERSION, "kind": kind, "payload": payload})
 
@@ -40,6 +79,7 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
     """Write a large envelope incrementally and return its wire hash."""
     if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
         raise EnvelopeError(f"unknown payload kind {kind!r}")
+    payload = _payload_for_wire(kind, payload)
     path.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
 
