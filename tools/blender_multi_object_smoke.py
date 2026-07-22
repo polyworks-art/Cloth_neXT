@@ -36,6 +36,7 @@ try:
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
     wind.cloth_next.force.force_type = "WIND"
+    wind.cloth_next.force.wind_variation = 0.0
     wind.cloth_next.force.strength = 1.0
     wind.keyframe_insert(data_path="cloth_next.force.strength", frame=1)
     wind.cloth_next.force.strength = 3.0
