@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import importlib
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,6 +36,7 @@ try:
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
     wind.cloth_next.force.force_type = "WIND"
+    wind.cloth_next.force.wind_variation = 0.0
     wind.cloth_next.force.strength = 1.0
     wind.keyframe_insert(data_path="cloth_next.force.strength", frame=1)
     wind.cloth_next.force.strength = 3.0
@@ -91,15 +91,6 @@ try:
     from cloth_next.ppf.schema import envelope
     params = envelope.loads_envelope(plan.scene.param_payload,
                                      envelope.KIND_PARAM)
-    diagnostics = {
-        "pin_config_keys": sorted(params.get("pin_config", {})),
-        "expected_pin_keys": sorted(target.uuid for target in plan.deformables),
-        "scene": params.get("scene"),
-        "dynamic_keys": sorted(params.get("dyn_param", {})),
-        "dyn_param": params.get("dyn_param"),
-    }
-    (ROOT / "multi_object_smoke_diagnostics.json").write_text(
-        json.dumps(diagnostics, indent=2, sort_keys=True), encoding="utf-8")
     assert set(params["pin_config"]) == {
         target.uuid for target in plan.deformables}
     assert all(len(config) == 1 for config in params["pin_config"].values())
