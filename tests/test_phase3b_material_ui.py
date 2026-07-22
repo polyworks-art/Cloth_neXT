@@ -321,6 +321,22 @@ def test_cache_panel_shows_editable_bake_range(blender_env):
     env.registration.unregister()
 
 
+def test_cache_panel_is_available_for_rigid_bodies(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "RIGID_BODY"
+    context = _context(obj)
+    assert env.physics_ui.CLOTHNEXT_PT_cache.poll(context)
+    panel = env.physics_ui.CLOTHNEXT_PT_cache()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert "bake_start" in panel.layout.props
+    assert "bake_end" in panel.layout.props
+    env.registration.unregister()
+
+
 def test_collider_collisions_show_only_contact_values(blender_env):
     env = blender_env
     env.registration.register()

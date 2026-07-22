@@ -1141,7 +1141,7 @@ def _draw_stale_result_notice(layout, context) -> None:
 
 class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Cache"; bl_idname = "CLOTHNEXT_PT_cache"
-    cloth_only = True
+    deformable_only = True
     header_icon = "cache"
     def draw(self, context):
         layout = self.layout
@@ -1172,7 +1172,7 @@ class CLOTHNEXT_PT_developer_tools(_ClothNextSubpanel, bpy.types.Panel):
     bl_idname = "CLOTHNEXT_PT_developer_tools"
     bl_parent_id = "CLOTHNEXT_PT_cache"
     bl_options = {"DEFAULT_CLOSED"}
-    cloth_only = True
+    deformable_only = True
     header_icon = "warning"
 
     @classmethod
