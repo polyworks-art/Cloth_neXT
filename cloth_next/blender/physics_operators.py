@@ -68,6 +68,36 @@ def _remap_quality_after_pdrd_change(
         _write_solver_quality(scene, remapped)
 
 
+def synchronize_scene_quality(scene) -> bool:
+    """Align a recognized preset with the scene's current PDRD state.
+
+    This also migrates already-authored PDRD scenes when Cloth NeXt 2.1.3 is
+    registered. Custom numeric values stay untouched.
+    """
+    if scene is None or getattr(scene, "cloth_next_quality", None) is None:
+        return False
+    has_pdrd = _scene_has_pdrd(scene)
+    try:
+        current = object_properties.solver_quality_from(scene)
+        remapped = remap_quality_for_pdrd(
+            current,
+            from_has_pdrd=not has_pdrd,
+            to_has_pdrd=has_pdrd,
+        )
+    except SolverQualityValidationError:
+        return False
+    if remapped == current:
+        return False
+    _write_solver_quality(scene, remapped)
+    return True
+
+
+def synchronize_all_scene_quality() -> None:
+    """Migrate every loaded scene after the Blender properties are attached."""
+    for scene in getattr(bpy.data, "scenes", ()):
+        synchronize_scene_quality(scene)
+
+
 class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
     """Choose a supported Cloth NeXt object type"""
 
