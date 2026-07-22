@@ -524,6 +524,26 @@ def test_playback_stack_index_is_first_without_armature(blender_env):
     assert obj.modifiers[0] is subdivision  # helper itself never mutates the stack
 
 
+def test_modifier_lookup_accepts_rewrapped_blender_rna(blender_env):
+    module = blender_env.solver_test
+
+    class ModifierWrapper:
+        def __init__(self, pointer, modifier_type="MESH_CACHE"):
+            self._pointer = pointer
+            self.type = modifier_type
+
+        def as_pointer(self):
+            return self._pointer
+
+    stored = ModifierWrapper(0xC10)
+    rewrapped = ModifierWrapper(0xC10)
+    obj = SimpleNamespace(modifiers=[stored])
+
+    assert stored is not rewrapped
+    assert module._modifier_index(obj, rewrapped) == 0
+    assert module._playback_stack_index(obj, rewrapped) == 0
+
+
 def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
         blender_env):
     module = blender_env.solver_test

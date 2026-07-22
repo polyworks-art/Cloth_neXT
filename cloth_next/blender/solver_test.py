@@ -2740,6 +2740,24 @@ def _configure_playback_modifier(modifier, frame_start: int) -> None:
     modifier.up_axis = "POS_Z"
 
 
+def _same_modifier(left, right) -> bool:
+    """Compare Blender RNA modifiers without relying on wrapper identity."""
+    if left is right:
+        return True
+    try:
+        left_pointer = int(left.as_pointer())
+        right_pointer = int(right.as_pointer())
+    except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+        return False
+    return left_pointer != 0 and left_pointer == right_pointer
+
+
+def _modifier_index(obj, modifier) -> int:
+    """Return the index of an RNA modifier even if Blender rewrapped it."""
+    return next((index for index, item in enumerate(obj.modifiers)
+                 if _same_modifier(item, modifier)), -1)
+
+
 def _playback_stack_index(obj, playback_modifier) -> int:
     """Return the slot immediately after every Armature modifier.
 
@@ -2748,7 +2766,8 @@ def _playback_stack_index(obj, playback_modifier) -> int:
     ordering.
     """
     stack_without_playback = [modifier for modifier in obj.modifiers
-                              if modifier is not playback_modifier]
+                              if not _same_modifier(modifier,
+                                                    playback_modifier)]
     armature_indices = [index for index, modifier in enumerate(stack_without_playback)
                         if getattr(modifier, "type", "") == "ARMATURE"]
     return armature_indices[-1] + 1 if armature_indices else 0
@@ -2907,9 +2926,7 @@ def _rollback_playback(records) -> None:
             else:
                 for name, value in record.modifier_fields.items():
                     setattr(modifier, name, value)
-                current_index = next(
-                    (index for index, item in enumerate(obj.modifiers)
-                     if item is modifier), -1)
+                current_index = _modifier_index(obj, modifier)
                 if current_index >= 0 and current_index != record.original_index:
                     obj.modifiers.move(current_index, record.original_index)
             for name, snapshot in record.object_fields.items():
@@ -3031,8 +3048,9 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
             name=import_result.MODIFIER_NAME, type="MESH_CACHE")
         extras = []
         created = True
-    original_index = next(index for index, item in enumerate(obj.modifiers)
-                          if item is modifier)
+    original_index = _modifier_index(obj, modifier)
+    if original_index < 0:
+        raise RuntimeError("Playback modifier disappeared before cache import")
     fields = {name: getattr(modifier, name) for name in
               _PLAYBACK_MODIFIER_FIELDS if hasattr(modifier, name)}
     settings = getattr(obj, "cloth_next", None)
@@ -3048,8 +3066,9 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         _transaction.append(record)
     modifier.name = import_result.MODIFIER_NAME
     _configure_playback_modifier(modifier, plan.frame_start)
-    current_index = next(index for index, item in enumerate(obj.modifiers)
-                         if item is modifier)
+    current_index = _modifier_index(obj, modifier)
+    if current_index < 0:
+        raise RuntimeError("Playback modifier disappeared during cache import")
     target_index = _playback_stack_index(obj, modifier)
     if current_index != target_index:
         obj.modifiers.move(current_index, target_index)
