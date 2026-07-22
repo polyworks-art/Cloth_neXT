@@ -12,6 +12,12 @@
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="preload" href="media/cloth-next-hero.webp" as="image" type="image/webp">
   <link rel="stylesheet" href="superhive.css">
+  <style>
+    .known-issue-banner{position:relative;z-index:9;display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.72rem clamp(1rem,5vw,4rem);border-bottom:1px solid rgba(255,101,112,.58);background:linear-gradient(90deg,#64131b,#3d0b10);color:#ffe9eb;font-size:.72rem;line-height:1.4;text-align:center}
+    .known-issue-banner strong{color:#fff;font:800 .62rem/1 ui-monospace,monospace;letter-spacing:.12em;white-space:nowrap}
+    .known-issue-banner span{color:#ffd2d6}
+    @media(max-width:600px){.known-issue-banner{align-items:flex-start;gap:.55rem;padding:.75rem 1rem;text-align:left}.known-issue-banner strong{margin-top:.16rem}}
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
@@ -27,6 +33,11 @@
       <span>Dev: <b data-channel-version="dev">2.0.4</b></span>
     </div>
   </header>
+
+  <div class="known-issue-banner" role="alert">
+    <strong>KNOWN ISSUE</strong>
+    <span>PDRD rigid body simulation is currently affected by a known bug. Please avoid PDRD workflows until a fix is available.</span>
+  </div>
 
   <main id="content">
     <section class="hero">
