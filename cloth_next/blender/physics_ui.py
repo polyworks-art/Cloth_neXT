@@ -6,11 +6,11 @@
 The "Cloth NeXt" entry is appended to Blender's own ``PHYSICS_PT_add`` panel
 through the stable ``Panel.append``/``Panel.remove`` API. Blender does not
 expose the internal two-column grid of the native Add-Physics buttons to
-appended callbacks, so the entry renders as a full-width button directly
-below the native buttons — the closest placement the public UI API supports
-(see docs/LIMITATIONS.md). No Blender source class is monkey-patched and no
-third-party add-on internals are touched. Cloth NeXt deliberately has no
-N-panel; the Physics Properties tab is the primary workflow.
+appended callbacks, so the entry continues that grid with a left-hand
+half-width cell immediately below it. No Blender source class is monkey-
+patched and no third-party add-on internals are touched. Cloth NeXt
+deliberately has no N-panel; the Physics Properties tab is the primary
+workflow.
 
 Honest-controls policy (Phase 3B): every visible, editable property maps to
 a real PPF parameter. The former Quality, Pressure, and Shape subpanels and
@@ -142,13 +142,21 @@ def _draw_add_physics_entry(panel, context) -> None:
     if obj is None or obj.type not in {"MESH", "CURVE", "EMPTY"}:
         return
     settings = getattr(obj, "cloth_next", None)
-    col = panel.layout.column()
+    # Appended callbacks cannot access the grid created earlier by Blender (or
+    # by another add-on such as FLIP Fluids). Continue it visually with the
+    # next left-hand cell instead of adding an oversized full-width row.
+    row = panel.layout.row(align=True)
+    split = row.split(factor=0.5, align=True)
+    cell = split.column(align=True)
+    split.column(align=True)  # empty right-hand grid cell
     if settings is not None and settings.enabled:
-        col.operator(physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
-                     text="Cloth NeXt", icon="X")
+        cell.operator(physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
+                      text="Cloth NeXt",
+                      **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
     else:
-        col.operator(physics_operators.CLOTHNEXT_OT_add_physics.bl_idname,
-                     text="Cloth NeXt", icon="MOD_CLOTH")
+        cell.operator(physics_operators.CLOTHNEXT_OT_add_physics.bl_idname,
+                      text="Cloth NeXt",
+                      **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
 
 
 # Marks the callback so stale copies from a previous module instance (e.g.

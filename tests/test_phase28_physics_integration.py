@@ -375,6 +375,46 @@ def test_append_purges_stale_callback_from_previous_module_instance(blender_env)
     env.registration.unregister()
 
 
+def test_add_entry_continues_physics_grid_at_half_width_with_logo(blender_env,
+                                                                  monkeypatch):
+    env = blender_env
+    obj = make_mesh(env)
+    obj.cloth_next = SimpleNamespace(enabled=False)
+
+    class Layout:
+        def __init__(self, root=None):
+            self.root = root or self
+            if root is None:
+                self.split_factors = []
+                self.operators = []
+
+        def row(self, **_kwargs):
+            return Layout(self.root)
+
+        def split(self, **kwargs):
+            self.root.split_factors.append(kwargs)
+            return Layout(self.root)
+
+        def column(self, **_kwargs):
+            return Layout(self.root)
+
+        def operator(self, identifier, **kwargs):
+            self.root.operators.append((identifier, kwargs))
+            return SimpleNamespace()
+
+    layout = Layout()
+    monkeypatch.setattr(env.physics_ui.icon_registry, "icon_kwargs",
+                        lambda name, _fallback: {"icon_value": 42}
+                        if name == "cloth_next" else {})
+    env.physics_ui._draw_add_physics_entry(
+        SimpleNamespace(layout=layout), make_context(obj))
+
+    assert layout.split_factors == [{"factor": 0.5, "align": True}]
+    assert layout.operators == [(
+        "clothnext.add_physics",
+        {"text": "Cloth NeXt", "icon_value": 42})]
+
+
 # --- 10: repeated register/unregister cycles ---------------------------------------
 
 def test_repeated_register_unregister_cycles_are_clean(blender_env):
