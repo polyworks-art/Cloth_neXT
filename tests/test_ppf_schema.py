@@ -336,14 +336,14 @@ def test_strain_limit_percent_conversion_and_disable():
     assert shell_wire_params(disabled)["strain-limit"] == 0.0
 
 
-def test_uniform_cloth_shrink_maps_to_both_rest_axes_and_disables_strain_limit():
+def test_legacy_cloth_shrink_is_ignored_and_keeps_strain_limit():
     shrunk = ShellMaterialSettings(
         shrink_percent=5.0, stretch_limit_enabled=True,
         maximum_stretch_percent=5.0)
     wire = shell_wire_params(shrunk)
-    assert wire["shrink-x"] == float32_wire(0.95)
-    assert wire["shrink-y"] == float32_wire(0.95)
-    assert wire["strain-limit"] == float32_wire(0.0)
+    assert wire["shrink-x"] == float32_wire(1.0)
+    assert wire["shrink-y"] == float32_wire(1.0)
+    assert wire["strain-limit"] == float32_wire(0.05)
 
 
 def test_collider_grip_gap_offset_map_independently_of_cloth():
