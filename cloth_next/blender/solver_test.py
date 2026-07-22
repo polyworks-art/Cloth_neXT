@@ -1549,6 +1549,22 @@ def _force_capture_from_samples(samples, active_scalar_types, bake_range,
     return ForceCapture(initial, frozenset(active_scalar_types), tuple(dynamic))
 
 
+def _log_gravity_capture(samples, bake_range) -> None:
+    """Record the effective Blender gravity and every frame where it changes."""
+    logger = get_logger("solver.gravity")
+    previous = None
+    for frame, state in zip(
+            range(bake_range.start, bake_range.end + 1), samples):
+        gravity = tuple(float(value) for value in state.gravity)
+        if gravity == previous:
+            continue
+        log_with_context(logger, 20, "Effective gravity captured", {
+            "blender_frame": frame,
+            "gravity_blender_xyz": gravity,
+        })
+        previous = gravity
+
+
 def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
     """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
     scene = context.scene
@@ -1569,6 +1585,7 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
     finally:
         scene.frame_set(original)
         _depsgraph_update(context)
+    _log_gravity_capture(samples, bake_range)
     return _force_capture_from_samples(
         samples, active_scalar_types, bake_range, fps)
 

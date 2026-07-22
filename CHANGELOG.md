@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Bake diagnostics now log the effective Blender gravity at the first Bake
+  frame and every frame where it changes, making delayed or animated gravity
+  immediately visible in the Cloth NeXt log.
+
 ## 2.1.0 — 2026-07-22 (Beta channel)
 
 ### Added

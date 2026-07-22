@@ -473,6 +473,39 @@ def test_native_force_animation_is_sampled_for_ppf_dyn_params(blender_env):
         (0.1, (0.0, 0.0, 3.0), False))),)
 
 
+def test_force_capture_logs_initial_gravity_and_each_change(blender_env,
+                                                            monkeypatch):
+    module = blender_env.solver_test
+    messages = []
+    monkeypatch.setattr(
+        module, "log_with_context",
+        lambda _logger, _level, message, context=None:
+            messages.append((message, context)))
+    samples = (
+        module.ForceState((0.0, 0.0, -9.81), (0.0, 0.0, 0.0)),
+        module.ForceState((0.0, 0.0, -9.81), (0.0, 0.0, 0.0)),
+        module.ForceState((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+        module.ForceState((0.0, 0.0, -4.0), (0.0, 0.0, 0.0)),
+    )
+
+    module._log_gravity_capture(samples, module.BakeFrameRange(58, 61))
+
+    assert messages == [
+        ("Effective gravity captured", {
+            "blender_frame": 58,
+            "gravity_blender_xyz": (0.0, 0.0, -9.81),
+        }),
+        ("Effective gravity captured", {
+            "blender_frame": 60,
+            "gravity_blender_xyz": (0.0, 0.0, 0.0),
+        }),
+        ("Effective gravity captured", {
+            "blender_frame": 61,
+            "gravity_blender_xyz": (0.0, 0.0, -4.0),
+        }),
+    ]
+
+
 def test_wind_strength_has_bounded_reproducible_randomized_gusts(blender_env):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
