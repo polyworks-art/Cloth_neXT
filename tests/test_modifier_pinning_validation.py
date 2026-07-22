@@ -96,3 +96,42 @@ def test_deformable_export_reads_source_mesh_without_evaluating_modifiers(
     assert len(vertices) == len(scene.cloth.data.vertices)
     assert triangles
     blender_env.registration.unregister()
+
+
+def test_rig_export_disables_only_modifiers_after_last_armature(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Rigged Cloth", type="MESH")
+    before = obj.modifiers.new("Before Rig", "SUBSURF")
+    rig = obj.modifiers.new("Armature", "ARMATURE")
+    after = obj.modifiers.new("After Rig", "SOLIDIFY")
+    before.show_viewport = rig.show_viewport = after.show_viewport = True
+    updates = []
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: updates.append(True))
+
+    with module._evaluate_through_last_armature(SimpleNamespace(), obj) as rigged:
+        assert rigged
+        assert before.show_viewport
+        assert rig.show_viewport
+        assert not after.show_viewport
+
+    assert after.show_viewport
+    assert len(updates) == 2
+
+
+def test_disabled_armature_keeps_source_mesh_export_path(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Disabled Rig", type="MESH")
+    rig = obj.modifiers.new("Armature", "ARMATURE")
+    rig.show_viewport = False
+    after = obj.modifiers.new("After Rig", "SUBSURF")
+    after.show_viewport = True
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: (_ for _ in ()).throw(
+                            AssertionError("depsgraph must stay untouched")))
+
+    with module._evaluate_through_last_armature(SimpleNamespace(), obj) as rigged:
+        assert not rigged
+        assert after.show_viewport

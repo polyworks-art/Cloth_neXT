@@ -31,6 +31,7 @@ import threading
 import time
 import traceback
 import uuid as uuid_module
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -590,6 +591,46 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
             raise SceneValidationError(
                 f"{obj.name} produced an invalid triangle {tri}.")
     return vertices, triangles
+
+
+@contextmanager
+def _evaluate_through_last_armature(context, obj):
+    """Expose the modifier stack only through its last enabled Armature.
+
+    Rigged deformables must enter PPF in their visible Bake-Start pose. Any
+    modifier after the rig remains a downstream display modifier and must not
+    change solver geometry. Objects without an enabled Armature keep the
+    original pre-modifier export path.
+    """
+    modifiers = tuple(getattr(obj, "modifiers", ()))
+    armatures = [index for index, modifier in enumerate(modifiers)
+                 if (getattr(modifier, "type", "") == "ARMATURE"
+                     and bool(getattr(modifier, "show_viewport", True)))]
+    if not armatures:
+        yield False
+        return
+    cutoff = armatures[-1]
+    changed = []
+    try:
+        for modifier in modifiers[cutoff + 1:]:
+            if bool(getattr(modifier, "show_viewport", True)):
+                changed.append(modifier)
+                modifier.show_viewport = False
+        _depsgraph_update(context)
+        yield True
+    finally:
+        for modifier in changed:
+            modifier.show_viewport = True
+        _depsgraph_update(context)
+
+
+def _extract_deformable_mesh(context, obj, *, needs_edges: bool):
+    """Bake-Start rig pose when present, otherwise untouched source mesh."""
+    with _evaluate_through_last_armature(context, obj) as rigged:
+        if not rigged:
+            return _extract_source_mesh(obj, needs_edges=needs_edges)
+        return _extract_mesh(
+            obj, context.evaluated_depsgraph_get(), needs_edges=needs_edges)
 
 
 def _extract_source_uv_faces(obj) -> tuple[tuple[tuple[float, float], ...], ...]:
@@ -1869,10 +1910,11 @@ def _capture_collider_motion(context, collider_obj,
 def _validate_deformable_modifier_path(obj, pin_membership) -> None:
     """Artist modifiers are accepted; Armature precedes Cloth NeXt playback.
 
-    Deformable export reads ``obj.data`` directly, before the modifier stack,
-    while playback is attached after the last Armature modifier. Consequently
-    modifiers never need a special allow-list and their topology cannot change
-    the solver mesh. ``pin_membership`` remains accepted for call-site stability.
+    Export evaluates through the last enabled Armature at Bake Start and ignores
+    later modifiers. Without an Armature it reads ``obj.data`` directly.
+    Playback is attached after the last Armature modifier. Topology changes in
+    the evaluated rig prefix are rejected by the extraction vertex-count check.
+    ``pin_membership`` remains accepted for call-site stability.
     """
     del obj, pin_membership
 
@@ -1919,8 +1961,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                                 f"{obj.name} is not a closed manifold surface "
                                 f"({open_edges} boundary/non-manifold edges). "
                                 "Seal the mesh and make its normals face outward.")
-                    vertices, triangles = _extract_source_mesh(
-                        obj, needs_edges=True)
+                    vertices, triangles = _extract_deformable_mesh(
+                        context, obj, needs_edges=True)
                     edges = ()
                     uv_faces = (_extract_source_uv_faces(obj)
                                 if entry.role == "CLOTH" else ())
@@ -2243,8 +2285,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
                             f"{cloth_obj.name} is not a closed manifold surface "
                             f"({open_edges} boundary/non-manifold edges). Seal the "
                             "mesh and make its normals face outward before Bake.")
-                cloth_vertices, cloth_triangles = _extract_source_mesh(
-                    cloth_obj, needs_edges=True)
+                cloth_vertices, cloth_triangles = _extract_deformable_mesh(
+                    context, cloth_obj, needs_edges=True)
                 cloth_edges = ()
                 cloth_uv_faces = (_extract_source_uv_faces(cloth_obj)
                                   if deformable_role == "CLOTH" else ())

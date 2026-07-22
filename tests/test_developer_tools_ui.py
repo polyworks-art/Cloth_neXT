@@ -69,7 +69,7 @@ def test_panel_hierarchy_defaults_and_registration_order(blender_env):
     panel = ui.CLOTHNEXT_PT_developer_tools
     assert panel.bl_parent_id == "CLOTHNEXT_PT_cache"
     assert panel.bl_options == {"DEFAULT_CLOSED"}
-    assert panel.cloth_only is True
+    assert panel.deformable_only is True
     assert ui.CLASSES.index(ui.CLOTHNEXT_PT_cache) < ui.CLASSES.index(panel)
 
 
