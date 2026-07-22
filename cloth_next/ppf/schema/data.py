@@ -12,9 +12,9 @@ cloth SHELL plus one static triangulated collider needs:
 
 Each object info carries exactly ``name``, ``uuid``, ``vert`` (object-local
 float32-precision positions), ``transform`` (4x4 row-major float64,
-``Z2Y @ matrix_world``), and ``face`` (uint32 triangles). ``uv``, ``stitch``,
-``pin``, ``mesh_ref``, and every animation field are optional upstream and
-deliberately not emitted in this slice.
+``Z2Y @ matrix_world``), and ``face`` (uint32 triangles). Loose Sewing edges
+are emitted through upstream's optional ``stitch`` field. ``uv``, ``mesh_ref``,
+and unsupported animation fields remain deliberately absent.
 """
 
 from __future__ import annotations
@@ -59,6 +59,7 @@ class SceneObject:
     transform_animation: dict | None = None
     static_deform_animation: dict | None = None
     edges: tuple[tuple[int, int], ...] = ()
+    stitch_pairs: tuple[tuple[int, int], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -86,6 +87,10 @@ class SceneObject:
             if len(edge) != 2 or edge[0] == edge[1] or any(
                     not 0 <= index < count for index in edge):
                 raise SceneEncodeError(f"{self.name}: invalid edge {edge}")
+        for pair in self.stitch_pairs:
+            if len(pair) != 2 or pair[0] == pair[1] or any(
+                    not 0 <= index < count for index in pair):
+                raise SceneEncodeError(f"{self.name}: invalid stitch {pair}")
         if tuple(sorted(set(self.pin_indices))) != self.pin_indices or any(
                 not 0 <= index < count for index in self.pin_indices):
             raise SceneEncodeError(f"{self.name}: invalid pin indices")
@@ -136,6 +141,15 @@ class SceneObject:
             info["face"] = [list(tri) for tri in self.triangles]
         if self.edges:
             info["edge"] = [list(edge) for edge in self.edges]
+        if self.stitch_pairs:
+            # Official PPF loose-edge representation. Each source vertex is
+            # constrained directly to the target vertex; duplicated target
+            # slots carry zero weight and retain the canonical 4-wide shape.
+            indices = [[source, target, target, target]
+                       for source, target in self.stitch_pairs]
+            weights = [[1.0, 1.0, 0.0, 0.0]
+                       for _pair in self.stitch_pairs]
+            info["stitch"] = [indices, weights]
         if self.pin_indices:
             info["pin"] = list(self.pin_indices)
         if self.transform_animation is not None:

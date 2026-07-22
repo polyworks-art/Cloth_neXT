@@ -75,8 +75,8 @@ after confirmation and is not included or redistributed in the Superhive downloa
 - Soft Body requires a closed manifold mesh. Cloth NeXt creates the internal
   tetrahedral volume automatically.
 - Animated topology changes are rejected before the Bake.
-- Stitching, tearing, plasticity, timed pin release, and multiple pin groups are
-  not currently exposed.
+- Sewing through face-less mesh edges is supported. Tearing, plasticity, timed
+  pin release, and multiple pin groups are not currently exposed.
 - Simulation results depend on mesh scale and resolution, material values,
   solver quality, and available hardware. Presets are reliable starting points,
   not guaranteed final settings for every scene.

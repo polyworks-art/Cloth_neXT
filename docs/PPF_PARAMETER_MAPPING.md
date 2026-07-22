@@ -101,6 +101,8 @@ each carry their own friction/gap/offset.
 | PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Shrink | Object `pressure.shrink_percent` | `shrink-x`, `shrink-y` (SHELL only) | Uniform rest-shape contraction; `5%` encodes both axes as `0.95`. Non-zero Shrink disables `strain-limit`, as required by PPF. |
+| Sewing | Object `pressure.sewing_enabled` | Scene-object `stitch` (SHELL only) | When enabled, every mesh edge unused by a face becomes one canonical PPF stitch pair. |
+| Sewing Strength | Object `pressure.sewing_stiffness` | `stitch-stiffness` (SHELL only) | Direct non-negative float32 stiffness; default `1.0`. |
 | Gravity | `gravity` | Sum of Gravity Empty local `-Z` vectors, or Blender scene gravity when no Gravity Empty is enabled | axis-swapped to solver Y-up |
 | Wind Force Empty | `wind` | Sum of enabled Wind Empty local `+Z` vectors | axis-swapped to solver Y-up |
 | Air Density Force Empty | `air-density` | Sum of enabled Air Density Empty values | solver aerodynamic density |
@@ -152,7 +154,8 @@ Geometry, materials, vertex groups, and files are untouched.
 Every completed developer-slice run records a versioned SHA-256 fingerprint
 of all mapped material values (preset id, model, density, stretch,
 sideways, bend, both dampings, cloth and collider friction/gap/offset,
-stretch-limit state and value, contact enabled) on the cloth object and in
+stretch-limit state and value, Sewing state/strength, contact enabled) on the
+cloth object and in
 a `*.meta.json` sidecar next to the PC2 cache. When current settings no
 longer match, the Cache panel marks the result stale; nothing is deleted
 automatically — rebake or Clear explicitly. A full production cache
@@ -160,7 +163,7 @@ metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
-Target volume/compressibility/gas pressure, animated shrink, stitching, plasticity,
+Target volume/compressibility/gas pressure, animated shrink, plasticity,
 dynamic material-parameter animation, collision windows, sand, PDRD,
 arbitrary frame ranges, tearing, and live preview. No stored or wire-level
 `substeps` value exists: `dt` is the sole

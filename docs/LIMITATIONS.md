@@ -153,9 +153,10 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   optional static/animated colliders, and an artist-selected
   Bake Start/End range with a 10,000-output-frame safety limit.
 - For Cloth shells, Static and Follow Animation hard pins through one vertex
-  group, uniform object-local pressure, and uniform physical Cloth Shrink are supported.
+  group, uniform object-local pressure, uniform physical Cloth Shrink, and
+  Blender-style Sewing through face-less mesh edges are supported.
   Soft Pull, timed pin release, animated shrink,
-  stitching, plasticity, tearing, sand, PDRD,
+  plasticity, tearing, sand, PDRD,
   dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
   keys; unsupported controls remain hidden rather than shown as fake settings.

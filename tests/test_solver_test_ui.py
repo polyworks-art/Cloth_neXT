@@ -544,6 +544,35 @@ def test_modifier_lookup_accepts_rewrapped_blender_rna(blender_env):
     assert module._playback_stack_index(obj, rewrapped) == 0
 
 
+def test_sewing_detection_uses_only_edges_without_faces(blender_env):
+    module = blender_env.solver_test
+    mesh = SimpleNamespace(
+        polygons=[SimpleNamespace(vertices=(0, 1, 2))],
+        edges=[SimpleNamespace(vertices=(0, 1)),
+               SimpleNamespace(vertices=(1, 2)),
+               SimpleNamespace(vertices=(2, 0)),
+               SimpleNamespace(vertices=(1, 3)),
+               SimpleNamespace(vertices=(4, 5))])
+
+    pairs, hanging = module._detect_sewing_edges(mesh)
+
+    assert pairs == ((1, 3), (4, 5))
+    assert hanging == (3, 4, 5)
+
+
+def test_sewing_post_snap_closes_only_pairs_within_contact_range(blender_env):
+    module = blender_env.solver_test
+    positions = ((0.0, 0.0, 0.0), (0.001, 0.0, 0.0),
+                 (1.0, 0.0, 0.0), (2.0, 0.0, 0.0))
+
+    closed = module._snap_closed_sewing_pairs(
+        positions, ((0, 1), (2, 3)), 0.01)
+
+    assert tuple(closed[0]) == tuple(closed[1]) == (0.0005, 0.0, 0.0)
+    assert tuple(closed[2]) == (1.0, 0.0, 0.0)
+    assert tuple(closed[3]) == (2.0, 0.0, 0.0)
+
+
 def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
         blender_env):
     module = blender_env.solver_test

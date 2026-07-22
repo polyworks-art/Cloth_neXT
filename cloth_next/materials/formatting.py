@@ -44,6 +44,7 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
               "world units"),
     FieldInfo("inflate_pressure", "Pressure", "pressure", "solver pressure"),
     FieldInfo("shrink_percent", "Shrink", "shrink-x/shrink-y", "%"),
+    FieldInfo("sewing_stiffness", "Sewing Strength", "stitch-stiffness", ""),
 )
 
 STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (
@@ -87,7 +88,7 @@ def static_wire_rows(static: StaticMaterialSettings) \
                  for info in STATIC_FIELD_INFO)
 
 
-FINGERPRINT_VERSION = 2
+FINGERPRINT_VERSION = 3
 
 
 def settings_fingerprint(shell: ShellMaterialSettings,
@@ -112,6 +113,7 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "shell_stretch_limit_enabled": shell.stretch_limit_enabled,
         "shell_maximum_stretch_percent": shell.maximum_stretch_percent,
         "shell_enable_inflate": shell.enable_inflate,
+        "shell_sewing_enabled": shell.sewing_enabled,
         "static": ({info.field: getattr(static, info.field)
                     for info in STATIC_FIELD_INFO}
                    if static is not None else None),

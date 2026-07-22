@@ -99,6 +99,8 @@ SHELL_RULES: dict[str, NumericRule] = {
                                      _MATERIAL_PANEL),
     "shrink_percent": NumericRule(0.0, False, 90.0, "%",
                                   _MATERIAL_PANEL),
+    "sewing_stiffness": NumericRule(0.0, False, None, "",
+                                     _MATERIAL_PANEL),
 }
 
 STATIC_RULES: dict[str, NumericRule] = {
@@ -124,6 +126,10 @@ def validate_shell_values(values) -> None:
     if not isinstance(values.enable_inflate, bool):
         raise MaterialValidationError(
             "enable_inflate", values.enable_inflate, "True or False",
+            _MATERIAL_PANEL)
+    if not isinstance(values.sewing_enabled, bool):
+        raise MaterialValidationError(
+            "sewing_enabled", values.sewing_enabled, "True or False",
             _MATERIAL_PANEL)
     for name, rule in SHELL_RULES.items():
         rule.check(name, getattr(values, name))

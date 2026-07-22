@@ -43,7 +43,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 SHELL_KEYS = ["model", "density", "young-mod", "poiss-rat", "bend",
               "deformation-damping", "bending-damping", "friction",
               "contact-gap", "contact-offset", "strain-limit", "shrink-x",
-              "shrink-y", "pressure"]
+              "shrink-y", "pressure", "stitch-stiffness"]
 STATIC_KEYS = ["friction", "contact-gap", "contact-offset"]
 
 
@@ -91,6 +91,20 @@ def test_scene_payload_structure_and_types():
     # transform = Z2Y @ world: Blender +Z translation lands in solver row 1.
     assert info["transform"][1] == [0.0, 0.0, 1.0, 0.8]
     assert info["transform"][2][1] == -1.0
+
+
+def test_scene_payload_encodes_canonical_loose_edge_stitch():
+    cloth, collider = _micro_objects()
+    sewn = SceneObject(
+        cloth.name, cloth.uuid, cloth.vertices_local, cloth.triangles,
+        cloth.transform, stitch_pairs=((1, 2),))
+
+    info = build_scene_payload(sewn, collider)[0]["object"][0]
+
+    assert info["stitch"] == [
+        [[1, 2, 2, 2]],
+        [[1.0, 1.0, 0.0, 0.0]],
+    ]
 
 
 def test_scene_and_params_allow_no_collider():
@@ -215,6 +229,7 @@ def test_param_payload_extends_legacy_golden_only_with_audited_shrink_keys():
     current_shell = current["group"][0][0]
     assert current_shell.pop("shrink-x") == float32_wire(1.0)
     assert current_shell.pop("shrink-y") == float32_wire(1.0)
+    assert current_shell.pop("stitch-stiffness") == float32_wire(1.0)
     assert current == legacy
     assert digest == hashlib.sha256(blob).hexdigest()
 
@@ -318,7 +333,7 @@ def test_no_unsupported_ui_property_enters_the_payload():
     assert list(payload["group"][0][0]) == SHELL_KEYS
     assert list(payload["group"][1][0]) == STATIC_KEYS
     for forbidden in ("stretch", "shear", "thickness",
-                      "velocity", "self-collision", "stitch-stiffness",
+                      "velocity", "self-collision",
                       "shrink", "plasticity"):
         assert forbidden not in payload["group"][0][0]
         assert forbidden not in payload["group"][1][0]

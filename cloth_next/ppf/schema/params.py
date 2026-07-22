@@ -107,6 +107,7 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
         "shrink-y": float32_wire(shrink_factor),
         "pressure": float32_wire(shell.inflate_pressure
                                  if shell.enable_inflate else 0.0),
+        "stitch-stiffness": float32_wire(shell.sewing_stiffness),
     }
 
 

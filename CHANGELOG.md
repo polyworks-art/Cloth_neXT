@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Blender-style Cloth Sewing: when enabled below Shrink, mesh edges unused by
+  any face become PPF stitch constraints with adjustable Sewing Strength.
+- Solved seams that enter the contact range are closed exactly in the playback
+  cache without changing its vertex count, eliminating visible micro-gaps.
+- Sewing validation selects face-less, massless stitch vertices in Edit Mode
+  before they can cause a singular solver system.
+
 ## 2.0.0 — 2026-07-19 (Stable channel)
 
 ### Added

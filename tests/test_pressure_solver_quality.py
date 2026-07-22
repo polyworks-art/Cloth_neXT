@@ -68,6 +68,23 @@ def test_shrink_defaults_validation_and_fingerprint():
             ShellMaterialSettings(shrink_percent=invalid)
 
 
+def test_sewing_defaults_wire_mapping_validation_and_fingerprint():
+    assert not DEFAULT_SHELL_SETTINGS.sewing_enabled
+    assert DEFAULT_SHELL_SETTINGS.sewing_stiffness == 1.0
+    sewn = replace(DEFAULT_SHELL_SETTINGS, sewing_enabled=True,
+                    sewing_stiffness=2.5)
+    assert shell_wire_params(sewn)["stitch-stiffness"] == float32_wire(2.5)
+    base = settings_fingerprint(
+        DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS, True, "DEFAULT",
+        quality=DEFAULT_SOLVER_QUALITY)
+    assert settings_fingerprint(
+        sewn, DEFAULT_STATIC_SETTINGS, True, "DEFAULT",
+        quality=DEFAULT_SOLVER_QUALITY) != base
+    for invalid in (-0.01, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            ShellMaterialSettings(sewing_stiffness=invalid)
+
+
 def test_quality_defaults_and_wire_mapping_are_central_and_exact():
     quality = DEFAULT_SOLVER_QUALITY
     assert (quality.time_step, quality.min_newton_steps,

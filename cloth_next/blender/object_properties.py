@@ -308,6 +308,15 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
                     "For example, 5% sets both warp and weft rest lengths "
                     "to 95%. This is not object or geometry scaling. The "
                     "solver applies the target from the start of the Bake")
+    sewing_enabled: bpy.props.BoolProperty(
+        name="Sewing", default=False, update=_on_settings_update,
+        description="Treat edges that are not used by any face as Sewing "
+                    "springs and pull their endpoints together")
+    sewing_stiffness: bpy.props.FloatProperty(
+        name="Sewing Strength", default=1.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_settings_update,
+        description="PPF stiffness for Sewing edges. Higher values close "
+                    "seams more strongly against gravity and collisions")
 
 
 class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
@@ -571,7 +580,9 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
         maximum_stretch_percent=float(material.maximum_stretch_percent),
         enable_inflate=bool(settings.pressure.enable_inflate),
         inflate_pressure=float(settings.pressure.inflate_pressure),
-        shrink_percent=float(settings.pressure.shrink_percent))
+        shrink_percent=float(settings.pressure.shrink_percent),
+        sewing_enabled=bool(settings.pressure.sewing_enabled),
+        sewing_stiffness=float(settings.pressure.sewing_stiffness))
 
 
 def solver_quality_from(scene) -> SolverQualitySettings:

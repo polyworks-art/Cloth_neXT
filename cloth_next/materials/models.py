@@ -58,6 +58,8 @@ class ShellMaterialSettings:
     enable_inflate: bool = False          # object-specific pressure toggle
     inflate_pressure: float = 0.0         # -> PPF pressure
     shrink_percent: float = 0.0           # % contraction -> PPF shrink-x/y
+    sewing_enabled: bool = False          # loose edges -> PPF stitches
+    sewing_stiffness: float = 1.0         # -> PPF stitch-stiffness
 
     def __post_init__(self) -> None:
         validate_shell_values(self)

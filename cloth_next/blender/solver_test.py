@@ -200,6 +200,8 @@ class DeformablePlan:
     topology_signature: str
     material_meta: dict
     role: str
+    stitch_pairs: tuple[tuple[int, int], ...] = ()
+    stitch_snap_distance: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +232,8 @@ class RunPlan:
     material_meta: dict = field(default_factory=dict)
     deformable_role: str = "CLOTH"
     deformables: tuple[DeformablePlan, ...] = ()
+    stitch_pairs: tuple[tuple[int, int], ...] = ()
+    stitch_snap_distance: float = 0.0
 
 
 def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
@@ -241,7 +245,9 @@ def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
         str(getattr(plan.scene, "cloth_uuid", "legacy-cloth")), plan.pc2_path,
         getattr(plan, "topology_signature", ""),
         getattr(plan, "material_meta", {}),
-        getattr(plan, "deformable_role", "CLOTH")),)
+        getattr(plan, "deformable_role", "CLOTH"),
+        getattr(plan, "stitch_pairs", ()),
+        getattr(plan, "stitch_snap_distance", 0.0)),)
 
 
 def _plan_for_target(plan: RunPlan, target: DeformablePlan) -> RunPlan:
@@ -249,7 +255,8 @@ def _plan_for_target(plan: RunPlan, target: DeformablePlan) -> RunPlan:
         world_matrix=target.world_matrix, cloth_object_name=target.object_name,
         pc2_path=target.pc2_path, topology_signature=target.topology_signature,
         material_meta=target.material_meta, deformable_role=target.role,
-        deformables=())
+        deformables=(), stitch_pairs=target.stitch_pairs,
+        stitch_snap_distance=target.stitch_snap_distance)
 
 
 # ---------------------------------------------------------------------------
@@ -578,6 +585,43 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
     return vertices, triangles
 
 
+def _detect_sewing_edges(mesh) -> tuple[tuple[tuple[int, int], ...],
+                                        tuple[int, ...]]:
+    """Return face-less edges and endpoints that carry no surface mass."""
+    face_edges: set[tuple[int, int]] = set()
+    face_vertices: set[int] = set()
+    for polygon in mesh.polygons:
+        vertices = tuple(int(index) for index in polygon.vertices)
+        face_vertices.update(vertices)
+        for index, first in enumerate(vertices):
+            second = vertices[(index + 1) % len(vertices)]
+            face_edges.add(tuple(sorted((first, second))))
+    pairs = tuple(sorted(tuple(sorted((int(edge.vertices[0]),
+                                       int(edge.vertices[1]))))
+                         for edge in mesh.edges
+                         if tuple(sorted((int(edge.vertices[0]),
+                                          int(edge.vertices[1]))))
+                         not in face_edges))
+    hanging = tuple(sorted({index for pair in pairs for index in pair
+                            if index not in face_vertices}))
+    return pairs, hanging
+
+
+def _snap_closed_sewing_pairs(positions, pairs, threshold: float):
+    """Close solved seams exactly once PPF has pulled a pair into range."""
+    if not pairs or threshold <= 0.0:
+        return positions
+    import numpy as np
+    result = np.asarray(positions).copy()
+    baseline = np.asarray(positions)
+    for first, second in pairs:
+        if np.linalg.norm(baseline[first] - baseline[second]) < threshold:
+            midpoint = 0.5 * (baseline[first] + baseline[second])
+            result[first] = midpoint
+            result[second] = midpoint
+    return result
+
+
 def _self_intersection_vertices(vertices, triangles) -> tuple[int, tuple[int, ...]]:
     """Return intersecting triangle-pair count and their source vertices."""
     if len(triangles) < 2:
@@ -821,8 +865,8 @@ def _snapshot_static_pin(cloth_obj, *,
 #                           Requires a full mesh scan. Expensive.
 #   bake fingerprint      — both halves combined; written into the sidecar.
 
-SETTINGS_FINGERPRINT_VERSION = 2
-BAKE_FINGERPRINT_VERSION = 2
+SETTINGS_FINGERPRINT_VERSION = 3
+BAKE_FINGERPRINT_VERSION = 3
 
 
 def _cheap_pinning_fingerprint(cloth_obj) -> str:
@@ -1777,6 +1821,18 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     f"{obj.name} has {len(degenerate)} zero-area triangle(s) "
                     f"(first index {degenerate[0]}).")
             if entry.role == "CLOTH":
+                stitch_pairs = ()
+                if entry.material.sewing_enabled:
+                    stitch_pairs, hanging = _detect_sewing_edges(obj.data)
+                    if hanging:
+                        selected = _select_problem_vertices(context, obj, hanging)
+                        selection_note = ("The invalid vertices are selected in Edit Mode."
+                                          if selected else
+                                          "Select and repair the loose Sewing vertices.")
+                        raise SceneValidationError(
+                            f"{obj.name} has {len(hanging)} Sewing vertex/vertices "
+                            "that are not part of any face and therefore carry no "
+                            f"surface mass. {selection_note}")
                 pair_count, problem_vertices = _self_intersection_vertices(
                     vertices, triangles)
                 if pair_count:
@@ -1789,12 +1845,15 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                         f"{obj.name} has {pair_count} self-intersecting triangle "
                         f"pair(s) involving {len(problem_vertices)} vertices. "
                         f"{selection_note}")
+            else:
+                stitch_pairs = ()
             if (pin_snapshot.enabled and
                     len(vertices) != pin_snapshot.source_vertex_count):
                 raise SceneValidationError(
                     f"{obj.name}: pinning source/evaluated vertex counts differ.")
             dynamic_records.append(
-                (entry, pin_snapshot, vertices, triangles, edges, world))
+                (entry, pin_snapshot, vertices, triangles, edges, world,
+                 stitch_pairs))
         for obj in snapshot.collider_objs:
             if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) == "ANIMATED":
                 capture = _capture_collider_motion(context, obj, bake_range)
@@ -1827,14 +1886,15 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     uuids = []
     group_for_role = {"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
                       "SOFT_BODY": GROUP_SOLID}
-    for entry, pin_snapshot, vertices, triangles, edges, world in dynamic_records:
+    for (entry, pin_snapshot, vertices, triangles, edges, world,
+         stitch_pairs) in dynamic_records:
         dynamic_uuid = f"cn-dynamic-{uuid_module.uuid4().hex[:12]}"
         uuids.append(dynamic_uuid)
         group = group_for_role[entry.role]
         scene_dynamics.append((SceneObject(
             entry.obj.name, dynamic_uuid, vertices, triangles,
             solver_world_matrix(world), pin_snapshot.vertex_indices,
-            edges=edges), group))
+            edges=edges, stitch_pairs=stitch_pairs), group))
         param_dynamics.append((entry.obj.name, dynamic_uuid, group,
                                entry.material,
                                static_pin_config(pin_snapshot)))
@@ -1946,7 +2006,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     }
     scene_fingerprint = cache_metadata.deterministic_hash(scene_identity)
     target_plans = []
-    for index, ((entry, pin_snapshot, vertices, _triangles, _edges, world), dynamic_uuid) in enumerate(
+    for index, ((entry, pin_snapshot, vertices, _triangles, _edges, world,
+                 stitch_pairs), dynamic_uuid) in enumerate(
             zip(dynamic_records, uuids)):
         configured = str(getattr(entry.obj.cloth_next,
                                  "cache_directory", "") or "").strip()
@@ -1990,14 +2051,18 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     "count": len(pin_snapshot.vertex_indices)}}}
         target_plans.append(DeformablePlan(
             vertices, world, entry.obj.name, dynamic_uuid, cache_path,
-            entry.topology_signature, meta, entry.role))
+            entry.topology_signature, meta, entry.role, stitch_pairs,
+            (max(1e-6, 2.0 * entry.material.collision_gap
+                 + entry.material.surface_offset)
+             if entry.role == "CLOTH" and stitch_pairs else 0.0)))
     first = target_plans[0]
     return RunPlan(session_scene, resolved, first.initial_local,
         first.world_matrix, first.object_name, work_directory, first.pc2_path,
         frame_count, bake_range.start, bake_range.end, int(scene.render.fps),
         snapshot.settings_fingerprint, snapshot.geometry_fingerprint,
         first.topology_signature, snapshot.preset_identifier,
-        first.material_meta, first.role, tuple(target_plans))
+        first.material_meta, first.role, tuple(target_plans),
+        first.stitch_pairs, first.stitch_snap_distance)
 
 
 def build_run_plan(context, *, animated_pin_samples=None,
@@ -2057,6 +2122,19 @@ def build_run_plan(context, *, animated_pin_samples=None,
                 cloth_vertices, cloth_triangles = _extract_source_mesh(
                     cloth_obj, needs_edges=True)
                 cloth_edges = ()
+            stitch_pairs = ()
+            if deformable_role == "CLOTH" and shell.sewing_enabled:
+                stitch_pairs, hanging = _detect_sewing_edges(cloth_obj.data)
+                if hanging:
+                    selected = _select_problem_vertices(
+                        context, cloth_obj, hanging)
+                    selection_note = ("The invalid vertices are selected in Edit Mode."
+                                      if selected else
+                                      "Select and repair the loose Sewing vertices.")
+                    raise SceneValidationError(
+                        f"{cloth_obj.name} has {len(hanging)} Sewing "
+                        "vertex/vertices that are not part of any face and "
+                        f"therefore carry no surface mass. {selection_note}")
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
         for current in collider_objs:
@@ -2118,7 +2196,8 @@ def build_run_plan(context, *, animated_pin_samples=None,
     cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
                               cloth_triangles, solver_world_matrix(cloth_world),
-                              pin_snapshot.vertex_indices, edges=cloth_edges)
+                              pin_snapshot.vertex_indices, edges=cloth_edges,
+                              stitch_pairs=stitch_pairs)
     scene_colliders = []
     collider_specs = []
     motion_meta = []
@@ -2325,7 +2404,12 @@ def build_run_plan(context, *, animated_pin_samples=None,
                    topology_signature=snapshot.topology_signature,
                    preset_identifier=preset_identifier,
                    material_meta=material_meta,
-                   deformable_role=deformable_role)
+                   deformable_role=deformable_role,
+                   stitch_pairs=stitch_pairs,
+                   stitch_snap_distance=(
+                       max(1e-6, 2.0 * shell.collision_gap
+                           + shell.surface_offset)
+                       if stitch_pairs else 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -2527,6 +2611,9 @@ def _worker_main_multi(plan: RunPlan) -> None:
                 if positions is None:
                     raise ValueError(
                         f"solver frame has no result for {target.object_name}")
+                positions = _snap_closed_sewing_pairs(
+                    positions, target.stitch_pairs,
+                    target.stitch_snap_distance)
                 step = time.monotonic()
                 local = transform_points_numpy(to_local[target.uuid], positions)
                 transform_seconds += time.monotonic() - step
@@ -2642,8 +2729,10 @@ def _worker_main(plan: RunPlan) -> None:
                 "indeterminate": False,
             })())
             step = time.monotonic()
-            local = transform_points_numpy(to_local,
-                                           frame.positions_solver_world)
+            positions = _snap_closed_sewing_pairs(
+                frame.positions_solver_world, plan.stitch_pairs,
+                plan.stitch_snap_distance)
+            local = transform_points_numpy(to_local, positions)
             transform_seconds += time.monotonic() - step
             if _cancel_event.is_set():
                 raise SessionCancelled()
