@@ -21,6 +21,7 @@ import pytest
 
 from cloth_next.updater.addon_updates import AddonUpdateState, UpdateChannel
 from cloth_next.updater.addon_versions import parse_version
+from tests import mesh_fixtures
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BLENDER_PACKAGE = REPO_ROOT / "cloth_next" / "blender"
@@ -583,6 +584,48 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     update_block = [entry for entry in log[boxes[0]:boxes[1]] if len(entry) == 2]
     assert all(not (kind == "operator" and value.startswith("clothnext.solver"))
                for kind, value in update_block)
+    env.registration.unregister()
+
+
+def test_automatic_check_is_deferred_out_of_panel_draw(blender_env,
+                                                       monkeypatch):
+    env = blender_env
+    env.registration.register()
+    set_channel(env, "BETA")
+    module = updater(env)
+    calls = []
+    monkeypatch.setattr(
+        module.addon_updates, "run_update_check",
+        lambda session, channel, installed: (
+            calls.append((channel, installed)),
+            setattr(session, "latest", parse_version("9.9.0")),
+            setattr(session, "state", AddonUpdateState.UPDATE_AVAILABLE)))
+
+    module.request_automatic_update_check(env.bpy.context)
+    assert calls == []
+    assert module._automatic_update_check_timer in \
+        env.bpy.app.timers.functions
+    assert module._automatic_update_check_timer() is None
+    module._worker.join(timeout=10)
+
+    assert calls and calls[0][0] is UpdateChannel.BETA
+    assert module.session().state is AddonUpdateState.UPDATE_AVAILABLE
+    env.registration.unregister()
+
+
+def test_physics_panel_shows_installed_and_available_versions(blender_env):
+    env = blender_env
+    env.registration.register()
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=16)
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    module.session().latest = parse_version("9.9.1")
+
+    layout = mesh_fixtures.draw_panel(
+        env.physics_ui.CLOTHNEXT_PT_physics, scene.context)
+
+    assert f"Version: {module.INSTALLED_VERSION}" in layout.labels
+    assert "Update available: 9.9.1" in layout.labels
     env.registration.unregister()
 
 

@@ -173,11 +173,27 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         return settings is not None and settings.enabled
 
     def draw(self, context):
+        from . import addon_update_operators
         layout = self.layout
         settings = context.object.cloth_next
         layout.use_property_split = True
         layout.use_property_decorate = False
         _draw_object_type_selector(layout, settings)
+        addon_update_operators.request_automatic_update_check(context)
+        update_session = addon_update_operators.session()
+        update_view = addon_update_operators.addon_updates.build_section_view(
+            update_session.state, update_session.latest,
+            update_session.message)
+        version = layout.row(align=True)
+        version.label(
+            text=f"Version: {addon_update_operators.INSTALLED_VERSION}",
+            icon="PACKAGE")
+        update_icon = ("ERROR" if update_session.state is
+                       addon_update_operators.AddonUpdateState.UPDATE_AVAILABLE
+                       else "CHECKMARK" if update_session.state is
+                       addon_update_operators.AddonUpdateState.UP_TO_DATE
+                       else "INFO")
+        version.label(text=update_view.status_text, icon=update_icon)
         snapshot = shared_controller.snapshot()
         box = layout.box()
         col = box.column(align=True)

@@ -70,6 +70,8 @@ DEFAULT_CHANNEL: UpdateChannel = addon_updates.default_channel(INSTALLED_VERSION
 
 _session = addon_updates.AddonUpdateSession()
 _worker: threading.Thread | None = None
+_automatic_requested_channel: UpdateChannel | None = None
+_automatic_checked_channel: UpdateChannel | None = None
 
 # Phase-3 hook: solver process managers Cloth NeXt started itself. External
 # servers are never registered here and therefore never stopped.
@@ -152,7 +154,7 @@ def _tag_redraw_preferences() -> None:
         return
     for window in window_manager.windows:
         for area in window.screen.areas:
-            if area.type == "PREFERENCES":
+            if area.type in {"PREFERENCES", "PROPERTIES"}:
                 area.tag_redraw()
 
 
@@ -167,6 +169,59 @@ def _ui_refresh_pulse() -> float | None:
 
 def _online_access_enabled() -> bool:
     return bool(getattr(bpy.app, "online_access", True))
+
+
+def request_automatic_update_check(context) -> None:
+    """Schedule one background channel check without networking in draw()."""
+    global _automatic_requested_channel
+    channel = selected_channel(context)
+    if (_automatic_checked_channel is channel
+            or _automatic_requested_channel is channel):
+        return
+    _automatic_requested_channel = channel
+    if not bpy.app.timers.is_registered(_automatic_update_check_timer):
+        bpy.app.timers.register(_automatic_update_check_timer,
+                                first_interval=0.25)
+
+
+def _automatic_update_check_timer() -> float | None:
+    """Start the deferred worker after Blender has completed panel drawing."""
+    global _worker, _automatic_requested_channel, _automatic_checked_channel
+    channel = _automatic_requested_channel
+    if channel is None:
+        return None
+    if _worker is not None and _worker.is_alive():
+        return 0.5
+    context = bpy.context
+    if not _online_access_enabled():
+        _session.state = AddonUpdateState.ONLINE_ACCESS_DISABLED
+        _session.latest = None
+        _session.message = "Enable Allow Online Access to check for updates."
+        _automatic_checked_channel = channel
+        _automatic_requested_channel = None
+        return None
+    if error := dev_access_error(context, channel):
+        _session.state = AddonUpdateState.INSTALL_BLOCKED
+        _session.latest = None
+        _session.message = error
+        _automatic_checked_channel = channel
+        _automatic_requested_channel = None
+        return None
+    _session.state = AddonUpdateState.CHECKING
+    _session.message = ""
+
+    def check() -> None:
+        global _automatic_checked_channel
+        addon_updates.run_update_check(_session, channel, INSTALLED_VERSION)
+        _automatic_checked_channel = channel
+
+    _worker = threading.Thread(
+        target=check, daemon=True, name="clothnext-auto-update-check")
+    _worker.start()
+    _automatic_requested_channel = None
+    if not bpy.app.timers.is_registered(_ui_refresh_pulse):
+        bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
+    return None
 
 
 def _blender_repo_sync(directory: str) -> None:
@@ -436,13 +491,17 @@ def shutdown(join_timeout: float = 5.0) -> None:
     Called on unregister; safe to call multiple times; leaves no thread,
     timer, or stale callback behind.
     """
-    global _worker
+    global _worker, _automatic_requested_channel, _automatic_checked_channel
     worker = _worker
     if worker is not None and worker.is_alive():
         worker.join(timeout=join_timeout)
     _worker = None
     if bpy.app.timers.is_registered(_ui_refresh_pulse):
         bpy.app.timers.unregister(_ui_refresh_pulse)
+    if bpy.app.timers.is_registered(_automatic_update_check_timer):
+        bpy.app.timers.unregister(_automatic_update_check_timer)
+    _automatic_requested_channel = None
+    _automatic_checked_channel = None
     _session.reset()
     _owned_managers.clear()
 
