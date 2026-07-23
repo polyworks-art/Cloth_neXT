@@ -7,10 +7,10 @@
   <meta name="description" content="Cloth NeXt brings high-contact GPU cloth simulation into a focused Blender workflow for layered garments, animated characters, cables and production bakes.">
   <meta property="og:title" content="Cloth NeXt — Production cloth simulation for Blender">
   <meta property="og:description" content="A Blender-centered workflow for demanding cloth contact, animated pins, multi-object simulation and monitored production bakes powered by the external PPF Contact Solver.">
-  <meta property="og:image" content="media/cloth-next-cover.png">
+  <meta property="og:image" content="media/hero_wp.png">
   <title>Cloth NeXt — Production cloth simulation for Blender</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
-  <link rel="preload" href="media/cloth-next-hero.webp" as="image" type="image/webp">
+  <link rel="preload" href="media/hero_wp.png" as="image" type="image/png">
   <link rel="stylesheet" href="superhive.css">
   <style>
     .known-issue-banner{position:relative;z-index:9;display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.72rem clamp(1rem,5vw,4rem);border-bottom:1px solid rgba(255,171,72,.68);background:linear-gradient(90deg,#7a3b08,#4b2405);color:#fff3df;font-size:.72rem;line-height:1.4;text-align:center}
@@ -45,7 +45,7 @@
       <div class="hero-shade" aria-hidden="true"></div>
       <div class="hero-copy">
         <span class="eyebrow">HIGH-CONTACT CLOTH SIMULATION</span>
-        <h1>Reliable contact for demanding cloth simulations.</h1>
+        <h1>Production cloth simulation for Blender.</h1>
         <p>Cloth NeXt connects Blender to the GPU-powered PPF Contact Solver through a focused workflow for layered garments, animated characters and production bakes.</p>
         <div class="hero-actions">
           <a class="button primary" href="#proof">Explore the workflow <span>↓</span></a>
@@ -73,10 +73,48 @@
       </div>
     </section>
 
-    <figure class="result-shot">
-      <img src="media/cloth-next-cover.png" alt="Cloth NeXt simulation result showing fabric draped across multiple collision objects" loading="lazy">
-      <figcaption><span>CONTACT-DRIVEN DEFORMATION</span><strong>Designed to reduce intersection cleanup in demanding scenes.</strong></figcaption>
-    </figure>
+    <section class="character-proof section" aria-labelledby="character-proof-title">
+      <div class="character-proof-copy">
+        <span class="kicker">REAL CHARACTER CLOTH</span>
+        <h2 id="character-proof-title">Multiple garment layers. One shared solve.</h2>
+        <p>The hood, sleeves, sash and skirt settle around an animated character while preserving visible contact and distinct material behavior.</p>
+        <div class="proof-points">
+          <span><b>04</b> simulated garment elements</span>
+          <span><b>01</b> contact-aware scene</span>
+          <span><b>GPU</b> external PPF solve</span>
+        </div>
+      </div>
+      <figure class="character-frame">
+        <img src="media/Char_4k_compressed.png" alt="Layered Cloth NeXt character simulation with hood, sleeves, sash and skirt" loading="lazy">
+        <figcaption><span>LAYERED CHARACTER GARMENTS</span><strong>Hood · sleeves · sash · skirt</strong></figcaption>
+      </figure>
+    </section>
+
+    <section class="motion section" aria-labelledby="motion-title">
+      <div class="motion-heading">
+        <span class="kicker">SIMULATION IN MOTION</span>
+        <h2 id="motion-title">Contact is easier to judge when it moves.</h2>
+        <p>Short solver examples show how Cloth NeXt handles dense secondary elements and soft, highly deformable forms beyond a single garment setup.</p>
+      </div>
+      <div class="motion-grid">
+        <article class="motion-card">
+          <div class="video-frame">
+            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful rod and cable simulation">
+              <source src="media/Strings.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="motion-copy"><span>ROD / CABLE MOTION</span><h3>Dense strands stay individually readable.</h3><p>Many flexible elements bend, wrap and collide without becoming one merged visual mass.</p></div>
+        </article>
+        <article class="motion-card">
+          <div class="video-frame">
+            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Cushion soft body contact simulation">
+              <source src="media/Cushins.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="motion-copy"><span>SOFT BODY CONTACT</span><h3>Deformable forms settle into shared contact.</h3><p>Soft cushions compress, stack and retain readable volume throughout the simulation.</p></div>
+        </article>
+      </div>
+    </section>
 
     <section class="workflow section">
       <div class="workflow-copy">
