@@ -16,6 +16,8 @@
     .known-issue-banner{position:relative;z-index:9;display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.72rem clamp(1rem,5vw,4rem);border-bottom:1px solid rgba(255,171,72,.68);background:linear-gradient(90deg,#7a3b08,#4b2405);color:#fff3df;font-size:.72rem;line-height:1.4;text-align:center}
     .known-issue-banner strong{color:#fff8ed;font:800 .62rem/1 ui-monospace,monospace;letter-spacing:.12em;white-space:nowrap}
     .known-issue-banner span{color:#ffe0b2}
+    .motion-card.featured{grid-column:1/-1}
+    .motion-card.featured .video-frame{aspect-ratio:16/9}
     @media(max-width:600px){.known-issue-banner{align-items:flex-start;gap:.55rem;padding:.75rem 1rem;text-align:left}.known-issue-banner strong{margin-top:.16rem}}
   </style>
 </head>
@@ -94,9 +96,17 @@
       <div class="motion-heading">
         <span class="kicker">SIMULATION IN MOTION</span>
         <h2 id="motion-title">Contact is easier to judge when it moves.</h2>
-        <p>Short solver examples show how Cloth NeXt handles dense secondary elements and soft, highly deformable forms beyond a single garment setup.</p>
+        <p>Short solver examples show how Cloth NeXt handles layered character cloth, dense secondary elements and soft deformable forms.</p>
       </div>
       <div class="motion-grid">
+        <article class="motion-card featured">
+          <div class="video-frame">
+            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Layered character cloth simulation">
+              <source src="media/character-simulation.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="motion-copy"><span>LAYERED CHARACTER CLOTH</span><h3>Garments move together without losing their own behavior.</h3><p>Hood, sleeves, sash and skirt interact around one animated character in a shared contact solve.</p></div>
+        </article>
         <article class="motion-card">
           <div class="video-frame">
             <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful rod and cable simulation">
