@@ -11,14 +11,25 @@
   <title>Cloth NeXt — Production cloth simulation for Blender</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="preload" href="media/hero_wp.png" as="image" type="image/png">
-  <link rel="stylesheet" href="superhive.css">
+  <link rel="stylesheet" href="superhive.css?v=20260723-hero-restore">
   <style>
     .known-issue-banner{position:relative;z-index:9;display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.72rem clamp(1rem,5vw,4rem);border-bottom:1px solid rgba(255,171,72,.68);background:linear-gradient(90deg,#7a3b08,#4b2405);color:#fff3df;font-size:.72rem;line-height:1.4;text-align:center}
     .known-issue-banner strong{color:#fff8ed;font:800 .62rem/1 ui-monospace,monospace;letter-spacing:.12em;white-space:nowrap}
     .known-issue-banner span{color:#ffe0b2}
     .motion-card.featured{grid-column:1/-1}
     .motion-card.featured .video-frame{aspect-ratio:16/9}
-    @media(max-width:600px){.known-issue-banner{align-items:flex-start;gap:.55rem;padding:.75rem 1rem;text-align:left}.known-issue-banner strong{margin-top:.16rem}}
+    .hero{position:relative!important;display:flex!important;align-items:center!important;width:100%!important;min-height:570px!important;aspect-ratio:auto!important;overflow:hidden!important;border-bottom:1px solid var(--line)!important;background:#071012!important}
+    .hero-image{display:block!important;position:absolute!important;inset:0!important;background:url("media/hero_wp.png") 52% center/cover no-repeat!important;transform:scale(1.002)!important}
+    .hero-shade{display:block!important;position:absolute!important;inset:0!important;background:linear-gradient(90deg,rgba(1,5,6,.98) 0%,rgba(1,5,6,.9) 28%,rgba(1,5,6,.46) 57%,rgba(1,5,6,.08) 80%),linear-gradient(0deg,rgba(2,8,9,.45),transparent 50%)!important}
+    .hero-copy{display:block!important;position:relative!important;z-index:2!important;width:min(610px,88%)!important;margin-left:clamp(1.25rem,6vw,4.5rem)!important;padding:5rem 0!important}
+    @media(max-width:600px){
+      .known-issue-banner{align-items:flex-start;gap:.55rem;padding:.75rem 1rem;text-align:left}
+      .known-issue-banner strong{margin-top:.16rem}
+      .hero{min-height:690px!important;align-items:flex-end!important}
+      .hero-image{background-position:72% center!important}
+      .hero-shade{background:linear-gradient(0deg,#020809 8%,rgba(2,8,9,.95) 43%,rgba(2,8,9,.24) 78%)!important}
+      .hero-copy{width:auto!important;margin:0!important;padding:5rem 1.25rem!important}
+    }
   </style>
 </head>
 <body>
