@@ -11,7 +11,7 @@
   <title>Cloth NeXt — Production cloth simulation for Blender</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="preload" href="media/hero_wp.png" as="image" type="image/png">
-  <link rel="stylesheet" href="superhive.css?v=20260723-hero-restore">
+  <link rel="stylesheet" href="superhive.css?v=20260725-license-pricing">
   <style>
     .known-issue-banner{position:relative;z-index:9;display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.72rem clamp(1rem,5vw,4rem);border-bottom:1px solid rgba(255,171,72,.68);background:linear-gradient(90deg,#7a3b08,#4b2405);color:#fff3df;font-size:.72rem;line-height:1.4;text-align:center}
     .known-issue-banner strong{color:#fff8ed;font:800 .62rem/1 ui-monospace,monospace;letter-spacing:.12em;white-space:nowrap}
@@ -22,6 +22,18 @@
     .hero-image{display:block!important;position:absolute!important;inset:0!important;background:url("media/hero_wp.png") 52% center/cover no-repeat!important;transform:scale(1.002)!important}
     .hero-shade{display:block!important;position:absolute!important;inset:0!important;background:linear-gradient(90deg,rgba(1,5,6,.98) 0%,rgba(1,5,6,.9) 28%,rgba(1,5,6,.46) 57%,rgba(1,5,6,.08) 80%),linear-gradient(0deg,rgba(2,8,9,.45),transparent 50%)!important}
     .hero-copy{display:block!important;position:relative!important;z-index:2!important;width:min(610px,88%)!important;margin-left:clamp(1.25rem,6vw,4.5rem)!important;padding:5rem 0!important}
+    .license-story{grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr)}
+    .license-prices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+    .license-card{min-width:0;padding:1.5rem;border:1px solid var(--line);border-radius:1rem;background:linear-gradient(145deg,#0d191a,#071112)}
+    .license-card.commercial{border-color:rgba(84,239,195,.34);background:radial-gradient(circle at 100% 0,rgba(84,239,195,.08),transparent 15rem),linear-gradient(145deg,#0d191a,#071112)}
+    .license-card>span{color:var(--mint);font:800 .58rem/1 ui-monospace,monospace;letter-spacing:.13em}
+    .license-price{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin:1.1rem 0 1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--line)}
+    .license-price strong{color:var(--mint);font-size:clamp(2.8rem,5vw,4.3rem);font-weight:430;line-height:.9;letter-spacing:-.06em}
+    .license-price small{color:#718680;font:700 .54rem/1 ui-monospace,monospace;letter-spacing:.1em;white-space:nowrap}
+    .license-card p{margin:0;color:#a5b8b3;font-size:.82rem}
+    .license-card p b{color:#e0efeb}
+    .license-note{display:block;margin-top:1rem;color:#718680;font-size:.68rem;line-height:1.45}
+    @media(max-width:760px){.license-prices{grid-template-columns:1fr}}
     @media(max-width:600px){
       .known-issue-banner{align-items:flex-start;gap:.55rem;padding:.75rem 1rem;text-align:left}
       .known-issue-banner strong{margin-top:.16rem}
@@ -190,13 +202,26 @@
       </div>
     </section>
 
-    <section class="price-story section">
-      <div class="price-mark"><span>$</span><strong>8</strong></div>
+    <section class="price-story license-story section">
       <div class="price-copy">
-        <span class="kicker">ACCESSIBLE BY DESIGN</span>
-        <h2>Professional capability at an accessible price.</h2>
-        <p>Cloth NeXt is priced at $8 to make high-contact GPU simulation accessible to students, independent artists and small studios without positioning a specialized workflow as a premium-only tool.</p>
-        <p class="price-note">The price is intentionally accessible. The workflow is built for serious simulation work.</p>
+        <span class="kicker">FLEXIBLE LICENSING</span>
+        <h2>Choose the license that fits your work.</h2>
+        <p>Both licenses include the complete Cloth NeXt workflow. The difference is how the add-on may be used commercially.</p>
+        <p class="price-note">Personal projects stay accessible, while professional work has a clear commercial option.</p>
+      </div>
+      <div class="license-prices">
+        <article class="license-card">
+          <span>PERSONAL LICENSE</span>
+          <div class="license-price"><strong>€20</strong><small>ONE TIME</small></div>
+          <p>For one individual user. Includes personal and non-commercial use, plus commercial work generating up to <b>$1,000 in revenue per year</b>.</p>
+          <small class="license-note">Not intended for companies, studios or shared team use.</small>
+        </article>
+        <article class="license-card commercial">
+          <span>COMMERCIAL LICENSE</span>
+          <div class="license-price"><strong>€50</strong><small>ONE TIME</small></div>
+          <p>For one individual professional user. Includes unlimited commercial use for freelance work, client projects, paid productions and other revenue-generating activities.</p>
+          <small class="license-note">One license is required per user.</small>
+        </article>
       </div>
     </section>
 
