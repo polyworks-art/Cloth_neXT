@@ -7,6 +7,30 @@
 - Bake diagnostics now log the effective Blender gravity at the first Bake
   frame and every frame where it changes, making delayed or animated gravity
   immediately visible in the Cloth NeXt log.
+- Role-specific Physics Properties workflows for Cloth, Cable / Rope,
+  Soft Body, Rigid Body, Collider, and Force.
+- Compact scene statistics below the global Bake action.
+
+### Changed
+
+- Cloth NeXt Physics panels now follow the shared Setup, Simulation, Material,
+  Shape, Collision, and Advanced structure while showing only controls that
+  apply to the selected object role.
+- Bake progress, frame timing, ETA, and hardware details remain in the
+  dedicated Cloth NeXt Bake window instead of being duplicated in Blender.
+- The main Physics panel shows the installed version in its title and adds a
+  compact warning only when an add-on update is available.
+- Cable / Rope and artist-facing Sideways Response terminology replace
+  internal implementation names in the visible UI without changing solver
+  mappings or stored enum identifiers.
+- Quality preset explanations are provided as button hover tooltips.
+
+### Fixed
+
+- Physics subpanels use their existing semantic Cloth NeXt icons instead of
+  falling back to the generic information icon.
+- Collider proxy estimates shown during panel drawing use cached counts and
+  avoid evaluating meshes.
 
 ## 2.1.0 — 2026-07-22 (Beta channel)
 

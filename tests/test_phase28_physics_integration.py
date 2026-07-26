@@ -61,7 +61,7 @@ def test_object_settings_define_cloth_and_collider_roles(blender_env):
     labels = {item[0]: item[1] for item in items}
     assert identifiers == ["CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY",
                            "COLLIDER", "FORCE"]
-    assert labels == {"CLOTH": "Cloth", "ROD": "Rod / Cable",
+    assert labels == {"CLOTH": "Cloth", "ROD": "Cable / Rope",
                       "SOFT_BODY": "Soft Body", "RIGID_BODY": "Rigid Body",
                       "COLLIDER": "Collider",
                       "FORCE": "Force"}

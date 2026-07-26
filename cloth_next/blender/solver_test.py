@@ -370,7 +370,7 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
             collider_objects.append(resolved_collider)
     if not cloth_objects:
         raise SceneValidationError(
-            "At least one enabled Cloth NeXt Cloth, Rod, or Soft Body object "
+            "At least one enabled Cloth NeXt Cloth, Cable / Rope, or Soft Body object "
             "is required.")
     order = lambda obj: (
         validation_state.object_key(obj),
@@ -1282,7 +1282,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                     and not bool(action.get("cloth_next_rod_action", False))):
                 raise SceneValidationError(
                     f"{cloth_obj.name} already has Curve animation. Remove or "
-                    "stash it before baking Rod playback.")
+                    "stash it before baking Cable / Rope playback.")
             topology_signature = hashlib.sha256(json.dumps(
                 {"vertices": len(vertices), "edges": edges},
                 separators=(",", ":")).encode("utf-8")).hexdigest()
@@ -1290,7 +1290,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                 "vertices": vertices, "edges": edges})
             if bool(cloth_obj.cloth_next.pinning_enabled):
                 raise SceneValidationError(
-                    "Rod pinning is not available yet; disable Pinning.")
+                    "Cable / Rope pinning is not available yet; disable Pinning.")
             pin_membership = StaticPinSnapshot(
                 False, "", str(cloth_obj.name), len(vertices), (),
                 source_topology_signature=topology_signature)
@@ -1397,7 +1397,7 @@ def validate_scene(context) -> ValidationSnapshot:
                         and not bool(action.get("cloth_next_rod_action", False))):
                     raise SceneValidationError(
                         f"{obj.name} already has Curve animation. Remove or "
-                        "stash it before baking Rod playback.")
+                        "stash it before baking Cable / Rope playback.")
                 topology = hashlib.sha256(json.dumps(
                     {"vertices": len(vertices), "edges": edges},
                     separators=(",", ":")).encode("utf-8")).hexdigest()
@@ -1405,7 +1405,7 @@ def validate_scene(context) -> ValidationSnapshot:
                     {"vertices": vertices, "edges": edges})
                 if bool(obj.cloth_next.pinning_enabled):
                     raise SceneValidationError(
-                        f"{obj.name}: Rod pinning is not available yet; "
+                        f"{obj.name}: Cable / Rope pinning is not available yet; "
                         "disable Pinning.")
                 pins = StaticPinSnapshot(False, "", str(obj.name),
                     len(vertices), (), source_topology_signature=topology)
@@ -2642,7 +2642,8 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
                     or not path.name.startswith("cn_test_cloth_")
                     or path.suffix.lower() != ".pc2"):
                 raise SceneValidationError(
-                    "The previous Rod cache could not be replaced. Rebake was not started.")
+                    "The previous Cable / Rope cache could not be replaced. "
+                    "Rebake was not started.")
             targets.extend((path, path.with_suffix(".meta.json")))
     for mod in owned:
         value = str(getattr(mod, "filepath", "") or "")
@@ -3084,15 +3085,17 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
     directly while preserving Curve bevel/material setup.
     """
     if obj.type != "CURVE":
-        raise ValueError("Rod playback requires the original Curve object")
+        raise ValueError(
+            "Cable / Rope playback requires the original Curve object")
     if header.vertex_count != len(plan.initial_local):
-        raise ValueError("Rod cache point count no longer matches the Curve")
+        raise ValueError(
+            "Cable / Rope cache point count no longer matches the Curve")
     animation = getattr(obj.data, "animation_data", None)
     action = getattr(animation, "action", None)
     if action is not None:
         if not bool(action.get("cloth_next_rod_action", False)):
             raise ValueError(
-                "Curve has user animation; Rod playback was not attached")
+                "Curve has user animation; Cable / Rope playback was not attached")
         obj.data.animation_data_clear()
         bpy.data.actions.remove(action)
     for offset, positions in enumerate(pc2.iter_frames(plan.pc2_path)):
@@ -3129,7 +3132,8 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
                     point.keyframe_insert("co", frame=blender_frame,
                                           group=_ROD_FCURVE_GROUP)
         if cursor != header.vertex_count:
-            raise ValueError("Curve topology changed before Rod import")
+            raise ValueError(
+                "Curve topology changed before Cable / Rope import")
     action = obj.data.animation_data.action
     action["cloth_next_rod_action"] = True
     previous = ""
@@ -4553,7 +4557,7 @@ class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
 
     A cache left in Blender's temporary folder is deleted on the next launch;
     a chosen folder keeps every baked result across restarts. The folder is
-    applied to every enabled Cloth, Rod, and Soft Body object at once.
+    applied to every enabled Cloth, Cable / Rope, and Soft Body object at once.
     """
 
     bl_idname = "clothnext.set_cache_directory"
@@ -4579,7 +4583,7 @@ class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
         deformables = self._deformables(context)
         if not deformables:
             self.report({"ERROR"},
-                        "Enable a Cloth, Rod, or Soft Body object first.")
+                        "Enable a Cloth, Cable / Rope, or Soft Body object first.")
             return {"CANCELLED"}
         existing = str(getattr(deformables[0].cloth_next,
                                "cache_directory", "") or "").strip()
@@ -4592,7 +4596,7 @@ class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
         deformables = self._deformables(context)
         if not deformables:
             self.report({"ERROR"},
-                        "Enable a Cloth, Rod, or Soft Body object first.")
+                        "Enable a Cloth, Cable / Rope, or Soft Body object first.")
             return {"CANCELLED"}
         directory = str(self.directory or "").strip()
         if not directory:

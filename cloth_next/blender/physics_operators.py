@@ -125,7 +125,8 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             self.report({"WARNING"}, "Force requires an Empty object.")
             return {"CANCELLED"}
         if self.role == "ROD" and obj.type != "CURVE":
-            self.report({"WARNING"}, "Rod / Cable requires a Curve object.")
+            self.report({"WARNING"},
+                        "Cable / Rope requires a Curve object.")
             return {"CANCELLED"}
         if self.role not in {"ROD", "FORCE"} and obj.type != "MESH":
             self.report({"WARNING"},
@@ -236,9 +237,13 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     preset: bpy.props.StringProperty(options={"HIDDEN"})
+    tooltip: bpy.props.StringProperty(options={"HIDDEN"})
 
     @classmethod
     def description(cls, _context, properties):
+        tooltip = str(getattr(properties, "tooltip", "") or "").strip()
+        if tooltip:
+            return tooltip
         preset = next((item for item in QUALITY_PRESETS
                        if item.identifier == properties.preset), None)
         if preset is None:

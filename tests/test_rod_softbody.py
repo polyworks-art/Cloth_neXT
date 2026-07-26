@@ -29,12 +29,12 @@ STATIC_SPEC = (("floor", "static-1", DEFAULT_STATIC_SETTINGS),)
 SETTINGS = SimulationSettings(3, 24, (0.0, 0.0, -9.81))
 
 
-def test_rod_thickness_limit_is_visible_in_ui_and_docs():
+def test_cable_rope_collision_radius_is_visible_and_documented():
     root = Path(__file__).resolve().parents[1]
     ui = (root / "cloth_next/blender/physics_ui.py").read_text("utf-8")
     readme = (root / "README.md").read_text("utf-8")
-    assert "Curve Bevel is visual only" in ui
-    assert "Surface Offset as cable radius" in ui
+    assert '"surface_offset",' in ui
+    assert 'text="Collision Radius"' in ui
     assert "one-dimensional centerline" in readme
 
 

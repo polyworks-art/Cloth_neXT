@@ -73,7 +73,7 @@ def test_panel_hierarchy_defaults_and_registration_order(blender_env):
     assert ui.CLASSES.index(ui.CLOTHNEXT_PT_cache) < ui.CLASSES.index(panel)
 
 
-def test_legacy_panel_poll_requires_dev_build_preference_and_non_cloth(
+def test_legacy_panel_is_hidden_for_refactored_cable_rope_role(
         blender_env, monkeypatch):
     env = blender_env
     env.registration.register()
@@ -82,13 +82,14 @@ def test_legacy_panel_poll_requires_dev_build_preference_and_non_cloth(
     monkeypatch.setattr(env.physics_ui, "_developer_tools_build_enabled", lambda: False)
     assert panel.poll(context) is False
     monkeypatch.setattr(env.physics_ui, "_developer_tools_build_enabled", lambda: True)
-    assert panel.poll(context) is True
+    assert panel.poll(context) is False
     assert panel.poll(context_for(env, developer_tools=False,
                                   role="ROD")) is False
     assert panel.poll(context_for(env, developer_tools=True,
                                   with_preferences=False, role="ROD")) is False
-    assert panel.poll(context_for(env, developer_tools=True,
-                                  role="CLOTH")) is False
+    for role in ("CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"):
+        assert panel.poll(context_for(
+            env, developer_tools=True, role=role)) is False
     assert panel.poll(context_for(env, developer_tools=True,
                                   role="COLLIDER")) is False
     env.registration.unregister()

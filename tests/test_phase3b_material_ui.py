@@ -31,12 +31,14 @@ class RecordingLayout:
             self.labels: list[str] = []
             self.menus: list[tuple[str, str]] = []
             self.operators: list[tuple[str, str]] = []
+            self.prop_texts: list[tuple[str, str]] = []
         self.use_property_split = False
         self.use_property_decorate = False
         self.enabled = True
 
-    def prop(self, _data, name, **_kw):
+    def prop(self, _data, name, **kw):
         self.sink.props.append(name)
+        self.sink.prop_texts.append((name, kw.get("text", "")))
 
     def prop_search(self, _data, name, *_args, **_kw):
         self.sink.props.append(name)
@@ -372,6 +374,277 @@ def test_remove_action_is_only_in_cloth_maintenance(blender_env):
     env.registration.unregister()
 
 
+def test_soft_body_uses_role_specific_material_shape_and_collision(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "SOFT_BODY"
+    context = _context(obj)
+
+    material = env.physics_ui.CLOTHNEXT_PT_material()
+    material.layout = RecordingLayout()
+    material.draw(context)
+    assert material.layout.props == [
+        "volume_density", "stretch_resistance", "poisson_ratio",
+        "volume_scale", "tetrahedralizer", "shape_damping"]
+    assert ("poisson_ratio", "Sideways Response") in material.layout.prop_texts
+    assert material.layout.labels == [
+        "Solver Model", "ARAP", "Damping",
+        "Permanent Deformation", "◇"]
+
+    shape = env.physics_ui.CLOTHNEXT_PT_shape()
+    shape.layout = RecordingLayout()
+    shape.draw(context)
+    assert shape.layout.labels == ["Soft Constraints", "◇"]
+    assert shape.layout.props == []
+    assert shape.layout.operators == []
+
+    rest = env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape()
+    rest.layout = RecordingLayout()
+    rest.draw(context)
+    assert rest.layout.props == ["volume_scale"]
+    assert ("volume_scale", "Uniform Scale") in rest.layout.prop_texts
+
+    collision = env.physics_ui.CLOTHNEXT_PT_collision()
+    collision.layout = RecordingLayout()
+    collision.draw(context)
+    assert collision.layout.props == [
+        "enabled", "surface_grip", "collision_gap", "surface_offset"]
+    assert collision.layout.labels == [
+        "Collision Timing", "◇",
+        "Advanced Contact Distance", "◇"]
+    env.registration.unregister()
+
+
+def test_soft_body_workflow_visibility_excludes_role_specific_panels(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "SOFT_BODY"
+    context = _context(obj)
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_setup,
+            env.physics_ui.CLOTHNEXT_PT_simulation,
+            env.physics_ui.CLOTHNEXT_PT_material,
+            env.physics_ui.CLOTHNEXT_PT_shape,
+            env.physics_ui.CLOTHNEXT_PT_collision,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced):
+        assert panel.poll(context), panel.__name__
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_pinning,
+            env.physics_ui.CLOTHNEXT_PT_pressure,
+            env.physics_ui.CLOTHNEXT_PT_sewing,
+            env.physics_ui.CLOTHNEXT_PT_friction_regions,
+            env.physics_ui.CLOTHNEXT_PT_collisions,
+            env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_advanced):
+        assert not panel.poll(context), panel.__name__
+    env.registration.unregister()
+
+
+def test_soft_body_main_panel_contains_only_object_type(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "SOFT_BODY"
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.labels == ["Object Type"]
+    assert panel.layout.operators == []
+    env.registration.unregister()
+
+
+def test_rigid_body_uses_only_mapped_material_and_shared_collision(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "RIGID_BODY"
+    context = _context(obj)
+
+    material = env.physics_ui.CLOTHNEXT_PT_material()
+    material.layout = RecordingLayout()
+    material.draw(context)
+    assert material.layout.props == ["volume_density"]
+    assert material.layout.prop_texts == [
+        ("volume_density", "Volume Density")]
+    assert material.layout.labels == []
+    assert material.layout.operators == []
+
+    collision = env.physics_ui.CLOTHNEXT_PT_collision()
+    collision.layout = RecordingLayout()
+    collision.draw(context)
+    assert collision.layout.props == [
+        "enabled", "surface_grip", "collision_gap", "surface_offset"]
+    assert collision.layout.labels == [
+        "Collision Timing", "◇",
+        "Advanced Contact Distance", "◇"]
+    assert collision.layout.operators == []
+
+    advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
+    advanced.layout = RecordingLayout()
+    advanced.draw(context)
+    assert advanced.layout.labels == [
+        "Recovery & Checkpoints", "◇",
+        "Motion Overrides", "◇",
+        "Advanced Contact Solver", "◇"]
+    assert advanced.layout.props == []
+    assert advanced.layout.operators == []
+    env.registration.unregister()
+
+
+def test_rigid_body_workflow_has_no_shape_or_role_specific_panels(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "RIGID_BODY"
+    context = _context(obj)
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_setup,
+            env.physics_ui.CLOTHNEXT_PT_simulation,
+            env.physics_ui.CLOTHNEXT_PT_material,
+            env.physics_ui.CLOTHNEXT_PT_collision,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced):
+        assert panel.poll(context), panel.__name__
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_shape,
+            env.physics_ui.CLOTHNEXT_PT_pinning,
+            env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape,
+            env.physics_ui.CLOTHNEXT_PT_pressure,
+            env.physics_ui.CLOTHNEXT_PT_sewing,
+            env.physics_ui.CLOTHNEXT_PT_friction_regions,
+            env.physics_ui.CLOTHNEXT_PT_collisions,
+            env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_advanced):
+        assert not panel.poll(context), panel.__name__
+    env.registration.unregister()
+
+
+def test_rigid_body_main_panel_contains_only_object_type(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "RIGID_BODY"
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.labels == ["Object Type"]
+    assert panel.layout.operators == []
+    env.registration.unregister()
+
+
+def test_cable_rope_keeps_internal_rod_role_and_visible_name(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Cable", type="CURVE")
+    settings = obj.cloth_next
+    settings.enabled = True
+    settings.role = "ROD"
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert settings.role == "ROD"
+    assert panel.layout.labels == ["Object Type"]
+    assert panel.layout.menus == [
+        ("CLOTHNEXT_MT_object_type", "Cable / Rope")]
+    assert panel.layout.operators == []
+    env.registration.unregister()
+
+
+def test_cable_rope_uses_only_mapped_material_shape_and_collision(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Cable", type="CURVE")
+    settings = obj.cloth_next
+    settings.enabled = True
+    settings.role = "ROD"
+    context = _context(obj)
+
+    material = env.physics_ui.CLOTHNEXT_PT_material()
+    material.layout = RecordingLayout()
+    material.draw(context)
+    assert material.layout.props == [
+        "linear_density", "stretch_resistance", "bend_resistance",
+        "stretch_limit_percent", "shape_damping", "fold_damping"]
+    assert ("stretch_limit_percent", "Maximum Stretch") in \
+        material.layout.prop_texts
+    assert ("fold_damping", "Bend Damping") in material.layout.prop_texts
+    assert material.layout.labels == ["Stretch Protection", "Damping"]
+
+    shape = env.physics_ui.CLOTHNEXT_PT_shape()
+    shape.layout = RecordingLayout()
+    shape.draw(context)
+    assert shape.layout.labels == [
+        "Pinning", "◇",
+        "Advanced Pin Motion", "◇",
+        "Soft Constraints", "◇"]
+    assert shape.layout.props == []
+    assert shape.layout.operators == []
+
+    rest = env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape()
+    rest.layout = RecordingLayout()
+    rest.draw(context)
+    assert rest.layout.props == ["length_factor"]
+    assert ("length_factor", "Length Scale") in rest.layout.prop_texts
+
+    collision = env.physics_ui.CLOTHNEXT_PT_collision()
+    collision.layout = RecordingLayout()
+    collision.draw(context)
+    assert collision.layout.props == [
+        "enabled", "surface_grip", "surface_offset", "collision_gap"]
+    assert ("surface_offset", "Collision Radius") in \
+        collision.layout.prop_texts
+    assert collision.layout.labels == [
+        "Collision Timing", "◇",
+        "Advanced Contact Distance", "◇"]
+    assert collision.layout.operators == []
+    env.registration.unregister()
+
+
+def test_cable_rope_workflow_excludes_unavailable_and_foreign_panels(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Cable", type="CURVE")
+    settings = obj.cloth_next
+    settings.enabled = True
+    settings.role = "ROD"
+    context = _context(obj)
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_setup,
+            env.physics_ui.CLOTHNEXT_PT_simulation,
+            env.physics_ui.CLOTHNEXT_PT_material,
+            env.physics_ui.CLOTHNEXT_PT_shape,
+            env.physics_ui.CLOTHNEXT_PT_collision,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
+            env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape):
+        assert panel.poll(context), panel.__name__
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_pinning,
+            env.physics_ui.CLOTHNEXT_PT_rest_shape,
+            env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape,
+            env.physics_ui.CLOTHNEXT_PT_pressure,
+            env.physics_ui.CLOTHNEXT_PT_sewing,
+            env.physics_ui.CLOTHNEXT_PT_friction_regions,
+            env.physics_ui.CLOTHNEXT_PT_damping,
+            env.physics_ui.CLOTHNEXT_PT_collisions,
+            env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_advanced):
+        assert not panel.poll(context), panel.__name__
+    env.registration.unregister()
+
+
 def test_cache_panel_shows_editable_bake_range(blender_env):
     env = blender_env
     env.registration.register()
@@ -387,28 +660,25 @@ def test_cache_panel_shows_editable_bake_range(blender_env):
     env.registration.unregister()
 
 
-def test_cache_panel_is_available_for_rigid_bodies(blender_env):
+def test_rigid_body_result_replaces_legacy_cache_panel(blender_env):
     env = blender_env
     env.registration.register()
     obj, settings = _settings(env)
     settings.enabled = True
     settings.role = "RIGID_BODY"
     context = _context(obj)
-    assert env.physics_ui.CLOTHNEXT_PT_cache.poll(context)
-    panel = env.physics_ui.CLOTHNEXT_PT_cache()
-    panel.layout = RecordingLayout()
-    panel.draw(context)
-    assert "bake_start" in panel.layout.props
-    assert "bake_end" in panel.layout.props
+    assert not env.physics_ui.CLOTHNEXT_PT_cache.poll(context)
+    assert env.physics_ui.CLOTHNEXT_PT_result.poll(context)
     env.registration.unregister()
 
 
-def test_collider_collisions_show_only_contact_values(blender_env):
+def test_collider_collision_motion_samples_and_contact_values(blender_env):
     env = blender_env
     env.registration.register()
     obj, settings = _settings(env)
     settings.role = "COLLIDER"
-    panel = env.physics_ui.CLOTHNEXT_PT_collisions()
+    settings.enabled = True
+    panel = env.physics_ui.CLOTHNEXT_PT_collider_collision()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
     assert panel.layout.props == ["collider_motion", "surface_grip", "collision_gap",
@@ -418,11 +688,185 @@ def test_collider_collisions_show_only_contact_values(blender_env):
     panel.draw(_context(obj))
     assert panel.layout.props[:2] == ["collider_motion",
                                      "collider_samples_per_frame"]
-    settings.role = "CLOTH"
+    assert panel.layout.props == [
+        "collider_motion", "collider_samples_per_frame",
+        "surface_grip", "collision_gap", "surface_offset"]
+    assert ("collider_samples_per_frame", "Samples per Frame") in \
+        panel.layout.prop_texts
+    settings.collider_motion = "STATIC"
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["enabled", "surface_grip", "collision_gap",
-                                  "surface_offset"]
+    assert "collider_samples_per_frame" not in panel.layout.props
+    env.registration.unregister()
+
+
+def test_collider_proxy_panel_uses_cached_estimates_only(
+        blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "COLLIDER"
+    settings.collider_motion = "ANIMATED"
+    settings.collider_proxy_source_vertices = 184_320
+    settings.collider_proxy_result_vertices = 8_000
+    proxy = env.bpy.types.Object(name="Proxy", type="MESH")
+    settings.collider_proxy_object = proxy
+    settings.collider_proxy_enabled = True
+    monkeypatch.setattr(
+        env.collider_proxy, "proxy_estimate",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("draw must not inspect proxy meshes")))
+    context = SimpleNamespace(
+        object=obj, active_object=obj,
+        scene=SimpleNamespace(objects=[obj]))
+    panel = env.physics_ui.CLOTHNEXT_PT_simulation_proxy()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert panel.layout.props == [
+        "collider_proxy_target_vertices", "collider_proxy_enabled"]
+    assert panel.layout.operators == [
+        ("clothnext.generate_collider_proxy", "Regenerate Proxy")]
+    assert "Source: 184,320 vertices" in panel.layout.labels
+    assert "Proxy: 8,000 vertices" in panel.layout.labels
+    assert "Estimated Peak Memory" in panel.layout.labels
+    env.registration.unregister()
+
+
+def test_collider_workflow_visibility_and_compact_advanced(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "COLLIDER"
+    context = _context(obj)
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_setup,
+            env.physics_ui.CLOTHNEXT_PT_simulation,
+            env.physics_ui.CLOTHNEXT_PT_collider_collision,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
+            env.physics_ui.CLOTHNEXT_PT_solver_settings,
+            env.physics_ui.CLOTHNEXT_PT_simulation_engine,
+            env.physics_ui.CLOTHNEXT_PT_diagnostics,
+            env.physics_ui.CLOTHNEXT_PT_maintenance):
+        assert panel.poll(context), panel.__name__
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_material,
+            env.physics_ui.CLOTHNEXT_PT_shape,
+            env.physics_ui.CLOTHNEXT_PT_collision,
+            env.physics_ui.CLOTHNEXT_PT_result,
+            env.physics_ui.CLOTHNEXT_PT_friction_regions,
+            env.physics_ui.CLOTHNEXT_PT_collisions,
+            env.physics_ui.CLOTHNEXT_PT_advanced):
+        assert not panel.poll(context), panel.__name__
+    advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
+    advanced.layout = RecordingLayout()
+    advanced.draw(context)
+    assert advanced.layout.labels == [
+        "Advanced Contact Solver", "◇"]
+    assert advanced.layout.props == []
+    assert advanced.layout.operators == []
+    diagnostics = env.physics_ui.CLOTHNEXT_PT_diagnostics()
+    diagnostics.layout = RecordingLayout()
+    diagnostics.draw(context)
+    assert diagnostics.layout.operators == [
+        ("clothnext.companion_launch", "Open Bake Window"),
+        ("clothnext.companion_open_logs", "Open Logs")]
+    env.registration.unregister()
+
+
+def test_force_setup_switches_only_between_mapped_controls(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Force", type="EMPTY")
+    settings = obj.cloth_next
+    settings.enabled = True
+    settings.role = "FORCE"
+    panel = env.physics_ui.CLOTHNEXT_PT_setup()
+    expected = {
+        "GRAVITY": (
+            ["force_type", "strength"], ["Direction: Local -Z"], None),
+        "WIND": (
+            ["force_type", "strength"], ["Direction: Local +Z"], None),
+        "AIR_DENSITY": (
+            ["force_type", "air_density"], [], ("air_density", "Density")),
+        "AIR_FRICTION": (
+            ["force_type", "air_friction"], [], ("air_friction", "Friction")),
+        "VERTEX_AIR_DAMP": (
+            ["force_type", "vertex_air_damp"], [],
+            ("vertex_air_damp", "Damping")),
+    }
+    for force_type, (props, labels, renamed_prop) in expected.items():
+        settings.force.force_type = force_type
+        panel.layout = RecordingLayout()
+        panel.draw(_context(obj))
+        assert panel.layout.props == props
+        assert panel.layout.labels == labels
+        assert panel.layout.operators == []
+        assert "wind_variation" not in panel.layout.props
+        if renamed_prop is not None:
+            assert renamed_prop in panel.layout.prop_texts
+    env.registration.unregister()
+
+
+def test_force_workflow_has_only_setup_simulation_and_compact_advanced(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Wind", type="EMPTY")
+    settings = obj.cloth_next
+    settings.enabled = True
+    settings.role = "FORCE"
+    context = _context(obj)
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_setup,
+            env.physics_ui.CLOTHNEXT_PT_simulation,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
+            env.physics_ui.CLOTHNEXT_PT_solver_settings,
+            env.physics_ui.CLOTHNEXT_PT_simulation_engine,
+            env.physics_ui.CLOTHNEXT_PT_diagnostics,
+            env.physics_ui.CLOTHNEXT_PT_maintenance):
+        assert panel.poll(context), panel.__name__
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_force,
+            env.physics_ui.CLOTHNEXT_PT_material,
+            env.physics_ui.CLOTHNEXT_PT_shape,
+            env.physics_ui.CLOTHNEXT_PT_collision,
+            env.physics_ui.CLOTHNEXT_PT_collider_collision,
+            env.physics_ui.CLOTHNEXT_PT_simulation_proxy,
+            env.physics_ui.CLOTHNEXT_PT_result,
+            env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_advanced):
+        assert not panel.poll(context), panel.__name__
+    advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
+    advanced.layout = RecordingLayout()
+    advanced.draw(context)
+    assert advanced.layout.labels == []
+    assert advanced.layout.props == []
+    assert advanced.layout.operators == []
+    diagnostics = env.physics_ui.CLOTHNEXT_PT_diagnostics()
+    diagnostics.layout = RecordingLayout()
+    diagnostics.draw(context)
+    assert diagnostics.layout.operators == [
+        ("clothnext.companion_launch", "Open Bake Window"),
+        ("clothnext.companion_open_logs", "Open Logs")]
+    assert "DEFAULT_CLOSED" in \
+        env.physics_ui.CLOTHNEXT_PT_cloth_advanced.bl_options
+    env.registration.unregister()
+
+
+def test_force_main_panel_contains_only_object_type(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Wind", type="EMPTY")
+    obj.cloth_next.enabled = True
+    obj.cloth_next.role = "FORCE"
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.labels == ["Object Type"]
+    assert panel.layout.menus == [("CLOTHNEXT_MT_object_type", "Force")]
+    assert panel.layout.operators == []
     env.registration.unregister()
 
 
@@ -455,6 +899,50 @@ def test_no_fake_editable_controls_remain_in_ui_source():
                       "volume_conservation", '"frame_start"',
                       '"frame_end"'):
         assert forbidden not in source, forbidden
+
+
+def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
+    env = blender_env
+    expected = {
+        env.physics_ui.CLOTHNEXT_PT_setup: "physical",
+        env.physics_ui.CLOTHNEXT_PT_simulation: "solver",
+        env.physics_ui.CLOTHNEXT_PT_material: "physical",
+        env.physics_ui.CLOTHNEXT_PT_shape: "physical",
+        env.physics_ui.CLOTHNEXT_PT_rest_shape: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape: "rod",
+        env.physics_ui.CLOTHNEXT_PT_pressure: "pressure",
+        env.physics_ui.CLOTHNEXT_PT_sewing: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_collision: "collision",
+        env.physics_ui.CLOTHNEXT_PT_friction_regions: "collision",
+        env.physics_ui.CLOTHNEXT_PT_collider_collision: "collision",
+        env.physics_ui.CLOTHNEXT_PT_simulation_proxy: "collider",
+        env.physics_ui.CLOTHNEXT_PT_cloth_advanced: "advanced",
+        env.physics_ui.CLOTHNEXT_PT_solver_settings: "quality",
+        env.physics_ui.CLOTHNEXT_PT_simulation_engine: "solver",
+        env.physics_ui.CLOTHNEXT_PT_result: "cache",
+        env.physics_ui.CLOTHNEXT_PT_diagnostics: "warning",
+        env.physics_ui.CLOTHNEXT_PT_maintenance: "error",
+    }
+    available = set(env.physics_ui.icon_registry._NAMES)
+    for panel, icon in expected.items():
+        assert panel.header_icon == icon, panel.__name__
+        assert icon in available, panel.__name__
+        assert icon != "info", panel.__name__
+
+
+def test_quality_preset_operator_uses_button_specific_hover_tooltip(
+        blender_env):
+    operator = blender_env.physics_operators.\
+        CLOTHNEXT_OT_apply_solver_quality_preset
+    low = SimpleNamespace(
+        preset="LOW",
+        tooltip="Fast previews for setup and broad motion checks.")
+    extreme = SimpleNamespace(
+        preset="EXTREME",
+        tooltip="Maximum solve effort. Extreme can increase simulation time.")
+    assert operator.description(None, low).startswith("Fast previews")
+    assert "increase simulation time" in operator.description(None, extreme)
 
 
 # --- bridge: snapshot, validation before worker --------------------------------

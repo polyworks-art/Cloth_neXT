@@ -255,6 +255,174 @@ def test_cloth_simulation_active_bake_has_no_blender_progress_details(
     env.registration.unregister()
 
 
+def test_soft_body_simulation_reuses_bake_action_and_scene_statistics(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    deformables = _objects(env, cloth_count=2, collider_count=2)
+    soft, other, collider_a, collider_b = deformables
+    soft.cloth_next.role = "SOFT_BODY"
+    other.cloth_next.role = "RIGID_BODY"
+    soft.cloth_next.bake_end = 180
+    other.cloth_next.bake_end = 180
+    force = env.bpy.types.Object(name="Wind", type="EMPTY")
+    force.cloth_next.enabled = True
+    force.cloth_next.role = "FORCE"
+    context = _context(
+        env, [soft, other, collider_a, collider_b, force])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in \
+        panel.layout.operators
+    assert "2 Deformables · 2 Colliders · 1 Force" in panel.layout.labels
+    assert "Frames 1–180" in panel.layout.labels
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
+def test_rigid_body_simulation_uses_role_specific_scene_statistics(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    objects = _objects(env, cloth_count=3, collider_count=2)
+    rigid, cloth, soft, collider_a, collider_b = objects
+    rigid.cloth_next.role = "RIGID_BODY"
+    soft.cloth_next.role = "SOFT_BODY"
+    for deformable in (rigid, cloth, soft):
+        deformable.cloth_next.bake_end = 180
+    context = _context(
+        env, [rigid, cloth, soft, collider_a, collider_b])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in \
+        panel.layout.operators
+    assert "1 Rigid Body · 2 Deformables · 2 Colliders" in \
+        panel.layout.labels
+    assert "Frames 1–180" in panel.layout.labels
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
+def test_cable_rope_simulation_reuses_bake_and_compact_statistics(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cable, cloth, collider = _objects(
+        env, cloth_count=2, collider_count=1)
+    cable.type = "CURVE"
+    cable.data = SimpleNamespace(get=lambda _key, default="": default)
+    cable.cloth_next.role = "ROD"
+    cable.cloth_next.bake_end = 180
+    cloth.cloth_next.bake_end = 180
+    force = env.bpy.types.Object(name="Wind", type="EMPTY")
+    force.cloth_next.enabled = True
+    force.cloth_next.role = "FORCE"
+    context = _context(env, [cable, cloth, collider, force])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in \
+        panel.layout.operators
+    assert "2 Deformables · 1 Collider · 1 Force" in panel.layout.labels
+    assert "Frames 1–180" in panel.layout.labels
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
+def test_collider_simulation_starts_global_bake_without_quality_row(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    objects = _objects(env, cloth_count=3, collider_count=2)
+    cloth_a, cloth_b, cloth_c, active_collider, other_collider = objects
+    for deformable in (cloth_a, cloth_b, cloth_c):
+        deformable.cloth_next.bake_end = 180
+    force_a = env.bpy.types.Object(name="Wind", type="EMPTY")
+    force_a.cloth_next.enabled = True
+    force_a.cloth_next.role = "FORCE"
+    force_b = env.bpy.types.Object(name="Gravity", type="EMPTY")
+    force_b.cloth_next.enabled = True
+    force_b.cloth_next.role = "FORCE"
+    ordered = [
+        active_collider, cloth_a, cloth_b, cloth_c, other_collider,
+        force_a, force_b]
+    context = _context(env, ordered)
+    context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=0.0025, min_newton_steps=8, cg_max_iter=10_000,
+        cg_tol=0.001, show_advanced=False)
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in \
+        panel.layout.operators
+    assert "Quality" not in panel.layout.labels
+    assert "3 Deformables · 2 Colliders · 2 Forces" in panel.layout.labels
+    assert "Frames 1–180" in panel.layout.labels
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
+def test_force_simulation_starts_global_bake_without_quality_row(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    objects = _objects(env, cloth_count=3, collider_count=1)
+    cloth_a, cloth_b, cloth_c, collider = objects
+    for deformable in (cloth_a, cloth_b, cloth_c):
+        deformable.cloth_next.bake_end = 180
+    active_force = env.bpy.types.Object(name="Wind", type="EMPTY")
+    active_force.cloth_next.enabled = True
+    active_force.cloth_next.role = "FORCE"
+    other_force = env.bpy.types.Object(name="Gravity", type="EMPTY")
+    other_force.cloth_next.enabled = True
+    other_force.cloth_next.role = "FORCE"
+    context = _context(
+        env, [active_force, cloth_a, cloth_b, cloth_c, collider, other_force])
+    context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=0.0025, min_newton_steps=8, cg_max_iter=10_000,
+        cg_tol=0.001, show_advanced=False)
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in \
+        panel.layout.operators
+    assert "Quality" not in panel.layout.labels
+    statistics = panel.layout.labels[-2]
+    assert all(text in statistics for text in (
+        "3 Deformables", "1 Collider", "2 Forces"))
+    assert panel.layout.labels[-1].startswith("Frames 1")
+    assert panel.layout.labels[-1].endswith("180")
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
 def test_require_cache_directories_names_missing_objects(blender_env):
     module = blender_env.solver_test
     with_dir = SimpleNamespace(

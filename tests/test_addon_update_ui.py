@@ -613,7 +613,7 @@ def test_automatic_check_is_deferred_out_of_panel_draw(blender_env,
     env.registration.unregister()
 
 
-def test_cloth_physics_panel_hides_version_and_update_status(blender_env):
+def test_cloth_physics_panel_keeps_version_out_of_body(blender_env):
     env = blender_env
     env.registration.register()
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=16)
@@ -627,6 +627,39 @@ def test_cloth_physics_panel_hides_version_and_update_status(blender_env):
     assert layout.labels == ["Object Type"]
     assert f"Version: {module.INSTALLED_VERSION}" not in layout.labels
     assert "Update available: 9.9.1" not in layout.labels
+    env.registration.unregister()
+
+
+def test_cloth_physics_header_shows_version_and_available_update(
+        blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    module = updater(env)
+    module.session().state = AddonUpdateState.UPDATE_AVAILABLE
+    module.session().latest = parse_version("9.9.1")
+    monkeypatch.setattr(module, "request_automatic_update_check",
+                        lambda _context: None)
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = mesh_fixtures._Layout()
+    panel.draw_header(env.bpy.context)
+    assert panel.bl_label == f"Cloth NeXt  v{module.INSTALLED_VERSION}"
+    assert panel.layout.labels == ["", "Update available: 9.9.1"]
+    env.registration.unregister()
+
+
+def test_cloth_physics_header_hides_update_hint_when_current(
+        blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    module = updater(env)
+    module.session().state = AddonUpdateState.UP_TO_DATE
+    module.session().latest = module.INSTALLED_VERSION
+    monkeypatch.setattr(module, "request_automatic_update_check",
+                        lambda _context: None)
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = mesh_fixtures._Layout()
+    panel.draw_header(env.bpy.context)
+    assert panel.layout.labels == [""]
     env.registration.unregister()
 
 

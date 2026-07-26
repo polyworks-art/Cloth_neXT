@@ -27,6 +27,7 @@ from pathlib import Path
 
 import bpy
 
+from .. import manifest_version
 from ..bake.controller import shared_controller
 from ..developer import is_dev_build
 from ..materials import formatting
@@ -194,14 +195,27 @@ def remove_add_physics_entry() -> None:
 class CLOTHNEXT_PT_physics(bpy.types.Panel):
     """Main Cloth NeXt panel in the Physics Properties tab."""
 
-    bl_label = "Cloth NeXt"
+    bl_label = f"Cloth NeXt  v{manifest_version()}"
     bl_idname = "CLOTHNEXT_PT_physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "physics"
 
-    def draw_header(self, _context):
-        self.layout.label(text="", **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
+    def draw_header(self, context):
+        from . import addon_update_operators
+        addon_update_operators.request_automatic_update_check(context)
+        self.layout.label(
+            text="",
+            **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
+        update_session = addon_update_operators.session()
+        if (update_session.state is
+                addon_update_operators.AddonUpdateState.UPDATE_AVAILABLE):
+            latest = getattr(update_session, "latest", None)
+            text = f"Update available: {latest}" if latest else \
+                "Update available"
+            self.layout.label(
+                text=text,
+                **icon_registry.icon_kwargs("warning", "ERROR"))
 
     @classmethod
     def poll(cls, context):
@@ -217,7 +231,9 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
         _draw_object_type_selector(layout, settings)
-        if settings.role == "CLOTH":
+        if settings.role in {
+                "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER",
+                "FORCE"}:
             return
         from . import addon_update_operators
         addon_update_operators.request_automatic_update_check(context)
@@ -313,7 +329,7 @@ class _ClothNextSubpanel:
     bl_region_type = "WINDOW"
     bl_context = "physics"
     bl_parent_id = "CLOTHNEXT_PT_physics"
-    header_icon = "info"
+    header_icon = "cloth_next"
 
     def draw_header(self, _context):
         self.layout.label(text="", **icon_registry.icon_kwargs(self.header_icon, "DOT"))
@@ -323,10 +339,15 @@ class _ClothNextSubpanel:
         if not CLOTHNEXT_PT_physics.poll(context):
             return False
         role = context.object.cloth_next.role
+        roles = getattr(cls, "roles", None)
         if role == "FORCE":
+            if roles is not None:
+                return role in roles
             return bool(getattr(cls, "force_only", False))
         if getattr(cls, "force_only", False):
             return False
+        if roles is not None:
+            return role in roles
         if getattr(cls, "cloth_only", False):
             return role == "CLOTH"
         if getattr(cls, "deformable_only", False):
@@ -340,7 +361,8 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (super().poll(context)
-                and context.object.cloth_next.role != "CLOTH")
+                and context.object.cloth_next.role not in {
+                    "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER"})
     def draw(self, context):
         from . import solver_test
         layout = self.layout
@@ -436,6 +458,7 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
             physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
             text=preset.label, depress=current is preset)
         operator.preset = preset.identifier
+        operator.tooltip = f"{preset.description} {preset.warning}".strip()
 
     if current is None:
         section.label(text="Custom")
@@ -760,26 +783,80 @@ def _draw_frame_range(layout, settings) -> None:
     section.operator("clothnext.use_scene_range", text="Use Scene Range")
 
 
-def _scene_counts(context) -> tuple[int, int, int]:
+def _draw_force_setup(layout, settings) -> None:
+    """Draw only the existing, fully encoded Force controls."""
+    force = settings.force
+    layout.prop(force, "force_type")
+    if force.force_type in {"GRAVITY", "WIND"}:
+        layout.prop(force, "strength")
+        direction = ("Local -Z" if force.force_type == "GRAVITY"
+                     else "Local +Z")
+        layout.label(text=f"Direction: {direction}",
+                     icon="ORIENTATION_LOCAL")
+    elif force.force_type == "AIR_DENSITY":
+        layout.prop(force, "air_density", text="Density")
+    elif force.force_type == "AIR_FRICTION":
+        layout.prop(force, "air_friction", text="Friction")
+    elif force.force_type == "VERTEX_AIR_DAMP":
+        layout.prop(force, "vertex_air_damp", text="Damping")
+
+
+def _authoritative_frame_settings(context):
+    """Return a deformable's synchronized range without inspecting geometry."""
+    for obj in getattr(getattr(context, "scene", None), "objects", ()):
+        settings = getattr(obj, "cloth_next", None)
+        if (settings is not None and bool(getattr(settings, "enabled", False))
+                and getattr(settings, "role", "") in {
+                    "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}):
+            return settings
+    return context.object.cloth_next
+
+
+def _scene_role_counts(context) -> dict[str, int]:
     """Count enabled roles from object settings only; never inspect meshes."""
-    deformable_roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
-    deformables = colliders = forces = 0
+    counts = {role: 0 for role, _label, _description
+              in object_properties.ROLE_ITEMS}
     for obj in getattr(getattr(context, "scene", None), "objects", ()):
         settings = getattr(obj, "cloth_next", None)
         if settings is None or not bool(getattr(settings, "enabled", False)):
             continue
         role = getattr(settings, "role", "")
-        deformables += int(role in deformable_roles)
-        colliders += int(role == "COLLIDER")
-        forces += int(role == "FORCE")
-    return deformables, colliders, forces
+        if role in counts:
+            counts[role] += 1
+    return counts
+
+
+def _scene_counts(context) -> tuple[int, int, int]:
+    counts = _scene_role_counts(context)
+    deformables = sum(counts[role] for role in (
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"))
+    return deformables, counts["COLLIDER"], counts["FORCE"]
 
 
 def _draw_scene_statistics(layout, context) -> None:
     deformables, colliders, forces = _scene_counts(context)
-    layout.label(text=(f"{deformables} Deformables · {colliders} Collider · "
-                       f"{forces} Forces"))
-    settings = context.object.cloth_next
+    role = context.object.cloth_next.role
+    if role == "RIGID_BODY":
+        counts = _scene_role_counts(context)
+        rigid_bodies = counts["RIGID_BODY"]
+        other_deformables = deformables - rigid_bodies
+        rigid_label = "Rigid Body" if rigid_bodies == 1 else "Rigid Bodies"
+        collider_label = "Collider" if colliders == 1 else "Colliders"
+        text = (f"{rigid_bodies} {rigid_label} · "
+                f"{other_deformables} Deformables · "
+                f"{colliders} {collider_label}")
+    elif role in {"ROD", "SOFT_BODY", "COLLIDER", "FORCE"}:
+        collider_label = "Collider" if colliders == 1 else "Colliders"
+        force_label = "Force" if forces == 1 else "Forces"
+        text = (f"{deformables} Deformables · {colliders} {collider_label} · "
+                f"{forces} {force_label}")
+    else:
+        text = (f"{deformables} Deformables · {colliders} Collider · "
+                f"{forces} Forces")
+    layout.label(text=text)
+    settings = (_authoritative_frame_settings(context)
+                if role in {"COLLIDER", "FORCE"}
+                else context.object.cloth_next)
     layout.label(text=f"Frames {settings.bake_start}–{settings.bake_end}")
 
 
@@ -825,6 +902,61 @@ def _draw_bake_action(layout, model, snapshot) -> None:
         layout.label(text=model.reason, icon="ERROR")
 
 
+def _draw_soft_body_material(layout, settings) -> None:
+    """Draw only fully mapped solid-material controls."""
+    model = layout.row(align=True)
+    model.label(text="Solver Model")
+    model.label(text="ARAP")
+    soft = settings.soft_body
+    layout.prop(soft, "volume_density")
+    layout.prop(soft, "stretch_resistance", text="Stretch Resistance")
+    layout.prop(soft, "poisson_ratio", text="Sideways Response")
+    layout.prop(soft, "volume_scale", text="Volume Scale")
+    layout.prop(soft, "tetrahedralizer")
+    damping = layout.column(align=True)
+    damping.label(text="Damping")
+    damping.prop(settings.damping, "shape_damping")
+    _draw_concept_row(layout, "Permanent Deformation")
+
+
+def _draw_cable_rope_material(layout, settings) -> None:
+    """Draw only fully mapped Cable / Rope material controls."""
+    cable = settings.rod
+    layout.prop(cable, "linear_density")
+    layout.prop(cable, "stretch_resistance")
+    layout.prop(cable, "bend_resistance")
+    protection = layout.column(align=True)
+    protection.label(text="Stretch Protection")
+    protection.prop(cable, "stretch_limit_percent", text="Maximum Stretch")
+    damping = layout.column(align=True)
+    damping.label(text="Damping")
+    damping.prop(settings.damping, "shape_damping")
+    damping.prop(settings.damping, "fold_damping", text="Bend Damping")
+
+
+def _draw_collider_collision(layout, settings) -> None:
+    """Draw mapped Collider motion and contact controls."""
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+    layout.prop(settings, "collider_motion")
+    if settings.collider_motion == "ANIMATED":
+        layout.prop(settings, "collider_samples_per_frame",
+                    text="Samples per Frame")
+        samples = int(settings.collider_samples_per_frame)
+        if samples < 8:
+            layout.label(
+                text="Low sampling can let fast colliders cross cloth",
+                icon="ERROR")
+        elif samples < 12:
+            layout.label(
+                text="Fast or curved motion: consider 12–16 samples",
+                icon="INFO")
+    collision = settings.collision
+    layout.prop(collision, "surface_grip")
+    layout.prop(collision, "collision_gap")
+    layout.prop(collision, "surface_offset")
+
+
 def _draw_material_category(self, context):
     selected = getattr(context.object.cloth_next.material, "preset", "")
     for preset in material_presets.presets_in_category(self.category):
@@ -866,26 +998,30 @@ class CLOTHNEXT_MT_material_presets(bpy.types.Menu):
 class CLOTHNEXT_PT_setup(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Setup"
     bl_idname = "CLOTHNEXT_PT_setup"
-    cloth_only = True
-    header_icon = "settings"
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "physical"
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        _draw_frame_range(layout, context.object.cloth_next)
+        if context.object.cloth_next.role == "FORCE":
+            _draw_force_setup(layout, context.object.cloth_next)
+            return
+        _draw_frame_range(layout, _authoritative_frame_settings(context))
 
 
 class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Simulation"
     bl_idname = "CLOTHNEXT_PT_simulation"
-    cloth_only = True
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
     header_icon = "solver"
 
     def draw(self, context):
         layout = self.layout
         snapshot = shared_controller.snapshot()
-        _draw_quality_selector(layout, context, snapshot.active)
+        if context.object.cloth_next.role not in {"COLLIDER", "FORCE"}:
+            _draw_quality_selector(layout, context, snapshot.active)
         model = _bake_panel_model(context, _solver_status(context))
         _draw_bake_action(layout, model, snapshot)
         _draw_scene_statistics(layout, context)
@@ -895,11 +1031,16 @@ class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Shape"
     bl_idname = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
-    cloth_only = True
-    header_icon = "shape"
+    roles = {"CLOTH", "ROD", "SOFT_BODY"}
+    header_icon = "physical"
 
-    def draw(self, _context):
-        _draw_concept_row(self.layout, "Advanced Pin Motion")
+    def draw(self, context):
+        role = context.object.cloth_next.role
+        if role == "ROD":
+            _draw_concept_row(self.layout, "Pinning")
+            _draw_concept_row(self.layout, "Advanced Pin Motion")
+        elif role == "CLOTH":
+            _draw_concept_row(self.layout, "Advanced Pin Motion")
         _draw_concept_row(self.layout, "Soft Constraints")
 
 
@@ -909,11 +1050,42 @@ class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "pinning"
 
     def draw(self, context):
         self.layout.use_property_split = True
         self.layout.prop(context.object.cloth_next.pressure, "shrink_percent",
                          text="Uniform Shrink")
+
+
+class CLOTHNEXT_PT_soft_body_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Rest Shape"
+    bl_idname = "CLOTHNEXT_PT_soft_body_rest_shape"
+    bl_parent_id = "CLOTHNEXT_PT_shape"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"SOFT_BODY"}
+    header_icon = "pinning"
+
+    def draw(self, context):
+        self.layout.use_property_split = True
+        self.layout.use_property_decorate = False
+        self.layout.prop(context.object.cloth_next.soft_body, "volume_scale",
+                         text="Uniform Scale")
+
+
+class CLOTHNEXT_PT_cable_rope_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Rest Shape"
+    bl_idname = "CLOTHNEXT_PT_cable_rope_rest_shape"
+    bl_parent_id = "CLOTHNEXT_PT_shape"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"ROD"}
+    header_icon = "rod"
+
+    def draw(self, context):
+        self.layout.use_property_split = True
+        self.layout.use_property_decorate = False
+        self.layout.prop(context.object.cloth_next.rod, "length_factor",
+                         text="Length Scale")
 
 
 class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
@@ -922,6 +1094,7 @@ class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "pressure"
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
@@ -938,6 +1111,7 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "pinning"
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
@@ -952,20 +1126,26 @@ class CLOTHNEXT_PT_collision(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Collision"
     bl_idname = "CLOTHNEXT_PT_collision"
     bl_options = {"DEFAULT_CLOSED"}
-    cloth_only = True
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
     header_icon = "collision"
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        collision = context.object.cloth_next.collision
+        settings = context.object.cloth_next
+        collision = settings.collision
         layout.prop(collision, "enabled", text="Enable Collisions")
         controls = layout.column()
         controls.enabled = collision.enabled
         controls.prop(collision, "surface_grip")
-        controls.prop(collision, "collision_gap")
-        controls.prop(collision, "surface_offset")
+        if context.object.cloth_next.role == "ROD":
+            controls.prop(collision, "surface_offset",
+                          text="Collision Radius")
+            controls.prop(collision, "collision_gap")
+        else:
+            controls.prop(collision, "collision_gap")
+            controls.prop(collision, "surface_offset")
         _draw_concept_row(layout, "Collision Timing")
         _draw_concept_row(layout, "Advanced Contact Distance")
 
@@ -976,6 +1156,7 @@ class CLOTHNEXT_PT_friction_regions(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_collision"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "collision"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -993,11 +1174,89 @@ class CLOTHNEXT_PT_friction_regions(_ClothNextSubpanel, bpy.types.Panel):
             remove.index = index
 
 
+class CLOTHNEXT_PT_collider_collision(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Collision"
+    bl_idname = "CLOTHNEXT_PT_collider_collision"
+    roles = {"COLLIDER"}
+    header_icon = "collision"
+
+    def draw(self, context):
+        _draw_collider_collision(self.layout, context.object.cloth_next)
+
+
+class CLOTHNEXT_PT_simulation_proxy(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Simulation Proxy"
+    bl_idname = "CLOTHNEXT_PT_simulation_proxy"
+    bl_parent_id = "CLOTHNEXT_PT_collider_collision"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"COLLIDER"}
+    header_icon = "collider"
+
+    @classmethod
+    def poll(cls, context):
+        if not super().poll(context):
+            return False
+        settings = context.object.cloth_next
+        return (settings.collider_motion == "ANIMATED"
+                and not collider_proxy.is_generated_proxy(context.object))
+
+    def draw(self, context):
+        settings = context.object.cloth_next
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.prop(settings, "collider_proxy_target_vertices",
+                    text="Target Vertices")
+        proxy = getattr(settings, "collider_proxy_object", None)
+        action = layout.row()
+        action.enabled = not shared_controller.snapshot().active
+        action.operator(
+            "clothnext.generate_collider_proxy",
+            text="Regenerate Proxy" if proxy else "Generate Proxy")
+        if proxy is None:
+            if bool(settings.collider_proxy_enabled):
+                layout.label(text="Simulation Proxy is missing; regenerate it",
+                             icon="ERROR")
+            else:
+                layout.label(
+                    text="Original Collider remains active until generated",
+                    icon="INFO")
+            return
+        layout.prop(settings, "collider_proxy_enabled",
+                    text="Use Simulation Proxy")
+        source_vertices = int(
+            getattr(settings, "collider_proxy_source_vertices", 0) or 0)
+        proxy_vertices = int(
+            getattr(settings, "collider_proxy_result_vertices", 0) or 0)
+        layout.label(text=f"Source: {source_vertices:,} vertices")
+        layout.label(text=f"Proxy: {proxy_vertices:,} vertices")
+        frame_settings = _authoritative_frame_settings(context)
+        samples = collider_proxy.motion_sample_count(
+            int(frame_settings.bake_start), int(frame_settings.bake_end),
+            int(settings.collider_samples_per_frame))
+        source_peak = collider_proxy.estimated_ppf_peak_bytes(
+            source_vertices, samples)
+        proxy_peak = collider_proxy.estimated_ppf_peak_bytes(
+            proxy_vertices, samples)
+        layout.label(text="Estimated Peak Memory")
+        layout.label(text=(
+            f"{collider_proxy.format_bytes(source_peak)} → "
+            f"{collider_proxy.format_bytes(proxy_peak)}"), icon="MEMORY")
+        layout.label(
+            text="Regenerate after topology or deformer changes",
+            icon="INFO")
+
+
 class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Force"
     bl_idname = "CLOTHNEXT_PT_force"
     force_only = True
     header_icon = "force"
+
+    @classmethod
+    def poll(cls, _context):
+        """Superseded by the role-aware Setup panel."""
+        return False
 
     def draw(self, context):
         layout = self.layout
@@ -1033,35 +1292,14 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         layout.use_property_decorate = False
         settings = context.object.cloth_next
         if settings.role == "ROD":
-            rod = settings.rod
-            layout.label(text="Cable behavior")
-            info = layout.box()
-            info.label(text="Curve Bevel is visual only.", icon="INFO")
-            info.label(text="Use Collisions > Surface Offset as cable radius.")
-            layout.prop(rod, "linear_density")
-            layout.prop(rod, "stretch_resistance")
-            layout.prop(rod, "bend_resistance")
-            layout.prop(rod, "length_factor")
-            layout.prop(rod, "stretch_limit_percent")
+            _draw_cable_rope_material(layout, settings)
             return
         if settings.role == "SOFT_BODY":
-            soft = settings.soft_body
-            layout.label(text="Soft-body behavior")
-            layout.label(text="The closed mesh is filled automatically for simulation",
-                         icon="INFO")
-            layout.prop(soft, "volume_density")
-            layout.prop(soft, "stretch_resistance")
-            layout.prop(soft, "poisson_ratio")
-            layout.prop(soft, "volume_scale")
-            layout.prop(soft, "tetrahedralizer")
+            _draw_soft_body_material(layout, settings)
             return
         if settings.role == "RIGID_BODY":
-            layout.label(text="Rigid-body behavior")
-            layout.label(text="Keeps its exact shape while moving and colliding",
-                         icon="INFO")
-            layout.label(text="Use a closed mesh with outward-facing normals",
-                         icon="INFO")
-            layout.prop(settings.rigid_body, "volume_density")
+            layout.prop(settings.rigid_body, "volume_density",
+                        text="Volume Density")
             return
         material = settings.material
         error = material_presets.load_error()
@@ -1144,7 +1382,8 @@ class CLOTHNEXT_PT_damping(_ClothNextSubpanel, bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (super().poll(context)
-                and context.object.cloth_next.role != "CLOTH"
+                and context.object.cloth_next.role not in {
+                    "CLOTH", "ROD", "SOFT_BODY"}
                 and context.object.cloth_next.role != "RIGID_BODY")
     def draw(self, context):
         layout = self.layout
@@ -1162,7 +1401,8 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (super().poll(context)
-                and context.object.cloth_next.role != "CLOTH")
+                and context.object.cloth_next.role not in {
+                    "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER"})
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -1366,7 +1606,8 @@ class CLOTHNEXT_PT_cache(_ClothNextSubpanel, bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (super().poll(context)
-                and context.object.cloth_next.role != "CLOTH")
+                and context.object.cloth_next.role not in {
+                    "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"})
     def draw(self, context):
         layout = self.layout
         settings = context.object.cloth_next
@@ -1470,20 +1711,26 @@ class CLOTHNEXT_PT_cloth_advanced(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Advanced"
     bl_idname = "CLOTHNEXT_PT_cloth_advanced"
     bl_options = {"DEFAULT_CLOSED"}
-    cloth_only = True
+    roles = {
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
     header_icon = "advanced"
 
-    def draw(self, _context):
-        _draw_concept_row(self.layout, "Recovery & Checkpoints")
-        _draw_concept_row(self.layout, "Motion Overrides")
-        _draw_concept_row(self.layout, "Advanced Contact Solver")
+    def draw(self, context):
+        role = context.object.cloth_next.role
+        if role not in {"COLLIDER", "FORCE"}:
+            _draw_concept_row(self.layout, "Recovery & Checkpoints")
+            _draw_concept_row(self.layout, "Motion Overrides")
+        if role != "FORCE":
+            _draw_concept_row(self.layout, "Advanced Contact Solver")
 
 
 class CLOTHNEXT_PT_solver_settings(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Solver Settings"
     bl_idname = "CLOTHNEXT_PT_solver_settings"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
-    cloth_only = True
+    roles = {
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "quality"
 
     def draw(self, context):
         layout = self.layout
@@ -1500,7 +1747,9 @@ class CLOTHNEXT_PT_simulation_engine(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Simulation Engine"
     bl_idname = "CLOTHNEXT_PT_simulation_engine"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
-    cloth_only = True
+    roles = {
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "solver"
 
     def draw(self, context):
         status = _solver_status(context)
@@ -1516,7 +1765,8 @@ class CLOTHNEXT_PT_result(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Result"
     bl_idname = "CLOTHNEXT_PT_result"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
-    cloth_only = True
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+    header_icon = "cache"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1543,9 +1793,18 @@ class CLOTHNEXT_PT_diagnostics(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Diagnostics"
     bl_idname = "CLOTHNEXT_PT_diagnostics"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
-    cloth_only = True
+    roles = {
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "warning"
 
-    def draw(self, _context):
+    def draw(self, context):
+        if context.object.cloth_next.role in {"COLLIDER", "FORCE"}:
+            self.layout.operator(
+                "clothnext.companion_launch", text="Open Bake Window",
+                **icon_registry.icon_kwargs("bake", "WINDOW"))
+            self.layout.operator("clothnext.companion_open_logs",
+                                 text="Open Logs", icon="FILE_FOLDER")
+            return
         self.layout.operator("clothnext.scene_health",
                              text="Run Scene Health Check", icon="CHECKMARK")
         self.layout.operator("clothnext.inspect_parameters",
@@ -1558,7 +1817,9 @@ class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Maintenance"
     bl_idname = "CLOTHNEXT_PT_maintenance"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
-    cloth_only = True
+    roles = {
+        "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "error"
 
     def draw(self, _context):
         self.layout.operator(
@@ -1573,7 +1834,9 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (super().poll(context)
-                and context.object.cloth_next.role != "CLOTH")
+                and context.object.cloth_next.role not in {
+                    "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER",
+                    "FORCE"})
 
     def draw(self, context):
         layout = self.layout
@@ -1618,10 +1881,13 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material,
            CLOTHNEXT_PT_shape, CLOTHNEXT_PT_pinning,
-           CLOTHNEXT_PT_rest_shape, CLOTHNEXT_PT_pressure,
+           CLOTHNEXT_PT_rest_shape, CLOTHNEXT_PT_soft_body_rest_shape,
+           CLOTHNEXT_PT_cable_rope_rest_shape,
+           CLOTHNEXT_PT_pressure,
            CLOTHNEXT_PT_sewing,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collision, CLOTHNEXT_PT_friction_regions,
+           CLOTHNEXT_PT_collider_collision, CLOTHNEXT_PT_simulation_proxy,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_beta_readiness,
            CLOTHNEXT_PT_developer_tools,

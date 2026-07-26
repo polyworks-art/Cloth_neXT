@@ -51,7 +51,8 @@ from . import icon_registry, validation_state
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
-    ("ROD", "Rod / Cable", "Simulate this Curve as a one-dimensional rod"),
+    ("ROD", "Cable / Rope",
+     "Simulate this Curve as a one-dimensional cable or rope"),
     ("SOFT_BODY", "Soft Body", "Simulate this closed mesh as a tetrahedral solid"),
     ("RIGID_BODY", "Rigid Body", "Simulate this closed mesh as a solid moving object"),
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
