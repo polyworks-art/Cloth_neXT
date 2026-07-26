@@ -15,6 +15,7 @@ import bpy
 from . import object_properties
 from ..bake.controller import shared_controller
 from ..solver_quality import (
+    QUALITY_PRESETS,
     SolverQualitySettings,
     SolverQualityValidationError,
     apply_quality_preset,
@@ -229,27 +230,10 @@ class CLOTHNEXT_OT_use_scene_range(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
-    """Apply one scene-wide solver quality preset."""
+class _ApplySolverQualityPresetMixin:
+    """Shared implementation for independently registered Quality buttons."""
 
-    bl_idname = "clothnext.apply_solver_quality_preset"
-    bl_label = "Apply Solver Quality Preset"
-    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
-
-    preset: bpy.props.StringProperty(options={"HIDDEN"})
-    tooltip: bpy.props.StringProperty(options={"HIDDEN"})
-
-    @classmethod
-    def description(cls, _context, properties):
-        tooltip = str(getattr(properties, "tooltip", "") or "").strip()
-        if tooltip:
-            return tooltip
-        preset = next((item for item in QUALITY_PRESETS
-                       if item.identifier == properties.preset), None)
-        if preset is None:
-            return cls.__doc__
-        details = preset.description
-        return f"{details} {preset.warning}".strip()
+    quality_preset = ""
 
     @classmethod
     def poll(cls, context):
@@ -263,9 +247,10 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
                         "Solver Quality cannot change during an active Bake.")
             return {"CANCELLED"}
         has_pdrd = _scene_has_pdrd(context.scene)
+        identifier = self.quality_preset or self.preset
         try:
             values = apply_quality_preset(
-                self.preset, has_pdrd=has_pdrd)
+                identifier, has_pdrd=has_pdrd)
         except SolverQualityValidationError as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
@@ -273,8 +258,64 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
         if has_pdrd:
             self.report(
                 {"INFO"},
-                f"{self.preset.title()} uses PDRD-safe solver settings.")
+                f"{identifier.title()} uses PDRD-safe solver settings.")
         return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_apply_solver_quality_preset(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    """Apply one scene-wide solver quality preset."""
+
+    bl_idname = "clothnext.apply_solver_quality_preset"
+    bl_label = "Apply Solver Quality Preset"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    preset: bpy.props.StringProperty(options={"HIDDEN"})
+
+
+class CLOTHNEXT_OT_apply_quality_low(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_low"
+    bl_label = "Low Quality"
+    bl_description = QUALITY_PRESETS[0].description
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "LOW"
+
+
+class CLOTHNEXT_OT_apply_quality_medium(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_medium"
+    bl_label = "Medium Quality"
+    bl_description = QUALITY_PRESETS[1].description
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "MEDIUM"
+
+
+class CLOTHNEXT_OT_apply_quality_high(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_high"
+    bl_label = "High Quality"
+    bl_description = QUALITY_PRESETS[2].description
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "HIGH"
+
+
+class CLOTHNEXT_OT_apply_quality_extreme(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_extreme"
+    bl_label = "Extreme Quality"
+    bl_description = (
+        f"{QUALITY_PRESETS[3].description} {QUALITY_PRESETS[3].warning}")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "EXTREME"
+
+
+QUALITY_PRESET_OPERATOR_IDS = {
+    "LOW": CLOTHNEXT_OT_apply_quality_low.bl_idname,
+    "MEDIUM": CLOTHNEXT_OT_apply_quality_medium.bl_idname,
+    "HIGH": CLOTHNEXT_OT_apply_quality_high.bl_idname,
+    "EXTREME": CLOTHNEXT_OT_apply_quality_extreme.bl_idname,
+}
 
 
 class CLOTHNEXT_OT_apply_material_preset(bpy.types.Operator):
@@ -317,4 +358,8 @@ CLASSES = (CLOTHNEXT_OT_set_object_type,
            CLOTHNEXT_OT_add_physics, CLOTHNEXT_OT_remove_physics,
            CLOTHNEXT_OT_use_scene_range,
            CLOTHNEXT_OT_apply_solver_quality_preset,
+           CLOTHNEXT_OT_apply_quality_low,
+           CLOTHNEXT_OT_apply_quality_medium,
+           CLOTHNEXT_OT_apply_quality_high,
+           CLOTHNEXT_OT_apply_quality_extreme,
            CLOTHNEXT_OT_apply_material_preset)

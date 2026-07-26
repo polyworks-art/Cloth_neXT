@@ -14,7 +14,10 @@ TARGET = ROOT / "cloth_next" / "assets" / "icons"
 REQUIRED = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "solver", "quality", "physical",
             "damping", "collision", "pressure", "pinning", "cache", "advanced",
             "bake", "play", "pause", "cancel", "success", "warning", "error",
-            "info", "folder", "timer")
+            "info", "folder", "timer", "setup", "shape", "rest_shape",
+            "sewing", "friction_regions", "simulation_proxy",
+            "solver_settings", "engine", "result", "diagnostics",
+            "maintenance")
 SIZE = (64, 64)
 
 def _render(source: Path) -> bytes:

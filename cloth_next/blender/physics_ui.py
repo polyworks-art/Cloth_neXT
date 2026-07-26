@@ -454,11 +454,9 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     for preset in QUALITY_PRESETS:
         button = buttons.row(align=True)
         button.alert = preset.identifier == "EXTREME"
-        operator = button.operator(
-            physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
+        button.operator(
+            physics_operators.QUALITY_PRESET_OPERATOR_IDS[preset.identifier],
             text=preset.label, depress=current is preset)
-        operator.preset = preset.identifier
-        operator.tooltip = f"{preset.description} {preset.warning}".strip()
 
     if current is None:
         section.label(text="Custom")
@@ -872,10 +870,9 @@ def _draw_quality_selector(layout, context, bake_active: bool) -> None:
     for preset in QUALITY_PRESETS:
         button = buttons.row(align=True)
         button.alert = preset.identifier == "EXTREME"
-        operator = button.operator(
-            physics_operators.CLOTHNEXT_OT_apply_solver_quality_preset.bl_idname,
+        button.operator(
+            physics_operators.QUALITY_PRESET_OPERATOR_IDS[preset.identifier],
             text=preset.label, depress=current is preset)
-        operator.preset = preset.identifier
 
 
 def _draw_bake_action(layout, model, snapshot) -> None:
@@ -999,7 +996,7 @@ class CLOTHNEXT_PT_setup(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Setup"
     bl_idname = "CLOTHNEXT_PT_setup"
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
-    header_icon = "physical"
+    header_icon = "setup"
 
     def draw(self, context):
         layout = self.layout
@@ -1032,7 +1029,7 @@ class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_idname = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY"}
-    header_icon = "physical"
+    header_icon = "shape"
 
     def draw(self, context):
         role = context.object.cloth_next.role
@@ -1050,7 +1047,7 @@ class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
-    header_icon = "pinning"
+    header_icon = "rest_shape"
 
     def draw(self, context):
         self.layout.use_property_split = True
@@ -1064,7 +1061,7 @@ class CLOTHNEXT_PT_soft_body_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"SOFT_BODY"}
-    header_icon = "pinning"
+    header_icon = "rest_shape"
 
     def draw(self, context):
         self.layout.use_property_split = True
@@ -1079,7 +1076,7 @@ class CLOTHNEXT_PT_cable_rope_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"ROD"}
-    header_icon = "rod"
+    header_icon = "rest_shape"
 
     def draw(self, context):
         self.layout.use_property_split = True
@@ -1111,7 +1108,7 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
-    header_icon = "pinning"
+    header_icon = "sewing"
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
@@ -1156,7 +1153,7 @@ class CLOTHNEXT_PT_friction_regions(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_collision"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
-    header_icon = "collision"
+    header_icon = "friction_regions"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1190,7 +1187,7 @@ class CLOTHNEXT_PT_simulation_proxy(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_collider_collision"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"COLLIDER"}
-    header_icon = "collider"
+    header_icon = "simulation_proxy"
 
     @classmethod
     def poll(cls, context):
@@ -1730,7 +1727,7 @@ class CLOTHNEXT_PT_solver_settings(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     roles = {
         "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
-    header_icon = "quality"
+    header_icon = "solver_settings"
 
     def draw(self, context):
         layout = self.layout
@@ -1749,7 +1746,7 @@ class CLOTHNEXT_PT_simulation_engine(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     roles = {
         "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
-    header_icon = "solver"
+    header_icon = "engine"
 
     def draw(self, context):
         status = _solver_status(context)
@@ -1766,7 +1763,7 @@ class CLOTHNEXT_PT_result(_ClothNextSubpanel, bpy.types.Panel):
     bl_idname = "CLOTHNEXT_PT_result"
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
-    header_icon = "cache"
+    header_icon = "result"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1795,7 +1792,7 @@ class CLOTHNEXT_PT_diagnostics(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     roles = {
         "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
-    header_icon = "warning"
+    header_icon = "diagnostics"
 
     def draw(self, context):
         if context.object.cloth_next.role in {"COLLIDER", "FORCE"}:
@@ -1819,7 +1816,7 @@ class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     roles = {
         "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
-    header_icon = "error"
+    header_icon = "maintenance"
 
     def draw(self, _context):
         self.layout.operator(

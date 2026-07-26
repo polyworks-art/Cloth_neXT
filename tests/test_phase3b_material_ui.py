@@ -904,25 +904,25 @@ def test_no_fake_editable_controls_remain_in_ui_source():
 def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
     env = blender_env
     expected = {
-        env.physics_ui.CLOTHNEXT_PT_setup: "physical",
+        env.physics_ui.CLOTHNEXT_PT_setup: "setup",
         env.physics_ui.CLOTHNEXT_PT_simulation: "solver",
         env.physics_ui.CLOTHNEXT_PT_material: "physical",
-        env.physics_ui.CLOTHNEXT_PT_shape: "physical",
-        env.physics_ui.CLOTHNEXT_PT_rest_shape: "pinning",
-        env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape: "pinning",
-        env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape: "rod",
+        env.physics_ui.CLOTHNEXT_PT_shape: "shape",
+        env.physics_ui.CLOTHNEXT_PT_rest_shape: "rest_shape",
+        env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape: "rest_shape",
+        env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_pressure: "pressure",
-        env.physics_ui.CLOTHNEXT_PT_sewing: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_sewing: "sewing",
         env.physics_ui.CLOTHNEXT_PT_collision: "collision",
-        env.physics_ui.CLOTHNEXT_PT_friction_regions: "collision",
+        env.physics_ui.CLOTHNEXT_PT_friction_regions: "friction_regions",
         env.physics_ui.CLOTHNEXT_PT_collider_collision: "collision",
-        env.physics_ui.CLOTHNEXT_PT_simulation_proxy: "collider",
+        env.physics_ui.CLOTHNEXT_PT_simulation_proxy: "simulation_proxy",
         env.physics_ui.CLOTHNEXT_PT_cloth_advanced: "advanced",
-        env.physics_ui.CLOTHNEXT_PT_solver_settings: "quality",
-        env.physics_ui.CLOTHNEXT_PT_simulation_engine: "solver",
-        env.physics_ui.CLOTHNEXT_PT_result: "cache",
-        env.physics_ui.CLOTHNEXT_PT_diagnostics: "warning",
-        env.physics_ui.CLOTHNEXT_PT_maintenance: "error",
+        env.physics_ui.CLOTHNEXT_PT_solver_settings: "solver_settings",
+        env.physics_ui.CLOTHNEXT_PT_simulation_engine: "engine",
+        env.physics_ui.CLOTHNEXT_PT_result: "result",
+        env.physics_ui.CLOTHNEXT_PT_diagnostics: "diagnostics",
+        env.physics_ui.CLOTHNEXT_PT_maintenance: "maintenance",
     }
     available = set(env.physics_ui.icon_registry._NAMES)
     for panel, icon in expected.items():
@@ -933,16 +933,20 @@ def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
 
 def test_quality_preset_operator_uses_button_specific_hover_tooltip(
         blender_env):
-    operator = blender_env.physics_operators.\
-        CLOTHNEXT_OT_apply_solver_quality_preset
-    low = SimpleNamespace(
-        preset="LOW",
-        tooltip="Fast previews for setup and broad motion checks.")
-    extreme = SimpleNamespace(
-        preset="EXTREME",
-        tooltip="Maximum solve effort. Extreme can increase simulation time.")
-    assert operator.description(None, low).startswith("Fast previews")
-    assert "increase simulation time" in operator.description(None, extreme)
+    operators = blender_env.physics_operators
+    classes = (
+        operators.CLOTHNEXT_OT_apply_quality_low,
+        operators.CLOTHNEXT_OT_apply_quality_medium,
+        operators.CLOTHNEXT_OT_apply_quality_high,
+        operators.CLOTHNEXT_OT_apply_quality_extreme,
+    )
+    assert [operator.quality_preset for operator in classes] == [
+        "LOW", "MEDIUM", "HIGH", "EXTREME"]
+    assert [operators.QUALITY_PRESET_OPERATOR_IDS[preset]
+            for preset in ("LOW", "MEDIUM", "HIGH", "EXTREME")] == [
+        operator.bl_idname for operator in classes]
+    assert classes[0].bl_description.startswith("Fast previews")
+    assert "increase simulation time" in classes[-1].bl_description
 
 
 # --- bridge: snapshot, validation before worker --------------------------------
