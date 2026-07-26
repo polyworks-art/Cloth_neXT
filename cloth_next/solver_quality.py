@@ -108,6 +108,14 @@ PDRD_QUALITY_PRESETS = (
         "XExtreme can increase simulation time significantly."),
 )
 
+# Previously published X preset values remain recognizable so existing .blend
+# files keep the correct depressed button until the artist reapplies a preset.
+_LEGACY_PDRD_PRESET_SETTINGS = {
+    "MEDIUM": SolverQualitySettings(0.005, 6, 10000, 0.001),
+    "HIGH": SolverQualitySettings(0.0025, 12, 20000, 0.0005),
+    "EXTREME": SolverQualitySettings(0.001, 20, 40000, 0.0001),
+}
+
 # Backwards-compatible public name used by the Blender UI and existing tests.
 # Labels and button identity remain stable; only the values applied by a button
 # depend on whether the scene contains an enabled PDRD object.
@@ -167,12 +175,19 @@ def matching_quality_preset(
         for preset in quality_presets(has_pdrd=has_pdrd):
             if _settings_match(settings, preset.settings):
                 return preset
+        if has_pdrd:
+            for identifier, legacy in _LEGACY_PDRD_PRESET_SETTINGS.items():
+                if _settings_match(settings, legacy):
+                    return _PDRD_PRESETS_BY_ID[identifier]
         return None
 
     for family in (STANDARD_QUALITY_PRESETS, PDRD_QUALITY_PRESETS):
         for preset in family:
             if _settings_match(settings, preset.settings):
                 return _STANDARD_PRESETS_BY_ID[preset.identifier]
+    for identifier, legacy in _LEGACY_PDRD_PRESET_SETTINGS.items():
+        if _settings_match(settings, legacy):
+            return _STANDARD_PRESETS_BY_ID[identifier]
     return None
 
 
