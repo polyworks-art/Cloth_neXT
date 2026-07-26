@@ -238,6 +238,15 @@ class CLOTHNEXT_OT_apply_solver_quality_preset(bpy.types.Operator):
     preset: bpy.props.StringProperty(options={"HIDDEN"})
 
     @classmethod
+    def description(cls, _context, properties):
+        preset = next((item for item in QUALITY_PRESETS
+                       if item.identifier == properties.preset), None)
+        if preset is None:
+            return cls.__doc__
+        details = preset.description
+        return f"{details} {preset.warning}".strip()
+
+    @classmethod
     def poll(cls, context):
         return (getattr(getattr(context, "scene", None),
                         "cloth_next_quality", None) is not None

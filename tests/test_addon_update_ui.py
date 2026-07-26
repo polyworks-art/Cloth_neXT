@@ -613,7 +613,7 @@ def test_automatic_check_is_deferred_out_of_panel_draw(blender_env,
     env.registration.unregister()
 
 
-def test_physics_panel_shows_installed_and_available_versions(blender_env):
+def test_cloth_physics_panel_hides_version_and_update_status(blender_env):
     env = blender_env
     env.registration.register()
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=16)
@@ -624,8 +624,9 @@ def test_physics_panel_shows_installed_and_available_versions(blender_env):
     layout = mesh_fixtures.draw_panel(
         env.physics_ui.CLOTHNEXT_PT_physics, scene.context)
 
-    assert f"Version: {module.INSTALLED_VERSION}" in layout.labels
-    assert "Update available: 9.9.1" in layout.labels
+    assert layout.labels == ["Object Type"]
+    assert f"Version: {module.INSTALLED_VERSION}" not in layout.labels
+    assert "Update available: 9.9.1" not in layout.labels
     env.registration.unregister()
 
 

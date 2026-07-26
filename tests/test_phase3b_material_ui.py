@@ -30,11 +30,15 @@ class RecordingLayout:
             self.props: list[str] = []
             self.labels: list[str] = []
             self.menus: list[tuple[str, str]] = []
+            self.operators: list[tuple[str, str]] = []
         self.use_property_split = False
         self.use_property_decorate = False
         self.enabled = True
 
     def prop(self, _data, name, **_kw):
+        self.sink.props.append(name)
+
+    def prop_search(self, _data, name, *_args, **_kw):
         self.sink.props.append(name)
 
     def label(self, text="", **_kw):
@@ -49,7 +53,8 @@ class RecordingLayout:
     def box(self):
         return RecordingLayout(self.sink)
 
-    def operator(self, *_a, **_kw):
+    def operator(self, identifier, text="", **_kw):
+        self.sink.operators.append((identifier, text))
         return SimpleNamespace()
 
     def menu(self, menu_id, text="", **_kw):
@@ -277,13 +282,15 @@ def test_panel_draw_never_reads_the_preset_file(blender_env, monkeypatch):
 
 # --- honest UI ----------------------------------------------------------------
 
-def test_unsupported_panels_are_gone(blender_env):
+def test_cloth_workflow_panels_are_registered(blender_env):
     ui = blender_env.physics_ui
     names = [cls.__name__ for cls in ui.CLASSES]
-    for forbidden in ("CLOTHNEXT_PT_quality", "CLOTHNEXT_PT_pressure",
-                      "CLOTHNEXT_PT_shape", "CLOTHNEXT_PT_physical"):
-        assert forbidden not in names
-    assert "CLOTHNEXT_PT_material" in names
+    for expected in ("CLOTHNEXT_PT_setup", "CLOTHNEXT_PT_simulation",
+                     "CLOTHNEXT_PT_material", "CLOTHNEXT_PT_shape",
+                     "CLOTHNEXT_PT_pressure", "CLOTHNEXT_PT_sewing",
+                     "CLOTHNEXT_PT_collision",
+                     "CLOTHNEXT_PT_cloth_advanced"):
+        assert expected in names
 
 
 def test_material_panel_displays_artist_facing_names(blender_env):
@@ -293,16 +300,75 @@ def test_material_panel_displays_artist_facing_names(blender_env):
     panel = env.physics_ui.CLOTHNEXT_PT_material()
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props == ["surface_weight",
+    assert panel.layout.props == ["model", "surface_weight",
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
                                   "stretch_limit_enabled",
                                   "maximum_stretch_percent",
-                                  "enable_inflate", "inflate_pressure",
-                                  "sewing_enabled",
-                                  "sewing_stiffness"]
-    assert "Fabric Behavior" in panel.layout.labels
+                                  "shape_damping", "fold_damping"]
     assert "Stretch Protection" in panel.layout.labels
+    assert "Damping" in panel.layout.labels
+    assert "Permanent Deformation" in panel.layout.labels
+    env.registration.unregister()
+
+
+def test_cloth_main_panel_contains_only_object_type(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "CLOTH"
+    panel = env.physics_ui.CLOTHNEXT_PT_physics()
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.labels == ["Object Type"]
+    assert panel.layout.operators == []
+    assert not any("Version" in label or "Bake:" in label
+                   for label in panel.layout.labels)
+    env.registration.unregister()
+
+
+def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    context = _context(obj)
+    expected = {
+        env.physics_ui.CLOTHNEXT_PT_pinning:
+            ["pinning_enabled", "pin_group", "pin_mode"],
+        env.physics_ui.CLOTHNEXT_PT_rest_shape: ["shrink_percent"],
+        env.physics_ui.CLOTHNEXT_PT_pressure:
+            ["enable_inflate", "inflate_pressure"],
+        env.physics_ui.CLOTHNEXT_PT_sewing:
+            ["sewing_enabled", "sewing_stiffness"],
+    }
+    for panel_type, props in expected.items():
+        panel = panel_type()
+        panel.layout = RecordingLayout()
+        panel.draw(context)
+        assert panel.layout.props == props
+    shape = env.physics_ui.CLOTHNEXT_PT_shape()
+    shape.layout = RecordingLayout()
+    shape.draw(context)
+    assert shape.layout.labels == [
+        "Advanced Pin Motion", "◇", "Soft Constraints", "◇"]
+    assert shape.layout.props == []
+    assert shape.layout.operators == []
+    env.registration.unregister()
+
+
+def test_remove_action_is_only_in_cloth_maintenance(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    context = _context(obj)
+    maintenance = env.physics_ui.CLOTHNEXT_PT_maintenance()
+    maintenance.layout = RecordingLayout()
+    maintenance.draw(context)
+    assert maintenance.layout.operators == [
+        ("clothnext.remove_physics", "Remove Cloth NeXt")]
     env.registration.unregister()
 
 

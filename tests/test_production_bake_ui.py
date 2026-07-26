@@ -211,6 +211,50 @@ def test_solver_panel_offers_cache_directory_button(blender_env, monkeypatch):
     env.registration.unregister()
 
 
+def test_cloth_simulation_places_bake_directory_and_statistics_together(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    cloth, collider = _objects(env)
+    cloth.cloth_next.bake_end = 180
+    force = env.bpy.types.Object(name="Wind", type="EMPTY")
+    force.cloth_next.enabled = True
+    force.cloth_next.role = "FORCE"
+    context = _context(env, [cloth, collider, force])
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.set_cache_directory", "", True) in panel.layout.operators
+    assert not any(identifier == "clothnext.validate"
+                   for identifier, _text, _enabled in panel.layout.operators)
+    assert "1 Deformables · 1 Collider · 1 Forces" in panel.layout.labels
+    assert "Frames 1–180" in panel.layout.labels
+    env.registration.unregister()
+
+
+def test_cloth_simulation_active_bake_has_no_blender_progress_details(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    context = _context(env, _objects(env))
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    shared_controller.transition(BakeState.PREPARING, job_id="ui-test")
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert "Bake running in Cloth NeXt Bake Window" in panel.layout.labels
+    assert any(identifier == "clothnext.bake_cancel"
+               for identifier, _text, _enabled in panel.layout.operators)
+    assert not any("Frame " in label or "ETA" in label
+                   for label in panel.layout.labels)
+    assert "progress" not in panel.layout.containers
+    env.registration.unregister()
+
+
 def test_require_cache_directories_names_missing_objects(blender_env):
     module = blender_env.solver_test
     with_dir = SimpleNamespace(
