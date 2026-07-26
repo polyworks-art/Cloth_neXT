@@ -86,26 +86,25 @@ STANDARD_QUALITY_PRESETS = (
         "Extreme can increase simulation time significantly."),
 )
 
-# PDRD switches mixed scenes to the reduced rigid solver, where non-rigid
-# vertices currently use the cheaper block-Jacobi preconditioner. These presets
-# spend more Newton/PCG work to keep Cloth, Rod and Soft Body motion converged
-# until the external solver provides a hybrid PDRD/Schwarz path.
+# PDRD mixed scenes are substantially more sensitive to temporal resolution
+# than to large guaranteed Newton counts. Keep every artist-facing mixed preset
+# at the official 1e-3 core step and scale only nonlinear/linear solve effort.
 PDRD_QUALITY_PRESETS = (
     SolverQualityPreset(
         "LOW", "Low", "Legacy mixed-scene quality; upgraded to XMedium.",
-        SolverQualitySettings(0.005, 4, 5000, 0.005)),
+        SolverQualitySettings(0.001, 1, 10000, 0.001)),
     SolverQualityPreset(
         "MEDIUM", "XMedium",
-        "Fast, stable preview quality for mixed deformable and rigid scenes.",
-        SolverQualitySettings(0.005, 6, 10000, 0.001)),
+        "Official-core working quality for mixed deformable and rigid scenes.",
+        SolverQualitySettings(0.001, 1, 10000, 0.001)),
     SolverQualityPreset(
         "HIGH", "XHigh",
-        "Stable final quality for mixed deformable and rigid scenes.",
-        SolverQualitySettings(0.0025, 12, 20000, 0.0005)),
+        "Higher convergence reserve for mixed deformable and rigid scenes.",
+        SolverQualitySettings(0.001, 2, 15000, 0.00075)),
     SolverQualityPreset(
         "EXTREME", "XExtreme",
-        "Maximum solve effort for difficult mixed-scene contact.",
-        SolverQualitySettings(0.001, 20, 40000, 0.0001),
+        "Maximum convergence reserve at the stable mixed-scene time step.",
+        SolverQualitySettings(0.001, 4, 25000, 0.0005),
         "XExtreme can increase simulation time significantly."),
 )
 
