@@ -92,7 +92,7 @@ STANDARD_QUALITY_PRESETS = (
 PDRD_QUALITY_PRESETS = (
     SolverQualityPreset(
         "LOW", "Low", "Legacy mixed-scene quality; upgraded to XMedium.",
-        SolverQualitySettings(0.001, 1, 10000, 0.001)),
+        SolverQualitySettings(0.005, 4, 5000, 0.005)),
     SolverQualityPreset(
         "MEDIUM", "XMedium",
         "Official-core working quality for mixed deformable and rigid scenes.",
