@@ -95,7 +95,7 @@ PDRD_QUALITY_PRESETS = (
         SolverQualitySettings(0.005, 4, 5000, 0.005)),
     SolverQualityPreset(
         "MEDIUM", "XMedium",
-        "Official-core working quality for mixed deformable and rigid scenes.",
+        "Fast, stable working quality for mixed deformable and rigid scenes.",
         SolverQualitySettings(0.001, 1, 10000, 0.001)),
     SolverQualityPreset(
         "HIGH", "XHigh",
