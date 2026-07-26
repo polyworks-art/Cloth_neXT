@@ -5507,7 +5507,15 @@ def begin_production_bake(context) -> tuple[str, bool]:
 
 
 def _suspend_pin_capture_playback(state) -> None:
-    """Disable owned caches once for the complete sequential capture."""
+    """Expose the same modifier stage used by deformable export.
+
+    Animated Pin targets and the exported Bake-start mesh must address the
+    same vertices.  Export stops after the last enabled Armature; leaving a
+    later Mirror, Solidify, Subdivision, or playback modifier enabled here
+    makes the evaluated Pin mesh larger and produces a false E105 topology
+    failure.  Disable that downstream suffix once for the whole timeline
+    capture and restore it afterwards.
+    """
     saved = []
     try:
         for object_name, _membership in state["targets"]:
@@ -5515,8 +5523,18 @@ def _suspend_pin_capture_playback(state) -> None:
             if obj is None:
                 raise SceneValidationError(
                     f"The Cloth object {object_name!r} no longer exists.")
-            for modifier in getattr(obj, "modifiers", ()):
-                if not is_cloth_next_playback_modifier(obj, modifier):
+            modifiers = tuple(getattr(obj, "modifiers", ()))
+            armatures = [
+                index for index, modifier in enumerate(modifiers)
+                if (getattr(modifier, "type", "") == "ARMATURE"
+                    and bool(getattr(modifier, "show_viewport", True)))]
+            cutoff = armatures[-1] if armatures else -1
+            for index, modifier in enumerate(modifiers):
+                downstream = cutoff >= 0 and index > cutoff
+                if (not downstream
+                        and not is_cloth_next_playback_modifier(obj, modifier)):
+                    continue
+                if not bool(getattr(modifier, "show_viewport", True)):
                     continue
                 saved.append((modifier,
                               bool(getattr(modifier, "show_viewport", True)),
@@ -5554,7 +5572,14 @@ def _sample_evaluated_pin_positions(context, obj, membership, *,
     if depsgraph is None:
         depsgraph = context.evaluated_depsgraph_get()
     evaluated = obj.evaluated_get(depsgraph)
-    mesh = evaluated.data
+    has_armature = any(
+        getattr(modifier, "type", "") == "ARMATURE"
+        and bool(getattr(modifier, "show_viewport", True))
+        for modifier in getattr(obj, "modifiers", ()))
+    # Deformable export reads the untouched source mesh when no Armature is
+    # active.  Do the same for Pins while retaining the evaluated object
+    # transform (parents/object animation may still move the Pin target).
+    mesh = evaluated.data if has_armature else obj.data
     count = len(mesh.vertices)
     if count != membership.source_vertex_count:
         raise SceneValidationError(

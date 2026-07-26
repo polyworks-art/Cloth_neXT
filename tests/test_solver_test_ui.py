@@ -106,6 +106,7 @@ def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
                       (0.0, 0.0, 0.0, 1.0)))
     obj = SimpleNamespace(
         name="Rigged Cloth",
+        modifiers=(SimpleNamespace(type="ARMATURE", show_viewport=True),),
         evaluated_get=lambda value: evaluated if value is depsgraph else None)
     context = SimpleNamespace(evaluated_depsgraph_get=lambda: (_ for _ in ()).throw(
         AssertionError("a supplied depsgraph must be reused")))
@@ -115,6 +116,83 @@ def test_animated_pin_sample_uses_bulk_evaluated_mesh_read(blender_env):
         context, obj, membership, depsgraph=depsgraph, index_array=indices)
 
     assert positions == ((4.0, 6.0, -5.0),)
+
+
+def test_pin_capture_disables_modifiers_after_last_armature(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Skirt", type="MESH")
+    before = obj.modifiers.new("Before Rig", "SMOOTH")
+    rig = obj.modifiers.new("Armature", "ARMATURE")
+    after = obj.modifiers.new("Mirror Display", "MIRROR")
+    playback = obj.modifiers.new("Cloth NeXt Playback", "MESH_CACHE")
+    before.show_viewport = rig.show_viewport = True
+    after.show_viewport = playback.show_viewport = True
+    before.show_render = rig.show_render = True
+    after.show_render = playback.show_render = True
+    monkeypatch.setattr(module.bpy.data, "objects", {"Skirt": obj})
+    monkeypatch.setattr(
+        module, "is_cloth_next_playback_modifier",
+        lambda _obj, modifier: modifier is playback)
+    updates = []
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: updates.append(True))
+    state = {
+        "context": SimpleNamespace(),
+        "targets": (("Skirt", SimpleNamespace()),),
+    }
+
+    module._suspend_pin_capture_playback(state)
+
+    assert before.show_viewport
+    assert rig.show_viewport
+    assert not after.show_viewport
+    assert not playback.show_viewport
+    module._restore_pin_capture_state({
+        **state,
+        "original": 1,
+        "original_subframe": 0.0,
+        "context": SimpleNamespace(scene=SimpleNamespace(
+            frame_set=lambda *_args, **_kwargs: None)),
+    })
+    assert after.show_viewport and after.show_render
+    assert playback.show_viewport and playback.show_render
+    assert len(updates) == 1
+
+
+def test_pin_sample_without_armature_matches_source_export_mesh(blender_env):
+    module = blender_env.solver_test
+
+    class SourceVertices:
+        def __len__(self):
+            return 2
+
+        def foreach_get(self, _attribute, target):
+            target[:] = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+
+    class EvaluatedVertices:
+        def __len__(self):
+            return 4
+
+    source_vertices = SourceVertices()
+    evaluated = SimpleNamespace(
+        data=SimpleNamespace(vertices=EvaluatedVertices()),
+        matrix_world=((1.0, 0.0, 0.0, 10.0),
+                      (0.0, 1.0, 0.0, 0.0),
+                      (0.0, 0.0, 1.0, 0.0),
+                      (0.0, 0.0, 0.0, 1.0)))
+    obj = SimpleNamespace(
+        name="Unrigged Cloth", modifiers=(),
+        data=SimpleNamespace(vertices=source_vertices),
+        evaluated_get=lambda _depsgraph: evaluated)
+    membership = SimpleNamespace(
+        source_vertex_count=2, vertex_indices=(1,))
+
+    positions = module._sample_evaluated_pin_positions(
+        SimpleNamespace(evaluated_depsgraph_get=lambda: object()),
+        obj, membership)
+
+    assert positions == ((14.0, 6.0, -5.0),)
 
 
 def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
