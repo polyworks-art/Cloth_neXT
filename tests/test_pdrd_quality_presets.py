@@ -67,6 +67,20 @@ def test_pdrd_presets_raise_effort_without_changing_button_identity():
         pdrd_high, has_pdrd=False) is None
 
 
+def test_legacy_pdrd_values_keep_their_current_button_identity():
+    legacy_values = (
+        ("MEDIUM", SolverQualitySettings(0.005, 6, 10000, 0.001)),
+        ("HIGH", SolverQualitySettings(0.0025, 12, 20000, 0.0005)),
+        ("EXTREME", SolverQualitySettings(0.001, 20, 40000, 0.0001)),
+    )
+    for identifier, settings in legacy_values:
+        index = ("LOW", "MEDIUM", "HIGH", "EXTREME").index(identifier)
+        assert matching_quality_preset(
+            settings, has_pdrd=True) is PDRD_QUALITY_PRESETS[index]
+        assert matching_quality_preset(settings) is QUALITY_PRESETS[index]
+        assert matching_quality_preset(settings, has_pdrd=False) is None
+
+
 def test_pdrd_mode_remaps_known_presets_but_preserves_custom_quality():
     standard_medium = apply_quality_preset("MEDIUM")
     pdrd_medium = apply_quality_preset("MEDIUM", has_pdrd=True)
