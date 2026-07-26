@@ -353,6 +353,37 @@ class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
                     "may increase bake time")
 
 
+class CLOTHNEXT_PG_recovery_settings(bpy.types.PropertyGroup):
+    enabled: bpy.props.BoolProperty(
+        name="Enable Recovery", default=True,
+        description="Keep verified solver checkpoints so an interrupted Bake "
+                    "can continue after restarting Blender")
+    auto_save: bpy.props.BoolProperty(
+        name="Auto Save Checkpoints", default=True,
+        description="Ask the solver to save resumable states periodically")
+    checkpoint_interval: bpy.props.IntProperty(
+        name="Checkpoint Interval", default=20, min=1, max=10000,
+        description="Number of solver frames between automatic checkpoints")
+    keep_saved_states: bpy.props.IntProperty(
+        name="Keep Saved States", default=3, min=1, max=100,
+        description="Maximum number of verified checkpoints retained")
+    save_on_cancel: bpy.props.BoolProperty(
+        name="Save State on Cancel", default=True,
+        description="Request save_and_quit and preserve the confirmed solver "
+                    "project when cancelling")
+    save_on_finish: bpy.props.BoolProperty(
+        name="Save State on Finish", default=False,
+        description="Ask the solver to save a final state before completing")
+    # Draw-time UI reads only this cached snapshot. Operators and Bake start
+    # refresh it; Panel.draw never scans files or contacts the solver.
+    status: bpy.props.StringProperty(default="", options={"HIDDEN"})
+    status_detail: bpy.props.StringProperty(default="", options={"HIDDEN"})
+    compatible: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
+    resumable: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
+    recovery_directory: bpy.props.StringProperty(default="", options={"HIDDEN"})
+    resume_requested: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
+
+
 class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
     """Contact values; on a Collider these are the STATIC group values."""
 
@@ -481,6 +512,10 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(
         name="Enabled", default=False, update=_on_settings_update,
         description="Cloth NeXt is enabled on this object")
+    persistent_export_id: bpy.props.StringProperty(
+        name="Persistent Export Identity", default="",
+        options={"HIDDEN"},
+        description="Stable internal identity used for deterministic exports")
     role: bpy.props.EnumProperty(
         name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
         update=_on_settings_update,
@@ -494,6 +529,18 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         ),
         description="Choose whether this Collider stays fixed or follows its "
                     "evaluated Blender animation during the bake")
+    collider_capture_mode: bpy.props.EnumProperty(
+        name="Animation Capture", default="AUTO", update=_on_settings_update,
+        items=(
+            ("AUTO", "Auto",
+             "Use transform-only capture only when geometry is provably "
+             "constant; otherwise use safe deforming capture"),
+            ("TRANSFORM_ONLY", "Transform Only",
+             "Export the mesh once and capture only object transforms"),
+            ("DEFORMING", "Deforming",
+             "Evaluate and capture the Collider mesh at every motion sample"),
+        ),
+        description="How animated Collider geometry is captured")
     collider_samples_per_frame: bpy.props.IntProperty(
         name="Motion Samples / Frame", default=8, min=2, max=32,
         update=_on_settings_update,
@@ -681,6 +728,7 @@ def reset_settings(settings) -> None:
     settings.enabled = False
     settings.role = DEFAULT_ROLE
     settings.collider_motion = "STATIC"
+    settings.collider_capture_mode = "AUTO"
     settings.collider_samples_per_frame = 8
     settings.collider_proxy_enabled = False
     owner = getattr(settings, "id_data", None)
@@ -694,9 +742,13 @@ def attach_to_object() -> None:
         type=CLOTHNEXT_PG_object_settings)
     bpy.types.Scene.cloth_next_quality = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_solver_quality_settings)
+    bpy.types.Scene.cloth_next_recovery = bpy.props.PointerProperty(
+        type=CLOTHNEXT_PG_recovery_settings)
 
 
 def detach_from_object() -> None:
+    if hasattr(bpy.types.Scene, "cloth_next_recovery"):
+        del bpy.types.Scene.cloth_next_recovery
     if hasattr(bpy.types.Scene, "cloth_next_quality"):
         del bpy.types.Scene.cloth_next_quality
     if hasattr(bpy.types.Object, "cloth_next"):
@@ -710,4 +762,5 @@ CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_rigid_body_settings,
            CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,
+           CLOTHNEXT_PG_recovery_settings,
            CLOTHNEXT_PG_object_settings)

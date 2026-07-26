@@ -12,13 +12,16 @@ from __future__ import annotations
 
 import bpy
 
+from .. import export_identity
 from . import object_properties
 from ..bake.controller import shared_controller
 from ..solver_quality import (
+    PDRD_QUALITY_PRESETS,
     QUALITY_PRESETS,
     SolverQualitySettings,
     SolverQualityValidationError,
     apply_quality_preset,
+    matching_quality_preset,
     remap_quality_for_pdrd,
 )
 from ..materials import presets as material_presets
@@ -31,12 +34,15 @@ def _active_mesh(context):
     return obj
 
 
-def _scene_has_pdrd(scene) -> bool:
+def scene_has_pdrd(scene) -> bool:
     """Whether an enabled PDRD/Rigid Body participates in this scene."""
     return bool(scene is not None and any(
         getattr(getattr(obj, "cloth_next", None), "enabled", False)
         and obj.cloth_next.role == "RIGID_BODY"
         for obj in scene.objects))
+
+
+_scene_has_pdrd = scene_has_pdrd
 
 
 def _write_solver_quality(scene, values: SolverQualitySettings) -> None:
@@ -80,6 +86,13 @@ def synchronize_scene_quality(scene) -> bool:
     has_pdrd = _scene_has_pdrd(scene)
     try:
         current = object_properties.solver_quality_from(scene)
+        active = matching_quality_preset(current, has_pdrd=has_pdrd)
+        if active is not None:
+            if has_pdrd and active.identifier == "LOW":
+                _write_solver_quality(
+                    scene, apply_quality_preset("MEDIUM", has_pdrd=True))
+                return True
+            return False
         remapped = remap_quality_for_pdrd(
             current,
             from_has_pdrd=not has_pdrd,
@@ -122,6 +135,7 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             self.report({"WARNING"}, "This Cloth NeXt object type is not supported yet.")
             return {"CANCELLED"}
         obj = context.active_object
+        export_identity.ensure_persistent_id(obj)
         if self.role == "FORCE" and obj.type != "EMPTY":
             self.report({"WARNING"}, "Force requires an Empty object.")
             return {"CANCELLED"}
@@ -160,6 +174,7 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
+        export_identity.ensure_persistent_id(obj)
         settings = obj.cloth_next
         settings.enabled = True
         settings.role = ("FORCE" if obj.type == "EMPTY"
@@ -248,6 +263,11 @@ class _ApplySolverQualityPresetMixin:
             return {"CANCELLED"}
         has_pdrd = _scene_has_pdrd(context.scene)
         identifier = self.quality_preset or self.preset
+        if has_pdrd and identifier.upper() == "LOW":
+            self.report(
+                {"WARNING"},
+                "Low is unavailable with Rigid Body; use XMedium or higher.")
+            return {"CANCELLED"}
         try:
             values = apply_quality_preset(
                 identifier, has_pdrd=has_pdrd)
@@ -310,11 +330,46 @@ class CLOTHNEXT_OT_apply_quality_extreme(
     quality_preset = "EXTREME"
 
 
+class CLOTHNEXT_OT_apply_quality_xmedium(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_xmedium"
+    bl_label = "XMedium Quality"
+    bl_description = PDRD_QUALITY_PRESETS[1].description
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "MEDIUM"
+
+
+class CLOTHNEXT_OT_apply_quality_xhigh(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_xhigh"
+    bl_label = "XHigh Quality"
+    bl_description = PDRD_QUALITY_PRESETS[2].description
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "HIGH"
+
+
+class CLOTHNEXT_OT_apply_quality_xextreme(
+        _ApplySolverQualityPresetMixin, bpy.types.Operator):
+    bl_idname = "clothnext.apply_quality_xextreme"
+    bl_label = "XExtreme Quality"
+    bl_description = (
+        f"{PDRD_QUALITY_PRESETS[3].description} "
+        f"{PDRD_QUALITY_PRESETS[3].warning}")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    quality_preset = "EXTREME"
+
+
 QUALITY_PRESET_OPERATOR_IDS = {
     "LOW": CLOTHNEXT_OT_apply_quality_low.bl_idname,
     "MEDIUM": CLOTHNEXT_OT_apply_quality_medium.bl_idname,
     "HIGH": CLOTHNEXT_OT_apply_quality_high.bl_idname,
     "EXTREME": CLOTHNEXT_OT_apply_quality_extreme.bl_idname,
+}
+
+PDRD_QUALITY_PRESET_OPERATOR_IDS = {
+    "MEDIUM": CLOTHNEXT_OT_apply_quality_xmedium.bl_idname,
+    "HIGH": CLOTHNEXT_OT_apply_quality_xhigh.bl_idname,
+    "EXTREME": CLOTHNEXT_OT_apply_quality_xextreme.bl_idname,
 }
 
 
@@ -362,4 +417,7 @@ CLASSES = (CLOTHNEXT_OT_set_object_type,
            CLOTHNEXT_OT_apply_quality_medium,
            CLOTHNEXT_OT_apply_quality_high,
            CLOTHNEXT_OT_apply_quality_extreme,
+           CLOTHNEXT_OT_apply_quality_xmedium,
+           CLOTHNEXT_OT_apply_quality_xhigh,
+           CLOTHNEXT_OT_apply_quality_xextreme,
            CLOTHNEXT_OT_apply_material_preset)

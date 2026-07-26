@@ -95,11 +95,25 @@ def test_tcmd_request_bytes_match_goldens():
 
 def test_tcmd_rejects_unknown_request_and_bad_names():
     with pytest.raises(ValueError):
-        wire.tcmd_request_bytes("p1", "resume")  # not used in Phase 3A
+        wire.tcmd_request_bytes("p1", "unknown")
     with pytest.raises(ValueError):
         wire.tcmd_request_bytes("has space", "build")
     with pytest.raises(ValueError):
         wire.tcmd_request_bytes("", None)
+
+
+def test_recovery_request_bytes_are_typed_and_bounded():
+    latest = b"--name p1 --request resume"
+    assert wire.tcmd_request_bytes("p1", wire.REQUEST_RESUME) == (
+        b"TCMD" + len(latest).to_bytes(4, "big") + latest)
+    explicit = b"--name p1 --request resume --frame 20"
+    assert wire.tcmd_request_bytes(
+        "p1", wire.REQUEST_RESUME, frame=20) == (
+            b"TCMD" + len(explicit).to_bytes(4, "big") + explicit)
+    with pytest.raises(ValueError):
+        wire.tcmd_request_bytes("p1", wire.REQUEST_BUILD, frame=20)
+    with pytest.raises(ValueError):
+        wire.tcmd_request_bytes("p1", wire.REQUEST_RESUME, frame=-1)
 
 
 # --- TCMD roundtrip ----------------------------------------------------------
@@ -202,6 +216,35 @@ def test_upload_atomic_streams_payload_from_file(make_server, tmp_path):
                        data_hash="dh", param_hash="ph")
     assert server.received[0]["data_size"] == len(data_payload)
     assert server.received[1] == data_payload + param_payload
+
+
+def test_upload_atomic_sendfile_falls_back_to_chunks(
+        make_server, tmp_path, monkeypatch):
+    data = b"scene" * 10_000
+    path = tmp_path / "scene.cbor"
+    path.write_bytes(data)
+
+    def unsupported(*_args, **_kwargs):
+        raise NotImplementedError
+
+    monkeypatch.setattr(socket.socket, "sendfile", unsupported)
+
+    def handler(connection, received):
+        assert _read_exact(connection, 4) == b"JSON"
+        line = b""
+        while not line.endswith(b"\n"):
+            line += connection.recv(1)
+        header = json.loads(line)
+        received.append(_read_exact(
+            connection, header["data_size"] + header["param_size"]))
+        connection.sendall(b"OK\n")
+
+    server = make_server(handler)
+    wire.upload_atomic(
+        server.address, CONFIG, project_name="proj",
+        data_payload=path, param_payload=b"p", data_hash="dh",
+        param_hash="ph", use_sendfile=True, file_chunk_size=4 * 1024 * 1024)
+    assert server.received == [data + b"p"]
 
 
 def test_upload_atomic_surfaces_server_error(make_server):

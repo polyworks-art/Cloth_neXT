@@ -492,7 +492,6 @@ def test_rigid_body_uses_only_mapped_material_and_shared_collision(
     advanced.layout = RecordingLayout()
     advanced.draw(context)
     assert advanced.layout.labels == [
-        "Recovery & Checkpoints", "◇",
         "Motion Overrides", "◇",
         "Advanced Contact Solver", "◇"]
     assert advanced.layout.props == []
@@ -686,10 +685,12 @@ def test_collider_collision_motion_samples_and_contact_values(blender_env):
     settings.collider_motion = "ANIMATED"
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    assert panel.layout.props[:2] == ["collider_motion",
-                                     "collider_samples_per_frame"]
+    assert panel.layout.props[:3] == [
+        "collider_motion", "collider_capture_mode",
+        "collider_samples_per_frame"]
     assert panel.layout.props == [
-        "collider_motion", "collider_samples_per_frame",
+        "collider_motion", "collider_capture_mode",
+        "collider_samples_per_frame",
         "surface_grip", "collision_gap", "surface_offset"]
     assert ("collider_samples_per_frame", "Samples per Frame") in \
         panel.layout.prop_texts
@@ -947,6 +948,18 @@ def test_quality_preset_operator_uses_button_specific_hover_tooltip(
         operator.bl_idname for operator in classes]
     assert classes[0].bl_description.startswith("Fast previews")
     assert "increase simulation time" in classes[-1].bl_description
+    mixed_classes = (
+        operators.CLOTHNEXT_OT_apply_quality_xmedium,
+        operators.CLOTHNEXT_OT_apply_quality_xhigh,
+        operators.CLOTHNEXT_OT_apply_quality_xextreme,
+    )
+    assert [operator.quality_preset for operator in mixed_classes] == [
+        "MEDIUM", "HIGH", "EXTREME"]
+    assert [operators.PDRD_QUALITY_PRESET_OPERATOR_IDS[preset]
+            for preset in ("MEDIUM", "HIGH", "EXTREME")] == [
+        operator.bl_idname for operator in mixed_classes]
+    assert mixed_classes[0].bl_description.startswith("Fast, stable")
+    assert "increase simulation time" in mixed_classes[-1].bl_description
 
 
 # --- bridge: snapshot, validation before worker --------------------------------

@@ -114,6 +114,8 @@ def _copy_collider_settings(source, proxy) -> None:
     target.enabled = True
     target.role = "COLLIDER"
     target.collider_motion = "ANIMATED"
+    target.collider_capture_mode = str(getattr(
+        source_settings, "collider_capture_mode", "AUTO"))
     target.collider_samples_per_frame = int(
         source_settings.collider_samples_per_frame)
     target.bake_start = int(source_settings.bake_start)

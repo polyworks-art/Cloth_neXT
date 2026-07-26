@@ -31,6 +31,9 @@
   falling back to the generic information icon.
 - Collider proxy estimates shown during panel drawing use cached counts and
   avoid evaluating meshes.
+- Missing or quarantined native solver workers are now identified before
+  simulation, with a direct recovery hint instead of a misleading generic
+  solver-connection failure.
 
 ## 2.1.0 — 2026-07-22 (Beta channel)
 

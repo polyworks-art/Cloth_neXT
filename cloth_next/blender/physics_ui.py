@@ -32,7 +32,11 @@ from ..bake.controller import shared_controller
 from ..developer import is_dev_build
 from ..materials import formatting
 from ..materials import presets as material_presets
-from ..solver_quality import QUALITY_PRESETS, matching_quality_preset
+from ..solver_quality import (
+    PDRD_QUALITY_PRESETS,
+    QUALITY_PRESETS,
+    matching_quality_preset,
+)
 from . import (beta_tools, collider_proxy, icon_registry, object_properties,
                physics_operators, validation_state)
 from .playback_cache import has_cloth_next_playback_marker
@@ -441,22 +445,39 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         _draw_solver_quality(layout, context, snapshot.active)
 
 
+def _draw_quality_buttons(layout, context, bake_active: bool):
+    has_pdrd = physics_operators.scene_has_pdrd(context.scene)
+    current = matching_quality_preset(
+        object_properties.solver_quality_from(context.scene),
+        has_pdrd=has_pdrd)
+    buttons = layout.row(align=True)
+    buttons.enabled = not bake_active
+    if has_pdrd:
+        low = buttons.row(align=True)
+        low.enabled = False
+        low.operator(
+            physics_operators.QUALITY_PRESET_OPERATOR_IDS["LOW"], text="Low")
+        presets = PDRD_QUALITY_PRESETS[1:]
+        operator_ids = physics_operators.PDRD_QUALITY_PRESET_OPERATOR_IDS
+    else:
+        presets = QUALITY_PRESETS
+        operator_ids = physics_operators.QUALITY_PRESET_OPERATOR_IDS
+    for preset in presets:
+        button = buttons.row(align=True)
+        button.alert = preset.identifier == "EXTREME"
+        button.operator(
+            operator_ids[preset.identifier],
+            text=preset.label, depress=current is preset)
+    return current
+
+
 def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     quality = getattr(context.scene, "cloth_next_quality", None)
     if quality is None:
         return
     section = layout.column(align=True)
     section.label(text="Solver Quality · Scene-wide")
-    current = matching_quality_preset(
-        object_properties.solver_quality_from(context.scene))
-    buttons = section.row(align=True)
-    buttons.enabled = not bake_active
-    for preset in QUALITY_PRESETS:
-        button = buttons.row(align=True)
-        button.alert = preset.identifier == "EXTREME"
-        button.operator(
-            physics_operators.QUALITY_PRESET_OPERATOR_IDS[preset.identifier],
-            text=preset.label, depress=current is preset)
+    current = _draw_quality_buttons(section, context, bake_active)
 
     if current is None:
         section.label(text="Custom")
@@ -863,16 +884,7 @@ def _draw_quality_selector(layout, context, bake_active: bool) -> None:
     if quality is None:
         return
     layout.label(text="Quality")
-    current = matching_quality_preset(
-        object_properties.solver_quality_from(context.scene))
-    buttons = layout.row(align=True)
-    buttons.enabled = not bake_active
-    for preset in QUALITY_PRESETS:
-        button = buttons.row(align=True)
-        button.alert = preset.identifier == "EXTREME"
-        button.operator(
-            physics_operators.QUALITY_PRESET_OPERATOR_IDS[preset.identifier],
-            text=preset.label, depress=current is preset)
+    _draw_quality_buttons(layout, context, bake_active)
 
 
 def _draw_bake_action(layout, model, snapshot) -> None:
@@ -937,6 +949,7 @@ def _draw_collider_collision(layout, settings) -> None:
     layout.use_property_decorate = False
     layout.prop(settings, "collider_motion")
     if settings.collider_motion == "ANIMATED":
+        layout.prop(settings, "collider_capture_mode")
         layout.prop(settings, "collider_samples_per_frame",
                     text="Samples per Frame")
         samples = int(settings.collider_samples_per_frame)
@@ -1409,6 +1422,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
             if settings.collider_motion == "ANIMATED":
+                layout.prop(settings, "collider_capture_mode")
                 layout.prop(settings, "collider_samples_per_frame")
                 samples = int(settings.collider_samples_per_frame)
                 if samples < 8:
@@ -1715,10 +1729,52 @@ class CLOTHNEXT_PT_cloth_advanced(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         role = context.object.cloth_next.role
         if role not in {"COLLIDER", "FORCE"}:
-            _draw_concept_row(self.layout, "Recovery & Checkpoints")
             _draw_concept_row(self.layout, "Motion Overrides")
         if role != "FORCE":
             _draw_concept_row(self.layout, "Advanced Contact Solver")
+
+
+class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Recovery & Checkpoints"
+    bl_idname = "CLOTHNEXT_PT_recovery"
+    bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+    header_icon = "result"
+
+    def draw(self, context):
+        settings = context.scene.cloth_next_recovery
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.prop(settings, "enabled")
+        controls = layout.column()
+        controls.enabled = settings.enabled
+        controls.prop(settings, "auto_save")
+        interval = controls.column()
+        interval.enabled = settings.auto_save
+        interval.prop(settings, "checkpoint_interval")
+        controls.prop(settings, "keep_saved_states")
+        controls.prop(settings, "save_on_cancel")
+        controls.prop(settings, "save_on_finish")
+        if settings.status:
+            layout.separator()
+            layout.label(text=settings.status,
+                         icon="CHECKMARK" if settings.compatible else "INFO")
+        if settings.status_detail:
+            layout.label(text=settings.status_detail)
+        actions = layout.column(align=True)
+        resume = actions.row()
+        resume.enabled = (
+            settings.resumable and not shared_controller.snapshot().active)
+        resume.operator("clothnext.recovery_resume_latest",
+                        text="Resume Latest", icon="PLAY")
+        actions.operator("clothnext.recovery_start_fresh",
+                         text="Start Fresh", icon="FILE_REFRESH")
+        actions.operator("clothnext.recovery_clear_checkpoints",
+                         text="Clear Checkpoints", icon="TRASH")
+        actions.operator("clothnext.recovery_open_folder",
+                         text="Open Recovery Folder", icon="FILE_FOLDER")
 
 
 class CLOTHNEXT_PT_solver_settings(_ClothNextSubpanel, bpy.types.Panel):
@@ -1889,6 +1945,7 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_beta_readiness,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_cloth_advanced,
+           CLOTHNEXT_PT_recovery,
            CLOTHNEXT_PT_solver_settings,
            CLOTHNEXT_PT_simulation_engine, CLOTHNEXT_PT_result,
            CLOTHNEXT_PT_diagnostics, CLOTHNEXT_PT_maintenance,

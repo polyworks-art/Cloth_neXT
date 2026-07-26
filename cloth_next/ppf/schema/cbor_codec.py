@@ -145,6 +145,68 @@ def _encode_numpy_vec3_frames(value: Any, out, progress=None) -> bool:
     return True
 
 
+def _encode_numpy_float_payload(values, width: int):
+    """Return CBOR doubles for a flat block without Python float objects."""
+    import numpy as np
+    source = np.asarray(values, dtype=">f8").reshape(-1)
+    encoded = np.empty((len(source), 9), dtype=np.uint8)
+    encoded[:, 0] = 0xFB
+    encoded[:, 1:] = source.reshape(-1, 1).view(np.uint8)
+    return encoded.reshape(-1)
+
+
+def _encode_numpy_protocol_float_array(value: Any, out) -> bool:
+    """Vectorize the float array shapes used by the PPF scene schema."""
+    shape = tuple(int(size) for size in value.shape)
+    dtype = getattr(value, "dtype", None)
+    if getattr(dtype, "kind", "") != "f":
+        return False
+    import numpy as np
+    block_size = 16_384
+    if len(shape) == 1:
+        _encode_head(4, shape[0], out)
+        for start in range(0, shape[0], block_size):
+            out.extend(memoryview(_encode_numpy_float_payload(
+                value[start:start + block_size], 1)).cast("B"))
+        return True
+    if len(shape) == 2 and shape[1] in (2, 3):
+        _encode_head(4, shape[0], out)
+        row_head = 0x80 | shape[1]
+        row_bytes = 1 + shape[1] * 9
+        for start in range(0, shape[0], block_size):
+            block = np.asarray(value[start:start + block_size], dtype=">f8")
+            encoded = np.empty((len(block), row_bytes), dtype=np.uint8)
+            encoded[:, 0] = row_head
+            raw = block.reshape(len(block), shape[1], 1).view(
+                np.uint8).reshape(len(block), shape[1], 8)
+            for axis in range(shape[1]):
+                marker = 1 + axis * 9
+                encoded[:, marker] = 0xFB
+                encoded[:, marker + 1:marker + 9] = raw[:, axis, :]
+            out.extend(memoryview(encoded).cast("B"))
+        return True
+    if len(shape) == 3 and shape[1:] == (3, 2):
+        _encode_head(4, shape[0], out)
+        row_bytes = 1 + 3 * (1 + 2 * 9)
+        for start in range(0, shape[0], block_size):
+            block = np.asarray(value[start:start + block_size], dtype=">f8")
+            encoded = np.empty((len(block), row_bytes), dtype=np.uint8)
+            encoded[:, 0] = 0x83
+            raw = block.reshape(len(block), 3, 2, 1).view(
+                np.uint8).reshape(len(block), 3, 2, 8)
+            for corner in range(3):
+                base = 1 + corner * 19
+                encoded[:, base] = 0x82
+                for axis in range(2):
+                    marker = base + 1 + axis * 9
+                    encoded[:, marker] = 0xFB
+                    encoded[:, marker + 1:marker + 9] = (
+                        raw[:, corner, axis, :])
+            out.extend(memoryview(encoded).cast("B"))
+        return True
+    return False
+
+
 def _encode_numpy_array(value: Any, out: bytearray, depth: int,
                         progress=None) -> None:
     """Encode an ndarray as nested CBOR arrays without ``tolist()``.
@@ -160,6 +222,8 @@ def _encode_numpy_array(value: Any, out: bytearray, depth: int,
         _encode_item(value.item(), out, depth + 1, progress)
         return
     if _encode_numpy_vec3_frames(value, out, progress):
+        return
+    if _encode_numpy_protocol_float_array(value, out):
         return
 
     def emit(axis: int, prefix: tuple[int, ...]) -> None:

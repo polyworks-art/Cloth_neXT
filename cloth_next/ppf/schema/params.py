@@ -179,12 +179,16 @@ class SimulationSettings:
     dynamic_parameters: tuple[
         tuple[str, tuple[tuple[float, tuple[float, ...], bool], ...]], ...
     ] = ()
+    auto_save_interval: int = 0
+    save_state_on_finish: bool = False
 
     def __post_init__(self) -> None:
         if self.frame_count < 2:
             raise ParamEncodeError("frame_count must be at least 2")
         if self.fps < 1:
             raise ParamEncodeError("fps must be at least 1")
+        if self.auto_save_interval < 0:
+            raise ParamEncodeError("auto-save interval must be non-negative")
         if len(self.gravity_blender) != 3 or any(
                 not math.isfinite(c) for c in self.gravity_blender):
             raise ParamEncodeError("gravity must be a finite 3-vector")
@@ -238,6 +242,10 @@ def _scene_wire_params(settings: SimulationSettings,
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
+    if settings.auto_save_interval:
+        scene["auto-save"] = int(settings.auto_save_interval)
+    if settings.save_state_on_finish:
+        scene["save-state-on-finish"] = True
     for key, value in (("air-density", settings.air_density),
                        ("air-friction", settings.air_friction),
                        ("isotropic-air-friction", settings.vertex_air_damp)):

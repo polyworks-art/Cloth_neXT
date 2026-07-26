@@ -20,14 +20,16 @@ def test_pdrd_presets_raise_effort_without_changing_button_identity():
     assert quality_presets(has_pdrd=True) is PDRD_QUALITY_PRESETS
     assert [preset.identifier for preset in PDRD_QUALITY_PRESETS] == [
         "LOW", "MEDIUM", "HIGH", "EXTREME"]
+    assert [preset.label for preset in PDRD_QUALITY_PRESETS[1:]] == [
+        "XMedium", "XHigh", "XExtreme"]
 
     standard_high = apply_quality_preset("HIGH")
     pdrd_high = apply_quality_preset("HIGH", has_pdrd=True)
     assert pdrd_high == SolverQualitySettings(
-        time_step=0.001,
-        min_newton_steps=16,
-        cg_max_iter=25000,
-        cg_tol=0.0001,
+        time_step=0.0025,
+        min_newton_steps=12,
+        cg_max_iter=20000,
+        cg_tol=0.0005,
     )
     assert pdrd_high.min_newton_steps > standard_high.min_newton_steps
     assert pdrd_high.cg_max_iter > standard_high.cg_max_iter
@@ -56,6 +58,12 @@ def test_pdrd_mode_remaps_known_presets_but_preserves_custom_quality():
         from_has_pdrd=True,
         to_has_pdrd=False,
     ) == standard_medium
+
+    assert remap_quality_for_pdrd(
+        apply_quality_preset("LOW"),
+        from_has_pdrd=False,
+        to_has_pdrd=True,
+    ) == pdrd_medium
 
     custom = replace(DEFAULT_SOLVER_QUALITY, cg_max_iter=10001)
     assert remap_quality_for_pdrd(

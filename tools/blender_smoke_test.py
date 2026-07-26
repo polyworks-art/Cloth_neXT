@@ -184,18 +184,17 @@ def main() -> None:
         assert hud._handle is not None, "HUD handler was not installed"
         obj = bpy.context.active_object
         obj.cloth_next.enabled = True
-        cloth_only = (physics_ui.CLOTHNEXT_PT_material,
-                      physics_ui.CLOTHNEXT_PT_damping)
+        # Damping is intentionally part of the role-aware Material panel.
+        cloth_only = (physics_ui.CLOTHNEXT_PT_material,)
         obj.cloth_next.role = "CLOTH"
         assert all(panel.poll(bpy.context) for panel in cloth_only)
         # the misleading placeholder panels must stay removed
-        for stale in ("CLOTHNEXT_PT_quality", "CLOTHNEXT_PT_physical",
-                      "CLOTHNEXT_PT_pressure", "CLOTHNEXT_PT_shape"):
+        for stale in ("CLOTHNEXT_PT_quality", "CLOTHNEXT_PT_physical"):
             assert not hasattr(physics_ui, stale), stale
         _phase3b_material_roundtrip(bpy, obj)
         obj.cloth_next.role = "COLLIDER"
         assert not any(panel.poll(bpy.context) for panel in cloth_only)
-        assert physics_ui.CLOTHNEXT_PT_collisions.poll(bpy.context)
+        assert physics_ui.CLOTHNEXT_PT_collider_collision.poll(bpy.context)
         obj.cloth_next.role = "CLOTH"
         obj.cloth_next.enabled = False
         extension.unregister()

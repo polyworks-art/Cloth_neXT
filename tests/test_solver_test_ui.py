@@ -122,8 +122,10 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
     module = blender_env.solver_test
     depsgraph = object()
     frames = []
-    scene = SimpleNamespace(frame_current=1,
-                            frame_set=lambda frame: frames.append(frame))
+    scene = SimpleNamespace(
+        frame_current=1,
+        frame_set=lambda frame, subframe=0.0:
+            frames.append((frame, subframe)))
     context = SimpleNamespace(
         scene=scene, evaluated_depsgraph_get=lambda: depsgraph)
     obj = SimpleNamespace(name="Skirt")
@@ -143,21 +145,87 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
     monkeypatch.setattr(module, "_force_state",
                         lambda _context, **_kwargs: (force_state, frozenset()))
     monkeypatch.setattr(module.shared_controller, "update", lambda **_kwargs: None)
+    collider_calls = []
+    monkeypatch.setattr(
+        module, "_pump_collider_point",
+        lambda passed_graph, point, states:
+            collider_calls.append((passed_graph, point.position, states))
+            or (1, 1, 0))
 
+    collider_states = {"Collider": object()}
     module._pin_capture = {
         "context": context, "targets": (("Skirt", membership),),
-        "range": SimpleNamespace(start=1, end=2), "next": 1,
+        "range": SimpleNamespace(start=1, end=2),
+        "points": module.build_sample_plan(1, 2),
+        "point_index": 0,
         "samples": {"Skirt": []}, "index_arrays": {"Skirt": indices},
         "force_samples": [], "active_scalar_types": set(),
+        "force_capture": None, "collider_states": collider_states,
+        "snapshot": SimpleNamespace(timings={}),
     }
     try:
         assert module._pin_capture_pump() == 0.005
-        assert frames == [1]
+        assert frames == [(1, 0.0)]
         assert calls == [(context, obj, membership, depsgraph, indices)]
-        assert module._pin_capture["next"] == 2
+        assert collider_calls == [
+            (depsgraph, 1, collider_states)]
+        assert module._pin_capture["point_index"] == 1
         assert module._pin_capture["force_samples"] == [force_state]
     finally:
         module._pin_capture = None
+
+
+def test_early_scene_identity_rejects_constraints_and_drivers(blender_env):
+    module = blender_env.solver_test
+    data = SimpleNamespace(
+        name="Mesh", name_full="Mesh", library=None, shape_keys=None,
+        animation_data=None)
+    constrained = SimpleNamespace(
+        name="Constrained", data=data, constraints=(object(),),
+        animation_data=None, modifiers=(), parent=None)
+    safe, _identity, reason = module._safe_object_dependency_identity(
+        constrained)
+    assert not safe and "constraint" in reason
+
+    driven = SimpleNamespace(
+        name="Driven", data=data, constraints=(), modifiers=(), parent=None,
+        animation_data=SimpleNamespace(
+            action=None, drivers=(object(),), nla_tracks=()))
+    safe, _identity, reason = module._safe_object_dependency_identity(driven)
+    assert not safe and "Driver" in reason
+
+
+def test_simple_force_fcurve_bypasses_timeline(blender_env, monkeypatch):
+    module = blender_env.solver_test
+    curve = SimpleNamespace(
+        data_path="cloth_next.force.strength", array_index=0,
+        modifiers=(), evaluate=lambda frame: float(frame),
+        keyframe_points=())
+    action = SimpleNamespace(fcurves=(curve,))
+    force = SimpleNamespace(
+        force_type="WIND", strength=1.0, wind_variation=0.0)
+    obj = SimpleNamespace(
+        name="Wind", constraints=(), parent=None,
+        animation_data=SimpleNamespace(
+            action=action, drivers=(), nla_tracks=()),
+        cloth_next=SimpleNamespace(force=force),
+        matrix_world=((1.0, 0.0, 0.0, 0.0),
+                      (0.0, 1.0, 0.0, 0.0),
+                      (0.0, 0.0, 1.0, 0.0),
+                      (0.0, 0.0, 0.0, 1.0)))
+    scene = SimpleNamespace(
+        use_gravity=False, gravity=(0.0, 0.0, -9.81),
+        render=SimpleNamespace(fps=24))
+    context = SimpleNamespace(scene=scene)
+    monkeypatch.setattr(module, "_enabled_force_objects",
+                        lambda _context: (obj,))
+
+    capture = module._capture_simple_force_fcurves(
+        context, module.BakeFrameRange(1, 3))
+
+    assert capture is not None
+    assert capture.initial.wind == (0.0, 0.0, 1.0)
+    assert capture.dynamic_parameters
 
 
 def test_pin_capture_waits_for_companion_before_evaluating_frame(
@@ -771,6 +839,33 @@ def test_reasonable_animated_collider_capture_stays_allowed(blender_env):
         (collider,), module.BakeFrameRange(1, 150))
 
     assert warning is None
+
+
+def test_auto_collider_capture_is_conservative(blender_env):
+    module = blender_env.solver_test
+    clean = SimpleNamespace(
+        data=SimpleNamespace(shape_keys=None, animation_data=None),
+        modifiers=(),
+        cloth_next=SimpleNamespace(collider_capture_mode="AUTO"))
+    assert module._effective_collider_capture_mode(clean) == "TRANSFORM_ONLY"
+
+    unknown_modifier = SimpleNamespace(type="NODES", show_viewport=True)
+    uncertain = SimpleNamespace(
+        data=SimpleNamespace(shape_keys=None, animation_data=None),
+        modifiers=(unknown_modifier,),
+        cloth_next=SimpleNamespace(collider_capture_mode="AUTO"))
+    assert module._effective_collider_capture_mode(uncertain) == "DEFORMING"
+
+
+def test_explicit_transform_only_rejects_known_deformation(blender_env):
+    module = blender_env.solver_test
+    collider = SimpleNamespace(
+        name="Deforming Collider",
+        data=SimpleNamespace(shape_keys=object(), animation_data=None),
+        modifiers=(),
+        cloth_next=SimpleNamespace(collider_capture_mode="TRANSFORM_ONLY"))
+    with pytest.raises(module.SceneValidationError, match="Transform Only"):
+        module._effective_collider_capture_mode(collider)
 
 
 def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(

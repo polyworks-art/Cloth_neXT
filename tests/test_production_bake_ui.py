@@ -543,6 +543,50 @@ def test_only_extreme_quality_button_uses_red_alert_style(blender_env):
     env.registration.unregister()
 
 
+def test_mixed_scene_locks_low_and_uses_x_quality_buttons(blender_env):
+    env = blender_env
+    env.registration.register()
+    objects = _objects(env)
+    rigid = env.bpy.types.Object(name="Rigid", type="MESH")
+    rigid.cloth_next.enabled = True
+    rigid.cloth_next.role = "RIGID_BODY"
+    objects.append(rigid)
+    context = _context(env, objects)
+    context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=0.005, min_newton_steps=6, cg_max_iter=10000,
+        cg_tol=0.001, show_advanced=False)
+    drawn = []
+
+    class QualityLayout:
+        def __init__(self):
+            self.enabled = True
+            self.alert = False
+
+        def label(self, **_kw):
+            pass
+
+        def row(self, **_kw):
+            return QualityLayout()
+
+        def operator(self, identifier, text="", **kw):
+            drawn.append((
+                identifier, text, self.enabled, kw.get("depress", False)))
+            return SimpleNamespace()
+
+    env.physics_ui._draw_quality_selector(QualityLayout(), context, False)
+    assert [(text, enabled, depressed)
+            for _identifier, text, enabled, depressed in drawn] == [
+        ("Low", False, False),
+        ("XMedium", True, True),
+        ("XHigh", True, False),
+        ("XExtreme", True, False),
+    ]
+    assert [identifier for identifier, *_rest in drawn[1:]] == [
+        env.physics_operators.PDRD_QUALITY_PRESET_OPERATOR_IDS[preset]
+        for preset in ("MEDIUM", "HIGH", "EXTREME")]
+    env.registration.unregister()
+
+
 def test_bake_enabled_for_multiple_deformables(blender_env):
     env = blender_env
     env.registration.register()

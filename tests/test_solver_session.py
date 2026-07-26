@@ -15,12 +15,13 @@ from pathlib import Path
 import pytest
 
 from cloth_next.core.errors import ClothNextError
+from cloth_next import recovery
 from cloth_next.ppf import wire
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.resolver import ResolvedSolver, SolverMode
 from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf_run import import_result, session as session_module
-from cloth_next.ppf_run.session import (SessionCancelled, SessionScene,
+from cloth_next.ppf_run.session import (RecoveryOptions, SessionCancelled, SessionScene,
                                        SessionDeformable, SolverFrame, SolverSession,
                                        new_project_name)
 
@@ -75,7 +76,8 @@ class ScriptedWire:
         monkeypatch.setattr(wire, "data_receive", self._data_receive)
         # session imported the names at module level? No: it calls wire.<fn>.
 
-    def _send_tcmd(self, _address, _config, project, request=None):
+    def _send_tcmd(self, _address, _config, project, request=None, *,
+                   frame=None):
         self.log.append(("tcmd", project, request))
         if request == "build":
             return {**self.base, "status": "BUILDING"}
@@ -307,6 +309,162 @@ def test_project_name_generation():
     assert len(names) == 64
     for name in names:
         assert re.fullmatch(r"clothnext_[0-9a-f]{12}", name)
+
+
+def test_owned_solver_fails_before_start_when_native_worker_was_quarantined(
+        tmp_path):
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.11", "1",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path / "work")
+
+    with pytest.raises(ClothNextError, match="worker is missing") as caught:
+        session._start_owned_solver()
+
+    assert caught.value.record.category is session_module.ErrorCategory.SOLVER_INSTALLATION
+    assert "Security software" in caught.value.record.user_message
+    assert "allow its installation folder" in \
+        caught.value.record.recommended_action
+
+
+def _recovery_identity():
+    return recovery.RecoveryIdentity(
+        scene_key="scene", param_key="param",
+        export_uuids=("uuid-cloth", "uuid-collider"),
+        geometry_fingerprint="geometry",
+        topology_fingerprint="topology", frame_start=1, frame_end=8,
+        fps=24.0, collider_sampling=(("uuid-collider", 8),),
+        solver_version="0.1.0", protocol_version="0.11",
+        solver_schema_version="1")
+
+
+def test_controlled_cancel_confirms_saved_state_and_preserves_project(
+        monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    saved = False
+    original = scripted._send_tcmd
+
+    def recovery_wire(address, config, project, request=None, *, frame=None):
+        nonlocal saved
+        if request == "save_and_quit":
+            scripted.log.append(("tcmd", project, request))
+            (output / "state_2.bin.gz").write_bytes(b"confirmed-state")
+            saved = True
+            return {**scripted.base, "status": "SAVE_AND_QUIT",
+                    "frame": 2, "saved_states": []}
+        response = original(address, config, project, request, frame=frame)
+        if saved and request is None:
+            return {**scripted.base, "status": "RESUMABLE",
+                    "frame": 2, "saved_states": [2]}
+        return response
+
+    monkeypatch.setattr(wire, "send_tcmd", recovery_wire)
+    cancel = threading.Event()
+
+    def emit(event):
+        if event.phase == "SIMULATING":
+            cancel.set()
+
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        save_on_cancel=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
+        recovery_options=options)
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+    assert raised.value.resumable
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.RESUMABLE
+    assert [item.frame for item in record.checkpoints] == [2]
+    assert project_root.exists()
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "save_and_quit" in requests
+    assert "delete" not in requests
+
+
+def test_resume_skips_upload_build_and_fetches_only_missing_frames(
+        monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    state = output / "state_3.bin.gz"
+    state.write_bytes(b"confirmed-state")
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    record = recovery.create_project(
+        metadata, project_id=_scene().project_name, identity=identity,
+        server_data_root=server_root, project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(
+        metadata, record, (3,), keep=3)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.SAVED)
+    recovery.transition(
+        metadata, record, recovery.ProjectState.RESUMABLE)
+
+    original = scripted._send_tcmd
+    resumed = False
+
+    def recovery_wire(address, config, project, request=None, *, frame=None):
+        nonlocal resumed
+        if request == "resume":
+            scripted.log.append(("tcmd", project, request))
+            resumed = True
+            return {**scripted.base, "status": "BUSY", "frame": 3,
+                    "saved_states": [3]}
+        if request is None and not resumed:
+            scripted.log.append(("tcmd", project, request))
+            return {**scripted.base, "status": "RESUMABLE", "frame": 3,
+                    "saved_states": [3]}
+        if request is None and resumed:
+            scripted.log.append(("tcmd", project, request))
+            scripted.sim_polls += 1
+            current = min(
+                3 + scripted.sim_polls * scripted.frames_per_poll,
+                scripted.solver_frames)
+            return {
+                **scripted.base,
+                "status": ("READY" if current == scripted.solver_frames
+                           else "BUSY"),
+                "frame": current, "saved_states": [3]}
+        response = original(address, config, project, request, frame=frame)
+        return response
+
+    monkeypatch.setattr(wire, "send_tcmd", recovery_wire)
+    frames = []
+    options = RecoveryOptions(
+        True, metadata, identity, server_root, resume=True,
+        completed_solver_frames=(1, 2, 3), keep_on_finish=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        frame_sink=frames.append, poll_interval=0.001,
+        recovery_options=options)
+    session.run()
+    assert [frame.solver_frame for frame in frames] == [4, 5, 6, 7]
+    assert not [item for item in scripted.log if item[0] == "upload"]
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "build" not in requests
+    assert "start" not in requests
+    assert "resume" in requests
 
 
 def test_import_result_playback_conversion():

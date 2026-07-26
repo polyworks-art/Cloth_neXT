@@ -50,10 +50,13 @@ MAX_RECEIVE_BYTES = 256 * 1024 * 1024
 REQUEST_BUILD = "build"
 REQUEST_CANCEL_BUILD = "cancel_build"
 REQUEST_START = "start"
+REQUEST_RESUME = "resume"
 REQUEST_TERMINATE = "terminate"
+REQUEST_SAVE_AND_QUIT = "save_and_quit"
 REQUEST_DELETE = "delete"
 _KNOWN_REQUESTS = frozenset({REQUEST_BUILD, REQUEST_CANCEL_BUILD,
-                             REQUEST_START, REQUEST_TERMINATE, REQUEST_DELETE})
+                             REQUEST_START, REQUEST_RESUME, REQUEST_TERMINATE,
+                             REQUEST_SAVE_AND_QUIT, REQUEST_DELETE})
 
 
 class WireProtocolError(ClothNextError):
@@ -79,7 +82,8 @@ def _validate_project_name(project_name: str) -> str:
     return project_name
 
 
-def tcmd_request_bytes(project_name: str, request: str | None = None) -> bytes:
+def tcmd_request_bytes(project_name: str, request: str | None = None, *,
+                       frame: int | None = None) -> bytes:
     """Exact TCMD frame: header + u32 BE length + ``--name`` [+ ``--request``]."""
     _validate_project_name(project_name)
     payload = f"--name {project_name}"
@@ -87,6 +91,10 @@ def tcmd_request_bytes(project_name: str, request: str | None = None) -> bytes:
         if request not in _KNOWN_REQUESTS:
             raise ValueError(f"unknown TCMD request {request!r}")
         payload += f" --request {request}"
+    if frame is not None:
+        if request != REQUEST_RESUME or int(frame) < 0:
+            raise ValueError("frame is valid only for a non-negative resume")
+        payload += f" --frame {int(frame)}"
     raw = payload.encode("utf-8")
     return TCMD_HEADER + len(raw).to_bytes(4, "big") + raw
 
@@ -169,11 +177,13 @@ def _reject_server_error(parsed: dict, operation: str) -> dict:
 
 
 def send_tcmd(address: ServerAddress, config: TransportConfig,
-              project_name: str, request: str | None = None) -> dict:
+              project_name: str, request: str | None = None, *,
+              frame: int | None = None) -> dict:
     """Send one TCMD frame and return the parsed JSON status response."""
-    frame = tcmd_request_bytes(project_name, request)
+    frame_bytes = tcmd_request_bytes(
+        project_name, request, frame=frame)
     with _connect(address, config) as connection:
-        _send_all(connection, frame)
+        _send_all(connection, frame_bytes)
         line, _rest = _read_line(connection, max_bytes=config.max_response_bytes)
     label = request or "status"
     return _reject_server_error(_parse_json_line(line), label)
@@ -181,20 +191,43 @@ def send_tcmd(address: ServerAddress, config: TransportConfig,
 
 def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                   project_name: str, data_payload, param_payload,
-                  data_hash: str, param_hash: str) -> None:
+                  data_hash: str, param_hash: str,
+                  file_chunk_size: int = CHUNK_SIZE,
+                  use_sendfile: bool = False) -> None:
     """Stream both payloads through the server-side atomic upload."""
     _validate_project_name(project_name)
     def payload_size(payload) -> int:
         return os.path.getsize(payload) if isinstance(payload, (str, Path)) else len(payload)
 
-    def payload_chunks(payload):
+    def payload_chunks(payload, *, offset=0):
         if isinstance(payload, (str, Path)):
             with open(payload, "rb") as stream:
-                while chunk := stream.read(CHUNK_SIZE):
+                stream.seek(offset)
+                while chunk := stream.read(file_chunk_size):
                     yield chunk
         else:
-            for offset in range(0, len(payload), CHUNK_SIZE):
-                yield payload[offset:offset + CHUNK_SIZE]
+            for position in range(0, len(payload), CHUNK_SIZE):
+                yield payload[position:position + CHUNK_SIZE]
+
+    def send_file(connection, payload):
+        sent = 0
+        if use_sendfile and isinstance(payload, (str, Path)):
+            try:
+                with open(payload, "rb") as stream:
+                    size = os.fstat(stream.fileno()).st_size
+                    while sent < size:
+                        count = connection.sendfile(
+                            stream, offset=sent, count=size - sent)
+                        if not count:
+                            raise OSError("socket.sendfile made no progress")
+                        sent += count
+                return
+            except (AttributeError, NotImplementedError, OSError):
+                # Resume from the confirmed offset; never resend bytes already
+                # accepted by the socket.
+                pass
+        for chunk in payload_chunks(payload, offset=sent):
+            _send_all(connection, chunk)
 
     data_size, param_size = payload_size(data_payload), payload_size(param_payload)
     if not data_size or not param_size:
@@ -213,8 +246,11 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
     with _connect(address, config) as connection:
         _send_all(connection, JSON_HEADER + header)
         for payload in (data_payload, param_payload):
-            for chunk in payload_chunks(payload):
-                _send_all(connection, chunk)
+            if isinstance(payload, (str, Path)):
+                send_file(connection, payload)
+            else:
+                for chunk in payload_chunks(payload):
+                    _send_all(connection, chunk)
         line, _rest = _read_line(connection)
     if b"OK" not in line:
         parsed = None

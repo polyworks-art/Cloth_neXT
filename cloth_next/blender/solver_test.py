@@ -22,11 +22,13 @@ the same :func:`start_run` service.
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import math
 import os
 import queue
 import re
+import shutil
 import threading
 import time
 import traceback
@@ -39,6 +41,9 @@ import bpy
 import numpy as np
 
 from .. import manifest_version
+from .. import export_identity, recovery
+from ..export_cache import ExportPayloadCache, deterministic_key
+from ..sample_plan import build_sample_plan
 from ..bake import cache_metadata
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
@@ -56,6 +61,7 @@ from ..pinning import (
     AnimatedPinTargetSample,
     PinMode,
     StaticPinError,
+    StaticPinConfig,
     StaticPinSnapshot,
     static_pin_config,
 )
@@ -73,6 +79,7 @@ from ..ppf.resolver import (
     development_executable_from_environment,
 )
 from ..ppf.schema.data import (GROUP_PDRD, GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
+                               INTERNAL_STATIC_UUID,
                                SceneObject, encode_deformable_scene,
                                encode_multi_deformable_scene,
                                encode_multi_deformable_scene_file, encode_scene,
@@ -80,6 +87,8 @@ from ..ppf.schema.data import (GROUP_PDRD, GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
 from ..ppf.schema.params import (
     SimulationSettings,
     build_multi_collider_param_payload,
+    encode_deformable_param,
+    encode_multi_collider_param,
     encode_multi_deformable_param,
     static_wire_params,
 )
@@ -92,6 +101,7 @@ from ..ppf_run.session import (
     SessionScene,
     SolverFrame,
     SolverSession,
+    RecoveryOptions,
     new_project_name,
 )
 from ..telemetry import shared_telemetry
@@ -129,6 +139,8 @@ _unsubscribe = None
 _pending_plan: "RunPlan | None" = None
 _pending_job_id = ""
 _pin_capture = None
+_export_timing_sink: dict[str, float] | None = None
+_export_cache_event_sink: dict[str, str] | None = None
 _ram_auto_cancel = RamAutoCancelGuard()
 _ram_auto_cancel_enabled = False
 _ram_auto_cancel_triggered = False
@@ -236,6 +248,12 @@ class RunPlan:
     deformables: tuple[DeformablePlan, ...] = ()
     stitch_pairs: tuple[tuple[int, int], ...] = ()
     stitch_snap_distance: float = 0.0
+    export_timings: dict[str, float] = field(default_factory=dict)
+    export_cache_events: dict[str, str] = field(default_factory=dict)
+    scene_cache_key: str = ""
+    pin_configs: tuple[StaticPinConfig | None, ...] = ()
+    param_cache_key: str = ""
+    recovery_options: RecoveryOptions | None = None
 
 
 def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
@@ -250,6 +268,21 @@ def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
         getattr(plan, "deformable_role", "CLOTH"),
         getattr(plan, "stitch_pairs", ()),
         getattr(plan, "stitch_snap_distance", 0.0)),)
+
+
+def _merge_export_diagnostics(diagnostics, plan: RunPlan) -> None:
+    """Attach main-thread export measurements to session diagnostics."""
+    if not hasattr(diagnostics, "timings"):
+        diagnostics.timings = {}
+    diagnostics.timings.update(plan.export_timings)
+    events = getattr(diagnostics, "cache_events", None)
+    if events is None:
+        try:
+            diagnostics.cache_events = {}
+        except (AttributeError, TypeError):
+            return
+        events = diagnostics.cache_events
+    events.update(plan.export_cache_events)
 
 
 def _plan_for_target(plan: RunPlan, target: DeformablePlan) -> RunPlan:
@@ -373,7 +406,9 @@ def _enabled_objects_for_solve(context) -> tuple[tuple[object, ...],
             "At least one enabled Cloth NeXt Cloth, Cable / Rope, or Soft Body object "
             "is required.")
     order = lambda obj: (
-        validation_state.object_key(obj),
+        str(getattr(getattr(obj, "cloth_next", None),
+                    "persistent_export_id", "") or
+            validation_state.object_key(obj)),
         str(getattr(obj, "name_full", getattr(obj, "name", ""))))
     cloth_objects.sort(key=order)
     collider_objects.sort(key=order)
@@ -390,7 +425,9 @@ def _enabled_force_objects(context) -> tuple[object, ...]:
                     f"{obj.name}: Force is only supported on Empty objects.")
             forces.append(obj)
     forces.sort(key=lambda obj: (
-        validation_state.object_key(obj),
+        str(getattr(getattr(obj, "cloth_next", None),
+                    "persistent_export_id", "") or
+            validation_state.object_key(obj)),
         str(getattr(obj, "name_full", getattr(obj, "name", "")))))
     return tuple(forces)
 
@@ -527,7 +564,13 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
             f"{obj.name} carries a native Blender Cloth modifier; remove it — "
             "Cloth NeXt never uses native cloth.")
     evaluated = obj.evaluated_get(depsgraph)
+    if _export_timing_sink is not None:
+        _export_timing_sink["evaluated_get_count"] = (
+            _export_timing_sink.get("evaluated_get_count", 0.0) + 1.0)
     mesh = evaluated.to_mesh()
+    if _export_timing_sink is not None:
+        _export_timing_sink["to_mesh_count"] = (
+            _export_timing_sink.get("to_mesh_count", 0.0) + 1.0)
     try:
         vertex_count = len(mesh.vertices)
         if vertex_count == 0:
@@ -541,21 +584,28 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
             raise SceneValidationError(f"{obj.name} has no edges.")
         if len(mesh.polygons) == 0:
             raise SceneValidationError(f"{obj.name} has no faces.")
-        vertices = tuple((v.co.x, v.co.y, v.co.z) for v in mesh.vertices)
-        for position in vertices:
-            if any(not math.isfinite(c) for c in position):
-                raise SceneValidationError(
-                    f"{obj.name} contains non-finite vertex coordinates.")
+        vertices = np.empty((vertex_count, 3), dtype="<f4")
+        mesh.vertices.foreach_get("co", vertices.reshape(-1))
+        if not np.isfinite(vertices).all():
+            raise SceneValidationError(
+                f"{obj.name} contains non-finite vertex coordinates.")
         mesh.calc_loop_triangles()
-        triangles = tuple(tuple(tri.vertices) for tri in mesh.loop_triangles)
-        if not triangles:
+        triangle_count = len(mesh.loop_triangles)
+        if not triangle_count:
             raise SceneValidationError(
                 f"{obj.name} cannot be triangulated into a shell.")
-        for tri in triangles:
-            if len(set(tri)) != 3 or any(
-                    not 0 <= index < vertex_count for index in tri):
-                raise SceneValidationError(
-                    f"{obj.name} produced an invalid triangle {tri}.")
+        triangles = np.empty((triangle_count, 3), dtype="<u4")
+        mesh.loop_triangles.foreach_get(
+            "vertices", triangles.reshape(-1))
+        invalid = ((triangles[:, 0] == triangles[:, 1])
+                   | (triangles[:, 0] == triangles[:, 2])
+                   | (triangles[:, 1] == triangles[:, 2])
+                   | (triangles >= vertex_count).any(axis=1))
+        if invalid.any():
+            tri = tuple(int(value) for value in
+                        triangles[int(np.flatnonzero(invalid)[0])])
+            raise SceneValidationError(
+                f"{obj.name} produced an invalid triangle {tri}.")
         return vertices, triangles
     finally:
         evaluated.to_mesh_clear()
@@ -1244,6 +1294,7 @@ class ValidationSnapshot:
     deformables: tuple[DeformableValidation, ...] = ()
     gravity_blender: tuple[float, float, float] = (0.0, 0.0, -9.81)
     wind_blender: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    timings: dict[str, float] = field(default_factory=dict)
 
 
 def _validate_scene_single(context) -> ValidationSnapshot:
@@ -1354,10 +1405,19 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp))
 
 
-def validate_scene(context) -> ValidationSnapshot:
+def _validate_scene_impl(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
     _sync_enabled_proxy_settings(context)
     deformable_objs, collider_objs = _enabled_objects_for_solve(context)
+    export_identity.ensure_unique_persistent_ids(
+        (*deformable_objs, *collider_objs,
+         *_enabled_force_objects(context)))
+    # ID creation is an explicit validation mutation. Re-sort immediately so
+    # the very first Bake has the same order as every later Bake/reload.
+    deformable_objs = tuple(sorted(
+        deformable_objs, key=export_identity.export_uuid))
+    collider_objs = tuple(sorted(
+        collider_objs, key=export_identity.export_uuid))
     for obj in deformable_objs:
         validation_state.mark_validating(obj)
     try:
@@ -1486,6 +1546,289 @@ def validate_scene(context) -> ValidationSnapshot:
         wind_blender=wind_blender)
 
 
+def validate_scene(context) -> ValidationSnapshot:
+    """Timed authoritative validation snapshot."""
+    started = time.monotonic()
+    snapshot = _validate_scene_impl(context)
+    return replace(snapshot, timings={
+        **snapshot.timings,
+        "validation": time.monotonic() - started,
+    })
+
+
+def _id_source_identity(data) -> dict:
+    library = getattr(data, "library", None)
+    library_path = str(getattr(library, "filepath", "") or "")
+    library_record = {"path": library_path}
+    if library_path:
+        try:
+            resolved = Path(bpy.path.abspath(library_path)).resolve()
+            stat = resolved.stat()
+            library_record.update(
+                {"resolved": str(resolved), "size": stat.st_size,
+                 "mtime_ns": stat.st_mtime_ns})
+        except OSError:
+            library_record["unresolved"] = True
+    return {
+        "type": type(data).__name__,
+        "name": str(getattr(data, "name_full",
+                            getattr(data, "name", ""))),
+        "library": library_record,
+    }
+
+
+def _safe_action_identity(owner) -> tuple[bool, dict, str]:
+    animation = getattr(owner, "animation_data", None)
+    if animation is None:
+        return True, {"action": None}, ""
+    if getattr(animation, "drivers", ()):
+        return False, {}, "Python or scripted Driver"
+    nla_tracks = tuple(getattr(animation, "nla_tracks", ()))
+    if any(tuple(getattr(track, "strips", ())) for track in nla_tracks):
+        return False, {}, "NLA dependency"
+    action = getattr(animation, "action", None)
+    curves = []
+    for curve in getattr(action, "fcurves", ()) if action else ():
+        if getattr(curve, "modifiers", ()):
+            return False, {}, "FCurve modifier"
+        points = []
+        for point in getattr(curve, "keyframe_points", ()):
+            co = getattr(point, "co", (0.0, 0.0))
+            left = getattr(point, "handle_left", co)
+            right = getattr(point, "handle_right", co)
+            points.append({
+                "co": [float(co[0]), float(co[1])],
+                "left": [float(left[0]), float(left[1])],
+                "right": [float(right[0]), float(right[1])],
+                "interpolation": str(
+                    getattr(point, "interpolation", "")),
+                "easing": str(getattr(point, "easing", "")),
+            })
+        curves.append({
+            "path": str(getattr(curve, "data_path", "")),
+            "index": int(getattr(curve, "array_index", 0)),
+            "points": points,
+        })
+    return True, {
+        "action": (_id_source_identity(action) if action else None),
+        "curves": sorted(curves, key=lambda row: (
+            row["path"], row["index"])),
+    }, ""
+
+
+def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
+    """Cheap, conservative dependency identity for an early cache lookup."""
+    if tuple(getattr(obj, "constraints", ())):
+        return False, {}, f"{obj.name}: constraint dependency"
+    data = getattr(obj, "data", None)
+    if data is None:
+        return False, {}, f"{obj.name}: missing data-block"
+    source = _id_source_identity(data)
+    if source["library"].get("unresolved"):
+        return False, {}, f"{obj.name}: unresolved library dependency"
+    if getattr(data, "shape_keys", None) is not None:
+        return False, {}, f"{obj.name}: Shape Keys require safe capture"
+    safe, action, reason = _safe_action_identity(obj)
+    if not safe:
+        return False, {}, f"{obj.name}: {reason}"
+    safe, data_action, reason = _safe_action_identity(data)
+    if not safe:
+        return False, {}, f"{obj.name} data: {reason}"
+    modifiers = []
+    for modifier in getattr(obj, "modifiers", ()):
+        if not bool(getattr(modifier, "show_viewport", True)):
+            continue
+        if is_cloth_next_playback_modifier(obj, modifier):
+            continue
+        kind = str(getattr(modifier, "type", ""))
+        if kind != "ARMATURE":
+            return False, {}, (
+                f"{obj.name}: {kind or 'unknown'} modifier dependency")
+        armature = getattr(modifier, "object", None)
+        if armature is None:
+            return False, {}, f"{obj.name}: unresolved Armature modifier"
+        if tuple(getattr(armature, "constraints", ())):
+            return False, {}, f"{obj.name}: constrained Armature"
+        if getattr(armature, "parent", None) is not None:
+            return False, {}, f"{obj.name}: parented Armature dependency"
+        if any(tuple(getattr(bone, "constraints", ()))
+               for bone in getattr(
+                   getattr(armature, "pose", None), "bones", ())):
+            return False, {}, f"{obj.name}: constrained pose bone"
+        armature_safe, armature_action, reason = (
+            _safe_action_identity(armature))
+        if not armature_safe:
+            return False, {}, f"{armature.name}: {reason}"
+        armature_data = getattr(armature, "data", None)
+        if armature_data is None:
+            return False, {}, f"{obj.name}: missing Armature data"
+        data_safe, armature_data_action, reason = _safe_action_identity(
+            armature_data)
+        if not data_safe:
+            return False, {}, f"{armature.name} data: {reason}"
+        bones = [{
+            "name": str(getattr(bone, "name", "")),
+            "parent": str(getattr(
+                getattr(bone, "parent", None), "name", "")),
+            "matrix_local": [[float(value) for value in row]
+                             for row in getattr(bone, "matrix_local", ())],
+            "use_deform": bool(getattr(bone, "use_deform", True)),
+        } for bone in getattr(armature_data, "bones", ())]
+        pose_basis = [{
+            "name": str(getattr(bone, "name", "")),
+            "matrix_basis": [[float(value) for value in row]
+                             for row in getattr(bone, "matrix_basis", ())],
+        } for bone in getattr(
+            getattr(armature, "pose", None), "bones", ())]
+        modifiers.append({
+            "type": kind,
+            "name": str(getattr(modifier, "name", "")),
+            "use_deform_preserve_volume": bool(getattr(
+                modifier, "use_deform_preserve_volume", False)),
+            "use_vertex_groups": bool(getattr(
+                modifier, "use_vertex_groups", True)),
+            "use_bone_envelopes": bool(getattr(
+                modifier, "use_bone_envelopes", False)),
+            "armature": _id_source_identity(armature_data),
+            "armature_action": armature_action,
+            "armature_data_action": armature_data_action,
+            "bones": bones, "pose_basis": pose_basis,
+        })
+    parents = []
+    parent = getattr(obj, "parent", None)
+    visited = set()
+    while parent is not None:
+        marker = id(parent)
+        if marker in visited:
+            return False, {}, f"{obj.name}: cyclic parenting"
+        visited.add(marker)
+        if tuple(getattr(parent, "constraints", ())):
+            return False, {}, f"{obj.name}: constrained parent"
+        parent_safe, parent_action, reason = _safe_action_identity(parent)
+        if not parent_safe:
+            return False, {}, f"{parent.name}: {reason}"
+        parents.append({
+            "identity": _id_source_identity(parent),
+            "action": parent_action,
+            "matrix_world": [[float(value) for value in row]
+                             for row in getattr(parent, "matrix_world", ())],
+            "matrix_parent_inverse": [
+                [float(value) for value in row]
+                for row in getattr(obj, "matrix_parent_inverse", ())],
+        })
+        parent = getattr(parent, "parent", None)
+    deform_weights = ""
+    if modifiers:
+        deform_weights = _vertex_group_signature(
+            obj, (str(group.name)
+                  for group in getattr(obj, "vertex_groups", ())))
+    return True, {
+        "data": source, "action": action, "data_action": data_action,
+        "modifiers": modifiers, "parents": parents,
+        "deform_weights": deform_weights,
+        "matrix_world": [[float(value) for value in row]
+                         for row in getattr(obj, "matrix_world", ())],
+    }, ""
+
+
+def _mesh_uv_signature(mesh) -> str:
+    layer = getattr(getattr(mesh, "uv_layers", None), "active", None)
+    data = getattr(layer, "data", None)
+    if data is None or not len(data):
+        return ""
+    values = np.empty(len(data) * 2, dtype="<f4")
+    data.foreach_get("uv", values)
+    return hashlib.sha256(memoryview(values).cast("B")).hexdigest()
+
+
+def _vertex_group_signature(obj, group_names) -> str:
+    wanted = {
+        int(group.index): str(name)
+        for name in sorted(set(group_names))
+        for group in (getattr(obj, "vertex_groups", None).get(name),)
+        if group is not None
+    }
+    if not wanted:
+        return ""
+    records = []
+    for vertex in obj.data.vertices:
+        for membership in vertex.groups:
+            name = wanted.get(int(membership.group))
+            if name is not None:
+                records.append(
+                    (int(vertex.index), name, float(membership.weight)))
+    return cache_metadata.deterministic_hash(records)
+
+
+def _scene_source_key(context, snapshot: ValidationSnapshot):
+    """Return a fail-closed early Scene key after authoritative validation."""
+    if (not getattr(snapshot, "deformables", ())
+            or not getattr(snapshot, "geometry_fingerprint", "")):
+        return None, "Incomplete validation snapshot"
+    handler_owner = getattr(bpy.app, "handlers", None)
+    handlers = tuple(getattr(handler_owner, "frame_change_pre", ())) + \
+        tuple(getattr(handler_owner, "frame_change_post", ()))
+    if handlers:
+        return None, "Frame-change script handler"
+    objects = []
+    ordered = sorted(
+        (*snapshot.deformables, *(
+            DeformableValidation(
+                obj, None, "", StaticPinSnapshot(
+                    False, "", obj.name, len(obj.data.vertices), ()),
+                "", "", "COLLIDER")
+            for obj in snapshot.collider_objs)),
+        key=lambda entry: export_identity.export_uuid(entry.obj))
+    for entry in ordered:
+        obj = entry.obj
+        safe, dependencies, reason = _safe_object_dependency_identity(obj)
+        if not safe:
+            return None, reason
+        role = str(obj.cloth_next.role)
+        row = {
+            "uuid": export_identity.export_uuid(obj),
+            "role": role,
+            "source": dependencies,
+            "motion": str(getattr(
+                obj.cloth_next, "collider_motion", "STATIC")),
+            "capture_mode": str(getattr(
+                obj.cloth_next, "collider_capture_mode", "AUTO")),
+            "samples": int(getattr(
+                obj.cloth_next, "collider_samples_per_frame", 0)),
+            "animation": _animation_signature(obj),
+        }
+        if role != "COLLIDER":
+            row.update({
+                "topology": entry.topology_signature,
+                "shape": entry.shape_signature,
+                "pins": list(entry.pin_membership.vertex_indices),
+                "pin_mode": str(getattr(obj.cloth_next, "pin_mode", "")),
+                "sewing": bool(getattr(
+                    entry.material, "sewing_enabled", False)),
+                "uv": (_mesh_uv_signature(obj.data)
+                       if role == "CLOTH" else ""),
+                "friction_regions": list(
+                    _friction_region_settings(obj)),
+                "friction_base": (
+                    float(entry.material.surface_grip)
+                    if _friction_region_settings(obj) else None),
+                "friction_groups": _vertex_group_signature(
+                    obj, (name for name, _value
+                          in _friction_region_settings(obj))),
+            })
+        objects.append(row)
+    identity = {
+        "export_schema": 1,
+        "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
+        "geometry": snapshot.geometry_fingerprint,
+        "objects": objects,
+        "frame_range": [
+            snapshot.bake_range.start, snapshot.bake_range.end],
+        "fps": int(context.scene.render.fps),
+    }
+    return deterministic_key("scene", identity), "safe source identity"
+
+
 def _validate_active_cloth() -> bool:
     """Debounced-timer entry point (Phase 11). Returns True when it validated.
 
@@ -1567,6 +1910,9 @@ def _log_gravity_capture(samples, bake_range) -> None:
 
 def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
     """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
+    direct = _capture_simple_force_fcurves(context, bake_range)
+    if direct is not None:
+        return direct
     scene = context.scene
     original = int(scene.frame_current)
     fps = _scene_fps(context)
@@ -1588,6 +1934,134 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
     _log_gravity_capture(samples, bake_range)
     return _force_capture_from_samples(
         samples, active_scalar_types, bake_range, fps)
+
+
+def _simple_force_fcurves(obj):
+    """Return an Action's safe scalar curves, or ``None`` to fail closed."""
+    animation = getattr(obj, "animation_data", None)
+    action = getattr(animation, "action", None)
+    if (getattr(animation, "drivers", ()) or
+            getattr(animation, "nla_tracks", ()) or
+            getattr(obj, "constraints", ()) or
+            getattr(obj, "parent", None) is not None):
+        return None
+    if action is None:
+        return {}
+    allowed = {
+        "cloth_next.force.strength": "strength",
+        "cloth_next.force.air_density": "air_density",
+        "cloth_next.force.air_friction": "air_friction",
+        "cloth_next.force.vertex_air_damp": "vertex_air_damp",
+    }
+    curves = {}
+    for curve in getattr(action, "fcurves", ()):
+        if getattr(curve, "modifiers", ()):
+            return None
+        path = str(getattr(curve, "data_path", ""))
+        # Transform animation requires rotation-mode-specific matrix
+        # reconstruction.  It deliberately stays on Blender's evaluated path.
+        if path not in allowed or int(getattr(curve, "array_index", 0)) != 0:
+            return None
+        curves[allowed[path]] = curve
+    return curves
+
+
+def _capture_simple_force_fcurves(
+        context, bake_range: BakeFrameRange) -> ForceCapture | None:
+    """Evaluate provably independent Force scalar Actions without frame_set."""
+    forces = _enabled_force_objects(context)
+    curve_maps = {}
+    if not forces:
+        return None
+    for obj in forces:
+        force = obj.cloth_next.force
+        if float(getattr(force, "wind_variation", 0.0)) != 0.0:
+            return None
+        curves = _simple_force_fcurves(obj)
+        if curves is None:
+            return None
+        curve_maps[obj.name] = curves
+    if not any(curve_maps.values()):
+        return None
+    samples = []
+    active_scalar_types = set()
+    for frame in range(bake_range.start, bake_range.end + 1):
+        gravity_forces = [
+            obj for obj in forces
+            if str(obj.cloth_next.force.force_type) == "GRAVITY"]
+        gravity = ([0.0, 0.0, 0.0] if gravity_forces else
+                   list(context.scene.gravity)
+                   if context.scene.use_gravity else [0.0, 0.0, 0.0])
+        wind = [0.0, 0.0, 0.0]
+        scalars = {
+            kind: default for kind, (_field, default)
+            in _SCALAR_FORCE_FIELDS.items()}
+        for obj in forces:
+            force = obj.cloth_next.force
+            force_type = str(force.force_type)
+            curves = curve_maps[obj.name]
+            if force_type in _SCALAR_FORCE_FIELDS:
+                field, _default = _SCALAR_FORCE_FIELDS[force_type]
+                value = float(curves[field].evaluate(frame)
+                              if field in curves else getattr(force, field))
+                if not math.isfinite(value) or value < 0.0:
+                    raise SceneValidationError(
+                        f"{obj.name}: {field.replace('_', ' ')} is invalid.")
+                if force_type not in active_scalar_types:
+                    scalars[force_type] = 0.0
+                    active_scalar_types.add(force_type)
+                scalars[force_type] += value
+                continue
+            if force_type not in {"GRAVITY", "WIND"}:
+                return None
+            matrix = obj.matrix_world
+            axis = [float(matrix[row][2]) for row in range(3)]
+            length = math.sqrt(sum(value * value for value in axis))
+            if not math.isfinite(length) or length <= 1e-12:
+                raise SceneValidationError(
+                    f"{obj.name}: Force Empty has an invalid local Z axis.")
+            strength = float(
+                curves["strength"].evaluate(frame)
+                if "strength" in curves else force.strength)
+            if not math.isfinite(strength) or strength < 0.0:
+                raise SceneValidationError(
+                    f"{obj.name}: Force strength is invalid.")
+            target = gravity if force_type == "GRAVITY" else wind
+            sign = -1.0 if force_type == "GRAVITY" else 1.0
+            for index in range(3):
+                target[index] += sign * strength * axis[index] / length
+        samples.append(ForceState(
+            tuple(gravity), tuple(wind),
+            scalars["AIR_DENSITY"], scalars["AIR_FRICTION"],
+            scalars["VERTEX_AIR_DAMP"]))
+    if _export_timing_sink is not None:
+        _export_timing_sink["force_fcurve_fast_path"] = 1.0
+    _log_gravity_capture(samples, bake_range)
+    return _force_capture_from_samples(
+        samples, active_scalar_types, bake_range, _scene_fps(context))
+
+
+def _capture_force_without_timeline(context, bake_range):
+    """Return a direct/static capture, or ``None`` when Depsgraph is needed."""
+    direct = _capture_simple_force_fcurves(context, bake_range)
+    if direct is not None:
+        return direct
+    scene_animation = getattr(context.scene, "animation_data", None)
+    if (getattr(scene_animation, "action", None) is not None
+            or getattr(scene_animation, "drivers", ())
+            or any(float(getattr(
+                obj.cloth_next.force, "wind_variation", 0.0)) != 0.0
+                   or _simple_force_fcurves(obj) is None
+                   or bool(_simple_force_fcurves(obj))
+                   for obj in _enabled_force_objects(context))):
+        return None
+    try:
+        state, active = _force_state(context)
+    except AttributeError:
+        return None
+    samples = [state] * bake_range.output_count
+    return _force_capture_from_samples(
+        samples, active, bake_range, _scene_fps(context))
 
 def _solver_position(matrix,position):
     x,y,z=position
@@ -1766,11 +2240,120 @@ def _collider_topology_change(expected_vertex_count: int,
     return ""
 
 
+def _collider_transform_only_is_safe(collider_obj) -> bool:
+    """Conservatively prove that samples cannot alter local mesh positions."""
+    data = getattr(collider_obj, "data", None)
+    if getattr(data, "shape_keys", None) is not None:
+        return False
+    if getattr(data, "animation_data", None) is not None:
+        return False
+    # Topology-preserving modifiers may still move vertices. Unknown and
+    # topology-changing modifiers are unsafe as well, so AUTO accepts no
+    # enabled modifier at all.
+    return not any(bool(getattr(modifier, "show_viewport", True))
+                   for modifier in getattr(collider_obj, "modifiers", ()))
+
+
+_TOPOLOGY_PRESERVING_MODIFIERS = frozenset({
+    "ARMATURE", "CORRECTIVE_SMOOTH", "DISPLACE", "LAPLACIANSMOOTH",
+    "LATTICE", "MESH_DEFORM", "SMOOTH", "SURFACE_DEFORM",
+})
+
+
+def _collider_topology_check_mode(collider_obj) -> str:
+    """Use vertex-count checks only for a completely known-safe stack."""
+    modifiers = tuple(
+        modifier for modifier in getattr(collider_obj, "modifiers", ())
+        if bool(getattr(modifier, "show_viewport", True)))
+    return ("VERTEX_COUNT" if all(
+        str(getattr(modifier, "type", "")) in
+        _TOPOLOGY_PRESERVING_MODIFIERS for modifier in modifiers)
+        else "FULL")
+
+
+def _effective_collider_capture_mode(collider_obj) -> str:
+    requested = str(getattr(
+        collider_obj.cloth_next, "collider_capture_mode", "AUTO"))
+    if requested == "DEFORMING":
+        return "DEFORMING"
+    safe = _collider_transform_only_is_safe(collider_obj)
+    if requested == "TRANSFORM_ONLY" and not safe:
+        raise SceneValidationError(
+            f'Collider "{collider_obj.name}" cannot use Transform Only because '
+            "its mesh, Shape Keys, or modifier stack can deform geometry. "
+            "Use Auto or Deforming.")
+    return "TRANSFORM_ONLY" if safe else "DEFORMING"
+
+
+def _capture_transform_only_collider_motion(
+        context, collider_obj, bake_range: BakeFrameRange
+) -> ColliderMotionCapture:
+    """Export one mesh and sample matrices without per-sample ``to_mesh()``."""
+    scene = context.scene
+    original_frame = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
+    sample_points = _collider_sample_points(
+        bake_range, _scene_fps(context),
+        int(getattr(collider_obj.cloth_next,
+                    "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
+    times = [point[2] for point in sample_points]
+    matrices = []
+    vertices = triangles = None
+    try:
+        for offset, (frame, subframe, _time) in enumerate(sample_points):
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            scene.frame_set(frame, subframe=subframe)
+            depsgraph = context.evaluated_depsgraph_get()
+            evaluated = collider_obj.evaluated_get(depsgraph)
+            world = tuple(tuple(float(value) for value in row)
+                          for row in evaluated.matrix_world)
+            if not matrix_is_finite_and_invertible(world):
+                raise SceneValidationError(
+                    f'Collider "{collider_obj.name}" has an invalid transform '
+                    f'at frame {frame + subframe:g}.')
+            matrices.append(solver_world_matrix(world))
+            if offset == 0:
+                vertices, triangles = _extract_mesh(
+                    collider_obj, depsgraph, needs_edges=False)
+            if offset == 0 or offset + 1 == len(sample_points) or subframe == 0:
+                shared_controller.update(
+                    status_message=(f"Capturing collider transforms · frame "
+                                    f"{frame + subframe:g} / {bake_range.end}"),
+                    activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
+                    current_frame=frame, progress_current=offset + 1,
+                    progress_total=len(sample_points))
+        translations, quaternions, scales = [], [], []
+        for matrix in matrices:
+            translation, quaternion, scale = _matrix_trs(matrix)
+            if (quaternions and sum(a * b for a, b in
+                                    zip(quaternions[-1], quaternion)) < 0.0):
+                quaternion = [-value for value in quaternion]
+            translations.append(translation)
+            quaternions.append(quaternion)
+            scales.append(scale)
+        return ColliderMotionCapture(
+            "RIGID_ANIMATED", vertices, triangles, matrices[0],
+            {"time": times, "translation": translations,
+             "quaternion": quaternions, "scale": scales,
+             "segments": [
+                 {"interpolation": "LINEAR",
+                  "handle_right": [1.0 / 3.0, 0.0],
+                  "handle_left": [2.0 / 3.0, 1.0]}
+                 for _index in range(len(sample_points) - 1)]})
+    finally:
+        scene.frame_set(original_frame, subframe=original_subframe)
+
+
 def _capture_collider_motion(context, collider_obj,
                              bake_range: BakeFrameRange) -> ColliderMotionCapture:
     """Capture and classify one animated Collider on Blender's main thread."""
+    if _effective_collider_capture_mode(collider_obj) == "TRANSFORM_ONLY":
+        return _capture_transform_only_collider_motion(
+            context, collider_obj, bake_range)
     scene = context.scene
     original_frame = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
     sample_points = _collider_sample_points(
         bake_range, _scene_fps(context),
         int(getattr(collider_obj.cloth_next,
@@ -1785,6 +2368,7 @@ def _capture_collider_motion(context, collider_obj,
     local_samples = None
     temporary_path = None
     deforming = False
+    topology_check_mode = _collider_topology_check_mode(collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
@@ -1808,14 +2392,22 @@ def _capture_collider_motion(context, collider_obj,
             mesh = evaluated.to_mesh()
             try:
                 count = len(mesh.vertices)
-                topology = _collider_topology_arrays(mesh, topology_buffers)
-                if count == 0 or not len(topology[0]):
+                topology = (_collider_topology_arrays(mesh, topology_buffers)
+                            if (reference_topology is None
+                                or topology_check_mode == "FULL") else None)
+                if count == 0 or (topology is not None and not len(topology[0])):
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" has an empty '
                         f'evaluated mesh at frame {frame + subframe:g}.')
-                detail = (_collider_array_topology_change(
-                    len(reference_vertices), reference_topology,
-                    count, topology) if reference_topology is not None else "")
+                detail = ""
+                if reference_topology is not None:
+                    if count != len(reference_vertices):
+                        detail = (f"vertex count changed from "
+                                  f"{len(reference_vertices)} to {count}")
+                    elif topology is not None:
+                        detail = _collider_array_topology_change(
+                            len(reference_vertices), reference_topology,
+                            count, topology)
                 if detail:
                     raise SceneValidationError(
                         f'Collider "{collider_obj.name}" changes topology at '
@@ -1862,7 +2454,7 @@ def _capture_collider_motion(context, collider_obj,
                     # completed capture look hung for large character meshes.
                     deforming = not np.allclose(
                         local, reference_vertices, rtol=0.0, atol=1e-6)
-                if reference_topology is not None:
+                if topology is not None and reference_topology is not None:
                     topology_buffers = topology
                 # Store solver-world positions immediately.  This replaces
                 # the former second pass over every frame and every vertex.
@@ -1920,8 +2512,824 @@ def _capture_collider_motion(context, collider_obj,
                 pass
         raise
     finally:
-        scene.frame_set(original_frame)
+        scene.frame_set(original_frame, subframe=original_subframe)
+
+
+def _capture_animated_colliders_shared(
+        context, collider_objs, bake_range: BakeFrameRange
+) -> dict[str, ColliderMotionCapture]:
+    """Capture every animated Collider in one deterministic timeline pass.
+
+    This is the production multi-Collider path.  Fractions in
+    :func:`build_sample_plan` provide exact de-duplication even when Colliders
+    use different sample rates.  Blender is touched only by this main-thread
+    function and ``frame_set`` is called once per union point.
+    """
+    colliders = tuple(collider_objs)
+    if not colliders:
+        return {}
+    fps = _scene_fps(context)
+    rates = {
+        obj.name: int(getattr(obj.cloth_next, "collider_samples_per_frame",
+                              COLLIDER_SAMPLES_PER_FRAME))
+        for obj in colliders
+    }
+    plans = {
+        obj.name: _collider_sample_points(bake_range, fps, rates[obj.name])
+        for obj in colliders
+    }
+    required = {
+        obj.name: {
+            point.position: index
+            for index, point in enumerate(build_sample_plan(
+                bake_range.start, bake_range.end,
+                collider_samples=(rates[obj.name],),
+                include_integer_frames=False))
+        } for obj in colliders
+    }
+    union = build_sample_plan(
+        bake_range.start, bake_range.end,
+        collider_samples=tuple(rates.values()), include_integer_frames=False)
+    states = {}
+    original_frame = int(context.scene.frame_current)
+    original_subframe = float(getattr(context.scene, "frame_subframe", 0.0))
+    captures: dict[str, ColliderMotionCapture] = {}
+    try:
+        for obj in colliders:
+            mode = _effective_collider_capture_mode(obj)
+            count = len(plans[obj.name])
+            states[obj.name] = {
+                "obj": obj, "mode": mode, "matrices": [],
+                "vertices": None, "triangles": None, "topology": None,
+                "topology_buffers": None, "samples": None, "path": None,
+                "deforming": False,
+                "topology_mode": _collider_topology_check_mode(obj),
+                "sample_count": count,
+            }
+        if _export_timing_sink is not None:
+            _export_timing_sink["sample_plan_points"] = float(len(union))
+        capture_started = time.perf_counter()
+        for point_index, point in enumerate(union):
+            if _cancel_event.is_set():
+                raise SessionCancelled()
+            context.scene.frame_set(point.frame, subframe=point.subframe)
+            if _export_timing_sink is not None:
+                _export_timing_sink["frame_set_count"] = (
+                    _export_timing_sink.get("frame_set_count", 0.0) + 1.0)
+                _export_timing_sink["depsgraph_evaluation_count"] = (
+                    _export_timing_sink.get(
+                        "depsgraph_evaluation_count", 0.0) + 1.0)
+            depsgraph = context.evaluated_depsgraph_get()
+            key = point.position
+            for obj in colliders:
+                sample_index = required[obj.name].get(key)
+                if sample_index is None:
+                    continue
+                state = states[obj.name]
+                evaluated = obj.evaluated_get(depsgraph)
+                if _export_timing_sink is not None:
+                    _export_timing_sink["evaluated_get_count"] = (
+                        _export_timing_sink.get(
+                            "evaluated_get_count", 0.0) + 1.0)
+                    _export_timing_sink["captured_collider_samples"] = (
+                        _export_timing_sink.get(
+                            "captured_collider_samples", 0.0) + 1.0)
+                world = tuple(tuple(float(value) for value in row)
+                              for row in evaluated.matrix_world)
+                if not matrix_is_finite_and_invertible(world):
+                    raise SceneValidationError(
+                        f'Collider "{obj.name}" has an invalid transform at '
+                        f'frame {float(point.position):g}.')
+                solver_matrix = solver_world_matrix(world)
+                state["matrices"].append(solver_matrix)
+                if state["mode"] == "TRANSFORM_ONLY":
+                    if state["vertices"] is None:
+                        state["vertices"], state["triangles"] = _extract_mesh(
+                            obj, depsgraph, needs_edges=False)
+                    continue
+                mesh = evaluated.to_mesh()
+                if _export_timing_sink is not None:
+                    _export_timing_sink["to_mesh_count"] = (
+                        _export_timing_sink.get("to_mesh_count", 0.0) + 1.0)
+                try:
+                    vertex_count = len(mesh.vertices)
+                    topology = (
+                        _collider_topology_arrays(
+                            mesh, state["topology_buffers"])
+                        if (state["topology"] is None or
+                            state["topology_mode"] == "FULL") else None)
+                    if vertex_count == 0 or (
+                            topology is not None and not len(topology[0])):
+                        raise SceneValidationError(
+                            f'Collider "{obj.name}" has an empty evaluated '
+                            f'mesh at frame {float(point.position):g}.')
+                    if state["vertices"] is not None:
+                        detail = ""
+                        if vertex_count != len(state["vertices"]):
+                            detail = (
+                                f"vertex count changed from "
+                                f"{len(state['vertices'])} to {vertex_count}")
+                        elif topology is not None:
+                            detail = _collider_array_topology_change(
+                                len(state["vertices"]), state["topology"],
+                                vertex_count, topology)
+                        if detail:
+                            raise SceneValidationError(
+                                f'Collider "{obj.name}" changes topology at '
+                                f'frame {float(point.position):g}: {detail}.')
+                    local = np.empty((vertex_count, 3), dtype=np.float32)
+                    mesh.vertices.foreach_get("co", local.reshape(-1))
+                    if not np.isfinite(local).all():
+                        raise SceneValidationError(
+                            f'Collider "{obj.name}" contains non-finite '
+                            f'positions at frame {float(point.position):g}.')
+                    if state["vertices"] is None:
+                        mesh.calc_loop_triangles()
+                        triangles = tuple(
+                            tuple(int(i) for i in tri.vertices)
+                            for tri in mesh.loop_triangles)
+                        if not triangles:
+                            raise SceneValidationError(
+                                f'Collider "{obj.name}" cannot be triangulated.')
+                        state["vertices"] = local.copy()
+                        state["triangles"] = triangles
+                        state["topology"] = tuple(
+                            array.copy() for array in topology)
+                        path = (Path(bpy.app.tempdir) /
+                                f"cloth_next_collider_"
+                                f"{uuid_module.uuid4().hex}.bin")
+                        state["path"] = path
+                        state["samples"] = np.memmap(
+                            path, dtype="<f4", mode="w+",
+                            shape=(state["sample_count"], vertex_count, 3))
+                    else:
+                        state["deforming"] |= not np.allclose(
+                            local, state["vertices"], rtol=0.0, atol=1e-6)
+                    if topology is not None:
+                        state["topology_buffers"] = topology
+                    transform = np.asarray(solver_matrix, dtype=np.float64)
+                    state["samples"][sample_index] = (
+                        local @ transform[:3, :3].T + transform[:3, 3])
+                finally:
+                    evaluated.to_mesh_clear()
+            if point_index == 0 or point_index + 1 == len(union):
+                shared_controller.update(
+                    status_message=(
+                        f"Capturing animated Colliders · frame "
+                        f"{float(point.position):g} / {bake_range.end}"),
+                    activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
+                    current_frame=point.frame,
+                    progress_current=point_index + 1,
+                    progress_total=len(union))
+        for obj in colliders:
+            state = states[obj.name]
+            matrices = state["matrices"]
+            times = [sample[2] for sample in plans[obj.name]]
+            if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
+                translations, quaternions, scales = [], [], []
+                for matrix in matrices:
+                    translation, quaternion, scale = _matrix_trs(matrix)
+                    if (quaternions and sum(
+                            a * b for a, b in
+                            zip(quaternions[-1], quaternion)) < 0.0):
+                        quaternion = [-value for value in quaternion]
+                    translations.append(translation)
+                    quaternions.append(quaternion)
+                    scales.append(scale)
+                captures[obj.name] = ColliderMotionCapture(
+                    "RIGID_ANIMATED", state["vertices"], state["triangles"],
+                    matrices[0],
+                    {"time": times, "translation": translations,
+                     "quaternion": quaternions, "scale": scales,
+                     "segments": [{"interpolation": "LINEAR",
+                                   "handle_right": [1.0 / 3.0, 0.0],
+                                   "handle_left": [2.0 / 3.0, 1.0]}
+                                  for _ in range(len(times) - 1)]})
+                samples = state["samples"]
+                if samples is not None:
+                    samples._mmap.close()
+                    state["path"].unlink(missing_ok=True)
+            else:
+                state["samples"].flush()
+                identity = tuple(tuple(
+                    1.0 if row == column else 0.0 for column in range(4))
+                    for row in range(4))
+                captures[obj.name] = ColliderMotionCapture(
+                    "DEFORMING_ANIMATED",
+                    tuple(tuple(float(value) for value in row)
+                          for row in state["samples"][0]),
+                    state["triangles"], identity,
+                    {"time": times, "vert_frames": state["samples"]},
+                    state["path"])
+        if _export_timing_sink is not None:
+            _export_timing_sink["capture_seconds"] = (
+                _export_timing_sink.get("capture_seconds", 0.0) +
+                time.perf_counter() - capture_started)
+        return captures
+    except Exception:
+        for capture in captures.values():
+            capture.cleanup()
+        for state in states.values():
+            samples = state.get("samples")
+            mapping = getattr(samples, "_mmap", None)
+            if mapping is not None:
+                mapping.close()
+            path = state.get("path")
+            if path is not None:
+                path.unlink(missing_ok=True)
+        raise
+    finally:
+        context.scene.frame_set(original_frame, subframe=original_subframe)
+
+
+def _begin_collider_pump(colliders, bake_range, fps):
+    """Mutable main-thread state used by the asynchronous union pump."""
+    result = {}
+    for obj in colliders:
+        rate = int(getattr(
+            obj.cloth_next, "collider_samples_per_frame",
+            COLLIDER_SAMPLES_PER_FRAME))
+        points = build_sample_plan(
+            bake_range.start, bake_range.end,
+            collider_samples=(rate,), include_integer_frames=False)
+        result[obj.name] = {
+            "obj": obj, "points": {
+                point.position: index for index, point in enumerate(points)},
+            "times": [
+                float(point.position - bake_range.start) / float(fps)
+                for point in points],
+            "mode": _effective_collider_capture_mode(obj),
+            "matrices": [], "vertices": None, "triangles": None,
+            "topology": None, "topology_buffers": None,
+            "topology_mode": _collider_topology_check_mode(obj),
+            "samples": None, "path": None, "deforming": False,
+            "sample_count": len(points),
+        }
+    return result
+
+
+def _pump_collider_point(depsgraph, point, states):
+    """Capture all Colliders needing this exact rational sample point."""
+    count = evaluated_count = mesh_count = 0
+    for state in states.values():
+        sample_index = state["points"].get(point.position)
+        if sample_index is None:
+            continue
+        count += 1
+        obj = state["obj"]
+        evaluated = obj.evaluated_get(depsgraph)
+        evaluated_count += 1
+        world = tuple(tuple(float(value) for value in row)
+                      for row in evaluated.matrix_world)
+        if not matrix_is_finite_and_invertible(world):
+            raise SceneValidationError(
+                f'Collider "{obj.name}" has an invalid transform at '
+                f'frame {float(point.position):g}.')
+        solver_matrix = solver_world_matrix(world)
+        state["matrices"].append(solver_matrix)
+        if state["mode"] == "TRANSFORM_ONLY":
+            if state["vertices"] is None:
+                state["vertices"], state["triangles"] = _extract_mesh(
+                    obj, depsgraph, needs_edges=False)
+                evaluated_count += 1
+                mesh_count += 1
+            continue
+        mesh = evaluated.to_mesh()
+        mesh_count += 1
+        try:
+            vertex_count = len(mesh.vertices)
+            topology = (
+                _collider_topology_arrays(mesh, state["topology_buffers"])
+                if (state["topology"] is None
+                    or state["topology_mode"] == "FULL") else None)
+            if vertex_count == 0 or (
+                    topology is not None and not len(topology[0])):
+                raise SceneValidationError(
+                    f'Collider "{obj.name}" has an empty evaluated mesh.')
+            if state["vertices"] is not None:
+                detail = ""
+                if vertex_count != len(state["vertices"]):
+                    detail = (
+                        f"vertex count changed from "
+                        f"{len(state['vertices'])} to {vertex_count}")
+                elif topology is not None:
+                    detail = _collider_array_topology_change(
+                        len(state["vertices"]), state["topology"],
+                        vertex_count, topology)
+                if detail:
+                    raise SceneValidationError(
+                        f'Collider "{obj.name}" changes topology at '
+                        f'frame {float(point.position):g}: {detail}.')
+            local = np.empty((vertex_count, 3), dtype=np.float32)
+            mesh.vertices.foreach_get("co", local.reshape(-1))
+            if not np.isfinite(local).all():
+                raise SceneValidationError(
+                    f'Collider "{obj.name}" contains non-finite positions.')
+            if state["vertices"] is None:
+                mesh.calc_loop_triangles()
+                triangles = tuple(
+                    tuple(int(i) for i in tri.vertices)
+                    for tri in mesh.loop_triangles)
+                if not triangles:
+                    raise SceneValidationError(
+                        f'Collider "{obj.name}" cannot be triangulated.')
+                state["vertices"] = local.copy()
+                state["triangles"] = triangles
+                state["topology"] = tuple(
+                    array.copy() for array in topology)
+                path = (Path(bpy.app.tempdir) /
+                        f"cloth_next_collider_{uuid_module.uuid4().hex}.bin")
+                state["path"] = path
+                state["samples"] = np.memmap(
+                    path, dtype="<f4", mode="w+",
+                    shape=(state["sample_count"], vertex_count, 3))
+            else:
+                state["deforming"] |= not np.allclose(
+                    local, state["vertices"], rtol=0.0, atol=1e-6)
+            if topology is not None:
+                state["topology_buffers"] = topology
+            transform = np.asarray(solver_matrix, dtype=np.float64)
+            state["samples"][sample_index] = (
+                local @ transform[:3, :3].T + transform[:3, 3])
+        finally:
+            evaluated.to_mesh_clear()
+    return count, evaluated_count, mesh_count
+
+
+def _finish_collider_pump(states):
+    captures = {}
+    for name, state in states.items():
+        matrices = state["matrices"]
+        if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
+            translations, quaternions, scales = [], [], []
+            for matrix in matrices:
+                translation, quaternion, scale = _matrix_trs(matrix)
+                if (quaternions and sum(
+                        a * b for a, b in
+                        zip(quaternions[-1], quaternion)) < 0.0):
+                    quaternion = [-value for value in quaternion]
+                translations.append(translation)
+                quaternions.append(quaternion)
+                scales.append(scale)
+            captures[name] = ColliderMotionCapture(
+                "RIGID_ANIMATED", state["vertices"], state["triangles"],
+                matrices[0],
+                {"time": state["times"], "translation": translations,
+                 "quaternion": quaternions, "scale": scales,
+                 "segments": [{"interpolation": "LINEAR",
+                               "handle_right": [1.0 / 3.0, 0.0],
+                               "handle_left": [2.0 / 3.0, 1.0]}
+                              for _ in range(len(matrices) - 1)]})
+            if state["samples"] is not None:
+                state["samples"]._mmap.close()
+                state["path"].unlink(missing_ok=True)
+        else:
+            state["samples"].flush()
+            identity = tuple(tuple(
+                1.0 if row == column else 0.0 for column in range(4))
+                for row in range(4))
+            captures[name] = ColliderMotionCapture(
+                "DEFORMING_ANIMATED",
+                tuple(tuple(float(value) for value in row)
+                      for row in state["samples"][0]),
+                state["triangles"], identity,
+                {"time": state["times"],
+                 "vert_frames": state["samples"]}, state["path"])
+    return captures
+
+
+def _cleanup_collider_pump(states):
+    for state in states.values():
+        samples = state.get("samples")
+        mapping = getattr(samples, "_mmap", None)
+        if mapping is not None:
+            mapping.close()
+        path = state.get("path")
+        if path is not None:
+            path.unlink(missing_ok=True)
         _depsgraph_update(context)
+
+
+def _timed_export_stage(name, function):
+    """Accumulate main-thread export timings without changing call contracts."""
+    def timed(*args, **kwargs):
+        started = time.monotonic()
+        try:
+            return function(*args, **kwargs)
+        finally:
+            if _export_timing_sink is not None:
+                _export_timing_sink[name] = (
+                    _export_timing_sink.get(name, 0.0)
+                    + time.monotonic() - started)
+    timed.__name__ = function.__name__
+    timed.__doc__ = function.__doc__
+    return timed
+
+
+_extract_mesh = _timed_export_stage("mesh_extraction", _extract_mesh)
+_extract_source_mesh = _timed_export_stage(
+    "mesh_extraction", _extract_source_mesh)
+_capture_force_animation = _timed_export_stage(
+    "force_capture", _capture_force_animation)
+_capture_animated_pin = _timed_export_stage(
+    "pin_capture", _capture_animated_pin)
+_capture_collider_motion = _timed_export_stage(
+    "collider_capture", _capture_collider_motion)
+encode_scene = _timed_export_stage("scene_encoding", encode_scene)
+encode_deformable_scene = _timed_export_stage(
+    "scene_encoding", encode_deformable_scene)
+encode_multi_deformable_scene = _timed_export_stage(
+    "scene_encoding", encode_multi_deformable_scene)
+encode_multi_deformable_scene_file = _timed_export_stage(
+    "scene_encoding", encode_multi_deformable_scene_file)
+encode_multi_deformable_param = _timed_export_stage(
+    "parameter_encoding", encode_multi_deformable_param)
+encode_multi_collider_param = _timed_export_stage(
+    "parameter_encoding", encode_multi_collider_param)
+encode_deformable_param = _timed_export_stage(
+    "parameter_encoding", encode_deformable_param)
+
+
+def _payload_cache_for(obj) -> ExportPayloadCache:
+    configured = str(getattr(
+        obj.cloth_next, "cache_directory", "") or "").strip()
+    root = (Path(bpy.path.abspath(configured))
+            if configured else _cache_directory())
+    return ExportPayloadCache(root / ".cloth_next_export")
+
+
+def _cached_payload(cache, kind, key, producer):
+    lookup = cache.lookup(kind, key)
+    if _export_timing_sink is not None:
+        _export_timing_sink[f"{kind}_cache_hit"] = 1.0 if lookup.hit else 0.0
+        _export_timing_sink[f"{kind}_cache_miss"] = 0.0 if lookup.hit else 1.0
+    if lookup.hit:
+        return lookup.path, lookup.digest
+    payload, digest = producer()
+    try:
+        stored = cache.store(kind, key, payload)
+    except OSError as exc:
+        if _export_timing_sink is not None:
+            _export_timing_sink[f"{kind}_cache_write_failed"] = 1.0
+        return payload, digest
+    if stored.digest != digest:
+        raise SceneValidationError(
+            f"{kind.title()} export cache hash verification failed.")
+    return stored.path, stored.digest
+
+
+def _cache_plan_record(plan: RunPlan) -> tuple[dict, dict[str, memoryview]]:
+    targets = _plan_deformables(plan)
+    artifacts = {}
+    rows = []
+    pin_configs = tuple(getattr(plan, "pin_configs", ()))
+    for index, target in enumerate(targets):
+        initial = np.ascontiguousarray(
+            np.asarray(target.initial_local, dtype="<f4").reshape((-1, 3)))
+        initial_name = f"initial_{index:03d}.f32"
+        artifacts[initial_name] = memoryview(initial).cast("B")
+        pin = (pin_configs[index]
+               if index < len(pin_configs) else None)
+        pin_record = None
+        if pin is not None:
+            positions = np.ascontiguousarray(
+                np.asarray(pin.positions, dtype="<f4"))
+            pin_name = f"pins_{index:03d}.f32"
+            artifacts[pin_name] = memoryview(positions).cast("B")
+            pin_record = {
+                "artifact": pin_name, "shape": list(positions.shape),
+                "indices": list(pin.indices), "operations": list(pin.operations),
+                "unpin_time": pin.unpin_time,
+                "transition": pin.transition,
+                "pull_strength": pin.pull_strength,
+                "pin_stiffness": pin.pin_stiffness,
+                "pin_group_id": pin.pin_group_id,
+                "rest_shape_track": pin.rest_shape_track,
+                "times": list(pin.times),
+            }
+        rows.append({
+            "name": target.object_name, "uuid": target.uuid,
+            "role": target.role,
+            "world_matrix": [list(row) for row in target.world_matrix],
+            "topology_signature": target.topology_signature,
+            "material_meta": target.material_meta,
+            "stitch_pairs": [list(pair) for pair in target.stitch_pairs],
+            "stitch_snap_distance": target.stitch_snap_distance,
+            "initial_artifact": initial_name,
+            "initial_shape": list(initial.shape),
+            "pin": pin_record,
+        })
+    return {
+        "version": 1,
+        "frame_count": plan.frame_count,
+        "frame_start": plan.frame_start,
+        "frame_end": plan.frame_end,
+        "fps": plan.fps,
+        "geometry_fingerprint": plan.geometry_fingerprint,
+        "targets": rows,
+    }, artifacts
+
+
+def _store_scene_plan_cache(context, snapshot, plan, source_key) -> None:
+    if not source_key:
+        return
+    try:
+        metadata, artifacts = _cache_plan_record(plan)
+        cache = _payload_cache_for(snapshot.cloth_obj)
+        stored = cache.store(
+            "scene", source_key, plan.scene.data_payload,
+            plan=metadata, artifacts=artifacts)
+        if stored.digest != plan.scene.data_hash:
+            raise ValueError("cached Scene hash differs from encoded payload")
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_cache_store"] = 1.0
+        if plan.param_cache_key:
+            cached_param = cache.store(
+                "param", plan.param_cache_key, plan.scene.param_payload)
+            if cached_param.digest != plan.scene.param_hash:
+                raise ValueError(
+                    "cached Param hash differs from encoded payload")
+    except (OSError, ValueError, TypeError):
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_cache_write_failed"] = 1.0
+
+
+def _load_pin_config(record, artifacts):
+    if record is None:
+        return None
+    path = artifacts.get(record["artifact"])
+    if path is None:
+        raise ValueError("missing cached Pin artifact")
+    shape = tuple(int(value) for value in record["shape"])
+    count = math.prod(shape)
+    values = np.fromfile(path, dtype="<f4", count=count)
+    if values.size != count:
+        raise ValueError("cached Pin artifact is truncated")
+    positions = tuple(
+        tuple(tuple(float(value) for value in point) for point in frame)
+        for frame in values.reshape(shape))
+    return StaticPinConfig(
+        tuple(int(value) for value in record["indices"]),
+        tuple(record.get("operations", ())),
+        record.get("unpin_time"),
+        str(record.get("transition", "linear")),
+        float(record.get("pull_strength", 0.0)),
+        float(record.get("pin_stiffness", 1.0)),
+        str(record.get("pin_group_id", "")),
+        None, bool(record.get("rest_shape_track", False)),
+        tuple(float(value) for value in record.get("times", ())),
+        positions)
+
+
+def _current_material_meta(cached, snapshot, entry, resolved, *,
+                           vertex_count, frame_count):
+    meta = copy.deepcopy(cached)
+    object_identity = {
+        "object_key": validation_state.object_key(entry.obj),
+        "deformable_type": entry.role,
+        "topology_signature": entry.topology_signature,
+        "geometry_fingerprint": snapshot.geometry_fingerprint,
+    }
+    fingerprints = meta.setdefault("fingerprints", {})
+    fingerprints.update({
+        "settings": snapshot.settings_fingerprint,
+        "geometry": snapshot.geometry_fingerprint,
+        "combined": snapshot.combined_fingerprint,
+        "topology": entry.topology_signature,
+        "object": cache_metadata.deterministic_hash(object_identity),
+    })
+    identities = meta.setdefault("identities", {})
+    identities.update({
+        "cloth_next_version": manifest_version(),
+        "blender_version": _blender_version(),
+        "object": object_identity,
+    })
+    identities["solver"] = {
+        "mode": resolved.mode.name,
+        "package_version": resolved.package_version or "unknown",
+        "protocol_version": resolved.protocol_version or "unknown",
+        "schema_version": resolved.schema_version or "unknown",
+        "source_metadata": getattr(resolved, "source_metadata", None) or {},
+    }
+    meta.setdefault("expected", {}).update({
+        "vertex_count": vertex_count, "frame_count": frame_count})
+    details = meta.setdefault("details", {})
+    details.update({
+        "preset": entry.preset_identifier,
+        "contact_enabled": snapshot.contact_enabled,
+        "deformable_type": entry.role,
+        "material": asdict(entry.material),
+        "blender_start_frame": snapshot.bake_range.start,
+        "blender_end_frame": snapshot.bake_range.end,
+    })
+    return meta
+
+
+def _recovery_param_kwargs(scene) -> dict:
+    settings = getattr(scene, "cloth_next_recovery", None)
+    enabled = bool(settings and getattr(settings, "enabled", False))
+    return {
+        "auto_save_interval": (
+            int(settings.checkpoint_interval)
+            if enabled and bool(settings.auto_save) else 0),
+        "save_state_on_finish": (
+            enabled and bool(settings.save_on_finish)),
+    }
+
+
+def _encode_cached_param(context, snapshot, force_capture, pin_configs,
+                         cache, target_uuids):
+    entries = snapshot.deformables
+    settings = SimulationSettings(
+        snapshot.bake_range.output_count, int(context.scene.render.fps),
+        force_capture.initial.gravity, snapshot.quality,
+        wind_blender=force_capture.initial.wind,
+        air_density=(force_capture.initial.air_density
+                     if "AIR_DENSITY" in force_capture.active_scalar_types
+                     else None),
+        air_friction=(force_capture.initial.air_friction
+                      if "AIR_FRICTION" in force_capture.active_scalar_types
+                      else None),
+        vertex_air_damp=(
+            force_capture.initial.vertex_air_damp
+            if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types
+            else None),
+        dynamic_parameters=force_capture.dynamic_parameters,
+        **_recovery_param_kwargs(context.scene))
+    group_for_role = {
+        "CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
+        "SOFT_BODY": GROUP_SOLID, "RIGID_BODY": GROUP_PDRD}
+    dynamics = [
+        (entry.obj.name, uuid, group_for_role[entry.role],
+         entry.material, pin)
+        for entry, uuid, pin in zip(entries, target_uuids, pin_configs)]
+    colliders = [
+        (obj.name, export_identity.export_uuid(obj), material)
+        for obj, material in zip(snapshot.collider_objs, snapshot.statics)]
+    _sentinel_objects, colliders = _ensure_solver_static([], colliders)
+    key = _param_source_key(
+        context, snapshot, force_capture, target_uuids,
+        tuple(item[1] for item in colliders))
+    return _cached_payload(
+        cache, "param", key,
+        lambda: encode_multi_deformable_param(
+            settings, dynamics, colliders,
+            contact_enabled=snapshot.contact_enabled))
+
+
+def _param_source_key(context, snapshot, force_capture, target_uuids,
+                      collider_uuids):
+    recovery_settings = getattr(context.scene, "cloth_next_recovery", None)
+    return deterministic_key("param", {
+        "settings": snapshot.settings_fingerprint,
+        "force_initial": repr(force_capture.initial),
+        "force_dynamic": repr(force_capture.dynamic_parameters),
+        "frame_range": [
+            snapshot.bake_range.start, snapshot.bake_range.end],
+        "fps": int(context.scene.render.fps),
+        "object_uuids": [
+            *target_uuids, *collider_uuids],
+        "recovery": {
+            "enabled": bool(
+                recovery_settings
+                and getattr(recovery_settings, "enabled", False)),
+            "auto_save": bool(
+                recovery_settings
+                and getattr(recovery_settings, "auto_save", False)),
+            "checkpoint_interval": int(getattr(
+                recovery_settings, "checkpoint_interval", 0)),
+            "save_on_finish": bool(getattr(
+                recovery_settings, "save_on_finish", False)),
+        },
+    })
+
+
+def _load_early_scene_plan(context, snapshot, resolved, source_key,
+                           force_capture):
+    cache = _payload_cache_for(snapshot.cloth_obj)
+    lookup = cache.lookup("scene", source_key)
+    if not lookup.hit or not lookup.metadata:
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_early_cache_hit"] = 0.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink["scene_cache_miss_reason"] = lookup.reason
+        return None
+    artifacts = cache.lookup_artifacts("scene", source_key)
+    if not artifacts:
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_early_cache_hit"] = 0.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink["scene_cache_miss_reason"] = (
+                "missing or corrupt plan artifacts")
+        return None
+    try:
+        record = lookup.metadata
+        if (record.get("version") != 1
+                or record.get("geometry_fingerprint")
+                != snapshot.geometry_fingerprint
+                or len(record.get("targets", ()))
+                != len(snapshot.deformables)):
+            return None
+        target_plans = []
+        pin_configs = []
+        session_targets = []
+        project_name = new_project_name()
+        work_directory = (
+            Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}")
+        for index, (row, entry) in enumerate(
+                zip(record["targets"], snapshot.deformables)):
+            expected_uuid = export_identity.export_uuid(entry.obj)
+            if (row["uuid"] != expected_uuid
+                    or row["role"] != entry.role):
+                return None
+            shape = tuple(int(value) for value in row["initial_shape"])
+            path = artifacts.get(row["initial_artifact"])
+            if path is None or len(shape) != 2 or shape[1] != 3:
+                return None
+            values = np.fromfile(path, dtype="<f4")
+            if values.size != math.prod(shape):
+                return None
+            initial = values.reshape(shape)
+            world = tuple(tuple(float(value) for value in matrix_row)
+                          for matrix_row in row["world_matrix"])
+            pin = _load_pin_config(row.get("pin"), artifacts)
+            pin_configs.append(pin)
+            configured = str(getattr(
+                entry.obj.cloth_next, "cache_directory", "") or "").strip()
+            cache_dir = (Path(bpy.path.abspath(configured))
+                         if configured else _cache_directory())
+            pc2_path = cache_dir / (
+                f"cn_test_cloth_{project_name[10:]}_{index:02d}.pc2")
+            meta = _current_material_meta(
+                row["material_meta"], snapshot, entry, resolved,
+                vertex_count=shape[0],
+                frame_count=snapshot.bake_range.output_count)
+            meta["details"]["fps"] = int(context.scene.render.fps)
+            target_plans.append(DeformablePlan(
+                initial, world, entry.obj.name, expected_uuid, pc2_path,
+                entry.topology_signature, meta, entry.role,
+                tuple(tuple(int(v) for v in pair)
+                      for pair in row.get("stitch_pairs", ())),
+                float(row.get("stitch_snap_distance", 0.0))))
+            session_targets.append(SessionDeformable(
+                entry.obj.name, expected_uuid, shape[0],
+                {"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
+                 "SOFT_BODY": GROUP_SOLID,
+                 "RIGID_BODY": GROUP_PDRD}[entry.role],
+                solver_world_matrix(world)))
+        param_payload, param_hash = _encode_cached_param(
+            context, snapshot, force_capture, tuple(pin_configs), cache,
+            tuple(target.uuid for target in target_plans))
+        param_key = _param_source_key(
+            context, snapshot, force_capture,
+            tuple(target.uuid for target in target_plans),
+            tuple(export_identity.export_uuid(obj)
+                  for obj in snapshot.collider_objs)
+            or (INTERNAL_STATIC_UUID,))
+        first = target_plans[0]
+        collider_specs = [
+            (obj.name, export_identity.export_uuid(obj))
+            for obj in snapshot.collider_objs]
+        session_scene = SessionScene(
+            project_name, first.object_name, first.uuid,
+            len(first.initial_local),
+            collider_specs[0][0] if collider_specs else "",
+            collider_specs[0][1] if collider_specs else "",
+            snapshot.bake_range.output_count,
+            lookup.path, param_payload, lookup.digest, param_hash,
+            deformables=tuple(session_targets))
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_early_cache_hit"] = 1.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink["scene_cache_miss_reason"] = ""
+        return RunPlan(
+            session_scene, resolved, first.initial_local,
+            first.world_matrix, first.object_name, work_directory,
+            first.pc2_path, snapshot.bake_range.output_count,
+            snapshot.bake_range.start, snapshot.bake_range.end,
+            int(context.scene.render.fps), snapshot.settings_fingerprint,
+            snapshot.geometry_fingerprint, first.topology_signature,
+            snapshot.preset_identifier, first.material_meta, first.role,
+            tuple(target_plans), first.stitch_pairs,
+            first.stitch_snap_distance, scene_cache_key=source_key,
+            pin_configs=tuple(pin_configs), param_cache_key=param_key)
+    except (OSError, ValueError, TypeError, KeyError, IndexError):
+        if _export_timing_sink is not None:
+            _export_timing_sink["scene_early_cache_hit"] = 0.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink["scene_cache_miss_reason"] = (
+                "corrupt cached plan")
+        return None
+
+
+def _verified_early_scene_available(snapshot, source_key) -> bool:
+    if not source_key:
+        return False
+    cache = _payload_cache_for(snapshot.cloth_obj)
+    lookup = cache.lookup("scene", source_key)
+    return bool(
+        lookup.hit and lookup.metadata
+        and cache.lookup_artifacts("scene", source_key))
 
 
 def _validate_deformable_modifier_path(obj, pin_membership) -> None:
@@ -1938,7 +3346,8 @@ def _validate_deformable_modifier_path(obj, pin_membership) -> None:
 
 def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           animated_pin_samples=None,
-                          force_capture: ForceCapture | None = None) -> RunPlan:
+                          force_capture: ForceCapture | None = None,
+                          collider_captures=None) -> RunPlan:
     scene = context.scene
     resolved = resolve_solver(context)
     if (any(_friction_region_settings(entry.obj)
@@ -1951,11 +3360,11 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     force_capture = (force_capture or
                      _capture_force_animation(context, bake_range))
     original_frame = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
     dynamic_records = []
     collider_records = []
     try:
         scene.frame_set(bake_range.start)
-        _depsgraph_update(context)
         for entry in snapshot.deformables:
             obj = entry.obj
             precomputed = (animated_pin_samples.get(obj.name)
@@ -2029,16 +3438,27 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             dynamic_records.append(
                 (entry, pin_snapshot, vertices, triangles, edges, world,
                  stitch_pairs, uv_faces, face_friction))
+        animated = tuple(
+            obj for obj in snapshot.collider_objs
+            if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
+            == "ANIMATED")
+        animated_captures = (collider_captures or
+            _capture_animated_colliders_shared(
+                context, animated, bake_range))
+        static_colliders = tuple(
+            obj for obj in snapshot.collider_objs if obj not in animated)
+        static_depsgraph = None
+        if static_colliders:
+            scene.frame_set(bake_range.start)
+            static_depsgraph = context.evaluated_depsgraph_get()
         for obj in snapshot.collider_objs:
             if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) == "ANIMATED":
-                capture = _capture_collider_motion(context, obj, bake_range)
+                capture = animated_captures[obj.name]
                 collider_records.append((obj, capture.vertices,
                     capture.triangles, None, capture))
             else:
-                scene.frame_set(bake_range.start)
-                _depsgraph_update(context)
                 vertices, triangles = _extract_mesh(
-                    obj, context.evaluated_depsgraph_get(), needs_edges=False)
+                    obj, static_depsgraph, needs_edges=False)
                 world = tuple(tuple(row) for row in obj.matrix_world)
                 if not matrix_is_finite_and_invertible(world):
                     raise SceneValidationError(
@@ -2050,7 +3470,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 capture.cleanup()
         raise
     finally:
-        scene.frame_set(original_frame)
+        scene.frame_set(original_frame, subframe=original_subframe)
         _depsgraph_update(context)
 
     project_name = new_project_name()
@@ -2063,7 +3483,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                       "SOFT_BODY": GROUP_SOLID, "RIGID_BODY": GROUP_PDRD}
     for (entry, pin_snapshot, vertices, triangles, edges, world,
          stitch_pairs, uv_faces, face_friction) in dynamic_records:
-        dynamic_uuid = f"cn-dynamic-{uuid_module.uuid4().hex[:12]}"
+        dynamic_uuid = export_identity.export_uuid(entry.obj)
         uuids.append(dynamic_uuid)
         group = group_for_role[entry.role]
         scene_dynamics.append((SceneObject(
@@ -2083,7 +3503,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     try:
         for (obj, vertices, triangles, world, capture), material in zip(
                 collider_records, snapshot.statics):
-            collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
+            collider_uuid = export_identity.export_uuid(obj)
             collider_specs.append((obj.name, collider_uuid, material))
             if capture is None:
                 exported = SceneObject(obj.name, collider_uuid, vertices,
@@ -2156,10 +3576,14 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                       if "AIR_FRICTION" in force_capture.active_scalar_types else None),
         vertex_air_damp=(force_capture.initial.vertex_air_damp
                          if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
-        dynamic_parameters=force_capture.dynamic_parameters)
+        dynamic_parameters=force_capture.dynamic_parameters,
+        **_recovery_param_kwargs(scene))
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
         contact_enabled=snapshot.contact_enabled)
+    param_cache_key = _param_source_key(
+        context, snapshot, force_capture, tuple(uuids),
+        tuple(item[1] for item in collider_specs))
     session_scene = SessionScene(
         project_name, session_dynamics[0].name, session_dynamics[0].uuid,
         session_dynamics[0].vertex_count,
@@ -2173,11 +3597,13 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         "fps": int(scene.render.fps),
         "frame_start": bake_range.start,
         "frame_end": bake_range.end,
-        "deformables": [{
+        "deformables": sorted([{
             "object_key": validation_state.object_key(entry.obj),
+            "uuid": export_identity.export_uuid(entry.obj),
             "deformable_type": entry.role,
             "topology_signature": entry.topology_signature,
         } for entry in snapshot.deformables],
+            key=lambda row: row["uuid"]),
         "colliders": motion_meta,
     }
     scene_fingerprint = cache_metadata.deterministic_hash(scene_identity)
@@ -2238,12 +3664,16 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         snapshot.settings_fingerprint, snapshot.geometry_fingerprint,
         first.topology_signature, snapshot.preset_identifier,
         first.material_meta, first.role, tuple(target_plans),
-        first.stitch_pairs, first.stitch_snap_distance)
+        first.stitch_pairs, first.stitch_snap_distance,
+        pin_configs=tuple(
+            static_pin_config(record[1]) for record in dynamic_records),
+        param_cache_key=param_cache_key)
 
 
-def build_run_plan(context, *, animated_pin_samples=None,
-                   force_capture: ForceCapture | None = None,
-                   snapshot: ValidationSnapshot | None = None) -> RunPlan:
+def _build_run_plan_impl(context, *, animated_pin_samples=None,
+                         force_capture: ForceCapture | None = None,
+                         collider_captures=None,
+                         snapshot: ValidationSnapshot | None = None) -> RunPlan:
     """Freeze the run inputs from one authoritative validation.
 
     ``snapshot`` is the :class:`ValidationSnapshot` the Bake start already
@@ -2254,10 +3684,31 @@ def build_run_plan(context, *, animated_pin_samples=None,
     scene = context.scene
     if snapshot is None:
         snapshot = validate_scene(context)
+    source_key, source_reason = _scene_source_key(context, snapshot)
+    if _export_timing_sink is not None:
+        _export_timing_sink["scene_source_key_safe"] = (
+            1.0 if source_key else 0.0)
+    if _export_cache_event_sink is not None:
+        _export_cache_event_sink["scene_source_key_reason"] = source_reason
+    # Resolve and capture only Param-side Forces before the Scene lookup.
+    # A verified hit therefore occurs before evaluated meshes, Pins,
+    # Colliders, and Scene CBOR encoding.
+    if source_key:
+        resolved_for_cache = resolve_solver(context)
+        force_capture = (force_capture or
+                         _capture_force_animation(
+                             context, snapshot.bake_range))
+        cached = _load_early_scene_plan(
+            context, snapshot, resolved_for_cache, source_key,
+            force_capture)
+        if cached is not None:
+            return cached
     if len(snapshot.deformables) > 1:
-        return _build_multi_run_plan(
+        plan = _build_multi_run_plan(
             context, snapshot, animated_pin_samples=animated_pin_samples,
-            force_capture=force_capture)
+            force_capture=force_capture,
+            collider_captures=collider_captures)
+        return replace(plan, scene_cache_key=source_key or "")
     cloth_obj = snapshot.cloth_obj
     deformable_role = str(cloth_obj.cloth_next.role)
     collider_objs = snapshot.collider_objs
@@ -2284,10 +3735,11 @@ def build_run_plan(context, *, animated_pin_samples=None,
     force_capture = (force_capture or
                      _capture_force_animation(context, bake_range))
     original_frame = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
     collider_records = []
     try:
         with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
-            scene.frame_set(bake_range.start); _depsgraph_update(context)
+            scene.frame_set(bake_range.start)
             if deformable_role == "ROD":
                 cloth_vertices, cloth_edges, _curve_splines = sample_curve(cloth_obj)
                 cloth_triangles = ()
@@ -2325,18 +3777,28 @@ def build_run_plan(context, *, animated_pin_samples=None,
                         f"therefore carry no surface mass. {selection_note}")
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
+        animated = tuple(
+            current for current in collider_objs
+            if str(getattr(current.cloth_next, "collider_motion", "STATIC"))
+            == "ANIMATED")
+        animated_captures = (collider_captures or
+            _capture_animated_colliders_shared(
+                context, animated, bake_range))
+        static_colliders = tuple(
+            current for current in collider_objs if current not in animated)
+        static_depsgraph = None
+        if static_colliders:
+            scene.frame_set(bake_range.start)
+            static_depsgraph = context.evaluated_depsgraph_get()
         for current in collider_objs:
             if str(getattr(current.cloth_next, "collider_motion",
                            "STATIC")) == "ANIMATED":
-                capture = _capture_collider_motion(
-                    context, current, bake_range)
+                capture = animated_captures[current.name]
                 collider_records.append((current, capture.vertices,
                                          capture.triangles, None, capture))
             else:
-                scene.frame_set(bake_range.start); _depsgraph_update(context)
-                depsgraph = context.evaluated_depsgraph_get()
                 vertices, triangles = _extract_mesh(
-                    current, depsgraph, needs_edges=False)
+                    current, static_depsgraph, needs_edges=False)
                 world = tuple(tuple(row) for row in current.matrix_world)
                 collider_records.append(
                     (current, vertices, triangles, world, None))
@@ -2347,7 +3809,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
                 capture.cleanup()
         raise
     finally:
-        scene.frame_set(original_frame)
+        scene.frame_set(original_frame, subframe=original_subframe)
     try:
         degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
         if degenerate:
@@ -2381,7 +3843,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
         raise
     pin_config = static_pin_config(pin_snapshot)
 
-    cloth_uuid = f"cn-cloth-{uuid_module.uuid4().hex[:12]}"
+    cloth_uuid = export_identity.export_uuid(cloth_obj)
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
                               cloth_triangles, solver_world_matrix(cloth_world),
                               pin_snapshot.vertex_indices, edges=cloth_edges,
@@ -2393,7 +3855,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     motion_meta = []
     for (current, vertices, triangles, world, capture), material in zip(
             collider_records, statics):
-        collider_uuid = f"cn-collider-{uuid_module.uuid4().hex[:12]}"
+        collider_uuid = export_identity.export_uuid(current)
         collider_specs.append((current.name, collider_uuid, material))
         if capture is None:
             exported = SceneObject(current.name, collider_uuid, vertices,
@@ -2423,13 +3885,26 @@ def build_run_plan(context, *, animated_pin_samples=None,
         scene_colliders, collider_specs)
     project_name = new_project_name()
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
+    payload_cache = _payload_cache_for(cloth_obj)
+    scene_cache_key = deterministic_key("scene", {
+        "geometry": snapshot.geometry_fingerprint,
+        "topology": snapshot.topology_signature,
+        "objects": [(scene_cloth.uuid, scene_cloth.name, deformable_role)],
+        "colliders": motion_meta,
+        "pin": pin_snapshot.fingerprint,
+        "sewing": stitch_pairs,
+        "friction_regions": _friction_region_settings(cloth_obj),
+        "frame_range": [bake_range.start, bake_range.end],
+        "fps": int(scene.render.fps),
+    })
     try:
         deforming_capture = any(
             capture is not None and
             capture.motion_type == "DEFORMING_ANIMATED"
             for _obj, _vertices, _triangles, _world, capture
             in collider_records)
-        if deforming_capture:
+        def encode_scene_payload():
+          if deforming_capture:
             encoding_total = max(
                 int(capture.animation["vert_frames"].shape[0])
                 for _obj, _vertices, _triangles, _world, capture
@@ -2451,18 +3926,19 @@ def build_run_plan(context, *, animated_pin_samples=None,
             group = ({"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
                       "SOFT_BODY": GROUP_SOLID,
                       "RIGID_BODY": GROUP_PDRD}[deformable_role])
-            data_payload, data_hash = encode_multi_deformable_scene_file(
+            return encode_multi_deformable_scene_file(
                 ((scene_cloth, group),), scene_colliders,
                 work_directory / "scene.cbor",
                 progress=encoding_progress)
-        elif deformable_role == "CLOTH":
-            data_payload, data_hash = encode_scene(scene_cloth, scene_colliders)
-        else:
-            data_payload, data_hash = encode_deformable_scene(
+          if deformable_role == "CLOTH":
+            return encode_scene(scene_cloth, scene_colliders)
+          return encode_deformable_scene(
                 scene_cloth, scene_colliders,
                 group_type=("ROD" if deformable_role == "ROD" else
                             "PDRD" if deformable_role == "RIGID_BODY" else
                             "SOLID"))
+        data_payload, data_hash = _cached_payload(
+            payload_cache, "scene", scene_cache_key, encode_scene_payload)
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -2479,20 +3955,24 @@ def build_run_plan(context, *, animated_pin_samples=None,
                       if "AIR_FRICTION" in force_capture.active_scalar_types else None),
         vertex_air_damp=(force_capture.initial.vertex_air_damp
                          if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
-        dynamic_parameters=force_capture.dynamic_parameters)
-    if deformable_role == "CLOTH":
-        from ..ppf.schema.params import encode_multi_collider_param
-        param_payload, param_hash = encode_multi_collider_param(
+        dynamic_parameters=force_capture.dynamic_parameters,
+        **_recovery_param_kwargs(scene))
+    def encode_param_payload():
+      if deformable_role == "CLOTH":
+        return encode_multi_collider_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
             contact_enabled=contact_enabled, static_pin=pin_config)
-    else:
-        from ..ppf.schema.params import encode_deformable_param
-        param_payload, param_hash = encode_deformable_param(
+      return encode_deformable_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs,
             group_type=("ROD" if deformable_role == "ROD" else
                         "PDRD" if deformable_role == "RIGID_BODY" else
                         "SOLID"),
             material=shell, contact_enabled=contact_enabled)
+    param_cache_key = _param_source_key(
+        context, snapshot, force_capture, (cloth_uuid,),
+        tuple(item[1] for item in collider_specs))
+    param_payload, param_hash = _cached_payload(
+        payload_cache, "param", param_cache_key, encode_param_payload)
     # Reused from the single authoritative validation — the topology is not
     # hashed and the pin group is not scanned a second time here.
     settings_fp = snapshot.settings_fingerprint
@@ -2606,7 +4086,150 @@ def build_run_plan(context, *, animated_pin_samples=None,
                    stitch_snap_distance=(
                        max(1e-6, 2.0 * shell.collision_gap
                            + shell.surface_offset)
-                       if stitch_pairs else 0.0))
+                       if stitch_pairs else 0.0),
+                   scene_cache_key=source_key or "",
+                   pin_configs=(pin_config,),
+                   param_cache_key=param_cache_key)
+
+
+def build_run_plan(context, *, animated_pin_samples=None,
+                   force_capture: ForceCapture | None = None,
+                   collider_captures=None,
+                   snapshot: ValidationSnapshot | None = None) -> RunPlan:
+    """Build and time a pure worker plan from one validation snapshot."""
+    global _export_timing_sink, _export_cache_event_sink
+    started = time.monotonic()
+    timings = dict(getattr(snapshot, "timings", {}) if snapshot else {})
+    cache_events: dict[str, str] = {}
+    previous = _export_timing_sink
+    previous_cache_events = _export_cache_event_sink
+    _export_timing_sink = timings
+    _export_cache_event_sink = cache_events
+    try:
+        plan = _build_run_plan_impl(
+            context, animated_pin_samples=animated_pin_samples,
+            force_capture=force_capture,
+            collider_captures=collider_captures, snapshot=snapshot)
+        if (snapshot is not None and plan.scene_cache_key
+                and not timings.get("scene_early_cache_hit")):
+            _store_scene_plan_cache(
+                context, snapshot, plan, plan.scene_cache_key)
+    finally:
+        _export_timing_sink = previous
+        _export_cache_event_sink = previous_cache_events
+    timings["export_preparation"] = time.monotonic() - started
+    plan = replace(
+        plan, export_timings=timings,
+        export_cache_events=cache_events)
+    return _configure_recovery(context, snapshot, plan)
+
+
+def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
+    settings = getattr(context.scene, "cloth_next_recovery", None)
+    if (snapshot is None or settings is None
+            or not bool(getattr(settings, "enabled", False))
+            or not plan.scene_cache_key or not plan.param_cache_key):
+        return plan
+    targets = _plan_deformables(plan)
+    cache_root = targets[0].pc2_path.parent
+    root = recovery.recovery_root(cache_root, plan.scene_cache_key)
+    metadata = root / recovery.METADATA_NAME
+    partials = tuple(
+        (target.uuid, str(
+            root / "partials" / f"{target.uuid}.pc2.partial"))
+        for target in targets)
+    collider_sampling = tuple(sorted(
+        (export_identity.export_uuid(obj),
+         int(getattr(obj.cloth_next, "collider_samples_per_frame", 1)))
+        for obj in snapshot.collider_objs))
+    identity = recovery.RecoveryIdentity(
+        scene_key=plan.scene_cache_key,
+        param_key=plan.param_cache_key,
+        export_uuids=tuple(sorted(
+            [target.uuid for target in targets]
+            + [export_identity.export_uuid(obj)
+               for obj in snapshot.collider_objs])),
+        geometry_fingerprint=plan.geometry_fingerprint,
+        topology_fingerprint=hashlib.sha256(
+            json.dumps(sorted(
+                (target.uuid, target.topology_signature)
+                for target in targets),
+                separators=(",", ":")).encode("utf-8")).hexdigest(),
+        frame_start=plan.frame_start, frame_end=plan.frame_end,
+        fps=float(plan.fps), collider_sampling=collider_sampling,
+        solver_version=plan.resolved.package_version or "unknown",
+        protocol_version=plan.resolved.protocol_version or "unknown",
+        solver_schema_version=plan.resolved.schema_version or "unknown")
+    resume_requested = bool(getattr(settings, "resume_requested", False))
+    existing = recovery.load_project(metadata)
+    resume = False
+    completed = ()
+    server_root = root / "server-data"
+    project_name = plan.scene.project_name
+    settings.status = "No checkpoint"
+    settings.status_detail = ""
+    settings.compatible = False
+    settings.resumable = False
+    if existing is not None and resume_requested:
+        match = recovery.compatibility(existing.identity, identity)
+        if (match.compatible and existing.state in {
+                recovery.ProjectState.RESUMABLE,
+                recovery.ProjectState.FAILED}
+                and existing.checkpoints):
+            resume = True
+            server_root = Path(existing.server_data_root)
+            project_name = existing.project_id
+            counts = []
+            for target in targets:
+                partial_path = dict(existing.partial_pc2).get(target.uuid)
+                if not partial_path:
+                    counts = []
+                    break
+                try:
+                    counts.append(pc2.partial_frame_count(
+                        Path(partial_path), pc2.Pc2Header(
+                            len(target.initial_local),
+                            import_result.PC2_START_FRAME,
+                            import_result.PC2_SAMPLE_RATE,
+                            plan.frame_count)))
+                except (OSError, pc2.Pc2Error):
+                    counts = []
+                    break
+            if counts and len(set(counts)) == 1:
+                # PC2 frame zero is the initial pose; solver frames start at 1.
+                completed = tuple(range(1, max(1, counts[0])))
+            else:
+                # Without an authenticated partial, fetch every output frame
+                # again. The solver project is still safely reusable.
+                completed = ()
+    if existing is not None:
+        match = recovery.compatibility(existing.identity, identity)
+        settings.compatible = match.compatible
+        settings.resumable = bool(
+            match.compatible and existing.checkpoints
+            and existing.state in {
+                recovery.ProjectState.RESUMABLE,
+                recovery.ProjectState.FAILED})
+        settings.status = (
+            f"Frame {existing.last_frame} · Compatible"
+            if settings.resumable else existing.state.value.title())
+        settings.status_detail = (
+            "Checkpoint saved · Resume available"
+            if settings.resumable else match.reason)
+    options = RecoveryOptions(
+        enabled=True, metadata_path=metadata, identity=identity,
+        server_data_root=server_root, resume=resume,
+        keep_saved_states=int(settings.keep_saved_states),
+        save_on_cancel=bool(settings.save_on_cancel),
+        keep_on_finish=bool(settings.save_on_finish),
+        completed_solver_frames=completed, partial_pc2=partials)
+    settings.recovery_directory = str(root)
+    settings.resume_requested = False
+    if resume:
+        return replace(
+            plan, scene=replace(plan.scene, project_name=project_name),
+            recovery_options=options)
+    return replace(plan, recovery_options=options)
 
 
 # ---------------------------------------------------------------------------
@@ -2782,6 +4405,9 @@ def _worker_main_multi(plan: RunPlan) -> None:
     targets = _plan_deformables(plan)
     writers = {}
     partials = {}
+    recovery_partials = dict(
+        plan.recovery_options.partial_pc2
+        if plan.recovery_options is not None else ())
     try:
         for target in targets:
             if target.material_meta:
@@ -2798,8 +4424,12 @@ def _worker_main_multi(plan: RunPlan) -> None:
                 target.pc2_path, vertex_count=len(target.initial_local),
                 frame_count=plan.frame_count,
                 start_frame=import_result.PC2_START_FRAME,
-                sample_rate=import_result.PC2_SAMPLE_RATE)
-            writer.write_frame(target.initial_local)
+                sample_rate=import_result.PC2_SAMPLE_RATE,
+                resume_path=(
+                    Path(recovery_partials[target.uuid])
+                    if target.uuid in recovery_partials else None))
+            if writer.frames_written == 0:
+                writer.write_frame(target.initial_local)
             writers[target.uuid] = writer
         to_local = {target.uuid: solver_world_to_object_local(
                     target.world_matrix) for target in targets}
@@ -2835,8 +4465,10 @@ def _worker_main_multi(plan: RunPlan) -> None:
         session = SolverSession(
             resolved=plan.resolved, scene=plan.scene,
             work_directory=plan.work_directory, emit=emit,
-            cancel_event=_cancel_event, frame_sink=consume)
+            cancel_event=_cancel_event, frame_sink=consume,
+            recovery_options=plan.recovery_options)
         diagnostics = session.run()
+        _merge_export_diagnostics(diagnostics, plan)
         diagnostics.timings["coordinate_transform"] = transform_seconds
         diagnostics.timings["pc2_write"] = write_seconds
         emit(type("CacheEvent", (), {
@@ -2873,9 +4505,9 @@ def _worker_main_multi(plan: RunPlan) -> None:
                     cache_metadata.sidecar_path(target.pc2_path), metadata)
         diagnostics.timings["total"] = time.monotonic() - _run_started_at
         _queue.put(("finished", headers, diagnostics))
-    except SessionCancelled:
+    except SessionCancelled as exc:
         for writer in writers.values():
-            writer.abort()
+            writer.preserve() if exc.resumable else writer.abort()
         _discard_incomplete(plan, state="cancelled",
                             reason="Bake cancelled before publication")
         _queue.put(("cancelled", None, None))
@@ -2920,9 +4552,17 @@ def _worker_main(plan: RunPlan) -> None:
             plan.pc2_path, vertex_count=len(plan.initial_local),
             frame_count=plan.frame_count,
             start_frame=import_result.PC2_START_FRAME,
-            sample_rate=import_result.PC2_SAMPLE_RATE)
+            sample_rate=import_result.PC2_SAMPLE_RATE,
+            resume_path=(
+                Path(dict(plan.recovery_options.partial_pc2).get(
+                    str(getattr(plan.scene, "cloth_uuid", ""))))
+                if plan.recovery_options is not None
+                and dict(plan.recovery_options.partial_pc2).get(
+                    str(getattr(plan.scene, "cloth_uuid", "")))
+                else None))
         step = time.monotonic()
-        writer.write_frame(plan.initial_local)
+        if writer.frames_written == 0:
+            writer.write_frame(plan.initial_local)
         write_seconds = time.monotonic() - step
         transform_seconds = 0.0
         to_local = solver_world_to_object_local(plan.world_matrix)
@@ -2954,10 +4594,12 @@ def _worker_main(plan: RunPlan) -> None:
         session = SolverSession(resolved=plan.resolved, scene=plan.scene,
                                 work_directory=plan.work_directory,
                                 emit=emit, cancel_event=_cancel_event,
-                                frame_sink=consume)
+                                frame_sink=consume,
+                                recovery_options=plan.recovery_options)
         diagnostics = session.run()
         if not hasattr(diagnostics, "timings"):
             diagnostics.timings = {}
+        _merge_export_diagnostics(diagnostics, plan)
         diagnostics.timings["coordinate_transform"] = transform_seconds
         diagnostics.timings["pc2_write"] = write_seconds
         emit(type("CacheEvent", (), {
@@ -3003,9 +4645,9 @@ def _worker_main(plan: RunPlan) -> None:
             "timings": diagnostics.timings,
         })
         _queue.put(("finished", header, diagnostics))
-    except SessionCancelled:
+    except SessionCancelled as exc:
         if writer is not None:
-            writer.abort()
+            writer.preserve() if exc.resumable else writer.abort()
         _discard_incomplete(plan, state="cancelled",
                             reason="Bake cancelled before publication")
         _queue.put(("cancelled", None, None))
@@ -3422,6 +5064,35 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
+def _refresh_recovery_ui(plan: RunPlan) -> None:
+    """Main-thread file check; Panel.draw consumes only these cached fields."""
+    options = getattr(plan, "recovery_options", None)
+    settings = getattr(
+        getattr(bpy.context, "scene", None), "cloth_next_recovery", None)
+    if options is None or settings is None:
+        return
+    record = recovery.load_project(options.metadata_path)
+    if record is None:
+        settings.status = "Checkpoint damaged"
+        settings.status_detail = "Recovery metadata is missing or invalid"
+        settings.compatible = False
+        settings.resumable = False
+        return
+    match = recovery.compatibility(record.identity, options.identity)
+    settings.compatible = match.compatible
+    settings.resumable = bool(
+        match.compatible and record.checkpoints
+        and record.state in {
+            recovery.ProjectState.RESUMABLE,
+            recovery.ProjectState.FAILED})
+    settings.status = (
+        f"Frame {record.last_frame} · Compatible"
+        if settings.resumable else record.state.value.title())
+    settings.status_detail = (
+        "Checkpoint saved · Resume available"
+        if settings.resumable else match.reason)
+
+
 def _pump_once() -> float | None:
     global _worker, _active_plan, _ram_auto_cancel_triggered
     plan = _active_plan
@@ -3514,6 +5185,7 @@ def _pump_once() -> float | None:
                                            "Importing the solver result failed.",
                                            details))
             _worker, _active_plan = None, None
+            _refresh_recovery_ui(plan)
             modal_lock.release()
             shared_telemetry.set_solver_pid(None)
             return None
@@ -3531,6 +5203,7 @@ def _pump_once() -> float | None:
                                  status_message="Solver test cancelled",
                                  estimated_remaining_seconds=None)
             _discard_incomplete(plan)
+            _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
@@ -3539,6 +5212,7 @@ def _pump_once() -> float | None:
             code = message[3] if len(message) > 3 else ""
             shared_controller.fail(message[1], message[2], error_code=code)
             _discard_incomplete(plan)
+            _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
@@ -3737,16 +5411,28 @@ def begin_production_bake(context) -> tuple[str, bool]:
             _require_cache_directories(
                 tuple(entry.obj for entry in snapshot.deformables))
             bake_range=snapshot.bake_range
+            source_key, _source_reason = _scene_source_key(
+                context, snapshot)
+            if _verified_early_scene_available(snapshot, source_key):
+                plan = build_run_plan(context, snapshot=snapshot)
+                return _continue_production_bake(context, job_id, plan)
             animated_targets = tuple(
                 (entry.obj.name, entry.pin_membership)
                 for entry in (snapshot.deformables or ())
                 if (entry.pin_membership.enabled and str(getattr(
                     entry.obj.cloth_next, "pin_mode", "STATIC")) ==
                     "FOLLOW_ANIMATION"))
-            animated_colliders = any(
+            animated_colliders = tuple(
+                obj for obj in snapshot.collider_objs
+                if
                 str(getattr(obj.cloth_next, "collider_motion", "STATIC")) ==
-                "ANIMATED" for obj in snapshot.collider_objs)
-            if animated_targets or animated_colliders:
+                "ANIMATED")
+            force_capture = _capture_force_without_timeline(
+                context, bake_range)
+            needs_timeline = bool(
+                animated_targets or animated_colliders
+                or force_capture is None)
+            if needs_timeline:
                 try:
                     prefs = context.preferences.addons[
                         __package__.partition(".blender")[0]].preferences
@@ -3758,17 +5444,32 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     ok, message = companion_manager.ensure_running()
                     if not ok:
                         raise SceneValidationError(message)
-            if animated_targets or (animated_colliders and
-                                    open_preparation_window):
+            if needs_timeline:
+                collider_rates = tuple(int(getattr(
+                    obj.cloth_next, "collider_samples_per_frame",
+                    COLLIDER_SAMPLES_PER_FRAME))
+                    for obj in animated_colliders)
+                points = build_sample_plan(
+                    bake_range.start, bake_range.end,
+                    collider_samples=collider_rates,
+                    include_integer_frames=bool(
+                        animated_targets or force_capture is None))
                 capture={"context":context,"targets":animated_targets,
-                    "range":bake_range,"next":bake_range.start,
+                    "range":bake_range,"points":points,"point_index":0,
                     "samples":{name: [] for name, _membership in animated_targets},
                     "force_samples":[], "active_scalar_types":set(),
+                    "force_capture":force_capture,
+                    "collider_states":_begin_collider_pump(
+                        animated_colliders, bake_range, _scene_fps(context)),
                     "index_arrays":{
                         name: np.asarray(membership.vertex_indices,
                                          dtype=np.intp)
                         for name, membership in animated_targets},
-                    "original":int(context.scene.frame_current),"job_id":job_id,
+                    "original":int(context.scene.frame_current),
+                    "original_subframe":float(getattr(
+                        context.scene, "frame_subframe", 0.0)),
+                    "capture_started":time.perf_counter(),
+                    "job_id":job_id,
                     "snapshot":snapshot,
                     "wait_for_companion":open_preparation_window,
                     "companion_deadline":time.monotonic() +
@@ -3784,7 +5485,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
                            "Opening Bake window before animated Collider capture")
                 shared_controller.update(status_message=message,
                     activity_code=activity,
-                    progress_current=0,progress_total=bake_range.output_count)
+                    progress_current=0,progress_total=len(points))
                 if not bpy.app.timers.is_registered(_pin_capture_pump):
                     bpy.app.timers.register(_pin_capture_pump,first_interval=.05)
                 return job_id,True
@@ -3842,8 +5543,9 @@ def _restore_pin_capture_state(state) -> None:
         except (ReferenceError, AttributeError):
             pass
     context = state["context"]
-    context.scene.frame_set(state["original"])
-    _depsgraph_update(context)
+    context.scene.frame_set(
+        state["original"],
+        subframe=float(state.get("original_subframe", 0.0)))
 
 
 def _sample_evaluated_pin_positions(context, obj, membership, *,
@@ -3889,35 +5591,58 @@ def _pin_capture_pump():
             else:
                 shared_controller.update(status_message=message)
                 return .05
-        frame=state["next"]
-        # scene.frame_set() evaluates Blender's dependency graph itself. A
-        # subsequent view_layer.update() repeats the expensive rig/modifier
-        # work and made high-resolution character captures roughly twice as
-        # costly. Share the resulting graph across every Pin target instead.
-        scene.frame_set(frame)
+        if _cancel_event.is_set():
+            raise SessionCancelled()
+        point_index = state["point_index"]
+        point = state["points"][point_index]
+        frame = point.frame
+        scene.frame_set(frame, subframe=point.subframe)
         depsgraph = context.evaluated_depsgraph_get()
-        for object_name, membership in state["targets"]:
-            obj=bpy.data.objects.get(object_name)
-            if obj is None:
-                raise SceneValidationError(
-                    f"The Cloth object {object_name!r} no longer exists.")
-            positions = _sample_evaluated_pin_positions(
-                context, obj, membership, depsgraph=depsgraph,
-                index_array=state["index_arrays"][object_name])
-            state["samples"][object_name].append(
-                AnimatedPinTargetSample(frame, positions))
-        force_state, active_scalar_types = _force_state(
-            context, wind_frame=frame)
-        state["force_samples"].append(force_state)
-        state["active_scalar_types"].update(active_scalar_types)
+        timings = state["snapshot"].timings
+        timings["frame_set_count"] = timings.get(
+            "frame_set_count", 0.0) + 1.0
+        timings["depsgraph_evaluation_count"] = timings.get(
+            "depsgraph_evaluation_count", 0.0) + 1.0
+        if point.position.denominator == 1:
+            for object_name, membership in state["targets"]:
+                obj=bpy.data.objects.get(object_name)
+                if obj is None:
+                    raise SceneValidationError(
+                        f"The Cloth object {object_name!r} no longer exists.")
+                positions = _sample_evaluated_pin_positions(
+                    context, obj, membership, depsgraph=depsgraph,
+                    index_array=state["index_arrays"][object_name])
+                state["samples"][object_name].append(
+                    AnimatedPinTargetSample(frame, positions))
+                timings["pin_sample_count"] = timings.get(
+                    "pin_sample_count", 0.0) + 1.0
+                timings["evaluated_get_count"] = timings.get(
+                    "evaluated_get_count", 0.0) + 1.0
+            if state["force_capture"] is None:
+                force_state, active_scalar_types = _force_state(
+                    context, wind_frame=frame)
+                state["force_samples"].append(force_state)
+                state["active_scalar_types"].update(active_scalar_types)
+                timings["force_sample_count"] = timings.get(
+                    "force_sample_count", 0.0) + 1.0
+        collider_count, evaluated_count, mesh_count = (
+            _pump_collider_point(
+                depsgraph, point, state["collider_states"]))
+        timings["collider_sample_count"] = timings.get(
+            "collider_sample_count", 0.0) + collider_count
+        timings["evaluated_get_count"] = timings.get(
+            "evaluated_get_count", 0.0) + evaluated_count
+        timings["to_mesh_count"] = timings.get(
+            "to_mesh_count", 0.0) + mesh_count
         shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",
-            activity_code=BakeActivity.CAPTURING_PIN_TARGETS,
-            progress_current=frame-state["range"].start+1)
-        if frame<state["range"].end:
-            # A short yield keeps Blender's native event loop, Companion IPC,
-            # redraw, Escape cancellation and the OS window watchdog alive.
-            # Zero-delay rescheduling can monopolize app timers on heavy rigs.
-            state["next"]=frame+1; return .005
+            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
+                           if state["collider_states"]
+                           else BakeActivity.CAPTURING_PIN_TARGETS),
+            progress_current=point_index + 1,
+            progress_total=len(state["points"]))
+        if point_index + 1 < len(state["points"]):
+            state["point_index"] = point_index + 1
+            return .005
         job_id=state["job_id"]
         sample_map={name:tuple(samples)
                     for name,samples in state["samples"].items()}
@@ -3926,35 +5651,34 @@ def _pin_capture_pump():
                  sample_map if snapshot is not None
                  and len(snapshot.deformables)>1
                  else next(iter(sample_map.values())))
-        force_capture = _force_capture_from_samples(
-            state["force_samples"], state["active_scalar_types"],
-            state["range"], _scene_fps(context))
-        animated_colliders = tuple(
-            obj for obj in getattr(snapshot, "collider_objs", ())
-            if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
-            == "ANIMATED") if snapshot is not None else ()
-        collider_sample_total = sum(
-            (state["range"].output_count - 1) * int(getattr(
-                obj.cloth_next, "collider_samples_per_frame",
-                COLLIDER_SAMPLES_PER_FRAME)) + 1
-            for obj in animated_colliders)
+        force_capture = state["force_capture"]
+        if force_capture is None:
+            force_capture = _force_capture_from_samples(
+                state["force_samples"], state["active_scalar_types"],
+                state["range"], _scene_fps(context))
+        collider_captures = _finish_collider_pump(
+            state["collider_states"])
+        timings["capture_seconds"] = (
+            timings.get("capture_seconds", 0.0)
+            + time.perf_counter() - state["capture_started"])
         shared_controller.update(
-            status_message=("Preparing animated Collider capture"
-                            if animated_colliders
-                            else "Preparing evaluated geometry"),
-            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
-                           if animated_colliders
-                           else BakeActivity.CAPTURING_GEOMETRY),
+            status_message="Preparing evaluated geometry",
+            activity_code=BakeActivity.CAPTURING_GEOMETRY,
             progress_current=0,
-            progress_total=collider_sample_total)
+            progress_total=1)
         _restore_pin_capture_state(state)
         _pin_capture=None
         # Reuses the Bake's single validation; no second topology hash or pin scan.
         plan=build_run_plan(context,animated_pin_samples=samples,
                             force_capture=force_capture,
+                            collider_captures=collider_captures,
                             snapshot=state.get("snapshot"))
         _continue_production_bake(context,job_id,plan); return None
     except Exception as exc:
+        try:
+            _cleanup_collider_pump(state.get("collider_states", {}))
+        except Exception:
+            pass
         try:_restore_pin_capture_state(state)
         except Exception:pass
         _pin_capture=None; _pending_job_id=""
@@ -4496,6 +6220,119 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _recovery_metadata_from_scene(scene) -> Path | None:
+    settings = getattr(scene, "cloth_next_recovery", None)
+    root = str(getattr(settings, "recovery_directory", "") or "").strip()
+    return Path(root) / recovery.METADATA_NAME if root else None
+
+
+class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
+    bl_idname = "clothnext.recovery_resume_latest"
+    bl_label = "Resume Latest"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        settings = getattr(context.scene, "cloth_next_recovery", None)
+        return bool(settings and settings.resumable and not run_active())
+
+    def execute(self, context):
+        context.scene.cloth_next_recovery.resume_requested = True
+        try:
+            bpy.ops.clothnext.bake("INVOKE_DEFAULT")
+        except (AttributeError, RuntimeError):
+            self.report({"INFO"}, "Resume selected. Start Bake to continue.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
+    bl_idname = "clothnext.recovery_start_fresh"
+    bl_label = "Start Fresh"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        return not run_active()
+
+    def invoke(self, context, _event):
+        return context.window_manager.invoke_confirm(self, _event)
+
+    def execute(self, context):
+        metadata = _recovery_metadata_from_scene(context.scene)
+        if metadata is None:
+            return {"FINISHED"}
+        record = recovery.load_project(metadata, verify_checkpoints=False)
+        if record is not None:
+            try:
+                record = recovery.transition(
+                    metadata, record, recovery.ProjectState.ABANDONED,
+                    error="Fresh Bake confirmed by user")
+            except ValueError:
+                pass
+            project = Path(record.project_root).resolve()
+            server_root = Path(record.server_data_root).resolve()
+            if project != server_root and project.is_relative_to(server_root):
+                shutil.rmtree(project, ignore_errors=True)
+            for _uuid, partial in record.partial_pc2:
+                try:
+                    Path(partial).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            try:
+                recovery.transition(
+                    metadata, record, recovery.ProjectState.DELETED)
+            except (OSError, ValueError):
+                pass
+        settings = context.scene.cloth_next_recovery
+        settings.resume_requested = False
+        settings.resumable = False
+        settings.compatible = False
+        settings.status = "Fresh Bake"
+        settings.status_detail = "Previous recovery project removed"
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_recovery_clear_checkpoints(bpy.types.Operator):
+    bl_idname = "clothnext.recovery_clear_checkpoints"
+    bl_label = "Clear Checkpoints"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        return not run_active()
+
+    def invoke(self, context, _event):
+        return context.window_manager.invoke_confirm(self, _event)
+
+    def execute(self, context):
+        metadata = _recovery_metadata_from_scene(context.scene)
+        if metadata is not None:
+            recovery.clear_checkpoints(metadata)
+        settings = context.scene.cloth_next_recovery
+        settings.resumable = False
+        settings.compatible = False
+        settings.status = "No checkpoint"
+        settings.status_detail = "Saved States cleared"
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_recovery_open_folder(bpy.types.Operator):
+    bl_idname = "clothnext.recovery_open_folder"
+    bl_label = "Open Recovery Folder"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        metadata = _recovery_metadata_from_scene(context.scene)
+        return bool(metadata is not None and metadata.parent.is_dir())
+
+    def execute(self, context):
+        metadata = _recovery_metadata_from_scene(context.scene)
+        assert metadata is not None
+        os.startfile(str(metadata.parent))
+        return {"FINISHED"}
+
+
 class CLOTHNEXT_OT_solver_test_open_logs(bpy.types.Operator):
     """Open the folder holding the last solver test run's logs and data"""
 
@@ -4626,6 +6463,10 @@ CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
            CLOTHNEXT_OT_validate,
            CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
+           CLOTHNEXT_OT_recovery_resume_latest,
+           CLOTHNEXT_OT_recovery_start_fresh,
+           CLOTHNEXT_OT_recovery_clear_checkpoints,
+           CLOTHNEXT_OT_recovery_open_folder,
            CLOTHNEXT_OT_companion_open_logs,
            CLOTHNEXT_OT_set_cache_directory,
            CLOTHNEXT_OT_inspect_parameters)

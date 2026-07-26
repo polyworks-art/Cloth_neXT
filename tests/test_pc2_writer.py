@@ -142,3 +142,37 @@ def test_streaming_output_is_byte_exact_with_legacy_reference(tmp_path):
         writer.write_frame(frame)
     writer.finalize()
     assert streamed.read_bytes() == reference.read_bytes()
+
+
+def test_partial_pc2_resumes_only_at_valid_frame_boundary(tmp_path):
+    final = tmp_path / "result.pc2"
+    partial = tmp_path / "result.pc2.partial"
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=2, frame_count=3, resume_path=partial)
+    writer.write_frame([[0, 0, 0], [1, 0, 0]])
+    writer.write_frame([[0, 1, 0], [1, 1, 0]])
+    assert writer.preserve() == partial
+    expected = pc2.Pc2Header(2, 0.0, 1.0, 3)
+    assert pc2.partial_frame_count(partial, expected) == 2
+
+    resumed = pc2.StreamingPc2Writer(
+        final, vertex_count=2, frame_count=3, resume_path=partial)
+    assert resumed.frames_written == 2
+    resumed.write_frame([[0, 2, 0], [1, 2, 0]])
+    resumed.finalize()
+    assert not partial.exists()
+    assert [frame.tolist() for frame in pc2.iter_frames(final)] == [
+        [[0, 0, 0], [1, 0, 0]],
+        [[0, 1, 0], [1, 1, 0]],
+        [[0, 2, 0], [1, 2, 0]],
+    ]
+
+
+def test_damaged_partial_is_never_resumed(tmp_path):
+    partial = tmp_path / "damaged.partial"
+    partial.write_bytes(b"not a pc2")
+    with pytest.raises(pc2.Pc2Error):
+        pc2.StreamingPc2Writer(
+            tmp_path / "result.pc2", vertex_count=1, frame_count=2,
+            resume_path=partial)
+    assert not partial.exists()

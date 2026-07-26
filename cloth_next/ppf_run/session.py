@@ -34,6 +34,7 @@ from ..ppf.models import ConnectionOwnership
 from ..ppf.process import SolverProcessConfig, SolverProcessManager
 from ..ppf.resolver import ResolvedSolver
 from ..ppf.transport import TransportConfig
+from .. import recovery
 from ..updater.health_runner import bundle_root_for, free_port
 
 # Wire status tokens (crates/ppf-cts-server, verified at pinned 7193f158).
@@ -80,6 +81,24 @@ def _tail_numeric_metric(path: Path) -> int | None:
 
 class SessionCancelled(Exception):
     """The run was cancelled cooperatively; not an error."""
+
+    def __init__(self, *, resumable: bool = False) -> None:
+        super().__init__("solver session cancelled")
+        self.resumable = bool(resumable)
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryOptions:
+    enabled: bool
+    metadata_path: Path
+    identity: recovery.RecoveryIdentity
+    server_data_root: Path
+    resume: bool = False
+    keep_saved_states: int = 3
+    save_on_cancel: bool = True
+    keep_on_finish: bool = False
+    completed_solver_frames: tuple[int, ...] = ()
+    partial_pc2: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +191,7 @@ class SessionDiagnostics:
     status_transitions: list[str] = field(default_factory=list)
     fetched_frames: list[int] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
+    cache_events: dict[str, str] = field(default_factory=dict)
     stdout_tail: tuple[str, ...] = ()
     stderr_tail: tuple[str, ...] = ()
     contact_peak: int = 0
@@ -206,7 +226,8 @@ class SolverSession:
                  frame_sink: Callable[[SolverFrame], None] | None = None,
                  poll_interval: float = _POLL_INTERVAL,
                  build_timeout: float = 600.0,
-                 simulate_timeout: float = 600.0) -> None:
+                 simulate_timeout: float = 600.0,
+                 recovery_options: RecoveryOptions | None = None) -> None:
         self.resolved = resolved
         self.scene = scene
         self.work_directory = work_directory
@@ -218,6 +239,9 @@ class SolverSession:
         self._poll_interval = poll_interval
         self._build_timeout = build_timeout
         self._simulate_timeout = simulate_timeout
+        self._recovery = recovery_options
+        self._recovery_record: recovery.ProjectRecord | None = None
+        self._known_saved_states: tuple[int, ...] = ()
         self._manager: SolverProcessManager | None = None
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
@@ -257,10 +281,14 @@ class SolverSession:
                                   self.scene.project_name)
         status = str(response.get("status", ""))
         self.diagnostics.note_status(status)
+        self._sync_checkpoints(response)
         return response
 
     def _runtime_activity(self) -> tuple[str, str]:
-        metric_root = (self.work_directory / "server-data" /
+        server_root = (
+            self._recovery.server_data_root if self._recovery is not None
+            else self.work_directory / "server-data")
+        metric_root = (server_root /
                        self.scene.project_name / "session" / "output" /
                        "data")
         values = {name: _tail_numeric_metric(metric_root / filename)
@@ -303,6 +331,24 @@ class SolverSession:
 
     def _owned_connection_error(self, exc: ClothNextError) -> ClothNextError:
         """Replace opaque socket failures with owned-process evidence."""
+        executable = self.resolved.executable_path
+        worker = (None if executable is None else
+                  executable.with_name("ppf-contact-solver.exe"))
+        if worker is not None and not worker.is_file():
+            return ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_INSTALLATION,
+                user_message=(
+                    "The native solver worker is missing. Security software "
+                    "may have quarantined it."),
+                technical_message=(
+                    f"native solver worker disappeared during the Bake: "
+                    f"{worker}; original_error={exc.record.technical_message}"),
+                recommended_action=(
+                    "Restore or reinstall the verified solver, allow its "
+                    "installation folder in the security software, then "
+                    "retry the Bake."),
+                recoverable=True,
+                context={"worker_path": str(worker)}))
         if self._manager is None:
             return exc
         poll = self._manager.poll()
@@ -338,12 +384,84 @@ class SolverSession:
 
     # -- lifecycle ----------------------------------------------------------
 
+    def _recovery_start(self) -> None:
+        options = self._recovery
+        if options is None or not options.enabled:
+            return
+        path = options.metadata_path
+        recovery.cleanup_temporary_files(path.parent)
+        if options.resume:
+            record = recovery.load_project(path)
+            if record is None:
+                raise _session_error(
+                    "The recovery project is no longer available.",
+                    f"invalid recovery metadata at {path}")
+            match = recovery.compatibility(record.identity, options.identity)
+            if not match.compatible:
+                raise _session_error(
+                    "The saved Bake is not compatible with this scene.",
+                    match.reason)
+            if record.project_id != self.scene.project_name:
+                raise _session_error(
+                    "The recovery project identity does not match.",
+                    f"metadata project {record.project_id!r}, current "
+                    f"{self.scene.project_name!r}")
+            self._recovery_record = recovery.transition(
+                path, record, recovery.ProjectState.RESUMING)
+            return
+        project_root = options.server_data_root / self.scene.project_name
+        self._recovery_record = recovery.create_project(
+            path, project_id=self.scene.project_name,
+            identity=options.identity,
+            server_data_root=options.server_data_root,
+            project_root=project_root,
+            partial_pc2=options.partial_pc2)
+        self._recovery_record = recovery.transition(
+            path, self._recovery_record, recovery.ProjectState.RUNNING)
+
+    @staticmethod
+    def _saved_states(response: dict) -> tuple[int, ...]:
+        values = response.get("saved_states", ())
+        if not isinstance(values, (list, tuple)):
+            return ()
+        return tuple(sorted({
+            int(value) for value in values
+            if isinstance(value, int) and value >= 0}))
+
+    def _sync_checkpoints(self, response: dict) -> None:
+        options, record = self._recovery, self._recovery_record
+        if options is None or record is None:
+            return
+        saved = self._saved_states(response)
+        if saved == self._known_saved_states:
+            return
+        self._known_saved_states = saved
+        self._recovery_record = recovery.confirm_saved_states(
+            options.metadata_path, record, saved,
+            keep=options.keep_saved_states)
+
     def _start_owned_solver(self) -> None:
         executable = self.resolved.executable_path
         assert executable is not None
+        worker = executable.with_name("ppf-contact-solver.exe")
+        if not worker.is_file():
+            raise ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_INSTALLATION,
+                user_message=(
+                    "The native solver worker is missing. Security software "
+                    "may have quarantined it."),
+                technical_message=f"native solver worker is missing: {worker}",
+                recommended_action=(
+                    "Restore or reinstall the verified solver, allow its "
+                    "installation folder in the security software, then "
+                    "retry the Bake."),
+                recoverable=True,
+                context={"worker_path": str(worker)}))
         root = bundle_root_for(executable)
         layout = BundledSolverLayout.from_root(root)
-        server_data = self.work_directory / "server-data"
+        server_data = (
+            self._recovery.server_data_root if self._recovery is not None
+            else self.work_directory / "server-data")
         server_data.mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
         # Pin the per-project server data below our own work directory so
@@ -526,11 +644,20 @@ class SolverSession:
         first = positions_by_uuid[self.scene.dynamic_objects[0].uuid]
         return SolverFrame(frame, first, positions_by_uuid)
 
-    def _simulate_and_fetch(self) -> None:
+    def _simulate_and_fetch(self, *, resume: bool = False) -> None:
         total = self.scene.solver_frame_count
-        self._request(REQUEST_START_ALIAS)
+        if resume:
+            assert self._address is not None
+            response = wire.send_tcmd(
+                self._address, self.transport, self.scene.project_name,
+                wire.REQUEST_RESUME)
+            self.diagnostics.note_status(str(response.get("status", "")))
+        else:
+            self._request(REQUEST_START_ALIAS)
         output_map: results.OutputMap | None = None
-        fetched: set[int] = set()
+        fetched: set[int] = set(
+            self._recovery.completed_solver_frames
+            if self._recovery is not None and resume else ())
         deadline = time.monotonic() + self._simulate_timeout
         finished_status: str | None = None
         while len(fetched) < total:
@@ -621,6 +748,47 @@ class SolverSession:
         except ClothNextError:
             pass  # the server may already be gone; process cleanup follows
 
+    def _save_recovery_on_cancel(self) -> bool:
+        options, record = self._recovery, self._recovery_record
+        if (options is None or record is None
+                or not options.save_on_cancel or self._address is None):
+            return False
+        try:
+            record = recovery.transition(
+                options.metadata_path, record,
+                recovery.ProjectState.CHECKPOINT_REQUESTED)
+            self._recovery_record = record
+            self._request(wire.REQUEST_SAVE_AND_QUIT)
+            deadline = time.monotonic() + min(self._simulate_timeout, 120.0)
+            while time.monotonic() < deadline:
+                response = self._status()
+                status = str(response.get("status", ""))
+                if (status in (STATUS_RESUMABLE, STATUS_READY,
+                               STATUS_FAILED)
+                        and self._saved_states(response)):
+                    self._sync_checkpoints(response)
+                    record = self._recovery_record
+                    assert record is not None
+                    record = recovery.transition(
+                        options.metadata_path, record,
+                        recovery.ProjectState.SAVED)
+                    self._recovery_record = recovery.transition(
+                        options.metadata_path, record,
+                        recovery.ProjectState.RESUMABLE)
+                    return True
+                time.sleep(self._poll_interval)
+        except (ClothNextError, OSError, ValueError):
+            pass
+        if self._recovery_record is not None:
+            try:
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, self._recovery_record,
+                    recovery.ProjectState.FAILED,
+                    error="save_and_quit was not confirmed")
+            except (OSError, ValueError):
+                pass
+        return False
+
     def _delete_project(self) -> None:
         if self._address is None:
             return
@@ -649,8 +817,11 @@ class SolverSession:
         diagnostics on success. Cleanup always runs."""
         started = time.monotonic()
         owned = self.resolved.ownership is ConnectionOwnership.OWNED_PROCESS
+        completed = False
+        preserved = False
         try:
             self._check_cancel()
+            self._recovery_start()
             if owned:
                 self._event("STARTING_SOLVER", "Starting PPF solver",
                             indeterminate=True)
@@ -667,35 +838,82 @@ class SolverSession:
                 self._status()
                 self._metadata_event()
             self._check_cancel()
-            self._event("UPLOADING", "Uploading scene", indeterminate=True)
-            step = time.monotonic()
-            self._upload()
-            self.diagnostics.timings["upload"] = time.monotonic() - step
+            resuming = bool(self._recovery and self._recovery.resume)
+            if resuming:
+                response = self._status()
+                if (str(response.get("data_hash", "")) != self.scene.data_hash
+                        or str(response.get("param_hash", ""))
+                        != self.scene.param_hash):
+                    raise _session_error(
+                        "The saved solver project does not match this Bake.",
+                        "server data/param hash differs from recovery identity")
+                if not self._saved_states(response):
+                    raise _session_error(
+                        "The recovery project has no confirmed Saved State.",
+                        "server status has no saved_states")
+            else:
+                self._event("UPLOADING", "Uploading scene",
+                            indeterminate=True)
+                step = time.monotonic()
+                self._upload()
+                self.diagnostics.timings["upload"] = (
+                    time.monotonic() - step)
+                self._check_cancel()
+                self._event("BUILDING", "Building solver project",
+                            indeterminate=True)
+                step = time.monotonic()
+                self._request(REQUEST_BUILD_ALIAS)
+                self._await_build()
+                self.diagnostics.timings["build"] = (
+                    time.monotonic() - step)
             self._check_cancel()
-            self._event("BUILDING", "Building solver project",
-                        indeterminate=True)
             step = time.monotonic()
-            self._request(REQUEST_BUILD_ALIAS)
-            self._await_build()
-            self.diagnostics.timings["build"] = time.monotonic() - step
-            self._check_cancel()
-            step = time.monotonic()
-            self._simulate_and_fetch()
+            self._simulate_and_fetch(resume=resuming)
             self.diagnostics.timings["simulation_and_import"] = time.monotonic() - step
+            completed = True
+            if self._recovery_record is not None and self._recovery is not None:
+                self._recovery_record = recovery.transition(
+                    self._recovery.metadata_path, self._recovery_record,
+                    recovery.ProjectState.FINISHED,
+                    last_frame=self.scene.solver_frame_count)
+                preserved = self._recovery.keep_on_finish
             return self.diagnostics
         except SessionCancelled:
             self.diagnostics.cancelled = True
-            self._event("CANCELLING", "Cancelling solver run",
+            self._event("CANCELLING", "Saving recovery checkpoint",
                         indeterminate=True)
-            self._cancel_server_side()
-            raise
+            preserved = self._save_recovery_on_cancel()
+            if not preserved:
+                self._cancel_server_side()
+            raise SessionCancelled(resumable=preserved)
         except ClothNextError as exc:
+            if self._recovery_record is not None and self._recovery is not None:
+                try:
+                    state = (recovery.ProjectState.RESUMABLE
+                             if self._recovery_record.checkpoints
+                             else recovery.ProjectState.FAILED)
+                    self._recovery_record = recovery.transition(
+                        self._recovery.metadata_path, self._recovery_record,
+                        state, error=exc.record.technical_message)
+                    preserved = bool(self._recovery_record.checkpoints)
+                except (OSError, ValueError):
+                    pass
             if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
                 raise self._owned_connection_error(exc) from exc
             raise
         finally:
             try:
-                self._delete_project()
+                if (self._recovery is None or completed) and not preserved:
+                    self._delete_project()
+                    if (self._recovery_record is not None
+                            and self._recovery is not None):
+                        try:
+                            self._recovery_record = recovery.transition(
+                                self._recovery.metadata_path,
+                                self._recovery_record,
+                                recovery.ProjectState.DELETED)
+                        except (OSError, ValueError):
+                            pass
             finally:
                 if owned:
                     self._stop_owned()

@@ -68,9 +68,16 @@ def _resolve_shell_material(preset_identifier: str) -> ShellMaterialSettings:
 def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         preset: str = material_presets.DEFAULT_PRESET_ID,
         contact_enabled: bool = True, frame_count: int | None = None,
-        face_friction: tuple[float, ...] = ()) -> dict:
+        face_friction: tuple[float, ...] = (),
+        cloth_divisions: int = fixture.CLOTH_DIVISIONS) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cloth, collider = fixture.vertical_slice_fixture()
+    if cloth_divisions != fixture.CLOTH_DIVISIONS:
+        vertices, triangles = fixture.cloth_grid(
+            divisions=int(cloth_divisions))
+        cloth = fixture.FixtureMesh(
+            fixture.CLOTH_NAME, vertices, triangles,
+            (0.0, 0.0, fixture.CLOTH_HEIGHT))
     frame_count = (fixture.FRAME_END - fixture.FRAME_START + 1
                    if frame_count is None else int(frame_count))
     if frame_count < 2:
@@ -193,6 +200,11 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         "collider_triangles": len(collider.triangles),
         "blender_frames": frame_count,
         "solver_frames_fetched": diagnostics.fetched_frames,
+        "contact_peak": diagnostics.contact_peak,
+        "contact_last": diagnostics.contact_last,
+        "contact_samples": diagnostics.contact_samples,
+        "solver_stdout_tail": list(diagnostics.stdout_tail),
+        "solver_stderr_tail": list(diagnostics.stderr_tail),
         "status_transitions": diagnostics.status_transitions,
         "max_cloth_displacement_m": max_displacement,
         "pc2_path": str(pc2_path),

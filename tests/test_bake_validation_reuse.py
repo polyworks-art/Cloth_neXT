@@ -96,6 +96,45 @@ def test_run_plan_reuses_the_supplied_snapshot(env, monkeypatch):
     assert plan.geometry_fingerprint == snapshot.geometry_fingerprint
 
 
+def test_verified_early_scene_hit_skips_all_mesh_capture(
+        env, monkeypatch, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(
+        env.bpy, vertex_count=2_500, pinning=False)
+    module = env.solver_test
+    monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda obj, _depsgraph, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    first_snapshot = module.validate_scene(scene.context)
+    first = module.build_run_plan(scene.context, snapshot=first_snapshot)
+    assert first.scene_cache_key
+
+    scene.context.scene.cloth_next_quality = SimpleNamespace(
+        time_step=first_snapshot.quality.time_step * 0.5,
+        min_newton_steps=first_snapshot.quality.min_newton_steps,
+        cg_max_iter=first_snapshot.quality.cg_max_iter,
+        cg_tol=first_snapshot.quality.cg_tol)
+    second_snapshot = module.validate_scene(scene.context)
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda *_args, **_kwargs:
+            (_ for _ in ()).throw(AssertionError("mesh capture on warm hit")))
+    monkeypatch.setattr(
+        module, "_extract_deformable_mesh",
+        lambda *_args, **_kwargs:
+            (_ for _ in ()).throw(AssertionError("deformable capture on hit")))
+    warmed = module.build_run_plan(scene.context, snapshot=second_snapshot)
+
+    assert warmed.scene.data_hash == first.scene.data_hash
+    assert warmed.scene.param_hash != first.scene.param_hash
+    assert warmed.export_timings["scene_early_cache_hit"] == 1.0
+    assert warmed.export_timings.get("to_mesh_count", 0.0) == 0.0
+
+
 def test_phase4_scene_and_object_hashes_are_deterministic(env, monkeypatch):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
     module = env.solver_test
@@ -111,8 +150,8 @@ def test_phase4_scene_and_object_hashes_are_deterministic(env, monkeypatch):
         second.material_meta["fingerprints"]["scene"]
     assert first.material_meta["fingerprints"]["object"] == \
         second.material_meta["fingerprints"]["object"]
-    assert first.scene.data_hash != second.scene.data_hash, \
-        "transport UUIDs may differ without changing the semantic scene hash"
+    assert first.scene.data_hash == second.scene.data_hash, \
+        "unchanged stable export UUIDs must preserve the wire scene hash"
 
 
 def test_three_separate_cloths_publish_and_attach_authenticated_caches(
@@ -160,8 +199,8 @@ def test_three_separate_cloths_publish_and_attach_authenticated_caches(
     assert {
         target.material_meta["fingerprints"]["scene"]
         for target in repeated.deformables} == scene_hashes
-    assert repeated.scene.data_hash != plan.scene.data_hash, \
-        "transport UUIDs may change without changing the shared scene hash"
+    assert repeated.scene.data_hash == plan.scene.data_hash, \
+        "stable export UUIDs must make unchanged scene payloads reusable"
 
     class StubSession:
         def __init__(self, **kwargs):
@@ -191,7 +230,10 @@ def test_three_separate_cloths_publish_and_attach_authenticated_caches(
 
     module._attach_playback(plan, messages[-1][1])
 
-    for obj, target in zip(cloths, plan.deformables):
+    targets_by_name = {
+        target.object_name: target for target in plan.deformables}
+    for obj in cloths:
+        target = targets_by_name[obj.name]
         assert len(obj.modifiers) == 1
         assert Path(obj.modifiers[0].filepath) == target.pc2_path
         inspection = module.cache_metadata.inspect_cache(

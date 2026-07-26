@@ -92,21 +92,21 @@ STANDARD_QUALITY_PRESETS = (
 # until the external solver provides a hybrid PDRD/Schwarz path.
 PDRD_QUALITY_PRESETS = (
     SolverQualityPreset(
-        "LOW", "Low", "Faster preview quality for scenes containing PDRD.",
+        "LOW", "Low", "Legacy mixed-scene quality; upgraded to XMedium.",
         SolverQualitySettings(0.005, 4, 5000, 0.005)),
     SolverQualityPreset(
-        "MEDIUM", "Medium",
-        "Balanced quality for scenes containing PDRD rigid bodies.",
-        SolverQualitySettings(0.0025, 8, 10000, 0.001)),
+        "MEDIUM", "XMedium",
+        "Fast, stable preview quality for mixed deformable and rigid scenes.",
+        SolverQualitySettings(0.005, 6, 10000, 0.001)),
     SolverQualityPreset(
-        "HIGH", "High",
-        "Stable final quality for mixed PDRD and deformable scenes.",
-        SolverQualitySettings(0.001, 16, 25000, 0.0001)),
+        "HIGH", "XHigh",
+        "Stable final quality for mixed deformable and rigid scenes.",
+        SolverQualitySettings(0.0025, 12, 20000, 0.0005)),
     SolverQualityPreset(
-        "EXTREME", "Extreme",
-        "Maximum solve effort for difficult PDRD contact.",
-        SolverQualitySettings(0.0005, 32, 50000, 0.00005),
-        "Extreme can increase simulation time significantly."),
+        "EXTREME", "XExtreme",
+        "Maximum solve effort for difficult mixed-scene contact.",
+        SolverQualitySettings(0.001, 20, 40000, 0.0001),
+        "XExtreme can increase simulation time significantly."),
 )
 
 # Backwards-compatible public name used by the Blender UI and existing tests.
@@ -193,5 +193,8 @@ def remap_quality_for_pdrd(
         settings, has_pdrd=from_has_pdrd)
     if current is None:
         return settings
+    identifier = current.identifier
+    if to_has_pdrd and identifier == "LOW":
+        identifier = "MEDIUM"
     return apply_quality_preset(
-        current.identifier, has_pdrd=to_has_pdrd)
+        identifier, has_pdrd=to_has_pdrd)

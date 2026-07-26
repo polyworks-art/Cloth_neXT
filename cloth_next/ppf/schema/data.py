@@ -69,9 +69,9 @@ class SceneObject:
             raise SceneEncodeError("object name must not be empty")
         if not self.uuid.strip():
             raise SceneEncodeError("object uuid must not be empty")
-        if not self.vertices_local:
+        if len(self.vertices_local) == 0:
             raise SceneEncodeError(f"{self.name}: mesh has no vertices")
-        if not self.triangles and not self.edges:
+        if len(self.triangles) == 0 and len(self.edges) == 0:
             raise SceneEncodeError(f"{self.name}: object has no elements")
         count = len(self.vertices_local)
         for vertex in self.vertices_local:
@@ -94,7 +94,7 @@ class SceneObject:
             if len(pair) != 2 or pair[0] == pair[1] or any(
                     not 0 <= index < count for index in pair):
                 raise SceneEncodeError(f"{self.name}: invalid stitch {pair}")
-        if self.uv_faces:
+        if len(self.uv_faces):
             if len(self.uv_faces) != len(self.triangles):
                 raise SceneEncodeError(
                     f"{self.name}: UV face count does not match triangles")
@@ -102,7 +102,7 @@ class SceneObject:
                 if (len(face) != 3 or any(len(uv) != 2 for uv in face)
                         or any(not math.isfinite(c) for uv in face for c in uv)):
                     raise SceneEncodeError(f"{self.name}: invalid face UVs")
-        if self.face_friction:
+        if len(self.face_friction):
             if len(self.face_friction) != len(self.triangles):
                 raise SceneEncodeError(
                     f"{self.name}: face friction count does not match triangles")
@@ -148,23 +148,37 @@ class SceneObject:
                     f"{self.name}: inconsistent static deformation animation")
 
     def info_dict(self) -> dict:
+        numpy_vertices = type(self.vertices_local).__module__.split(".", 1)[0] == "numpy"
+        numpy_triangles = type(self.triangles).__module__.split(".", 1)[0] == "numpy"
         info = {
             "name": self.name,
             "uuid": self.uuid,
-            "vert": [[_float32(c) for c in vertex]
-                     for vertex in self.vertices_local],
+            "vert": (self.vertices_local
+                     if numpy_vertices else
+                     [[_float32(c) for c in vertex]
+                      for vertex in self.vertices_local]),
             "transform": [list(row) for row in self.transform],
         }
-        if self.triangles:
-            info["face"] = [list(tri) for tri in self.triangles]
-        if self.uv_faces:
-            info["uv"] = [[[_float32(c) for c in uv] for uv in face]
-                          for face in self.uv_faces]
-        if self.face_friction:
-            info["face_friction"] = [
-                _float32(value) for value in self.face_friction]
-        if self.edges:
-            info["edge"] = [list(edge) for edge in self.edges]
+        if len(self.triangles):
+            info["face"] = (self.triangles if numpy_triangles else
+                            [list(tri) for tri in self.triangles])
+        if len(self.uv_faces):
+            is_numpy = (type(self.uv_faces).__module__.split(".", 1)[0]
+                        == "numpy")
+            info["uv"] = (self.uv_faces if is_numpy else
+                          [[[_float32(c) for c in uv] for uv in face]
+                           for face in self.uv_faces])
+        if len(self.face_friction):
+            is_numpy = (type(self.face_friction).__module__.split(".", 1)[0]
+                        == "numpy")
+            info["face_friction"] = (
+                self.face_friction if is_numpy else
+                [_float32(value) for value in self.face_friction])
+        if len(self.edges):
+            is_numpy = (type(self.edges).__module__.split(".", 1)[0]
+                        == "numpy")
+            info["edge"] = (self.edges if is_numpy else
+                            [list(edge) for edge in self.edges])
         if self.stitch_pairs:
             # Official PPF loose-edge representation. Each source vertex is
             # constrained directly to the target vertex; duplicated target
@@ -174,8 +188,11 @@ class SceneObject:
             weights = [[1.0, 1.0, 0.0, 0.0]
                        for _pair in self.stitch_pairs]
             info["stitch"] = [indices, weights]
-        if self.pin_indices:
-            info["pin"] = list(self.pin_indices)
+        if len(self.pin_indices):
+            is_numpy = (type(self.pin_indices).__module__.split(".", 1)[0]
+                        == "numpy")
+            info["pin"] = (self.pin_indices if is_numpy else
+                           list(self.pin_indices))
         if self.transform_animation is not None:
             info["transform_animation"] = self.transform_animation
         if self.static_deform_animation is not None:

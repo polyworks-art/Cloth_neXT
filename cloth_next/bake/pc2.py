@@ -44,7 +44,8 @@ class StreamingPc2Writer:
 
     def __init__(self, final_path: Path, *, vertex_count: int,
                  frame_count: int, start_frame: float = 0.0,
-                 sample_rate: float = 1.0) -> None:
+                 sample_rate: float = 1.0,
+                 resume_path: Path | None = None) -> None:
         if vertex_count <= 0 or frame_count <= 0:
             raise Pc2Error("vertex_count and frame_count must be positive")
         self.final_path = Path(final_path)
@@ -58,17 +59,41 @@ class StreamingPc2Writer:
         self.validation_seconds = 0.0
         self._finished = False
         self.final_path.parent.mkdir(parents=True, exist_ok=True)
-        self.temporary_path = self.final_path.with_name(
-            f".{self.final_path.name}.{uuid.uuid4().hex}.tmp")
+        self.temporary_path = (
+            Path(resume_path) if resume_path is not None
+            else self.final_path.with_name(
+                f".{self.final_path.name}.{uuid.uuid4().hex}.tmp"))
         try:
-            self._stream = self.temporary_path.open("xb")
-            written = self._stream.write(_header_bytes(self.header))
-            if written != PC2_HEADER_SIZE:
-                raise OSError("short PC2 header write")
-            self.bytes_written = written
+            if self.temporary_path.exists():
+                self._resume_existing()
+            else:
+                self.temporary_path.parent.mkdir(parents=True, exist_ok=True)
+                self._stream = self.temporary_path.open("xb")
+                written = self._stream.write(_header_bytes(self.header))
+                if written != PC2_HEADER_SIZE:
+                    raise OSError("short PC2 header write")
+                self.bytes_written = written
         except Exception:
             self.abort()
             raise
+
+    def _resume_existing(self) -> None:
+        stream = self.temporary_path.open("r+b")
+        raw = stream.read(PC2_HEADER_SIZE)
+        if raw != _header_bytes(self.header):
+            stream.close()
+            raise Pc2Error("partial PC2 header does not match this Bake")
+        stream.seek(0, 2)
+        size = stream.tell()
+        frame_bytes = self.header.vertex_count * 12
+        payload = size - PC2_HEADER_SIZE
+        if (payload < 0 or payload % frame_bytes
+                or size > self.expected_size):
+            stream.close()
+            raise Pc2Error("partial PC2 has an invalid frame boundary")
+        self.frames_written = payload // frame_bytes
+        self.bytes_written = size
+        self._stream = stream
 
     def write_frame(self, positions) -> None:
         if self._finished:
@@ -85,9 +110,9 @@ class StreamingPc2Writer:
         # astype(copy=False) preserves an already contiguous <f4 input.  A
         # single frame-sized copy is made only when dtype/layout requires it.
         array = np.ascontiguousarray(array, dtype=np.dtype("<f4"))
-        payload = array.tobytes(order="C")
+        payload = memoryview(array).cast("B")
         expected = self.header.vertex_count * 12
-        if len(payload) != expected:
+        if payload.nbytes != expected:
             raise Pc2Error("encoded PC2 frame has the wrong byte count")
         written = self._stream.write(payload)
         if written != expected:
@@ -138,6 +163,16 @@ class StreamingPc2Writer:
                 self.final_path.unlink(missing_ok=True)
             self.abort()
             raise
+
+    def preserve(self) -> Path:
+        """Flush a frame-aligned partial cache without publishing it."""
+        if self._finished:
+            raise Pc2Error("writer is already finalized or aborted")
+        self._stream.flush()
+        os.fsync(self._stream.fileno())
+        self._stream.close()
+        self._finished = True
+        return self.temporary_path
 
     def abort(self) -> None:
         if getattr(self, "_finished", False):
@@ -202,6 +237,25 @@ def read_header(path: Path) -> Pc2Header:
         raise Pc2Error(f"PC2 size mismatch: file has {actual_size} bytes, "
                        f"header implies {expected}")
     return Pc2Header(vertex_count, start_frame, sample_rate, frame_count)
+
+
+def partial_frame_count(path: Path, expected: Pc2Header) -> int:
+    """Validate a resumable partial file and return complete frame count."""
+    path = Path(path)
+    with path.open("rb") as stream:
+        raw = stream.read(PC2_HEADER_SIZE)
+        stream.seek(0, 2)
+        size = stream.tell()
+    if raw != _header_bytes(expected):
+        raise Pc2Error("partial PC2 header does not match")
+    frame_bytes = expected.vertex_count * 12
+    payload = size - PC2_HEADER_SIZE
+    if payload < 0 or payload % frame_bytes:
+        raise Pc2Error("partial PC2 ends inside a frame")
+    frames = payload // frame_bytes
+    if frames > expected.frame_count:
+        raise Pc2Error("partial PC2 contains too many frames")
+    return frames
 
 
 def iter_frames(path: Path):
