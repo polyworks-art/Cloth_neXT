@@ -160,6 +160,15 @@ def intersection_violations():
     return _intersection_violations
 
 
+def _clear_intersection_diagnostics() -> None:
+    """Retire solver violations when a distinct Bake attempt begins."""
+    global _intersection_violations, _intersection_violation_index
+    from . import intersection_overlay
+    intersection_overlay.clear()
+    _intersection_violations = ()
+    _intersection_violation_index = 0
+
+
 def _ensure_solver_static(scene_colliders, collider_specs):
     """Satisfy PPF 0.11's internal STATIC-group build requirement."""
     if collider_specs:
@@ -1826,8 +1835,24 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
     handler_owner = getattr(bpy.app, "handlers", None)
     handlers = tuple(getattr(handler_owner, "frame_change_pre", ())) + \
         tuple(getattr(handler_owner, "frame_change_post", ()))
-    if handlers:
-        return None, "Frame-change script handler"
+    handler_identity = []
+    for handler in handlers:
+        function = getattr(handler, "__func__", handler)
+        code = getattr(function, "__code__", None)
+        module = str(getattr(function, "__module__", "") or "")
+        qualified = str(getattr(
+            function, "__qualname__",
+            getattr(function, "__name__", "")) or "")
+        if not module or not qualified or code is None:
+            return None, "Unidentifiable frame-change script handler"
+        handler_identity.append({
+            "module": module,
+            "qualified_name": qualified,
+            "source": str(getattr(code, "co_filename", "") or ""),
+            "first_line": int(getattr(code, "co_firstlineno", 0) or 0),
+            "bytecode": hashlib.sha256(
+                bytes(getattr(code, "co_code", b""))).hexdigest(),
+        })
     objects = []
     ordered = sorted(
         (*snapshot.deformables, *(
@@ -1884,6 +1909,11 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         "frame_range": [
             snapshot.bake_range.start, snapshot.bake_range.end],
         "fps": int(context.scene.render.fps),
+        # Blender and other add-ons commonly register stable frame handlers.
+        # Their presence alone must not disable the cache. Their executable
+        # identity participates in the key so changing the handler set or
+        # implementation invalidates the previous export.
+        "frame_handlers": handler_identity,
     }
     return deterministic_key("scene", identity), "safe source identity"
 
@@ -3023,6 +3053,10 @@ def _cached_payload(cache, kind, key, producer):
         _export_timing_sink[f"{kind}_cache_hit"] = 1.0 if lookup.hit else 0.0
         _export_timing_sink[f"{kind}_cache_miss"] = 0.0 if lookup.hit else 1.0
     if lookup.hit:
+        if kind == "scene":
+            shared_controller.update(
+                status_message="Reusing verified export",
+                activity_code=BakeActivity.ENCODING_SCENE)
         return lookup.path, lookup.digest
     payload, digest = producer()
     try:
@@ -3030,6 +3064,16 @@ def _cached_payload(cache, kind, key, producer):
     except OSError as exc:
         if _export_timing_sink is not None:
             _export_timing_sink[f"{kind}_cache_write_failed"] = 1.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink[f"{kind}_cache_write_error"] = (
+                f"{type(exc).__name__}: {exc}")
+        log_with_context(
+            get_logger("export.cache"), 30,
+            "Export payload cache write failed", {
+                "kind": kind, "key": key,
+                "cache_root": str(cache.root),
+                "error": f"{type(exc).__name__}: {exc}",
+            })
         return payload, digest
     if stored.digest != digest:
         raise SceneValidationError(
@@ -3108,9 +3152,20 @@ def _store_scene_plan_cache(context, snapshot, plan, source_key) -> None:
             if cached_param.digest != plan.scene.param_hash:
                 raise ValueError(
                     "cached Param hash differs from encoded payload")
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError) as exc:
         if _export_timing_sink is not None:
             _export_timing_sink["scene_cache_write_failed"] = 1.0
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink["scene_cache_write_error"] = (
+                f"{type(exc).__name__}: {exc}")
+        log_with_context(
+            get_logger("export.cache"), 30,
+            "Verified Scene plan cache write failed", {
+                "source_key": source_key,
+                "cache_root": str(
+                    _payload_cache_for(snapshot.cloth_obj).root),
+                "error": f"{type(exc).__name__}: {exc}",
+            })
 
 
 def _load_pin_config(record, artifacts):
@@ -3376,6 +3431,9 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             _export_timing_sink["scene_early_cache_hit"] = 1.0
         if _export_cache_event_sink is not None:
             _export_cache_event_sink["scene_cache_miss_reason"] = ""
+        shared_controller.update(
+            status_message="Reusing verified export",
+            activity_code=BakeActivity.ENCODING_SCENE)
         return RunPlan(
             session_scene, resolved, first.initial_local,
             first.world_matrix, first.object_name, work_directory,
@@ -4470,14 +4528,20 @@ def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
 
 
 def _record_worker_failure(plan: RunPlan, summary: str, details: str,
-                           error_code: str = "CNX-E199") -> str:
+                           error_code: str = "CNX-E199", *,
+                           technical_details: str = "") -> str:
     """Persist and print worker diagnostics without masking the real error."""
     failure_path = plan.work_directory / "failure.log"
     project_name = str(getattr(plan.scene, "project_name", "unknown"))
+    technical_section = (
+        f"\n\nTechnical diagnostics\n{technical_details.rstrip()}\n"
+        if technical_details and technical_details.strip() != details.strip()
+        else "")
     report = (f"Cloth NeXt Bake failure\n"
               f"Error code: {error_code}\n"
               f"Job: {project_name}\n"
-              f"Summary: {summary}\n\n{details.rstrip()}\n")
+              f"Summary: {summary}\n\n{details.rstrip()}"
+              f"{technical_section}\n")
     temporary = failure_path.with_name(
         f".{failure_path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
@@ -4538,6 +4602,30 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
             "What to do: Run Validate, then repair the marked intersecting "
             "geometry before baking again.")
         return summary, details
+    collision_detection = re.search(
+        r"(?:Continuous collision detection failed:\s*)?"
+        r"advance failed at frame (\d+).*?ccd\s*=\s*false",
+        technical, re.IGNORECASE | re.DOTALL)
+    if collision_detection:
+        solver_frame = int(collision_detection.group(1))
+        blender_frame = plan.frame_start + solver_frame
+        contacts = re.search(r"num_contact:\s*(\d+)", technical)
+        contact_line = (
+            f"\nActive contacts: {int(contacts.group(1))}"
+            if contacts else "")
+        summary = (
+            f"Simulation could not advance at Blender frame {blender_frame}.")
+        details = (
+            "Stage: continuous collision detection\n"
+            f"Solver frame: {solver_frame}\n"
+            f"Blender frame: {blender_frame}\n"
+            "Cause: Collision detection could not find a safe movement "
+            f"step.{contact_line}\n"
+            "What to do: Increase Solver Quality for a smaller Time Step. "
+            "If it still fails, reduce Collision Gap and Friction, increase "
+            "animated Collider sampling, and check for large movement into "
+            "contact between the surrounding frames.")
+        return summary, details
     convergence = re.search(
         r"Linear solver failed to converge: advance failed at frame (\d+)",
         technical, re.IGNORECASE)
@@ -4555,7 +4643,13 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
                    f"Cause: {technical}\n"
                    f"What to do: {action}")
         return summary, details
-    details = (f"Cause: {technical}\n"
+    concise = re.split(
+        r"(?:\n--- Solver Log|;\s*owned_process_id=|;\s*stdout_tail=|"
+        r";\s*stderr_tail=|;\s*progress_tail=)",
+        technical, maxsplit=1)[0].strip()
+    if len(concise) > 600:
+        concise = concise[:597].rstrip() + "..."
+    details = (f"Cause: {concise}\n"
                f"What to do: {record.recommended_action}")
     return record.user_message, details
 
@@ -4806,7 +4900,9 @@ def _worker_main_multi(plan: RunPlan) -> None:
             plan, exc, enriched=violations)
         code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details, code), code,
+                    _record_worker_failure(
+                        plan, summary, details, code,
+                        technical_details=exc.record.technical_message), code,
                     violations))
     except Exception:
         for writer in writers.values():
@@ -4949,7 +5045,9 @@ def _worker_main(plan: RunPlan) -> None:
             plan, exc, enriched=violations)
         code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details, code), code,
+                    _record_worker_failure(
+                        plan, summary, details, code,
+                        technical_details=exc.record.technical_message), code,
                     violations))
     except Exception:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
@@ -5678,6 +5776,7 @@ def _begin_controller(job_kind: BakeJobKind) -> str:
 def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> str:
     """Immediate developer diagnostic; production has a readiness gate."""
     global _ram_auto_cancel_enabled
+    _clear_intersection_diagnostics()
     _ram_auto_cancel_enabled = False
     _begin_controller(job_kind)
     try:
@@ -5748,6 +5847,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
     global _ram_auto_cancel_triggered
     if run_active() or _pending_plan is not None or _pin_capture is not None:
         raise SceneValidationError("A Cloth NeXt bake is already active.")
+    _clear_intersection_diagnostics()
     # Cancellation belongs to one Bake attempt. It may still be set after a
     # previous Cancel or add-on shutdown, while animated Collider capture runs
     # before _start_prepared_run() gets a chance to clear it.
@@ -6044,6 +6144,11 @@ def _pin_capture_pump():
             activity_code=BakeActivity.CAPTURING_GEOMETRY,
             progress_current=0,
             progress_total=1)
+        # Cancel may arrive after the check at the beginning of this timer
+        # tick. Do not continue into STARTING_COMPANION from CANCELLING after
+        # an expensive final evaluated-frame capture.
+        if _cancel_event.is_set():
+            raise SessionCancelled()
         _restore_pin_capture_state(state)
         _pin_capture=None
         # Reuses the Bake's single validation; no second topology hash or pin scan.
@@ -6052,6 +6157,23 @@ def _pin_capture_pump():
                             collider_captures=collider_captures,
                             snapshot=state.get("snapshot"))
         _continue_production_bake(context,job_id,plan); return None
+    except SessionCancelled:
+        try:
+            _cleanup_collider_pump(state.get("collider_states", {}))
+        except Exception:
+            pass
+        try:
+            _restore_pin_capture_state(state)
+        except Exception:
+            pass
+        _pin_capture=None; _pending_job_id=""
+        if shared_controller.snapshot().state is not BakeState.CANCELLING:
+            shared_controller.request_cancel()
+        shared_controller.transition(
+            BakeState.CANCELLED,
+            status_message=(
+                "Bake cancelled before a recovery checkpoint was available"))
+        return None
     except Exception as exc:
         try:
             _cleanup_collider_pump(state.get("collider_states", {}))
@@ -6696,11 +6818,7 @@ class CLOTHNEXT_OT_intersection_clear(bpy.types.Operator):
         "viewport without changing any simulation object")
 
     def execute(self, _context):
-        global _intersection_violations, _intersection_violation_index
-        from . import intersection_overlay
-        intersection_overlay.clear()
-        _intersection_violations = ()
-        _intersection_violation_index = 0
+        _clear_intersection_diagnostics()
         return {"FINISHED"}
 
 

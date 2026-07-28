@@ -121,3 +121,38 @@ def test_error_codes_follow_the_failed_bake_stage():
     c.transition(BakeState.BUILDING)
     c.transition(BakeState.SIMULATING)
     assert c.fail("simulation failed").error_code=="CNX-E160"
+
+
+def test_new_bake_clears_all_previous_run_status_fields():
+    c = BakeController()
+    c.transition(BakeState.PREPARING, frame_start=1, frame_end=80)
+    c.transition(BakeState.EXPORTING)
+    c.transition(
+        BakeState.STARTING_SOLVER,
+        progress_current=42,
+        progress_total=80,
+        current_frame=42,
+        active_object_name="Old Cloth",
+        solver_mode="MANAGED",
+        solver_version="old",
+        solver_process_id=123,
+        activity_label="Old solver activity",
+        activity_detail="Old run detail")
+    c.fail("Old run failed", "Old technical details")
+
+    fresh = c.transition(BakeState.PREPARING)
+
+    assert fresh.current_frame is None
+    assert fresh.frame_start is None
+    assert fresh.frame_end is None
+    assert fresh.progress_current == 0
+    assert fresh.progress_total is None
+    assert fresh.active_object_name == ""
+    assert fresh.solver_mode == ""
+    assert fresh.solver_version == ""
+    assert fresh.solver_process_id is None
+    assert fresh.activity_label == ""
+    assert fresh.activity_detail == ""
+    assert fresh.error_summary == ""
+    assert fresh.error_details == ""
+    assert fresh.error_code == ""

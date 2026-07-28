@@ -158,6 +158,35 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
     env.registration.unregister()
 
 
+def test_new_bake_attempt_clears_previous_intersection_overlay(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    module = env.solver_test
+    from cloth_next import intersection_diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    violation = intersection_diagnostics.IntersectionViolation(
+        classification="SELF_INTERSECTION",
+        detection_method="SOLVER_REPORTED",
+        elements=(),
+        combined_pair=(1, 2),
+        total_count=1)
+    module._intersection_violations = (violation,)
+    intersection_overlay.set_violations((violation,), None)
+    monkeypatch.setattr(
+        module, "validate_scene",
+        lambda _context: (_ for _ in ()).throw(
+            module.SceneValidationError("new attempt validation stopped")))
+    context = _context(env, _objects(env))
+
+    with pytest.raises(module.SceneValidationError):
+        module.begin_production_bake(context)
+
+    assert module.intersection_violations() == ()
+    assert intersection_overlay.current() is None
+    env.registration.unregister()
+
+
 def test_selected_registry_solver_enables_bake(blender_env, monkeypatch,
                                                 tmp_path):
     env = blender_env; env.registration.register()

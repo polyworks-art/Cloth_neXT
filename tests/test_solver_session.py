@@ -383,6 +383,42 @@ def test_failed_status_loads_structured_violations_from_build_sidecar(
     assert error.violations == (expected,)
 
 
+def test_failed_simulation_loads_runtime_intersection_records(tmp_path):
+    scene = _scene()
+    work_directory = tmp_path / "run"
+    sidecar = (
+        work_directory / "server-data" / scene.project_name
+        / "session" / "output" / "intersection_records.json")
+    sidecar.parent.mkdir(parents=True)
+    triangle = [[0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0]]
+    sidecar.write_text(json.dumps({
+        "count": 1,
+        "records": [{
+            "type": "face_edge",
+            "elem0": 12,
+            "elem1": 34,
+            "positions0": triangle,
+            "positions1": [[0.2, 0.2, -0.1], [0.2, 0.2, 0.1]],
+        }],
+    }), encoding="utf-8")
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=work_directory,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": (
+            "Intersection detected: advance failed at frame 1")},
+        "simulating")
+
+    assert len(error.violations) == 1
+    assert error.violations[0]["tris"] == [triangle]
+    assert error.violations[0]["detection_method"] == (
+        "SOLVER_RUNTIME_RECORD")
+
+
 def test_failed_status_loads_build_sidecar_when_recovery_is_disabled(
         tmp_path):
     scene = _scene()
@@ -700,12 +736,12 @@ def test_cancel_event_messages_include_recovery_events(monkeypatch, tmp_path):
     session = SolverSession(
         resolved=_external_resolved(), scene=_scene(),
         work_directory=tmp_path / "run",
-        external_address=wire.ServerAddress("127.0.0.1", 9999),
-        cancel_event=cancel, emit=emit, poll_interval=0.001,
-        simulate_timeout=0.02,
-        recovery_options=RecoveryOptions(
-            True, metadata, _recovery_identity(), server_root,
-            save_on_cancel=True))
+            external_address=wire.ServerAddress("127.0.0.1", 9999),
+            cancel_event=cancel, emit=emit, poll_interval=0.001,
+            simulate_timeout=0.5,
+            recovery_options=RecoveryOptions(
+                True, metadata, _recovery_identity(), server_root,
+                save_on_cancel=True))
     with pytest.raises(SessionCancelled):
         session.run()
     phases = [e.phase for e in events]

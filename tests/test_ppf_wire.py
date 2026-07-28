@@ -218,6 +218,38 @@ def test_upload_atomic_streams_payload_from_file(make_server, tmp_path):
     assert server.received[1] == data_payload + param_payload
 
 
+def test_upload_atomic_honors_chunk_size_for_memory_payloads(
+        make_server, monkeypatch):
+    data_payload = b"D" * 19
+    param_payload = b"P" * 11
+    sent_sizes = []
+    original_send_all = wire._send_all
+
+    def recording_send_all(connection, data):
+        sent_sizes.append(len(data))
+        original_send_all(connection, data)
+
+    monkeypatch.setattr(wire, "_send_all", recording_send_all)
+
+    def handler(connection, _received):
+        assert _read_exact(connection, 4) == b"JSON"
+        line = b""
+        while not line.endswith(b"\n"):
+            line += connection.recv(1)
+        header = json.loads(line)
+        _read_exact(connection, header["data_size"] + header["param_size"])
+        connection.sendall(b"OK\n")
+
+    server = make_server(handler)
+    wire.upload_atomic(
+        server.address, CONFIG, project_name="proj",
+        data_payload=data_payload, param_payload=param_payload,
+        data_hash="dh", param_hash="ph", file_chunk_size=7)
+
+    # The first send is the protocol header; every payload write is bounded.
+    assert sent_sizes[1:] == [7, 7, 5, 7, 4]
+
+
 def test_upload_atomic_sendfile_falls_back_to_chunks(
         make_server, tmp_path, monkeypatch):
     data = b"scene" * 10_000

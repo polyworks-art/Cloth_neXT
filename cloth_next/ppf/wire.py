@@ -38,7 +38,9 @@ TCMD_HEADER = b"TCMD"
 JSON_HEADER = b"JSON"
 # One MiB amortizes Python and socket overhead for multi-gigabyte deforming
 # collider scenes while remaining comfortably bounded for frame downloads.
-CHUNK_SIZE = 1024 * 1024
+# Smaller bounded writes reduce peak buffering in the Windows server process
+# for dense animated-Collider payloads without changing protocol framing.
+CHUNK_SIZE = 256 * 1024
 MAX_JSON_LINE = 64 * 1024
 # Bound on one received file (map.pickle / vert_<N>.bin). The vertical-slice
 # meshes are tiny; 256 MiB leaves room for future scenes while still
@@ -196,6 +198,9 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                   use_sendfile: bool = False) -> None:
     """Stream both payloads through the server-side atomic upload."""
     _validate_project_name(project_name)
+    if file_chunk_size <= 0:
+        raise ValueError("file_chunk_size must be positive")
+
     def payload_size(payload) -> int:
         return os.path.getsize(payload) if isinstance(payload, (str, Path)) else len(payload)
 
@@ -206,8 +211,8 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                 while chunk := stream.read(file_chunk_size):
                     yield chunk
         else:
-            for position in range(0, len(payload), CHUNK_SIZE):
-                yield payload[position:position + CHUNK_SIZE]
+            for position in range(0, len(payload), file_chunk_size):
+                yield payload[position:position + file_chunk_size]
 
     def send_file(connection, payload):
         sent = 0

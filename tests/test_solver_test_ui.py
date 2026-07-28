@@ -330,6 +330,45 @@ def test_pin_capture_waits_for_companion_before_evaluating_frame(
         module._pin_capture = None
 
 
+def test_cancel_during_pin_capture_does_not_continue_startup(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    restored = []
+    cleaned = []
+    monkeypatch.setattr(
+        module, "_restore_pin_capture_state",
+        lambda state: restored.append(state))
+    monkeypatch.setattr(
+        module, "_cleanup_collider_pump",
+        lambda states: cleaned.append(states))
+    monkeypatch.setattr(
+        module, "_continue_production_bake",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("cancelled capture continued into startup")))
+    state = {
+        "context": SimpleNamespace(scene=SimpleNamespace()),
+        "collider_states": {"Collider": object()},
+    }
+    module._pin_capture = state
+    module._pending_job_id = ""
+    module._cancel_event.set()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.request_cancel()
+    try:
+        assert module._pin_capture_pump() is None
+        assert module._pin_capture is None
+        assert restored == [state]
+        assert cleaned == [state["collider_states"]]
+        snapshot = module.shared_controller.snapshot()
+        assert snapshot.state is BakeState.CANCELLED
+        assert snapshot.status_message == (
+            "Bake cancelled before a recovery checkpoint was available")
+    finally:
+        module._cancel_event.clear()
+        if module.shared_controller.snapshot().state is not BakeState.IDLE:
+            module.shared_controller.reset()
+
+
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     main_ident = threading.get_ident()
@@ -534,6 +573,31 @@ def test_solver_self_intersection_failure_is_concise(blender_env):
     assert "Run Validate" in details
     assert "stdout_tail" not in details
     assert long_tail not in details
+
+
+def test_ccd_failure_is_artist_friendly_and_keeps_log_tail_out_of_ui(
+        blender_env):
+    module = blender_env.solver_test
+    plan = SimpleNamespace(frame_start=1)
+    long_tail = "solver trace line\n" * 300
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver rejected the status request.",
+        technical_message=(
+            "server error during status: Continuous collision detection "
+            "failed: advance failed at frame 1 (ccd=false, pcg=true, "
+            "intersection_free=true); owned_process_id=46032; "
+            f"stdout_tail=({long_tail}); num_contact: 13560"),
+        recommended_action="Inspect the diagnostic log."))
+
+    summary, details = module._present_worker_error(plan, error)
+
+    assert summary == "Simulation could not advance at Blender frame 2."
+    assert "continuous collision detection" in details
+    assert "smaller Time Step" in details
+    assert "stdout_tail" not in details
+    assert "solver trace line" not in details
+    assert len(details) < 1000
 
 
 def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):

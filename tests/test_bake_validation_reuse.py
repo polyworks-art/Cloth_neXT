@@ -135,6 +135,41 @@ def test_verified_early_scene_hit_skips_all_mesh_capture(
     assert warmed.export_timings.get("to_mesh_count", 0.0) == 0.0
 
 
+def test_stable_frame_handler_participates_in_cache_key_without_disabling_hit(
+        env, monkeypatch, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(
+        env.bpy, vertex_count=400, pinning=False)
+    module = env.solver_test
+    monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda obj, _depsgraph, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    def stable_scene_handler(_scene):
+        return None
+
+    monkeypatch.setattr(
+        module.bpy.app.handlers, "frame_change_post",
+        [stable_scene_handler], raising=False)
+    first_snapshot = module.validate_scene(scene.context)
+    first = module.build_run_plan(scene.context, snapshot=first_snapshot)
+    assert first.scene_cache_key
+
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda *_args, **_kwargs:
+            (_ for _ in ()).throw(
+                AssertionError("stable frame handler disabled cache hit")))
+    warmed = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+
+    assert warmed.scene.data_hash == first.scene.data_hash
+    assert warmed.export_timings["scene_early_cache_hit"] == 1.0
+
+
 def test_phase4_scene_and_object_hashes_are_deterministic(env, monkeypatch):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
     module = env.solver_test

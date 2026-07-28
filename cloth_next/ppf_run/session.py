@@ -436,6 +436,9 @@ class SolverSession:
         if not parsed_violations:
             parsed_violations = list(self._load_build_violation_sidecar(
                 phase=phase))
+        if not parsed_violations and phase == "simulating":
+            parsed_violations = list(
+                self._load_runtime_intersection_sidecar(phase=phase))
         error = _session_error(
             f"The solver reported a failure while {phase}.",
             f"server status FAILED during {phase}: {error_text}; "
@@ -455,6 +458,63 @@ class SolverSession:
             return ClothNextError(
                 error.record, violations=tuple(parsed_violations))
         return error
+
+    def _load_runtime_intersection_sidecar(
+            self, *, phase: str) -> tuple[dict, ...]:
+        """Capture the failed solver step before project cleanup removes it."""
+        server_root = self._server_data_root().resolve()
+        project_root = (server_root / self.scene.project_name).resolve()
+        try:
+            project_root.relative_to(server_root)
+        except ValueError:
+            return ()
+        path = (
+            project_root / "session" / "output"
+            / "intersection_records.json")
+        deadline = time.monotonic() + _VIOLATION_SIDECAR_CONFIRM_TIMEOUT
+        while not path.is_file() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        try:
+            size = path.stat().st_size
+            if size <= 0 or size > _MAX_VIOLATION_SIDECAR_BYTES:
+                return ()
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, UnicodeError,
+                json.JSONDecodeError, ValueError):
+            return ()
+        records = payload.get("records") if isinstance(payload, dict) else None
+        if not isinstance(records, list):
+            return ()
+        violations = []
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            triangles = []
+            for key in ("positions0", "positions1"):
+                positions = record.get(key)
+                if isinstance(positions, list) and len(positions) == 3:
+                    triangles.append(positions)
+            if not triangles:
+                continue
+            violations.append({
+                "type": str(record.get("type", "runtime_intersection")),
+                "tris": triangles,
+                "detection_method": "SOLVER_RUNTIME_RECORD",
+                "runtime_elements": [
+                    record.get("elem0"), record.get("elem1")],
+            })
+        previews = tuple(violations[:_MAX_VIOLATION_PREVIEWS])
+        if previews:
+            log_with_context(
+                self._logger, logging.ERROR,
+                "Loaded runtime intersection records", {
+                    "project": self.scene.project_name,
+                    "phase": phase,
+                    "path": str(path),
+                    "record_count": len(records),
+                    "preview_count": len(previews),
+                })
+        return previews
 
     def _load_build_violation_sidecar(self, *, phase: str) -> tuple[dict, ...]:
         """Read the managed frontend's structured build-error handoff.
