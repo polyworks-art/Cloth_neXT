@@ -130,6 +130,28 @@ def test_legacy_local_solver_geometry_maps_through_object_transform():
         (20.0, 3.0, -4.0), (21.0, 3.0, -4.0), (20.0, 4.0, -4.0))
 
 
+def test_strict_triangle_crossing_locator_rejects_separated_and_shared_edge():
+    flat = ((0, 0, 0), (2, 0, 0), (0, 2, 0))
+    crossing = ((0.5, 0.5, -1), (0.5, 0.5, 1), (1.5, 0.5, 0))
+    separated = ((3, 0, 0), (4, 0, 0), (3, 1, 0))
+    adjacent = ((0, 0, 0), (2, 0, 0), (1, -1, 0))
+
+    assert diagnostics.triangles_strictly_cross(flat, crossing)
+    assert not diagnostics.triangles_strictly_cross(flat, separated)
+    assert not diagnostics.triangles_strictly_cross(flat, adjacent)
+
+
+def test_coplanar_locator_detects_overlap_and_duplicates_not_shared_edge():
+    first = ((0, 0, 0), (2, 0, 0), (0, 2, 0))
+    overlap = ((0.5, -0.25, 0), (1.5, 0.75, 0), (0.5, 1.5, 0))
+    adjacent = ((0, 0, 0), (2, 0, 0), (1, -1, 0))
+
+    assert diagnostics.triangles_coplanar_overlap(first, overlap)
+    assert diagnostics.triangles_coplanar_overlap(
+        first, tuple(reversed(first)))
+    assert not diagnostics.triangles_coplanar_overlap(first, adjacent)
+
+
 def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
     monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)

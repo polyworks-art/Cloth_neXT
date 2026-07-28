@@ -222,6 +222,116 @@ def _match_legacy_triangle_pair(
     return (matched[0], matched[1] if len(matched) > 1 else -1)
 
 
+def triangles_strictly_cross(first, second, *,
+                             tolerance: float = 1.0e-9) -> bool:
+    """Return whether either triangle has an edge crossing the other.
+
+    This is used only to locate faces after the solver has already confirmed
+    an intersection but its legacy binding omitted the pair indices.
+    """
+    def _sub(a, b):
+        return tuple(float(a[i]) - float(b[i]) for i in range(3))
+
+    def _cross(a, b):
+        return (a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0])
+
+    def _dot(a, b):
+        return sum(a[i] * b[i] for i in range(3))
+
+    def _edge_hits_triangle(start, end, triangle):
+        direction = _sub(end, start)
+        edge1 = _sub(triangle[1], triangle[0])
+        edge2 = _sub(triangle[2], triangle[0])
+        pvec = _cross(direction, edge2)
+        determinant = _dot(edge1, pvec)
+        if abs(determinant) <= tolerance:
+            return False
+        inverse = 1.0 / determinant
+        tvec = _sub(start, triangle[0])
+        u = _dot(tvec, pvec) * inverse
+        if u <= tolerance or u >= 1.0 - tolerance:
+            return False
+        qvec = _cross(tvec, edge1)
+        v = _dot(direction, qvec) * inverse
+        if v <= tolerance or u + v >= 1.0 - tolerance:
+            return False
+        distance = _dot(edge2, qvec) * inverse
+        return tolerance < distance < 1.0 - tolerance
+
+    for source, target in ((first, second), (second, first)):
+        for index in range(3):
+            if _edge_hits_triangle(
+                    source[index], source[(index + 1) % 3], target):
+                return True
+    return False
+
+
+def triangles_coplanar_overlap(first, second, *,
+                               tolerance: float = 1.0e-9) -> bool:
+    """Detect proper coplanar overlap without flagging shared boundaries."""
+    def _sub(a, b):
+        return tuple(float(a[i]) - float(b[i]) for i in range(3))
+
+    def _cross(a, b):
+        return (a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0])
+
+    def _dot(a, b):
+        return sum(a[i] * b[i] for i in range(3))
+
+    normal = _cross(_sub(first[1], first[0]), _sub(first[2], first[0]))
+    magnitude = sum(value * value for value in normal) ** 0.5
+    if magnitude <= tolerance:
+        return False
+    if any(abs(_dot(normal, _sub(point, first[0]))) >
+           tolerance * magnitude for point in second):
+        return False
+    drop = max(range(3), key=lambda axis: abs(normal[axis]))
+
+    def _project(point):
+        return tuple(float(point[axis]) for axis in range(3) if axis != drop)
+
+    left = tuple(_project(point) for point in first)
+    right = tuple(_project(point) for point in second)
+
+    def _orient(a, b, c):
+        return ((b[0] - a[0]) * (c[1] - a[1])
+                - (b[1] - a[1]) * (c[0] - a[0]))
+
+    def _proper_edges(a, b, c, d):
+        ab_c, ab_d = _orient(a, b, c), _orient(a, b, d)
+        cd_a, cd_b = _orient(c, d, a), _orient(c, d, b)
+        return (ab_c * ab_d < -tolerance
+                and cd_a * cd_b < -tolerance)
+
+    def _strictly_inside(point, triangle):
+        values = tuple(
+            _orient(triangle[index], triangle[(index + 1) % 3], point)
+            for index in range(3))
+        return (all(value > tolerance for value in values)
+                or all(value < -tolerance for value in values))
+
+    for first_index in range(3):
+        for second_index in range(3):
+            if _proper_edges(
+                    left[first_index], left[(first_index + 1) % 3],
+                    right[second_index], right[(second_index + 1) % 3]):
+                return True
+    if any(_strictly_inside(point, right) for point in left):
+        return True
+    if any(_strictly_inside(point, left) for point in right):
+        return True
+    # Identical duplicate faces have no proper crossings or interior vertex.
+    canonical_left = sorted(
+        tuple(round(value / tolerance) for value in point) for point in left)
+    canonical_right = sorted(
+        tuple(round(value / tolerance) for value in point) for point in right)
+    return canonical_left == canonical_right
+
+
 def artist_message(violation: IntersectionViolation) -> tuple[str, str]:
     elements = violation.elements
     first = elements[0]

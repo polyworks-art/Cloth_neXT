@@ -9,6 +9,7 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
     frontend.mkdir()
     decoder = frontend / "_decoder_.py"
     scene = frontend / "_scene_.py"
+    build_worker = frontend / "build_worker.py"
     decoder.write_text(
         "prefix\n" + solver_overlay._DECODER_NEEDLE + "suffix\n",
         encoding="utf-8")
@@ -17,6 +18,9 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
         + "body\n" + solver_overlay._SCENE_EXTEND
         + solver_overlay._SCENE_SHELL + solver_overlay._VIOLATION_NEEDLE
         + "suffix\n", encoding="utf-8")
+    build_worker.write_text(
+        "prefix\n" + solver_overlay._BUILD_WORKER_NEEDLE + "suffix\n",
+        encoding="utf-8")
 
     solver_overlay.apply_managed_solver_overlay(tmp_path)
     first_decoder = decoder.read_text(encoding="utf-8")
@@ -28,6 +32,9 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
     assert "combined_tri" in first_scene
     assert "combined_pair" in first_scene
     assert "exact if exact else original_intersections" in first_scene
+    assert "self._has_self_intersection = False" in first_scene
+    assert "all_violations = []" in first_scene
+    assert "PPF_CTS_DATA_ROOT" in build_worker.read_text(encoding="utf-8")
     assert decoder.read_text(encoding="utf-8") == first_decoder
     assert scene.read_text(encoding="utf-8") == first_scene
 
@@ -37,6 +44,7 @@ def test_existing_v2_intersection_overlay_is_upgraded(tmp_path):
     frontend.mkdir()
     decoder = frontend / "_decoder_.py"
     scene = frontend / "_scene_.py"
+    build_worker = frontend / "build_worker.py"
     decoder.write_text(
         "prefix\n" + solver_overlay._DECODER_REPLACEMENT + "suffix\n",
         encoding="utf-8")
@@ -48,6 +56,8 @@ def test_existing_v2_intersection_overlay_is_upgraded(tmp_path):
         + "suffix\n", encoding="utf-8")
     (tmp_path / ".cloth-next-face-friction-intersection-preview-v2").write_text(
         "face-friction-intersection-preview-v2\n", encoding="ascii")
+    build_worker.write_text(
+        solver_overlay._BUILD_WORKER_NEEDLE, encoding="utf-8")
 
     solver_overlay.apply_managed_solver_overlay(tmp_path)
 
@@ -56,3 +66,49 @@ def test_existing_v2_intersection_overlay_is_upgraded(tmp_path):
     assert solver_overlay._VIOLATION_REPLACEMENT_V2 not in upgraded
     assert (tmp_path / (
         f".cloth-next-{solver_overlay.OVERLAY_VERSION}")).is_file()
+
+
+def test_existing_v3_intersection_overlay_is_upgraded(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    decoder = frontend / "_decoder_.py"
+    scene = frontend / "_scene_.py"
+    (frontend / "build_worker.py").write_text(
+        solver_overlay._BUILD_WORKER_NEEDLE, encoding="utf-8")
+    decoder.write_text(
+        solver_overlay._DECODER_REPLACEMENT, encoding="utf-8")
+    scene.write_text(
+        solver_overlay._SCENE_SIGNATURE_REPLACEMENT
+        + solver_overlay._SCENE_EXTEND_REPLACEMENT
+        + solver_overlay._SCENE_SHELL_REPLACEMENT
+        + solver_overlay._VIOLATION_REPLACEMENT_V3,
+        encoding="utf-8")
+
+    solver_overlay.apply_managed_solver_overlay(tmp_path)
+
+    upgraded = scene.read_text(encoding="utf-8")
+    assert 'result.get("self_intersections", ())' in upgraded
+    assert solver_overlay._VIOLATION_REPLACEMENT in upgraded
+
+
+def test_existing_v4_overlay_gains_unverified_flag_suppression(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "_decoder_.py").write_text(
+        solver_overlay._DECODER_REPLACEMENT, encoding="utf-8")
+    (frontend / "build_worker.py").write_text(
+        solver_overlay._BUILD_WORKER_NEEDLE, encoding="utf-8")
+    scene = frontend / "_scene_.py"
+    scene.write_text(
+        solver_overlay._SCENE_SIGNATURE_REPLACEMENT
+        + solver_overlay._SCENE_EXTEND_REPLACEMENT
+        + solver_overlay._SCENE_SHELL_REPLACEMENT
+        + solver_overlay._VIOLATION_REPLACEMENT_V4,
+        encoding="utf-8")
+
+    solver_overlay.apply_managed_solver_overlay(tmp_path)
+
+    upgraded = scene.read_text(encoding="utf-8")
+    assert "Without a confirmed pair" in upgraded
+    assert "self._has_self_intersection = False" in upgraded
+    assert "original_intersections = []" in upgraded

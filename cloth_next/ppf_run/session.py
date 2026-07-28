@@ -53,6 +53,7 @@ STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 _POLL_INTERVAL = 0.25
 _MAX_VIOLATION_SIDECAR_BYTES = 4 * 1024 * 1024
 _MAX_VIOLATION_PREVIEWS = 256
+_VIOLATION_SIDECAR_CONFIRM_TIMEOUT = 1.0
 
 _SOLVER_METRICS = {
     "contacts": "advance.num_contact.out",
@@ -321,9 +322,7 @@ class SolverSession:
         return response
 
     def _runtime_activity(self) -> tuple[str, str]:
-        server_root = (
-            self._recovery.server_data_root if self._recovery is not None
-            else self.work_directory / "server-data")
+        server_root = self._server_data_root()
         metric_root = (server_root /
                        self.scene.project_name / "session" / "output" /
                        "data")
@@ -348,6 +347,13 @@ class SolverSession:
             return "", ""
         poll = self._manager.poll()
         return poll.activity_code, poll.activity_message
+
+    def _server_data_root(self) -> Path:
+        """Return the run's solver-data root independently of recovery."""
+        return (
+            self._recovery.server_data_root
+            if self._recovery is not None
+            else self.work_directory / "server-data")
 
     def _request(self, request: str) -> dict:
         assert self._address is not None
@@ -450,10 +456,7 @@ class SolverSession:
         instead, so this is the authoritative local fallback for managed and
         other filesystem-visible solver installations.
         """
-        options = self._recovery
-        if options is None:
-            return ()
-        server_root = options.server_data_root.resolve()
+        server_root = self._server_data_root().resolve()
         project_root = (server_root / self.scene.project_name).resolve()
         try:
             project_root.relative_to(server_root)
@@ -468,6 +471,15 @@ class SolverSession:
                 })
             return ()
         path = project_root / "build_violations.json"
+        mirror = server_root / (
+            f"{self.scene.project_name}.build_violations.json")
+        deadline = time.monotonic() + _VIOLATION_SIDECAR_CONFIRM_TIMEOUT
+        while not path.is_file() and not mirror.is_file():
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        if not path.is_file() and mirror.is_file():
+            path = mirror
         try:
             size = path.stat().st_size
         except FileNotFoundError:
@@ -595,9 +607,7 @@ class SolverSession:
                 context={"worker_path": str(worker)}))
         root = bundle_root_for(executable)
         layout = BundledSolverLayout.from_root(root)
-        server_data = (
-            self._recovery.server_data_root if self._recovery is not None
-            else self.work_directory / "server-data")
+        server_data = self._server_data_root()
         server_data.mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
         # Pin the per-project server data below our own work directory so

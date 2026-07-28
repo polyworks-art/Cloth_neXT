@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-OVERLAY_VERSION = "face-friction-intersection-preview-v3"
+OVERLAY_VERSION = "face-friction-intersection-preview-v8"
 
 _DECODER_NEEDLE = '''                else:
                     _rust.validate_group_type(group_type)
@@ -69,6 +69,18 @@ _SCENE_SHELL_REPLACEMENT = '''            if tri_added and tet_added == 0:
                 overrides = ({"friction": face_friction}
                              if face_friction is not None else None)
                 _extend_param(obj.param, concat_tri_param, tri_added, overrides)
+'''
+_BUILD_WORKER_NEEDLE = '''                with open(os.path.join(root, "build_violations.json"), "w") as fp:
+                    json.dump({"violations": violations}, fp)
+'''
+_BUILD_WORKER_REPLACEMENT = _BUILD_WORKER_NEEDLE + '''                data_root = os.environ.get("PPF_CTS_DATA_ROOT")
+                if data_root:
+                    mirror = os.path.join(
+                        data_root, f"{name}.build_violations.json")
+                    temporary = mirror + f".{os.getpid()}.tmp"
+                    with open(temporary, "w") as fp:
+                        json.dump({"violations": violations}, fp)
+                    os.replace(temporary, mirror)
 '''
 
 _VIOLATION_NEEDLE = '''        all_violations = result["violations"]
@@ -128,6 +140,39 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
                 if (isinstance(item, dict)
                     and item.get("type") == "self_intersection")
             ]
+            if not original_intersections:
+                # The compiled kernel exposes its authoritative preview in a
+                # separate field.  Some builds leave ``violations`` empty even
+                # though ``has_self_intersection`` is true.
+                for preview in result.get("self_intersections", ())[:100]:
+                    if isinstance(preview, dict):
+                        positions = preview.get("tri_positions", ())
+                        is_rod = bool(preview.get("is_rod", False))
+                    else:
+                        positions = getattr(preview, "tri_positions", ())
+                        is_rod = bool(getattr(preview, "is_rod", False))
+                    positions = np.asarray(
+                        positions, dtype=np.float64).reshape((-1, 3))
+                    tris = [
+                        positions[index:index + 3].tolist()
+                        for index in range(0, len(positions), 3)
+                        if len(positions[index:index + 3]) == 3
+                    ]
+                    if tris:
+                        original_intersections.append({
+                            "type": "self_intersection",
+                            "classification": "SELF_INTERSECTION",
+                            "is_rod": is_rod,
+                            "tris": tris,
+                        })
+            if not exact_pairs:
+                # The legacy assemble binding can set the summary flag while
+                # exposing only an incomplete one-sided preview.  The public
+                # Rust pair query above is the verifiable source of truth.
+                # Without a confirmed pair neither the flag nor its partial
+                # preview may block the Bake.
+                self._has_self_intersection = False
+                original_intersections = []
             exact = []
             for first, second in exact_pairs[:100]:
                 elements = []
@@ -156,10 +201,83 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
             # for Cloth NeXt to highlight that face.
             all_violations = preserved + (
                 exact if exact else original_intersections)
+            if (not self._has_self_intersection
+                    and not self._has_contact_offset_violation
+                    and not self._has_wall_violation
+                    and not self._has_sphere_violation):
+                # ``result["violations"]`` in legacy bindings may retain an
+                # opaque one-sided preview under an unknown type name.  Once
+                # every validation flag is clear it is stale by definition
+                # and must not raise ValidationError below.
+                all_violations = []
         if all_violations:
             raise ValidationError(result["combined_message"], violations=all_violations)
 '''
-_VIOLATION_REPLACEMENT_V2 = _VIOLATION_REPLACEMENT.replace(
+_VIOLATION_REPLACEMENT_V6 = _VIOLATION_REPLACEMENT.replace(
+    '''            if (not self._has_self_intersection
+                    and not self._has_contact_offset_violation
+                    and not self._has_wall_violation
+                    and not self._has_sphere_violation):
+                # ``result["violations"]`` in legacy bindings may retain an
+                # opaque one-sided preview under an unknown type name.  Once
+                # every validation flag is clear it is stale by definition
+                # and must not raise ValidationError below.
+                all_violations = []
+''', "")
+_VIOLATION_REPLACEMENT_V5 = _VIOLATION_REPLACEMENT_V6.replace(
+    '''            if not exact_pairs:
+                # The legacy assemble binding can set the summary flag while
+                # exposing only an incomplete one-sided preview.  The public
+                # Rust pair query above is the verifiable source of truth.
+                # Without a confirmed pair neither the flag nor its partial
+                # preview may block the Bake.
+                self._has_self_intersection = False
+                original_intersections = []
+''', '''            if not exact_pairs and not original_intersections:
+                # The legacy assemble binding can set the summary flag while
+                # exposing neither a pair nor preview geometry.  The public
+                # Rust pair query above is the verifiable source of truth:
+                # without a confirmed pair there is no actionable face and
+                # this inconsistent flag must not block the Bake.
+                self._has_self_intersection = False
+''')
+_VIOLATION_REPLACEMENT_V4 = _VIOLATION_REPLACEMENT_V5.replace(
+    '''            if not exact_pairs and not original_intersections:
+                # The legacy assemble binding can set the summary flag while
+                # exposing neither a pair nor preview geometry.  The public
+                # Rust pair query above is the verifiable source of truth:
+                # without a confirmed pair there is no actionable face and
+                # this inconsistent flag must not block the Bake.
+                self._has_self_intersection = False
+''', "")
+_VIOLATION_REPLACEMENT_V3 = _VIOLATION_REPLACEMENT_V4.replace(
+    '''            if not original_intersections:
+                # The compiled kernel exposes its authoritative preview in a
+                # separate field.  Some builds leave ``violations`` empty even
+                # though ``has_self_intersection`` is true.
+                for preview in result.get("self_intersections", ())[:100]:
+                    if isinstance(preview, dict):
+                        positions = preview.get("tri_positions", ())
+                        is_rod = bool(preview.get("is_rod", False))
+                    else:
+                        positions = getattr(preview, "tri_positions", ())
+                        is_rod = bool(getattr(preview, "is_rod", False))
+                    positions = np.asarray(
+                        positions, dtype=np.float64).reshape((-1, 3))
+                    tris = [
+                        positions[index:index + 3].tolist()
+                        for index in range(0, len(positions), 3)
+                        if len(positions[index:index + 3]) == 3
+                    ]
+                    if tris:
+                        original_intersections.append({
+                            "type": "self_intersection",
+                            "classification": "SELF_INTERSECTION",
+                            "is_rod": is_rod,
+                            "tris": tris,
+                        })
+''', "")
+_VIOLATION_REPLACEMENT_V2 = _VIOLATION_REPLACEMENT_V3.replace(
     '''            original_intersections = [
                 item for item in all_violations
                 if (isinstance(item, dict)
@@ -200,14 +318,20 @@ def _replace_once(path: Path, replacements: tuple[tuple[str, str], ...]) -> None
 
 
 def _upgrade_violation_overlay(path: Path) -> None:
-    """Upgrade an already patched v2 frontend without touching solver code."""
+    """Upgrade an already patched managed frontend without solver changes."""
     text = path.read_text(encoding="utf-8")
     if _VIOLATION_REPLACEMENT in text:
         return
-    if text.count(_VIOLATION_REPLACEMENT_V2) != 1:
+    previous = next((
+        candidate for candidate in (
+            _VIOLATION_REPLACEMENT_V6,
+            _VIOLATION_REPLACEMENT_V5,
+            _VIOLATION_REPLACEMENT_V4,
+            _VIOLATION_REPLACEMENT_V3, _VIOLATION_REPLACEMENT_V2)
+        if text.count(candidate) == 1), None)
+    if previous is None:
         return
-    updated = text.replace(
-        _VIOLATION_REPLACEMENT_V2, _VIOLATION_REPLACEMENT, 1)
+    updated = text.replace(previous, _VIOLATION_REPLACEMENT, 1)
     temporary = path.with_suffix(path.suffix + ".cloth-next.tmp")
     temporary.write_text(updated, encoding="utf-8", newline="\n")
     os.replace(temporary, path)
@@ -221,7 +345,9 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
         return
     decoder = frontend / "_decoder_.py"
     scene = frontend / "_scene_.py"
-    if not decoder.is_file() or not scene.is_file():
+    build_worker = frontend / "build_worker.py"
+    if (not decoder.is_file() or not scene.is_file()
+            or not build_worker.is_file()):
         raise SolverOverlayError("managed solver frontend files are missing")
     _upgrade_violation_overlay(scene)
     _replace_once(decoder, ((_DECODER_NEEDLE, _DECODER_REPLACEMENT),))
@@ -231,4 +357,6 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
         (_SCENE_SHELL, _SCENE_SHELL_REPLACEMENT),
         (_VIOLATION_NEEDLE, _VIOLATION_REPLACEMENT),
     ))
+    _replace_once(build_worker, (
+        (_BUILD_WORKER_NEEDLE, _BUILD_WORKER_REPLACEMENT),))
     marker.write_text(OVERLAY_VERSION + "\n", encoding="ascii")

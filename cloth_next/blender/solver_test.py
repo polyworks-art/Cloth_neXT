@@ -4499,7 +4499,30 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
 def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
     snapshot = getattr(plan, "solver_input", None)
     raw = getattr(exc, "violations", ())
-    if snapshot is None or not raw:
+    if snapshot is None:
+        return ()
+    if not raw:
+        mirror = (
+            plan.work_directory / "server-data"
+            / f"{plan.scene.project_name}.build_violations.json")
+        try:
+            if 0 < mirror.stat().st_size <= 4 * 1024 * 1024:
+                payload = json.loads(mirror.read_text(encoding="utf-8"))
+                values = (
+                    payload.get("violations", ())
+                    if isinstance(payload, dict) else ())
+                if isinstance(values, list):
+                    raw = tuple(
+                        item for item in values if isinstance(item, dict))
+        except (FileNotFoundError, OSError, UnicodeError,
+                json.JSONDecodeError):
+            raw = ()
+    if not raw and re.search(
+            r"\d+\s+self[- ]intersections?", exc.record.technical_message,
+            re.IGNORECASE):
+        raw = _locate_confirmed_intersection_pairs(
+            snapshot, plan.work_directory / "intersection_locator.json")
+    if not raw:
         return ()
     total = len(raw)
     converted = tuple(
@@ -4535,6 +4558,67 @@ def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
                     item.generated_proxy for item in violation.elements),
             })
     return converted
+
+
+def _locate_confirmed_intersection_pairs(snapshot, diagnostic_path=None):
+    """Locate faces only after the solver confirmed an intersection."""
+    from mathutils.bvhtree import BVHTree
+
+    vertices = []
+    polygons = []
+    for triangle in snapshot.triangles:
+        start = len(vertices)
+        vertices.extend(triangle.vertices)
+        polygons.append((start, start + 1, start + 2))
+    if not polygons:
+        return ()
+    first_tree = BVHTree.FromPolygons(
+        vertices, polygons, all_triangles=True, epsilon=0.0)
+    second_tree = BVHTree.FromPolygons(
+        vertices, polygons, all_triangles=True, epsilon=0.0)
+    found = []
+    overlap_count = 0
+    tested_count = 0
+    for first, second in first_tree.overlap(second_tree):
+        overlap_count += 1
+        if first >= second:
+            continue
+        left = snapshot.triangles[first]
+        right = snapshot.triangles[second]
+        if left.owner.internal or right.owner.internal:
+            continue
+        if left.owner.role == "COLLIDER" and right.owner.role == "COLLIDER":
+            continue
+        tested_count += 1
+        strict = intersection_diagnostics.triangles_strictly_cross(
+            left.vertices, right.vertices)
+        coplanar = (not strict
+                    and intersection_diagnostics.triangles_coplanar_overlap(
+                        left.vertices, right.vertices))
+        if strict or coplanar:
+            found.append({"type": "self_intersection",
+                          "combined_pair": [first, second],
+                          "detection_method": (
+                              "STRICT_CROSSING" if strict
+                              else "COPLANAR_OVERLAP")})
+            if len(found) >= 100:
+                break
+    if diagnostic_path is not None:
+        payload = {
+            "snapshot_triangles": len(snapshot.triangles),
+            "bvh_overlaps": overlap_count,
+            "tested_candidates": tested_count,
+            "located_intersections": len(found),
+        }
+        try:
+            Path(diagnostic_path).write_text(
+                json.dumps(payload, sort_keys=True), encoding="utf-8")
+        except OSError as exc:
+            log_with_context(
+                get_logger("solver.intersections"), 30,
+                "Could not persist intersection locator diagnostics", {
+                    "path": str(diagnostic_path), "reason": str(exc)})
+    return tuple(found)
 
 def _worker_main_multi(plan: RunPlan) -> None:
     def emit(event) -> None:

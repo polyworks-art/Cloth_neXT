@@ -383,6 +383,84 @@ def test_failed_status_loads_structured_violations_from_build_sidecar(
     assert error.violations == (expected,)
 
 
+def test_failed_status_loads_build_sidecar_when_recovery_is_disabled(
+        tmp_path):
+    scene = _scene()
+    work_directory = tmp_path / "run"
+    sidecar = (
+        work_directory / "server-data" / scene.project_name
+        / "build_violations.json")
+    sidecar.parent.mkdir(parents=True)
+    expected = {
+        "type": "self_intersection",
+        "tris": [[[0.0, 0.0, 0.0],
+                  [1.0, 0.0, 0.0],
+                  [0.0, 1.0, 0.0]]]}
+    sidecar.write_text(
+        json.dumps({"violations": [expected]}), encoding="utf-8")
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=work_directory,
+        external_address=wire.ServerAddress("127.0.0.1", 9),
+        recovery_options=None)
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "Intersections detected (1)."},
+        "building")
+
+    assert error.violations == (expected,)
+
+
+def test_failed_status_loads_mirrored_build_sidecar(tmp_path):
+    scene = _scene()
+    work_directory = tmp_path / "run"
+    server_root = work_directory / "server-data"
+    server_root.mkdir(parents=True)
+    expected = {"type": "self_intersection", "combined_pair": [4, 8]}
+    (server_root / f"{scene.project_name}.build_violations.json").write_text(
+        json.dumps({"violations": [expected]}), encoding="utf-8")
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=work_directory,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "Intersections detected (1)."},
+        "building")
+
+    assert error.violations == (expected,)
+
+
+def test_build_sidecar_confirmation_waits_for_atomic_mirror(
+        monkeypatch, tmp_path):
+    scene = _scene()
+    work_directory = tmp_path / "run"
+    server_root = work_directory / "server-data"
+    server_root.mkdir(parents=True)
+    mirror = server_root / f"{scene.project_name}.build_violations.json"
+    expected = {"type": "self_intersection", "combined_pair": [12, 14]}
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=work_directory,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    sleeps = 0
+
+    def publish_on_first_wait(_seconds):
+        nonlocal sleeps
+        sleeps += 1
+        mirror.write_text(
+            json.dumps({"violations": [expected]}), encoding="utf-8")
+
+    monkeypatch.setattr(session_module.time, "sleep", publish_on_first_wait)
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "Intersections detected (1)."},
+        "building")
+
+    assert sleeps == 1
+    assert error.violations == (expected,)
+
+
 def test_status_violations_take_precedence_over_stale_sidecar(tmp_path):
     session, sidecar = _session_with_violation_sidecar(tmp_path)
     sidecar.write_text(
