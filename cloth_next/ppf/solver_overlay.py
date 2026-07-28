@@ -159,6 +159,23 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
         if all_violations:
             raise ValidationError(result["combined_message"], violations=all_violations)
 '''
+_VIOLATION_REPLACEMENT_V2 = _VIOLATION_REPLACEMENT.replace(
+    '''            original_intersections = [
+                item for item in all_violations
+                if (isinstance(item, dict)
+                    and item.get("type") == "self_intersection")
+            ]
+''', "").replace(
+    '''            # Never discard the solver's authoritative violation geometry.
+            # Some managed builds report a validation hit here while the
+            # separately exported pair query returns no indices.  The legacy
+            # entry still contains the offending triangle and is sufficient
+            # for Cloth NeXt to highlight that face.
+            all_violations = preserved + (
+                exact if exact else original_intersections)
+''',
+    '''            all_violations = preserved + exact
+''')
 
 
 class SolverOverlayError(RuntimeError):
@@ -182,6 +199,20 @@ def _replace_once(path: Path, replacements: tuple[tuple[str, str], ...]) -> None
     os.replace(temporary, path)
 
 
+def _upgrade_violation_overlay(path: Path) -> None:
+    """Upgrade an already patched v2 frontend without touching solver code."""
+    text = path.read_text(encoding="utf-8")
+    if _VIOLATION_REPLACEMENT in text:
+        return
+    if text.count(_VIOLATION_REPLACEMENT_V2) != 1:
+        return
+    updated = text.replace(
+        _VIOLATION_REPLACEMENT_V2, _VIOLATION_REPLACEMENT, 1)
+    temporary = path.with_suffix(path.suffix + ".cloth-next.tmp")
+    temporary.write_text(updated, encoding="utf-8", newline="\n")
+    os.replace(temporary, path)
+
+
 def apply_managed_solver_overlay(bundle_root: Path) -> None:
     root = Path(bundle_root)
     frontend = root / "frontend"
@@ -192,6 +223,7 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
     scene = frontend / "_scene_.py"
     if not decoder.is_file() or not scene.is_file():
         raise SolverOverlayError("managed solver frontend files are missing")
+    _upgrade_violation_overlay(scene)
     _replace_once(decoder, ((_DECODER_NEEDLE, _DECODER_REPLACEMENT),))
     _replace_once(scene, (
         (_SCENE_SIGNATURE, _SCENE_SIGNATURE_REPLACEMENT),

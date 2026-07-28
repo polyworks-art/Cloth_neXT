@@ -24,6 +24,7 @@ class TriangleOwner:
 class SolverInputTriangle:
     owner: TriangleOwner
     vertices: tuple[tuple[float, float, float], ...]
+    input_vertices: tuple[tuple[float, float, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,9 @@ def build_solver_input_snapshot(
             "cloth-next-internal-static")
         polygons = tuple(source_polygons or ())
         for local_index, triangle in enumerate(scene_object.triangles):
+            input_vertices = tuple(
+                tuple(map(float, scene_object.vertices_local[index]))
+                for index in triangle)
             vertices = tuple(transform_point(
                 scene_object.transform,
                 scene_object.vertices_local[index]) for index in triangle)
@@ -99,7 +103,8 @@ def build_solver_input_snapshot(
                     if local_index < len(polygons) else None),
                 generated_proxy=bool(generated_proxy),
                 internal=internal)
-            records.append(SolverInputTriangle(owner, vertices))
+            records.append(SolverInputTriangle(
+                owner, vertices, input_vertices=input_vertices))
             combined_index += 1
     return SolverInputSnapshot(int(bake_start_frame), tuple(records))
 
@@ -173,7 +178,7 @@ def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
 
 def _match_legacy_triangle_pair(
         raw_triangles, snapshot: SolverInputSnapshot,
-        *, tolerance: float = 1.0e-8) -> tuple[int, int] | None:
+        *, tolerance: float = 1.0e-6) -> tuple[int, int] | None:
     """Map solver-provided legacy triangle geometry to the input snapshot.
 
     Older solver builds expose only the detected triangle positions.  Matching
@@ -208,7 +213,8 @@ def _match_legacy_triangle_pair(
             item.owner.combined_triangle_index
             for item in snapshot.triangles
             if not item.owner.internal
-            and _matches(raw_triangle, item.vertices)), None)
+            and (_matches(raw_triangle, item.vertices)
+                 or _matches(raw_triangle, item.input_vertices))), None)
         if found is not None and found not in matched:
             matched.append(found)
     if not matched:

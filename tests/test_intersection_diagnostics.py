@@ -111,6 +111,25 @@ def test_unmatched_legacy_solver_geometry_is_not_guessed():
     }, snapshot) is None
 
 
+def test_legacy_local_solver_geometry_maps_through_object_transform():
+    translated = SceneObject(
+        "cloth", "Translated Cloth",
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0)), ((0, 1, 2),),
+        ((1, 0, 0, 20), (0, 1, 0, 3), (0, 0, 1, -4),
+         (0, 0, 0, 1)))
+    snapshot = diagnostics.build_solver_input_snapshot(
+        ((translated, "CLOTH", (9,), False),), bake_start_frame=1)
+
+    violation = diagnostics.convert_violation({
+        "type": "self_intersection",
+        "tris": [[(0, 0, 0), (1, 0, 0), (0, 1, 0)]],
+    }, snapshot)
+
+    assert violation is not None
+    assert violation.elements[0].vertices == (
+        (20.0, 3.0, -4.0), (21.0, 3.0, -4.0), (20.0, 4.0, -4.0))
+
+
 def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
     monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
