@@ -82,6 +82,8 @@ class RecoveryIdentity:
     protocol_version: str
     solver_schema_version: str
     recovery_schema_version: int = RECOVERY_SCHEMA_VERSION
+    solver_installation_id: str = "legacy-unregistered"
+    solver_release_tag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -415,7 +417,8 @@ def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
         "scene_key", "export_uuids", "geometry_fingerprint",
         "topology_fingerprint", "frame_start", "frame_end", "fps",
         "collider_sampling", "solver_version", "protocol_version",
-        "solver_schema_version", "recovery_schema_version")
+        "solver_schema_version", "recovery_schema_version",
+        "solver_installation_id", "solver_release_tag")
     labels = {
         "scene_key": "Scene data changed",
         "export_uuids": "Object identity or role changed",
@@ -428,6 +431,8 @@ def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
         "solver_version": "Solver version changed",
         "protocol_version": "Protocol version changed",
         "solver_schema_version": "Solver schema changed",
+        "solver_installation_id": "Solver installation changed",
+        "solver_release_tag": "Solver release changed",
         "recovery_schema_version": "Recovery format changed",
     }
     for name in scene_fields:

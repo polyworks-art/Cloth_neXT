@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 
 OVERLAY_VERSION = "face-friction-intersection-preview-v8"
+UPSTREAM_013_RELEASE = "2026-07-26-22-53"
 
 _DECODER_NEEDLE = '''                else:
                     _rust.validate_group_type(group_type)
@@ -360,3 +361,42 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
     _replace_once(build_worker, (
         (_BUILD_WORKER_NEEDLE, _BUILD_WORKER_REPLACEMENT),))
     marker.write_text(OVERLAY_VERSION + "\n", encoding="ascii")
+
+
+def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
+                         schema_version: str,
+                         official_release_tag: str | None,
+                         managed: bool) -> None:
+    """Apply only the exact integration recipe verified for this release."""
+    if not managed:
+        return
+    identity = (protocol_version, schema_version, official_release_tag)
+    if identity == ("0.11", "1", "2026-07-13-21-05"):
+        apply_managed_solver_overlay(bundle_root)
+        return
+    if identity == ("0.13", "2", UPSTREAM_013_RELEASE):
+        frontend = bundle_root / "frontend"
+        scene = frontend / "_scene_.py"
+        worker = frontend / "build_worker.py"
+        if not scene.is_file() or not worker.is_file():
+            raise SolverOverlayError(
+                "verified protocol 0.13 frontend files are missing")
+        scene_text = scene.read_text(encoding="utf-8")
+        worker_text = worker.read_text(encoding="utf-8")
+        required = (
+            'all_violations = result["violations"]',
+            'raise ValidationError(result["combined_message"], violations=all_violations)',
+            'json.dump({"violations": violations}, fp)',
+        )
+        if (required[0] not in scene_text or required[1] not in scene_text
+                or required[2] not in worker_text):
+            raise SolverOverlayError(
+                "protocol 0.13 upstream integration anchors do not match the "
+                "verified release")
+        marker = bundle_root / ".cloth-next-upstream-integration-0.13-schema-2"
+        marker.write_text(UPSTREAM_013_RELEASE + "\n", encoding="ascii")
+        return
+    raise SolverOverlayError(
+        "no Cloth NeXt integration is registered for "
+        f"protocol={protocol_version}, schema={schema_version}, "
+        f"release={official_release_tag!r}")

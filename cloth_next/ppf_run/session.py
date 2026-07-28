@@ -216,6 +216,8 @@ class SessionDiagnostics:
     run_id: str = field(default_factory=lambda: uuid_module.uuid4().hex)
     project_name: str = ""
     solver_mode: str = ""
+    installation_id: str | None = None
+    official_release_tag: str | None = None
     host: str = ""
     port: int = 0
     process_id: int | None = None
@@ -286,6 +288,12 @@ class SolverSession:
         self._surface_maps_by_uuid: dict[str, results.SurfaceMap] = {}
         self.diagnostics = SessionDiagnostics(project_name=scene.project_name,
                                               solver_mode=resolved.mode.name,
+                                              installation_id=(
+                                                  resolved.installation_id),
+                                              official_release_tag=(
+                                                  resolved.installation.official_release_tag
+                                                  if resolved.installation
+                                                  else None),
                                               data_hash=scene.data_hash,
                                               param_hash=scene.param_hash)
         if resolved.ownership is ConnectionOwnership.EXTERNAL_SERVER:
@@ -703,7 +711,9 @@ class SolverSession:
         blob = wire.data_receive(self._address, self.transport,
                                  project_name=self.scene.project_name,
                                  path=results.MAP_PATH)
-        output_map = results.parse_output_map(blob)
+        schema_version = int(self.resolved.schema_version or "1")
+        output_map = results.parse_output_map(
+            blob, schema_version=schema_version)
         self.diagnostics.bytes_transferred += len(blob)
         targets = self.scene.dynamic_objects
         solid_targets = [target for target in targets
@@ -725,7 +735,8 @@ class SolverSession:
                         f"solver output map has no entry for {target.uuid}")
                 assert surface_blob is not None
                 self._surface_maps_by_uuid[target.uuid] = results.parse_surface_map(
-                    surface_blob, target.uuid, target.vertex_count)
+                    surface_blob, target.uuid, target.vertex_count,
+                    schema_version=schema_version)
             else:
                 raw_indices = output_map.indices_for(target.uuid,
                                                      target.vertex_count)

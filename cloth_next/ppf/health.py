@@ -12,7 +12,9 @@ from datetime import datetime, timezone
 
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.state import ApplicationState
-from .compatibility import CompatibilityResult, validate_versions
+from .compatibility import (CompatibilityResult, DEFAULT_PROTOCOL_PROFILE,
+                            ProtocolProfile, protocol_profile,
+                            validate_versions)
 from .models import ConnectionOwnership
 from .process import SolverProcessManager
 from .status import ParsedStatus, application_state_hint, parse_status
@@ -50,6 +52,7 @@ def query_health(
     *, host: str, port: int, project_name: str,
     ownership: ConnectionOwnership, transport: TransportConfig,
     local_versions: tuple[str, str, str] | None = None,
+    expected_profile: ProtocolProfile | None = None,
     process_running: bool | None = None, process_id: int | None = None,
     exit_code: int | None = None,
 ) -> HealthSnapshot:
@@ -58,9 +61,15 @@ def query_health(
         response = query_status(host, port, project_name, transport)
         parsed = parse_status(response)
         package, executable_protocol, schema = local_versions or (None, None, None)
-        compatibility = validate_versions(parsed.protocol_version, schema, package)
+        profile = expected_profile or (
+            protocol_profile(executable_protocol, schema)
+            if executable_protocol is not None and schema is not None
+            else None) or DEFAULT_PROTOCOL_PROFILE
+        compatibility = validate_versions(
+            parsed.protocol_version, schema, package, profile=profile)
         if executable_protocol is not None and executable_protocol != parsed.protocol_version:
-            compatibility = validate_versions(executable_protocol, schema, package)
+            compatibility = validate_versions(
+                executable_protocol, schema, package, profile=profile)
         if response.get("error"):
             raise ValueError(f"PPF error response: {response['error']}")
         error = compatibility.error
@@ -78,7 +87,7 @@ def query_health(
     except (ClothNextError, ValueError) as exc:
         error = exc.record if isinstance(exc, ClothNextError) else ErrorRecord.create(
             category=ErrorCategory.SOLVER_CONNECTION,
-            user_message="The service on the configured port is not a valid PPF 0.11 server.",
+            user_message="The service on the configured port is not a valid supported PPF server.",
             technical_message=str(exc),
             recommended_action="Stop the conflicting service or choose another port.",
             recoverable=True,
@@ -88,7 +97,11 @@ def query_health(
             None, None, None, None, process_id, exit_code, error, checked)
 
 
-def start_owned_and_wait(manager: SolverProcessManager, project_name: str = "cloth-next-health", poll_interval: float = 0.05) -> HealthSnapshot:
+def start_owned_and_wait(manager: SolverProcessManager,
+                         project_name: str = "cloth-next-health",
+                         poll_interval: float = 0.05,
+                         expected_profile: ProtocolProfile | None = None,
+                         ) -> HealthSnapshot:
     cfg = manager.config
     if port_reachable(cfg.host, cfg.port, cfg.connect_timeout):
         existing = query_health(host=cfg.host, port=cfg.port, project_name=project_name,
@@ -98,9 +111,19 @@ def start_owned_and_wait(manager: SolverProcessManager, project_name: str = "clo
             return existing
         raise ClothNextError(existing.last_error)  # type: ignore[arg-type]
     versions = manager.executable_version()
+    profile = expected_profile or protocol_profile(versions[1], versions[2])
     manager.start()
     deadline = time.monotonic() + cfg.startup_timeout
     try:
+        if profile is None:
+            raise ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.PROTOCOL_COMPATIBILITY,
+                user_message="The selected solver is not compatible with "
+                             "this Cloth NeXt build.",
+                technical_message=(
+                    f"protocol={versions[1]!r}, schema={versions[2]!r}"),
+                recommended_action="Select a supported solver installation.",
+                recoverable=True))
         while time.monotonic() < deadline:
             poll = manager.poll()
             if not poll.running:
@@ -109,7 +132,8 @@ def start_owned_and_wait(manager: SolverProcessManager, project_name: str = "clo
                 health = query_health(host=cfg.host, port=cfg.port, project_name=project_name,
                     ownership=ConnectionOwnership.OWNED_PROCESS,
                     transport=TransportConfig(cfg.connect_timeout, cfg.read_timeout),
-                    local_versions=versions, process_running=True, process_id=poll.process_id)
+                    local_versions=versions, expected_profile=profile,
+                    process_running=True, process_id=poll.process_id)
                 if health.reachable:
                     if not health.compatible:
                         # An incompatible solver is never reported as started.

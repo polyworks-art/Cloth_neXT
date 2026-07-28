@@ -169,9 +169,10 @@ class SimulationSettings:
     """Immutable scene-level inputs for the vertical slice."""
 
     frame_count: int  # Blender frames 1..frame_count
-    fps: int
+    fps: float
     gravity_blender: tuple[float, float, float]
     quality: SolverQualitySettings = field(default_factory=SolverQualitySettings)
+    time_scale: float = 1.0
     wind_blender: tuple[float, float, float] = (0.0, 0.0, 0.0)
     air_density: float | None = None
     air_friction: float | None = None
@@ -185,8 +186,10 @@ class SimulationSettings:
     def __post_init__(self) -> None:
         if self.frame_count < 2:
             raise ParamEncodeError("frame_count must be at least 2")
-        if self.fps < 1:
+        if not math.isfinite(self.fps) or self.fps <= 0:
             raise ParamEncodeError("fps must be at least 1")
+        if not math.isfinite(self.time_scale) or self.time_scale <= 0:
+            raise ParamEncodeError("time scale must be finite and positive")
         if self.auto_save_interval < 0:
             raise ParamEncodeError("auto-save interval must be non-negative")
         if len(self.gravity_blender) != 3 or any(
@@ -227,7 +230,8 @@ class SimulationSettings:
 
 
 def _scene_wire_params(settings: SimulationSettings,
-                       contact_enabled: bool) -> dict:
+                       contact_enabled: bool, *,
+                       schema_version: int = 1) -> dict:
     scene = {
         "dt": float32_wire(settings.quality.time_step),
         "min-newton-steps": int(settings.quality.min_newton_steps),
@@ -238,7 +242,8 @@ def _scene_wire_params(settings: SimulationSettings,
                  for value in blender_vector_to_ppf(settings.wind_blender)],
         # Blender frames 1..N map to solver frames 0..N-1 (upstream contract).
         "frames": int(settings.frame_count) - 1,
-        "fps": int(settings.fps),
+        "fps": (float(settings.fps) if schema_version == 2
+                else int(settings.fps)),
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
@@ -276,13 +281,15 @@ def build_param_payload(settings: SimulationSettings,
                         shell: ShellMaterialSettings,
                         static: StaticMaterialSettings,
                         contact_enabled: bool = True,
-                        static_pin: StaticPinConfig | None = None) -> dict:
+                        static_pin: StaticPinConfig | None = None,
+                        schema_version: int = 1) -> dict:
     for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
                          ("collider name", collider_name),
                          ("collider uuid", collider_uuid)):
         if not value.strip():
             raise ParamEncodeError(f"{label} must not be empty")
-    scene = _scene_wire_params(settings, contact_enabled)
+    scene = _scene_wire_params(
+        settings, contact_enabled, schema_version=schema_version)
     group = [
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
@@ -301,6 +308,8 @@ def build_param_payload(settings: SimulationSettings,
                     "position":[list(frame[offset]) for frame in static_pin.positions]}}
             pin_config[cloth_uuid][index]=config
     payload = {"scene": scene, "group": group, "pin_config": pin_config}
+    if schema_version == 2:
+        payload["time_scale"] = float(settings.time_scale)
     return _attach_dynamic_params(payload, settings)
 
 
@@ -308,18 +317,20 @@ def build_multi_collider_param_payload(
         settings: SimulationSettings, cloth_name: str, cloth_uuid: str,
         colliders, *, shell: ShellMaterialSettings,
         contact_enabled: bool = True,
-        static_pin: StaticPinConfig | None = None) -> dict:
+        static_pin: StaticPinConfig | None = None,
+        schema_version: int = 1) -> dict:
     """PPF Param payload with one material group per STATIC collider."""
     entries = tuple(colliders)
     if not entries:
         return build_multi_deformable_param_payload(
             settings, ((cloth_name, cloth_uuid, "SHELL", shell,
-                        static_pin),), (), contact_enabled=contact_enabled)
+                        static_pin),), (), contact_enabled=contact_enabled,
+            schema_version=schema_version)
     first_name, first_uuid, first_static = entries[0]
     payload = build_param_payload(
         settings, cloth_name, cloth_uuid, first_name, first_uuid,
         shell=shell, static=first_static, contact_enabled=contact_enabled,
-        static_pin=static_pin)
+        static_pin=static_pin, schema_version=schema_version)
     payload["group"] = [payload["group"][0]] + [
         (static_wire_params(static), [name], [uuid])
         for name, uuid, static in entries]
@@ -330,11 +341,14 @@ def encode_multi_collider_param(
         settings: SimulationSettings, cloth_name: str, cloth_uuid: str,
         colliders, *, shell: ShellMaterialSettings,
         contact_enabled: bool = True,
-        static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
+        static_pin: StaticPinConfig | None = None,
+        schema_version: int = 1) -> tuple[bytes, str]:
     payload = build_multi_collider_param_payload(
         settings, cloth_name, cloth_uuid, colliders, shell=shell,
-        contact_enabled=contact_enabled, static_pin=static_pin)
-    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+        contact_enabled=contact_enabled, static_pin=static_pin,
+        schema_version=schema_version)
+    blob = envelope.dumps_envelope(
+        envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 
@@ -344,17 +358,20 @@ def build_deformable_param_payload(
         material: ShellMaterialSettings | RodMaterialSettings |
         SoftBodyMaterialSettings | RigidBodyMaterialSettings,
         contact_enabled: bool = True,
-        static_pin: StaticPinConfig | None = None) -> dict:
+        static_pin: StaticPinConfig | None = None,
+        schema_version: int = 1) -> dict:
     return build_multi_deformable_param_payload(
         settings,
         ((deformable_name, deformable_uuid, group_type, material,
           static_pin),),
-        colliders, contact_enabled=contact_enabled)
+        colliders, contact_enabled=contact_enabled,
+        schema_version=schema_version)
 
 
 def build_multi_deformable_param_payload(
         settings: SimulationSettings, deformables, colliders, *,
-        contact_enabled: bool = True) -> dict:
+        contact_enabled: bool = True,
+        schema_version: int = 1) -> dict:
     """PPF parameters for multiple dynamic objects and shared colliders.
 
     Each deformable tuple is ``(name, uuid, group_type, material, pin)``.
@@ -398,12 +415,15 @@ def build_multi_deformable_param_payload(
                                              for frame in static_pin.positions]}}
                 object_pins[index] = config
             pin_config[uuid] = object_pins
-    payload = {"scene": _scene_wire_params(settings, contact_enabled),
+    payload = {"scene": _scene_wire_params(
+                   settings, contact_enabled, schema_version=schema_version),
                "group": [
         *dynamic_groups,
         *((static_wire_params(static), [name], [uuid])
           for name, uuid, static in entries),
     ], "pin_config": pin_config}
+    if schema_version == 2:
+        payload["time_scale"] = float(settings.time_scale)
     return _attach_dynamic_params(payload, settings)
 
 
@@ -413,21 +433,27 @@ def encode_deformable_param(
         material: ShellMaterialSettings | RodMaterialSettings |
         SoftBodyMaterialSettings | RigidBodyMaterialSettings,
         contact_enabled: bool = True,
-        static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
+        static_pin: StaticPinConfig | None = None,
+        schema_version: int = 1) -> tuple[bytes, str]:
     payload = build_deformable_param_payload(
         settings, deformable_name, deformable_uuid, colliders,
         group_type=group_type, material=material,
-        contact_enabled=contact_enabled, static_pin=static_pin)
-    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+        contact_enabled=contact_enabled, static_pin=static_pin,
+        schema_version=schema_version)
+    blob = envelope.dumps_envelope(
+        envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 
 def encode_multi_deformable_param(
         settings: SimulationSettings, deformables, colliders, *,
-        contact_enabled: bool = True) -> tuple[bytes, str]:
+        contact_enabled: bool = True,
+        schema_version: int = 1) -> tuple[bytes, str]:
     payload = build_multi_deformable_param_payload(
-        settings, deformables, colliders, contact_enabled=contact_enabled)
-    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+        settings, deformables, colliders, contact_enabled=contact_enabled,
+        schema_version=schema_version)
+    blob = envelope.dumps_envelope(
+        envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 
@@ -437,11 +463,14 @@ def encode_param(settings: SimulationSettings,
                  shell: ShellMaterialSettings,
                  static: StaticMaterialSettings,
                  contact_enabled: bool = True,
-                 static_pin: StaticPinConfig | None = None) -> tuple[bytes, str]:
+                 static_pin: StaticPinConfig | None = None,
+                 schema_version: int = 1) -> tuple[bytes, str]:
     payload = build_param_payload(settings, cloth_name, cloth_uuid,
                                   collider_name, collider_uuid,
                                   shell=shell, static=static,
                                   contact_enabled=contact_enabled,
-                                  static_pin=static_pin)
-    blob = envelope.dumps_envelope(envelope.KIND_PARAM, payload)
+                                  static_pin=static_pin,
+                                  schema_version=schema_version)
+    blob = envelope.dumps_envelope(
+        envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)

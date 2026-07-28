@@ -175,6 +175,57 @@ def test_official_static_deform_animation_roundtrip():
     assert motion["vert_frames"] == frames.tolist()
 
 
+def test_schema2_envelope_animation_offsets_and_required_time_scale():
+    import numpy as np
+    collider = SceneObject(
+        "Collider", "collider-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        transform_animation={
+            "time": [0.0, 1.0 / 24.0],
+            "translation": [[0, 0, 0], [1, 0, 0]],
+            "quaternion": [[1, 0, 0, 0], [1, 0, 0, 0]],
+            "scale": [[1, 1, 1], [1, 1, 1]],
+            "segments": ["LINEAR"],
+        })
+    cloth, _ = _micro_objects()
+    blob, _digest = encode_scene(cloth, collider, schema_version=2)
+    decoded = cbor_codec.loads(blob)
+    assert decoded["version"] == 2
+    animation = decoded["payload"][1]["object"][0]["transform_animation"]
+    assert animation["frame_offset"] == [0, 1]
+    assert "time" not in animation
+
+    settings = SimulationSettings(
+        frame_count=3, fps=23.976,
+        gravity_blender=(0.0, 0.0, -9.81), time_scale=0.5)
+    param_blob, _ = encode_param(
+        settings, "Cloth", "cloth", "Collider", "collider",
+        shell=DEFAULT_SHELL_SETTINGS, static=DEFAULT_STATIC_SETTINGS,
+        schema_version=2)
+    param = cbor_codec.loads(param_blob)
+    assert param["version"] == 2
+    assert param["payload"]["scene"]["fps"] == pytest.approx(23.976)
+    assert param["payload"]["time_scale"] == pytest.approx(0.5)
+
+
+def test_schema2_static_deform_has_no_time_array():
+    import numpy as np
+    deform = SceneObject(
+        "Collider", "deform-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        static_deform_animation={
+            "time": [0.0, 1.0 / 24.0],
+            "vert_frames": np.zeros((2, 3, 3), dtype=np.float64)})
+    info = deform.info_dict(schema_version=2)
+    assert "time" not in info["static_deform_animation"]
+
+
 def test_multiple_colliders_keep_deterministic_scene_and_param_order():
     cloth, collider = _micro_objects()
     second = SceneObject("Second", "cn-collider-0002",

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import pytest
+
 from cloth_next.ppf import solver_overlay
 
 
@@ -112,3 +114,40 @@ def test_existing_v4_overlay_gains_unverified_flag_suppression(tmp_path):
     assert "Without a confirmed pair" in upgraded
     assert "self._has_self_intersection = False" in upgraded
     assert "original_intersections = []" in upgraded
+
+
+def test_protocol_013_uses_only_verified_upstream_integration(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    scene = frontend / "_scene_.py"
+    worker = frontend / "build_worker.py"
+    scene.write_text(
+        'all_violations = result["violations"]\n'
+        'raise ValidationError(result["combined_message"], '
+        'violations=all_violations)\n', encoding="utf-8")
+    worker.write_text(
+        'json.dump({"violations": violations}, fp)\n', encoding="utf-8")
+
+    solver_overlay.apply_solver_overlay(
+        tmp_path, protocol_version="0.13", schema_version="2",
+        official_release_tag="2026-07-26-22-53", managed=True)
+
+    assert scene.read_text(encoding="utf-8").startswith("all_violations")
+    assert (tmp_path / ".cloth-next-upstream-integration-0.13-schema-2").is_file()
+    assert not (tmp_path / (
+        f".cloth-next-{solver_overlay.OVERLAY_VERSION}")).exists()
+
+
+def test_unknown_or_external_release_is_not_patched(tmp_path):
+    original = "untouched"
+    (tmp_path / "frontend").mkdir()
+    scene = tmp_path / "frontend" / "_scene_.py"
+    scene.write_text(original, encoding="utf-8")
+    solver_overlay.apply_solver_overlay(
+        tmp_path, protocol_version="0.13", schema_version="2",
+        official_release_tag=None, managed=False)
+    assert scene.read_text(encoding="utf-8") == original
+    with pytest.raises(solver_overlay.SolverOverlayError):
+        solver_overlay.apply_solver_overlay(
+            tmp_path, protocol_version="0.13", schema_version="2",
+            official_release_tag="unknown", managed=True)

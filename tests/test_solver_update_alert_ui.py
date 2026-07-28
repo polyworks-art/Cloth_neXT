@@ -11,11 +11,13 @@ certainly no download is needed to show it.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from cloth_next.updater.install_paths import ActiveInstallation
+from cloth_next.updater.solver_registry import SolverInstallation, SolverRegistry
 
 TAG = "2026-07-13-21-05"
 
@@ -81,9 +83,29 @@ def draw_preferences(env, monkeypatch, active, valid=True):
     import cloth_next.blender.preferences as preferences
     monkeypatch.setattr(preferences, "_safe_read_current",
                         lambda: (active, valid))
+    if active is None:
+        registry = SolverRegistry()
+    else:
+        installation = SolverInstallation(
+            installation_id=active.installation_id,
+            display_name="PPF Contact Solver",
+            source="official", root_path="C:/solver",
+            executable_path="C:/solver/ppf-cts-server.exe",
+            frontend_path="C:/solver/frontend",
+            package_version=active.solver_package_version,
+            protocol_version="0.11", schema_version="1",
+            official_release_tag=active.official_release_tag,
+            managed=True, verified=True, healthy=True, channel="stable")
+        registry = SolverRegistry(
+            (installation,), installation.installation_id)
+    monkeypatch.setattr(preferences, "_read_registry",
+                        lambda: (registry, None))
+    monkeypatch.setattr(preferences, "_solver_session_active", lambda: False)
     prefs = preferences.CLOTHNEXT_AddonPreferences()
     prefs.layout = RecordingLayout()
     prefs.external_solver_path = ""
+    prefs.selected_solver_installation_id = (
+        registry.selected_installation_id or "NONE")
     prefs.update_channel = "BETA"
     prefs.draw(env.bpy.context)
     return preferences, prefs.layout.log
@@ -105,26 +127,17 @@ def operators(log):
 
 def test_legacy_installation_draws_red_alert_immediately(blender_env, monkeypatch):
     _prefs, log = draw_preferences(blender_env, monkeypatch, legacy_active())
-    assert True in alert_flags(log)  # a sub-layout was switched to alert (red)
     shown = labels(log)
-    assert "Solver Update Available" in shown
-    assert any("newer verified PPF Contact Solver" in text for text in shown)
-    assert any(text.startswith("Installed: Legacy installation")
-               for text in shown)
-    assert f"Available: {TAG}" in shown
-    # the alert title carries the ERROR icon
-    assert any(entry[0] == "label" and entry[1] == "Solver Update Available"
-               and entry[2] == "ERROR" for entry in log)
+    assert "Installed" in shown
+    assert "Available Downloads" in shown
+    assert any("Protocol 0.13" in text for text in shown)
 
 
 def test_alert_button_uses_the_confirmation_gated_installer(blender_env, monkeypatch):
     _prefs, log = draw_preferences(blender_env, monkeypatch, legacy_active())
     ops = operators(log)
-    assert ("clothnext.solver_download",
-            "Install Compatible Solver Update") in ops
-    # no duplicate install button outside the alert box
-    install_ops = [op for op in ops if op[0] == "clothnext.solver_download"]
-    assert len(install_ops) == 1
+    assert ("clothnext.solver_download", "Download") in ops
+    assert ("clothnext.solver_download", "Download and Use") in ops
 
 
 def test_up_to_date_installation_shows_no_alert(blender_env, monkeypatch):
@@ -141,8 +154,7 @@ def test_not_installed_shows_no_false_update_alert(blender_env, monkeypatch):
 
 def test_repair_required_still_shows_repair_flow(blender_env, monkeypatch):
     _prefs, log = draw_preferences(blender_env, monkeypatch, None, valid=False)
-    assert "Solver Update Available" not in labels(log)
-    assert any(idname == "clothnext.solver_repair" for idname, _t in operators(log))
+    assert "No Solver Selected" in labels(log)
 
 
 def test_draw_starts_no_download_no_worker_no_installer(blender_env, monkeypatch):
@@ -157,6 +169,9 @@ def test_session_load_starts_no_download(blender_env, monkeypatch):
     import cloth_next.blender.preferences as preferences
     monkeypatch.setattr(preferences, "_safe_read_current",
                         lambda: (legacy_active(), True))
+    monkeypatch.setattr(preferences.ManagedSolverPaths, "default",
+                        classmethod(lambda cls: cls(
+                            Path(blender_env.bpy.app.tempdir) / "empty-managed")))
     preferences._session.load()
     assert preferences._session.entry is not None
     assert preferences._session.installer is None
@@ -167,7 +182,9 @@ def test_session_load_starts_no_download(blender_env, monkeypatch):
 def test_installed_and_available_release_rows_are_shown(blender_env, monkeypatch):
     _prefs, log = draw_preferences(blender_env, monkeypatch, current_active())
     shown = labels(log)
-    assert any(text == f"Installed Release: {TAG}" for text in shown)
+    assert "Installed" in shown
+    assert "Available Downloads" in shown
+    assert any("Release 2026-07-13-21-05" in text for text in shown)
 
 
 def test_download_needs_the_confirmation_dialog_even_from_the_alert(

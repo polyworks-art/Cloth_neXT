@@ -59,8 +59,9 @@ class OutputMap:
         return indices
 
 
-def parse_output_map(blob: bytes) -> OutputMap:
-    payload = envelope.loads_envelope(blob, envelope.KIND_VERTEX_MAP)
+def parse_output_map(blob: bytes, *, schema_version: int = 1) -> OutputMap:
+    payload = envelope.loads_envelope(
+        blob, envelope.KIND_VERTEX_MAP, schema_version=schema_version)
     if not isinstance(payload, dict) or not payload:
         raise ResultValidationError("VertexMap payload must be a non-empty map")
     result: dict[str, tuple[int, ...]] = {}
@@ -89,10 +90,14 @@ class SurfaceMap:
 
 
 def parse_surface_map(blob: bytes, uuid: str,
-                      expected_count: int) -> SurfaceMap:
+                      expected_count: int, *,
+                      schema_version: int = 1) -> SurfaceMap:
     raw = cbor_codec.loads(blob)
-    if not isinstance(raw, dict) or raw.get("kind") != "SurfaceMap":
+    if (not isinstance(raw, dict) or raw.get("kind") != "SurfaceMap"):
         raise ResultValidationError("surface map envelope kind mismatch")
+    wire_version = raw.get("version")
+    if wire_version is not None and wire_version != schema_version:
+        raise ResultValidationError("surface map envelope schema mismatch")
     payload = raw.get("payload")
     if not isinstance(payload, dict) or payload.get("version") != 2:
         raise ResultValidationError("surface map payload version mismatch")

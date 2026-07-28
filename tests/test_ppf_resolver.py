@@ -8,6 +8,7 @@ from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.resolver import (DEVELOPMENT_EXECUTABLE_ENV, SolverMode,
                                      SolverResolutionContext, SolverResolver,
                                      development_executable_from_environment)
+from cloth_next.updater.solver_registry import SolverInstallation
 
 
 def install_fake(root: Path):
@@ -75,3 +76,26 @@ def test_layout_runtime_environment_does_not_write_bundle(tmp_path):
     after = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*"))
     assert before == after
     assert environment["PYTHONPATH"] == str(tmp_path.resolve())
+
+
+def test_selected_installation_routes_executable_and_protocol_together(tmp_path):
+    root = tmp_path / "ppf013"
+    executable = root / "ppf-cts-server.exe"
+    executable.parent.mkdir()
+    executable.write_bytes(b"solver")
+    frontend = root / "frontend"
+    frontend.mkdir()
+    installation = SolverInstallation(
+        "official-013-win64", "PPF 0.13", "official",
+        str(root), str(executable), str(frontend), "0.1.0", "0.13", "2",
+        "2026-07-26-22-53", True, True, True, "current")
+
+    result = resolver().resolve(SolverResolutionContext(
+        selected_installation=installation))
+
+    assert result is not None
+    assert result.installation is installation
+    assert result.executable_path == executable
+    assert result.frontend_path == frontend
+    assert result.protocol_profile.protocol_version == "0.13"
+    assert result.protocol_profile.schema_version == "2"

@@ -59,6 +59,7 @@ class SceneObject:
     pin_indices: tuple[int, ...] = ()
     transform_animation: dict | None = None
     static_deform_animation: dict | None = None
+    static_operations: tuple[dict, ...] = ()
     edges: tuple[tuple[int, int], ...] = ()
     stitch_pairs: tuple[tuple[int, int], ...] = ()
     uv_faces: tuple[tuple[tuple[float, float], ...], ...] = ()
@@ -116,8 +117,10 @@ class SceneObject:
             raise SceneEncodeError(f"{self.name}: transform must be 4x4")
         if any(not math.isfinite(c) for row in self.transform for c in row):
             raise SceneEncodeError(f"{self.name}: non-finite transform")
-        if (self.transform_animation is not None
-                and self.static_deform_animation is not None):
+        if sum((
+                self.transform_animation is not None,
+                self.static_deform_animation is not None,
+                bool(self.static_operations))) > 1:
             raise SceneEncodeError(
                 f"{self.name}: collider motion sources are mutually exclusive")
         if self.transform_animation is not None:
@@ -147,7 +150,7 @@ class SceneObject:
                 raise SceneEncodeError(
                     f"{self.name}: inconsistent static deformation animation")
 
-    def info_dict(self) -> dict:
+    def info_dict(self, *, schema_version: int = 1) -> dict:
         numpy_vertices = type(self.vertices_local).__module__.split(".", 1)[0] == "numpy"
         numpy_triangles = type(self.triangles).__module__.split(".", 1)[0] == "numpy"
         info = {
@@ -194,9 +197,42 @@ class SceneObject:
             info["pin"] = (self.pin_indices if is_numpy else
                            list(self.pin_indices))
         if self.transform_animation is not None:
-            info["transform_animation"] = self.transform_animation
+            animation = dict(self.transform_animation)
+            if schema_version == 2:
+                times = animation.pop("time")
+                if len(times) > 1:
+                    step = float(times[1]) - float(times[0])
+                    if step <= 0.0:
+                        raise SceneEncodeError(
+                            f"{self.name}: animation times must increase")
+                    animation["frame_offset"] = [
+                        int(round((float(value) - float(times[0])) / step))
+                        for value in times]
+            info["transform_animation"] = animation
         if self.static_deform_animation is not None:
-            info["static_deform_animation"] = self.static_deform_animation
+            animation = dict(self.static_deform_animation)
+            if schema_version == 2:
+                animation.pop("time", None)
+            info["static_deform_animation"] = animation
+        if self.static_operations:
+            operations = []
+            for operation in self.static_operations:
+                value = dict(operation)
+                if schema_version == 2:
+                    fps = float(value.pop("fps", 1.0))
+                    if "time_start" in value:
+                        value["frame_offset_start"] = int(round(
+                            float(value.pop("time_start"))
+                            * fps))
+                    if "time_end" in value:
+                        value["frame_offset_end"] = int(round(
+                            float(value.pop("time_end"))
+                            * fps))
+                    if "angular_velocity" in value:
+                        value["angular_velocity_anim"] = float(
+                            value.pop("angular_velocity"))
+                operations.append(value)
+            info["static_ops"] = operations
         return info
 
 
@@ -222,19 +258,23 @@ def _collider_sequence(collider) -> tuple[SceneObject, ...]:
             else tuple(collider))
 
 
-def build_scene_payload(cloth: SceneObject, collider) -> list:
+def build_scene_payload(cloth: SceneObject, collider, *,
+                        schema_version: int = 1) -> list:
     """One SHELL group and, when present, one STATIC collider group."""
-    return build_multi_deformable_scene_payload(((cloth, GROUP_SHELL),),
-                                                collider)
+    return build_multi_deformable_scene_payload(
+        ((cloth, GROUP_SHELL),), collider, schema_version=schema_version)
 
 
 def build_deformable_scene_payload(deformable: SceneObject, collider, *,
-                                   group_type: str) -> list:
+                                   group_type: str,
+                                   schema_version: int = 1) -> list:
     return build_multi_deformable_scene_payload(
-        ((deformable, group_type),), collider)
+        ((deformable, group_type),), collider,
+        schema_version=schema_version)
 
 
-def build_multi_deformable_scene_payload(deformables, collider) -> list:
+def build_multi_deformable_scene_payload(deformables, collider, *,
+                                         schema_version: int = 1) -> list:
     """Build one scene containing every dynamic object and shared colliders.
 
     Dynamic objects are grouped by PPF element type while preserving their
@@ -257,44 +297,58 @@ def build_multi_deformable_scene_payload(deformables, collider) -> list:
     if len(set(uuids)) != len(uuids):
         raise SceneEncodeError("deformables and colliders need distinct UUIDs")
     payload = [
-        {"object": [item.info_dict() for item in grouped[kind]], "type": kind}
+        {"object": [item.info_dict(schema_version=schema_version)
+                    for item in grouped[kind]], "type": kind}
         for kind in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID, GROUP_PDRD)
         if grouped[kind]
     ]
     if colliders:
-        payload.append({"object": [item.info_dict() for item in colliders],
+        payload.append({"object": [
+            item.info_dict(schema_version=schema_version) for item in colliders],
                         "type": GROUP_STATIC})
     return payload
 
 
 def encode_deformable_scene(deformable: SceneObject, collider, *,
-                            group_type: str) -> tuple[bytes, str]:
+                            group_type: str,
+                            schema_version: int = 1) -> tuple[bytes, str]:
     blob = envelope.dumps_envelope(
         envelope.KIND_SCENE,
         build_deformable_scene_payload(deformable, collider,
-                                       group_type=group_type))
+                                       group_type=group_type,
+                                       schema_version=schema_version),
+        schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 
-def encode_multi_deformable_scene(deformables, collider) -> tuple[bytes, str]:
+def encode_multi_deformable_scene(deformables, collider, *,
+                                  schema_version: int = 1) -> tuple[bytes, str]:
     blob = envelope.dumps_envelope(
         envelope.KIND_SCENE,
-        build_multi_deformable_scene_payload(deformables, collider))
+        build_multi_deformable_scene_payload(
+            deformables, collider, schema_version=schema_version),
+        schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 
 def encode_multi_deformable_scene_file(deformables, collider, path: Path, *,
-                                       progress=None) -> tuple[Path, str]:
+                                       progress=None,
+                                       schema_version: int = 1
+                                       ) -> tuple[Path, str]:
     digest = envelope.dump_envelope_file(
         envelope.KIND_SCENE,
-        build_multi_deformable_scene_payload(deformables, collider), path,
-        progress=progress)
+        build_multi_deformable_scene_payload(
+            deformables, collider, schema_version=schema_version), path,
+        progress=progress, schema_version=schema_version)
     return path, digest
 
 
-def encode_scene(cloth: SceneObject, collider) -> tuple[bytes, str]:
-    blob = envelope.dumps_envelope(envelope.KIND_SCENE,
-                                   build_scene_payload(cloth, collider))
+def encode_scene(cloth: SceneObject, collider, *,
+                 schema_version: int = 1) -> tuple[bytes, str]:
+    blob = envelope.dumps_envelope(
+        envelope.KIND_SCENE,
+        build_scene_payload(cloth, collider, schema_version=schema_version),
+        schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
 
 

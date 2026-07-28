@@ -20,6 +20,8 @@ from typing import Callable
 
 from .layout import BundledSolverLayout
 from .models import ConnectionOwnership
+from .compatibility import ProtocolProfile, protocol_profile
+from ..updater.solver_registry import SolverInstallation
 
 DEVELOPMENT_EXECUTABLE_ENV = "CLOTH_NEXT_PPF_EXECUTABLE"
 
@@ -37,6 +39,7 @@ class SolverResolutionContext:
     managed_root: Path | None = None
     development_executable: Path | None = None
     external_server_available: bool = False
+    selected_installation: SolverInstallation | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +53,14 @@ class ResolvedSolver:
     ownership: ConnectionOwnership
     source_metadata: dict[str, object] | None
     writable: bool
+    installation: SolverInstallation | None = None
+    protocol_profile: ProtocolProfile | None = None
+    frontend_path: Path | None = None
+
+    @property
+    def installation_id(self) -> str | None:
+        return (self.installation.installation_id
+                if self.installation is not None else None)
 
 
 def development_executable_from_environment() -> Path | None:
@@ -71,6 +82,22 @@ class SolverResolver:
             protocol, schema, ConnectionOwnership.OWNED_PROCESS, metadata, writable)
 
     def resolve(self, context: SolverResolutionContext) -> ResolvedSolver | None:
+        if context.selected_installation is not None:
+            selected = context.selected_installation
+            if not (selected.available and selected.verified
+                    and selected.healthy and selected.compatible):
+                return None
+            profile = protocol_profile(
+                selected.protocol_version or "", selected.schema_version or "")
+            if profile is None:
+                return None
+            mode = (SolverMode.MANAGED_INSTALLATION
+                    if selected.managed else SolverMode.EXTERNAL_INSTALLATION)
+            return ResolvedSolver(
+                mode, selected.root, selected.executable,
+                selected.package_version, selected.protocol_version,
+                selected.schema_version, ConnectionOwnership.OWNED_PROCESS,
+                None, selected.managed, selected, profile, selected.frontend)
         if context.external_path is not None:
             path = context.external_path.expanduser().resolve()
             root = path.parent if path.is_file() else path

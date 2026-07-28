@@ -312,10 +312,11 @@ def test_update_installs_side_by_side_under_the_release_tag(tmp_path):
     # old folder untouched, new release side by side under the immutable tag
     assert (paths.version_dir("0.1.0") / "ppf-cts-server.exe").read_bytes() \
         == b"legacy-exe"
-    assert (paths.version_dir(TAG) / "ppf-cts-server.exe").is_file()
+    assert (paths.version_dir(
+        f"official-{TAG}-win64") / "ppf-cts-server.exe").is_file()
     active = read_current(paths)
     assert active.metadata_version == CURRENT_METADATA_VERSION
-    assert active.installation_id == TAG
+    assert active.installation_id == f"official-{TAG}-win64"
     assert active.official_release_tag == TAG
     assert active.solver_package_version == "0.1.0"
 

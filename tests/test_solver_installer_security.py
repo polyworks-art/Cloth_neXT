@@ -317,7 +317,8 @@ def test_successful_pipeline_activates_version(tmp_path):
 
 def test_never_installs_in_place_over_existing_version(tmp_path):
     installer, _ = make_installer(tmp_path)
-    installer.paths.version_dir("2026-07-09-04-39").mkdir(parents=True)
+    installer.paths.version_dir(
+        "official-2026-07-09-04-39-win64").mkdir(parents=True)
     assert run_pipeline(installer) is InstallerState.ERROR
     assert "never install in place" in installer.error.technical_message
 
@@ -327,9 +328,10 @@ def test_never_installs_in_place_over_existing_version(tmp_path):
 def test_managed_installation_can_be_removed(tmp_path):
     installer, _ = make_installer(tmp_path)
     run_pipeline(installer)
-    installer.remove("2026-07-09-04-39")
+    installer.remove("official-2026-07-09-04-39-win64")
     assert read_current(installer.paths) is None
-    assert not installer.paths.version_dir("2026-07-09-04-39").exists()
+    assert not installer.paths.version_dir(
+        "official-2026-07-09-04-39-win64").exists()
     assert installer.state is InstallerState.NOT_INSTALLED
 
 

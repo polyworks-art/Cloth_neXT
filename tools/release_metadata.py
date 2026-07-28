@@ -32,10 +32,16 @@ def build_release_manifest(repository_root: Path, zip_path: Path, *,
     solver = json.loads(
         (repository_root / "cloth_next" / "solver_compatibility.json")
         .read_text(encoding="utf-8"))
-    protocols = {entry["protocol_version"]
-                 for entry in solver.get("platforms", {}).values()}
-    if len(protocols) != 1:
-        raise ValueError("solver_compatibility.json must pin exactly one protocol version")
+    protocols = {
+        release["protocol_version"]
+        for platform in solver.get("platforms", {}).values()
+        for release in (
+            platform.get("releases", ())
+            if isinstance(platform, dict) and "releases" in platform
+            else (platform,))
+    }
+    if not protocols:
+        raise ValueError("solver_compatibility.json must pin a protocol version")
     return {
         "cloth_next_version": version.text,
         "git_tag": tag,
@@ -44,7 +50,9 @@ def build_release_manifest(repository_root: Path, zip_path: Path, *,
         "build_date": datetime.now(timezone.utc).isoformat(),
         "blender_minimum_version": manifest["blender_version_min"],
         "platform": RELEASE_PLATFORM,
-        "required_ppf_protocol": protocols.pop(),
+        "required_ppf_protocol": (
+            next(iter(protocols)) if len(protocols) == 1
+            else sorted(protocols)),
         "solver_compatibility_manifest_version": solver["manifest_version"],
         "solver_bundled": False,
         "extension_zip_sha256": sha256_file(zip_path),

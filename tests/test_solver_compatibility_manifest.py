@@ -21,7 +21,7 @@ def valid_payload():
 
 
 def entry(payload):
-    return payload["platforms"][PLATFORM]
+    return payload["platforms"][PLATFORM]["releases"][0]
 
 
 def test_bundled_manifest_is_valid_and_matches_addon_version():
@@ -41,6 +41,13 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
 def test_valid_manifest_parses():
     manifest = parse_manifest(valid_payload())
     assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-13-21-05"
+    releases = manifest.releases_for(PLATFORM)
+    assert [(item.protocol_version, item.schema_version) for item in releases] == [
+        ("0.11", "1"), ("0.13", "2")]
+    assert releases[1].official_release_tag == "2026-07-26-22-53"
+    assert releases[1].download_size == 448046043
+    assert releases[1].sha256 == (
+        "a7fcb372990ad568b6fcf01149a1e1e750aa4f735d1b8047e540b5e9540c4db5")
 
 
 @pytest.mark.parametrize("missing", ["sha256", "protocol_version", "schema_version"])
@@ -120,7 +127,7 @@ def test_malformed_sha256_rejected():
 
 def test_unknown_manifest_version_rejected():
     payload = valid_payload()
-    payload["manifest_version"] = 2
+    payload["manifest_version"] = 99
     with pytest.raises(ValueError, match="manifest_version"):
         parse_manifest(payload)
 

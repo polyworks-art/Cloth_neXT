@@ -32,6 +32,8 @@ from .install_paths import (ActiveInstallation, ManagedSolverPaths, clear_curren
                             make_current_record, read_current,
                             validate_installation_id, write_current)
 from .solver_manifest import SolverCompatibilityEntry
+from .solver_registry import (SolverInstallation, SolverRegistry, load_registry,
+                              official_installation_id, write_registry)
 from .states import InstallerState, can_transition
 from .update_check import solver_update_available
 
@@ -48,7 +50,8 @@ class ManagedSolverInstaller:
                  health_check: HealthCheck,
                  fetch: Fetcher = download_module.download_asset,
                  forbidden_roots: tuple[Path, ...] = (),
-                 is_solver_running: Callable[[], bool] = lambda: False) -> None:
+                 is_solver_running: Callable[[], bool] = lambda: False,
+                 apply_overlay: Callable[..., None] | None = None) -> None:
         paths.validate_outside(forbidden_roots)
         self._paths = paths
         self._entry = entry
@@ -56,6 +59,7 @@ class ManagedSolverInstaller:
         self._health_check = health_check
         self._fetch = fetch
         self._is_solver_running = is_solver_running
+        self._apply_overlay = apply_overlay
         self._cancel = threading.Event()
         self._repair_mode = False
         self._error: ErrorRecord | None = None
@@ -90,6 +94,10 @@ class ManagedSolverInstaller:
     @property
     def paths(self) -> ManagedSolverPaths:
         return self._paths
+
+    @property
+    def entry(self) -> SolverCompatibilityEntry:
+        return self._entry
 
     @property
     def download_progress(self) -> tuple[int, int]:
@@ -129,7 +137,9 @@ class ManagedSolverInstaller:
     def cancel(self) -> None:
         self._cancel.set()
 
-    def install(self, *, confirmed: bool) -> InstallerState:
+    def install(self, *, confirmed: bool,
+                activate: bool = True,
+                reinstall: bool = False) -> InstallerState:
         """Run the full pipeline. Requires prior :meth:`request_download`.
 
         ``confirmed=False`` performs no network or file operation at all.
@@ -174,19 +184,27 @@ class ManagedSolverInstaller:
                 raise _CompatibilityFailure(
                     f"package {package!r} does not match the manifest version "
                     f"{entry.solver_package_version!r}")
+            bundle_root = normalize_bundle_root(staging)
+            if self._apply_overlay is not None:
+                self._apply_overlay(
+                    Path(bundle_root),
+                    protocol_version=protocol,
+                    schema_version=schema,
+                    official_release_tag=entry.official_release_tag,
+                    managed=True)
             self._set_state(InstallerState.HEALTH_CHECKING)
             if entry.health_check_required and not self._health_check(executable):
                 raise _HealthCheckFailure("the real solver health check failed")
-            bundle_root = normalize_bundle_root(staging)
             relative = executable.relative_to(bundle_root).as_posix()
             # The installation directory is named after the immutable official
             # release tag, never after the internal package version alone:
             # different official releases may report the same package version
             # and must install side by side.
-            installation_id = validate_installation_id(entry.official_release_tag)
+            installation_id = validate_installation_id(
+                official_installation_id(entry.official_release_tag))
             version_dir = self._paths.version_dir(installation_id)
             if version_dir.exists():
-                if not self._repair_mode:
+                if not self._repair_mode and not reinstall:
                     raise ValueError(
                         f"managed release {installation_id} already exists; "
                         "never install in place — remove or repair it "
@@ -196,13 +214,34 @@ class ManagedSolverInstaller:
                 version_dir.parent.mkdir(parents=True, exist_ok=True)
                 Path(bundle_root).replace(version_dir)
             self._repair_mode = False
-            write_current(self._paths, make_current_record(
+            published_executable = version_dir / relative
+            installation = SolverInstallation(
                 installation_id=installation_id,
-                solver_package_version=entry.solver_package_version,
-                executable_relative=relative,
+                display_name=entry.display_name,
+                source="official",
+                root_path=str(version_dir.resolve()),
+                executable_path=str(published_executable.resolve()),
+                frontend_path=str((version_dir / "frontend").resolve()),
+                package_version=package,
+                protocol_version=protocol,
+                schema_version=schema,
                 official_release_tag=entry.official_release_tag,
-                official_asset_name=entry.official_asset_name,
-                asset_sha256=entry.sha256))
+                managed=True, verified=True, healthy=True,
+                channel=entry.channel)
+            # A corrupt registry is a diagnostic condition, not permission to
+            # replace it with a new registry and forget every other install.
+            registry = load_registry(self._paths.registry_json)
+            registry = registry.register(installation)
+            if activate:
+                registry = registry.select(installation_id)
+                write_current(self._paths, make_current_record(
+                    installation_id=installation_id,
+                    solver_package_version=entry.solver_package_version,
+                    executable_relative=relative,
+                    official_release_tag=entry.official_release_tag,
+                    official_asset_name=entry.official_asset_name,
+                    asset_sha256=entry.sha256))
+            write_registry(self._paths.registry_json, registry)
             self._set_state(InstallerState.READY)
         except download_module.DownloadCancelled:
             self._state = InstallerState.CANCELLING

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import threading
 import webbrowser
+from dataclasses import replace
 from pathlib import Path
 
 import bpy
@@ -30,6 +31,9 @@ from ..updater.solver_manifest import (SolverCompatibilityEntry,
                                                 load_bundled_manifest)
 from ..updater.states import InstallerAction, InstallerState
 from ..updater.update_check import solver_update_available
+from ..updater.solver_registry import (
+    SolverInstallation, SolverRegistry, external_installation_id, load_registry,
+    migrate_legacy_current, write_registry)
 
 _ADDON_ID = __package__.partition(".blender")[0]
 _PLATFORM = "windows-x86_64"
@@ -40,9 +44,15 @@ class _SolverSession:
 
     def __init__(self) -> None:
         self.entry: SolverCompatibilityEntry | None = None
+        self.entries: tuple[SolverCompatibilityEntry, ...] = ()
+        self.target_entry: SolverCompatibilityEntry | None = None
+        self.activate_after_install = False
+        self.reinstall = False
         self.disabled_reason: str | None = None
         self.installer: ManagedSolverInstaller | None = None
         self.worker: threading.Thread | None = None
+        self.worker_status: str | None = None
+        self.worker_error: str | None = None
         self.loaded = False
 
     def load(self) -> None:
@@ -52,22 +62,29 @@ class _SolverSession:
         try:
             manifest = load_bundled_manifest()
             self.entry = manifest.entry_for(_PLATFORM)
+            self.entries = manifest.releases_for(_PLATFORM)
             if self.entry is None:
                 self.disabled_reason = f"no verified release for {_PLATFORM}"
         except (OSError, ValueError) as exc:
             self.entry = None
             self.disabled_reason = str(exc)
 
-    def ensure_installer(self) -> ManagedSolverInstaller | None:
+    def ensure_installer(self, release_id: str = "") -> ManagedSolverInstaller | None:
         self.load()
-        if self.entry is None:
+        entry = next((item for item in self.entries
+                      if item.release_id == release_id), self.entry)
+        if entry is None:
             return None
-        if self.installer is None:
+        if self.installer is None or self.installer.entry != entry:
             extension_root = Path(__file__).resolve().parents[1]
             self.installer = ManagedSolverInstaller(
-                ManagedSolverPaths.default(), self.entry,
+                ManagedSolverPaths.default(), entry,
                 probe_version=_probe_version, health_check=_health_check,
-                forbidden_roots=(extension_root,))
+                forbidden_roots=(extension_root,),
+                apply_overlay=__import__(
+                    "cloth_next.ppf.solver_overlay",
+                    fromlist=["apply_solver_overlay"]).apply_solver_overlay)
+        self.target_entry = entry
         return self.installer
 
 
@@ -93,6 +110,109 @@ def _safe_read_current():
         return read_current(ManagedSolverPaths.default()), True
     except ValueError:
         return None, False
+
+
+def _read_registry() -> tuple[SolverRegistry, str | None]:
+    try:
+        return load_registry(ManagedSolverPaths.default().registry_json), None
+    except ValueError as exc:
+        return SolverRegistry(), str(exc)
+
+
+def _solver_session_active() -> bool:
+    try:
+        from ..bake.controller import shared_controller
+        return bool(shared_controller.snapshot().active)
+    except (ImportError, AttributeError):
+        return False
+
+
+def _solver_enum_items(_self, _context):
+    registry, _error = _read_registry()
+    items = []
+    for index, installation in enumerate(registry.installations):
+        status = (
+            f"Protocol {installation.protocol_version or '?'} · "
+            f"Schema {installation.schema_version or '?'} · "
+            f"{'Managed' if installation.managed else 'External'}")
+        items.append((
+            installation.installation_id,
+            installation.display_name,
+            status,
+            "CHECKMARK" if installation.healthy else "ERROR",
+            index))
+    if not items:
+        items.append(("NONE", "No Solver Selected",
+                      "Install or register a compatible solver", "ERROR", 0))
+    return items
+
+
+def _solver_enum_update(self, _context):
+    selected = str(getattr(self, "selected_solver_installation_id", "") or "")
+    if selected == "NONE" or _solver_session_active():
+        return
+    paths = ManagedSolverPaths.default()
+    registry, error = _read_registry()
+    if error or registry.get(selected) is None:
+        return
+    try:
+        write_registry(paths.registry_json, registry.select(selected))
+    except (OSError, ValueError):
+        return
+
+
+class CLOTHNEXT_OT_solver_use(bpy.types.Operator):
+    """Use this healthy compatible installation for future solver work"""
+    bl_idname = "clothnext.solver_use"
+    bl_label = "Use"
+    bl_description = (
+        "Make this verified installation the active solver for new Bakes, "
+        "tests, updates and compatible recovery")
+    bl_options = {"INTERNAL"}
+
+    installation_id: bpy.props.StringProperty()
+
+    @classmethod
+    def poll(cls, _context):
+        return not _solver_session_active()
+
+    def execute(self, context):
+        paths = ManagedSolverPaths.default()
+        registry, error = _read_registry()
+        if error:
+            self.report({"ERROR"}, error)
+            return {"CANCELLED"}
+        try:
+            registry = registry.select(self.installation_id)
+            write_registry(paths.registry_json, registry)
+        except (OSError, ValueError) as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        context.preferences.addons[
+            _ADDON_ID].preferences.selected_solver_installation_id = (
+                self.installation_id)
+        self.report({"INFO"}, "Active solver installation changed.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_solver_refresh_installations(bpy.types.Operator):
+    """Refresh registered installations and migrate the previous 0.11 setup"""
+    bl_idname = "clothnext.solver_refresh_installations"
+    bl_label = "Refresh Installations"
+    bl_description = (
+        "Refresh installation paths and verify the legacy managed solver "
+        "registry without downloading or changing the active solver")
+    bl_options = {"INTERNAL"}
+
+    def execute(self, _context):
+        def refresh():
+            manifest = load_bundled_manifest()
+            migrate_legacy_current(
+                ManagedSolverPaths.default(), manifest,
+                probe_version=_probe_version, health_check=_health_check)
+        _run_in_worker(refresh, status="Refreshing solver installations")
+        self.report({"INFO"}, "Refreshing solver installations in the background.")
+        return {"FINISHED"}
 
 
 def _installer_state() -> InstallerState:
@@ -141,14 +261,34 @@ def _ui_refresh_pulse() -> float | None:
     worker = _session.worker
     _tag_redraw_preferences()
     if worker is None or not worker.is_alive():
+        registry, _error = _read_registry()
+        selected = registry.selected_installation_id
+        if selected:
+            try:
+                preferences = bpy.context.preferences.addons[
+                    _ADDON_ID].preferences
+                preferences.selected_solver_installation_id = selected
+            except (KeyError, AttributeError):
+                pass
         return None  # worker finished; final redraw done, stop the timer
     return 0.25
 
 
-def _run_in_worker(target) -> None:
+def _run_in_worker(target, *, status: str | None = None) -> None:
     if _session.worker is not None and _session.worker.is_alive():
         return
-    _session.worker = threading.Thread(target=target, daemon=True,
+    _session.worker_status = status
+    _session.worker_error = None
+
+    def guarded_target():
+        try:
+            target()
+        except (OSError, ValueError, RuntimeError) as exc:
+            _session.worker_error = str(exc)
+        finally:
+            _session.worker_status = None
+
+    _session.worker = threading.Thread(target=guarded_target, daemon=True,
                                        name="clothnext-solver-installer")
     _session.worker.start()
     if not bpy.app.timers.is_registered(_ui_refresh_pulse):
@@ -173,6 +313,10 @@ def shutdown(join_timeout: float = 10.0) -> None:
     _session.worker = None
     _session.installer = None
     _session.entry = None
+    _session.entries = ()
+    _session.target_entry = None
+    _session.worker_status = None
+    _session.worker_error = None
     _session.disabled_reason = None
     _session.loaded = False
 
@@ -196,7 +340,7 @@ class _SolverInstallDialog:
 
     def draw(self, _context):
         layout = self.layout
-        entry = _session.entry
+        entry = _session.target_entry or _session.entry
         if entry is None:
             return
         for line in view_model.confirmation_lines(entry, ManagedSolverPaths.default()):
@@ -215,7 +359,10 @@ class _SolverInstallDialog:
             self.report({"WARNING"}, "The download was not confirmed; "
                         "nothing was started.")
             return {"CANCELLED"}
-        _run_in_worker(lambda: installer.install(confirmed=True))
+        activate = _session.activate_after_install
+        _run_in_worker(lambda: installer.install(
+            confirmed=True, activate=activate, reinstall=_session.reinstall),
+            status="Installing solver release")
         self.report({"INFO"}, "Downloading the official solver in the background.")
         return {"FINISHED"}
 
@@ -230,11 +377,22 @@ class CLOTHNEXT_OT_solver_download(_SolverInstallDialog, bpy.types.Operator):
     bl_idname = "clothnext.solver_download"
     bl_label = "Download Official Solver"
     bl_options = {"REGISTER", "INTERNAL"}
+    bl_description = (
+        "Download and verify this exact official solver release without "
+        "overwriting any other installed release")
+
+    release_id: bpy.props.StringProperty(default="")
+    activate_after_install: bpy.props.BoolProperty(default=False)
+    reinstall: bpy.props.BoolProperty(default=False)
 
     def invoke(self, context, _event):
+        if _solver_session_active():
+            self.report({"ERROR"},
+                        "Stop the active Bake before installing another solver.")
+            return {"CANCELLED"}
         if self._report_online_access_blocked():
             return {"CANCELLED"}
-        installer = _session.ensure_installer()
+        installer = _session.ensure_installer(self.release_id)
         if installer is None:
             self.report({"ERROR"}, "Automatic download is disabled: "
                         f"{_session.disabled_reason}")
@@ -243,6 +401,8 @@ class CLOTHNEXT_OT_solver_download(_SolverInstallDialog, bpy.types.Operator):
             self.report({"INFO"}, "A solver installation is already running.")
             return {"CANCELLED"}
         installer.request_download()
+        _session.activate_after_install = self.activate_after_install
+        _session.reinstall = self.reinstall
         return context.window_manager.invoke_props_dialog(self, width=520)
 
 
@@ -250,6 +410,9 @@ class CLOTHNEXT_OT_solver_cancel(bpy.types.Operator):
     """Cancel the running solver download"""
     bl_idname = "clothnext.solver_cancel"
     bl_label = "Cancel Download"
+    bl_description = (
+        "Cancel the current solver download; no partial installation is "
+        "registered and existing installations remain untouched")
     bl_options = {"INTERNAL"}
 
     def execute(self, _context):
@@ -262,34 +425,71 @@ class CLOTHNEXT_OT_solver_select_existing(bpy.types.Operator):
     """Select an existing external solver installation (never modified)"""
     bl_idname = "clothnext.solver_select_existing"
     bl_label = "Select Existing Installation"
+    bl_description = (
+        "Register an existing solver executable without copying, deleting or "
+        "modifying its external files")
     bl_options = {"INTERNAL"}
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def invoke(self, context, _event):
+        if _solver_session_active():
+            self.report({"ERROR"},
+                        "Stop the active Bake before registering another solver.")
+            return {"CANCELLED"}
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
     def execute(self, _context):
         from ..updater.external import validate_external_installation
         _session.load()
-        if _session.entry is None:
+        if not _session.entries:
             self.report({"ERROR"}, "No compatibility manifest entry is available.")
             return {"CANCELLED"}
-        try:
-            result = validate_external_installation(Path(self.filepath),
-                                                    _probe_version, _session.entry)
-        except (OSError, ValueError) as exc:
-            self.report({"ERROR"}, f"Invalid installation: {exc}")
-            return {"CANCELLED"}
-        if not result.compatible:
-            self.report({"WARNING"},
-                        f"Installed protocol {result.protocol_version} is not "
-                        f"compatible; required {_session.entry.protocol_version}.")
-            return {"CANCELLED"}
-        preferences = bpy.context.preferences.addons[_ADDON_ID].preferences
-        preferences.external_solver_path = str(result.root)
-        self.report({"INFO"}, f"External solver {result.package_version} selected.")
+        selected_path = Path(str(self.filepath))
+
+        def register_external():
+            package, protocol, schema = _probe_version(
+                selected_path if selected_path.is_file()
+                else __import__("cloth_next.ppf.layout", fromlist=[
+                    "BundledSolverLayout"]).BundledSolverLayout.from_root(
+                        selected_path).executable_path)
+            matching = next((entry for entry in _session.entries
+                             if entry.protocol_version == protocol
+                             and entry.schema_version == schema), None)
+            if matching is None:
+                raise ValueError(
+                    f"unsupported protocol {protocol} / schema {schema}")
+            result = validate_external_installation(
+                selected_path, _probe_version, matching)
+            if not result.compatible:
+                raise ValueError(
+                    f"unsupported protocol {result.protocol_version} / "
+                    f"schema {result.schema_version}")
+            healthy = _health_check(result.executable)
+            paths = ManagedSolverPaths.default()
+            registry = load_registry(paths.registry_json)
+            existing = registry.find_executable(result.executable)
+            if existing is not None:
+                return
+            installation = SolverInstallation(
+                installation_id=external_installation_id(),
+                display_name=f"Custom PPF {result.package_version}",
+                source="external", root_path=str(result.root),
+                executable_path=str(result.executable),
+                frontend_path=str(result.root / "frontend"),
+                package_version=result.package_version,
+                protocol_version=result.protocol_version,
+                schema_version=result.schema_version,
+                official_release_tag=None,
+                managed=False, verified=True, healthy=healthy,
+                channel=("current" if healthy else "unsupported"),
+                error=None if healthy else "Real solver health check failed")
+            write_registry(paths.registry_json, registry.register(installation))
+
+        _run_in_worker(register_external,
+                       status="Testing and registering external solver")
+        self.report({"INFO"}, "Testing the external solver in the background.")
         return {"FINISHED"}
 
 
@@ -297,11 +497,15 @@ class CLOTHNEXT_OT_solver_open_download_page(bpy.types.Operator):
     """Open the official st-tech/ppf-contact-solver release page"""
     bl_idname = "clothnext.solver_open_download_page"
     bl_label = "Open Official Download Page"
+    bl_description = "Open the immutable official release page for this solver"
     bl_options = {"INTERNAL"}
+    release_id: bpy.props.StringProperty(default="")
 
     def execute(self, _context):
         _session.load()
-        url = (_session.entry.official_release_page if _session.entry
+        entry = next((item for item in _session.entries
+                      if item.release_id == self.release_id), _session.entry)
+        url = (entry.official_release_page if entry
                else "https://github.com/st-tech/ppf-contact-solver/releases")
         webbrowser.open(url)
         return {"FINISHED"}
@@ -311,6 +515,7 @@ class CLOTHNEXT_OT_solver_view_licenses(bpy.types.Operator):
     """Open the upstream license information"""
     bl_idname = "clothnext.solver_view_licenses"
     bl_label = "View License Information"
+    bl_description = "Open the official upstream solver license information"
     bl_options = {"INTERNAL"}
 
     def execute(self, _context):
@@ -322,24 +527,32 @@ class CLOTHNEXT_OT_solver_health_check(bpy.types.Operator):
     """Run the real health check against the active installation"""
     bl_idname = "clothnext.solver_health_check"
     bl_label = "Run Health Check"
+    bl_description = (
+        "Start this installation briefly and verify its executable, protocol, "
+        "schema and status response")
     bl_options = {"INTERNAL"}
+    installation_id: bpy.props.StringProperty(default="")
 
     def execute(self, _context):
-        paths = ManagedSolverPaths.default()
-        active, valid = _safe_read_current()
-        if not valid:
-            self.report({"ERROR"}, "The installation metadata is damaged; "
-                        "repair the managed installation.")
+        registry, error = _read_registry()
+        installation = registry.get(
+            self.installation_id or registry.selected_installation_id)
+        if error or installation is None:
+            self.report({"ERROR"}, error or "The installation is not registered.")
             return {"CANCELLED"}
-        if active is None:
-            self.report({"ERROR"}, "No managed solver installation is active.")
-            return {"CANCELLED"}
-        try:
-            executable = active.executable_path(paths)
-        except ValueError as exc:
-            self.report({"ERROR"}, str(exc))
-            return {"CANCELLED"}
-        _run_in_worker(lambda: _health_check(executable))
+        def test_and_store():
+            healthy = _health_check(installation.executable)
+            paths = ManagedSolverPaths.default()
+            current = load_registry(paths.registry_json)
+            latest = current.get(installation.installation_id)
+            if latest is None:
+                raise ValueError("The installation was removed during its health check.")
+            updated = replace(
+                latest, healthy=healthy,
+                error=None if healthy else "Real solver health check failed")
+            write_registry(paths.registry_json, current.update(updated))
+
+        _run_in_worker(test_and_store, status="Testing solver installation")
         self.report({"INFO"}, "Health check started in the background.")
         return {"FINISHED"}
 
@@ -348,6 +561,9 @@ class CLOTHNEXT_OT_solver_check_update(bpy.types.Operator):
     """Check whether a manifest-verified compatible update exists"""
     bl_idname = "clothnext.solver_check_update"
     bl_label = "Check for Compatible Update"
+    bl_description = (
+        "Refresh the official release availability without changing the "
+        "active solver installation")
     bl_options = {"INTERNAL"}
 
     def execute(self, _context):
@@ -367,6 +583,9 @@ class CLOTHNEXT_OT_solver_repair(_SolverInstallDialog, bpy.types.Operator):
     """Repair the managed installation by reinstalling the verified official release"""
     bl_idname = "clothnext.solver_repair"
     bl_label = "Repair Managed Installation"
+    bl_description = (
+        "Reinstall only the selected managed release from its verified "
+        "official archive while preserving every other solver version")
     bl_options = {"REGISTER", "INTERNAL"}
 
     def invoke(self, context, _event):
@@ -389,23 +608,40 @@ class CLOTHNEXT_OT_solver_remove_managed(bpy.types.Operator):
     """Remove the managed solver installation (external installs are never touched)"""
     bl_idname = "clothnext.solver_remove_managed"
     bl_label = "Remove Managed Installation"
+    bl_description = (
+        "Remove only this managed solver directory, or unregister an external "
+        "installation without deleting its files")
     bl_options = {"INTERNAL"}
+    installation_id: bpy.props.StringProperty(default="")
 
     def invoke(self, context, _event):
         return context.window_manager.invoke_confirm(self, _event)
 
     def execute(self, _context):
-        installer = _session.ensure_installer()
-        active, _valid = _safe_read_current()
-        if installer is None or active is None:
-            self.report({"ERROR"}, "No managed installation to remove.")
+        if _solver_session_active():
+            self.report({"ERROR"}, "Stop the active Bake before removing a solver.")
+            return {"CANCELLED"}
+        paths = ManagedSolverPaths.default()
+        registry, error = _read_registry()
+        installation = registry.get(
+            self.installation_id or registry.selected_installation_id)
+        if error or installation is None:
+            self.report({"ERROR"}, error or "Installation is not registered.")
             return {"CANCELLED"}
         try:
-            installer.remove(active.installation_id)
+            if installation.managed:
+                installer = _session.ensure_installer()
+                if installer is None:
+                    raise ValueError("No managed installer is available")
+                installer.remove(installation.installation_id)
+            registry = registry.unregister(installation.installation_id)
+            write_registry(paths.registry_json, registry)
         except (OSError, ValueError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
-        self.report({"INFO"}, "Managed installation removed.")
+        self.report({"INFO"}, (
+            "Managed installation removed." if installation.managed
+            else "External installation unregistered; its files were untouched."))
         return {"FINISHED"}
 
 
@@ -413,10 +649,20 @@ class CLOTHNEXT_OT_solver_open_folder(bpy.types.Operator):
     """Open the managed solver installation folder"""
     bl_idname = "clothnext.solver_open_folder"
     bl_label = "Open Installation Folder"
+    bl_description = "Open the managed solver installations folder in File Explorer"
     bl_options = {"INTERNAL"}
+    installation_id: bpy.props.StringProperty(default="")
 
     def execute(self, _context):
         import os
+        if self.installation_id:
+            registry, error = _read_registry()
+            installation = registry.get(self.installation_id)
+            if error or installation is None or not installation.root.is_dir():
+                self.report({"ERROR"}, error or "The installation folder is missing.")
+                return {"CANCELLED"}
+            os.startfile(installation.root)
+            return {"FINISHED"}
         paths = ManagedSolverPaths.default()
         if not paths.root.is_dir():
             self.report({"ERROR"}, "The managed solver folder does not exist yet.")
@@ -448,6 +694,11 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="External Solver Path", subtype="DIR_PATH", default="",
         description="Existing PPF Contact Solver installation selected by you; "
                     "Cloth NeXt never modifies it")
+    selected_solver_installation_id: bpy.props.EnumProperty(
+        name="Active Solver",
+        items=_solver_enum_items, update=_solver_enum_update,
+        description="Select the exact installed solver used by future Bakes; "
+                    "selection is locked while a session is active")
 
     update_channel: bpy.props.EnumProperty(
         name="Update Channel",
@@ -535,7 +786,124 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
         box.label(text="PPF Contact Solver")
+        box.label(text="Solver Installations")
         _session.load()
+        registry, registry_error = _read_registry()
+        selected_id = (getattr(self, "selected_solver_installation_id", "")
+                       or registry.selected_installation_id or "")
+        active = registry.get(selected_id)
+        session_active = _solver_session_active()
+        box.label(text="Active Solver")
+        selector = box.row()
+        selector.enabled = not session_active and bool(registry.installations)
+        selector.prop(self, "selected_solver_installation_id")
+        if active is None:
+            box.label(text="No Solver Selected", icon="ERROR")
+            if selected_id:
+                box.label(text="The selected installation is missing.")
+        else:
+            box.label(text=(
+                f"{active.display_name} · Protocol "
+                f"{active.protocol_version} · Schema {active.schema_version}"))
+        if session_active:
+            box.label(
+                text="Solver selection is locked while a Bake is active.",
+                icon="LOCKED")
+        if registry_error:
+            box.label(text=registry_error, icon="ERROR")
+
+        installed_box = box.box()
+        installed_box.label(text="Installed")
+        if not registry.installations:
+            installed_box.label(text="No registered solver installations.")
+        for installation in registry.installations:
+            card = installed_box.box()
+            label = installation.display_name
+            if installation.installation_id == selected_id:
+                label += " · Active"
+            card.label(text=label)
+            card.label(text=(
+                f"Protocol {installation.protocol_version or 'Unknown'} · "
+                f"Schema {installation.schema_version or 'Unknown'} · "
+                f"{installation.channel.title()}"))
+            card.label(text=(
+                f"Package {installation.package_version or 'Unknown'} · "
+                f"Release {installation.official_release_tag or 'Unverified'}"))
+            card.label(text=(
+                ("Healthy" if installation.healthy else "Unhealthy")
+                + " · " + ("Managed" if installation.managed else "External")))
+            card.label(text=installation.root_path)
+            actions = card.row()
+            use = actions.row()
+            use.enabled = (
+                not session_active and installation.compatible
+                and installation.healthy and installation.verified
+                and installation.available
+                and installation.installation_id != selected_id)
+            operator = use.operator("clothnext.solver_use", text="Use")
+            operator.installation_id = installation.installation_id
+            test = actions.operator(
+                "clothnext.solver_health_check", text="Test")
+            test.installation_id = installation.installation_id
+            folder = actions.operator(
+                "clothnext.solver_open_folder", text="Open Folder")
+            folder.installation_id = installation.installation_id
+            remove = actions.operator(
+                "clothnext.solver_remove_managed", text="Remove")
+            remove.installation_id = installation.installation_id
+
+        available_box = box.box()
+        available_box.label(text="Available Downloads")
+        installed_tags = {
+            item.official_release_tag for item in registry.installations
+            if item.managed}
+        for entry in _session.entries:
+            row_box = available_box.box()
+            row_box.label(text=entry.display_name)
+            row_box.label(text=(
+                f"Protocol {entry.protocol_version} · Schema "
+                f"{entry.schema_version} · {entry.channel.title()}"))
+            if entry.official_release_tag in installed_tags:
+                row_box.label(text="Installed", icon="CHECKMARK")
+                reinstall_row = row_box.row()
+                reinstall_row.enabled = not session_active
+                reinstall = reinstall_row.operator(
+                    "clothnext.solver_download", text="Reinstall")
+                reinstall.release_id = entry.release_id
+                reinstall.reinstall = True
+            else:
+                buttons = row_box.row()
+                buttons.enabled = not session_active
+                download = buttons.operator(
+                    "clothnext.solver_download", text="Download")
+                download.release_id = entry.release_id
+                download.activate_after_install = False
+                download_use = buttons.operator(
+                    "clothnext.solver_download", text="Download and Use")
+                download_use.release_id = entry.release_id
+                download_use.activate_after_install = True
+        installer = _session.installer
+        if _session.worker_status:
+            box.label(text=_session.worker_status, icon="TIME")
+        if _session.worker_error:
+            box.label(text=_session.worker_error, icon="ERROR")
+        if installer is not None:
+            box.label(text=(
+                "Installation stage: "
+                f"{installer.state.name.replace('_', ' ').title()}"))
+            if installer.state is InstallerState.DOWNLOADING:
+                done, total = installer.download_progress
+                box.label(text=view_model.format_download_progress(done, total))
+            if installer.error is not None:
+                box.label(text=installer.error.user_message, icon="ERROR")
+            if (_session.worker is not None and _session.worker.is_alive()
+                    and installer.state is InstallerState.DOWNLOADING):
+                box.operator("clothnext.solver_cancel", text="Cancel")
+        actions = box.row()
+        actions.operator("clothnext.solver_select_existing")
+        actions.operator("clothnext.solver_refresh_installations")
+        actions.operator("clothnext.solver_open_download_page")
+        return
         state = _installer_state()
         installer = _session.installer
         progress_text = None
@@ -579,6 +947,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
 
 CLASSES = (
+    CLOTHNEXT_OT_solver_use,
+    CLOTHNEXT_OT_solver_refresh_installations,
     CLOTHNEXT_OT_solver_download,
     CLOTHNEXT_OT_solver_cancel,
     CLOTHNEXT_OT_solver_select_existing,

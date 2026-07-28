@@ -90,6 +90,7 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         development_executable=solver_executable))
     if resolved is None or resolved.executable_path is None:
         raise SystemExit(f"no solver executable at {solver_executable}")
+    schema_version = int(resolved.schema_version or "1")
 
     cloth_uuid = f"clothnext-cloth-{new_project_name()[10:]}"
     collider_uuid = f"clothnext-collider-{new_project_name()[10:]}"
@@ -100,17 +101,18 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
     scene_collider = SceneObject(collider.name, collider_uuid,
                                  collider.vertices_local, collider.triangles,
                                  solver_world_matrix(collider.world_matrix))
-    data_payload, data_hash = encode_scene(scene_cloth, scene_collider)
+    data_payload, data_hash = encode_scene(
+        scene_cloth, scene_collider, schema_version=schema_version)
     settings = SimulationSettings(frame_count=frame_count, fps=fps,
                                   gravity_blender=fixture.DEFAULT_GRAVITY)
     param_payload, param_hash = encode_param(
         settings, cloth.name, cloth_uuid, collider.name, collider_uuid,
         shell=shell_material, static=static_material,
-        contact_enabled=contact_enabled)
+        contact_enabled=contact_enabled, schema_version=schema_version)
     param_tree = build_param_payload(
         settings, cloth.name, cloth_uuid, collider.name, collider_uuid,
         shell=shell_material, static=static_material,
-        contact_enabled=contact_enabled)
+        contact_enabled=contact_enabled, schema_version=schema_version)
 
     scene = SessionScene(
         project_name=new_project_name(),

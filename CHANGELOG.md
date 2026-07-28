@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.1.15 — 2026-07-28 (Beta channel)
+
+### Added
+
+- Side-by-side management for official and external PPF Contact Solver
+  installations, including an explicit active-solver selector in Add-on
+  Preferences.
+- Verified managed download support for the official protocol 0.13 / schema 2
+  Windows release while preserving protocol 0.11 / schema 1.
+- Per-installation health, release, protocol, schema, path, download,
+  reinstall, removal, and external-registration controls.
+
+### Changed
+
+- Bake, Update Params, diagnostics, and Recovery now resolve one immutable
+  solver installation and route its executable, frontend, protocol profile,
+  schema encoder, and metadata together.
+- Managed releases use independent immutable installation directories and
+  atomic verified publication.
+- Recovery metadata includes the exact solver installation and release
+  identity to prevent checkpoint reuse with a different solver release.
+
+### Fixed
+
+- Protocol 0.13 scene and parameter encoding now uses schema 2 envelopes,
+  frame offsets, floating-point FPS, and the required time scale.
+- Protocol-specific overlays prevent the protocol 0.11 frontend integration
+  from being applied to protocol 0.13 or unknown releases.
+- Failed downloads, verification, extraction, overlay, and health checks
+  preserve every existing installation and the active solver selection.
+
 ## Unreleased
 
 ### Added

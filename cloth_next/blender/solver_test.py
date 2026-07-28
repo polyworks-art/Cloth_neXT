@@ -114,6 +114,7 @@ from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths, read_current
+from ..updater.solver_registry import load_registry
 from . import (collider_proxy, companion_manager, modal_lock,
                object_properties, validation_state)
 from .playback_cache import (
@@ -319,6 +320,16 @@ def _version_probe(executable: Path) -> tuple[str, str, str]:
     return SolverProcessManager(config).executable_version()
 
 
+def _resolved_installation_id(resolved) -> str:
+    return str(getattr(resolved, "installation_id", "") or "")
+
+
+def _resolved_release_tag(resolved) -> str | None:
+    installation = getattr(resolved, "installation", None)
+    return (getattr(installation, "official_release_tag", None)
+            if installation is not None else None)
+
+
 def _managed_root() -> Path | None:
     try:
         paths = ManagedSolverPaths.default()
@@ -338,17 +349,34 @@ def _managed_root() -> Path | None:
 
 def resolve_solver(context) -> ResolvedSolver:
     addon_id = __package__.partition(".blender")[0]
-    external = None
+    selected = None
     try:
         preferences = context.preferences.addons[addon_id].preferences
-        raw = (preferences.external_solver_path or "").strip()
-        external = Path(raw) if raw else None
+        registry = load_registry(ManagedSolverPaths.default().registry_json)
+        requested = (getattr(
+            preferences, "selected_solver_installation_id", "") or "").strip()
+        if requested == "NONE":
+            requested = ""
+        requested = requested or (registry.selected_installation_id or "")
+        if requested:
+            selected = registry.get(requested)
+            if selected is None:
+                raise SceneValidationError(
+                    "The selected solver installation is missing. Choose "
+                    "another installation in the Cloth NeXt preferences.")
     except (KeyError, AttributeError):
         pass
+    if selected is not None and selected.managed:
+        from ..ppf.solver_overlay import apply_solver_overlay
+        apply_solver_overlay(
+            selected.root,
+            protocol_version=selected.protocol_version or "",
+            schema_version=selected.schema_version or "",
+            official_release_tag=selected.official_release_tag,
+            managed=True)
     resolver = SolverResolver(_version_probe)
     resolved = resolver.resolve(SolverResolutionContext(
-        external_path=external,
-        managed_root=_managed_root(),
+        selected_installation=selected,
         development_executable=development_executable_from_environment()))
     if resolved is None or resolved.executable_path is None:
         raise SceneValidationError(
@@ -1849,6 +1877,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         objects.append(row)
     identity = {
         "export_schema": 1,
+        "solver_installation": _solver_selection_key(context),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
         "geometry": snapshot.geometry_fingerprint,
         "objects": objects,
@@ -3136,6 +3165,8 @@ def _current_material_meta(cached, snapshot, entry, resolved, *,
     })
     identities["solver"] = {
         "mode": resolved.mode.name,
+        "installation_id": _resolved_installation_id(resolved) or "unregistered",
+        "official_release_tag": _resolved_release_tag(resolved),
         "package_version": resolved.package_version or "unknown",
         "protocol_version": resolved.protocol_version or "unknown",
         "schema_version": resolved.schema_version or "unknown",
@@ -3168,7 +3199,7 @@ def _recovery_param_kwargs(scene) -> dict:
 
 
 def _encode_cached_param(context, snapshot, force_capture, pin_configs,
-                         cache, target_uuids):
+                         cache, target_uuids, *, schema_version: int = 1):
     entries = snapshot.deformables
     settings = SimulationSettings(
         snapshot.bake_range.output_count, int(context.scene.render.fps),
@@ -3204,13 +3235,15 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
         cache, "param", key,
         lambda: encode_multi_deformable_param(
             settings, dynamics, colliders,
-            contact_enabled=snapshot.contact_enabled))
+            contact_enabled=snapshot.contact_enabled,
+            schema_version=schema_version))
 
 
 def _param_source_key(context, snapshot, force_capture, target_uuids,
                       collider_uuids):
     recovery_settings = getattr(context.scene, "cloth_next_recovery", None)
     return deterministic_key("param", {
+        "solver_installation": _solver_selection_key(context),
         "settings": snapshot.settings_fingerprint,
         "force_initial": repr(force_capture.initial),
         "force_dynamic": repr(force_capture.dynamic_parameters),
@@ -3232,6 +3265,16 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
                 recovery_settings, "save_on_finish", False)),
         },
     })
+
+
+def _solver_selection_key(context) -> str:
+    try:
+        preferences = context.preferences.addons[
+            __package__.partition(".blender")[0]].preferences
+        return str(getattr(
+            preferences, "selected_solver_installation_id", "") or "")
+    except (KeyError, AttributeError):
+        return ""
 
 
 def _load_early_scene_plan(context, snapshot, resolved, source_key,
@@ -3309,7 +3352,8 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
                 solver_world_matrix(world)))
         param_payload, param_hash = _encode_cached_param(
             context, snapshot, force_capture, tuple(pin_configs), cache,
-            tuple(target.uuid for target in target_plans))
+            tuple(target.uuid for target in target_plans),
+            schema_version=int(resolved.schema_version or "1"))
         param_key = _param_source_key(
             context, snapshot, force_capture,
             tuple(target.uuid for target in target_plans),
@@ -3380,6 +3424,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           collider_captures=None) -> RunPlan:
     scene = context.scene
     resolved = resolve_solver(context)
+    wire_schema = int(resolved.schema_version or "1")
     if (any(_friction_region_settings(entry.obj)
             for entry in snapshot.deformables)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
@@ -3619,10 +3664,11 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             data_payload, data_hash = encode_multi_deformable_scene_file(
                 scene_dynamics, scene_colliders,
                 work_directory / "scene.cbor",
-                progress=encoding_progress)
+                progress=encoding_progress, schema_version=wire_schema)
         else:
             data_payload, data_hash = encode_multi_deformable_scene(
-                scene_dynamics, scene_colliders)
+                scene_dynamics, scene_colliders,
+                schema_version=wire_schema)
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -3642,7 +3688,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         **_recovery_param_kwargs(scene))
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
-        contact_enabled=snapshot.contact_enabled)
+        contact_enabled=snapshot.contact_enabled,
+        schema_version=wire_schema)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, tuple(uuids),
         tuple(item[1] for item in collider_specs))
@@ -3696,6 +3743,9 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             "identities": {"cloth_next_version": manifest_version(),
                 "blender_version": _blender_version(), "object": object_identity,
                 "solver": {"mode": resolved.mode.name,
+                    "installation_id": (
+                        _resolved_installation_id(resolved) or "unregistered"),
+                    "official_release_tag": _resolved_release_tag(resolved),
                     "package_version": resolved.package_version or "unknown",
                     "protocol_version": resolved.protocol_version or "unknown",
                     "schema_version": resolved.schema_version or "unknown"}},
@@ -3790,6 +3840,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
+    wire_schema = int(resolved.schema_version or "1")
     if (_friction_region_settings(cloth_obj)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
         raise SceneValidationError(
@@ -3965,6 +4016,9 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     payload_cache = _payload_cache_for(cloth_obj)
     scene_cache_key = deterministic_key("scene", {
+        "solver_installation": _resolved_installation_id(resolved),
+        "protocol_version": resolved.protocol_version or "",
+        "schema_version": resolved.schema_version or "",
         "geometry": snapshot.geometry_fingerprint,
         "topology": snapshot.topology_signature,
         "objects": [(scene_cloth.uuid, scene_cloth.name, deformable_role)],
@@ -4007,14 +4061,16 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             return encode_multi_deformable_scene_file(
                 ((scene_cloth, group),), scene_colliders,
                 work_directory / "scene.cbor",
-                progress=encoding_progress)
+                progress=encoding_progress, schema_version=wire_schema)
           if deformable_role == "CLOTH":
-            return encode_scene(scene_cloth, scene_colliders)
+            return encode_scene(
+                scene_cloth, scene_colliders, schema_version=wire_schema)
           return encode_deformable_scene(
                 scene_cloth, scene_colliders,
                 group_type=("ROD" if deformable_role == "ROD" else
                             "PDRD" if deformable_role == "RIGID_BODY" else
-                            "SOLID"))
+                            "SOLID"),
+                schema_version=wire_schema)
         data_payload, data_hash = _cached_payload(
             payload_cache, "scene", scene_cache_key, encode_scene_payload)
     finally:
@@ -4039,13 +4095,15 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
       if deformable_role == "CLOTH":
         return encode_multi_collider_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
-            contact_enabled=contact_enabled, static_pin=pin_config)
+            contact_enabled=contact_enabled, static_pin=pin_config,
+            schema_version=wire_schema)
       return encode_deformable_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs,
             group_type=("ROD" if deformable_role == "ROD" else
                         "PDRD" if deformable_role == "RIGID_BODY" else
                         "SOLID"),
-            material=shell, contact_enabled=contact_enabled)
+            material=shell, contact_enabled=contact_enabled,
+            schema_version=wire_schema)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, (cloth_uuid,),
         tuple(item[1] for item in collider_specs))
@@ -4086,6 +4144,9 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             "object": object_identity,
             "solver": {
                 "mode": resolved.mode.name,
+                "installation_id": (
+                    _resolved_installation_id(resolved) or "unregistered"),
+                "official_release_tag": _resolved_release_tag(resolved),
                 "package_version": resolved.package_version or "unknown",
                 "protocol_version": resolved.protocol_version or "unknown",
                 "schema_version": resolved.schema_version or "unknown",
@@ -4238,7 +4299,10 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         fps=float(plan.fps), collider_sampling=collider_sampling,
         solver_version=plan.resolved.package_version or "unknown",
         protocol_version=plan.resolved.protocol_version or "unknown",
-        solver_schema_version=plan.resolved.schema_version or "unknown")
+        solver_schema_version=plan.resolved.schema_version or "unknown",
+        solver_installation_id=(
+            _resolved_installation_id(plan.resolved) or "unregistered"),
+        solver_release_tag=_resolved_release_tag(plan.resolved))
     resume_requested = bool(getattr(settings, "resume_requested", False))
     existing = recovery.load_project(metadata)
     resume = False

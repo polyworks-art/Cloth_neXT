@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
-SUPPORTED_MANIFEST_VERSION = 1
+SUPPORTED_MANIFEST_VERSIONS = frozenset({1, 2})
 OFFICIAL_OWNER = "st-tech"
 OFFICIAL_REPOSITORY = "ppf-contact-solver"
 OFFICIAL_REPOSITORY_SLUG = f"{OFFICIAL_OWNER}/{OFFICIAL_REPOSITORY}"
@@ -43,6 +43,9 @@ class SolverCompatibilityEntry:
     sha256: str
     archive_layout_version: int
     health_check_required: bool
+    release_id: str = ""
+    display_name: str = ""
+    channel: str = "stable"
 
     @property
     def official_release_page(self) -> str:
@@ -55,9 +58,23 @@ class SolverCompatibilityManifest:
     manifest_version: int
     cloth_next_version: str
     platforms: tuple[SolverCompatibilityEntry, ...]
+    default_releases: tuple[tuple[str, str], ...] = ()
 
     def entry_for(self, platform: str) -> SolverCompatibilityEntry | None:
-        return next((entry for entry in self.platforms if entry.platform == platform), None)
+        default = dict(self.default_releases).get(platform)
+        entries = self.releases_for(platform)
+        return next((entry for entry in entries
+                     if entry.release_id == default), entries[0] if entries else None)
+
+    def releases_for(self, platform: str) -> tuple[SolverCompatibilityEntry, ...]:
+        return tuple(entry for entry in self.platforms
+                     if entry.platform == platform)
+
+    def release(self, platform: str,
+                release_id: str) -> SolverCompatibilityEntry | None:
+        return next((entry for entry in self.platforms
+                     if entry.platform == platform
+                     and entry.release_id == release_id), None)
 
 
 def _require_text(mapping: Mapping[str, Any], key: str, platform: str) -> str:
@@ -86,7 +103,8 @@ def _validate_url(url: str, tag: str, asset: str, platform: str) -> None:
         raise ValueError(f"{platform}: mutable 'latest' references are forbidden")
 
 
-def parse_entry(platform: str, payload: Mapping[str, Any]) -> SolverCompatibilityEntry:
+def parse_entry(platform: str, payload: Mapping[str, Any], *,
+                legacy: bool = False) -> SolverCompatibilityEntry:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{platform}: platform entry must be an object")
     repository = _require_text(payload, "official_repository", platform)
@@ -114,6 +132,15 @@ def parse_entry(platform: str, payload: Mapping[str, Any]) -> SolverCompatibilit
         raise ValueError(f"{platform}: health_check_required must be true")
     return SolverCompatibilityEntry(
         platform=platform,
+        release_id=(
+            f"legacy-{tag}" if legacy
+            else _require_text(payload, "id", platform)),
+        display_name=(
+            f"PPF Contact Solver {tag}" if legacy
+            else _require_text(payload, "display_name", platform)),
+        channel=(
+            "stable" if legacy
+            else _require_text(payload, "channel", platform).lower()),
         solver_package_version=_require_text(payload, "solver_package_version", platform),
         protocol_version=_require_text(payload, "protocol_version", platform),
         schema_version=_require_text(payload, "schema_version", platform),
@@ -134,7 +161,7 @@ def parse_manifest(payload: Mapping[str, Any], *,
     if not isinstance(payload, Mapping):
         raise ValueError("solver compatibility manifest must be a JSON object")
     version = payload.get("manifest_version")
-    if version != SUPPORTED_MANIFEST_VERSION:
+    if version not in SUPPORTED_MANIFEST_VERSIONS:
         raise ValueError(f"unsupported manifest_version {version!r}")
     cloth_next_version = payload.get("cloth_next_version")
     if not isinstance(cloth_next_version, str) or not cloth_next_version:
@@ -147,8 +174,32 @@ def parse_manifest(payload: Mapping[str, Any], *,
     platforms = payload.get("platforms")
     if not isinstance(platforms, Mapping) or not platforms:
         raise ValueError("platforms must be a non-empty object")
-    entries = tuple(parse_entry(name, entry) for name, entry in sorted(platforms.items()))
-    return SolverCompatibilityManifest(version, cloth_next_version, entries)
+    entries: list[SolverCompatibilityEntry] = []
+    defaults: list[tuple[str, str]] = []
+    if version == 1:
+        entries = [parse_entry(name, entry, legacy=True)
+                   for name, entry in sorted(platforms.items())]
+        defaults = [(entry.platform, entry.release_id) for entry in entries]
+    else:
+        for platform, platform_payload in sorted(platforms.items()):
+            if not isinstance(platform_payload, Mapping):
+                raise ValueError(f"{platform}: platform entry must be an object")
+            default = _require_text(
+                platform_payload, "default_release_id", platform)
+            releases = platform_payload.get("releases")
+            if not isinstance(releases, list) or not releases:
+                raise ValueError(f"{platform}: releases must be a non-empty list")
+            parsed = tuple(parse_entry(platform, item) for item in releases)
+            ids = tuple(item.release_id for item in parsed)
+            if len(ids) != len(set(ids)):
+                raise ValueError(f"{platform}: release ids must be unique")
+            if default not in ids:
+                raise ValueError(
+                    f"{platform}: default_release_id {default!r} is not listed")
+            entries.extend(parsed)
+            defaults.append((platform, default))
+    return SolverCompatibilityManifest(
+        version, cloth_next_version, tuple(entries), tuple(defaults))
 
 
 def bundled_manifest_path() -> Path:

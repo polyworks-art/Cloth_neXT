@@ -137,6 +137,10 @@ class ManagedSolverPaths:
     def current_json(self) -> Path:
         return self.root / "current.json"
 
+    @property
+    def registry_json(self) -> Path:
+        return self.root / "registry.json"
+
     def version_dir(self, version: str) -> Path:
         name = version.strip()
         if not name or any(sep in name for sep in ("/", "\\", "..")):

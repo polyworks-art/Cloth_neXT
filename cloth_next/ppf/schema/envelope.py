@@ -66,16 +66,18 @@ def _payload_for_wire(kind: str, payload: Any) -> Any:
     return wire_payload
 
 
-def dumps_envelope(kind: str, payload: Any) -> bytes:
+def dumps_envelope(kind: str, payload: Any, *,
+                   schema_version: int = SCHEMA_VERSION) -> bytes:
     if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
         raise EnvelopeError(f"unknown payload kind {kind!r}")
     payload = _payload_for_wire(kind, payload)
     return cbor_codec.dumps(
-        {"version": SCHEMA_VERSION, "kind": kind, "payload": payload})
+        {"version": int(schema_version), "kind": kind, "payload": payload})
 
 
 def dump_envelope_file(kind: str, payload: Any, path: Path, *,
-                       progress=None) -> str:
+                       progress=None,
+                       schema_version: int = SCHEMA_VERSION) -> str:
     """Write a large envelope incrementally and return its wire hash."""
     if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
         raise EnvelopeError(f"unknown payload kind {kind!r}")
@@ -94,7 +96,7 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
     try:
         with path.open("wb") as stream:
             cbor_codec.dump(
-                {"version": SCHEMA_VERSION, "kind": kind,
+                {"version": int(schema_version), "kind": kind,
                  "payload": payload},
                 HashingWriter(stream), progress=progress)
     except Exception:
@@ -103,14 +105,15 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
     return digest.hexdigest()
 
 
-def loads_envelope(blob: bytes, expected_kind: str) -> Any:
+def loads_envelope(blob: bytes, expected_kind: str, *,
+                   schema_version: int = SCHEMA_VERSION) -> Any:
     envelope = cbor_codec.loads(blob)
     if not isinstance(envelope, dict):
         raise EnvelopeError("envelope must be a CBOR map")
     version = envelope.get("version")
-    if version != SCHEMA_VERSION:
+    if version != int(schema_version):
         raise EnvelopeError(f"schema version mismatch: payload={version!r}, "
-                            f"expected {SCHEMA_VERSION}")
+                            f"expected {schema_version}")
     kind = envelope.get("kind")
     if kind != expected_kind:
         raise EnvelopeError(f"payload kind mismatch: payload={kind!r}, "
