@@ -36,7 +36,10 @@ def package_sources():
 def test_no_absolute_self_imports_inside_the_package():
     """Absolute `cloth_next.` imports break under bl_ext.<repo>.<extension>."""
     offenders = []
-    pattern = re.compile(r"^\s*(from cloth_next[.\s]|import cloth_next)", re.MULTILINE)
+    pattern = re.compile(
+        r"^\s*(from cloth_next[.\s]|import cloth_next)|"
+        r"__import__\([\"']cloth_next(?:\.|[\"'])",
+        re.MULTILINE)
     for path in package_sources():
         if pattern.search(path.read_text(encoding="utf-8")):
             offenders.append(str(path.relative_to(REPO_ROOT)))

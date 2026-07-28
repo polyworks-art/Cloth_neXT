@@ -22,6 +22,8 @@ import bpy
 from ..developer import is_dev_build
 
 from ..ppf.compatibility import parse_executable_version
+from ..ppf.layout import BundledSolverLayout
+from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
 from . import addon_update_operators
 from ..updater.install_paths import ManagedSolverPaths, read_current
@@ -81,9 +83,7 @@ class _SolverSession:
                 ManagedSolverPaths.default(), entry,
                 probe_version=_probe_version, health_check=_health_check,
                 forbidden_roots=(extension_root,),
-                apply_overlay=__import__(
-                    "cloth_next.ppf.solver_overlay",
-                    fromlist=["apply_solver_overlay"]).apply_solver_overlay)
+                apply_overlay=apply_solver_overlay)
         self.target_entry = entry
         return self.installer
 
@@ -451,9 +451,8 @@ class CLOTHNEXT_OT_solver_select_existing(bpy.types.Operator):
         def register_external():
             package, protocol, schema = _probe_version(
                 selected_path if selected_path.is_file()
-                else __import__("cloth_next.ppf.layout", fromlist=[
-                    "BundledSolverLayout"]).BundledSolverLayout.from_root(
-                        selected_path).executable_path)
+                else BundledSolverLayout.from_root(
+                    selected_path).executable_path)
             matching = next((entry for entry in _session.entries
                              if entry.protocol_version == protocol
                              and entry.schema_version == schema), None)

@@ -1,6 +1,14 @@
 # Changelog
 
-## 2.1.15 — 2026-07-28 (Beta channel)
+## 2.1.16 — 2026-07-28 (Dev channel)
+
+### Fixed
+
+- Solver download and external-installation selection now use package-relative
+  imports under Blender's `bl_ext.<repository>.cloth_next` namespace instead
+  of assuming a top-level `cloth_next` package.
+
+## 2.1.15 — 2026-07-28 (Dev channel)
 
 ### Added
 
