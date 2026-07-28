@@ -6,8 +6,9 @@ import pytest
 
 from cloth_next.recovery import (
     ProjectState, RecoveryIdentity, apply_retention, clear_checkpoints,
-    compatibility, confirm_saved_states, create_project, load_project,
-    load_records, publish_checkpoint, recovery_root, transition,
+    compatibility, confirm_saved_states, create_project,
+    discover_checkpoint_frames, load_project, load_records,
+    publish_checkpoint, recovery_root, transition,
 )
 
 
@@ -119,6 +120,62 @@ def test_confirmed_state_is_published_before_retention(tmp_path):
     assert not (output / "state_20.bin.gz").exists()
     assert (output / "state_40.bin.gz").exists()
     assert load_project(metadata).state is ProjectState.CHECKPOINT_CONFIRMED
+
+
+def test_checkpoint_is_discovered_when_status_response_lags(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    (output / "state_17.bin.gz").write_bytes(gzip.compress(b"state-17"))
+
+    assert discover_checkpoint_frames(project_root) == (17,)
+    record = confirm_saved_states(metadata, record, (), keep=3)
+
+    assert [item.frame for item in record.checkpoints] == [17]
+    assert record.last_frame == 17
+
+
+def test_truncated_gzip_checkpoint_is_never_published(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    payload = gzip.compress(b"large-enough-state" * 256)
+    (output / "state_9.bin.gz").write_bytes(payload[:-8])
+
+    record = confirm_saved_states(metadata, record, (9,), keep=3)
+
+    assert record.checkpoints == ()
+    assert record.last_frame == 0
+
+
+def test_stale_transition_cannot_erase_new_checkpoint(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    stale = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    stale = transition(metadata, stale, ProjectState.RUNNING)
+    (output / "state_23.bin.gz").write_bytes(gzip.compress(b"state-23"))
+    confirmed = confirm_saved_states(metadata, stale, (23,), keep=3)
+    assert confirmed.checkpoints
+
+    requested = transition(
+        metadata, stale, ProjectState.CHECKPOINT_REQUESTED)
+
+    assert [item.frame for item in requested.checkpoints] == [23]
+    assert load_project(metadata).checkpoints[0].frame == 23
 
 
 def test_missing_project_is_not_reported_resumable(tmp_path):
