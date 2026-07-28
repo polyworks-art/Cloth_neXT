@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Bundled PPF fabric presets: parsing, provenance, exact pinned values,
-validation, ordering, atomicity, and independence (task section 16)."""
+"""Bundled PPF material presets: parsing, provenance, exact values,
+validation, product metadata, ordering, atomicity, and independence."""
 
 from __future__ import annotations
 
@@ -17,6 +17,11 @@ from cloth_next.materials import presets as material_presets
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRESET_FILE = (REPO_ROOT / "cloth_next" / "materials" /
                "ppf_fabric_presets.toml")
+PRODUCT_FILES = tuple(path for path, _category
+                      in material_presets._PRODUCT_PRESET_FILES)
+SCIENTIFIC_PRESET_COUNT = 37
+PRODUCT_PRESET_COUNT = 38
+TOTAL_PRESET_COUNT = SCIENTIFIC_PRESET_COUNT + PRODUCT_PRESET_COUNT
 
 # The exact numeric values of the pinned upstream source
 # (blender_addon/presets/materials.toml at 7193f158), in file order, plus
@@ -33,6 +38,13 @@ EXPECTED_PRESETS = {
 EXPECTED_ORDER = ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON", "WOOL",
                   "DENIM", "LEATHER"]
 RESEARCH_IDS = [f"MIT_FABRIC_{index:02d}" for index in range(1, 31)]
+PRODUCT_CATEGORY_COUNTS = {
+    "PRODUCT_OUTDOOR": 12,
+    "PRODUCT_PERFORMANCE": 9,
+    "PRODUCT_PROTECTIVE": 7,
+    "PRODUCT_SHELLS": 6,
+    "PRODUCT_INTERIORS": 4,
+}
 
 
 def test_pure_material_models_use_artist_facing_field_contract():
@@ -53,9 +65,9 @@ def test_pure_material_models_use_artist_facing_field_contract():
 def test_every_bundled_preset_parses_and_is_shell():
     presets = material_presets.builtin_presets()
     assert [p.identifier for p in presets[:7]] == EXPECTED_ORDER
-    assert len(presets) == 37
+    assert len(presets) == TOTAL_PRESET_COUNT
+    assert len({preset.identifier for preset in presets}) == len(presets)
     for preset in presets:
-        # every preset is a Shell material (the only supported group type)
         assert isinstance(preset.settings, ShellMaterialSettings)
         assert preset.settings.model == "FABRIC"
         assert preset.description
@@ -82,8 +94,6 @@ def test_official_numeric_values_match_the_pinned_source():
 
 
 def test_all_preset_values_pass_validation_by_construction():
-    # ShellMaterialSettings validates in __post_init__, so simply loading
-    # is the proof; re-validate explicitly for clarity.
     from cloth_next.materials.validation import validate_shell_values
     for preset in material_presets.builtin_presets():
         validate_shell_values(preset.settings)
@@ -97,31 +107,40 @@ def test_provenance_metadata_exists_and_pins_the_upstream_commit():
     assert provenance["source_path"] == \
         "blender_addon/presets/materials.toml"
     assert provenance["source_license"] == "Apache-2.0"
+    for index in range(1, len(PRODUCT_FILES) + 1):
+        assert provenance[f"product_{index}_source_project"]
+        assert provenance[f"product_{index}_source_path"] == \
+            "docs/MATERIAL_LIBRARY_SOURCES.md"
+
+
+def _all_data_files():
+    return (PRESET_FILE, *PRODUCT_FILES)
 
 
 def test_presets_contain_only_supported_keys():
     import tomllib
-    document = tomllib.loads(PRESET_FILE.read_text(encoding="utf-8"))
     allowed = (material_presets._REQUIRED_KEYS
                | material_presets._OPTIONAL_KEYS)
-    for entry in document["preset"]:
-        assert set(entry) <= allowed, entry["id"]
+    for path in _all_data_files():
+        document = tomllib.loads(path.read_text(encoding="utf-8"))
+        for entry in document["preset"]:
+            assert set(entry) <= allowed, (path.name, entry["id"])
 
 
 def test_preset_order_is_stable_and_cached():
     first = material_presets.builtin_presets()
     second = material_presets.builtin_presets()
-    assert first is second  # single parse, cached
+    assert first is second
     assert [p.identifier for p in first[:7]] == EXPECTED_ORDER
-    assert [p.source_reference for p in first[7:]] == RESEARCH_IDS
+    assert [p.source_reference for p in first[7:SCIENTIFIC_PRESET_COUNT]] == \
+        RESEARCH_IDS
+    assert all(p.product_sample for p in first[SCIENTIFIC_PRESET_COUNT:])
 
 
 def test_malformed_preset_bundle_is_atomic():
     good = PRESET_FILE.read_text(encoding="utf-8")
-    # not TOML at all
     with pytest.raises(material_presets.PresetError):
         material_presets.parse_presets("not [ valid toml")
-    # one bad entry poisons the whole parse — nothing is returned
     bad_value = good.replace("stretch_resistance = 5500.0",
                              "stretch_resistance = -1.0")
     with pytest.raises(material_presets.PresetError):
@@ -132,14 +151,28 @@ def test_malformed_preset_bundle_is_atomic():
     missing_provenance = good.replace("source_license", "renamed_key")
     with pytest.raises(material_presets.PresetError):
         material_presets.parse_presets(missing_provenance)
-    # the cached good bundle is unaffected by failed parses
     assert [p.identifier for p in material_presets.builtin_presets()[:7]] == \
         EXPECTED_ORDER
     assert material_presets.load_error() is None
 
 
-def test_presets_reference_no_solver_binaries_or_paths():
-    text = PRESET_FILE.read_text(encoding="utf-8").lower()
+def test_product_pack_requires_neutral_category_and_complete_metadata():
+    text = PRODUCT_FILES[0].read_text(encoding="utf-8")
+    parsed, _provenance = material_presets.parse_presets(
+        text, category_override="PRODUCT_OUTDOOR")
+    assert parsed
+    assert all(preset.category == "PRODUCT_OUTDOOR" for preset in parsed)
+    assert all(preset.product_sample for preset in parsed)
+    invalid = text.replace('category = "PRODUCT_SAMPLES"',
+                           'category = "TECHNICAL_COATED"', 1)
+    with pytest.raises(material_presets.PresetError):
+        material_presets.parse_presets(
+            invalid, category_override="PRODUCT_OUTDOOR")
+
+
+def test_presets_reference_no_solver_binaries_or_external_urls():
+    text = "\n".join(path.read_text(encoding="utf-8").lower()
+                     for path in _all_data_files())
     for forbidden in (".exe", ".dll", ".zip", "c:\\", "c:/", "http://",
                       "https://"):
         assert forbidden not in text, forbidden
@@ -163,16 +196,67 @@ def test_unknown_identifier_returns_none():
 
 def test_research_library_has_complete_categories_and_measurements():
     presets = material_presets.builtin_presets()
-    research = presets[7:]
+    research = presets[7:SCIENTIFIC_PRESET_COUNT]
     assert len(research) == 30
     assert {preset.source_reference for preset in research} == set(RESEARCH_IDS)
     assert all(preset.measured_area_weight_oz_yd2 > 0 for preset in research)
     assert all(preset.measured_bending_stiffness_lbf_in2 > 0
                for preset in research)
     assert sum(len(material_presets.presets_in_category(category))
-               for category in material_presets.CATEGORY_ORDER) == 37
+               for category in material_presets.CATEGORY_ORDER) == \
+        TOTAL_PRESET_COUNT
     assert set(p.category for p in presets) == set(
         material_presets.CATEGORY_ORDER)
+
+
+def test_product_library_is_large_categorized_and_traceable():
+    products = material_presets.builtin_presets()[SCIENTIFIC_PRESET_COUNT:]
+    assert len(products) == PRODUCT_PRESET_COUNT
+    assert all(preset.product_sample for preset in products)
+    assert all(preset.manufacturer for preset in products)
+    assert all(preset.product_style for preset in products)
+    assert all(preset.data_basis for preset in products)
+    assert all(preset.source_reference for preset in products)
+    assert {preset.data_quality for preset in products} <= \
+        material_presets._DATA_QUALITY
+    assert {category: len(material_presets.presets_in_category(category))
+            for category in PRODUCT_CATEGORY_COUNTS} == PRODUCT_CATEGORY_COUNTS
+    manufacturers = set(material_presets.product_manufacturers())
+    assert len(manufacturers) == 18
+    assert {"adidas", "DuPont", "Yamamoto Corporation", "Pertex",
+            "W. L. Gore & Associates", "CORDURA", "3M"} <= manufacturers
+
+
+def test_representative_official_product_weights_are_pinned():
+    cases = {
+        "PRODUCT_KEVLAR_K29_7451S": (465.0, 0.465),
+        "PRODUCT_NOMEX_450A": (150.0, 0.15),
+        "PRODUCT_NOMEX_ARC650": (220.0, 0.22),
+        "PRODUCT_TYVEK_400": (41.5, 0.0415),
+        "PRODUCT_3M_THINSULATE_TAI1547": (150.0, 0.15),
+        "PRODUCT_SUNBRELLA_SLING_SYSTEM_DUNE": (519.9, 0.5199),
+    }
+    for identifier, (gsm, density) in cases.items():
+        preset = material_presets.preset_by_identifier(identifier)
+        assert preset is not None, identifier
+        assert preset.data_quality == "OFFICIAL_PRODUCT_DATA"
+        assert preset.measured_area_weight_g_m2 == pytest.approx(gsm)
+        assert preset.settings.surface_weight == pytest.approx(density)
+
+
+def test_neoprene_family_is_explicit_not_one_generic_guess():
+    yamamoto_39 = material_presets.preset_by_identifier(
+        "PRODUCT_YAMAMOTO_39_3MM")
+    yamamoto_40 = material_presets.preset_by_identifier(
+        "PRODUCT_YAMAMOTO_40_3MM")
+    sample = material_presets.preset_by_identifier(
+        "PRODUCT_NEOPRENE_3MM_DOUBLE_JERSEY")
+    assert yamamoto_39 and yamamoto_40 and sample
+    assert yamamoto_40.settings.stretch_resistance < \
+        yamamoto_39.settings.stretch_resistance
+    assert yamamoto_40.settings.maximum_stretch_percent > \
+        yamamoto_39.settings.maximum_stretch_percent
+    assert sample.data_quality == "PUBLISHED_PRODUCT_SAMPLE"
 
 
 def test_representative_mit_measurements_and_conversion_are_pinned():
