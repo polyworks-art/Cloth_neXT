@@ -238,6 +238,9 @@ class SessionDiagnostics:
     contact_samples: int = 0
     cancelled: bool = False
     bytes_transferred: int = 0
+    upload_data_bytes: int = 0
+    upload_param_bytes: int = 0
+    upload_total_bytes: int = 0
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -705,6 +708,30 @@ class SolverSession:
 
     def _upload(self) -> None:
         assert self._address is not None
+        def payload_size(payload) -> int:
+            if isinstance(payload, (str, Path)):
+                return Path(payload).stat().st_size
+            return len(payload)
+
+        data_bytes = payload_size(self.scene.data_payload)
+        param_bytes = payload_size(self.scene.param_payload)
+        total_bytes = data_bytes + param_bytes
+        self.diagnostics.upload_data_bytes = data_bytes
+        self.diagnostics.upload_param_bytes = param_bytes
+        self.diagnostics.upload_total_bytes = total_bytes
+        self._event(
+            "UPLOADING",
+            f"Uploading scene · {total_bytes / (1024 * 1024):.1f} MiB",
+            indeterminate=True)
+        log_with_context(
+            self._logger, logging.INFO, "Uploading solver payloads", {
+                "project": self.scene.project_name,
+                "data_bytes": data_bytes,
+                "param_bytes": param_bytes,
+                "total_bytes": total_bytes,
+                "upload_write_timeout_seconds":
+                    self.transport.upload_write_timeout,
+            })
         wire.upload_atomic(self._address, self.transport,
                            project_name=self.scene.project_name,
                            data_payload=self.scene.data_payload,
@@ -731,6 +758,7 @@ class SolverSession:
                                  f"status.data == NO_DATA after upload "
                                  f"(status={response.get('status')!r})")
         self.diagnostics.upload_id = upload_id
+        self.diagnostics.bytes_transferred += total_bytes
 
     def _await_build(self) -> None:
         deadline = time.monotonic() + self._build_timeout

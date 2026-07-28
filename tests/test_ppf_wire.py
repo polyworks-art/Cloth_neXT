@@ -223,10 +223,12 @@ def test_upload_atomic_honors_chunk_size_for_memory_payloads(
     data_payload = b"D" * 19
     param_payload = b"P" * 11
     sent_sizes = []
+    send_timeouts = []
     original_send_all = wire._send_all
 
     def recording_send_all(connection, data):
         sent_sizes.append(len(data))
+        send_timeouts.append(connection.gettimeout())
         original_send_all(connection, data)
 
     monkeypatch.setattr(wire, "_send_all", recording_send_all)
@@ -248,6 +250,7 @@ def test_upload_atomic_honors_chunk_size_for_memory_payloads(
 
     # The first send is the protocol header; every payload write is bounded.
     assert sent_sizes[1:] == [7, 7, 5, 7, 4]
+    assert send_timeouts == [CONFIG.upload_write_timeout] * len(sent_sizes)
 
 
 def test_upload_atomic_sendfile_falls_back_to_chunks(

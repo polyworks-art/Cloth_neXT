@@ -249,6 +249,10 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
         "param_hash": param_hash,
     }).encode("utf-8") + b"\n"
     with _connect(address, config) as connection:
+        # Large local Scene/Pin payloads may legitimately keep one blocking
+        # send active longer than a status response. Do not reuse the short
+        # request/response timeout for the upload body.
+        connection.settimeout(config.upload_write_timeout)
         _send_all(connection, JSON_HEADER + header)
         for payload in (data_payload, param_payload):
             if isinstance(payload, (str, Path)):
@@ -256,6 +260,7 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
             else:
                 for chunk in payload_chunks(payload):
                     _send_all(connection, chunk)
+        connection.settimeout(config.read_timeout)
         line, _rest = _read_line(connection)
     if b"OK" not in line:
         parsed = None

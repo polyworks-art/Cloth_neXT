@@ -78,3 +78,8 @@ def test_read_timeout_is_categorized():
     server.close()
     assert "timeout" in caught.value.record.technical_message.lower()
 
+
+def test_upload_write_timeout_must_be_positive():
+    with pytest.raises(ValueError, match="timeouts"):
+        TransportConfig(upload_write_timeout=0)
+

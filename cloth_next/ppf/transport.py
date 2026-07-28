@@ -20,9 +20,11 @@ class TransportConfig:
     connect_timeout: float = 2.0
     read_timeout: float = 2.0
     max_response_bytes: int = MAX_STATUS_RESPONSE
+    upload_write_timeout: float = 300.0
 
     def __post_init__(self) -> None:
-        if self.connect_timeout <= 0 or self.read_timeout <= 0:
+        if (self.connect_timeout <= 0 or self.read_timeout <= 0
+                or self.upload_write_timeout <= 0):
             raise ValueError("timeouts must be positive")
         if not 1 <= self.max_response_bytes <= 16 * 1024 * 1024:
             raise ValueError("max_response_bytes is outside the safe range")

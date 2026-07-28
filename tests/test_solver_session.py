@@ -150,10 +150,16 @@ def test_full_lifecycle_order_and_frames(monkeypatch):
     assert [f.solver_frame for f in frames] == [1, 2, 3, 4, 5, 6, 7]
     assert all(len(f.positions_solver_world) == 4 for f in frames)
     assert diagnostics.upload_id == "u123"
+    assert diagnostics.upload_data_bytes == 4
+    assert diagnostics.upload_param_bytes == 5
+    assert diagnostics.upload_total_bytes == 9
+    assert diagnostics.bytes_transferred >= 9
     assert diagnostics.fetched_frames == [1, 2, 3, 4, 5, 6, 7]
     phases = [event.phase for event in events]
     assert phases[0] == "STARTING_SOLVER"
     assert "UPLOADING" in phases and "BUILDING" in phases
+    assert any(event.phase == "UPLOADING"
+               and "MiB" in event.message for event in events)
     assert "FETCHING" in phases
 
 
