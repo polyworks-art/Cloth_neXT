@@ -1,0 +1,98 @@
+# Cloth NeXt branded interior material samples.
+# Product names are nominative references. Published facts and Cloth NeXt
+# solver calibrations are deliberately separated; no endorsement or exact
+# certified digital twin is claimed.
+
+[provenance]
+source_project = "Official manufacturer data for interior materials"
+source_commit = "retrieved-2026-07-29"
+source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
+source_license = "Facts-only reference metadata; no third-party code or media redistributed"
+notes = "PPF-only mechanics are Cloth NeXt artist calibrations; see the sources document for evidence and limitations."
+
+[[preset]]
+id = "PRODUCT_PRIMALOFT_GOLD_ACTIVE_60"
+label = "PrimaLoft Gold Active · 60"
+category = "PRODUCT_SAMPLES"
+description = "Light four-way-stretch active-insulation sheet with lofty, highly flexible behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "PrimaLoft"
+product_style = "PrimaLoft Gold Insulation Active 60"
+data_basis = "Official breathable four-way-stretch insulation product family; 60 gsm grade and PPF mechanics are calibrated as a shell-like insulation sheet"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_PRIMALOFT_GOLD_ACTIVE"
+model = "FABRIC"
+surface_weight = 0.06
+stretch_resistance = 450.0
+sideways_response = 0.46
+bend_resistance = 0.65
+surface_grip = 0.52
+stretch_limit_enabled = true
+maximum_stretch_percent = 18.0
+
+[[preset]]
+id = "PRODUCT_3M_THINSULATE_TAI1547"
+label = "3M Thinsulate · TAI1547"
+category = "PRODUCT_SAMPLES"
+description = "Official 8 mm, 150 gsm compressible automotive acoustic insulation mat"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "3M"
+product_style = "Thinsulate Acoustic Insulation TAI1547"
+data_basis = "Official 8 mm thickness, 150 gsm basis weight and PP/PE nonwoven construction; PPF mechanics calibrated for shell-like mat motion, not volume compression"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_3M_TAI1547"
+measured_area_weight_g_m2 = 150.0
+model = "FABRIC"
+surface_weight = 0.15
+stretch_resistance = 700.0
+sideways_response = 0.4
+bend_resistance = 1.8
+surface_grip = 0.58
+stretch_limit_enabled = true
+maximum_stretch_percent = 10.0
+
+[[preset]]
+id = "PRODUCT_ALCANTARA_AUTOMOTIVE"
+label = "Alcantara · Automotive"
+category = "PRODUCT_SAMPLES"
+description = "Soft, grippy and durable microfiber interior material reference for seats, panels and steering surfaces"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Alcantara S.p.A."
+product_style = "Alcantara Automotive"
+data_basis = "Official 68% polyester / 32% polyurethane composition and automotive performance properties; representative 300 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_ALCANTARA_AUTOMOTIVE"
+model = "FABRIC"
+surface_weight = 0.3
+stretch_resistance = 5200.0
+sideways_response = 0.34
+bend_resistance = 2.6
+surface_grip = 0.72
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "PRODUCT_SUNBRELLA_SLING_SYSTEM_DUNE"
+label = "Sunbrella Sling · System Dune"
+category = "PRODUCT_SAMPLES"
+description = "Official heavy woven outdoor sling upholstery with PVC, acrylic and polyester construction"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Sunbrella"
+product_style = "Sling System Dune · 50198-0001"
+data_basis = "Official woven construction, fiber content and 15.33 oz/yd² weight; PPF mechanics calibrated for dense outdoor upholstery"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_SUNBRELLA_SYSTEM_DUNE"
+measured_area_weight_g_m2 = 519.9
+measured_area_weight_oz_yd2 = 15.33
+model = "FABRIC"
+surface_weight = 0.5199
+stretch_resistance = 17500.0
+sideways_response = 0.24
+bend_resistance = 7.8
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.2
