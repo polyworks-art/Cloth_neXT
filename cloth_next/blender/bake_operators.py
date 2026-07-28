@@ -12,6 +12,7 @@ class CLOTHNEXT_OT_preview_start(bpy.types.Operator):
 
 class CLOTHNEXT_OT_preview_cancel(bpy.types.Operator):
     bl_idname="clothnext.preview_cancel"; bl_label="Cancel UI Preview"
+    bl_description="Cancel the active Bake preview without changing recovery data"
     def execute(self, _context):
         if shared_controller.snapshot().can_cancel: shared_controller.request_cancel()
         return {"FINISHED"}

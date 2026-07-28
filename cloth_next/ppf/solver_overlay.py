@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Idempotent Cloth NeXt frontend extension for per-face shell friction.
+"""Idempotent managed-frontend extensions owned by Cloth NeXt.
 
 The pinned PPF core already consumes a friction value for every triangle,
 while its Python frontend expands one object scalar across all triangles.
@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-OVERLAY_VERSION = "face-friction-v1"
+OVERLAY_VERSION = "face-friction-intersection-preview-v2"
 
 _DECODER_NEEDLE = '''                else:
                     _rust.validate_group_type(group_type)
@@ -71,6 +71,84 @@ _SCENE_SHELL_REPLACEMENT = '''            if tri_added and tet_added == 0:
                 _extend_param(obj.param, concat_tri_param, tri_added, overrides)
 '''
 
+_VIOLATION_NEEDLE = '''        all_violations = result["violations"]
+        if all_violations:
+            raise ValidationError(result["combined_message"], violations=all_violations)
+'''
+_VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
+        # Cloth NeXt managed-frontend extension: the compiled preview builder
+        # historically reconstructed entries from input.tri/dyn_verts and
+        # silently dropped combined triangle indices belonging to statics.
+        # Re-run the same authoritative Rust intersection kernel and construct
+        # preview geometry from the exact combined buffers used for detection.
+        if result.get("has_self_intersection"):
+            from ._intersection_ import check_self_intersection
+            dynamic_v = (
+                np.asarray(self._vert[1], dtype=np.float64)
+                + np.asarray(self._displacement, dtype=np.float64)[
+                    np.asarray(self._vert[0], dtype=np.int64)])
+            dynamic_f = np.asarray(self._tri, dtype=np.int32).reshape((-1, 3))
+            if static_vert_for_check is not None and static_tri_for_check is not None:
+                static_v = np.asarray(static_vert_for_check, dtype=np.float64)
+                static_f = (
+                    np.asarray(static_tri_for_check, dtype=np.int32)
+                    + len(dynamic_v))
+                combined_v = np.ascontiguousarray(
+                    np.vstack((dynamic_v, static_v)), dtype=np.float64)
+                combined_f = np.ascontiguousarray(
+                    np.vstack((dynamic_f, static_f)), dtype=np.int32)
+                combined_c = np.ascontiguousarray(
+                    np.concatenate((
+                        np.asarray(tri_is_collider, dtype=bool),
+                        np.ones(len(static_f), dtype=bool))))
+            else:
+                combined_v = np.ascontiguousarray(dynamic_v, dtype=np.float64)
+                combined_f = np.ascontiguousarray(dynamic_f, dtype=np.int32)
+                combined_c = np.ascontiguousarray(tri_is_collider, dtype=bool)
+            exact_pairs = check_self_intersection(
+                combined_v, combined_f, combined_c,
+                np.ascontiguousarray(self._rod, dtype=np.int32)
+                if n_rods > 0 else None)
+            combined_body = np.concatenate((
+                np.asarray(tri_body_id, dtype=np.int32),
+                np.zeros(len(combined_f) - len(dynamic_f), dtype=np.int32)))
+            exact_pairs = [
+                pair for pair in exact_pairs
+                if (pair[0] < 0
+                    or combined_body[pair[0]] == 0
+                    or combined_body[pair[0]] != combined_body[pair[1]])
+            ]
+            preserved = [
+                item for item in all_violations
+                if not (isinstance(item, dict)
+                        and item.get("type") == "self_intersection")
+            ]
+            exact = []
+            for first, second in exact_pairs[:100]:
+                elements = []
+                for triangle_index in (first, second):
+                    if triangle_index < 0:
+                        continue
+                    triangle = combined_f[int(triangle_index)]
+                    elements.append({
+                        "kind": "TRIANGLE",
+                        "combined_triangle_index": int(triangle_index),
+                        "vertices": combined_v[triangle].tolist(),
+                    })
+                exact.append({
+                    "type": "self_intersection",
+                    "classification": "SELF_INTERSECTION",
+                    "combined_pair": [int(first), int(second)],
+                    "is_rod": bool(first < 0),
+                    "elements": elements,
+                    # Backward-compatible geometry for existing consumers.
+                    "tris": [element["vertices"] for element in elements],
+                })
+            all_violations = preserved + exact
+        if all_violations:
+            raise ValidationError(result["combined_message"], violations=all_violations)
+'''
+
 
 class SolverOverlayError(RuntimeError):
     pass
@@ -108,5 +186,6 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
         (_SCENE_SIGNATURE, _SCENE_SIGNATURE_REPLACEMENT),
         (_SCENE_EXTEND, _SCENE_EXTEND_REPLACEMENT),
         (_SCENE_SHELL, _SCENE_SHELL_REPLACEMENT),
+        (_VIOLATION_NEEDLE, _VIOLATION_REPLACEMENT),
     ))
     marker.write_text(OVERLAY_VERSION + "\n", encoding="ascii")

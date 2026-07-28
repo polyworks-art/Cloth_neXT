@@ -17,10 +17,12 @@ implementation exists here.
 from __future__ import annotations
 
 import logging
+import json
 import threading
 import time
 import uuid as uuid_module
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Callable
 
@@ -57,9 +59,19 @@ _SOLVER_METRICS = {
 }
 
 
+class RecoveryOutcomeKind(str, Enum):
+    SAVED = "SAVED"
+    EXISTING_PRESERVED = "EXISTING_PRESERVED"
+    NOT_ENABLED = "NOT_ENABLED"
+    NOT_AVAILABLE_YET = "NOT_AVAILABLE_YET"
+    FAILED = "FAILED"
+
+
 @dataclass(frozen=True, slots=True)
 class RecoveryOutcome:
     """Structured result of a recovery checkpoint attempt on cancellation."""
+    kind: RecoveryOutcomeKind
+    """Unambiguous category used by the Blender UI."""
     checkpoint_saved: bool
     """True if a verified checkpoint was confirmed and the project is resumable."""
     artist_message: str
@@ -76,8 +88,6 @@ class RecoveryOutcome:
     @property
     def resumable(self) -> bool:
         return self.checkpoint_saved
-
-
 def _tail_numeric_metric(path: Path) -> int | None:
     """Read one live PPF metric without loading its growing history."""
     try:
@@ -397,7 +407,17 @@ class SolverSession:
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
         error_text = str(response.get("error", "") or "no server error text")
-        return _session_error(
+        parsed_violations = []
+        raw_violations = response.get("violations", ())
+        if isinstance(raw_violations, (list, tuple)):
+            for item in raw_violations:
+                try:
+                    value = json.loads(item) if isinstance(item, str) else item
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(value, dict):
+                    parsed_violations.append(value)
+        error = _session_error(
             f"The solver reported a failure while {phase}.",
             f"server status FAILED during {phase}: {error_text}; "
             f"contacts(last={self.diagnostics.contact_last}, "
@@ -405,6 +425,17 @@ class SolverSession:
             f"samples={self.diagnostics.contact_samples}); "
             f"stdout_tail={self.diagnostics.stdout_tail}; "
             f"stderr_tail={self.diagnostics.stderr_tail}")
+        if parsed_violations:
+            log_with_context(self._logger, logging.ERROR,
+                "Solver returned structured build violations", {
+                    "project": self.scene.project_name,
+                    "phase": phase,
+                    "violation_count": len(parsed_violations),
+                    "preview_count": min(10, len(parsed_violations)),
+                })
+            return ClothNextError(
+                error.record, violations=tuple(parsed_violations))
+        return error
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -457,8 +488,6 @@ class SolverSession:
         if options is None or record is None:
             return
         saved = self._saved_states(response)
-        if saved == self._known_saved_states:
-            return
         self._known_saved_states = saved
         self._recovery_record = recovery.confirm_saved_states(
             options.metadata_path, record, saved,
@@ -778,11 +807,14 @@ class SolverSession:
                 or not options.save_on_cancel or self._address is None):
             return RecoveryOutcome(
                 checkpoint_saved=False,
-                artist_message="Recovery not enabled or not configured",
-                technical_reason="options or record missing, save_on_cancel false, or no server address",
+                artist_message="Bake cancelled",
+                technical_reason="",
                 state_before="N/A",
-                saved_states=())
+                saved_states=(),
+                kind=RecoveryOutcomeKind.NOT_ENABLED)
 
+        verified_before = tuple(
+            sorted(item.frame for item in self._recovery_record.checkpoints))
         # First, check current server status to decide if checkpoint is feasible
         try:
             initial_response = self._status()
@@ -800,12 +832,56 @@ class SolverSession:
             self._event("RECOVERY_WARNING",
                         "Could not query solver for checkpoint status",
                         activity_code="RECOVERY_FAILED")
+            if verified_before:
+                current = self._recovery_record
+                if current.state is not recovery.ProjectState.SAVED:
+                    current = recovery.transition(
+                        options.metadata_path, current,
+                        recovery.ProjectState.SAVED, error=technical)
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, current,
+                    recovery.ProjectState.RESUMABLE, error=technical)
             return RecoveryOutcome(
-                checkpoint_saved=False,
-                artist_message="Recovery checkpoint unavailable",
+                checkpoint_saved=bool(verified_before),
+                artist_message=(
+                    "Existing checkpoint preserved; newest state could not "
+                    "be saved" if verified_before else
+                    "Recovery checkpoint unavailable"),
                 technical_reason=technical,
                 state_before=initial_status,
-                saved_states=())
+                saved_states=verified_before,
+                kind=(RecoveryOutcomeKind.EXISTING_PRESERVED
+                      if verified_before else RecoveryOutcomeKind.FAILED))
+
+        if (verified_before and initial_status in {
+                STATUS_RESUMABLE, STATUS_READY, STATUS_FAILED}):
+            log_with_context(
+                self._logger, logging.INFO,
+                "Existing recovery checkpoint preserved", {
+                    "project": self.scene.project_name,
+                    "status": initial_status,
+                    "raw_server_frames": self._saved_states(initial_response),
+                    "verified_metadata_frames": verified_before,
+                })
+            current = self._recovery_record
+            if current.state is recovery.ProjectState.FAILED:
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, current,
+                    recovery.ProjectState.RESUMABLE)
+            elif current.state is not recovery.ProjectState.RESUMABLE:
+                if current.state is not recovery.ProjectState.SAVED:
+                    current = recovery.transition(
+                        options.metadata_path, current,
+                        recovery.ProjectState.SAVED)
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, current,
+                    recovery.ProjectState.RESUMABLE)
+            return RecoveryOutcome(
+                checkpoint_saved=True,
+                artist_message="Existing recovery checkpoint preserved",
+                technical_reason="", state_before=initial_status,
+                saved_states=verified_before,
+                kind=RecoveryOutcomeKind.EXISTING_PRESERVED)
 
         # States where no simulation state exists yet — skip save_and_quit
         if initial_status in (STATUS_NO_DATA, STATUS_NO_BUILD, STATUS_BUILDING):
@@ -818,12 +894,37 @@ class SolverSession:
             self._event("RECOVERY_WARNING",
                         "No recovery checkpoint available yet",
                         activity_code="RECOVERY_TOO_EARLY")
+            if verified_before:
+                current = self._recovery_record
+                if current.state is not recovery.ProjectState.SAVED:
+                    current = recovery.transition(
+                        options.metadata_path, current,
+                        recovery.ProjectState.SAVED,
+                        error=(f"server status {initial_status} has no new "
+                               "simulation state to save"))
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, current,
+                    recovery.ProjectState.RESUMABLE,
+                    error=(f"server status {initial_status} has no new "
+                           "simulation state to save"))
+                return RecoveryOutcome(
+                    checkpoint_saved=True,
+                    artist_message=(
+                        "Existing checkpoint preserved; newest state "
+                        "could not be saved"),
+                    technical_reason=(
+                        f"server status {initial_status} has no new "
+                        "simulation state to save"),
+                    state_before=initial_status,
+                    saved_states=verified_before,
+                    kind=RecoveryOutcomeKind.EXISTING_PRESERVED)
             return RecoveryOutcome(
                 checkpoint_saved=False,
                 artist_message="Bake cancelled before a recovery checkpoint was available",
-                technical_reason=f"server status {initial_status} has no simulation state to save",
+                technical_reason="",
                 state_before=initial_status,
-                saved_states=())
+                saved_states=(),
+                kind=RecoveryOutcomeKind.NOT_AVAILABLE_YET)
 
         # States where we can attempt save_and_quit
         if initial_status not in (STATUS_BUSY, STATUS_SAVE_AND_QUIT, STATUS_READY, STATUS_RESUMABLE, STATUS_FAILED):
@@ -841,7 +942,8 @@ class SolverSession:
                 options.metadata_path, record,
                 recovery.ProjectState.CHECKPOINT_REQUESTED)
             self._recovery_record = record
-            self._request(wire.REQUEST_SAVE_AND_QUIT)
+            if initial_status != STATUS_SAVE_AND_QUIT:
+                self._request(wire.REQUEST_SAVE_AND_QUIT)
             deadline = time.monotonic() + min(self._simulate_timeout, 120.0)
             last_known_status = initial_status
             while time.monotonic() < deadline:
@@ -849,8 +951,24 @@ class SolverSession:
                 status = str(response.get("status", ""))
                 last_known_status = status
                 saved = self._saved_states(response)
-                if status in (STATUS_RESUMABLE, STATUS_READY, STATUS_FAILED) and saved:
+                if saved:
                     self._sync_checkpoints(response)
+                verified = tuple(sorted(
+                    item.frame for item in self._recovery_record.checkpoints))
+                log_with_context(
+                    self._logger, logging.DEBUG,
+                    "Recovery checkpoint verification poll", {
+                        "project": self.scene.project_name,
+                        "status": status,
+                        "raw_server_frames": saved,
+                        "verified_metadata_frames": verified,
+                    })
+                newly_verified = tuple(
+                    frame for frame in verified
+                    if frame not in verified_before)
+                if (status in (STATUS_RESUMABLE, STATUS_READY, STATUS_FAILED)
+                        and (newly_verified or not verified_before)
+                        and verified):
                     record = self._recovery_record
                     assert record is not None
                     record = recovery.transition(
@@ -864,31 +982,57 @@ class SolverSession:
                         artist_message="Recovery checkpoint saved",
                         technical_reason="",
                         state_before=initial_status,
-                        saved_states=saved)
+                        saved_states=verified,
+                        kind=RecoveryOutcomeKind.SAVED)
                     self._event("RECOVERY_SAVED", outcome.artist_message,
                                 activity_code="RECOVERY_SAVED")
                     return outcome
                 time.sleep(self._poll_interval)
 
             # Timeout waiting for confirmation
-            technical = (f"timeout after {min(self._simulate_timeout, 120.0)}s "
-                         f"waiting for saved_states; last status={last_known_status}")
+            verified = tuple(sorted(
+                item.frame for item in self._recovery_record.checkpoints))
+            technical = (f"timed out after {min(self._simulate_timeout, 120.0)}s "
+                         f"waiting for a verified checkpoint; "
+                         f"last status={last_known_status}; "
+                         f"raw server frames={tuple(self._known_saved_states)}; "
+                         f"verified metadata frames={verified}")
             log_with_context(self._logger, logging.WARNING,
                 "Recovery checkpoint timed out",
                 {"project": self.scene.project_name,
                  "mode": self.diagnostics.solver_mode,
                  "status": last_known_status,
-                 "saved_states": tuple(self._known_saved_states),
+                 "raw_server_frames": tuple(self._known_saved_states),
+                 "verified_metadata_frames": verified,
                  "timeout_s": min(self._simulate_timeout, 120.0),
                  "metadata_path": str(options.metadata_path)})
             self._event("RECOVERY_WARNING",
                         "Recovery checkpoint could not be confirmed",
                         activity_code="RECOVERY_TIMEOUT")
+            if verified:
+                record = self._recovery_record
+                assert record is not None
+                record = recovery.transition(
+                    options.metadata_path, record,
+                    recovery.ProjectState.SAVED, error=technical)
+                self._recovery_record = recovery.transition(
+                    options.metadata_path, record,
+                    recovery.ProjectState.RESUMABLE, error=technical)
+                return RecoveryOutcome(
+                    checkpoint_saved=True,
+                    artist_message=(
+                        "Existing checkpoint preserved; newest state "
+                        "could not be saved"),
+                    technical_reason=technical,
+                    state_before=initial_status,
+                    saved_states=verified,
+                    timed_out=True,
+                    kind=RecoveryOutcomeKind.EXISTING_PRESERVED)
             try:
                 self._recovery_record = recovery.transition(
                     options.metadata_path, self._recovery_record,
                     recovery.ProjectState.FAILED,
-                    error="save_and_quit timed out waiting for confirmation")
+                    error=technical)
             except (OSError, ValueError) as exc:
                 log_with_context(self._logger, logging.WARNING,
                     "Failed to record recovery timeout in metadata",
@@ -899,8 +1043,9 @@ class SolverSession:
                 artist_message="Recovery checkpoint could not be saved",
                 technical_reason=technical,
                 state_before=initial_status,
-                saved_states=tuple(self._known_saved_states),
-                timed_out=True)
+                saved_states=verified,
+                timed_out=True,
+                kind=RecoveryOutcomeKind.FAILED)
 
         except (ClothNextError, OSError, ValueError) as exc:
             # Preserve the actual exception for logging
@@ -916,6 +1061,9 @@ class SolverSession:
             self._event("RECOVERY_WARNING",
                         "Recovery checkpoint could not be saved",
                         activity_code="RECOVERY_FAILED")
+            verified = tuple(sorted(
+                item.frame for item in self._recovery_record.checkpoints
+            )) if self._recovery_record is not None else ()
             if self._recovery_record is not None:
                 try:
                     self._recovery_record = recovery.transition(
@@ -929,11 +1077,16 @@ class SolverSession:
                          "original_error": technical,
                          "meta_error": str(meta_exc)})
             return RecoveryOutcome(
-                checkpoint_saved=False,
-                artist_message="Recovery checkpoint could not be saved",
+                checkpoint_saved=bool(verified),
+                artist_message=(
+                    "Existing checkpoint preserved; newest state could not "
+                    "be saved" if verified else
+                    "Recovery checkpoint could not be saved"),
                 technical_reason=technical,
                 state_before=initial_status,
-                saved_states=tuple(self._known_saved_states))
+                saved_states=verified,
+                kind=(RecoveryOutcomeKind.EXISTING_PRESERVED if verified
+                      else RecoveryOutcomeKind.FAILED))
 
     def _delete_project(self) -> None:
         if self._address is None:

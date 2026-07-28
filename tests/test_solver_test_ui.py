@@ -1085,6 +1085,42 @@ def test_ram_safety_cancel_becomes_actionable_error(blender_env, monkeypatch):
     assert snapshot.error_code == "CNX-E166"
     assert module._ram_auto_cancel_triggered is False
 
+
+@pytest.mark.parametrize(("kind_name", "resumable", "expected"), (
+    ("SAVED", True, "Recovery checkpoint saved"),
+    ("EXISTING_PRESERVED", True, "Existing recovery checkpoint preserved"),
+    ("NOT_ENABLED", False, "Bake cancelled"),
+    ("NOT_AVAILABLE_YET", False, "before a recovery checkpoint was available"),
+    ("FAILED", False, "Recovery checkpoint could not be saved"),
+))
+def test_cancelled_outcome_category_controls_final_ui_message(
+        blender_env, monkeypatch, kind_name, resumable, expected):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.EXPORTING)
+    module.shared_controller.request_cancel()
+    module._active_plan = SimpleNamespace()
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    module._ram_auto_cancel_enabled = False
+    module._ram_auto_cancel_triggered = False
+    monkeypatch.setattr(module, "_discard_incomplete", lambda *_a, **_k: None)
+    monkeypatch.setattr(module, "_refresh_recovery_ui", lambda *_a: None)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    kind = module.RecoveryOutcomeKind[kind_name]
+    outcome = module.RecoveryOutcome(
+        kind=kind, checkpoint_saved=resumable, artist_message="test",
+        technical_reason=("details" if kind_name == "FAILED" else ""),
+        state_before="BUSY", saved_states=((2,) if resumable else ()))
+    module._queue.put(("cancelled", resumable, outcome))
+
+    assert module._pump_once() is None
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.state is BakeState.CANCELLED
+    assert expected in snapshot.status_message
+
 def test_run_operator_reports_optional_companion_warning(blender_env, monkeypatch):
     module=blender_env.solver_test
     monkeypatch.setattr(module,"start_run",lambda _context, **_kw:"bundle unavailable")
@@ -1123,3 +1159,22 @@ def test_companion_replaces_exited_session_without_leaking(blender_env,
                         (True,"Bake window launched"))
     assert manager.ensure_running()==(True,"Bake window launched")
     assert calls==["shutdown","launch"]
+
+
+def test_recovery_related_operators_have_useful_tooltips(blender_env):
+    module = blender_env.solver_test
+    classes = (
+        module.CLOTHNEXT_OT_bake_cancel,
+        module.CLOTHNEXT_OT_solver_test_cancel,
+        module.CLOTHNEXT_OT_recovery_resume_latest,
+        module.CLOTHNEXT_OT_recovery_start_fresh,
+        module.CLOTHNEXT_OT_recovery_clear_checkpoints,
+        module.CLOTHNEXT_OT_recovery_open_folder,
+    )
+    for operator in classes:
+        assert operator.bl_description.strip()
+    assert "latest verified" in (
+        module.CLOTHNEXT_OT_recovery_resume_latest.bl_description)
+    assert "cannot be resumed" in (
+        module.CLOTHNEXT_OT_recovery_start_fresh.bl_description)
+    assert "attempt" in module.CLOTHNEXT_OT_bake_cancel.bl_description

@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
@@ -204,10 +205,16 @@ def _record_from_dict(value: dict) -> CheckpointRecord:
 def _verified_checkpoint(record: CheckpointRecord) -> bool:
     path = Path(record.checkpoint_path)
     try:
-        return (record.integrity == "VERIFIED" and path.is_file()
-                and path.stat().st_size == record.checkpoint_size
-                and _sha256(path) == record.checkpoint_sha256)
-    except OSError:
+        if (record.integrity != "VERIFIED" or not path.is_file()
+                or record.checkpoint_size <= 0
+                or path.stat().st_size != record.checkpoint_size
+                or _sha256(path) != record.checkpoint_sha256):
+            return False
+        if path.suffix == ".gz":
+            with gzip.open(path, "rb") as stream:
+                return bool(stream.read(1))
+        return True
+    except (OSError, EOFError):
         return False
 
 
@@ -319,11 +326,17 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
                 if _verified_checkpoint(item)}
     for frame_value in sorted({int(value) for value in saved_states}):
         state_path = checkpoint_path(Path(record.project_root), frame_value)
-        if not state_path.is_file():
+        try:
+            if not state_path.is_file() or state_path.stat().st_size <= 0:
+                continue
+            with gzip.open(state_path, "rb") as stream:
+                if not stream.read(1):
+                    continue
+            size = state_path.stat().st_size
+            digest = _sha256(state_path)
+        except (OSError, EOFError):
             continue
         existing = by_frame.get(frame_value)
-        size = state_path.stat().st_size
-        digest = _sha256(state_path)
         if (existing is not None and existing.checkpoint_size == size
                 and existing.checkpoint_sha256 == digest):
             continue

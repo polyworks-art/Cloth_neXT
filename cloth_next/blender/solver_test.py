@@ -42,6 +42,7 @@ import numpy as np
 
 from .. import manifest_version
 from .. import export_identity, recovery
+from .. import intersection_diagnostics
 from ..export_cache import ExportPayloadCache, deterministic_key
 from ..sample_plan import build_sample_plan
 from ..bake import cache_metadata
@@ -102,6 +103,8 @@ from ..ppf_run.session import (
     SolverFrame,
     SolverSession,
     RecoveryOptions,
+    RecoveryOutcome,
+    RecoveryOutcomeKind,
     new_project_name,
 )
 from ..telemetry import shared_telemetry
@@ -145,6 +148,15 @@ _ram_auto_cancel = RamAutoCancelGuard()
 _ram_auto_cancel_enabled = False
 _ram_auto_cancel_triggered = False
 _eta_estimator = FrameEtaEstimator()
+_intersection_violations: tuple[
+    intersection_diagnostics.IntersectionViolation, ...] = ()
+_intersection_violation_index = 0
+_show_solver_input = False
+
+
+def intersection_violations():
+    """Immutable solver diagnostics currently available to Blender UI."""
+    return _intersection_violations
 
 
 def _ensure_solver_static(scene_colliders, collider_specs):
@@ -254,6 +266,7 @@ class RunPlan:
     pin_configs: tuple[StaticPinConfig | None, ...] = ()
     param_cache_key: str = ""
     recovery_options: RecoveryOptions | None = None
+    solver_input: intersection_diagnostics.SolverInputSnapshot | None = None
 
 
 def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
@@ -641,6 +654,23 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
             raise SceneValidationError(
                 f"{obj.name} produced an invalid triangle {tri}.")
     return vertices, triangles
+
+
+def _source_polygon_indices(obj, expected_triangle_count: int) \
+        -> tuple[int, ...]:
+    """Map exported loop triangles to source polygons when topology is stable."""
+    mesh = getattr(obj, "data", None)
+    if mesh is None or not hasattr(mesh, "calc_loop_triangles"):
+        return ()
+    mesh.calc_loop_triangles()
+    loop_triangles = tuple(getattr(mesh, "loop_triangles", ()))
+    if len(loop_triangles) != int(expected_triangle_count):
+        return ()
+    try:
+        return tuple(int(triangle.polygon_index)
+                     for triangle in loop_triangles)
+    except (AttributeError, TypeError, ValueError):
+        return ()
 
 
 @contextmanager
@@ -3530,6 +3560,38 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                                 "triangle_count": len(triangles)})
         scene_colliders, collider_specs = _ensure_solver_static(
             scene_colliders, collider_specs)
+        role_for_group = {
+            GROUP_SHELL: "CLOTH", GROUP_ROD: "ROD",
+            GROUP_SOLID: "SOFT_BODY", GROUP_PDRD: "RIGID_BODY"}
+        generated_by_uuid = {
+            export_identity.export_uuid(obj):
+                collider_proxy.is_generated_proxy(obj)
+            for obj, _vertices, _triangles, _world, _capture
+            in collider_records}
+        source_faces_by_uuid = {
+            export_identity.export_uuid(entry.obj):
+                _source_polygon_indices(entry.obj, len(triangles))
+            for (entry, _pin_snapshot, _vertices, triangles, _edges, _world,
+                 _stitch_pairs, _uv_faces, _face_friction)
+            in dynamic_records}
+        source_faces_by_uuid.update({
+            export_identity.export_uuid(obj):
+                _source_polygon_indices(obj, len(triangles))
+            for obj, _vertices, triangles, _world, _capture
+            in collider_records})
+        ordered_input = []
+        for group in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID, GROUP_PDRD):
+            ordered_input.extend(
+                (item, role_for_group[group],
+                 source_faces_by_uuid.get(item.uuid), False)
+                for item, item_group in scene_dynamics
+                if item_group == group)
+        ordered_input.extend(
+            (item, "COLLIDER", source_faces_by_uuid.get(item.uuid),
+             generated_by_uuid.get(item.uuid, False))
+            for item in scene_colliders)
+        solver_input = intersection_diagnostics.build_solver_input_snapshot(
+            ordered_input, bake_start_frame=bake_range.start)
         deforming_capture = any(
             capture is not None and
             capture.motion_type == "DEFORMING_ANIMATED"
@@ -3667,7 +3729,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         first.stitch_pairs, first.stitch_snap_distance,
         pin_configs=tuple(
             static_pin_config(record[1]) for record in dynamic_records),
-        param_cache_key=param_cache_key)
+        param_cache_key=param_cache_key,
+        solver_input=solver_input)
 
 
 def _build_run_plan_impl(context, *, animated_pin_samples=None,
@@ -3883,6 +3946,21 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                             "triangle_count": len(triangles)})
     scene_colliders, collider_specs = _ensure_solver_static(
         scene_colliders, collider_specs)
+    generated_by_uuid = {
+        export_identity.export_uuid(obj): collider_proxy.is_generated_proxy(obj)
+        for obj, _vertices, _triangles, _world, _capture in collider_records}
+    source_faces_by_uuid = {
+        export_identity.export_uuid(obj):
+            _source_polygon_indices(obj, len(triangles))
+        for obj, _vertices, triangles, _world, _capture in collider_records}
+    solver_input = intersection_diagnostics.build_solver_input_snapshot(
+        ((scene_cloth, deformable_role,
+          _source_polygon_indices(cloth_obj, len(cloth_triangles)), False),)
+        + tuple(
+            (item, "COLLIDER", source_faces_by_uuid.get(item.uuid),
+             generated_by_uuid.get(item.uuid, False))
+            for item in scene_colliders),
+        bake_start_frame=bake_range.start)
     project_name = new_project_name()
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     payload_cache = _payload_cache_for(cloth_obj)
@@ -4089,7 +4167,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                        if stitch_pairs else 0.0),
                    scene_cache_key=source_key or "",
                    pin_configs=(pin_config,),
-                   param_cache_key=param_cache_key)
+                   param_cache_key=param_cache_key,
+                   solver_input=solver_input)
 
 
 def build_run_plan(context, *, animated_pin_samples=None,
@@ -4360,10 +4439,28 @@ def _record_worker_failure(plan: RunPlan, summary: str, details: str,
     return visible
 
 
-def _present_worker_error(plan: RunPlan, exc: ClothNextError) -> tuple[str, str]:
+def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
+                          enriched=None) -> tuple[str, str]:
     """Translate technical solver failures into actionable Blender language."""
     record = exc.record
     technical = record.technical_message
+    enriched = (_convert_solver_violations(plan, exc)
+                if enriched is None else enriched)
+    if enriched:
+        summary, action = intersection_diagnostics.artist_message(enriched[0])
+        detail_lines = [
+            "Stage: initial solver-pose intersection validation",
+            f"Cause: {summary}",
+            f"What to do: {action}",
+            f"Reported violations: {enriched[0].total_count}",
+        ]
+        for number, violation in enumerate(enriched[:10], 1):
+            names = " / ".join(item.object_name
+                               for item in violation.elements)
+            detail_lines.append(
+                f"{number}. {violation.classification}: {names}; "
+                f"combined pair={violation.combined_pair}")
+        return summary, "\n".join(detail_lines)
     intersections = re.search(
         r"(\d+)\s+self[- ]intersections?\s*\((\d+)\s+tri-tri\)",
         technical, re.IGNORECASE)
@@ -4397,6 +4494,47 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError) -> tuple[str, str]
     details = (f"Cause: {technical}\n"
                f"What to do: {record.recommended_action}")
     return record.user_message, details
+
+
+def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
+    snapshot = getattr(plan, "solver_input", None)
+    raw = getattr(exc, "violations", ())
+    if snapshot is None or not raw:
+        return ()
+    total = len(raw)
+    converted = tuple(
+        result for result in (
+            intersection_diagnostics.convert_violation(
+                item, snapshot, total_count=total) for item in raw)
+        if result is not None)
+    for violation in converted[:10]:
+        average, minimum = intersection_diagnostics.triangle_metrics(
+            tuple(item.vertices for item in violation.elements
+                  if item.kind == "TRIANGLE"))
+        log_with_context(
+            get_logger("solver.intersections"), 40,
+            "Initial solver-pose intersection", {
+                "classification": violation.classification,
+                "detection_method": violation.detection_method,
+                "combined_pair": violation.combined_pair,
+                "objects": tuple(item.object_name
+                                 for item in violation.elements),
+                "object_uuids": tuple(item.object_uuid
+                                      for item in violation.elements),
+                "roles": tuple(item.role for item in violation.elements),
+                "local_triangle_indices": tuple(
+                    item.local_triangle_index for item in violation.elements),
+                "source_polygon_indices": tuple(
+                    item.source_polygon_index for item in violation.elements),
+                "triangle_positions": tuple(
+                    item.vertices for item in violation.elements),
+                "average_edge_length": average,
+                "minimum_local_edge_length": minimum,
+                "bake_start_frame": snapshot.bake_start_frame,
+                "generated_proxy": tuple(
+                    item.generated_proxy for item in violation.elements),
+            })
+    return converted
 
 def _worker_main_multi(plan: RunPlan) -> None:
     def emit(event) -> None:
@@ -4515,10 +4653,13 @@ def _worker_main_multi(plan: RunPlan) -> None:
         for writer in writers.values():
             writer.abort()
         _discard_incomplete(plan, state="failed", reason=str(exc))
-        summary, details = _present_worker_error(plan, exc)
+        violations = _convert_solver_violations(plan, exc)
+        summary, details = _present_worker_error(
+            plan, exc, enriched=violations)
         code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details, code), code))
+                    _record_worker_failure(plan, summary, details, code), code,
+                    violations))
     except Exception:
         for writer in writers.values():
             writer.abort()
@@ -4655,10 +4796,13 @@ def _worker_main(plan: RunPlan) -> None:
         if writer is not None:
             writer.abort()
         _discard_incomplete(plan, state="failed", reason=str(exc))
-        summary, details = _present_worker_error(plan, exc)
+        violations = _convert_solver_violations(plan, exc)
+        summary, details = _present_worker_error(
+            plan, exc, enriched=violations)
         code = classify_error("SIMULATING", summary, details, exc.record)
         _queue.put(("error", summary,
-                    _record_worker_failure(plan, summary, details, code), code))
+                    _record_worker_failure(plan, summary, details, code), code,
+                    violations))
     except Exception:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
@@ -5065,7 +5209,7 @@ def _safe_transition(state: BakeState, **changes) -> None:
 
 
 def _refresh_recovery_ui(plan: RunPlan) -> None:
-    """Main-thread file check; Panel.draw consumes only these cached fields."""
+    """Verify metadata on the main thread and cache artist-facing UI fields."""
     options = getattr(plan, "recovery_options", None)
     settings = getattr(
         getattr(bpy.context, "scene", None), "cloth_next_recovery", None)
@@ -5077,6 +5221,9 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
         settings.status_detail = "Recovery metadata is missing or invalid"
         settings.compatible = False
         settings.resumable = False
+        settings.latest_checkpoint_frame = 0
+        settings.checkpoint_count = 0
+        settings.older_checkpoint_preserved = False
         return
     match = recovery.compatibility(record.identity, options.identity)
     settings.compatible = match.compatible
@@ -5085,11 +5232,18 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
         and record.state in {
             recovery.ProjectState.RESUMABLE,
             recovery.ProjectState.FAILED})
+    settings.latest_checkpoint_frame = max(
+        (item.frame for item in record.checkpoints), default=0)
+    settings.checkpoint_count = len(record.checkpoints)
+    settings.older_checkpoint_preserved = bool(
+        settings.resumable and record.error)
     settings.status = (
-        f"Frame {record.last_frame} · Compatible"
-        if settings.resumable else record.state.value.title())
+        "Recovery available" if settings.resumable
+        else record.state.value.title())
     if settings.resumable:
-        settings.status_detail = "Checkpoint saved · Resume available"
+        settings.status_detail = (
+            record.error if record.error else
+            "Verified checkpoint · Resume available")
     elif record.state is recovery.ProjectState.FAILED and record.error:
         settings.status_detail = record.error
     else:
@@ -5098,6 +5252,7 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
 
 def _pump_once() -> float | None:
     global _worker, _active_plan, _ram_auto_cancel_triggered
+    global _intersection_violations, _intersection_violation_index
     plan = _active_plan
     if plan is None:
         return None
@@ -5141,6 +5296,13 @@ def _pump_once() -> float | None:
                 shared_controller.update(
                     status_message=event.message,
                     activity_code=BakeActivity.RECOVERY)
+                continue
+            if event.phase == "CANCELLING":
+                _safe_transition(
+                    BakeState.CANCELLING,
+                    status_message="Saving recovery checkpoint",
+                    activity_code=BakeActivity.RECOVERY,
+                    activity_label="Saving recovery checkpoint")
                 continue
             state = _EVENT_STATE.get(event.phase)
             if event.phase == "TRANSFORMING_FRAME":
@@ -5214,19 +5376,30 @@ def _pump_once() -> float | None:
                     error_code="CNX-E166")
                 _ram_auto_cancel_triggered = False
             else:
-                if recovery_outcome is not None and recovery_outcome.checkpoint_saved:
+                if (recovery_outcome is not None and
+                        recovery_outcome.kind is RecoveryOutcomeKind.SAVED):
                     status_msg = "Bake cancelled · Recovery checkpoint saved"
+                elif (recovery_outcome is not None and recovery_outcome.kind
+                      is RecoveryOutcomeKind.EXISTING_PRESERVED):
+                    status_msg = (
+                        "Bake cancelled · Existing recovery checkpoint preserved")
+                elif (recovery_outcome is not None and recovery_outcome.kind
+                      is RecoveryOutcomeKind.NOT_ENABLED):
+                    status_msg = "Bake cancelled"
+                elif (recovery_outcome is not None and recovery_outcome.kind
+                      is RecoveryOutcomeKind.NOT_AVAILABLE_YET):
+                    status_msg = (
+                        "Bake cancelled before a recovery checkpoint was available")
                 elif recovery_outcome is not None:
-                    if recovery_outcome.technical_reason:
-                        status_msg = "Bake cancelled · Recovery checkpoint could not be saved"
-                    else:
-                        status_msg = "Bake cancelled before a recovery checkpoint was available"
+                    status_msg = (
+                        "Bake cancelled · Recovery checkpoint could not be saved")
                 else:
                     status_msg = "Solver test cancelled"
                 _safe_transition(BakeState.CANCELLED,
                                  status_message=status_msg,
                                  estimated_remaining_seconds=None)
-            _discard_incomplete(plan)
+            if not resumable:
+                _discard_incomplete(plan)
             _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
@@ -5234,6 +5407,14 @@ def _pump_once() -> float | None:
             return None
         elif kind == "error":
             code = message[3] if len(message) > 3 else ""
+            _intersection_violations = (
+                tuple(message[4]) if len(message) > 4 else ())
+            _intersection_violation_index = 0
+            if _intersection_violations:
+                from . import intersection_overlay
+                intersection_overlay.set_violations(
+                    _intersection_violations,
+                    plan.solver_input if plan is not None else None)
             shared_controller.fail(message[1], message[2], error_code=code)
             _discard_incomplete(plan)
             _refresh_recovery_ui(plan)
@@ -6153,6 +6334,9 @@ class CLOTHNEXT_OT_bake_cancel(bpy.types.Operator):
 
     bl_idname = "clothnext.bake_cancel"
     bl_label = "Cancel"
+    bl_description = (
+        "Cancel the active Bake and attempt to save a recovery checkpoint "
+        "before stopping the solver")
 
     @classmethod
     def poll(cls, _context):
@@ -6187,6 +6371,9 @@ class CLOTHNEXT_OT_solver_test_cancel(bpy.types.Operator):
 
     bl_idname = "clothnext.solver_test_cancel"
     bl_label = "Cancel Solver Test"
+    bl_description = (
+        "Cancel the active Bake and attempt to save a recovery checkpoint "
+        "before stopping the solver")
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -6269,6 +6456,103 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_intersection_previous(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_previous"
+    bl_label = "Previous Violation"
+    bl_description = "Display the previous solver-reported intersection"
+
+    def execute(self, _context):
+        from . import intersection_overlay
+        intersection_overlay.previous_violation()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_intersection_next(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_next"
+    bl_label = "Next Violation"
+    bl_description = "Display the next solver-reported intersection"
+
+    def execute(self, _context):
+        from . import intersection_overlay
+        intersection_overlay.next_violation()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_intersection_select_element(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_select_element"
+    bl_label = "Select Intersection Object"
+    bl_description = (
+        "Select the artist-facing object for one side of the displayed "
+        "intersection; generated proxy diagnostics select their source object")
+    element_index: bpy.props.IntProperty(default=0, min=0, max=1)
+
+    def execute(self, context):
+        from . import intersection_overlay
+        violation = intersection_overlay.current()
+        if violation is None or self.element_index >= len(violation.elements):
+            return {"CANCELLED"}
+        target = next((
+            obj for obj in context.scene.objects
+            if str(getattr(obj, "name", "")) ==
+            violation.elements[self.element_index].object_name), None)
+        if target is None:
+            self.report({"WARNING"}, "The reported object is no longer available.")
+            return {"CANCELLED"}
+        for obj in context.selected_objects:
+            obj.select_set(False)
+        target.select_set(True)
+        context.view_layer.objects.active = target
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_intersection_frame(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_frame"
+    bl_label = "Frame Intersection"
+    bl_description = (
+        "Frame the selected object containing the displayed solver "
+        "intersection in the 3D View")
+
+    def execute(self, context):
+        try:
+            bpy.ops.view3d.view_selected("INVOKE_DEFAULT", use_all_regions=False)
+        except (AttributeError, RuntimeError):
+            self.report({"WARNING"}, "Open a 3D View to frame the intersection.")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_intersection_show_input(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_show_input"
+    bl_label = "Show Solver Input"
+    bl_description = (
+        "Display the exact evaluated and triangulated geometry that Cloth NeXt "
+        "sent to the solver for initial intersection validation")
+
+    def execute(self, _context):
+        from . import intersection_overlay
+        if intersection_overlay.solver_input_snapshot() is None:
+            self.report({"WARNING"}, "No retained solver input snapshot is available.")
+            return {"CANCELLED"}
+        intersection_overlay.toggle_solver_input()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_intersection_clear(bpy.types.Operator):
+    bl_idname = "clothnext.intersection_clear"
+    bl_label = "Clear Intersection Display"
+    bl_description = (
+        "Remove intersection highlights and solver-input diagnostics from the "
+        "viewport without changing any simulation object")
+
+    def execute(self, _context):
+        global _intersection_violations, _intersection_violation_index
+        from . import intersection_overlay
+        intersection_overlay.clear()
+        _intersection_violations = ()
+        _intersection_violation_index = 0
+        return {"FINISHED"}
+
+
 def _recovery_metadata_from_scene(scene) -> Path | None:
     settings = getattr(scene, "cloth_next_recovery", None)
     root = str(getattr(settings, "recovery_directory", "") or "").strip()
@@ -6278,6 +6562,8 @@ def _recovery_metadata_from_scene(scene) -> Path | None:
 class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
     bl_idname = "clothnext.recovery_resume_latest"
     bl_label = "Resume Latest"
+    bl_description = (
+        "Continue this Bake from the latest verified solver checkpoint")
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -6297,6 +6583,9 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
 class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
     bl_idname = "clothnext.recovery_start_fresh"
     bl_label = "Start Fresh"
+    bl_description = (
+        "Delete the saved recovery project and its verified checkpoints, "
+        "then start a new Bake. The previous Bake cannot be resumed afterward")
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -6344,6 +6633,9 @@ class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
 class CLOTHNEXT_OT_recovery_clear_checkpoints(bpy.types.Operator):
     bl_idname = "clothnext.recovery_clear_checkpoints"
     bl_label = "Clear Checkpoints"
+    bl_description = (
+        "Delete all verified checkpoints for this recovery project. "
+        "This Bake cannot be resumed afterward")
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -6368,6 +6660,9 @@ class CLOTHNEXT_OT_recovery_clear_checkpoints(bpy.types.Operator):
 class CLOTHNEXT_OT_recovery_open_folder(bpy.types.Operator):
     bl_idname = "clothnext.recovery_open_folder"
     bl_label = "Open Recovery Folder"
+    bl_description = (
+        "Open the folder containing this Bake's recovery metadata and "
+        "verified checkpoint files")
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -6512,6 +6807,12 @@ CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
            CLOTHNEXT_OT_validate,
            CLOTHNEXT_OT_solver_test_run, CLOTHNEXT_OT_solver_test_cancel,
            CLOTHNEXT_OT_solver_test_clear, CLOTHNEXT_OT_solver_test_open_logs,
+           CLOTHNEXT_OT_intersection_previous,
+           CLOTHNEXT_OT_intersection_next,
+           CLOTHNEXT_OT_intersection_select_element,
+           CLOTHNEXT_OT_intersection_frame,
+           CLOTHNEXT_OT_intersection_show_input,
+           CLOTHNEXT_OT_intersection_clear,
            CLOTHNEXT_OT_recovery_resume_latest,
            CLOTHNEXT_OT_recovery_start_fresh,
            CLOTHNEXT_OT_recovery_clear_checkpoints,

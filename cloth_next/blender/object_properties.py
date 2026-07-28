@@ -380,6 +380,11 @@ class CLOTHNEXT_PG_recovery_settings(bpy.types.PropertyGroup):
     status_detail: bpy.props.StringProperty(default="", options={"HIDDEN"})
     compatible: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
     resumable: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
+    latest_checkpoint_frame: bpy.props.IntProperty(
+        default=0, options={"HIDDEN"})
+    checkpoint_count: bpy.props.IntProperty(default=0, options={"HIDDEN"})
+    older_checkpoint_preserved: bpy.props.BoolProperty(
+        default=False, options={"HIDDEN"})
     recovery_directory: bpy.props.StringProperty(default="", options={"HIDDEN"})
     resume_requested: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
 

@@ -15,7 +15,8 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
     scene.write_text(
         "prefix\n" + solver_overlay._SCENE_SIGNATURE
         + "body\n" + solver_overlay._SCENE_EXTEND
-        + solver_overlay._SCENE_SHELL + "suffix\n", encoding="utf-8")
+        + solver_overlay._SCENE_SHELL + solver_overlay._VIOLATION_NEEDLE
+        + "suffix\n", encoding="utf-8")
 
     solver_overlay.apply_managed_solver_overlay(tmp_path)
     first_decoder = decoder.read_text(encoding="utf-8")
@@ -24,5 +25,7 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
 
     assert "face_friction" in first_decoder
     assert "per_element" in first_scene
+    assert "combined_tri" in first_scene
+    assert "combined_pair" in first_scene
     assert decoder.read_text(encoding="utf-8") == first_decoder
     assert scene.read_text(encoding="utf-8") == first_scene

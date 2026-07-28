@@ -8,6 +8,7 @@ safety, result validation, and playback conversion."""
 from __future__ import annotations
 
 import re
+import gzip
 import struct
 import threading
 from pathlib import Path
@@ -22,6 +23,7 @@ from cloth_next.ppf.resolver import ResolvedSolver, SolverMode
 from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf_run import import_result, session as session_module
 from cloth_next.ppf_run.session import (RecoveryOptions, RecoveryOutcome,
+                                        RecoveryOutcomeKind,
                                         SessionCancelled, SessionScene,
                                         SessionDeformable, SolverFrame, SolverSession,
                                         new_project_name)
@@ -347,6 +349,7 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_sim = True
     server_root = tmp_path / "server"
+    (server_root / _scene().project_name).mkdir(parents=True)
     project_root = server_root / _scene().project_name
     output = project_root / "session" / "output"
     output.mkdir(parents=True)
@@ -357,7 +360,8 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
         nonlocal saved
         if request == "save_and_quit":
             scripted.log.append(("tcmd", project, request))
-            (output / "state_2.bin.gz").write_bytes(b"confirmed-state")
+            (output / "state_2.bin.gz").write_bytes(
+                gzip.compress(b"confirmed-state"))
             saved = True
             return {**scripted.base, "status": "SAVE_AND_QUIT",
                     "frame": 2, "saved_states": []}
@@ -390,6 +394,8 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     outcome = raised.value.recovery_outcome
     assert outcome is not None
     assert outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.SAVED
+    assert outcome.saved_states == (2,)
     assert outcome.artist_message
     assert outcome.state_before in ("BUSY", "SAVE_AND_QUIT")
     record = recovery.load_project(metadata)
@@ -420,6 +426,7 @@ def test_cancel_without_recovery_returns_unresumable_outcome(monkeypatch):
     outcome = raised.value.recovery_outcome
     assert outcome is not None
     assert not outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.NOT_ENABLED
 
 
 def test_cancel_before_simulation_skips_checkpoint(monkeypatch, tmp_path):
@@ -431,18 +438,26 @@ def test_cancel_before_simulation_skips_checkpoint(monkeypatch, tmp_path):
         True, metadata, _recovery_identity(), server_root,
         save_on_cancel=True)
     cancel = threading.Event()
+
+    def emit(event):
+        if event.phase == "BUILDING":
+            cancel.set()
+
     session = SolverSession(
         resolved=_external_resolved(), scene=_scene(),
         work_directory=tmp_path / "run",
         external_address=wire.ServerAddress("127.0.0.1", 9999),
-        cancel_event=cancel, poll_interval=0.001,
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
         recovery_options=options)
-    cancel.set()
     with pytest.raises(SessionCancelled) as raised:
         session.run()
     outcome = raised.value.recovery_outcome
     assert outcome is not None
     assert not outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.NOT_AVAILABLE_YET
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "save_and_quit" not in requests
+    assert "cancel_build" in requests
 
 
 def test_cancel_with_failed_save_and_quit_marks_record_failed(
@@ -450,6 +465,7 @@ def test_cancel_with_failed_save_and_quit_marks_record_failed(
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_sim = True
     server_root = tmp_path / "server"
+    (server_root / _scene().project_name).mkdir(parents=True)
     metadata = tmp_path / "recovery" / "metadata.json"
     options = RecoveryOptions(
         True, metadata, _recovery_identity(), server_root,
@@ -465,13 +481,19 @@ def test_cancel_with_failed_save_and_quit_marks_record_failed(
         work_directory=tmp_path / "run",
         external_address=wire.ServerAddress("127.0.0.1", 9999),
         cancel_event=cancel, emit=emit, poll_interval=0.001,
-        simulate_timeout=0.01,
+        simulate_timeout=0.05,
         recovery_options=options)
     with pytest.raises(SessionCancelled) as raised:
         session.run()
     outcome = raised.value.recovery_outcome
     assert outcome is not None
     assert not outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.FAILED
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.FAILED
+    assert "timed out" in record.error
+    assert record.checkpoints == ()
 
 
 def test_cancel_with_connection_error_returns_structured_outcome(
@@ -515,9 +537,10 @@ def test_cancel_with_connection_error_returns_structured_outcome(
     outcome = raised.value.recovery_outcome
     assert outcome is not None
     assert not outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.FAILED
 
 
-def test_cancel_event_messages_include_recovery_events(monkeypatch):
+def test_cancel_event_messages_include_recovery_events(monkeypatch, tmp_path):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_sim = True
     events = []
@@ -528,13 +551,139 @@ def test_cancel_event_messages_include_recovery_events(monkeypatch):
         if event.phase == "SIMULATING":
             cancel.set()
 
-    session, _, _, _ = _run_session(monkeypatch, scripted=scripted)
-    session._cancel = cancel
-    session._emit = emit
+    server_root = tmp_path / "server"
+    (server_root / _scene().project_name).mkdir(parents=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
+        simulate_timeout=0.02,
+        recovery_options=RecoveryOptions(
+            True, metadata, _recovery_identity(), server_root,
+            save_on_cancel=True))
     with pytest.raises(SessionCancelled):
         session.run()
     phases = [e.phase for e in events]
     assert "CANCELLING" in phases
+    assert "RECOVERY_WARNING" in phases
+
+
+def _cancel_recovery_session(tmp_path, *, existing_frame=None):
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    record = recovery.create_project(
+        metadata, project_id=_scene().project_name, identity=identity,
+        server_data_root=server_root, project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    if existing_frame is not None:
+        (output / f"state_{existing_frame}.bin.gz").write_bytes(
+            gzip.compress(b"existing checkpoint"))
+        record = recovery.confirm_saved_states(
+            metadata, record, (existing_frame,), keep=3)
+    options = RecoveryOptions(
+        True, metadata, identity, server_root, save_on_cancel=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        poll_interval=0.001, simulate_timeout=0.01,
+        recovery_options=options)
+    session._recovery_record = record
+    return session, metadata, output
+
+
+@pytest.mark.parametrize("payload", [None, b"", b"not-gzip"])
+def test_server_saved_state_requires_verified_checkpoint_file(
+        monkeypatch, tmp_path, payload):
+    session, metadata, output = _cancel_recovery_session(tmp_path)
+    if payload is not None:
+        (output / "state_4.bin.gz").write_bytes(payload)
+    requests = []
+
+    def reported_state(_address, _config, _project, request=None, **_kwargs):
+        requests.append(request)
+        return {"status": ("SAVE_AND_QUIT" if request else "RESUMABLE"),
+                "saved_states": [4]}
+
+    monkeypatch.setattr(wire, "send_tcmd", reported_state)
+    outcome = session._save_recovery_on_cancel()
+    assert outcome.kind is RecoveryOutcomeKind.FAILED
+    assert not outcome.resumable
+    assert outcome.saved_states == ()
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.FAILED
+    assert "verified checkpoint" in record.error
+
+
+def test_existing_checkpoint_is_preserved_without_save_request(
+        monkeypatch, tmp_path):
+    session, _, _ = _cancel_recovery_session(tmp_path, existing_frame=3)
+    requests = []
+
+    def ready(_address, _config, _project, request=None, **_kwargs):
+        requests.append(request)
+        return {"status": "READY", "saved_states": [3]}
+
+    monkeypatch.setattr(wire, "send_tcmd", ready)
+    outcome = session._save_recovery_on_cancel()
+    assert outcome.kind is RecoveryOutcomeKind.EXISTING_PRESERVED
+    assert outcome.saved_states == (3,)
+    assert "save_and_quit" not in requests
+
+
+def test_save_and_quit_status_is_not_requested_twice(
+        monkeypatch, tmp_path):
+    session, _, output = _cancel_recovery_session(tmp_path)
+    (output / "state_5.bin.gz").write_bytes(gzip.compress(b"new checkpoint"))
+    calls = 0
+    requests = []
+
+    def already_saving(_address, _config, _project, request=None, **_kwargs):
+        nonlocal calls
+        calls += 1
+        requests.append(request)
+        return {"status": ("SAVE_AND_QUIT" if calls == 1 else "RESUMABLE"),
+                "saved_states": ([] if calls == 1 else [5])}
+
+    monkeypatch.setattr(wire, "send_tcmd", already_saving)
+    outcome = session._save_recovery_on_cancel()
+    assert outcome.kind is RecoveryOutcomeKind.SAVED
+    assert outcome.saved_states == (5,)
+    assert "save_and_quit" not in requests
+
+
+def test_failed_new_checkpoint_preserves_older_verified_state(
+        monkeypatch, tmp_path):
+    session, metadata, _ = _cancel_recovery_session(
+        tmp_path, existing_frame=2)
+    status_calls = 0
+
+    def no_new_file(_address, _config, _project, request=None, **_kwargs):
+        nonlocal status_calls
+        if request is None:
+            status_calls += 1
+        return {"status": ("SAVE_AND_QUIT" if request else
+                           ("BUSY" if status_calls == 1 else "RESUMABLE")),
+                "saved_states": ([2] if status_calls == 1 else [2, 6])}
+
+    monkeypatch.setattr(wire, "send_tcmd", no_new_file)
+    outcome = session._save_recovery_on_cancel()
+    assert outcome.kind is RecoveryOutcomeKind.EXISTING_PRESERVED
+    assert outcome.resumable
+    assert outcome.saved_states == (2,)
+    assert outcome.technical_reason
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert [item.frame for item in record.checkpoints] == [2]
+    assert record.error
 
 
 def test_resume_skips_upload_build_and_fetches_only_missing_frames(
@@ -545,7 +694,7 @@ def test_resume_skips_upload_build_and_fetches_only_missing_frames(
     output = project_root / "session" / "output"
     output.mkdir(parents=True)
     state = output / "state_3.bin.gz"
-    state.write_bytes(b"confirmed-state")
+    state.write_bytes(gzip.compress(b"confirmed-state"))
     metadata = tmp_path / "recovery" / "metadata.json"
     identity = _recovery_identity()
     record = recovery.create_project(

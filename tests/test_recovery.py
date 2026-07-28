@@ -1,4 +1,5 @@
 from dataclasses import replace
+import gzip
 from pathlib import Path
 
 import pytest
@@ -111,7 +112,7 @@ def test_confirmed_state_is_published_before_retention(tmp_path):
     record = transition(metadata, record, ProjectState.RUNNING)
     for frame in (20, 40, 60):
         (output / f"state_{frame}.bin.gz").write_bytes(
-            f"state-{frame}".encode())
+            gzip.compress(f"state-{frame}".encode()))
     record = confirm_saved_states(
         metadata, record, (20, 40, 60), keep=2)
     assert [item.frame for item in record.checkpoints] == [40, 60]

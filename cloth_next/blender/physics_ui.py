@@ -1560,6 +1560,43 @@ def _draw_solver_test_controls(layout, context) -> None:
                          if value.startswith(prefix)), None)
             if line:
                 column.label(text=line[:180])
+        violations = solver_test.intersection_violations()
+        if violations:
+            from . import intersection_overlay
+            current = intersection_overlay.current() or violations[0]
+            current_number = intersection_overlay.current_index() + 1
+            column.label(
+                text=f"{current.classification.replace('_', ' ').title()} "
+                     f"· {current_number} of {current.total_count}",
+                icon="RESTRICT_SELECT_OFF")
+            for element in current.elements:
+                face = (element.source_polygon_index
+                        if element.source_polygon_index is not None
+                        else element.local_triangle_index)
+                column.label(
+                    text=f"{element.object_name} · Triangle {face}")
+            navigation = column.row(align=True)
+            navigation.operator("clothnext.intersection_previous",
+                                text="", icon="TRIA_LEFT")
+            navigation.operator("clothnext.intersection_next",
+                                text="", icon="TRIA_RIGHT")
+            navigation.operator("clothnext.intersection_frame",
+                                text="Frame", icon="VIEWZOOM")
+            selection = column.row(align=True)
+            for index, element in enumerate(current.elements[:2]):
+                op = selection.operator(
+                    "clothnext.intersection_select_element",
+                    text=f"Select {element.object_name}")
+                op.element_index = index
+            diagnostics = column.row(align=True)
+            diagnostics.operator(
+                "clothnext.intersection_show_input",
+                text=("Hide Solver Input"
+                      if intersection_overlay.solver_input_visible()
+                      else "Show Solver Input"),
+                icon="MESH_DATA")
+            diagnostics.operator(
+                "clothnext.intersection_clear", text="Clear", icon="X")
     layout.operator("clothnext.inspect_parameters",
                     **icon_registry.icon_kwargs("info", "VIEWZOOM"))
     actions=layout.row(align=True)
@@ -1763,6 +1800,18 @@ class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
                          icon="CHECKMARK" if settings.compatible else "INFO")
         if settings.status_detail:
             layout.label(text=settings.status_detail)
+        if settings.resumable:
+            layout.label(
+                text=f"Latest checkpoint: Frame "
+                     f"{settings.latest_checkpoint_frame}")
+            layout.label(
+                text=f"Available checkpoints: {settings.checkpoint_count}")
+            layout.label(
+                text="Resume available · Uses latest verified checkpoint")
+        if settings.older_checkpoint_preserved:
+            layout.label(
+                text="Older checkpoint preserved after latest save failed",
+                icon="INFO")
         actions = layout.column(align=True)
         resume = actions.row()
         resume.enabled = (

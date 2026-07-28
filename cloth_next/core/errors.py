@@ -62,7 +62,9 @@ class ErrorRecord:
 
 
 class ClothNextError(Exception):
-    def __init__(self, record: ErrorRecord) -> None:
+    def __init__(self, record: ErrorRecord, *,
+                 violations: tuple[dict, ...] = ()) -> None:
         super().__init__(record.technical_message)
         self.record = record
+        self.violations = tuple(violations)
 
