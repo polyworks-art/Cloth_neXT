@@ -299,11 +299,11 @@ def normalized(snapshot: BakeSnapshot, **changes: Any) -> BakeSnapshot:
             current = min(current, total)
     changes["progress_current"] = current
     changes["progress_total"] = total
-    if (state is BakeState.ERROR or "error_summary" in changes
-            or "error_details" in changes):
+    summary_value = changes.get("error_summary", snapshot.error_summary)
+    details_value = changes.get("error_details", snapshot.error_details)
+    if state is BakeState.ERROR or summary_value or details_value:
         presentation = sanitize_transport_error(
-            changes.get("error_summary", snapshot.error_summary),
-            changes.get("error_details", snapshot.error_details),
+            summary_value, details_value,
             changes.get("error_code", snapshot.error_code))
         changes["error_summary"] = presentation.summary
         changes["error_details"] = presentation.details
