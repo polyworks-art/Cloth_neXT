@@ -351,7 +351,11 @@ class _SolverInstallDialog:
         layout.label(text="Click OK to download and install; press Esc to cancel.")
 
     def execute(self, _context):
-        installer = _session.ensure_installer()
+        # Keep using the release selected by invoke(). Calling the default
+        # installer here would replace a confirmed 0.13 installer with the
+        # manifest's default 0.11 installer and lose the confirmation state.
+        release_id = str(getattr(self, "release_id", "") or "")
+        installer = _session.ensure_installer(release_id)
         if installer is None:
             return {"CANCELLED"}
         if installer.state is not InstallerState.AWAITING_CONFIRMATION:

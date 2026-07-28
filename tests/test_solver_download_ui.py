@@ -146,3 +146,32 @@ def test_download_invoke_blocked_without_online_access(blender_env):
     result = operator.invoke(SimpleNamespace(window_manager=None), None)
     assert result == {"CANCELLED"}
     assert any("ERROR" in levels for levels, _msg in operator.reports)
+
+
+def test_confirmed_download_executes_the_same_selected_release(
+        blender_env, monkeypatch):
+    import cloth_next.blender.preferences as preferences
+
+    calls = []
+    installer = SimpleNamespace(
+        state=InstallerState.AWAITING_CONFIRMATION,
+        install=lambda **kwargs: calls.append(("install", kwargs)))
+    selected = []
+
+    def ensure(release_id=""):
+        selected.append(release_id)
+        return installer
+
+    monkeypatch.setattr(preferences._session, "ensure_installer", ensure)
+    monkeypatch.setattr(
+        preferences, "_run_in_worker",
+        lambda target, **_kwargs: target())
+    operator = preferences.CLOTHNEXT_OT_solver_download()
+    operator.release_id = "ppf-0.13-current"
+    preferences._session.activate_after_install = True
+    preferences._session.reinstall = False
+
+    assert operator.execute(SimpleNamespace()) == {"FINISHED"}
+    assert selected == ["ppf-0.13-current"]
+    assert calls == [("install", {
+        "confirmed": True, "activate": True, "reinstall": False})]

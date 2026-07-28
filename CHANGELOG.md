@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.17 — 2026-07-28 (Dev channel)
+
+### Fixed
+
+- Confirming a protocol 0.13 solver download now retains the selected release
+  ID instead of switching back to the default protocol 0.11 installer and
+  losing the confirmation state.
+
 ## 2.1.16 — 2026-07-28 (Dev channel)
 
 ### Fixed
