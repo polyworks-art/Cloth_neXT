@@ -68,7 +68,10 @@ def _source_object(source_object_id: str):
     obj = bpy.data.objects.get(source_object_id)
     if obj is not None:
         return obj
-    for candidate in bpy.data.objects:
+    objects = bpy.data.objects
+    values = getattr(objects, "values", None)
+    candidates = values() if callable(values) else objects
+    for candidate in candidates:
         name = str(getattr(candidate, "name_full", candidate.name))
         if name == source_object_id:
             return candidate
@@ -214,8 +217,8 @@ class CLOTHNEXT_PT_pin_constraint(bpy.types.Panel):
             warning = layout.box()
             warning.alert = True
             warning.label(text="Exact, non-yielding constraint", icon="ERROR")
-            warning.label(text="A target crossing a Collider can make the solve "
-                               "infeasible")
+            warning.label(text="A target crossing a Collider can make")
+            warning.label(text="the solve infeasible")
 
 
 CLASSES = (CLOTHNEXT_PT_pin_constraint,)
