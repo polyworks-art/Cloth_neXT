@@ -168,6 +168,26 @@ def test_partial_pc2_resumes_only_at_valid_frame_boundary(tmp_path):
     ]
 
 
+def test_partial_preview_is_playable_without_consuming_resume_stream(tmp_path):
+    final = tmp_path / "result.pc2"
+    partial = tmp_path / "result.pc2.partial"
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=2, frame_count=4, resume_path=partial)
+    writer.write_frame([[0, 0, 0], [1, 0, 0]])
+    writer.write_frame([[0, 1, 0], [1, 1, 0]])
+
+    preview = writer.publish_partial_preview()
+
+    assert preview == pc2.Pc2Header(2, 0.0, 1.0, 2)
+    assert pc2.read_header(final) == preview
+    assert pc2.partial_frame_count(
+        partial, pc2.Pc2Header(2, 0.0, 1.0, 4)) == 2
+    assert [frame.tolist() for frame in pc2.iter_frames(final)] == [
+        [[0, 0, 0], [1, 0, 0]],
+        [[0, 1, 0], [1, 1, 0]],
+    ]
+
+
 def test_damaged_partial_is_never_resumed(tmp_path):
     partial = tmp_path / "damaged.partial"
     partial.write_bytes(b"not a pc2")
