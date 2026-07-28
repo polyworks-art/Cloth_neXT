@@ -51,19 +51,19 @@ _NEXT = {
 }
 
 _ERROR_STAGE = {
-    BakeState.PREPARING: ("Scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
+    BakeState.PREPARING: ("scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
     BakeState.STARTING_COMPANION: ("Bake window startup", "Restart the Bake window or Blender, then retry."),
     BakeState.WAITING_FOR_COMPANION: ("Bake window connection", "Close stale Bake windows and retry."),
     BakeState.COMPANION_READY: ("Bake startup", "Retry the Bake. If it repeats, report the error code."),
     BakeState.STARTING_RUN: ("Bake worker startup", "Check the cache folder and retry."),
-    BakeState.EXPORTING: ("Scene export", "Check evaluated Cloth and Collider geometry, then retry."),
-    BakeState.STARTING_SOLVER: ("Solver startup", "Run the solver health check, then retry."),
-    BakeState.UPLOADING: ("Scene transfer", "Check the local solver connection and retry."),
-    BakeState.BUILDING: ("Scene preparation", "Check geometry, materials, and Pins, then retry."),
-    BakeState.SIMULATING: ("Simulation", "Check the reported frame and apply the suggested stability change."),
-    BakeState.FETCHING: ("Result transfer", "Check the solver connection and available disk space, then retry."),
-    BakeState.IMPORTING: ("Playback cache", "Check the cache path and Cloth object, then retry."),
-    BakeState.CANCELLING: ("Cancellation cleanup", "Wait for cleanup. Restart Blender only if it remains stuck."),
+    BakeState.EXPORTING: ("scene export", "Check evaluated Cloth and Collider geometry, then retry."),
+    BakeState.STARTING_SOLVER: ("solver startup", "Run the solver health check, then retry."),
+    BakeState.UPLOADING: ("scene transfer", "Check the local solver connection and retry."),
+    BakeState.BUILDING: ("scene preparation", "Check geometry, materials, and Pins, then retry."),
+    BakeState.SIMULATING: ("simulation", "Check the reported frame and apply the suggested stability change."),
+    BakeState.FETCHING: ("result transfer", "Check the solver connection and available disk space, then retry."),
+    BakeState.IMPORTING: ("playback cache", "Check the cache path and Cloth object, then retry."),
+    BakeState.CANCELLING: ("cancellation cleanup", "Wait for cleanup. Restart Blender only if it remains stuck."),
 }
 
 
