@@ -1,0 +1,137 @@
+# Cloth NeXt branded shell material samples.
+# Product names are nominative references. Published facts and Cloth NeXt
+# solver calibrations are deliberately separated; no endorsement or exact
+# certified digital twin is claimed.
+
+[provenance]
+source_project = "Official manufacturer data for shell materials"
+source_commit = "retrieved-2026-07-29"
+source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
+source_license = "Facts-only reference metadata; no third-party code or media redistributed"
+notes = "PPF-only mechanics are Cloth NeXt artist calibrations; see the sources document for evidence and limitations."
+
+[[preset]]
+id = "PRODUCT_GORETEX_PRO_3L"
+label = "GORE-TEX PRO · 3L Hardshell"
+category = "PRODUCT_SAMPLES"
+description = "Protective three-layer hardshell reference with crisp, durable laminate behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "W. L. Gore & Associates"
+product_style = "GORE-TEX PRO 3-Layer"
+data_basis = "Official three-layer product-family construction; representative 150 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_GORETEX_PRO_3L"
+model = "FABRIC"
+surface_weight = 0.15
+stretch_resistance = 14500.0
+sideways_response = 0.3
+bend_resistance = 6.8
+surface_grip = 0.38
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.2
+
+[[preset]]
+id = "PRODUCT_PERTEX_QUANTUM"
+label = "Pertex Quantum · Ultralight"
+category = "PRODUCT_SAMPLES"
+description = "Superlight tightly woven downproof shell with soft, compact drape"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Pertex"
+product_style = "Pertex Quantum"
+data_basis = "Official tightly woven construction and under-25 gsm ultralight reference; PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_PERTEX_QUANTUM"
+model = "FABRIC"
+surface_weight = 0.024
+stretch_resistance = 6500.0
+sideways_response = 0.32
+bend_resistance = 2.8
+surface_grip = 0.22
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "PRODUCT_PERTEX_QUANTUM_AIR"
+label = "Pertex Quantum Air"
+category = "PRODUCT_SAMPLES"
+description = "Open-woven superlight active shell balancing air permeability and wind resistance"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Pertex"
+product_style = "Pertex Quantum Air"
+data_basis = "Official open-woven construction and active-shell behavior; representative 40 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_PERTEX_QUANTUM_AIR"
+model = "FABRIC"
+surface_weight = 0.04
+stretch_resistance = 5200.0
+sideways_response = 0.34
+bend_resistance = 2.2
+surface_grip = 0.24
+stretch_limit_enabled = true
+maximum_stretch_percent = 5.0
+
+[[preset]]
+id = "PRODUCT_PERTEX_SHIELD_AIR"
+label = "Pertex Shield Air · 3L"
+category = "PRODUCT_SAMPLES"
+description = "Air-permeable waterproof nanofiber laminate with lightweight hardshell behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Pertex"
+product_style = "Pertex Shield Air 3-Layer"
+data_basis = "Official electrospun nanofiber membrane and three-layer construction; representative 90 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_PERTEX_SHIELD_AIR"
+model = "FABRIC"
+surface_weight = 0.09
+stretch_resistance = 10500.0
+sideways_response = 0.3
+bend_resistance = 4.4
+surface_grip = 0.32
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.8
+
+[[preset]]
+id = "PRODUCT_SCHOELLER_DRYSKIN"
+label = "Schoeller dryskin"
+category = "PRODUCT_SAMPLES"
+description = "Performance double-weave softshell reference with stretch, structured face and comfortable inner surface"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Schoeller Textiles"
+product_style = "schoeller-dryskin"
+data_basis = "Official performance-promoting double-fabric product family; representative 240 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_SCHOELLER_DRYSKIN"
+model = "FABRIC"
+surface_weight = 0.24
+stretch_resistance = 3600.0
+sideways_response = 0.42
+bend_resistance = 3.0
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "PRODUCT_SCHOELLER_WB400"
+label = "Schoeller wb-400"
+category = "PRODUCT_SAMPLES"
+description = "Classic bonded softshell reference with protective outer face, functional coating and soft inner side"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Schoeller Textiles"
+product_style = "schoeller-wb-400"
+data_basis = "Official bonded softshell construction and high-elasticity product family; representative 320 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_SCHOELLER_WB400"
+model = "FABRIC"
+surface_weight = 0.32
+stretch_resistance = 4800.0
+sideways_response = 0.4
+bend_resistance = 4.0
+surface_grip = 0.5
+stretch_limit_enabled = true
+maximum_stretch_percent = 9.0
