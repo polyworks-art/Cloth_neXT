@@ -14,16 +14,17 @@ from pathlib import Path
 
 import pytest
 
-from cloth_next.core.errors import ClothNextError
+from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from cloth_next import recovery
 from cloth_next.ppf import wire
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.resolver import ResolvedSolver, SolverMode
 from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf_run import import_result, session as session_module
-from cloth_next.ppf_run.session import (RecoveryOptions, SessionCancelled, SessionScene,
-                                       SessionDeformable, SolverFrame, SolverSession,
-                                       new_project_name)
+from cloth_next.ppf_run.session import (RecoveryOptions, RecoveryOutcome,
+                                        SessionCancelled, SessionScene,
+                                        SessionDeformable, SolverFrame, SolverSession,
+                                        new_project_name)
 
 
 def _scene(frame_count=8) -> SessionScene:
@@ -386,6 +387,11 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     with pytest.raises(SessionCancelled) as raised:
         session.run()
     assert raised.value.resumable
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert outcome.checkpoint_saved
+    assert outcome.artist_message
+    assert outcome.state_before in ("BUSY", "SAVE_AND_QUIT")
     record = recovery.load_project(metadata)
     assert record is not None
     assert record.state is recovery.ProjectState.RESUMABLE
@@ -394,6 +400,141 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
     assert "save_and_quit" in requests
     assert "delete" not in requests
+
+
+def test_cancel_without_recovery_returns_unresumable_outcome(monkeypatch):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    session, _, _, _ = _run_session(monkeypatch, scripted=scripted)
+    cancel = threading.Event()
+
+    def emit(event):
+        if event.phase == "SIMULATING":
+            cancel.set()
+
+    session._cancel = cancel
+    session._emit = emit
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+    assert not raised.value.resumable
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert not outcome.checkpoint_saved
+
+
+def test_cancel_before_simulation_skips_checkpoint(monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_build = True
+    server_root = tmp_path / "server"
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        save_on_cancel=True)
+    cancel = threading.Event()
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, poll_interval=0.001,
+        recovery_options=options)
+    cancel.set()
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert not outcome.checkpoint_saved
+
+
+def test_cancel_with_failed_save_and_quit_marks_record_failed(
+        monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    server_root = tmp_path / "server"
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        save_on_cancel=True)
+    cancel = threading.Event()
+
+    def emit(event):
+        if event.phase == "SIMULATING":
+            cancel.set()
+
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
+        simulate_timeout=0.01,
+        recovery_options=options)
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert not outcome.checkpoint_saved
+
+
+def test_cancel_with_connection_error_returns_structured_outcome(
+        monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    server_root = tmp_path / "server"
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        save_on_cancel=True)
+    cancel = threading.Event()
+    original_tcmd = scripted._send_tcmd
+    fail_recovery = False
+
+    def emit(event):
+        nonlocal fail_recovery
+        if event.phase == "SIMULATING":
+            fail_recovery = True
+            cancel.set()
+
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
+        recovery_options=options)
+
+    def flaky_wire(address, config, project, request=None, *, frame=None):
+        nonlocal fail_recovery
+        if fail_recovery and request in ("save_and_quit", None):
+            raise ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_CONNECTION,
+                user_message="test", technical_message="test connection error",
+                recommended_action="retry"))
+        return original_tcmd(address, config, project, request, frame=frame)
+
+    monkeypatch.setattr(wire, "send_tcmd", flaky_wire)
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert not outcome.checkpoint_saved
+
+
+def test_cancel_event_messages_include_recovery_events(monkeypatch):
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    events = []
+    cancel = threading.Event()
+
+    def emit(event):
+        events.append(event)
+        if event.phase == "SIMULATING":
+            cancel.set()
+
+    session, _, _, _ = _run_session(monkeypatch, scripted=scripted)
+    session._cancel = cancel
+    session._emit = emit
+    with pytest.raises(SessionCancelled):
+        session.run()
+    phases = [e.phase for e in events]
+    assert "CANCELLING" in phases
 
 
 def test_resume_skips_upload_build_and_fetches_only_missing_frames(

@@ -16,6 +16,7 @@ implementation exists here.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import uuid as uuid_module
@@ -56,6 +57,27 @@ _SOLVER_METRICS = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class RecoveryOutcome:
+    """Structured result of a recovery checkpoint attempt on cancellation."""
+    checkpoint_saved: bool
+    """True if a verified checkpoint was confirmed and the project is resumable."""
+    artist_message: str
+    """Short user-facing message for the UI (e.g., 'Recovery checkpoint saved')."""
+    technical_reason: str
+    """Detailed reason for logging/debugging (empty on success)."""
+    state_before: str
+    """Server status when cancellation was requested (e.g., 'BUSY', 'BUILDING')."""
+    saved_states: tuple[int, ...]
+    """Frames with confirmed saved states, if any."""
+    timed_out: bool = False
+    """True if the attempt timed out waiting for confirmation."""
+
+    @property
+    def resumable(self) -> bool:
+        return self.checkpoint_saved
+
+
 def _tail_numeric_metric(path: Path) -> int | None:
     """Read one live PPF metric without loading its growing history."""
     try:
@@ -82,9 +104,11 @@ def _tail_numeric_metric(path: Path) -> int | None:
 class SessionCancelled(Exception):
     """The run was cancelled cooperatively; not an error."""
 
-    def __init__(self, *, resumable: bool = False) -> None:
+    def __init__(self, *, resumable: bool = False,
+                 recovery_outcome: RecoveryOutcome | None = None) -> None:
         super().__init__("solver session cancelled")
         self.resumable = bool(resumable)
+        self.recovery_outcome = recovery_outcome
 
 
 @dataclass(frozen=True, slots=True)
@@ -748,11 +772,70 @@ class SolverSession:
         except ClothNextError:
             pass  # the server may already be gone; process cleanup follows
 
-    def _save_recovery_on_cancel(self) -> bool:
+    def _save_recovery_on_cancel(self) -> RecoveryOutcome:
         options, record = self._recovery, self._recovery_record
         if (options is None or record is None
                 or not options.save_on_cancel or self._address is None):
-            return False
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message="Recovery not enabled or not configured",
+                technical_reason="options or record missing, save_on_cancel false, or no server address",
+                state_before="N/A",
+                saved_states=())
+
+        # First, check current server status to decide if checkpoint is feasible
+        try:
+            initial_response = self._status()
+            initial_status = str(initial_response.get("status", ""))
+        except ClothNextError as exc:
+            initial_status = "CONNECTION_ERROR"
+            technical = f"initial status query failed: {exc.record.technical_message}"
+            log_with_context(self._logger, logging.WARNING,
+                "Recovery checkpoint: cannot query server status",
+                {"project": self.scene.project_name,
+                 "mode": self.diagnostics.solver_mode,
+                 "status": initial_status,
+                 "reason": technical,
+                 "metadata_path": str(options.metadata_path)})
+            self._event("RECOVERY_WARNING",
+                        "Could not query solver for checkpoint status",
+                        activity_code="RECOVERY_FAILED")
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message="Recovery checkpoint unavailable",
+                technical_reason=technical,
+                state_before=initial_status,
+                saved_states=())
+
+        # States where no simulation state exists yet — skip save_and_quit
+        if initial_status in (STATUS_NO_DATA, STATUS_NO_BUILD, STATUS_BUILDING):
+            log_with_context(self._logger, logging.INFO,
+                "Recovery checkpoint skipped: no simulation state yet",
+                {"project": self.scene.project_name,
+                 "mode": self.diagnostics.solver_mode,
+                 "status": initial_status,
+                 "metadata_path": str(options.metadata_path)})
+            self._event("RECOVERY_WARNING",
+                        "No recovery checkpoint available yet",
+                        activity_code="RECOVERY_TOO_EARLY")
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message="Bake cancelled before a recovery checkpoint was available",
+                technical_reason=f"server status {initial_status} has no simulation state to save",
+                state_before=initial_status,
+                saved_states=())
+
+        # States where we can attempt save_and_quit
+        if initial_status not in (STATUS_BUSY, STATUS_SAVE_AND_QUIT, STATUS_READY, STATUS_RESUMABLE, STATUS_FAILED):
+            log_with_context(self._logger, logging.WARNING,
+                "Recovery checkpoint: unexpected server status, attempting save",
+                {"project": self.scene.project_name,
+                 "mode": self.diagnostics.solver_mode,
+                 "status": initial_status,
+                 "metadata_path": str(options.metadata_path)})
+            # Don't return; proceed to attempt
+
+        # Try to request save_and_quit and wait for confirmation
         try:
             record = recovery.transition(
                 options.metadata_path, record,
@@ -760,12 +843,13 @@ class SolverSession:
             self._recovery_record = record
             self._request(wire.REQUEST_SAVE_AND_QUIT)
             deadline = time.monotonic() + min(self._simulate_timeout, 120.0)
+            last_known_status = initial_status
             while time.monotonic() < deadline:
                 response = self._status()
                 status = str(response.get("status", ""))
-                if (status in (STATUS_RESUMABLE, STATUS_READY,
-                               STATUS_FAILED)
-                        and self._saved_states(response)):
+                last_known_status = status
+                saved = self._saved_states(response)
+                if status in (STATUS_RESUMABLE, STATUS_READY, STATUS_FAILED) and saved:
                     self._sync_checkpoints(response)
                     record = self._recovery_record
                     assert record is not None
@@ -775,19 +859,81 @@ class SolverSession:
                     self._recovery_record = recovery.transition(
                         options.metadata_path, record,
                         recovery.ProjectState.RESUMABLE)
-                    return True
+                    outcome = RecoveryOutcome(
+                        checkpoint_saved=True,
+                        artist_message="Recovery checkpoint saved",
+                        technical_reason="",
+                        state_before=initial_status,
+                        saved_states=saved)
+                    self._event("RECOVERY_SAVED", outcome.artist_message,
+                                activity_code="RECOVERY_SAVED")
+                    return outcome
                 time.sleep(self._poll_interval)
-        except (ClothNextError, OSError, ValueError):
-            pass
-        if self._recovery_record is not None:
+
+            # Timeout waiting for confirmation
+            technical = (f"timeout after {min(self._simulate_timeout, 120.0)}s "
+                         f"waiting for saved_states; last status={last_known_status}")
+            log_with_context(self._logger, logging.WARNING,
+                "Recovery checkpoint timed out",
+                {"project": self.scene.project_name,
+                 "mode": self.diagnostics.solver_mode,
+                 "status": last_known_status,
+                 "saved_states": tuple(self._known_saved_states),
+                 "timeout_s": min(self._simulate_timeout, 120.0),
+                 "metadata_path": str(options.metadata_path)})
+            self._event("RECOVERY_WARNING",
+                        "Recovery checkpoint could not be confirmed",
+                        activity_code="RECOVERY_TIMEOUT")
             try:
                 self._recovery_record = recovery.transition(
                     options.metadata_path, self._recovery_record,
                     recovery.ProjectState.FAILED,
-                    error="save_and_quit was not confirmed")
-            except (OSError, ValueError):
-                pass
-        return False
+                    error="save_and_quit timed out waiting for confirmation")
+            except (OSError, ValueError) as exc:
+                log_with_context(self._logger, logging.WARNING,
+                    "Failed to record recovery timeout in metadata",
+                    {"project": self.scene.project_name,
+                     "error": str(exc)})
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message="Recovery checkpoint could not be saved",
+                technical_reason=technical,
+                state_before=initial_status,
+                saved_states=tuple(self._known_saved_states),
+                timed_out=True)
+
+        except (ClothNextError, OSError, ValueError) as exc:
+            # Preserve the actual exception for logging
+            technical = f"{type(exc).__name__}: {exc}"
+            log_with_context(self._logger, logging.WARNING,
+                "Recovery checkpoint failed",
+                {"project": self.scene.project_name,
+                 "mode": self.diagnostics.solver_mode,
+                 "status": initial_status,
+                 "exception_type": type(exc).__name__,
+                 "exception_message": str(exc),
+                 "metadata_path": str(options.metadata_path)})
+            self._event("RECOVERY_WARNING",
+                        "Recovery checkpoint could not be saved",
+                        activity_code="RECOVERY_FAILED")
+            if self._recovery_record is not None:
+                try:
+                    self._recovery_record = recovery.transition(
+                        options.metadata_path, self._recovery_record,
+                        recovery.ProjectState.FAILED,
+                        error=f"save_and_quit failed: {technical}")
+                except (OSError, ValueError) as meta_exc:
+                    log_with_context(self._logger, logging.WARNING,
+                        "Failed to record recovery failure in metadata",
+                        {"project": self.scene.project_name,
+                         "original_error": technical,
+                         "meta_error": str(meta_exc)})
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message="Recovery checkpoint could not be saved",
+                technical_reason=technical,
+                state_before=initial_status,
+                saved_states=tuple(self._known_saved_states))
 
     def _delete_project(self) -> None:
         if self._address is None:
@@ -882,10 +1028,11 @@ class SolverSession:
             self.diagnostics.cancelled = True
             self._event("CANCELLING", "Saving recovery checkpoint",
                         indeterminate=True)
-            preserved = self._save_recovery_on_cancel()
-            if not preserved:
+            outcome = self._save_recovery_on_cancel()
+            if not outcome.checkpoint_saved:
                 self._cancel_server_side()
-            raise SessionCancelled(resumable=preserved)
+            raise SessionCancelled(resumable=outcome.checkpoint_saved,
+                                   recovery_outcome=outcome)
         except ClothNextError as exc:
             if self._recovery_record is not None and self._recovery is not None:
                 try:

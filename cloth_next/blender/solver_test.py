@@ -4510,7 +4510,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             writer.preserve() if exc.resumable else writer.abort()
         _discard_incomplete(plan, state="cancelled",
                             reason="Bake cancelled before publication")
-        _queue.put(("cancelled", None, None))
+        _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
     except ClothNextError as exc:
         for writer in writers.values():
             writer.abort()
@@ -4650,7 +4650,7 @@ def _worker_main(plan: RunPlan) -> None:
             writer.preserve() if exc.resumable else writer.abort()
         _discard_incomplete(plan, state="cancelled",
                             reason="Bake cancelled before publication")
-        _queue.put(("cancelled", None, None))
+        _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
     except ClothNextError as exc:
         if writer is not None:
             writer.abort()
@@ -5088,9 +5088,12 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
     settings.status = (
         f"Frame {record.last_frame} · Compatible"
         if settings.resumable else record.state.value.title())
-    settings.status_detail = (
-        "Checkpoint saved · Resume available"
-        if settings.resumable else match.reason)
+    if settings.resumable:
+        settings.status_detail = "Checkpoint saved · Resume available"
+    elif record.state is recovery.ProjectState.FAILED and record.error:
+        settings.status_detail = record.error
+    else:
+        settings.status_detail = match.reason
 
 
 def _pump_once() -> float | None:
@@ -5128,6 +5131,16 @@ def _pump_once() -> float | None:
                 shared_controller.update(solver_mode=event.solver_mode,
                     solver_version=event.package_version or "",
                     solver_process_id=event.process_id)
+                continue
+            if event.phase == "RECOVERY_SAVED":
+                shared_controller.update(
+                    status_message="Recovery checkpoint saved · Resume available",
+                    activity_code=BakeActivity.RECOVERY)
+                continue
+            if event.phase == "RECOVERY_WARNING":
+                shared_controller.update(
+                    status_message=event.message,
+                    activity_code=BakeActivity.RECOVERY)
                 continue
             state = _EVENT_STATE.get(event.phase)
             if event.phase == "TRANSFORMING_FRAME":
@@ -5190,6 +5203,8 @@ def _pump_once() -> float | None:
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "cancelled":
+            resumable = message[1] if len(message) > 1 else False
+            recovery_outcome = message[2] if len(message) > 2 else None
             if _ram_auto_cancel_triggered:
                 shared_controller.fail(
                     "Bake stopped at the RAM safety limit.",
@@ -5199,8 +5214,17 @@ def _pump_once() -> float | None:
                     error_code="CNX-E166")
                 _ram_auto_cancel_triggered = False
             else:
+                if recovery_outcome is not None and recovery_outcome.checkpoint_saved:
+                    status_msg = "Bake cancelled · Recovery checkpoint saved"
+                elif recovery_outcome is not None:
+                    if recovery_outcome.technical_reason:
+                        status_msg = "Bake cancelled · Recovery checkpoint could not be saved"
+                    else:
+                        status_msg = "Bake cancelled before a recovery checkpoint was available"
+                else:
+                    status_msg = "Solver test cancelled"
                 _safe_transition(BakeState.CANCELLED,
-                                 status_message="Solver test cancelled",
+                                 status_message=status_msg,
                                  estimated_remaining_seconds=None)
             _discard_incomplete(plan)
             _refresh_recovery_ui(plan)

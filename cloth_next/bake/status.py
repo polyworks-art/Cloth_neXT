@@ -44,8 +44,8 @@ class BakeActivity(str, Enum):
     ADVANCING_SIMULATION="ADVANCING_SIMULATION"; WRITING_FRAME="WRITING_FRAME"
     WAITING_FOR_OUTPUT="WAITING_FOR_OUTPUT"; READING_RESULTS="READING_RESULTS"
     BUILDING_PC2="BUILDING_PC2"; APPLYING_PLAYBACK="APPLYING_PLAYBACK"
-    CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; FINISHED="FINISHED"
-    ERROR="ERROR"; UNKNOWN="UNKNOWN"
+    CLEANING_UP="CLEANING_UP"; CANCELLING="CANCELLING"; RECOVERY="RECOVERY"
+    FINISHED="FINISHED"; ERROR="ERROR"; UNKNOWN="UNKNOWN"
     CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
     CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
@@ -62,7 +62,7 @@ ACTIVITY_LABELS = {
     BakeActivity.WAITING_FOR_OUTPUT:"Waiting for solver output", BakeActivity.READING_RESULTS:"Reading simulated vertices",
     BakeActivity.BUILDING_PC2:"Building PC2 cache", BakeActivity.APPLYING_PLAYBACK:"Applying playback cache",
     BakeActivity.CLEANING_UP:"Cleaning temporary files", BakeActivity.CANCELLING:"Cancelling solver",
-    BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
+    BakeActivity.RECOVERY:"Saving recovery checkpoint", BakeActivity.FINISHED:"Playback cache ready", BakeActivity.ERROR:"Solver activity failed",
     BakeActivity.UNKNOWN:"Running solver",
     BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
     BakeActivity.CAPTURING_COLLIDER_MOTION:"Capturing animated Colliders",
