@@ -9,6 +9,7 @@ from threading import RLock
 import time
 import uuid
 
+from .error_presentation import present_error
 from .status import BakeSnapshot, BakeState, normalized
 from ..core.error_codes import classify_error, valid_error_code
 
@@ -50,20 +51,21 @@ _NEXT = {
 }
 
 _ERROR_STAGE = {
-    BakeState.PREPARING: ("scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
+    BakeState.PREPARING: ("Scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
     BakeState.STARTING_COMPANION: ("Bake window startup", "Restart the Bake window or Blender, then retry."),
-    BakeState.WAITING_FOR_COMPANION: ("Bake window handshake", "Close stale Bake windows and retry."),
-    BakeState.COMPANION_READY: ("Bake workflow startup", "Retry the Bake; if it repeats, inspect the diagnostic log."),
-    BakeState.STARTING_RUN: ("Bake worker startup", "Check cache-folder access and retry."),
-    BakeState.EXPORTING: ("scene export", "Check evaluated Cloth and Collider geometry, then retry."),
-    BakeState.STARTING_SOLVER: ("solver startup", "Check the installed solver and its diagnostic log, then retry."),
-    BakeState.UPLOADING: ("scene upload", "Check the local solver connection and retry."),
-    BakeState.BUILDING: ("solver project build", "Check scene geometry and the solver log, then retry."),
-    BakeState.SIMULATING: ("simulation", "Inspect the reported frame and solver cause, adjust stability settings, then retry."),
-    BakeState.FETCHING: ("result transfer", "Check the solver connection and available disk space, then retry."),
-    BakeState.IMPORTING: ("playback cache import", "Check the cache path and Cloth object, then retry."),
-    BakeState.CANCELLING: ("cancellation cleanup", "Wait for cleanup; restart Blender only if the process remains stuck."),
+    BakeState.WAITING_FOR_COMPANION: ("Bake window connection", "Close stale Bake windows and retry."),
+    BakeState.COMPANION_READY: ("Bake startup", "Retry the Bake. If it repeats, report the error code."),
+    BakeState.STARTING_RUN: ("Bake worker startup", "Check the cache folder and retry."),
+    BakeState.EXPORTING: ("Scene export", "Check evaluated Cloth and Collider geometry, then retry."),
+    BakeState.STARTING_SOLVER: ("Solver startup", "Run the solver health check, then retry."),
+    BakeState.UPLOADING: ("Scene transfer", "Check the local solver connection and retry."),
+    BakeState.BUILDING: ("Scene preparation", "Check geometry, materials, and Pins, then retry."),
+    BakeState.SIMULATING: ("Simulation", "Check the reported frame and apply the suggested stability change."),
+    BakeState.FETCHING: ("Result transfer", "Check the solver connection and available disk space, then retry."),
+    BakeState.IMPORTING: ("Playback cache", "Check the cache path and Cloth object, then retry."),
+    BakeState.CANCELLING: ("Cancellation cleanup", "Wait for cleanup. Restart Blender only if it remains stuck."),
 }
+
 
 class BakeController:
     def __init__(self) -> None:
@@ -116,19 +118,20 @@ class BakeController:
 
     def fail(self, summary: str, details: str = "", *,
              error_code: str = "") -> BakeSnapshot:
+        """Publish only bounded artist text; callers keep diagnostics in logs."""
         current = self.snapshot()
         stage, action = _ERROR_STAGE.get(
-            current.state, ("internal operation", "Open the diagnostic log and retry."))
-        lines = [] if not details else [details]
-        if "Stage:" not in details:
-            lines.insert(0, f"Stage: {stage}")
-        if "What to do:" not in details and "Recommended:" not in details:
-            lines.append(f"What to do: {action}")
+            current.state,
+            ("Cloth NeXt", "Retry once. If it repeats, report the error code."))
         code = (error_code if valid_error_code(error_code)
                 else classify_error(current.state, summary, details))
+        presentation = present_error(
+            summary, details, error_code=code, stage=stage, action=action)
         return self.transition(
-            BakeState.ERROR, error_summary=summary,
-            error_details="\n".join(lines), status_message=summary,
+            BakeState.ERROR,
+            error_summary=presentation.summary,
+            error_details=presentation.details,
+            status_message=presentation.summary,
             error_code=code,
             estimated_remaining_seconds=None,
             activity_detail=stage)
