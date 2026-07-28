@@ -283,7 +283,7 @@ def _pin_wire_config(static_pin: StaticPinConfig, index: int, offset: int) -> di
             "pin pull strength must be finite and non-negative")
     config = {"pin_group_id": static_pin.pin_group_id, "operations": []}
     if strength > 0.0:
-        config["pull_strength"] = float32_wire(strength)
+        config["pull_strength"] = float(strength)
     if static_pin.times:
         config["embedded_move_index"] = 0
         config["pin_anim"] = {
