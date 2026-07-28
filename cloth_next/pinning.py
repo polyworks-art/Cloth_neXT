@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Pure immutable pin model (never imports ``bpy``)."""
+"""Pure immutable Phase-3C.1 static pin model (never imports ``bpy``)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from typing import Callable
 STATIC_PIN_WEIGHT_THRESHOLD = 1e-6
 PIN_SCHEMA_VERSION = 3
 
-
 class PinMode(str, Enum):
     STATIC = "STATIC"
     FOLLOW_ANIMATION = "FOLLOW_ANIMATION"
@@ -27,20 +26,13 @@ class PinConstraintType(str, Enum):
 
 
 PinConstraintResolver = Callable[
-    [str, str], tuple[PinConstraintType | str, float] | None
-]
+    [str, str], tuple[PinConstraintType | str, float] | None]
 _constraint_resolver: PinConstraintResolver | None = None
 
 
 def set_pin_constraint_resolver(
         resolver: PinConstraintResolver | None) -> None:
-    """Install the Blender-side resolver used while snapshots are captured.
-
-    The pure model keeps no Blender dependency. Blender registration may provide
-    a resolver that maps ``(source_object_id, group_name)`` to the artist's
-    constraint type and pull strength. Tests and non-Blender callers simply use
-    the dataclass defaults.
-    """
+    """Install the Blender-side constraint resolver used during capture."""
     global _constraint_resolver
     _constraint_resolver = resolver
 
@@ -54,15 +46,13 @@ class AnimatedPinTargetSample:
         frame = float(self.blender_frame)
         if not math.isfinite(frame):
             raise StaticPinError("Animated Pin sample time must be finite.")
-        positions = tuple(tuple(float(c) for c in point)
-                          for point in self.positions)
-        if any(len(point) != 3 or any(not math.isfinite(c) for c in point)
+        positions=tuple(tuple(float(c) for c in point) for point in self.positions)
+        if any(len(point)!=3 or any(not math.isfinite(c) for c in point)
                for point in positions):
             raise StaticPinError(
-                f"Animated Pin targets contain invalid coordinates at frame "
-                f"{self.blender_frame}.")
+                f"Animated Pin targets contain invalid coordinates at frame {self.blender_frame}.")
         object.__setattr__(self, "blender_frame", frame)
-        object.__setattr__(self, "positions", positions)
+        object.__setattr__(self,"positions",positions)
 
 
 class StaticPinError(ValueError):
@@ -99,14 +89,11 @@ class StaticPinSnapshot:
         if any(i < 0 or i >= self.source_vertex_count for i in indices):
             raise StaticPinError("The Pin Group contains invalid vertex indices.")
         object.__setattr__(self, "vertex_indices", indices)
-
-        try:
-            mode = PinMode(self.mode)
-        except ValueError as exc:
-            raise StaticPinError("Unknown Pin Mode.") from exc
+        try: mode=PinMode(self.mode)
+        except ValueError as exc: raise StaticPinError("Unknown Pin Mode.") from exc
 
         constraint_type = self.constraint_type
-        pull_strength = float(self.pull_strength)
+        pull_strength = self.pull_strength
         if self.enabled and _constraint_resolver is not None:
             resolved = _constraint_resolver(
                 self.source_object_id, self.group_name)
@@ -116,27 +103,23 @@ class StaticPinSnapshot:
             constraint_type = PinConstraintType(constraint_type)
         except ValueError as exc:
             raise StaticPinError("Unknown Pin Constraint Type.") from exc
-        pull_strength = float(pull_strength)
-        if not math.isfinite(pull_strength) or pull_strength < 0.0:
-            raise StaticPinError("Pin Pull Strength must be finite and non-negative.")
-        if self.enabled and constraint_type is PinConstraintType.SOFT:
-            if pull_strength <= 0.0:
-                raise StaticPinError(
-                    "Soft Pin Pull Strength must be greater than zero.")
-        else:
-            # Hard pins are exact Dirichlet constraints. Their hidden soft
-            # strength is irrelevant and must not invalidate a finished cache.
+        if not self.enabled or constraint_type is PinConstraintType.HARD:
             pull_strength = 0.0
+        else:
+            pull_strength = float(pull_strength)
+            if not math.isfinite(pull_strength) or pull_strength <= 0.0:
+                raise StaticPinError(
+                    "Soft Pin Pull Strength must be finite and greater than zero.")
 
-        samples = tuple(self.samples)
+        samples=tuple(self.samples)
         if mode is PinMode.STATIC and samples:
             raise StaticPinError("Static Pinning must not contain target samples.")
         if self.enabled and mode is PinMode.FOLLOW_ANIMATION:
-            expected = self.bake_end - self.bake_start + 1
-            if expected < 1 or len(samples) < expected:
+            expected=self.bake_end-self.bake_start+1
+            if expected<1 or len(samples)<expected:
                 raise StaticPinError(
                     "Animated Pin samples must cover the complete Bake range.")
-            frames = tuple(sample.blender_frame for sample in samples)
+            frames=tuple(sample.blender_frame for sample in samples)
             if (not math.isclose(frames[0], float(self.bake_start),
                                  abs_tol=1e-9)
                     or not math.isclose(frames[-1], float(self.bake_end),
@@ -153,14 +136,10 @@ class StaticPinSnapshot:
                     range(self.bake_start, self.bake_end + 1)):
                 raise StaticPinError(
                     "Animated Pin targets must include every Blender frame.")
-            if any(len(sample.positions) != len(indices) for sample in samples):
-                raise StaticPinError(
-                    "Every animated Pin sample must contain one position per "
-                    "pinned vertex.")
-        if self.fps < 1:
-            raise StaticPinError("Bake FPS must be at least 1.")
-        object.__setattr__(self, "mode", mode)
-        object.__setattr__(self, "samples", samples)
+            if any(len(sample.positions)!=len(indices) for sample in samples):
+                raise StaticPinError("Every animated Pin sample must contain one position per pinned vertex.")
+        if self.fps<1: raise StaticPinError("Bake FPS must be at least 1.")
+        object.__setattr__(self,"mode",mode); object.__setattr__(self,"samples",samples)
         object.__setattr__(self, "constraint_type", constraint_type)
         object.__setattr__(self, "pull_strength", pull_strength)
         record = {
@@ -172,15 +151,11 @@ class StaticPinSnapshot:
             "indices": indices,
             "threshold": self.threshold,
             "topology": self.source_topology_signature,
-            "mode": mode.value,
-            "constraint_type": constraint_type.value,
-            "pull_strength": pull_strength,
-            "bake_start": self.bake_start,
-            "bake_end": self.bake_end,
-            "fps": self.fps,
-            "samples": [
-                {"frame": s.blender_frame, "positions": s.positions}
-                for s in samples],
+            "mode": mode.value, "constraint_type": constraint_type.value,
+            "pull_strength": pull_strength, "bake_start":self.bake_start,
+            "bake_end":self.bake_end, "fps":self.fps,
+            "samples":[{"frame":s.blender_frame,"positions":s.positions}
+                       for s in samples],
         }
         digest = hashlib.sha256(json.dumps(
             record, sort_keys=True, separators=(",", ":")
@@ -209,13 +184,9 @@ def static_pin_config(snapshot: StaticPinSnapshot) -> StaticPinConfig | None:
     group_id = "cn-pin-v1-" + hashlib.sha256(
         f"{snapshot.source_object_id}\0{snapshot.group_name}".encode("utf-8")
     ).hexdigest()[:24]
-    times = tuple(
-        (float(sample.blender_frame) - snapshot.bake_start) / snapshot.fps
-        for sample in snapshot.samples)
-    positions = tuple(sample.positions for sample in snapshot.samples)
-    return StaticPinConfig(
-        snapshot.vertex_indices,
-        pin_group_id=group_id,
-        pull_strength=snapshot.pull_strength,
-        times=times,
-        positions=positions)
+    times=tuple((float(sample.blender_frame)-snapshot.bake_start)/snapshot.fps
+                for sample in snapshot.samples)
+    positions=tuple(sample.positions for sample in snapshot.samples)
+    return StaticPinConfig(snapshot.vertex_indices, pin_group_id=group_id,
+                           pull_strength=snapshot.pull_strength,
+                           times=times,positions=positions)
