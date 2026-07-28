@@ -11,6 +11,8 @@ import math
 import time
 from typing import Any
 
+from .error_presentation import sanitize_transport_error
+
 
 class BakeState(str, Enum):
     IDLE = "IDLE"
@@ -31,10 +33,12 @@ class BakeState(str, Enum):
     CANCELLED = "CANCELLED"
     ERROR = "ERROR"
 
+
 class BakeJobKind(str, Enum):
     PREVIEW = "PREVIEW"
     SOLVER_TEST = "SOLVER_TEST"
     BAKE = "BAKE"
+
 
 class BakeActivity(str, Enum):
     IDLE="IDLE"; VALIDATING="VALIDATING"; CAPTURING_GEOMETRY="CAPTURING_GEOMETRY"
@@ -50,6 +54,7 @@ class BakeActivity(str, Enum):
     CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
+
 
 ACTIVITY_LABELS = {
     BakeActivity.IDLE:"Waiting for a Bake", BakeActivity.VALIDATING:"Validating Blender scene",
@@ -74,7 +79,6 @@ PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":Bak
     "STARTING_SOLVER":BakeActivity.STARTING_SOLVER, "UPLOADING":BakeActivity.ENCODING_SCENE,
     "BUILDING":BakeActivity.BUILDING_CONTACTS, "SIMULATING":BakeActivity.ADVANCING_SIMULATION,
     "FETCHING":BakeActivity.READING_RESULTS, "IMPORTING":BakeActivity.BUILDING_PC2}
-
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
 _ACTIVE = {BakeState.PREPARING, BakeState.STARTING_COMPANION,
@@ -195,17 +199,25 @@ class BakeSnapshot:
     def to_transport_dict(self) -> dict[str, Any]:
         """Return a bounded snapshot that always fits the local IPC budget."""
         data = self.to_dict()
+        if data.get("error_summary") or data.get("error_details"):
+            presentation = sanitize_transport_error(
+                data.get("error_summary", ""), data.get("error_details", ""),
+                data.get("error_code", ""))
+            data["error_summary"] = presentation.summary
+            data["error_details"] = presentation.details
+            if self.state is BakeState.ERROR:
+                data["status_message"] = presentation.summary
         limits = {
-            "error_details": 32 * 1024, "error_summary": 4096,
-            "status_message": 4096, "activity_detail": 2048,
-            "activity_label": 1024, "status_title": 512,
-            "active_object_name": 1024, "solver_version": 512,
+            "error_details": 1600, "error_summary": 256,
+            "status_message": 512, "activity_detail": 512,
+            "activity_label": 256, "status_title": 128,
+            "active_object_name": 512, "solver_version": 256,
             "solver_mode": 128, "job_id": 128, "error_code": 32,
         }
         for key, limit in limits.items():
             value = data.get(key)
             if isinstance(value, str) and len(value) > limit:
-                data[key] = value[:limit - 16] + "\n[truncated]"
+                data[key] = value[:limit - 3].rstrip() + "..."
         return data
 
     def to_json(self) -> str:
@@ -225,16 +237,22 @@ class BakeSnapshot:
             values["job_kind"] = BakeJobKind(values.get("job_kind", "BAKE"))
         except (TypeError, ValueError):
             values["job_kind"] = BakeJobKind.BAKE
-        try: values["activity_code"] = BakeActivity(values.get("activity_code", "IDLE"))
-        except (TypeError, ValueError): values["activity_code"] = BakeActivity.UNKNOWN
+        try:
+            values["activity_code"] = BakeActivity(values.get("activity_code", "IDLE"))
+        except (TypeError, ValueError):
+            values["activity_code"] = BakeActivity.UNKNOWN
         for key in ("progress_current", "current_frame", "frame_start",
                     "frame_end", "solver_process_id"):
             if key in values and values[key] is not None:
-                try: values[key] = int(values[key])
-                except (TypeError, ValueError): values[key] = None if key != "progress_current" else 0
+                try:
+                    values[key] = int(values[key])
+                except (TypeError, ValueError):
+                    values[key] = None if key != "progress_current" else 0
         if "progress_total" in values and values["progress_total"] is not None:
-            try: values["progress_total"] = max(0, int(values["progress_total"]))
-            except (TypeError, ValueError): values["progress_total"] = None
+            try:
+                values["progress_total"] = max(0, int(values["progress_total"]))
+            except (TypeError, ValueError):
+                values["progress_total"] = None
         for key in ("elapsed_seconds", "estimated_remaining_seconds"):
             if key in values and values[key] is not None:
                 try:
@@ -242,6 +260,15 @@ class BakeSnapshot:
                     values[key] = number if math.isfinite(number) and number >= 0 else None
                 except (TypeError, ValueError):
                     values[key] = None
+        if values.get("error_summary") or values.get("error_details"):
+            presentation = sanitize_transport_error(
+                values.get("error_summary", ""),
+                values.get("error_details", ""),
+                values.get("error_code", ""))
+            values["error_summary"] = presentation.summary
+            values["error_details"] = presentation.details
+            if values.get("state") is BakeState.ERROR:
+                values["status_message"] = presentation.summary
         return cls(**values)
 
     @classmethod
@@ -272,4 +299,14 @@ def normalized(snapshot: BakeSnapshot, **changes: Any) -> BakeSnapshot:
             current = min(current, total)
     changes["progress_current"] = current
     changes["progress_total"] = total
+    if (state is BakeState.ERROR or "error_summary" in changes
+            or "error_details" in changes):
+        presentation = sanitize_transport_error(
+            changes.get("error_summary", snapshot.error_summary),
+            changes.get("error_details", snapshot.error_details),
+            changes.get("error_code", snapshot.error_code))
+        changes["error_summary"] = presentation.summary
+        changes["error_details"] = presentation.details
+        if state is BakeState.ERROR:
+            changes["status_message"] = presentation.summary
     return replace(snapshot, **changes)
