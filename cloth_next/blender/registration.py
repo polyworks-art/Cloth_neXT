@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import bpy
 
-from . import (addon_update_operators, bake_operators, bake_preview, beta_tools, collider_proxy, companion_manager, hud,
-               icon_registry, object_properties, physics_operators, physics_ui,
-               preferences, solver_test, test_scene, validation_state)
+from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
+               collider_proxy, companion_manager, hud, icon_registry,
+               object_properties, physics_operators, physics_ui,
+               pin_constraints, preferences, solver_test, test_scene,
+               validation_state)
 
 _CLASSES = (
     preferences.CLASSES
@@ -33,6 +35,7 @@ _CLASSES = (
     + test_scene.CLASSES
     + solver_test.CLASSES
     + physics_ui.CLASSES
+    + pin_constraints.CLASSES
 )
 
 _registered = False
@@ -47,6 +50,8 @@ def _steps() -> list[tuple]:
     ]
     steps.append((object_properties.attach_to_object,
                   object_properties.detach_from_object))
+    steps.append((pin_constraints.install_runtime_hooks,
+                  pin_constraints.uninstall_runtime_hooks))
     # Existing files can already contain an enabled PDRD object before 2.1.3 is
     # registered. Migrate recognized quality presets immediately after the RNA
     # properties exist; Custom values remain untouched.
