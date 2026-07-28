@@ -137,6 +137,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _gzip_is_complete(path: Path) -> bool:
+    """Drain a gzip stream so CRC/footer truncation is actually detected."""
+    produced = False
+    with gzip.open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            produced = produced or bool(chunk)
+    return produced
+
+
 def _atomic_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(
@@ -213,10 +222,9 @@ def _verified_checkpoint(record: CheckpointRecord) -> bool:
                 or _sha256(path) != record.checkpoint_sha256):
             return False
         if path.suffix == ".gz":
-            with gzip.open(path, "rb") as stream:
-                return bool(stream.read(1))
+            return _gzip_is_complete(path)
         return True
-    except (OSError, EOFError):
+    except (OSError, EOFError, gzip.BadGzipFile):
         return False
 
 
@@ -294,11 +302,22 @@ def load_project(path: Path, *, verify_checkpoints: bool = True) \
         return None
 
 
+def _current_generation(path: Path, record: ProjectRecord) -> ProjectRecord:
+    """Prefer newer on-disk metadata so stale workers cannot erase a save."""
+    current = load_project(path, verify_checkpoints=False)
+    if (current is not None and current.project_id == record.project_id
+            and current.identity == record.identity
+            and current.generation > record.generation):
+        return current
+    return record
+
+
 def transition(path: Path, record: ProjectRecord, state: ProjectState, *,
                last_frame: int | None = None,
                checkpoints: tuple[CheckpointRecord, ...] | None = None,
                partial_pc2: tuple[tuple[str, str], ...] | None = None,
                error: str = "") -> ProjectRecord:
+    record = _current_generation(Path(path), record)
     state = ProjectState(state)
     if state != record.state and state not in _TRANSITIONS[record.state]:
         raise ValueError(
@@ -321,39 +340,78 @@ def checkpoint_path(project_root: Path, frame: int) -> Path:
             / f"state_{int(frame)}.bin.gz")
 
 
+def discover_checkpoint_frames(project_root: Path) -> tuple[int, ...]:
+    """Discover solver states directly when a status response lags behind."""
+    output = Path(project_root) / "session" / "output"
+    frames = set()
+    try:
+        candidates = tuple(output.glob("state_*.bin.gz"))
+    except OSError:
+        return ()
+    for candidate in candidates:
+        name = candidate.name
+        try:
+            frames.add(int(name[len("state_"):-len(".bin.gz")]))
+        except (TypeError, ValueError):
+            continue
+    return tuple(sorted(frame for frame in frames if frame >= 0))
+
+
+def _checkpoint_record(record: ProjectRecord, frame_value: int) \
+        -> CheckpointRecord | None:
+    state_path = checkpoint_path(Path(record.project_root), frame_value)
+    try:
+        if not state_path.is_file() or state_path.stat().st_size <= 0:
+            return None
+        if not _gzip_is_complete(state_path):
+            return None
+        size = state_path.stat().st_size
+        digest = _sha256(state_path)
+        # Re-check size after the full reads. A growing writer must never be
+        # published as stable merely because its prefix happened to decode.
+        if state_path.stat().st_size != size:
+            return None
+    except (OSError, EOFError, gzip.BadGzipFile):
+        return None
+    return CheckpointRecord(
+        frame=frame_value, project_id=record.project_id,
+        identity=record.identity, created_at=time.time(),
+        checkpoint_path=str(state_path.resolve()),
+        checkpoint_size=size, checkpoint_sha256=digest)
+
+
 def confirm_saved_states(path: Path, record: ProjectRecord,
                          saved_states, *, keep: int) -> ProjectRecord:
-    """Publish newly server-confirmed states before pruning old ones."""
+    """Publish verified states from status *or* the local output directory."""
+    record = _current_generation(Path(path), record)
     by_frame = {item.frame: item for item in record.checkpoints
                 if _verified_checkpoint(item)}
-    for frame_value in sorted({int(value) for value in saved_states}):
-        state_path = checkpoint_path(Path(record.project_root), frame_value)
-        try:
-            if not state_path.is_file() or state_path.stat().st_size <= 0:
-                continue
-            with gzip.open(state_path, "rb") as stream:
-                if not stream.read(1):
-                    continue
-            size = state_path.stat().st_size
-            digest = _sha256(state_path)
-        except (OSError, EOFError):
+    reported = {
+        int(value) for value in saved_states
+        if isinstance(value, (int, float)) and int(value) >= 0}
+    reported.update(discover_checkpoint_frames(Path(record.project_root)))
+    for frame_value in sorted(reported):
+        candidate = _checkpoint_record(record, frame_value)
+        if candidate is None:
             continue
         existing = by_frame.get(frame_value)
-        if (existing is not None and existing.checkpoint_size == size
-                and existing.checkpoint_sha256 == digest):
+        if (existing is not None
+                and existing.checkpoint_size == candidate.checkpoint_size
+                and existing.checkpoint_sha256 == candidate.checkpoint_sha256):
             continue
-        by_frame[frame_value] = CheckpointRecord(
-            frame=frame_value, project_id=record.project_id,
-            identity=record.identity, created_at=time.time(),
-            checkpoint_path=str(state_path.resolve()),
-            checkpoint_size=size, checkpoint_sha256=digest)
+        by_frame[frame_value] = candidate
     confirmed = tuple(sorted(
         by_frame.values(), key=lambda item: (item.frame, item.created_at)))
     state = (ProjectState.CHECKPOINT_CONFIRMED if confirmed
              else record.state)
-    published = transition(
-        path, record, state, checkpoints=confirmed,
-        last_frame=max((item.frame for item in confirmed), default=0))
+    last_frame = max((item.frame for item in confirmed), default=0)
+    if (state is record.state and confirmed == record.checkpoints
+            and last_frame == record.last_frame):
+        published = record
+    else:
+        published = transition(
+            path, record, state, checkpoints=confirmed,
+            last_frame=last_frame)
     keep = max(1, int(keep))
     if len(confirmed) <= keep:
         return published
@@ -361,7 +419,8 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
     # Publish retention first. A crash can leave an extra old state, never a
     # metadata entry pointing to a state that was already removed.
     published = transition(
-        path, published, published.state, checkpoints=tuple(retained))
+        path, published, published.state, checkpoints=tuple(retained),
+        last_frame=max(item.frame for item in retained))
     for item in stale:
         try:
             Path(item.checkpoint_path).unlink()
