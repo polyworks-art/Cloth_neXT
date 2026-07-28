@@ -1,17 +1,15 @@
-# Cloth NeXt real-world product material samples (read-only).
+# Cloth NeXt real-world outdoor product material samples (read-only).
 #
-# These presets use published product mass and construction data. PPF-specific
-# stretch, bending, Poisson response, friction, and strain limits are artist-
-# oriented calibrations for the documented product class; they are not vendor
-# certifications and do not claim an exact digital twin of any commercial
-# material. Product and manufacturer names are nominative references only.
+# Published construction and areal-weight facts are separated from Cloth NeXt's
+# solver calibration. Product names are nominative references only and do not
+# imply endorsement, certification, sponsorship, or an exact digital twin.
 
 [provenance]
-source_project = "Official manufacturer product data and cited technical sample listings"
+source_project = "Official manufacturer product data and documented commercial samples"
 source_commit = "retrieved-2026-07-29"
 source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
-source_license = "Facts-only technical reference metadata; no third-party code or product media redistributed"
-notes = "Published areal weights and constructions are retained; solver-only values are clearly marked as calibrated behavior. All trademarks belong to their respective owners."
+source_license = "Facts-only reference metadata; no third-party code or product media redistributed"
+notes = "PPF stretch, bending, Poisson response, friction, and strain limits are Cloth NeXt artist calibrations. See the sources document for exact evidence and limitations."
 
 [[preset]]
 id = "PRODUCT_GORETEX_ARCTIC_3L"
@@ -22,7 +20,8 @@ upstream_calibrated = false
 product_sample = true
 manufacturer = "W. L. Gore & Associates"
 product_style = "Arctic Stretch 3-Ply"
-data_basis = "Published 180 gsm product sample and 3-layer laminate construction; PPF mechanics calibrated as a slightly flexible hardshell"
+data_basis = "Published 180 gsm commercial sample and official 3-layer laminate construction; PPF mechanics calibrated as a slightly flexible hardshell"
+data_quality = "PUBLISHED_PRODUCT_SAMPLE"
 source_reference = "PRODUCT_SOURCE_GORETEX_ARCTIC_3L"
 measured_area_weight_g_m2 = 180.0
 measured_area_weight_oz_yd2 = 5.31
@@ -45,6 +44,7 @@ product_sample = true
 manufacturer = "X-Pac"
 product_style = "VX21"
 data_basis = "Official 210 gsm construction and low-stretch product description; PPF mechanics calibrated for structured pack fabric"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_XPAC_VX21"
 measured_area_weight_g_m2 = 210.0
 measured_area_weight_oz_yd2 = 6.2
@@ -67,6 +67,7 @@ product_sample = true
 manufacturer = "X-Pac"
 product_style = "VX21 Soft"
 data_basis = "Official 188 gsm construction and softer-hand description; PPF mechanics calibrated below standard VX21 bending"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_XPAC_VX21_SOFT"
 measured_area_weight_g_m2 = 188.0
 measured_area_weight_oz_yd2 = 5.5
@@ -89,6 +90,7 @@ product_sample = true
 manufacturer = "X-Pac"
 product_style = "LS21"
 data_basis = "Official 214 gsm laminate construction; PPF mechanics calibrated for crisp abrasion-resistant pack panels"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_XPAC_LS21"
 measured_area_weight_g_m2 = 214.0
 measured_area_weight_oz_yd2 = 6.3
@@ -111,6 +113,7 @@ product_sample = true
 manufacturer = "Polartec"
 product_style = "Alpha Direct 90 · Style 4004"
 data_basis = "Official 85 gsm style data; PPF mechanics calibrated for soft open-loft stretch and low bending"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4004"
 measured_area_weight_g_m2 = 85.0
 measured_area_weight_oz_yd2 = 2.5
@@ -133,6 +136,7 @@ product_sample = true
 manufacturer = "Polartec"
 product_style = "Alpha Direct 120 · Style 4411RC"
 data_basis = "Official 119 gsm style data; PPF mechanics calibrated for medium-loft open knit"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4411RC"
 measured_area_weight_g_m2 = 119.0
 measured_area_weight_oz_yd2 = 3.5
@@ -155,6 +159,7 @@ product_sample = true
 manufacturer = "Polartec"
 product_style = "Alpha Direct 190 · Style 4024"
 data_basis = "Official 186 gsm style data; PPF mechanics calibrated for dense lofty insulation"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4024"
 measured_area_weight_g_m2 = 186.0
 measured_area_weight_oz_yd2 = 5.5
@@ -177,6 +182,7 @@ product_sample = true
 manufacturer = "Polartec"
 product_style = "Alpha Direct with Wool · Style 4048"
 data_basis = "Official 153 gsm wool-blend style data; PPF mechanics calibrated for grippy soft lining"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4048"
 measured_area_weight_g_m2 = 153.0
 measured_area_weight_oz_yd2 = 4.5
@@ -199,6 +205,7 @@ product_sample = true
 manufacturer = "Challenge Sailcloth"
 product_style = "ULTRA 100"
 data_basis = "Official 99 gsm construction and performance data; PPF mechanics calibrated for very low-stretch ultralight laminate"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_CHALLENGE_ULTRA_100"
 measured_area_weight_g_m2 = 99.0
 measured_area_weight_oz_yd2 = 2.92
@@ -221,6 +228,7 @@ product_sample = true
 manufacturer = "Challenge Sailcloth"
 product_style = "ULTRA 200"
 data_basis = "Official 119 gsm construction and performance data; PPF mechanics calibrated for stiff low-stretch pack fabric"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_CHALLENGE_ULTRA_200"
 measured_area_weight_g_m2 = 119.0
 measured_area_weight_oz_yd2 = 3.5
@@ -242,7 +250,8 @@ upstream_calibrated = false
 product_sample = true
 manufacturer = "Dyneema / Avient"
 product_style = "Dyneema Composite Fabric 0.55 · CT1E.08"
-data_basis = "Official 19 gsm, film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for crisp ultralight composite"
+data_basis = "Official 19 gsm film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for crisp ultralight composite"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_DYNEEMA_CT1E08"
 measured_area_weight_g_m2 = 19.0
 measured_area_weight_oz_yd2 = 0.55
@@ -264,7 +273,8 @@ upstream_calibrated = false
 product_sample = true
 manufacturer = "Dyneema / Avient"
 product_style = "Dyneema Composite Fabric 1.6 · CT5K.18"
-data_basis = "Official 53 gsm, film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for pack-grade composite"
+data_basis = "Official 53 gsm film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for pack-grade composite"
+data_quality = "OFFICIAL_PRODUCT_DATA"
 source_reference = "PRODUCT_SOURCE_DYNEEMA_CT5K18"
 measured_area_weight_g_m2 = 53.0
 measured_area_weight_oz_yd2 = 1.6
