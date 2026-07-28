@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import struct
 import time
 import uuid
@@ -18,7 +19,7 @@ import numpy as np
 PC2_MAGIC = b"POINTCACHE2\0"
 PC2_VERSION = 1
 PC2_HEADER_SIZE = 32
-PC2_WRITER_VERSION = 2
+PC2_WRITER_VERSION = 3
 
 
 class Pc2Error(ValueError):
@@ -173,6 +174,57 @@ class StreamingPc2Writer:
         self._stream.close()
         self._finished = True
         return self.temporary_path
+
+    def publish_partial_preview(self) -> Pc2Header:
+        """Preserve resume data and atomically publish its playable prefix.
+
+        The recovery file keeps the original full-range header so a later
+        writer can append to it. A separate final PC2 receives a shortened
+        header and exactly the complete frames written so far, making the
+        cancelled Bake immediately usable by Blender without sacrificing the
+        resumable stream.
+        """
+        if self._finished:
+            raise Pc2Error("writer is already finalized or aborted")
+        if self.frames_written <= 0:
+            raise Pc2Error("partial PC2 contains no complete frames")
+        partial_path = self.preserve()
+        preview_header = Pc2Header(
+            self.header.vertex_count, self.header.start_frame,
+            self.header.sample_rate, self.frames_written)
+        expected_size = (PC2_HEADER_SIZE + self.frames_written
+                         * self.header.vertex_count * 12)
+        temporary = self.final_path.with_name(
+            f".{self.final_path.name}.{uuid.uuid4().hex}.partial.tmp")
+        backup = self.final_path.with_name(
+            f".{self.final_path.name}.{uuid.uuid4().hex}.bak")
+        try:
+            with partial_path.open("rb") as source, temporary.open("xb") as target:
+                raw = source.read(PC2_HEADER_SIZE)
+                if raw != _header_bytes(self.header):
+                    raise Pc2Error("partial PC2 header changed before preview")
+                target.write(_header_bytes(preview_header))
+                shutil.copyfileobj(source, target, length=4 * 1024 * 1024)
+                target.flush()
+                if target.tell() != expected_size:
+                    raise Pc2Error("partial PC2 preview ended off frame boundary")
+                os.fsync(target.fileno())
+            if self.final_path.exists():
+                os.link(self.final_path, backup)
+            os.replace(temporary, self.final_path)
+            verified = read_header(self.final_path)
+            if verified != preview_header:
+                raise Pc2Error("partial PC2 preview validation failed")
+            backup.unlink(missing_ok=True)
+            return verified
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            if backup.exists():
+                try:
+                    os.replace(backup, self.final_path)
+                except OSError:
+                    pass
+            raise
 
     def abort(self) -> None:
         if getattr(self, "_finished", False):
