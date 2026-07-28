@@ -14,9 +14,24 @@ import pytest
 
 from cloth_next.bake.controller import InvalidTransition, shared_controller
 from cloth_next.bake.status import BakeState
+from cloth_next.pinning import StaticPinConfig
 from tests import mesh_fixtures
 
 SOLVER_TEST_SOURCE = Path("cloth_next/blender/solver_test.py")
+
+
+def test_param_cache_identity_changes_with_dense_pin_trajectory(env):
+    module = env.solver_test
+    sparse = StaticPinConfig(
+        (0,), pin_group_id="pins", times=(0.0, 1.0),
+        positions=(((0.0, 0.0, 0.0),), ((1.0, 0.0, 0.0),)))
+    dense = StaticPinConfig(
+        (0,), pin_group_id="pins", times=(0.0, 0.5, 1.0),
+        positions=(((0.0, 0.0, 0.0),), ((0.4, 0.0, 0.0),),
+                   ((1.0, 0.0, 0.0),)))
+
+    assert module._pin_configs_cache_identity((sparse,)) != (
+        module._pin_configs_cache_identity((dense,)))
 
 
 def _reset_controller():

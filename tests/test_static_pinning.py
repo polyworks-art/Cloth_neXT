@@ -99,11 +99,39 @@ def test_animated_pin_model_and_time_mapping_are_immutable():
     assert cfg.positions[0][0]==(20.,0.,0.)
     with pytest.raises(FrozenInstanceError):snap.samples[0].blender_frame=99
 
+
+def test_animated_pin_subframes_keep_exact_solver_times_in_both_schemas():
+    frames = (20.0, 20.25, 20.5, 20.75, 21.0)
+    samples = tuple(
+        AnimatedPinTargetSample(
+            frame, ((frame, 0.0, 0.0), (0.0, frame, 0.0)))
+        for frame in frames)
+    snap = StaticPinSnapshot(
+        True, "Pins", "id", 4, (0, 2),
+        mode=PinMode.FOLLOW_ANIMATION, samples=samples,
+        bake_start=20, bake_end=21, fps=25)
+    cfg = static_pin_config(snap)
+    assert cfg.times == pytest.approx((0.0, 0.01, 0.02, 0.03, 0.04))
+
+    tracks = []
+    for schema_version in (1, 2):
+        payload = build_param_payload(
+            SimulationSettings(2, 25, (0.0, 0.0, -9.81)),
+            "Cloth", "cloth-id", "Floor", "floor-id",
+            shell=DEFAULT_SHELL_SETTINGS, static=DEFAULT_STATIC_SETTINGS,
+            static_pin=cfg, schema_version=schema_version)
+        tracks.append(payload["pin_config"]["cloth-id"][0]["pin_anim"][0])
+    assert tracks[0] == tracks[1]
+    assert tracks[1]["time"] == pytest.approx(cfg.times)
+    assert len(tracks[1]["position"]) == 5
+
+
 def test_animated_pin_validation_and_fingerprint():
     with pytest.raises(StaticPinError):
         StaticPinSnapshot(True,"Pins","id",4,(0,),mode=PinMode.FOLLOW_ANIMATION,
                           bake_start=1,bake_end=2,samples=())
     with pytest.raises(StaticPinError):AnimatedPinTargetSample(1,((float("nan"),0,0),))
+    with pytest.raises(StaticPinError):AnimatedPinTargetSample(float("nan"),((0,0,0),))
     assert animated(PinMode.STATIC).samples==()
     assert animated().fingerprint!=animated(PinMode.STATIC).fingerprint
     assert animated().fingerprint!=animated(offset=1.).fingerprint

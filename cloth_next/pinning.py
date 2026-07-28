@@ -20,15 +20,19 @@ class PinMode(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class AnimatedPinTargetSample:
-    blender_frame: int
+    blender_frame: float
     positions: tuple[tuple[float, float, float], ...]
 
     def __post_init__(self):
+        frame = float(self.blender_frame)
+        if not math.isfinite(frame):
+            raise StaticPinError("Animated Pin sample time must be finite.")
         positions=tuple(tuple(float(c) for c in point) for point in self.positions)
         if any(len(point)!=3 or any(not math.isfinite(c) for c in point)
                for point in positions):
             raise StaticPinError(
                 f"Animated Pin targets contain invalid coordinates at frame {self.blender_frame}.")
+        object.__setattr__(self, "blender_frame", frame)
         object.__setattr__(self,"positions",positions)
 
 
@@ -71,11 +75,26 @@ class StaticPinSnapshot:
             raise StaticPinError("Static Pinning must not contain target samples.")
         if self.enabled and mode is PinMode.FOLLOW_ANIMATION:
             expected=self.bake_end-self.bake_start+1
-            if expected<1 or len(samples)!=expected:
-                raise StaticPinError("Animated Pin sample count must match the Bake range.")
+            if expected<1 or len(samples)<expected:
+                raise StaticPinError(
+                    "Animated Pin samples must cover the complete Bake range.")
             frames=tuple(sample.blender_frame for sample in samples)
-            if frames!=tuple(range(self.bake_start,self.bake_end+1)):
-                raise StaticPinError("Animated Pin target frames must be ordered and continuous.")
+            if (not math.isclose(frames[0], float(self.bake_start),
+                                 abs_tol=1e-9)
+                    or not math.isclose(frames[-1], float(self.bake_end),
+                                        abs_tol=1e-9)
+                    or any(right <= left
+                           for left, right in zip(frames, frames[1:]))):
+                raise StaticPinError(
+                    "Animated Pin target samples must be ordered and span "
+                    "the complete Bake range.")
+            sampled_integer_frames = {
+                int(round(frame)) for frame in frames
+                if math.isclose(frame, round(frame), abs_tol=1e-9)}
+            if sampled_integer_frames != set(
+                    range(self.bake_start, self.bake_end + 1)):
+                raise StaticPinError(
+                    "Animated Pin targets must include every Blender frame.")
             if any(len(sample.positions)!=len(indices) for sample in samples):
                 raise StaticPinError("Every animated Pin sample must contain one position per pinned vertex.")
         if self.fps<1: raise StaticPinError("Bake FPS must be at least 1.")
@@ -121,7 +140,7 @@ def static_pin_config(snapshot: StaticPinSnapshot) -> StaticPinConfig | None:
     group_id = "cn-pin-v1-" + hashlib.sha256(
         f"{snapshot.source_object_id}\0{snapshot.group_name}".encode("utf-8")
     ).hexdigest()[:24]
-    times=tuple((sample.blender_frame-snapshot.bake_start)/snapshot.fps
+    times=tuple((float(sample.blender_frame)-snapshot.bake_start)/snapshot.fps
                 for sample in snapshot.samples)
     positions=tuple(sample.positions for sample in snapshot.samples)
     return StaticPinConfig(snapshot.vertex_indices, pin_group_id=group_id,

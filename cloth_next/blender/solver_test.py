@@ -1901,7 +1901,9 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
             })
         objects.append(row)
     identity = {
-        "export_schema": 1,
+        # v2 captures Follow Animation Pins on the dense Collider timeline.
+        # Keep pre-v2 Scene plans from silently restoring sparse Pin tracks.
+        "export_schema": 2,
         "solver_installation": _solver_selection_key(context),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
         "geometry": snapshot.geometry_fingerprint,
@@ -2173,8 +2175,13 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
             samples=tuple(precomputed),**common)
     scene=context.scene; original=int(scene.frame_current); samples=[]
     try:
-        for frame in range(bake_range.start,bake_range.end+1):
-            scene.frame_set(frame); _depsgraph_update(context)
+        points = build_sample_plan(
+            bake_range.start, bake_range.end,
+            collider_samples=(COLLIDER_SAMPLES_PER_FRAME,))
+        for point in points:
+            frame = point.frame
+            scene.frame_set(frame, subframe=point.subframe)
+            _depsgraph_update(context)
             evaluated=cloth_obj.evaluated_get(context.evaluated_depsgraph_get())
             mesh=evaluated.to_mesh()
             try:
@@ -2185,7 +2192,8 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
                 matrix=solver_world_matrix(tuple(tuple(row) for row in evaluated.matrix_world))
                 positions=tuple(_solver_position(matrix,tuple(mesh.vertices[index].co))
                                 for index in membership.vertex_indices)
-                samples.append(AnimatedPinTargetSample(frame,positions))
+                samples.append(AnimatedPinTargetSample(
+                    float(point.position), positions))
             finally:evaluated.to_mesh_clear()
     finally:
         scene.frame_set(original); _depsgraph_update(context)
@@ -3285,7 +3293,7 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
     _sentinel_objects, colliders = _ensure_solver_static([], colliders)
     key = _param_source_key(
         context, snapshot, force_capture, target_uuids,
-        tuple(item[1] for item in colliders))
+        tuple(item[1] for item in colliders), pin_configs)
     return _cached_payload(
         cache, "param", key,
         lambda: encode_multi_deformable_param(
@@ -3294,8 +3302,29 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
             schema_version=schema_version))
 
 
+def _pin_configs_cache_identity(pin_configs):
+    """Compact content identity; Pin motion must never reuse stale params."""
+    identities = []
+    for config in pin_configs:
+        if config is None:
+            identities.append(None)
+            continue
+        digest = hashlib.sha256()
+        digest.update(b"cloth-next-pin-track-v2\0")
+        digest.update(str(config.pin_group_id).encode("utf-8"))
+        digest.update(np.asarray(config.indices, dtype="<i8").tobytes())
+        digest.update(np.asarray(config.times, dtype="<f8").tobytes())
+        digest.update(np.asarray(config.positions, dtype="<f4").tobytes())
+        identities.append({
+            "indices": len(config.indices),
+            "samples": len(config.times),
+            "sha256": digest.hexdigest(),
+        })
+    return identities
+
+
 def _param_source_key(context, snapshot, force_capture, target_uuids,
-                      collider_uuids):
+                      collider_uuids, pin_configs):
     recovery_settings = getattr(context.scene, "cloth_next_recovery", None)
     return deterministic_key("param", {
         "solver_installation": _solver_selection_key(context),
@@ -3307,6 +3336,7 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
         "fps": int(context.scene.render.fps),
         "object_uuids": [
             *target_uuids, *collider_uuids],
+        "pin_tracks": _pin_configs_cache_identity(pin_configs),
         "recovery": {
             "enabled": bool(
                 recovery_settings
@@ -3414,7 +3444,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             tuple(target.uuid for target in target_plans),
             tuple(export_identity.export_uuid(obj)
                   for obj in snapshot.collider_objs)
-            or (INTERNAL_STATIC_UUID,))
+            or (INTERNAL_STATIC_UUID,), tuple(pin_configs))
         first = target_plans[0]
         collider_specs = [
             (obj.name, export_identity.export_uuid(obj))
@@ -3750,7 +3780,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         schema_version=wire_schema)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, tuple(uuids),
-        tuple(item[1] for item in collider_specs))
+        tuple(item[1] for item in collider_specs),
+        tuple(item[4] for item in param_dynamics))
     session_scene = SessionScene(
         project_name, session_dynamics[0].name, session_dynamics[0].uuid,
         session_dynamics[0].vertex_count,
@@ -4164,7 +4195,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             schema_version=wire_schema)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, (cloth_uuid,),
-        tuple(item[1] for item in collider_specs))
+        tuple(item[1] for item in collider_specs), (pin_config,))
     param_payload, param_hash = _cached_payload(
         payload_cache, "param", param_cache_key, encode_param_payload)
     # Reused from the single authoritative validation — the topology is not
@@ -5902,9 +5933,12 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     obj.cloth_next, "collider_samples_per_frame",
                     COLLIDER_SAMPLES_PER_FRAME))
                     for obj in animated_colliders)
+                pin_rates = (
+                    collider_rates or (COLLIDER_SAMPLES_PER_FRAME,))
                 points = build_sample_plan(
                     bake_range.start, bake_range.end,
-                    collider_samples=collider_rates,
+                    collider_samples=(
+                        pin_rates if animated_targets else collider_rates),
                     include_integer_frames=bool(
                         animated_targets or force_capture is None))
                 capture={"context":context,"targets":animated_targets,
@@ -6081,7 +6115,7 @@ def _pin_capture_pump():
             "frame_set_count", 0.0) + 1.0
         timings["depsgraph_evaluation_count"] = timings.get(
             "depsgraph_evaluation_count", 0.0) + 1.0
-        if point.position.denominator == 1:
+        if state["targets"]:
             for object_name, membership in state["targets"]:
                 obj=bpy.data.objects.get(object_name)
                 if obj is None:
@@ -6091,11 +6125,13 @@ def _pin_capture_pump():
                     context, obj, membership, depsgraph=depsgraph,
                     index_array=state["index_arrays"][object_name])
                 state["samples"][object_name].append(
-                    AnimatedPinTargetSample(frame, positions))
+                    AnimatedPinTargetSample(
+                        float(point.position), positions))
                 timings["pin_sample_count"] = timings.get(
                     "pin_sample_count", 0.0) + 1.0
                 timings["evaluated_get_count"] = timings.get(
                     "evaluated_get_count", 0.0) + 1.0
+        if point.position.denominator == 1:
             if state["force_capture"] is None:
                 force_state, active_scalar_types = _force_state(
                     context, wind_frame=frame)

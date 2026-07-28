@@ -234,7 +234,8 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
     module._pin_capture = {
         "context": context, "targets": (("Skirt", membership),),
         "range": SimpleNamespace(start=1, end=2),
-        "points": module.build_sample_plan(1, 2),
+        "points": module.build_sample_plan(
+            1, 2, collider_samples=(4,)),
         "point_index": 0,
         "samples": {"Skirt": []}, "index_arrays": {"Skirt": indices},
         "force_samples": [], "active_scalar_types": set(),
@@ -243,11 +244,20 @@ def test_pin_capture_pump_reuses_frame_depsgraph_without_extra_update(
     }
     try:
         assert module._pin_capture_pump() == 0.005
-        assert frames == [(1, 0.0)]
-        assert calls == [(context, obj, membership, depsgraph, indices)]
+        assert module._pin_capture_pump() == 0.005
+        assert frames == [(1, 0.0), (1, 0.25)]
+        assert calls == [
+            (context, obj, membership, depsgraph, indices),
+            (context, obj, membership, depsgraph, indices)]
         assert collider_calls == [
-            (depsgraph, 1, collider_states)]
-        assert module._pin_capture["point_index"] == 1
+            (depsgraph, 1, collider_states),
+            (depsgraph, module._pin_capture["points"][1].position,
+             collider_states)]
+        assert [sample.blender_frame for sample in
+                module._pin_capture["samples"]["Skirt"]] == [1.0, 1.25]
+        assert module._pin_capture["point_index"] == 2
+        # Force animation remains frame-sampled; only Pins share the dense
+        # Collider timeline.
         assert module._pin_capture["force_samples"] == [force_state]
     finally:
         module._pin_capture = None
