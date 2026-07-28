@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#02090b">
-  <meta name="description" content="Set up layered cloth, animated pins, colliders and forces in Blender, then run and monitor the external GPU-powered PPF Contact Solver through Cloth NeXt.">
-  <meta property="og:title" content="Cloth NeXt — Houdini-level cloth inside Blender">
-  <meta property="og:description" content="A Blender add-on for setting up, running and caching multi-object cloth simulations with the external PPF Contact Solver.">
+  <meta name="description" content="Run shared GPU simulations for cloth, cables, soft bodies and PDRD rigid bodies from a focused Blender workflow with recovery and visual diagnostics.">
+  <meta property="og:title" content="Cloth NeXt — Production simulation inside Blender">
+  <meta property="og:description" content="Multi-object contact, animated colliders, sewing, friction regions, recovery checkpoints and visual intersection diagnostics powered by the external PPF Contact Solver.">
   <meta property="og:image" content="media/hero_wp.png">
-  <title>Cloth NeXt — Houdini-level cloth inside Blender</title>
+  <title>Cloth NeXt — Production simulation inside Blender</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="preload" href="media/hero_wp.png" as="image" type="image/png">
-  <link rel="stylesheet" href="superhive.css?v=20260725-superhive-fit">
+  <link rel="stylesheet" href="superhive.css?v=20260728-current-features">
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
@@ -21,31 +21,26 @@
       <img src="../assets/cloth-next-white.svg" alt="" width="44" height="35">
       <span>
         <strong>Cloth NeXt</strong>
-        <small>GPU CLOTH FOR BLENDER</small>
+        <small>GPU SIMULATION FOR BLENDER</small>
       </span>
     </a>
     <div class="product-links">
-      <span class="status"><i aria-hidden="true"></i>Version <b data-channel-version="stable">2.0.0</b></span>
+      <span class="status"><i aria-hidden="true"></i>Stable <b data-channel-version="stable">2.0.0</b></span>
       <a href="docs/" target="_blank" rel="noopener">Documentation ↗</a>
     </div>
   </header>
-
-  <div class="known-issue-banner" role="alert">
-    <strong>PDRD QUALITY</strong>
-    <span>Mixed PDRD and deformable simulations currently require Solver Quality High or Extreme. Low and Medium can produce incorrect cloth behavior.</span>
-  </div>
 
   <main id="content">
     <section class="hero">
       <div class="hero-image" aria-hidden="true"></div>
       <div class="hero-shade" aria-hidden="true"></div>
       <div class="hero-copy">
-        <span class="eyebrow">HOUDINI-LEVEL CLOTH</span>
-        <h1>Houdini-level cloth. Inside Blender.</h1>
-        <p>Set up garments, pins, colliders and forces in Blender. Cloth NeXt prepares the external PPF solve, monitors the bake and imports the finished cache for playback.</p>
+        <span class="eyebrow">ADVANCED CONTACT · BLENDER WORKFLOW</span>
+        <h1>Push the simulation. Keep the workflow clear.</h1>
+        <p>Set up Cloth, Cable / Rope, Soft Body, PDRD Rigid Body, Collider and Force objects in Blender. Cloth NeXt prepares the external PPF solve, monitors the bake, preserves recoverable states and imports verified playback caches.</p>
         <div class="hero-actions">
           <a class="button primary" href="#simulations">Watch the simulations <span>↓</span></a>
-          <a class="button ghost" href="#blender-setup">See the Blender setup</a>
+          <a class="button ghost" href="#blender-setup">See the Blender workflow</a>
         </div>
         <div class="hero-facts">
           <span>Blender 5.0+</span>
@@ -56,10 +51,10 @@
     </section>
 
     <section class="value-strip" aria-label="Core Cloth NeXt features">
-      <div><strong>Shared cloth solve</strong><span>Separate garment meshes interact together</span></div>
-      <div><strong>Animated scenes</strong><span>Pins, deforming colliders and forces</span></div>
-      <div><strong>37 fabric presets</strong><span>Starting points with editable values</span></div>
-      <div><strong>Managed bakes</strong><span>Checks, progress and cache recovery</span></div>
+      <div><strong>Shared multi-role solve</strong><span>Cloth, cables, soft bodies and rigid bodies interact</span></div>
+      <div><strong>Animated production scenes</strong><span>Follow Animation pins, deforming colliders and forces</span></div>
+      <div><strong>Artist-focused controls</strong><span>37 presets, Sewing and vertex-group Friction</span></div>
+      <div><strong>Recovery and diagnostics</strong><span>Verified checkpoints, Resume and intersection overlays</span></div>
     </section>
 
     <section class="character-proof section" aria-labelledby="character-proof-title">
@@ -83,7 +78,7 @@
       <div class="motion-heading">
         <span class="kicker">SIMULATION EXAMPLES</span>
         <h2 id="motion-title">See the cached results in motion.</h2>
-        <p>Three tests cover layered character cloth, dense flexible strands and volumetric soft bodies.</p>
+        <p>These tests cover layered character cloth, dense flexible strands and volumetric soft bodies inside the same Blender-centered workflow.</p>
       </div>
       <div class="motion-grid">
         <article class="motion-card featured">
@@ -100,14 +95,14 @@
         </article>
         <article class="motion-card">
           <div class="video-frame">
-            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful rod and cable simulation">
+            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful cable and rope simulation">
               <source src="media/Strings.mp4" type="video/mp4">
             </video>
           </div>
           <div class="motion-copy">
-            <span>ROD / CABLE</span>
+            <span>CABLE / ROPE</span>
             <h3>Dense flexible strands in shared contact.</h3>
-            <p>Curves bend, wrap and collide as separate elements.</p>
+            <p>Curves bend, wrap and collide as separate one-dimensional elements.</p>
           </div>
         </article>
         <article class="motion-card">
@@ -119,7 +114,7 @@
           <div class="motion-copy">
             <span>SOFT BODY</span>
             <h3>Cushions compressing and stacking.</h3>
-            <p>Closed meshes are tetrahedralized for volumetric deformation.</p>
+            <p>Closed meshes are tetrahedralized for volumetric deformation and contact.</p>
           </div>
         </article>
       </div>
@@ -128,34 +123,35 @@
     <section class="workflow section" id="blender-setup">
       <div class="workflow-copy">
         <span class="kicker">IN BLENDER</span>
-        <h2>Set up the simulation from Physics Properties.</h2>
-        <p>Cloth NeXt keeps the scene setup in Blender and handles the file exchange with the external solver.</p>
+        <h2>Role-specific setup in Physics Properties.</h2>
+        <p>Cloth NeXt keeps scene setup inside Blender and exposes only the controls that matter for the selected simulation role.</p>
         <ul class="check-list">
-          <li>Assign Cloth, Collider, Force, Rod / Cable or Soft Body roles</li>
-          <li>Choose one of 37 presets or edit the material values directly</li>
-          <li>Add Follow Animation pins and static or animated colliders</li>
-          <li>Run Scene Health Check, choose the frame range and start the bake</li>
+          <li>Assign Cloth, Cable / Rope, Soft Body, Rigid Body, Collider or Force roles</li>
+          <li>Choose one of 37 fabric presets or edit the physical values directly</li>
+          <li>Add Static or Follow Animation pins, Sewing and vertex-group Friction regions</li>
+          <li>Use static, animated or topology-preserving deforming Collider geometry</li>
+          <li>Validate the evaluated Bake-start scene, choose the frame range and start the shared solve</li>
         </ul>
       </div>
       <figure class="ui-frame">
-        <img src="media/cloth-next-ui.png" alt="Cloth NeXt Physics Properties interface in Blender" loading="lazy">
-        <figcaption>Physics Properties · Cloth setup</figcaption>
+        <img src="media/cloth-next-ui.png" alt="Cloth NeXt role-specific Physics Properties interface in Blender" loading="lazy">
+        <figcaption>Physics Properties · role-specific setup</figcaption>
       </figure>
     </section>
 
     <section class="bake section">
       <div class="bake-card">
         <div class="bake-visual">
-          <img src="media/cloth-next-bake-window.png" alt="Cloth NeXt Bake Companion showing frame progress and solver activity" loading="lazy">
+          <img src="media/cloth-next-bake-window.png" alt="Cloth NeXt Bake window showing frame progress and solver activity" loading="lazy">
         </div>
         <div class="bake-copy">
-          <span class="kicker">BAKE COMPANION</span>
-          <h2>Watch the bake while it runs.</h2>
-          <p>The companion window shows frame progress, solver activity, elapsed time, ETA and system usage. A running job can be cancelled without replacing the previous valid cache with incomplete output.</p>
+          <span class="kicker">DEDICATED BAKE WINDOW</span>
+          <h2>Watch, cancel and recover.</h2>
+          <p>The Bake window follows preparation and simulation with frame progress, solver activity, elapsed time, ETA and system usage. Cancelling a running solve attempts to save a verified recovery checkpoint, making Resume available when the solver state can be preserved.</p>
           <div class="mini-features">
             <span><b>FRAME</b> Export, solve and import progress</span>
             <span><b>SYSTEM</b> CPU, RAM and VRAM monitoring</span>
-            <span><b>LIMIT</b> Optional automatic RAM cancellation</span>
+            <span><b>RECOVERY</b> Latest verified checkpoint and Resume</span>
           </div>
         </div>
       </div>
@@ -163,29 +159,29 @@
 
     <section class="reliability section">
       <div class="reliability-lead">
-        <span class="kicker">CHECKS AND RECOVERY</span>
-        <h2>Problems are reported before or during the bake.</h2>
-        <p>Scene Health Check catches common setup errors before solver work begins. Failed jobs keep a stable error code and do not silently replace a valid cache.</p>
+        <span class="kicker">VALIDATION AND DIAGNOSTICS</span>
+        <h2>When the solver rejects a scene, see what it actually found.</h2>
+        <p>Cloth NeXt validates the evaluated solver input, preserves structured failures and turns reported intersections into actionable viewport diagnostics instead of an opaque process trace.</p>
       </div>
       <div class="reliability-grid">
-        <article><strong>CHECK</strong><h3>Pre-bake validation</h3><p>Checks topology, roles, frame ranges, materials and required scene data.</p></article>
-        <article><strong>CNX</strong><h3>Error codes</h3><p>Known failures link to a cause, recovery step and documentation entry.</p></article>
-        <article><strong>CACHE</strong><h3>Verified output</h3><p>Incomplete results are not presented as a finished playback cache.</p></article>
-        <article><strong>RAM</strong><h3>Memory limit</h3><p>Optional automatic cancellation can protect the workstation during large jobs.</p></article>
+        <article><strong>INPUT</strong><h3>Exact solver geometry</h3><p>Inspect the evaluated and triangulated Bake-start geometry that was sent to the solver.</p></article>
+        <article><strong>CONTACT</strong><h3>Intersection overlays</h3><p>Highlight both reported elements with object names and triangle or source-face references.</p></article>
+        <article><strong>STATE</strong><h3>Recovery checkpoints</h3><p>Verified saved states remain available after cancellation and can be resumed from Blender.</p></article>
+        <article><strong>CACHE</strong><h3>Verified output</h3><p>Transactional PC2 publication prevents incomplete or incompatible results from replacing a valid cache.</p></article>
       </div>
     </section>
 
     <section class="license-story section">
       <div class="price-copy">
         <span class="kicker">LICENSES</span>
-        <h2>Same add-on. Different commercial limits.</h2>
-        <p>Both licenses contain the complete Cloth NeXt feature set.</p>
+        <h2>Same complete add-on. Different commercial limits.</h2>
+        <p>Both licenses contain the full Cloth NeXt feature set.</p>
       </div>
       <div class="license-prices">
         <article class="license-card">
           <span>PERSONAL LICENSE</span>
           <div class="license-price"><strong>€20</strong><small>ONE TIME</small></div>
-          <p>For one individual user. Includes personal and non-commercial use, plus commercial work generating up to <b>$1,000 in revenue per year</b>.</p>
+          <p>For one individual user. Includes personal and non-commercial use, plus commercial work generating up to <b>US$1,000 in revenue per year</b>.</p>
           <small class="license-note">Not intended for companies, studios or shared team use.</small>
         </article>
         <article class="license-card commercial">
@@ -225,7 +221,7 @@
 
   <footer>
     <strong>Cloth NeXt</strong>
-    <span>Blender integration for the external PPF Contact Solver.</span>
+    <span>Blender workflow for the external PPF Contact Solver.</span>
     <a href="https://polyworks-art.github.io/Cloth_neXT/releases/" target="_blank" rel="noopener">Release notes ↗</a>
   </footer>
   <script src="versions.js" defer></script>
