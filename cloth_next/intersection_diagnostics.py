@@ -125,6 +125,9 @@ def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
     pair_value = raw.get("combined_pair", raw.get("pair"))
     if (not isinstance(pair_value, (list, tuple))
             or len(pair_value) != 2):
+        pair_value = _match_legacy_triangle_pair(raw.get("tris"), snapshot)
+    if (not isinstance(pair_value, (list, tuple))
+            or len(pair_value) != 2):
         return None
     try:
         pair = (int(pair_value[0]), int(pair_value[1]))
@@ -166,6 +169,51 @@ def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
         classification=primary, detection_method=method,
         elements=tuple(elements), combined_pair=pair,
         total_count=max(1, int(total_count)))
+
+
+def _match_legacy_triangle_pair(
+        raw_triangles, snapshot: SolverInputSnapshot,
+        *, tolerance: float = 1.0e-8) -> tuple[int, int] | None:
+    """Map solver-provided legacy triangle geometry to the input snapshot.
+
+    Older solver builds expose only the detected triangle positions.  Matching
+    those exact positions is lossless attribution, not a second intersection
+    test.  A one-sided solver preview uses ``-1`` for the unavailable partner
+    so the confirmed offending face can still be shown to the artist.
+    """
+    if not isinstance(raw_triangles, (list, tuple)) or not raw_triangles:
+        return None
+
+    def _matches(left, right) -> bool:
+        if (not isinstance(left, (list, tuple)) or len(left) != 3):
+            return False
+        try:
+            remaining = [tuple(map(float, point)) for point in right]
+            candidate = [tuple(map(float, point)) for point in left]
+        except (TypeError, ValueError):
+            return False
+        for point in candidate:
+            match = next((
+                index for index, expected in enumerate(remaining)
+                if all(abs(point[axis] - expected[axis]) <= tolerance
+                       for axis in range(3))), None)
+            if match is None:
+                return False
+            remaining.pop(match)
+        return True
+
+    matched = []
+    for raw_triangle in raw_triangles[:2]:
+        found = next((
+            item.owner.combined_triangle_index
+            for item in snapshot.triangles
+            if not item.owner.internal
+            and _matches(raw_triangle, item.vertices)), None)
+        if found is not None and found not in matched:
+            matched.append(found)
+    if not matched:
+        return None
+    return (matched[0], matched[1] if len(matched) > 1 else -1)
 
 
 def artist_message(violation: IntersectionViolation) -> tuple[str, str]:

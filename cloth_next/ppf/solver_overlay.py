@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-OVERLAY_VERSION = "face-friction-intersection-preview-v2"
+OVERLAY_VERSION = "face-friction-intersection-preview-v3"
 
 _DECODER_NEEDLE = '''                else:
                     _rust.validate_group_type(group_type)
@@ -123,6 +123,11 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
                 if not (isinstance(item, dict)
                         and item.get("type") == "self_intersection")
             ]
+            original_intersections = [
+                item for item in all_violations
+                if (isinstance(item, dict)
+                    and item.get("type") == "self_intersection")
+            ]
             exact = []
             for first, second in exact_pairs[:100]:
                 elements = []
@@ -144,7 +149,13 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
                     # Backward-compatible geometry for existing consumers.
                     "tris": [element["vertices"] for element in elements],
                 })
-            all_violations = preserved + exact
+            # Never discard the solver's authoritative violation geometry.
+            # Some managed builds report a validation hit here while the
+            # separately exported pair query returns no indices.  The legacy
+            # entry still contains the offending triangle and is sufficient
+            # for Cloth NeXt to highlight that face.
+            all_violations = preserved + (
+                exact if exact else original_intersections)
         if all_violations:
             raise ValidationError(result["combined_message"], violations=all_violations)
 '''

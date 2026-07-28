@@ -27,5 +27,6 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
     assert "per_element" in first_scene
     assert "combined_tri" in first_scene
     assert "combined_pair" in first_scene
+    assert "exact if exact else original_intersections" in first_scene
     assert decoder.read_text(encoding="utf-8") == first_decoder
     assert scene.read_text(encoding="utf-8") == first_scene

@@ -82,6 +82,35 @@ def test_internal_static_sentinel_is_not_presented_one_sided():
         {"pair": [0, 1]}, snapshot) is None
 
 
+def test_legacy_solver_triangle_geometry_maps_to_visible_face():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", (32,), False),
+        (_object("collider", "Body", 2), "COLLIDER", (70,), False)),
+        bake_start_frame=1)
+
+    violation = diagnostics.convert_violation({
+        "type": "self_intersection",
+        "tris": [[(1, 0, 0), (0, 1, 0), (0, 0, 0)]],
+    }, snapshot)
+
+    assert violation is not None
+    assert violation.combined_pair == (0, -1)
+    assert len(violation.elements) == 1
+    assert violation.elements[0].object_name == "Skirt"
+    assert violation.elements[0].source_polygon_index == 32
+
+
+def test_unmatched_legacy_solver_geometry_is_not_guessed():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", None, False),),
+        bake_start_frame=1)
+
+    assert diagnostics.convert_violation({
+        "type": "self_intersection",
+        "tris": [[(20, 0, 0), (21, 0, 0), (20, 1, 0)]],
+    }, snapshot) is None
+
+
 def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
     monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
