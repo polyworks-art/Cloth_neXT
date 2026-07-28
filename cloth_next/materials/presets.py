@@ -42,8 +42,6 @@ CATEGORY_LABELS = {
     "PRODUCT_PROTECTIVE": "Products · Protective",
     "PRODUCT_SHELLS": "Products · Shells & Softshells",
     "PRODUCT_INTERIORS": "Products · Insulation & Interiors",
-    # Accepted only for direct parsing of an individual product data pack.
-    "PRODUCT_SAMPLES": "Branded Product Samples",
 }
 _PRODUCT_CATEGORIES = frozenset({
     "PRODUCT_SAMPLES", "PRODUCT_OUTDOOR", "PRODUCT_PERFORMANCE",
@@ -177,7 +175,7 @@ def parse_presets(
                 f"preset {identifier!r} in a product data pack must use "
                 "PRODUCT_SAMPLES")
         category = category_override or file_category
-        if category not in CATEGORY_LABELS:
+        if category not in CATEGORY_LABELS and category != "PRODUCT_SAMPLES":
             raise PresetError(f"preset {identifier!r} has unknown category "
                               f"{category!r}")
 
