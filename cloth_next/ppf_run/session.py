@@ -51,6 +51,8 @@ STATUS_BUSY = "BUSY"
 STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 
 _POLL_INTERVAL = 0.25
+_MAX_VIOLATION_SIDECAR_BYTES = 4 * 1024 * 1024
+_MAX_VIOLATION_PREVIEWS = 256
 
 _SOLVER_METRICS = {
     "contacts": "advance.num_contact.out",
@@ -417,6 +419,9 @@ class SolverSession:
                     continue
                 if isinstance(value, dict):
                     parsed_violations.append(value)
+        if not parsed_violations:
+            parsed_violations = list(self._load_build_violation_sidecar(
+                phase=phase))
         error = _session_error(
             f"The solver reported a failure while {phase}.",
             f"server status FAILED during {phase}: {error_text}; "
@@ -436,6 +441,84 @@ class SolverSession:
             return ClothNextError(
                 error.record, violations=tuple(parsed_violations))
         return error
+
+    def _load_build_violation_sidecar(self, *, phase: str) -> tuple[dict, ...]:
+        """Read the managed frontend's structured build-error handoff.
+
+        The pinned server does not expose this payload in its status response.
+        Its build worker writes it beneath the already-known project root
+        instead, so this is the authoritative local fallback for managed and
+        other filesystem-visible solver installations.
+        """
+        options = self._recovery
+        if options is None:
+            return ()
+        server_root = options.server_data_root.resolve()
+        project_root = (server_root / self.scene.project_name).resolve()
+        try:
+            project_root.relative_to(server_root)
+        except ValueError:
+            log_with_context(
+                self._logger, logging.ERROR,
+                "Rejected build violation sidecar outside server data root", {
+                    "project": self.scene.project_name,
+                    "phase": phase,
+                    "server_data_root": str(server_root),
+                    "project_root": str(project_root),
+                })
+            return ()
+        path = project_root / "build_violations.json"
+        try:
+            size = path.stat().st_size
+        except FileNotFoundError:
+            return ()
+        except OSError as exc:
+            log_with_context(
+                self._logger, logging.WARNING,
+                "Could not inspect build violation sidecar", {
+                    "project": self.scene.project_name,
+                    "phase": phase, "path": str(path), "reason": str(exc),
+                })
+            return ()
+        if size <= 0 or size > _MAX_VIOLATION_SIDECAR_BYTES:
+            log_with_context(
+                self._logger, logging.WARNING,
+                "Rejected invalid build violation sidecar size", {
+                    "project": self.scene.project_name,
+                    "phase": phase, "path": str(path), "size": size,
+                    "maximum": _MAX_VIOLATION_SIDECAR_BYTES,
+                })
+            return ()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            log_with_context(
+                self._logger, logging.WARNING,
+                "Could not parse build violation sidecar", {
+                    "project": self.scene.project_name,
+                    "phase": phase, "path": str(path), "reason": str(exc),
+                })
+            return ()
+        raw = payload.get("violations") if isinstance(payload, dict) else None
+        if not isinstance(raw, list):
+            log_with_context(
+                self._logger, logging.WARNING,
+                "Rejected malformed build violation sidecar", {
+                    "project": self.scene.project_name,
+                    "phase": phase, "path": str(path),
+                })
+            return ()
+        valid = tuple(item for item in raw if isinstance(item, dict))
+        previews = valid[:_MAX_VIOLATION_PREVIEWS]
+        log_with_context(
+            self._logger, logging.ERROR,
+            "Loaded structured build violations from solver sidecar", {
+                "project": self.scene.project_name,
+                "phase": phase, "path": str(path),
+                "violation_count": len(valid),
+                "preview_count": len(previews),
+            })
+        return previews
 
     # -- lifecycle ----------------------------------------------------------
 

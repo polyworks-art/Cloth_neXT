@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import gzip
+import json
 import struct
 import threading
 from pathlib import Path
@@ -342,6 +343,70 @@ def _recovery_identity():
         fps=24.0, collider_sampling=(("uuid-collider", 8),),
         solver_version="0.1.0", protocol_version="0.11",
         solver_schema_version="1")
+
+
+def _session_with_violation_sidecar(tmp_path):
+    scene = _scene()
+    server_root = tmp_path / "server"
+    project_root = server_root / scene.project_name
+    project_root.mkdir(parents=True)
+    options = RecoveryOptions(
+        enabled=True,
+        metadata_path=tmp_path / "recovery" / "metadata.json",
+        identity=_recovery_identity(),
+        server_data_root=server_root)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9),
+        recovery_options=options)
+    return session, project_root / "build_violations.json"
+
+
+def test_failed_status_loads_structured_violations_from_build_sidecar(
+        tmp_path):
+    session, sidecar = _session_with_violation_sidecar(tmp_path)
+    expected = {
+        "type": "self_intersection",
+        "combined_pair": [3, 9],
+        "elements": [
+            {"kind": "TRIANGLE", "combined_triangle_index": 3},
+            {"kind": "TRIANGLE", "combined_triangle_index": 9},
+        ]}
+    sidecar.write_text(
+        json.dumps({"violations": [expected]}), encoding="utf-8")
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "Intersections detected (1)."},
+        "building")
+
+    assert error.violations == (expected,)
+
+
+def test_status_violations_take_precedence_over_stale_sidecar(tmp_path):
+    session, sidecar = _session_with_violation_sidecar(tmp_path)
+    sidecar.write_text(
+        json.dumps({"violations": [{"combined_pair": [1, 2]}]}),
+        encoding="utf-8")
+    current = {"combined_pair": [7, 8]}
+
+    error = session._fail_from_status({
+        "status": "FAILED", "error": "failed",
+        "violations": [json.dumps(current)]}, "building")
+
+    assert error.violations == (current,)
+
+
+@pytest.mark.parametrize("payload", ("", "{broken", "[]",
+                                     '{"violations": "invalid"}'))
+def test_invalid_build_violation_sidecar_is_not_presented(tmp_path, payload):
+    session, sidecar = _session_with_violation_sidecar(tmp_path)
+    sidecar.write_text(payload, encoding="utf-8")
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "failed"}, "building")
+
+    assert error.violations == ()
 
 
 def test_controlled_cancel_confirms_saved_state_and_preserves_project(
