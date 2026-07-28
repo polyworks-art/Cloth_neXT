@@ -6309,10 +6309,13 @@ class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_bake(bpy.types.Operator):
-    """Validate and begin the asynchronous production startup gate."""
+    """Validate the scene and start a Cloth NeXt Bake."""
 
     bl_idname = "clothnext.bake"
     bl_label = "Bake"
+    bl_description = (
+        "Validate the scene and start a Bake with the selected solver "
+        "installation")
     _capture_timer = None
     _capture_modal_cleaned = False
 

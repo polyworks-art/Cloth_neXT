@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.18 — 2026-07-28 (Dev channel)
+
+### Fixed
+
+- The Bake panel now recognizes the explicitly selected side-by-side solver
+  installation instead of checking only the legacy single-solver pointer.
+- The Bake button tooltip now describes the artist-facing action instead of
+  exposing an internal startup-gate implementation detail.
+
 ## 2.1.17 — 2026-07-28 (Dev channel)
 
 ### Fixed

@@ -538,7 +538,42 @@ def _solver_status(context) -> _SolverStatus:
         prefs = context.preferences.addons[addon_id].preferences
         raw = str(prefs.external_solver_path or "").strip()
     except (KeyError, AttributeError):
+        prefs = None
         raw = ""
+    # The installation registry is the authority for the side-by-side solver
+    # manager. Check it before the legacy single-installation pointer: a
+    # downloaded 0.11 or 0.13 release need not own old ``current.json``.
+    try:
+        from ..updater.install_paths import ManagedSolverPaths
+        from ..updater.solver_registry import load_registry
+        registry = load_registry(ManagedSolverPaths.default().registry_json)
+        requested = str(getattr(
+            prefs, "selected_solver_installation_id", "") or "").strip()
+        if requested == "NONE":
+            return _SolverStatus(False, "No Solver Selected")
+        requested = requested or (registry.selected_installation_id or "")
+        if requested:
+            installation = registry.get(requested)
+            if installation is None or not installation.available:
+                return _SolverStatus(False, "Selected solver is missing")
+            if not (installation.compatible and installation.verified
+                    and installation.healthy):
+                return _SolverStatus(False, "Selected solver is unavailable")
+            details = tuple(value for value in (
+                (f"Package {installation.package_version}"
+                 if installation.package_version else ""),
+                (f"Protocol {installation.protocol_version}"
+                 if installation.protocol_version else ""),
+                (f"Schema {installation.schema_version}"
+                 if installation.schema_version else ""),
+                ("Managed installation" if installation.managed
+                 else "External installation"),
+            ) if value)
+            protocol = installation.protocol_version or "unknown"
+            return _SolverStatus(
+                True, f"Ready Â· Protocol {protocol}", details)
+    except (OSError, ValueError):
+        return _SolverStatus(False, "Solver registry unavailable")
     if raw:
         root = Path(raw)
         configured = root.is_file() or root.is_dir()

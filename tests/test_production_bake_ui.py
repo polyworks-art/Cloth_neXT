@@ -158,6 +158,53 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
     env.registration.unregister()
 
 
+def test_selected_registry_solver_enables_bake(blender_env, monkeypatch,
+                                                tmp_path):
+    env = blender_env; env.registration.register()
+    from cloth_next.updater.install_paths import ManagedSolverPaths
+    from cloth_next.updater.solver_registry import (
+        SolverInstallation, SolverRegistry, write_registry)
+
+    root = tmp_path / "official-013"
+    executable = root / "bin" / "ppf-contact-solver.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"solver")
+    installation = SolverInstallation(
+        installation_id="official-013",
+        display_name="PPF 0.13",
+        source="official",
+        root_path=str(root),
+        executable_path=str(executable),
+        frontend_path=None,
+        package_version="0.2.0",
+        protocol_version="0.13",
+        schema_version="2",
+        official_release_tag="test-013",
+        managed=True,
+        verified=True,
+        healthy=True,
+        channel="current")
+    paths = ManagedSolverPaths(tmp_path / "managed")
+    write_registry(
+        paths.registry_json,
+        SolverRegistry((installation,), installation.installation_id))
+    monkeypatch.setattr(ManagedSolverPaths, "default",
+                        classmethod(lambda cls: paths))
+
+    context = _context(env, _objects(env))
+    context.preferences.addons[
+        "cloth_next"].preferences.selected_solver_installation_id = (
+            installation.installation_id)
+    status = env.physics_ui._solver_status(context)
+    model = env.physics_ui._bake_panel_model(context, status)
+
+    assert status.ready
+    assert status.title == "Ready Â· Protocol 0.13"
+    assert "Schema 2" in status.details
+    assert model.enabled
+    env.registration.unregister()
+
+
 @pytest.mark.parametrize("cloths,colliders,reason", [
     (0, 1, "At least one deformable object is required."),
 ])
