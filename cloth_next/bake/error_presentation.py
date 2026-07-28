@@ -4,7 +4,7 @@
 """Bounded artist-facing Bake errors.
 
 Technical diagnostics belong in ``failure.log`` and Blender's logs, never in
-an artist-facing panel or the companion Bake window.  This module is the
+an artist-facing panel or the companion Bake window. This module is the
 single fail-closed boundary used by the controller and transport layer.
 """
 
@@ -20,11 +20,6 @@ UI_ERROR_LINE_MAX_CHARS = 280
 UI_ERROR_DETAILS_MAX_CHARS = 1400
 UI_ERROR_MAX_LINES = 7
 
-_ALLOWED_PREFIXES = (
-    "Stage:", "Blender frame:", "Solver frame:", "Object:",
-    "Cause:", "What to do:", "Diagnostic log:",
-)
-
 _TECHNICAL_MARKERS = re.compile(
     r"(?:traceback \(most recent call last\)|\n\s*file [\"']|"
     r"during handling of the above exception|the above exception was the direct|"
@@ -39,6 +34,43 @@ _PATH_MARKERS = re.compile(
     r"(?:[a-z]:\\|/(?:home|users|tmp|var|mnt)/|\\bl_ext\\|"
     r"\.py[\"']?,?\s+line\s+\d+)",
     re.IGNORECASE,
+)
+
+_EXCEPTION_LINE = re.compile(
+    r"^(?:[\w.]+\.)?(?:AssertionError|KeyError|TypeError|ValueError|"
+    r"RuntimeError|OSError|FileNotFoundError|PermissionError|"
+    r"MemoryError|ImportError|AttributeError|Exception):\s*(.+)$",
+    re.IGNORECASE,
+)
+
+_SOLVER_SIGNATURES = (
+    (
+        re.compile(
+            r"pin.?infeasible|pinned vertex.*(?:driven|forced).*collider|"
+            r"pinned vertex.*cannot yield",
+            re.IGNORECASE | re.DOTALL),
+        "A Hard Pin conflicts with a Collider.",
+        "A pinned vertex is being forced into a Collider and cannot move out of the way",
+        "Switch the Pin Group to Soft Pin or move its target outside the Collider.",
+    ),
+    (
+        re.compile(
+            r"overlapping.?start|surfaces start.*(?:touching|overlapping)|"
+            r"already touching or overlapping",
+            re.IGNORECASE | re.DOTALL),
+        "The simulation starts with overlapping surfaces.",
+        "Two surfaces are already inside the collision distance at the start of the step",
+        "Separate the surfaces at the failing frame or reduce Collision Gap.",
+    ),
+    (
+        re.compile(
+            r"newton.?stall|newton solve made no progress|"
+            r"over.?constrained configuration",
+            re.IGNORECASE | re.DOTALL),
+        "The simulation is over-constrained.",
+        "The solver cannot satisfy all Pins and collisions at the same time",
+        "Use Soft Pins, lower Friction, and check the failing frame for trapped or overlapping cloth.",
+    ),
 )
 
 _ARTIST_CAUSES = {
@@ -71,10 +103,8 @@ _ARTIST_ACTIONS = {
         "Run the solver health check, repair the installation if needed, then "
         "start a fresh Bake."),
     "CNX-E145": "Repair or update the solver installation, then retry.",
-    "CNX-E151": (
-        "Check the named geometry, Pins, and materials, then retry the Bake."),
-    "CNX-E160": (
-        "Check the reported frame and apply the suggested stability change."),
+    "CNX-E151": "Check the named geometry, Pins, and materials, then retry the Bake.",
+    "CNX-E160": "Check the reported frame and apply the suggested stability change.",
     "CNX-E164": (
         "Check the failing frame for intersections or extreme settings, then "
         "run the solver health check."),
@@ -143,6 +173,26 @@ def _simple_details_cause(details: str) -> str:
     return _safe_free_text(raw)
 
 
+def _exception_message(details: str) -> str:
+    """Extract only the final human-readable exception message from a stack."""
+    for raw in reversed(str(details or "").splitlines()):
+        match = _EXCEPTION_LINE.match(raw.strip())
+        if not match:
+            continue
+        message = _safe_free_text(match.group(1))
+        if message:
+            return message
+    return ""
+
+
+def _solver_signature(details: str):
+    raw = str(details or "")
+    for pattern, summary, cause, action in _SOLVER_SIGNATURES:
+        if pattern.search(raw):
+            return summary, cause, action
+    return None
+
+
 def _friendly_cause(error_code: str) -> str:
     info = ERROR_CODES.get(error_code)
     cause = _ARTIST_CAUSES.get(error_code)
@@ -158,8 +208,6 @@ def _friendly_action(error_code: str, fallback: str) -> str:
     info = ERROR_CODES.get(error_code)
     candidate = info.action if info is not None else fallback
     safe = _safe_free_text(candidate)
-    # Technical log vocabulary is fine inside the log, not as the primary
-    # instruction shown to an artist.
     if re.search(r"\b(?:stderr|stdout|stack trace|traceback)\b", safe,
                  re.IGNORECASE):
         return "Retry the Bake. If it happens again, report the error code and diagnostic log."
@@ -171,7 +219,8 @@ def _friendly_stage(error_code: str, fallback: str) -> str:
     if explicit:
         return explicit
     info = ERROR_CODES.get(error_code)
-    return _safe_free_text(info.stage if info is not None else "Bake", limit=120) or "Bake"
+    return _safe_free_text(
+        info.stage if info is not None else "Bake", limit=120) or "Bake"
 
 
 def _friendly_summary(summary: str, error_code: str) -> str:
@@ -203,13 +252,19 @@ def present_error(summary: str, details: str = "", *, error_code: str = "",
                   stage: str = "", action: str = "") -> ErrorPresentation:
     """Return a deterministic artist-facing error with no raw diagnostics."""
     code = str(error_code or "").strip().upper()
+    signature = _solver_signature(f"{summary}\n{details}")
+    signature_summary, signature_cause, signature_action = (
+        signature if signature is not None else ("", "", ""))
     stage_value = _prefixed_value(details, "Stage:") or _friendly_stage(
         code, stage)
-    cause = (_prefixed_value(details, "Cause:")
+    cause = (signature_cause
+             or _prefixed_value(details, "Cause:")
              or _simple_details_cause(details)
+             or _exception_message(details)
              or _friendly_cause(code)
              or "The Bake could not complete this step")
-    action_value = (_prefixed_value(details, "What to do:")
+    action_value = (signature_action
+                    or _prefixed_value(details, "What to do:")
                     or _prefixed_value(details, "Recommended:")
                     or _friendly_action(code, action))
 
@@ -218,13 +273,16 @@ def present_error(summary: str, details: str = "", *, error_code: str = "",
         value = _prefixed_value(details, prefix)
         if value:
             lines.append(f"{prefix} {value}")
-    lines.append(f"Cause: {cause.rstrip('.') }.")
+    lines.append(f"Cause: {cause.rstrip('.')}.")
     lines.append(f"What to do: {action_value}")
     log_path = _prefixed_value(details, "Diagnostic log:")
     if log_path:
         lines.append(f"Diagnostic log: {log_path}")
+    result_summary = (signature_summary
+                      or _friendly_summary(summary, code))
     return ErrorPresentation(
-        _friendly_summary(summary, code), _bounded_lines(lines))
+        _clip(result_summary, UI_ERROR_SUMMARY_MAX_CHARS),
+        _bounded_lines(lines))
 
 
 def sanitize_transport_error(summary: str, details: str, error_code: str) \
