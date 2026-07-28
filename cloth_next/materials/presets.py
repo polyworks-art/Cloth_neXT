@@ -39,9 +39,15 @@ CATEGORY_LABELS = {
     "PRODUCT_SAMPLES": "Branded Product Samples",
 }
 
-_PRESET_FILE = Path(__file__).resolve().parent / "ppf_fabric_presets.toml"
-_PRODUCT_PRESET_FILE = (
-    Path(__file__).resolve().parent / "product_fabric_presets.toml")
+_MATERIAL_DIR = Path(__file__).resolve().parent
+_PRESET_FILE = _MATERIAL_DIR / "ppf_fabric_presets.toml"
+_PRODUCT_PRESET_FILES = (
+    _MATERIAL_DIR / "product_fabric_presets.toml",
+    _MATERIAL_DIR / "product_performance_presets.toml",
+    _MATERIAL_DIR / "product_protective_presets.toml",
+    _MATERIAL_DIR / "product_shell_presets.toml",
+    _MATERIAL_DIR / "product_interior_presets.toml",
+)
 
 _REQUIRED_KEYS = frozenset({
     "id", "label", "category", "description", "upstream_calibrated", "model",
@@ -236,15 +242,19 @@ def _load() -> tuple[tuple[MaterialPreset, ...], dict[str, str]]:
     try:
         scientific, provenance = parse_presets(
             _PRESET_FILE.read_text(encoding="utf-8"))
-        products, product_provenance = parse_presets(
-            _PRODUCT_PRESET_FILE.read_text(encoding="utf-8"))
-        identifiers = [preset.identifier for preset in (*scientific, *products)]
+        products: list[MaterialPreset] = []
+        combined_provenance = dict(provenance)
+        for index, path in enumerate(_PRODUCT_PRESET_FILES, start=1):
+            parsed, product_provenance = parse_presets(
+                path.read_text(encoding="utf-8"))
+            products.extend(parsed)
+            combined_provenance.update({
+                f"product_{index}_{key}": value
+                for key, value in product_provenance.items()})
+        identifiers = [
+            preset.identifier for preset in (*scientific, *products)]
         if len(set(identifiers)) != len(identifiers):
             raise PresetError("bundled preset files contain duplicate ids")
-        combined_provenance = dict(provenance)
-        combined_provenance.update({
-            f"product_{key}": value
-            for key, value in product_provenance.items()})
         _cache = ((*scientific, *products), combined_provenance)
     except (OSError, PresetError) as exc:
         _load_error = str(exc)
