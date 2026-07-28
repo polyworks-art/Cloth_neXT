@@ -26,7 +26,8 @@ DEFAULT_PRESET_ID = "DEFAULT_CLOTH"
 CATEGORY_ORDER = (
     "ESSENTIALS", "LIGHTWEIGHT", "NATURAL_WOVENS", "KNITS_STRETCH",
     "PILE_SOFT", "HEAVY_STRUCTURED", "TECHNICAL_COATED",
-    "PRODUCT_SAMPLES",
+    "PRODUCT_OUTDOOR", "PRODUCT_PERFORMANCE", "PRODUCT_PROTECTIVE",
+    "PRODUCT_SHELLS", "PRODUCT_INTERIORS",
 )
 CATEGORY_LABELS = {
     "ESSENTIALS": "Essentials",
@@ -36,17 +37,27 @@ CATEGORY_LABELS = {
     "PILE_SOFT": "Pile & Soft",
     "HEAVY_STRUCTURED": "Heavy & Structured",
     "TECHNICAL_COATED": "Technical & Coated",
+    "PRODUCT_OUTDOOR": "Products · Outdoor Laminates",
+    "PRODUCT_PERFORMANCE": "Products · Performance & Stretch",
+    "PRODUCT_PROTECTIVE": "Products · Protective",
+    "PRODUCT_SHELLS": "Products · Shells & Softshells",
+    "PRODUCT_INTERIORS": "Products · Insulation & Interiors",
+    # Accepted only for direct parsing of an individual product data pack.
     "PRODUCT_SAMPLES": "Branded Product Samples",
 }
+_PRODUCT_CATEGORIES = frozenset({
+    "PRODUCT_SAMPLES", "PRODUCT_OUTDOOR", "PRODUCT_PERFORMANCE",
+    "PRODUCT_PROTECTIVE", "PRODUCT_SHELLS", "PRODUCT_INTERIORS",
+})
 
 _MATERIAL_DIR = Path(__file__).resolve().parent
 _PRESET_FILE = _MATERIAL_DIR / "ppf_fabric_presets.toml"
 _PRODUCT_PRESET_FILES = (
-    _MATERIAL_DIR / "product_fabric_presets.toml",
-    _MATERIAL_DIR / "product_performance_presets.toml",
-    _MATERIAL_DIR / "product_protective_presets.toml",
-    _MATERIAL_DIR / "product_shell_presets.toml",
-    _MATERIAL_DIR / "product_interior_presets.toml",
+    (_MATERIAL_DIR / "product_fabric_presets.toml", "PRODUCT_OUTDOOR"),
+    (_MATERIAL_DIR / "product_performance_presets.toml", "PRODUCT_PERFORMANCE"),
+    (_MATERIAL_DIR / "product_protective_presets.toml", "PRODUCT_PROTECTIVE"),
+    (_MATERIAL_DIR / "product_shell_presets.toml", "PRODUCT_SHELLS"),
+    (_MATERIAL_DIR / "product_interior_presets.toml", "PRODUCT_INTERIORS"),
 )
 
 _REQUIRED_KEYS = frozenset({
@@ -114,9 +125,15 @@ def _optional_text(entry: dict, key: str) -> str | None:
     return text
 
 
-def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
-                                       dict[str, str]]:
-    """Parse and fully validate one preset TOML bundle."""
+def parse_presets(
+        text: str, *, category_override: str | None = None
+        ) -> tuple[tuple[MaterialPreset, ...], dict[str, str]]:
+    """Parse and fully validate one preset TOML bundle.
+
+    Product data packs deliberately store the neutral ``PRODUCT_SAMPLES``
+    category. The bundled loader assigns each pack to one stable UI section;
+    direct tests and third-party tooling can still parse a pack by itself.
+    """
     try:
         document = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
@@ -130,6 +147,9 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
     entries = document.get("preset")
     if not isinstance(entries, list) or not entries:
         raise PresetError("bundled preset file contains no [[preset]] entries")
+    if category_override is not None and category_override not in _PRODUCT_CATEGORIES:
+        raise PresetError(f"unsupported product category override "
+                          f"{category_override!r}")
 
     presets: list[MaterialPreset] = []
     seen: set[str] = set()
@@ -151,7 +171,12 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
             raise PresetError(
                 f"duplicate or reserved preset id {identifier!r}")
         seen.add(identifier)
-        category = str(entry["category"])
+        file_category = str(entry["category"])
+        if category_override is not None and file_category != "PRODUCT_SAMPLES":
+            raise PresetError(
+                f"preset {identifier!r} in a product data pack must use "
+                "PRODUCT_SAMPLES")
+        category = category_override or file_category
         if category not in CATEGORY_LABELS:
             raise PresetError(f"preset {identifier!r} has unknown category "
                               f"{category!r}")
@@ -185,17 +210,17 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
             raise PresetError(f"preset {identifier!r} has unsupported "
                               f"data_quality {data_quality!r}")
         if product_sample:
-            if category != "PRODUCT_SAMPLES":
+            if category not in _PRODUCT_CATEGORIES:
                 raise PresetError(
-                    f"product preset {identifier!r} must use PRODUCT_SAMPLES")
+                    f"product preset {identifier!r} requires a product category")
             if not all((manufacturer, product_style, data_basis,
                         entry.get("source_reference"))):
                 raise PresetError(
                     f"product preset {identifier!r} requires manufacturer, "
                     "product_style, data_basis, and source_reference")
-        elif category == "PRODUCT_SAMPLES":
+        elif category in _PRODUCT_CATEGORIES:
             raise PresetError(
-                f"preset {identifier!r} in Product Samples must set "
+                f"preset {identifier!r} in a Product section must set "
                 "product_sample = true")
 
         material_keys = keys - _METADATA_KEYS
@@ -244,9 +269,11 @@ def _load() -> tuple[tuple[MaterialPreset, ...], dict[str, str]]:
             _PRESET_FILE.read_text(encoding="utf-8"))
         products: list[MaterialPreset] = []
         combined_provenance = dict(provenance)
-        for index, path in enumerate(_PRODUCT_PRESET_FILES, start=1):
+        for index, (path, category) in enumerate(
+                _PRODUCT_PRESET_FILES, start=1):
             parsed, product_provenance = parse_presets(
-                path.read_text(encoding="utf-8"))
+                path.read_text(encoding="utf-8"),
+                category_override=category)
             products.extend(parsed)
             combined_provenance.update({
                 f"product_{index}_{key}": value
@@ -301,14 +328,22 @@ def presets_in_category(category: str) -> tuple[MaterialPreset, ...]:
 
 
 def product_manufacturers() -> tuple[str, ...]:
-    """Stable manufacturer names for nested Product Samples menus."""
+    """Stable manufacturer names across all Product sections."""
+    try:
+        presets = builtin_presets()
+    except PresetError:
+        return ()
     return tuple(dict.fromkeys(
-        preset.manufacturer for preset in presets_in_category("PRODUCT_SAMPLES")
-        if preset.manufacturer))
+        preset.manufacturer for preset in presets
+        if preset.product_sample and preset.manufacturer))
 
 
 def product_presets_by_manufacturer(
         manufacturer: str) -> tuple[MaterialPreset, ...]:
+    try:
+        presets = builtin_presets()
+    except PresetError:
+        return ()
     return tuple(
-        preset for preset in presets_in_category("PRODUCT_SAMPLES")
-        if preset.manufacturer == manufacturer)
+        preset for preset in presets
+        if preset.product_sample and preset.manufacturer == manufacturer)
