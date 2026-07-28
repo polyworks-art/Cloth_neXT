@@ -47,6 +47,16 @@ def _target_plans(plan):
         plan.stitch_snap_distance),)
 
 
+def _set_scene_frame(scene, frame: int, subframe: float) -> None:
+    """Support Blender RNA and the lightweight test/adapter scene API."""
+    try:
+        scene.frame_set(int(frame), subframe=float(subframe))
+    except TypeError:
+        scene.frame_set(int(frame))
+        if hasattr(scene, "frame_subframe"):
+            scene.frame_subframe = float(subframe)
+
+
 def _canonical_scene_source_key(context, snapshot):
     """Evaluate the cheap export identity at Bake Start, not timeline current."""
     scene = context.scene
@@ -54,10 +64,10 @@ def _canonical_scene_source_key(context, snapshot):
     original_subframe = float(getattr(scene, "frame_subframe", 0.0))
     bake_start = int(snapshot.bake_range.start)
     try:
-        scene.frame_set(bake_start, subframe=0.0)
+        _set_scene_frame(scene, bake_start, 0.0)
         key, reason = _original_scene_source_key(context, snapshot)
     finally:
-        scene.frame_set(original_frame, subframe=original_subframe)
+        _set_scene_frame(scene, original_frame, original_subframe)
     if not key:
         return key, reason
     return deterministic_key("scene", {
