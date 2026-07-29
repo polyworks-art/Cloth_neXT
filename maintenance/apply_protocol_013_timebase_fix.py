@@ -134,15 +134,27 @@ replace_exact(
     count=2)
 replace_exact(
     solver_path,
+    "            times = [sample[2] for sample in plans[obj.name]]\n",
+    "            times = [sample[2] for sample in plans[obj.name]]\n"
+    "            frame_offsets = [\n"
+    "                sample[0] + sample[1] - bake_range.start\n"
+    "                for sample in plans[obj.name]]\n")
+replace_exact(
+    solver_path,
     '{"time": times, "translation": translations,',
     '{"time": times, "_sample_frame_offset": frame_offsets, '
     '"translation": translations,',
-    count=2)
+    count=3)
 replace_exact(
     solver_path,
     '{"time": times, "vert_frames": local_samples}',
     '{"time": times, "_sample_frame_offset": frame_offsets, '
     '"vert_frames": local_samples}')
+replace_exact(
+    solver_path,
+    '{"time": times, "vert_frames": state["samples"]}',
+    '{"time": times, "_sample_frame_offset": frame_offsets, '
+    '"vert_frames": state["samples"]}')
 
 params_path = "cloth_next/ppf/schema/params.py"
 replace_exact(
@@ -245,6 +257,7 @@ replace_exact(tests_path, insertion_anchor, regression_tests)
 for marker in (
     Path("maintenance/protocol-013-timebase-fix.txt"),
     Path("maintenance/apply_protocol_013_timebase_fix.py"),
+    Path("maintenance/trigger-pr-protocol-013-timebase-fix.txt"),
 ):
     if marker.exists():
         marker.unlink()
