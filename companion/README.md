@@ -7,7 +7,13 @@ along a frame-rate-independent linear path. Build-time Pillow derivatives keep
 the runtime lightweight; reduced motion freezes the field, and an asset failure
 leaves the background empty without affecting readiness. The upper bar shows
 overall progress and the lower bar shows the current solver activity. The
-Details foldout plots one relative performance score per solver frame with the
+solver-statistics row uses the existing collision, quality, and solver icons
+for Contacts, Newton, and Linear Iterations. Its background contains an
+unlabeled current-frame estimate learned from recent completed frame durations.
+The estimate is indeterminate until enough samples exist, never exceeds 95%
+while a frame runs, and reaches 100% only on a real solver completion event; it
+is not exact solver progress. The Details foldout plots one relative
+performance score per solver frame with the
 typed ETA centered below it. On failure the graph and ETA disappear while the
 stable error code, concise cause/recovery summary, and direct documentation
 link remain visible. `IconParticleField` owns and cancels its single `after()`
