@@ -87,7 +87,12 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
     assert "Generate Character Cage" in physics_ui
 
     assert "def _schema2_full_frame_indices" in scene_wire
-    assert 'animation.pop("_sample_frame_offset", None)' in scene_wire
+    for timeline_key in (
+            "_sample_frame_offset", "_logical_frame_count",
+            "_samples_per_frame", "_capture_fps"):
+        assert f'"{timeline_key}"' in scene_wire
+    assert "Schema 2 animated Collider is missing canonical" in scene_wire
+    assert "expected_samples = (" in scene_wire
     assert "settings.fps * settings.time_scale" in pin_wire
     assert '"_sample_frame_offset": frame_offsets' in solver_export
     assert "SCENE_EXPORT_CACHE_SCHEMA = 4" in solver_export
