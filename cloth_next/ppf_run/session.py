@@ -257,6 +257,8 @@ class SessionDiagnostics:
     last_completed_logical_frame: int | None = None
     last_fetched_frame: int | None = None
     termination_requested: bool = False
+    last_valid_health_response: dict[str, object] = field(
+        default_factory=dict)
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -464,6 +466,10 @@ class SolverSession:
                     f"The solver exited during startup with code "
                     f"{format_windows_exit_code(poll.exit_code)}.")
                 failure_kind = "CRASH_BEFORE_READY"
+            elif operation == "RUNTIME_METADATA":
+                user_message = (
+                    "The solver exited immediately after becoming ready.")
+                failure_kind = "CRASH_AFTER_READY"
             elif operation == "UPLOADING":
                 user_message = "The solver crashed while transferring the scene."
                 failure_kind = "CRASH_DURING_SCENE_TRANSFER"
@@ -494,6 +500,8 @@ class SolverSession:
                     f"last_successful_command="
                     f"{self.diagnostics.last_successful_command}; "
                     f"command_in_flight={self.diagnostics.command_in_flight}; "
+                    f"last_valid_health_response="
+                    f"{self.diagnostics.last_valid_health_response}; "
                     f"{record.technical_message}; ipc_endpoint="
                     f"{self._address.host}:{self._address.port}; "
                     f"last_output_frame={self.diagnostics.last_output_frame}"),
@@ -583,6 +591,46 @@ class SolverSession:
                      "host": self._address.host,
                      "port": self._address.port},
             exception=exc))
+
+    def _with_recovery_evidence(
+            self, exc: ClothNextError) -> ClothNextError:
+        """Attach post-failure recovery facts without weakening the cause."""
+        record = self._recovery_record
+        if record is None:
+            return exc
+        checkpoints = tuple(
+            item for item in record.checkpoints
+            if item.integrity == "VERIFIED")
+        checkpoint_frame = (
+            max(item.frame for item in checkpoints) if checkpoints else None)
+        partial_paths = tuple(
+            path for _uuid, path in record.partial_pc2
+            if Path(path).is_file())
+        if checkpoint_frame is not None:
+            recovery_message = (
+                f"A recovery checkpoint is available from frame "
+                f"{checkpoint_frame}.")
+        else:
+            recovery_message = (
+                "No verified recovery checkpoint is available.")
+        source = exc.record
+        return ClothNextError(ErrorRecord.create(
+            category=source.category,
+            user_message=f"{source.user_message} {recovery_message}",
+            technical_message=(
+                f"{source.technical_message}; "
+                f"recovery_state={record.state.value}; "
+                f"recovery_checkpoint_frame={checkpoint_frame}; "
+                f"partial_cache_candidates={partial_paths}"),
+            recommended_action=source.recommended_action,
+            recoverable=source.recoverable,
+            context={
+                **{key: value for key, value in source.context},
+                "recovery_state": record.state.value,
+                "recovery_checkpoint_frame": checkpoint_frame,
+                "partial_cache_candidates": partial_paths,
+            },
+            exception=exc), violations=exc.violations)
 
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
@@ -883,6 +931,14 @@ class SolverSession:
         self.diagnostics.package_version = health.package_version
         self.diagnostics.protocol_version = health.protocol_version
         self.diagnostics.schema_version = health.schema_version
+        self.diagnostics.last_valid_health_response = {
+            "reachable": health.reachable,
+            "compatible": health.compatible,
+            "package_version": health.package_version,
+            "protocol_version": health.protocol_version,
+            "schema_version": health.schema_version,
+            "wire_status": health.wire_status,
+        }
         self.diagnostics.last_successful_stage = "READY"
         self._address = wire.ServerAddress(config.host, config.port)
 
@@ -1591,14 +1647,18 @@ class SolverSession:
                 except (OSError, ValueError):
                     pass
             if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
-                primary_error = self._owned_connection_error(exc)
+                primary_error = self._with_recovery_evidence(
+                    self._owned_connection_error(exc))
                 raise primary_error from exc
             if (not owned
                     and exc.record.category is ErrorCategory.SOLVER_CONNECTION):
-                primary_error = self._external_connection_error(exc)
+                primary_error = self._with_recovery_evidence(
+                    self._external_connection_error(exc))
                 raise primary_error from exc
-            primary_error = exc
-            raise
+            primary_error = self._with_recovery_evidence(exc)
+            if primary_error is exc:
+                raise
+            raise primary_error from exc
         except BaseException as exc:
             primary_error = exc
             raise

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from cloth_next.bake import cache_metadata
+from cloth_next.bake import cache_metadata, pc2
 from cloth_next.bake.status import BakeState
 from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
 
@@ -26,6 +26,61 @@ def _phase4_meta():
                      "start_frame": 0.0, "sample_rate": 1.0},
         "details": {},
     }
+
+
+def test_solver_failure_preserves_only_valid_completed_frame_prefix(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    final = tmp_path / "cache.pc2"
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=2, frame_count=5)
+    frame = np.zeros((2, 3), dtype=np.float32)
+    writer.write_frame(frame)
+    writer.write_frame(frame + 1.0)
+    writer.write_frame(frame + 2.0)
+
+    result = module._preserve_failed_partial(writer)
+
+    assert result is not None
+    path, frames = result
+    assert frames == 3
+    assert path.is_file()
+    assert pc2.partial_frame_count(path, writer.header) == 3
+    assert not final.exists()
+
+
+def test_solver_failure_discards_input_pose_without_completed_solver_frame(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    writer = pc2.StreamingPc2Writer(
+        tmp_path / "cache.pc2", vertex_count=2, frame_count=5)
+    writer.write_frame(np.zeros((2, 3), dtype=np.float32))
+    temporary = writer.temporary_path
+
+    assert module._preserve_failed_partial(writer) is None
+    assert not temporary.exists()
+
+
+def test_preserved_partial_is_reported_without_replacing_primary_error(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    primary = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="The solver exited while simulating frame 3.",
+        technical_message="failure_kind=CRASH_DURING_SIMULATION",
+        recommended_action="Retry.", recoverable=True))
+    partial = tmp_path / "partial.pc2"
+    partial.write_bytes(b"validated")
+
+    enriched = module._with_preserved_partial_error(
+        primary, (("cloth", partial, 3),))
+
+    assert enriched.record.user_message.startswith(
+        "The solver exited while simulating frame 3.")
+    assert enriched.record.user_message.endswith(
+        "Completed frames were preserved.")
+    assert "validated_partial_pc2" in enriched.record.technical_message
+    assert "partial_frame_counts=(3,)" in enriched.record.technical_message
 
 
 def test_scene_fps_uses_blender_fps_base(blender_env):

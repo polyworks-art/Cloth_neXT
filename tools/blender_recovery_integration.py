@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -19,7 +20,9 @@ import bpy
 def _args():
     values = sys.argv[sys.argv.index("--") + 1:]
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("cancel", "resume"), required=True)
+    parser.add_argument(
+        "--phase", choices=("cancel", "crash", "fresh", "resume"),
+        required=True)
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--blend", type=Path, required=True)
     parser.add_argument("--cache", type=Path, required=True)
@@ -63,9 +66,12 @@ def _make_scene(args):
     return cloth
 
 
-def _drain_until_done(solver_test, worker, *, cancel):
+def _drain_until_done(solver_test, worker, *, cancel,
+                      terminate_server=False):
     messages = []
     cancelled = False
+    terminated = False
+    process_id = None
     deadline = time.monotonic() + 600
     while worker.is_alive() or not solver_test._queue.empty():
         if time.monotonic() > deadline:
@@ -76,18 +82,28 @@ def _drain_until_done(solver_test, worker, *, cancel):
         except queue.Empty:
             continue
         messages.append(message)
-        if cancel and message[0] == "event":
+        if message[0] == "event":
             event = message[1]
-            if (event.phase in {"SIMULATING", "FETCHING"}
+            if event.phase == "RUNTIME_METADATA" and event.process_id:
+                process_id = int(event.process_id)
+            if (cancel and event.phase in {"SIMULATING", "FETCHING"}
                     and int(event.frame_current or 0) >= 2):
                 solver_test.request_cancel()
                 cancelled = True
+            if (terminate_server and not terminated
+                    and process_id is not None
+                    and event.phase in {"SIMULATING", "FETCHING"}
+                    and int(event.frame_current or 0) >= 2):
+                subprocess.run(
+                    ["taskkill", "/PID", str(process_id), "/F"],
+                    check=True, capture_output=True, text=True)
+                terminated = True
     worker.join(timeout=10)
     terminal = [item for item in messages
                 if item[0] in {"cancelled", "finished", "error"}]
     if not terminal:
         raise RuntimeError("worker produced no terminal message")
-    return terminal[-1], cancelled, messages
+    return terminal[-1], cancelled, terminated, process_id, messages
 
 
 def _plan(solver_test, context):
@@ -108,7 +124,7 @@ def cancel_phase(args, solver_test):
         target=solver_test._worker_main, args=(plan,),
         name="recovery-real-cancel")
     worker.start()
-    terminal, requested, messages = _drain_until_done(
+    terminal, requested, _terminated, _pid, messages = _drain_until_done(
         solver_test, worker, cancel=True)
     if terminal[0] != "cancelled" or not requested:
         raise AssertionError(f"controlled cancel failed: {terminal[0]}")
@@ -125,6 +141,72 @@ def cancel_phase(args, solver_test):
         "partial_pc2": dict(record.partial_pc2),
         "blend": str(args.blend), "event_count": len(messages),
     }
+    args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def crash_phase(args, solver_test):
+    _make_scene(args)
+    args.cache.mkdir(parents=True, exist_ok=True)
+    plan = _plan(solver_test, bpy.context)
+    bpy.ops.wm.save_as_mainfile(
+        filepath=str(args.blend), check_existing=False)
+    solver_test._cancel_event.clear()
+    while not solver_test._queue.empty():
+        solver_test._queue.get_nowait()
+    worker = threading.Thread(
+        target=solver_test._worker_main, args=(plan,),
+        name="recovery-real-controlled-crash")
+    worker.start()
+    terminal, _cancelled, terminated, process_id, messages = (
+        _drain_until_done(
+            solver_test, worker, cancel=False, terminate_server=True))
+    if terminal[0] != "error" or not terminated:
+        raise AssertionError(
+            f"controlled crash did not reach the error path: {terminal[0]}")
+    from cloth_next import recovery
+    from cloth_next.bake import pc2
+    options = plan.recovery_options
+    assert options is not None
+    record = recovery.load_project(
+        options.metadata_path, verify_checkpoints=False)
+    if record is None:
+        raise AssertionError("controlled crash lost recovery metadata")
+    targets = {
+        target.uuid: target for target in solver_test._plan_deformables(plan)}
+    partials = {}
+    for uuid, value in record.partial_pc2:
+        target = targets[uuid]
+        path = Path(value)
+        expected = pc2.Pc2Header(
+            len(target.initial_local), 0.0, 1.0, plan.frame_count)
+        partials[uuid] = {
+            "path": str(path),
+            "exists": path.is_file(),
+            "validated_frames": (
+                pc2.partial_frame_count(path, expected)
+                if path.is_file() else 0),
+        }
+    checkpoints = [
+        {"frame": item.frame, "path": item.checkpoint_path,
+         "exists": Path(item.checkpoint_path).is_file(),
+         "integrity": item.integrity}
+        for item in record.checkpoints]
+    report = {
+        "phase": "crash",
+        "terminal": terminal[0],
+        "summary": terminal[1],
+        "details": terminal[2],
+        "control_server_pid": process_id,
+        "state": record.state.value,
+        "checkpoints": checkpoints,
+        "partial_pc2": partials,
+        "event_count": len(messages),
+    }
+    if not any(item["validated_frames"] > 1
+               for item in partials.values()):
+        raise AssertionError(
+            "controlled crash did not preserve a completed frame prefix")
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
 
@@ -152,7 +234,7 @@ def resume_phase(args, solver_test):
         target=solver_test._worker_main, args=(plan,),
         name="recovery-real-resume")
     worker.start()
-    terminal, _requested, messages = _drain_until_done(
+    terminal, _requested, _terminated, _pid, messages = _drain_until_done(
         solver_test, worker, cancel=False)
     if terminal[0] != "finished":
         raise AssertionError(f"resume failed: {terminal}")
@@ -173,16 +255,58 @@ def resume_phase(args, solver_test):
     print(json.dumps(report, indent=2))
 
 
+def fresh_phase(args, solver_test):
+    result = bpy.ops.clothnext.recovery_start_fresh("EXEC_DEFAULT")
+    if result != {"FINISHED"}:
+        raise AssertionError(f"Start Fresh failed: {result}")
+    cloth = bpy.data.objects["Recovery Cloth"]
+    bpy.context.view_layer.objects.active = cloth
+    cloth.select_set(True)
+    plan = _plan(solver_test, bpy.context)
+    if plan.recovery_options is None or plan.recovery_options.resume:
+        raise AssertionError("fresh Bake reused recovery state")
+    solver_test._cancel_event.clear()
+    while not solver_test._queue.empty():
+        solver_test._queue.get_nowait()
+    worker = threading.Thread(
+        target=solver_test._worker_main, args=(plan,),
+        name="recovery-real-fresh")
+    worker.start()
+    terminal, _requested, _terminated, _pid, messages = _drain_until_done(
+        solver_test, worker, cancel=False)
+    if terminal[0] != "finished":
+        raise AssertionError(f"fresh Bake failed: {terminal}")
+    diagnostics = terminal[2]
+    report = {
+        "phase": "fresh", "terminal": terminal[0],
+        "project": plan.scene.project_name,
+        "launch_id": diagnostics.solver_launch_id,
+        "process_id": diagnostics.process_id,
+        "protocol": diagnostics.protocol_version,
+        "schema": diagnostics.schema_version,
+        "fetched_frames": diagnostics.fetched_frames,
+        "cleanup_issues": diagnostics.cleanup_issues,
+        "event_count": len(messages),
+    }
+    args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
 def main():
     args = _args()
     solver_test = _load_addon(args)
     if args.phase == "cancel":
         cancel_phase(args, solver_test)
+    elif args.phase == "crash":
+        crash_phase(args, solver_test)
     else:
         # Register the repository PropertyGroups before opening the saved file
         # so Blender can restore the new Recovery fields from ID properties.
         bpy.ops.wm.open_mainfile(filepath=str(args.blend))
-        resume_phase(args, solver_test)
+        if args.phase == "fresh":
+            fresh_phase(args, solver_test)
+        else:
+            resume_phase(args, solver_test)
     bpy.ops.wm.quit_blender()
 
 

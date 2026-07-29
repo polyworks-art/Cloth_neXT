@@ -88,6 +88,68 @@ def test_windows_access_denied_is_not_collapsed_into_generic_launch_failure(
             caught.value.record.technical_message)
 
 
+@pytest.mark.parametrize(("error", "message", "failure_kind"), [
+    (FileNotFoundError(2, "not found"),
+     "The solver executable could not be found.", "EXECUTABLE_MISSING"),
+    (OSError(126, "module not found"),
+     "The solver could not start because a runtime dependency is missing.",
+     "RUNTIME_DEPENDENCY_MISSING"),
+    (OSError(8, "not enough memory"),
+     "The solver process could not be created.", "PROCESS_CREATION_FAILED"),
+])
+def test_process_creation_failures_keep_precise_classification(
+        tmp_path, error, message, failure_kind):
+    error.winerror = error.errno
+    with patch("cloth_next.ppf.process.subprocess.Popen",
+               side_effect=error):
+        manager = SolverProcessManager(config(tmp_path))
+        with pytest.raises(ClothNextError) as caught:
+            manager.start()
+
+    assert caught.value.record.user_message == message
+    assert failure_kind in caught.value.record.technical_message
+    assert caught.value.record.original_exception_type == type(error).__name__
+
+
+@pytest.mark.parametrize(("exit_code", "message", "failure_kind"), [
+    (0, "The solver exited cleanly without a shutdown request.",
+     "UNREQUESTED_CLEAN_EXIT"),
+    (9, "The solver exited with code 9 (0x00000009; unsigned 9).",
+     "NONZERO_PROCESS_EXIT"),
+])
+def test_unrequested_exit_classification_preserves_lifetime(
+        tmp_path, exit_code, message, failure_kind):
+    process = MagicMock()
+    process.poll.return_value = exit_code
+    process.pid = 321
+    process.stdout = StringIO("")
+    process.stderr = StringIO("")
+    manager = SolverProcessManager(config(tmp_path))
+    manager._process = process
+    manager._launch_id = "launch-exit"
+    manager._started_at = 100.0
+    manager._exit_observed_at = 103.5
+    manager._exit_code = exit_code
+
+    error = manager.early_exit_error(manager.poll())
+
+    assert error.record.user_message == message
+    assert failure_kind in error.record.technical_message
+    assert "process_lifetime_seconds=3.5" in error.record.technical_message
+    assert "termination_requested=False" in error.record.technical_message
+
+
+def test_disappeared_process_without_exit_code_is_not_generic(tmp_path):
+    manager = SolverProcessManager(config(tmp_path))
+    manager._launch_id = "launch-disappeared"
+
+    error = manager.early_exit_error(manager.poll())
+
+    assert error.record.user_message == (
+        "The solver process ended, but no exit code was available.")
+    assert "PROCESS_DISAPPEARED" in error.record.technical_message
+
+
 def test_new_launch_generation_clears_stale_output_and_activity(tmp_path):
     processes = []
     for pid in (101, 202):

@@ -114,6 +114,7 @@ def start_owned_and_wait(manager: SolverProcessManager,
             category=ErrorCategory.SOLVER_CONNECTION,
             user_message=f"Port {cfg.port} is already in use.",
             technical_message=(
+                f"failure_kind=PORT_ALREADY_OCCUPIED; "
                 f"owned launch refused before Popen because "
                 f"{cfg.host}:{cfg.port} accepted a connection; "
                 f"service_protocol={existing.protocol_version!r}; "

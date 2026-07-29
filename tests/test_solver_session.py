@@ -403,6 +403,77 @@ def test_owned_transport_loss_while_process_alive_is_not_called_process_exit(
         classified.record.technical_message)
 
 
+@pytest.mark.parametrize(("operation", "frame", "failure_kind", "message"), [
+    ("STARTING_SOLVER", None, "CRASH_BEFORE_READY",
+     "The solver exited during startup with code 7"),
+    ("RUNTIME_METADATA", None, "CRASH_AFTER_READY",
+     "The solver exited immediately after becoming ready."),
+    ("UPLOADING", None, "CRASH_DURING_SCENE_TRANSFER",
+     "The solver crashed while transferring the scene."),
+    ("BUILDING", None, "CRASH_DURING_PROJECT_BUILD",
+     "The solver crashed while building the simulation project."),
+    ("SIMULATING", 4, "CRASH_DURING_SIMULATION",
+     "The solver exited while simulating frame 4."),
+    ("FETCHING", 4, "CRASH_DURING_FRAME_FETCH",
+     "The solver crashed while fetching frame data."),
+])
+def test_owned_process_exit_keeps_exact_pipeline_phase(
+        tmp_path, operation, frame, failure_kind, message):
+    from types import SimpleNamespace
+
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    executable.with_name("ppf-contact-solver.exe").write_bytes(b"solver")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.13", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path / "run")
+    poll = SimpleNamespace(
+        running=False, process_id=123, exit_code=7,
+        stdout_tail=("ready",), stderr_tail=("CUDA failed",),
+        contact_peak=0, contact_last=0, contact_samples=0,
+        owned_process_ids=(123, 456), launch_id="launch-phase",
+        progress=SimpleNamespace(tail=("SERVER_READY",)))
+
+    class Manager:
+        def poll(self):
+            return poll
+
+        def final_poll(self):
+            return poll
+
+        def early_exit_error(self, _poll):
+            return ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_CONNECTION,
+                user_message="The solver exited with code 7.",
+                technical_message=(
+                    "failure_kind=NONZERO_PROCESS_EXIT; "
+                    "launch_id=launch-phase; stderr_tail=('CUDA failed',)"),
+                recommended_action="Inspect logs.", recoverable=True))
+
+    session._manager = Manager()
+    session._address = wire.ServerAddress("127.0.0.1", 49540)
+    session.diagnostics.active_operation = operation
+    session.diagnostics.current_logical_frame = frame
+    session.diagnostics.last_valid_health_response = {
+        "protocol_version": "0.13", "schema_version": "2"}
+    connection = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="connection refused",
+        recommended_action="Retry.", recoverable=True))
+
+    classified = session._owned_connection_error(connection)
+
+    assert classified.record.user_message.startswith(message)
+    assert failure_kind in classified.record.technical_message
+    assert "launch-phase" in classified.record.technical_message
+    assert "CUDA failed" in classified.record.technical_message
+    assert "last_valid_health_response" in (
+        classified.record.technical_message)
+
+
 def test_abnormal_solver_worker_status_preserves_pid_and_last_frame(
         tmp_path):
     session = SolverSession(
@@ -1206,3 +1277,79 @@ def test_cleanup_failure_does_not_replace_primary_connection_error(
         "Additional process cleanup issue: RuntimeError: "
         "process reader thread did not stop"]
     assert session._manager is not None
+
+
+def test_failure_diagnostics_include_verified_recovery_checkpoint(
+        tmp_path):
+    metadata = tmp_path / "recovery.json"
+    project_root = tmp_path / "server" / "project"
+    checkpoint = project_root / "session" / "output" / "state_4.bin.gz"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(gzip.compress(b"checkpoint"))
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="params",
+        export_uuids=("uuid-cloth",), geometry_fingerprint="geometry",
+        topology_fingerprint="topology", frame_start=1, frame_end=8,
+        fps=24.0, collider_sampling=(), solver_version="0.1.0",
+        protocol_version="0.13", solver_schema_version="2")
+    record = recovery.create_project(
+        metadata, project_id="project", identity=identity,
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(
+        metadata, record, (4,), keep=3)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    session._recovery_record = record
+    primary = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver exited while simulating frame 5.",
+        technical_message="failure_kind=SOLVER_WORKER_ABNORMAL_EXIT",
+        recommended_action="Retry.", recoverable=True))
+
+    enriched = session._with_recovery_evidence(primary)
+
+    assert enriched.record.user_message.startswith(
+        "The solver exited while simulating frame 5.")
+    assert enriched.record.user_message.endswith(
+        "A recovery checkpoint is available from frame 4.")
+    assert "recovery_checkpoint_frame=4" in (
+        enriched.record.technical_message)
+
+
+def test_failure_diagnostics_do_not_claim_unverified_partial_is_resumable(
+        tmp_path):
+    partial = tmp_path / "open-partial.pc2"
+    partial.write_bytes(b"not independently verified here")
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="params",
+        export_uuids=("uuid-cloth",), geometry_fingerprint="geometry",
+        topology_fingerprint="topology", frame_start=1, frame_end=8,
+        fps=24.0, collider_sampling=(), solver_version="0.1.0",
+        protocol_version="0.13", solver_schema_version="2")
+    record = recovery.ProjectRecord(
+        project_id="project", state=recovery.ProjectState.FAILED,
+        identity=identity, server_data_root=str(tmp_path / "server"),
+        project_root=str(tmp_path / "server" / "project"),
+        partial_pc2=(("uuid-cloth", str(partial)),))
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    session._recovery_record = record
+    primary = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver stopped.",
+        technical_message="failure_kind=CRASH_DURING_SIMULATION",
+        recommended_action="Retry.", recoverable=True))
+
+    enriched = session._with_recovery_evidence(primary)
+
+    assert enriched.record.user_message.endswith(
+        "No verified recovery checkpoint is available.")
+    assert "A recovery checkpoint is available" not in (
+        enriched.record.user_message)
+    assert partial.name in enriched.record.technical_message

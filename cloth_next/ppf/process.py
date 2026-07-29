@@ -529,6 +529,10 @@ class SolverProcessManager:
     def early_exit_error(self, poll: ProcessPoll) -> ClothNextError:
         if not poll.running:
             poll = self.final_poll()
+        lifetime = (
+            max(0.0, poll.exit_observed_at - poll.started_at)
+            if poll.started_at is not None
+            and poll.exit_observed_at is not None else None)
         if poll.exit_code == 0:
             user_message = (
                 "The solver exited cleanly without a shutdown request.")
@@ -549,6 +553,10 @@ class SolverProcessManager:
                 f"failure_kind={failure_kind}; launch_id={poll.launch_id}; "
                 f"control_server_pid={poll.process_id}; "
                 f"control_server_exit_code={format_windows_exit_code(poll.exit_code)}; "
+                f"process_started_at={poll.started_at}; "
+                f"process_exit_observed_at={poll.exit_observed_at}; "
+                f"process_lifetime_seconds={lifetime}; "
+                f"termination_requested={poll.termination_requested}; "
                 f"owned_process_ids={poll.owned_process_ids}; "
                 f"contacts(last={poll.contact_last}, peak={poll.contact_peak}, "
                 f"samples={poll.contact_samples}); stdout_tail={poll.stdout_tail}; "
@@ -564,5 +572,6 @@ class SolverProcessManager:
                      "launch_id": poll.launch_id,
                      "started_at": poll.started_at,
                      "exit_observed_at": poll.exit_observed_at,
+                     "lifetime_seconds": lifetime,
                      "termination_requested": poll.termination_requested},
         ))
