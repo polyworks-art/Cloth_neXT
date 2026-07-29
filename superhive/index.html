@@ -4,69 +4,104 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#02090b">
-  <meta name="description" content="Run shared GPU simulations for cloth, cables, soft bodies and PDRD rigid bodies from a focused Blender workflow with recovery and visual diagnostics.">
-  <meta property="og:title" content="Cloth NeXt — Production simulation inside Blender">
-  <meta property="og:description" content="Multi-object contact, animated colliders, sewing, friction regions, recovery checkpoints and visual intersection diagnostics powered by the external PPF Contact Solver.">
+  <meta name="description" content="Houdini-level GPU cloth simulation in a focused Blender workflow. Beta 2.2.0 fixes animated-collider timing for faster, more stable production bakes.">
+  <meta property="og:title" content="Cloth NeXt Beta 2.2.0 — Houdini-level cloth in Blender">
+  <meta property="og:description" content="Layered contact, correctly sampled animated colliders, 75 material presets, monitored GPU baking and verified playback caches.">
   <meta property="og:image" content="media/hero_wp.png">
-  <title>Cloth NeXt — Production simulation inside Blender</title>
+  <title>Cloth NeXt Beta 2.2.0 — Houdini-level cloth in Blender</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="preload" href="media/hero_wp.png" as="image" type="image/png">
-  <link rel="stylesheet" href="superhive.css?v=20260728-current-features">
+  <link rel="stylesheet" href="superhive.css?v=20260729">
+  <link rel="stylesheet" href="beta-2.2.0.css?v=20260729">
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
 
   <header class="product-bar">
-    <a class="brand" href="https://polyworks-art.github.io/Cloth_neXT/" target="_blank" rel="noopener">
+    <a class="brand" href="https://superhivemarket.com/products/cloth-next" target="_top">
       <img src="../assets/cloth-next-white.svg" alt="" width="44" height="35">
-      <span>
-        <strong>Cloth NeXt</strong>
-        <small>GPU SIMULATION FOR BLENDER</small>
-      </span>
+      <span><strong>Cloth NeXt</strong><small>GPU SIMULATION FOR BLENDER</small></span>
     </a>
-    <div class="product-links">
-      <span class="status"><i aria-hidden="true"></i>Stable <b data-channel-version="stable">2.0.0</b></span>
-      <a href="docs/" target="_blank" rel="noopener">Documentation ↗</a>
-    </div>
+    <div class="product-links"><span class="status beta-status"><i aria-hidden="true"></i>Beta <b>2.2.0</b></span></div>
   </header>
+
+  <aside class="release-banner" data-release-banner data-release-at="2026-07-29T21:00:00+02:00" aria-label="Beta 2.2.0 release countdown">
+    <div class="release-banner__signal" aria-hidden="true"><span></span></div>
+    <div class="release-banner__copy">
+      <span class="release-banner__badge">BETA 2.2.0</span>
+      <strong data-release-title>Critical timing fix launches tonight</strong>
+      <p data-release-copy>Animated collider samples now add motion fidelity without stretching the simulation timeline.</p>
+    </div>
+    <div class="release-countdown" data-countdown role="timer" aria-live="polite">
+      <span><b data-countdown-hours>04</b><small>HRS</small></span><i>:</i>
+      <span><b data-countdown-minutes>00</b><small>MIN</small></span><i>:</i>
+      <span><b data-countdown-seconds>00</b><small>SEC</small></span>
+    </div>
+    <a class="release-banner__action" href="https://superhivemarket.com/products/cloth-next" target="_top" data-release-action><span>Get Cloth NeXt</span><i aria-hidden="true">↗</i></a>
+  </aside>
 
   <main id="content">
     <section class="hero">
       <div class="hero-image" aria-hidden="true"></div>
       <div class="hero-shade" aria-hidden="true"></div>
       <div class="hero-copy">
-        <span class="eyebrow">ADVANCED CONTACT · BLENDER WORKFLOW</span>
-        <h1>Push the simulation. Keep the workflow clear.</h1>
-        <p>Set up Cloth, Cable / Rope, Soft Body, PDRD Rigid Body, Collider and Force objects in Blender. Cloth NeXt prepares the external PPF solve, monitors the bake, preserves recoverable states and imports verified playback caches.</p>
+        <span class="eyebrow">HIGH-END CONTACT · NATIVE BLENDER WORKFLOW</span>
+        <h1>Houdini-level cloth.<br><em>Right inside Blender.</em></h1>
+        <p>Build layered garments, animated character collisions, cables and soft bodies with the GPU-powered PPF Contact Solver, wrapped in a focused workflow that keeps setup, monitoring and playback inside Blender.</p>
         <div class="hero-actions">
-          <a class="button primary" href="#simulations">Watch the simulations <span>↓</span></a>
-          <a class="button ghost" href="#blender-setup">See the Blender workflow</a>
+          <a class="button primary" href="https://superhivemarket.com/products/cloth-next" target="_top">Get Cloth NeXt <span>↗</span></a>
+          <a class="button ghost" href="#beta-220">See what Beta 2.2.0 fixes <span>↓</span></a>
         </div>
-        <div class="hero-facts">
-          <span>Blender 5.0+</span>
-          <span>Windows x64</span>
-          <span>NVIDIA GPU</span>
+        <div class="hero-proof" aria-label="Key Cloth NeXt benefits">
+          <span><b>75</b> material presets</span>
+          <span><b>01</b> shared contact solve</span>
+          <span><b>0</b> command-line setup</span>
         </div>
+        <div class="hero-facts"><span>Blender 5.0+</span><span>Windows x64</span><span>NVIDIA GPU</span></div>
       </div>
     </section>
 
     <section class="value-strip" aria-label="Core Cloth NeXt features">
-      <div><strong>Shared multi-role solve</strong><span>Cloth, cables, soft bodies and rigid bodies interact</span></div>
-      <div><strong>Animated production scenes</strong><span>Follow Animation pins, deforming colliders and forces</span></div>
-      <div><strong>Artist-focused controls</strong><span>37 presets, Sewing and vertex-group Friction</span></div>
-      <div><strong>Recovery and diagnostics</strong><span>Verified checkpoints, Resume and intersection overlays</span></div>
+      <div><strong>Layered multi-object contact</strong><span>Separate garments interact in one shared solve</span></div>
+      <div><strong>Animation that stays in sync</strong><span>Follow Animation pins and sampled deforming colliders</span></div>
+      <div><strong>Artist-first material controls</strong><span>75 categorized presets and direct physical tuning</span></div>
+      <div><strong>Visible production baking</strong><span>Frame progress, solver activity, ETA, RAM and VRAM</span></div>
+    </section>
+
+    <section class="beta-launch section" id="beta-220" aria-labelledby="beta-title">
+      <div class="beta-launch__heading">
+        <div><span class="kicker">BETA 2.2.0 · TIMELINE CORRECTION</span><h2 id="beta-title">Eight samples.<br>One correct frame timeline.</h2></div>
+        <p>Dense collider sampling catches fast and curved motion between Blender frames. Beta 2.2.0 keeps that fidelity while restoring the intended simulation duration.</p>
+      </div>
+      <div class="timeline-card" aria-label="Animated collider timing comparison">
+        <div class="timeline-row timeline-row--old">
+          <div class="timeline-label"><span>BEFORE</span><strong>Samples became frames</strong><small>The timeline stretched and the solver did unnecessary work.</small></div>
+          <div class="sample-track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="timeline-result"><b>505</b><span>logical outputs</span></div>
+        </div>
+        <div class="timeline-row timeline-row--new">
+          <div class="timeline-label"><span>BETA 2.2.0</span><strong>Samples stay inside frames</strong><small>Accurate motion capture on the correct physical clock.</small></div>
+          <div class="frame-track" aria-hidden="true">
+            <div><b>01</b><span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div><b>02</b><span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div><b>03</b><span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+          </div>
+          <div class="timeline-result"><b>64</b><span>logical frames</span></div>
+        </div>
+      </div>
+      <div class="beta-benefits">
+        <article><span>01</span><h3>Faster production solves</h3><p>Collider samples no longer multiply the logical simulation length.</p></article>
+        <article><span>02</span><h3>Cleaner animated contact</h3><p>Subframe capture follows fast character motion without time drift.</p></article>
+        <article><span>03</span><h3>More stable inputs</h3><p>Collider, cloth and Follow Animation pins use one consistent clock.</p></article>
+      </div>
     </section>
 
     <section class="character-proof section" aria-labelledby="character-proof-title">
       <div class="character-proof-copy">
         <span class="kicker">LAYERED CHARACTER TEST</span>
         <h2 id="character-proof-title">Four garment pieces, solved together.</h2>
-        <p>The hood, sleeves, sash and skirt are separate deformable objects around one animated character. Each uses its own material settings while sharing contact with the other garments.</p>
-        <div class="proof-points">
-          <span><b>04</b> deformable garment objects</span>
-          <span><b>01</b> shared contact solve</span>
-          <span><b>ANIM</b> moving character collider</span>
-        </div>
+        <p>The hood, sleeves, sash and skirt are separate deformable objects around one animated character. Each keeps its own material response while sharing contact with the body and the other garments.</p>
+        <div class="proof-points"><span><b>04</b> deformable garment objects</span><span><b>01</b> shared contact solve</span><span><b>ANIM</b> sampled moving character collider</span></div>
       </div>
       <figure class="character-frame">
         <img src="media/Char_4k_compressed.png" alt="Layered Cloth NeXt character simulation with hood, sleeves, sash and skirt" loading="lazy">
@@ -75,155 +110,65 @@
     </section>
 
     <section class="motion section" id="simulations" aria-labelledby="motion-title">
-      <div class="motion-heading">
-        <span class="kicker">SIMULATION EXAMPLES</span>
-        <h2 id="motion-title">See the cached results in motion.</h2>
-        <p>These tests cover layered character cloth, dense flexible strands and volumetric soft bodies inside the same Blender-centered workflow.</p>
-      </div>
+      <div class="motion-heading"><span class="kicker">SIMULATION EXAMPLES</span><h2 id="motion-title">See the cached results in motion.</h2><p>Character cloth, dense flexible strands and volumetric soft bodies all use the same Blender-centered setup, bake and cache workflow.</p></div>
       <div class="motion-grid">
         <article class="motion-card featured">
-          <div class="video-frame">
-            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Layered character cloth simulation">
-              <source src="media/character-simulation.mp4" type="video/mp4">
-            </video>
-          </div>
-          <div class="motion-copy">
-            <span>CHARACTER CLOTH</span>
-            <h3>Four separate garments on one animated character.</h3>
-            <p>The garments keep distinct movement while colliding with the character and each other.</p>
-          </div>
+          <div class="video-frame"><video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Layered character cloth simulation"><source src="media/character-simulation.mp4" type="video/mp4"></video></div>
+          <div class="motion-copy"><span>CHARACTER CLOTH</span><h3>Four separate garments on one animated character.</h3><p>Distinct motion, shared collision and no need to split the scene into isolated solves.</p></div>
         </article>
         <article class="motion-card">
-          <div class="video-frame">
-            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful cable and rope simulation">
-              <source src="media/Strings.mp4" type="video/mp4">
-            </video>
-          </div>
-          <div class="motion-copy">
-            <span>CABLE / ROPE</span>
-            <h3>Dense flexible strands in shared contact.</h3>
-            <p>Curves bend, wrap and collide as separate one-dimensional elements.</p>
-          </div>
+          <div class="video-frame"><video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Colorful cable and rope simulation"><source src="media/Strings.mp4" type="video/mp4"></video></div>
+          <div class="motion-copy"><span>CABLE / ROPE</span><h3>Dense flexible strands in shared contact.</h3><p>Curves bend, wrap and collide as separate one-dimensional elements.</p></div>
         </article>
         <article class="motion-card">
-          <div class="video-frame">
-            <video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Cushion soft body contact simulation">
-              <source src="media/Cushins.mp4" type="video/mp4">
-            </video>
-          </div>
-          <div class="motion-copy">
-            <span>SOFT BODY</span>
-            <h3>Cushions compressing and stacking.</h3>
-            <p>Closed meshes are tetrahedralized for volumetric deformation and contact.</p>
-          </div>
+          <div class="video-frame"><video autoplay muted loop playsinline preload="metadata" controls controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="Cushion soft body contact simulation"><source src="media/Cushins.mp4" type="video/mp4"></video></div>
+          <div class="motion-copy"><span>SOFT BODY</span><h3>Cushions compressing and stacking.</h3><p>Closed meshes are tetrahedralized for volumetric deformation and contact.</p></div>
         </article>
       </div>
     </section>
 
     <section class="workflow section" id="blender-setup">
       <div class="workflow-copy">
-        <span class="kicker">IN BLENDER</span>
-        <h2>Role-specific setup in Physics Properties.</h2>
-        <p>Cloth NeXt keeps scene setup inside Blender and exposes only the controls that matter for the selected simulation role.</p>
-        <ul class="check-list">
-          <li>Assign Cloth, Cable / Rope, Soft Body, Rigid Body, Collider or Force roles</li>
-          <li>Choose one of 37 fabric presets or edit the physical values directly</li>
-          <li>Add Static or Follow Animation pins, Sewing and vertex-group Friction regions</li>
-          <li>Use static, animated or topology-preserving deforming Collider geometry</li>
-          <li>Validate the evaluated Bake-start scene, choose the frame range and start the shared solve</li>
-        </ul>
+        <span class="kicker">IN BLENDER</span><h2>High-end simulation without leaving the scene.</h2><p>Cloth NeXt keeps the artist-facing workflow in Blender and prepares the external PPF solve behind the scenes.</p>
+        <ul class="check-list"><li>Assign Cloth, Cable / Rope, Soft Body, Rigid Body, Collider or Force roles</li><li>Choose one of 75 material presets or edit physical values directly</li><li>Add Static or Follow Animation pins, Sewing and vertex-group Friction</li><li>Use static, transform-only or topology-preserving deforming colliders</li><li>Validate the evaluated scene and launch one shared production solve</li></ul>
       </div>
-      <figure class="ui-frame">
-        <img src="media/cloth-next-ui.png" alt="Cloth NeXt role-specific Physics Properties interface in Blender" loading="lazy">
-        <figcaption>Physics Properties · role-specific setup</figcaption>
-      </figure>
+      <figure class="ui-frame"><img src="media/cloth-next-ui.png" alt="Cloth NeXt role-specific Physics Properties interface in Blender" loading="lazy"><figcaption>Physics Properties · role-specific setup</figcaption></figure>
     </section>
 
     <section class="bake section">
       <div class="bake-card">
-        <div class="bake-visual">
-          <img src="media/cloth-next-bake-window.png" alt="Cloth NeXt Bake window showing frame progress and solver activity" loading="lazy">
-        </div>
-        <div class="bake-copy">
-          <span class="kicker">DEDICATED BAKE WINDOW</span>
-          <h2>Watch, cancel and recover.</h2>
-          <p>The Bake window follows preparation and simulation with frame progress, solver activity, elapsed time, ETA and system usage. Cancelling a running solve attempts to save a verified recovery checkpoint, making Resume available when the solver state can be preserved.</p>
-          <div class="mini-features">
-            <span><b>FRAME</b> Export, solve and import progress</span>
-            <span><b>SYSTEM</b> CPU, RAM and VRAM monitoring</span>
-            <span><b>RECOVERY</b> Latest verified checkpoint and Resume</span>
-          </div>
-        </div>
+        <div class="bake-visual"><img src="media/cloth-next-bake-window.png" alt="Cloth NeXt Bake window showing frame progress and solver activity" loading="lazy"></div>
+        <div class="bake-copy"><span class="kicker">DEDICATED BAKE WINDOW</span><h2>See the expensive part happening.</h2><p>Follow export, solve and import progress with elapsed time, ETA, solver statistics and system usage. Estimated current-frame activity keeps difficult frames from looking frozen.</p><div class="mini-features"><span><b>FRAME</b> Real completed-frame progress</span><span><b>SOLVER</b> Contacts, Newton and linear iterations</span><span><b>SYSTEM</b> CPU, RAM and VRAM monitoring</span></div></div>
       </div>
     </section>
 
     <section class="reliability section">
-      <div class="reliability-lead">
-        <span class="kicker">VALIDATION AND DIAGNOSTICS</span>
-        <h2>When the solver rejects a scene, see what it actually found.</h2>
-        <p>Cloth NeXt validates the evaluated solver input, preserves structured failures and turns reported intersections into actionable viewport diagnostics instead of an opaque process trace.</p>
-      </div>
-      <div class="reliability-grid">
-        <article><strong>INPUT</strong><h3>Exact solver geometry</h3><p>Inspect the evaluated and triangulated Bake-start geometry that was sent to the solver.</p></article>
-        <article><strong>CONTACT</strong><h3>Intersection overlays</h3><p>Highlight both reported elements with object names and triangle or source-face references.</p></article>
-        <article><strong>STATE</strong><h3>Recovery checkpoints</h3><p>Verified saved states remain available after cancellation and can be resumed from Blender.</p></article>
-        <article><strong>CACHE</strong><h3>Verified output</h3><p>Transactional PC2 publication prevents incomplete or incompatible results from replacing a valid cache.</p></article>
-      </div>
+      <div class="reliability-lead"><span class="kicker">VALIDATION AND DIAGNOSTICS</span><h2>Long bakes deserve guardrails.</h2><p>Cloth NeXt validates evaluated solver input, preserves structured failures and publishes verified caches instead of replacing a good result with a partial write.</p></div>
+      <div class="reliability-grid"><article><strong>INPUT</strong><h3>Exact solver geometry</h3><p>Inspect the evaluated and triangulated Bake-start geometry sent to the solver.</p></article><article><strong>CONTACT</strong><h3>Intersection overlays</h3><p>Highlight reported elements with object names and source-face references.</p></article><article><strong>STATUS</strong><h3>Readable failures</h3><p>Artist-facing causes and next steps stay separate from complete diagnostic logs.</p></article><article><strong>CACHE</strong><h3>Verified playback</h3><p>Transactional PC2 publication blocks incomplete or incompatible output.</p></article></div>
     </section>
 
     <section class="license-story section">
-      <div class="price-copy">
-        <span class="kicker">LICENSES</span>
-        <h2>Same complete add-on. Different commercial limits.</h2>
-        <p>Both licenses contain the full Cloth NeXt feature set.</p>
-      </div>
+      <div class="price-copy"><span class="kicker">LICENSES</span><h2>Same complete add-on. Different commercial limits.</h2><p>Both licenses contain the full Cloth NeXt feature set.</p></div>
       <div class="license-prices">
-        <article class="license-card">
-          <span>PERSONAL LICENSE</span>
-          <div class="license-price"><strong>€20</strong><small>ONE TIME</small></div>
-          <p>For one individual user. Includes personal and non-commercial use, plus commercial work generating up to <b>US$1,000 in revenue per year</b>.</p>
-          <small class="license-note">Not intended for companies, studios or shared team use.</small>
-        </article>
-        <article class="license-card commercial">
-          <span>COMMERCIAL LICENSE</span>
-          <div class="license-price"><strong>€50</strong><small>ONE TIME</small></div>
-          <p>For one individual professional user. Includes unlimited commercial use for freelance work, client projects, paid productions and other revenue-generating activities.</p>
-          <small class="license-note">One license is required per user.</small>
-        </article>
+        <article class="license-card"><span>PERSONAL LICENSE</span><div class="license-price"><strong>€20</strong><small>ONE TIME</small></div><p>For one individual user. Includes personal and non-commercial use, plus commercial work generating up to <b>US$1,000 in revenue per year</b>.</p><small class="license-note">Not intended for companies, studios or shared team use.</small></article>
+        <article class="license-card commercial"><span>COMMERCIAL LICENSE</span><div class="license-price"><strong>€50</strong><small>ONE TIME</small></div><p>For one individual professional user. Includes unlimited commercial use for freelance work, client projects and paid productions.</p><small class="license-note">One license is required per user.</small></article>
       </div>
     </section>
 
     <section class="requirements">
-      <div class="requirements-title">
-        <span class="kicker">BEFORE YOU BUY</span>
-        <h2>Requirements and solver setup.</h2>
-      </div>
-      <div class="requirement-grid">
-        <span><small>BLENDER</small><strong>5.0 or newer</strong></span>
-        <span><small>OPERATING SYSTEM</small><strong>Windows x64</strong></span>
-        <span><small>GPU</small><strong>Compatible NVIDIA GPU</strong></span>
-        <span><small>SOLVER</small><strong>Installed separately</strong></span>
-      </div>
+      <div class="requirements-title"><span class="kicker">BEFORE YOU BUY</span><h2>Requirements and solver setup.</h2></div>
+      <div class="requirement-grid"><span><small>BLENDER</small><strong>5.0 or newer</strong></span><span><small>OPERATING SYSTEM</small><strong>Windows x64</strong></span><span><small>GPU</small><strong>Compatible NVIDIA GPU</strong></span><span><small>SOLVER</small><strong>Installed separately</strong></span></div>
       <p>The PPF Contact Solver is separate software developed and distributed by ST Tech / ZOZO. Cloth NeXt guides installation from the verified official source but does not include or redistribute the solver. Required VRAM, RAM, disk space and bake time depend on the scene.</p>
     </section>
 
     <section class="final-cta">
-      <img src="../assets/cloth-next-white.svg" alt="" width="62" height="48">
-      <span class="kicker">CLOTH NEXT</span>
-      <h2>Get Cloth NeXt on Superhive.</h2>
-      <p>Choose Personal for individual use with limited annual commercial revenue, or Commercial for unrestricted professional work.</p>
-      <div class="hero-actions centered">
-        <a class="button primary" href="https://superhivemarket.com/products/cloth-next" target="_top">View the product <span>↗</span></a>
-        <a class="button ghost" href="docs/" target="_blank" rel="noopener">Read the documentation</a>
-      </div>
+      <img src="../assets/cloth-next-white.svg" alt="" width="62" height="48"><span class="kicker">CLOTH NEXT · BETA 2.2.0</span><h2>Push the simulation.<br>Keep Blender yours.</h2><p>Get the complete Cloth NeXt workflow from the official Superhive listing.</p>
+      <div class="hero-actions centered"><a class="button primary" href="https://superhivemarket.com/products/cloth-next" target="_top">Get Cloth NeXt on Superhive <span>↗</span></a></div>
     </section>
   </main>
 
-  <footer>
-    <strong>Cloth NeXt</strong>
-    <span>Blender workflow for the external PPF Contact Solver.</span>
-    <a href="https://polyworks-art.github.io/Cloth_neXT/releases/" target="_blank" rel="noopener">Release notes ↗</a>
-  </footer>
+  <footer><strong>Cloth NeXt</strong><span>High-end contact simulation in a Blender-first workflow.</span><a href="https://superhivemarket.com/products/cloth-next" target="_top">View on Superhive ↗</a></footer>
   <script src="versions.js" defer></script>
+  <script src="beta-2.2.0.js?v=20260729" defer></script>
 </body>
 </html>
