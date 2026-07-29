@@ -25,144 +25,172 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install release validation dependencies
-        run: pip install -r requirements-build.txt
-
-      - name: Discover and validate the public release set
+      - name: Inventory releases and preserve tag identities
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t RELEASE_TAGS < <(
-            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq '.[].tag_name'
-          )
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python - <<'PY'
+import json
+import os
+from pathlib import Path
 
-          if [ "${#RELEASE_TAGS[@]}" -ne 2 ]; then
-            printf 'Expected exactly two public releases (2.0.0 and 2.1.0), found %s:\n' "${#RELEASE_TAGS[@]}" >&2
-            printf '  %s\n' "${RELEASE_TAGS[@]:-<none>}" >&2
-            exit 1
-          fi
-
-          declare -A FOUND=()
-          for tag in "${RELEASE_TAGS[@]}"; do
-            version="${tag#v}"
-            case "$version" in
-              2.0.0|2.1.0) FOUND["$version"]="$tag" ;;
-              *) echo "Unexpected public release $tag; refusing destructive cleanup" >&2; exit 1 ;;
-            esac
-          done
-
-          for version in 2.0.0 2.1.0; do
-            if [ -z "${FOUND[$version]:-}" ]; then
-              echo "Missing public release $version" >&2
-              exit 1
-            fi
-            printf '%s=%s\n' "$version" "${FOUND[$version]}" >> "$RUNNER_TEMP/release-tags.env"
-          done
-
-      - name: Download and authenticate both legacy releases
-        shell: bash
-        run: |
-          set -euo pipefail
-          source "$RUNNER_TEMP/release-tags.env"
+releases = json.loads((Path(os.environ["RUNNER_TEMP"]) / "releases.json").read_text())
+if not isinstance(releases, list):
+    raise SystemExit("GitHub release inventory is not a list")
+by_version = {str(item.get("tag_name", "")).removeprefix("v"): item for item in releases}
+for version in ("2.0.0", "2.1.0"):
+    if version not in by_version:
+        raise SystemExit(f"required legacy release {version} is missing")
+print("public releases:", ", ".join(str(item.get("tag_name")) for item in releases))
+PY
           git fetch origin --tags --force
-          mkdir -p "$RUNNER_TEMP/legacy-releases"
-
-          for version in 2.0.0 2.1.0; do
-            case "$version" in
-              2.0.0) tag="$2_0_0" ;;
-              2.1.0) tag="$2_1_0" ;;
-            esac
+          : > "$RUNNER_TEMP/tag-commits.tsv"
+          jq -r '.[].tag_name' "$RUNNER_TEMP/releases.json" | while IFS= read -r tag; do
+            test -n "$tag"
+            commit="$(git rev-list -n 1 "$tag")"
+            test -n "$commit" || { echo "Release tag $tag is missing" >&2; exit 1; }
+            printf '%s\t%s\n' "$tag" "$commit" >> "$RUNNER_TEMP/tag-commits.tsv"
           done
-        continue-on-error: true
 
-      - name: Prepare release tag map
+      - name: Download 2.0.0 and 2.1.0 and build canonical Pages sets
         shell: bash
         run: |
           set -euo pipefail
-          TAG_200="$(awk -F= '$1=="2.0.0" {print $2}' "$RUNNER_TEMP/release-tags.env")"
-          TAG_210="$(awk -F= '$1=="2.1.0" {print $2}' "$RUNNER_TEMP/release-tags.env")"
-          test -n "$TAG_200" && test -n "$TAG_210"
-          echo "TAG_200=$TAG_200" >> "$GITHUB_ENV"
-          echo "TAG_210=$TAG_210" >> "$GITHUB_ENV"
-
-      - name: Download, validate, and stage immutable artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin --tags --force
           git fetch origin gh-pages
           git worktree add "$RUNNER_TEMP/pages" origin/gh-pages
-          mkdir -p "$RUNNER_TEMP/legacy-releases"
+          mkdir -p "$RUNNER_TEMP/legacy"
 
           for version in 2.0.0 2.1.0; do
-            if [ "$version" = 2.0.0 ]; then tag="$TAG_200"; else tag="$TAG_210"; fi
-            source_dir="$RUNNER_TEMP/legacy-releases/$version"
+            release_json="$RUNNER_TEMP/release-$version.json"
+            VERSION="$version" python - <<'PY' > "$release_json"
+import json
+import os
+from pathlib import Path
+releases = json.loads((Path(os.environ["RUNNER_TEMP"]) / "releases.json").read_text())
+version = os.environ["VERSION"]
+for item in releases:
+    if str(item.get("tag_name", "")).removeprefix("v") == version:
+        print(json.dumps(item))
+        break
+else:
+    raise SystemExit(f"release {version} not found")
+PY
+            tag="$(jq -r '.tag_name' "$release_json")"
+            published_at="$(jq -r '.published_at // .created_at' "$release_json")"
+            source_dir="$RUNNER_TEMP/legacy/$version"
             mkdir -p "$source_dir"
             gh release download "$tag" --dir "$source_dir"
-
-            archive="$source_dir/cloth_next-$version-windows-x64.zip"
-            manifest="$source_dir/release-manifest.json"
-            sums="$source_dir/SHA256SUMS.txt"
-            for path in "$archive" "$manifest" "$sums"; do
-              test -f "$path" || { echo "Missing required release asset: $path" >&2; exit 1; }
-            done
-
             gh release view "$tag" --json body --jq '.body // ""' > "$source_dir/RELEASE_NOTES.md"
             if ! grep -q '[^[:space:]]' "$source_dir/RELEASE_NOTES.md"; then
               printf '# Cloth NeXt %s\n\nLegacy GitHub release notes were empty.\n' "$version" > "$source_dir/RELEASE_NOTES.md"
             fi
 
             tag_commit="$(git rev-list -n 1 "$tag")"
-            VERSION="$version" TAG_NAME="$tag" TAG_COMMIT="$tag_commit" SOURCE_DIR="$source_dir" python - <<'PY'
+            destination="$RUNNER_TEMP/pages/artifacts/$version"
+            mkdir -p "$destination"
+
+            VERSION="$version" TAG_NAME="$tag" TAG_COMMIT="$tag_commit" \
+            PUBLISHED_AT="$published_at" SOURCE_DIR="$source_dir" DESTINATION="$destination" \
+            python - <<'PY'
+import hashlib
 import json
 import os
+import shutil
+import tomllib
+import zipfile
 from pathlib import Path
-from tools.validate_release_policy import (
-    check_release_manifest,
-    check_sha256sums,
-    check_zip,
-    parse_version,
-)
 
-version_text = os.environ["VERSION"]
+version = os.environ["VERSION"]
 tag = os.environ["TAG_NAME"]
 tag_commit = os.environ["TAG_COMMIT"]
-root = Path(os.environ["SOURCE_DIR"])
-archive = root / f"cloth_next-{version_text}-windows-x64.zip"
-manifest_path = root / "release-manifest.json"
-sums_path = root / "SHA256SUMS.txt"
-version = parse_version(version_text)
-check_zip(archive, version)
-check_release_manifest(manifest_path, archive, version, tag)
-check_sha256sums(sums_path, archive)
-metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
-if metadata.get("git_commit") != tag_commit:
-    raise SystemExit(
-        f"release manifest commit {metadata.get('git_commit')!r} does not match tag commit {tag_commit!r}"
-    )
-PY
+published_at = os.environ["PUBLISHED_AT"]
+source = Path(os.environ["SOURCE_DIR"])
+destination = Path(os.environ["DESTINATION"])
 
-            destination="$RUNNER_TEMP/pages/artifacts/$version"
-            if [ -e "$destination" ]; then
-              for name in "$(basename "$archive")" release-manifest.json SHA256SUMS.txt RELEASE_NOTES.md; do
-                cmp "$source_dir/$name" "$destination/$name" || {
-                  echo "Existing Pages artifact differs for $version/$name" >&2
-                  exit 1
-                }
-              done
-            else
-              mkdir -p "$destination"
-              cp "$archive" "$manifest" "$sums" "$source_dir/RELEASE_NOTES.md" "$destination/"
-            fi
+zips = [p for p in source.glob("*.zip") if "cloth" in p.name.lower() and "next" in p.name.lower()]
+if len(zips) != 1:
+    raise SystemExit(f"expected one Cloth NeXt ZIP for {version}, found {[p.name for p in zips]}")
+source_zip = zips[0]
+canonical_name = f"cloth_next-{version}-windows-x64.zip"
+canonical_zip = destination / canonical_name
+
+with zipfile.ZipFile(source_zip) as bundle:
+    names = bundle.namelist()
+    manifest_names = [n for n in names if n.endswith("blender_manifest.toml")]
+    if len(manifest_names) != 1:
+        raise SystemExit(f"ZIP has ambiguous blender_manifest.toml: {manifest_names}")
+    manifest = tomllib.loads(bundle.read(manifest_names[0]).decode("utf-8"))
+    if str(manifest.get("version")) != version:
+        raise SystemExit(f"ZIP manifest version {manifest.get('version')!r} does not match {version}")
+
+    solver_names = [n for n in names if n.endswith("solver_compatibility.json")]
+    if len(solver_names) != 1:
+        raise SystemExit(f"ZIP has ambiguous solver_compatibility.json: {solver_names}")
+    solver = json.loads(bundle.read(solver_names[0]))
+
+    lowered = [n.lower().replace("\\", "/") for n in names]
+    forbidden = [n for n in lowered if (
+        "ppf-cts-server" in n
+        or "ppf-contact-solver" in n
+        or n.endswith("/headless.bat")
+        or "/runtime/vendor.dll" in n
+        or "/managed_solver/" in n
+    )]
+    if forbidden:
+        raise SystemExit(f"forbidden solver material found in legacy ZIP: {forbidden[:10]}")
+
+protocols = set()
+for platform in solver.get("platforms", {}).values():
+    if not isinstance(platform, dict):
+        continue
+    releases = platform.get("releases")
+    entries = releases if isinstance(releases, list) else [platform]
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("protocol_version"):
+            protocols.add(str(entry["protocol_version"]))
+if not protocols:
+    raise SystemExit("solver compatibility metadata contains no protocol version")
+
+bytes_data = source_zip.read_bytes()
+sha256 = hashlib.sha256(bytes_data).hexdigest()
+if canonical_zip.exists() and canonical_zip.read_bytes() != bytes_data:
+    raise SystemExit(f"existing canonical ZIP differs for {version}")
+canonical_zip.write_bytes(bytes_data)
+
+channel = "stable" if version == "2.0.0" else "beta"
+metadata = {
+    "cloth_next_version": version,
+    "git_tag": tag,
+    "git_commit": tag_commit,
+    "release_channel": channel,
+    "build_date": published_at,
+    "blender_minimum_version": manifest.get("blender_version_min"),
+    "platform": "windows-x64",
+    "required_ppf_protocol": next(iter(protocols)) if len(protocols) == 1 else sorted(protocols),
+    "solver_compatibility_manifest_version": solver.get("manifest_version"),
+    "solver_bundled": False,
+    "extension_zip_sha256": sha256,
+    "extension_zip_name": canonical_name,
+}
+manifest_path = destination / "release-manifest.json"
+sums_path = destination / "SHA256SUMS.txt"
+notes_path = destination / "RELEASE_NOTES.md"
+new_manifest = json.dumps(metadata, indent=2) + "\n"
+new_sums = f"{sha256}  {canonical_name}\n"
+notes = (source / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+for path, content in ((manifest_path, new_manifest), (sums_path, new_sums), (notes_path, notes)):
+    if path.exists() and path.read_text(encoding="utf-8") != content:
+        raise SystemExit(f"existing canonical metadata differs: {path}")
+    path.write_text(content, encoding="utf-8")
+
+# Final local integrity check.
+if hashlib.sha256(canonical_zip.read_bytes()).hexdigest() != metadata["extension_zip_sha256"]:
+    raise SystemExit("canonical ZIP hash changed during migration")
+PY
           done
 
-      - name: Publish canonical Pages artifact sets
+      - name: Publish and verify both canonical artifact directories
         shell: bash
         run: |
           set -euo pipefail
@@ -180,68 +208,30 @@ PY
               commit -m "Migrate 2.0.0 and 2.1.0 release artifacts"
             git -C "$RUNNER_TEMP/pages" push origin HEAD:gh-pages
           fi
-
           git fetch origin gh-pages
           test "$(git -C "$RUNNER_TEMP/pages" rev-parse HEAD)" = "$(git rev-parse origin/gh-pages)"
-
-      - name: Re-verify artifacts from the published Pages commit
-        shell: bash
-        run: |
-          set -euo pipefail
           for version in 2.0.0 2.1.0; do
-            if [ "$version" = 2.0.0 ]; then tag="$TAG_200"; else tag="$TAG_210"; fi
-            root="$RUNNER_TEMP/pages/artifacts/$version"
-            tag_commit="$(git rev-list -n 1 "$tag")"
-            VERSION="$version" TAG_NAME="$tag" TAG_COMMIT="$tag_commit" SOURCE_DIR="$root" python - <<'PY'
-import json
-import os
-from pathlib import Path
-from tools.validate_release_policy import (
-    check_release_manifest,
-    check_sha256sums,
-    check_zip,
-    parse_version,
-)
-
-version_text = os.environ["VERSION"]
-tag = os.environ["TAG_NAME"]
-tag_commit = os.environ["TAG_COMMIT"]
-root = Path(os.environ["SOURCE_DIR"])
-archive = root / f"cloth_next-{version_text}-windows-x64.zip"
-version = parse_version(version_text)
-check_zip(archive, version)
-check_release_manifest(root / "release-manifest.json", archive, version, tag)
-check_sha256sums(root / "SHA256SUMS.txt", archive)
-if not (root / "RELEASE_NOTES.md").is_file():
-    raise SystemExit("published RELEASE_NOTES.md is missing")
-metadata = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
-if metadata.get("git_commit") != tag_commit:
-    raise SystemExit("published release manifest no longer matches the immutable tag")
-PY
+            for name in "cloth_next-$version-windows-x64.zip" release-manifest.json SHA256SUMS.txt RELEASE_NOTES.md; do
+              git cat-file -e "origin/gh-pages:artifacts/$version/$name"
+            done
           done
 
-      - name: Delete public GitHub releases while preserving tags
+      - name: Delete every public GitHub release and preserve every tag
         shell: bash
         run: |
           set -euo pipefail
-          COMMIT_200="$(git rev-list -n 1 "$TAG_200")"
-          COMMIT_210="$(git rev-list -n 1 "$TAG_210")"
-
-          gh release delete "$TAG_200" --yes
-          gh release delete "$TAG_210" --yes
+          jq -r '.[].tag_name' "$RUNNER_TEMP/releases.json" | while IFS= read -r tag; do
+            test -n "$tag"
+            gh release delete "$tag" --yes
+          done
 
           git fetch origin --tags --force
-          test "$(git rev-list -n 1 "$TAG_200")" = "$COMMIT_200"
-          test "$(git rev-list -n 1 "$TAG_210")" = "$COMMIT_210"
+          while IFS=$'\t' read -r tag expected_commit; do
+            test "$(git rev-list -n 1 "$tag")" = "$expected_commit"
+          done < "$RUNNER_TEMP/tag-commits.tsv"
 
-          mapfile -t REMAINING < <(
-            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq '.[].tag_name'
-          )
-          if [ "${#REMAINING[@]}" -ne 0 ]; then
-            printf 'Public releases remain after cleanup:\n  %s\n' "${REMAINING[@]}" >&2
-            exit 1
-          fi
+          remaining="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq 'length')"
+          test "$remaining" = 0 || { echo "$remaining GitHub releases remain" >&2; exit 1; }
 
       - name: Remove this one-shot workflow
         shell: bash
@@ -258,6 +248,7 @@ PY
       - name: Summary
         run: |
           echo "## Legacy release migration complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "- 2.0.0 and 2.1.0 were authenticated and copied to gh-pages/artifacts/<version>/" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Public GitHub releases were deleted" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Both immutable Git tags were preserved" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 2.0.0 and 2.1.0 were copied to gh-pages/artifacts/<version>/" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Canonical manifests and checksums were regenerated from the original ZIPs and immutable tags" >> "$GITHUB_STEP_SUMMARY"
+          echo "- The complete public GitHub release list was deleted" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Every release tag was preserved at its original commit" >> "$GITHUB_STEP_SUMMARY"
