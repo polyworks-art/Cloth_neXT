@@ -88,6 +88,17 @@ def test_control_server_exit_has_distinct_connection_code():
                  "owned_process_ids=(123, 456)")) == "CNX-E146"
 
 
+def test_recovery_traceback_function_name_is_not_misclassified_as_pin_error():
+    details = (
+        "SceneValidationError: Resume was refused because the newest solver "
+        "checkpoint predates the playable cache prefix.\n"
+        "  File \"solver_test.py\", line 6593, in _pin_capture_pump")
+    assert classify_error("PREPARING", details=details) == "CNX-E127"
+    assert classify_error(
+        "PREPARING",
+        details="Animated Pinning changed Cloth topology") == "CNX-E105"
+
+
 def test_controller_accepts_only_registered_explicit_codes():
     controller = BakeController()
     controller.transition(BakeState.PREPARING)

@@ -101,6 +101,51 @@ def test_start_waits_for_delayed_ready_marker_and_query():
     assert manager.started and not manager.stopped
 
 
+def test_ready_marker_tolerates_initial_connection_refusals_then_succeeds():
+    manager = FakeManager([
+        poll(ready=True), poll(ready=True), poll(ready=True)])
+    refused = HealthSnapshot(
+        False, False, ConnectionOwnership.OWNED_PROCESS, True,
+        "127.0.0.1", 19091, None, None, None, None, None, 42, None,
+        ErrorRecord.create(
+            category=ErrorCategory.SOLVER_CONNECTION,
+            user_message="Could not connect",
+            technical_message="connection refused",
+            recommended_action="retry"),
+        __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc))
+    ready = HealthSnapshot(
+        True, True, ConnectionOwnership.OWNED_PROCESS, True,
+        "127.0.0.1", 19091, "0.1.0", "0.11", "1", "NO_DATA",
+        None, 42, None, None,
+        __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc))
+    with patch("cloth_next.ppf.health.port_reachable", return_value=False), \
+         patch("cloth_next.ppf.health.query_health",
+               side_effect=[refused, refused, ready]) as query, \
+         patch("cloth_next.ppf.health.time.sleep"):
+        assert start_owned_and_wait(manager) is ready
+    assert query.call_count == 3
+    assert manager.started and not manager.stopped
+
+
+def test_owned_launch_refuses_occupied_port_even_for_compatible_ppf():
+    manager = FakeManager([])
+    existing = HealthSnapshot(
+        True, False, ConnectionOwnership.EXTERNAL_SERVER, None,
+        "127.0.0.1", 19091, None, "0.11", None, "NO_DATA",
+        None, None, None, None,
+        __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc))
+    with patch("cloth_next.ppf.health.port_reachable", return_value=True), \
+         patch("cloth_next.ppf.health.query_health", return_value=existing):
+        with pytest.raises(ClothNextError) as caught:
+            start_owned_and_wait(manager)
+
+    assert caught.value.record.user_message == "Port 19091 is already in use."
+    assert not manager.started and not manager.stopped
+
+
 def test_startup_timeout_stops_and_reaps_owned_process():
     manager = FakeManager([poll()] * 100)
     with patch("cloth_next.ppf.health.port_reachable", return_value=False), \

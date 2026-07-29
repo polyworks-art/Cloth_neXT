@@ -55,7 +55,7 @@ from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.status import (BakeActivity, BakeJobKind, BakeState,
                            FrameEtaEstimator)
 from ..bake.transport import EnterBakeMode
-from ..core.errors import ClothNextError
+from ..core.errors import ClothNextError, ErrorRecord
 from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
 from ..materials import DEFAULT_STATIC_SETTINGS, MaterialValidationError
@@ -4687,6 +4687,53 @@ def _record_worker_failure(plan: RunPlan, summary: str, details: str,
     return visible
 
 
+def _preserve_failed_partial(writer) -> tuple[Path, int] | None:
+    """Keep only a frame-aligned playback prefix after a solver failure."""
+    if writer is None:
+        return None
+    # Frame zero is the input pose, not completed solver work.
+    if int(getattr(writer, "frames_written", 0)) <= 1:
+        writer.abort()
+        return None
+    try:
+        path = writer.preserve()
+        frames = pc2.partial_frame_count(path, writer.header)
+        if frames != writer.frames_written:
+            raise pc2.Pc2Error(
+                f"partial PC2 has {frames} frames, expected "
+                f"{writer.frames_written}")
+        return path, frames
+    except (OSError, pc2.Pc2Error, ValueError):
+        writer.abort()
+        return None
+
+
+def _with_preserved_partial_error(
+        exc: ClothNextError,
+        preserved: tuple[tuple[str, Path, int], ...]) -> ClothNextError:
+    if not preserved:
+        return exc
+    source = exc.record
+    frame_counts = tuple(sorted({item[2] for item in preserved}))
+    paths = tuple(str(item[1]) for item in preserved)
+    return ClothNextError(ErrorRecord.create(
+        category=source.category,
+        user_message=(
+            f"{source.user_message} Completed frames were preserved."),
+        technical_message=(
+            f"{source.technical_message}; "
+            f"validated_partial_pc2={paths}; "
+            f"partial_frame_counts={frame_counts}"),
+        recommended_action=source.recommended_action,
+        recoverable=True,
+        context={
+            **{key: value for key, value in source.context},
+            "validated_partial_pc2": paths,
+            "partial_frame_counts": frame_counts,
+        },
+        exception=exc), violations=exc.violations)
+
+
 def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
                           enriched=None) -> tuple[str, str]:
     """Translate technical solver failures into actionable Blender language."""
@@ -5015,8 +5062,11 @@ def _worker_main_multi(plan: RunPlan) -> None:
                             reason="Bake cancelled before publication")
         _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
     except ClothNextError as exc:
-        for writer in writers.values():
-            writer.abort()
+        preserved = tuple(
+            (uuid, result[0], result[1])
+            for uuid, writer in writers.items()
+            if (result := _preserve_failed_partial(writer)) is not None)
+        exc = _with_preserved_partial_error(exc, preserved)
         _discard_incomplete(plan, state="failed", reason=str(exc))
         violations = _convert_solver_violations(plan, exc)
         summary, details = _present_worker_error(
@@ -5164,8 +5214,12 @@ def _worker_main(plan: RunPlan) -> None:
                             reason="Bake cancelled before publication")
         _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
     except ClothNextError as exc:
-        if writer is not None:
-            writer.abort()
+        result = _preserve_failed_partial(writer)
+        preserved = (
+            ((str(getattr(plan.scene, "cloth_uuid", "")),
+              result[0], result[1]),)
+            if result is not None else ())
+        exc = _with_preserved_partial_error(exc, preserved)
         _discard_incomplete(plan, state="failed", reason=str(exc))
         violations = _convert_solver_violations(plan, exc)
         summary, details = _present_worker_error(
@@ -6979,10 +7033,28 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         "Continue this Bake from the latest verified solver checkpoint")
     bl_options = {"INTERNAL"}
 
+    @staticmethod
+    def _disabled_reason(settings) -> str:
+        reason = str(getattr(settings, "status_detail", "") or "").strip()
+        # Old scene files and builds may have cached identity compatibility as
+        # the disabled reason even though compatibility is not the blocker.
+        if not reason or reason.casefold() == "compatible":
+            return "No verified resumable checkpoint is available"
+        return reason
+
     @classmethod
     def poll(cls, context):
         settings = getattr(context.scene, "cloth_next_recovery", None)
-        return bool(settings and settings.resumable and not run_active())
+        if settings is None:
+            return False
+        busy = run_active() or shared_controller.snapshot().active
+        allowed = bool(
+            settings.compatible and settings.resumable and not busy)
+        if not allowed and hasattr(cls, "poll_message_set"):
+            cls.poll_message_set(
+                "A solver or Bake operation is still running"
+                if busy else cls._disabled_reason(settings))
+        return allowed
 
     def execute(self, context):
         context.scene.cloth_next_recovery.resume_requested = True

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from cloth_next.core.errors import ClothNextError
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.process import (
     SolverProcessConfig, SolverProcessManager, _contact_counts,
@@ -69,6 +70,130 @@ def test_popen_uses_argument_list_and_shell_false(tmp_path):
         assert kwargs["shell"] is False
         process.poll.return_value = 0
         manager.stop()
+
+
+def test_windows_access_denied_is_not_collapsed_into_generic_launch_failure(
+        tmp_path):
+    denied = PermissionError(13, "Access is denied")
+    denied.winerror = 5
+    with patch("cloth_next.ppf.process.subprocess.Popen",
+               side_effect=denied):
+        manager = SolverProcessManager(config(tmp_path))
+        with pytest.raises(ClothNextError) as caught:
+            manager.start()
+
+    assert caught.value.record.user_message == (
+        "Windows denied access while starting the solver.")
+    assert ("WINDOWS_ACCESS_DENIED" in
+            caught.value.record.technical_message)
+
+
+@pytest.mark.parametrize(("error", "message", "failure_kind"), [
+    (FileNotFoundError(2, "not found"),
+     "The solver executable could not be found.", "EXECUTABLE_MISSING"),
+    (OSError(126, "module not found"),
+     "The solver could not start because a runtime dependency is missing.",
+     "RUNTIME_DEPENDENCY_MISSING"),
+    (OSError(8, "not enough memory"),
+     "The solver process could not be created.", "PROCESS_CREATION_FAILED"),
+])
+def test_process_creation_failures_keep_precise_classification(
+        tmp_path, error, message, failure_kind):
+    error.winerror = error.errno
+    with patch("cloth_next.ppf.process.subprocess.Popen",
+               side_effect=error):
+        manager = SolverProcessManager(config(tmp_path))
+        with pytest.raises(ClothNextError) as caught:
+            manager.start()
+
+    assert caught.value.record.user_message == message
+    assert failure_kind in caught.value.record.technical_message
+    assert caught.value.record.original_exception_type == type(error).__name__
+
+
+@pytest.mark.parametrize(("exit_code", "message", "failure_kind"), [
+    (0, "The solver exited cleanly without a shutdown request.",
+     "UNREQUESTED_CLEAN_EXIT"),
+    (9, "The solver exited with code 9",
+     "NONZERO_PROCESS_EXIT"),
+])
+def test_unrequested_exit_classification_preserves_lifetime(
+        tmp_path, exit_code, message, failure_kind):
+    process = MagicMock()
+    process.poll.return_value = exit_code
+    process.pid = 321
+    process.stdout = StringIO("")
+    process.stderr = StringIO("")
+    manager = SolverProcessManager(config(tmp_path))
+    manager._process = process
+    manager._launch_id = "launch-exit"
+    manager._started_at = 100.0
+    manager._exit_observed_at = 103.5
+    manager._exit_code = exit_code
+
+    error = manager.early_exit_error(manager.poll())
+
+    assert error.record.user_message.startswith(message)
+    assert failure_kind in error.record.technical_message
+    assert "process_lifetime_seconds=3.5" in error.record.technical_message
+    assert "termination_requested=False" in error.record.technical_message
+
+
+def test_disappeared_process_without_exit_code_is_not_generic(tmp_path):
+    manager = SolverProcessManager(config(tmp_path))
+    manager._launch_id = "launch-disappeared"
+
+    error = manager.early_exit_error(manager.poll())
+
+    assert error.record.user_message == (
+        "The solver process ended, but no exit code was available.")
+    assert "PROCESS_DISAPPEARED" in error.record.technical_message
+
+
+def test_new_launch_generation_clears_stale_output_and_activity(tmp_path):
+    processes = []
+    for pid in (101, 202):
+        process = MagicMock()
+        process.poll.return_value = None
+        process.pid = pid
+        process.stdout = StringIO("")
+        process.stderr = StringIO("")
+        processes.append(process)
+    manager = SolverProcessManager(config(tmp_path))
+    with patch("cloth_next.ppf.process.subprocess.Popen",
+               side_effect=processes):
+        manager.start()
+        first_launch = manager.poll().launch_id
+        manager._lines.put(("stderr", "old crash"))
+        manager._lines.put(("stdout", "* iter: 99"))
+        manager.poll()
+        processes[0].poll.return_value = 0
+        manager.stop()
+        manager.start()
+        second = manager.poll()
+        processes[1].poll.return_value = 0
+        manager.stop()
+
+    assert second.launch_id and second.launch_id != first_launch
+    assert second.stdout_tail == second.stderr_tail == ()
+    assert not second.activity_message
+
+
+def test_early_exit_drains_final_stderr_before_classification(tmp_path):
+    process = MagicMock()
+    process.poll.return_value = 7
+    process.pid = 123
+    process.stdout = StringIO("")
+    process.stderr = StringIO("")
+    manager = SolverProcessManager(config(tmp_path))
+    manager._process = process
+    manager._launch_id = "launch-final-output"
+    manager._lines.put(("stderr", "CUDA initialization failed"))
+
+    error = manager.early_exit_error(manager.poll())
+
+    assert "CUDA initialization failed" in error.record.technical_message
+    assert "launch-final-output" in error.record.technical_message
 
 
 def test_external_server_cannot_start_stop_or_restart(tmp_path):

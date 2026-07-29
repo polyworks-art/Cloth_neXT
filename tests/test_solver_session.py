@@ -220,6 +220,28 @@ def test_build_failure_surfaces_server_error(monkeypatch):
         session.run()
 
 
+def test_protocol_013_busy_build_finalization_waits_for_ready(
+        monkeypatch, tmp_path):
+    events = []
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        emit=events.append, poll_interval=0.0, build_timeout=1.0)
+    responses = iter((
+        {"status": "BUILDING", "info": "Build complete."},
+        {"status": "BUSY", "frame": 0},
+        {"status": "READY", "frame": 0},
+    ))
+    monkeypatch.setattr(session, "_status", lambda: next(responses))
+
+    session._await_build()
+
+    assert session.diagnostics.last_successful_stage == "PROJECT_BUILD"
+    assert any(event.message == "Finalizing solver project"
+               for event in events)
+
+
 def test_cancel_during_build_sends_cancel_build_then_delete(monkeypatch):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_build = True
@@ -312,6 +334,165 @@ def test_external_server_is_never_stopped(monkeypatch):
     assert session._manager is None  # no owned process was ever created
     # ownership rule: the resolver marked this EXTERNAL_SERVER
     assert session.resolved.ownership is ConnectionOwnership.EXTERNAL_SERVER
+
+
+def test_unreachable_external_server_reports_endpoint_and_is_not_stopped(
+        monkeypatch, tmp_path):
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 49152))
+    failure = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="connection refused",
+        recommended_action="retry", recoverable=True))
+    monkeypatch.setattr(
+        wire, "send_tcmd",
+        lambda *_a, **_k: (_ for _ in ()).throw(failure))
+
+    with pytest.raises(ClothNextError) as caught:
+        session.run()
+
+    assert caught.value.record.user_message == (
+        "The configured external solver server could not be reached at "
+        "127.0.0.1:49152.")
+    assert "EXTERNAL_SERVER_UNREACHABLE" in (
+        caught.value.record.technical_message)
+    assert session._manager is None
+
+
+def test_owned_transport_loss_while_process_alive_is_not_called_process_exit(
+        tmp_path):
+    from types import SimpleNamespace
+
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    executable.with_name("ppf-contact-solver.exe").write_bytes(b"solver")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.13", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path)
+    session._address = wire.ServerAddress("127.0.0.1", 49152)
+    session.diagnostics.active_operation = "SIMULATING"
+    session.diagnostics.current_logical_frame = 42
+
+    class Manager:
+        def poll(self):
+            return SimpleNamespace(
+                running=True, process_id=123, exit_code=None,
+                stdout_tail=("still alive",), stderr_tail=(),
+                contact_peak=0, contact_last=0, contact_samples=0,
+                owned_process_ids=(123,), progress=SimpleNamespace(tail=()))
+
+    session._manager = Manager()
+    original = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="status request timed out",
+        recommended_action="retry", recoverable=True))
+
+    classified = session._owned_connection_error(original)
+
+    assert classified.record.user_message == (
+        "The solver connection was lost, but the process is still running.")
+    assert "TRANSPORT_LOST_PROCESS_ALIVE" in (
+        classified.record.technical_message)
+    assert "current_logical_frame=42" in (
+        classified.record.technical_message)
+
+
+@pytest.mark.parametrize(("operation", "frame", "failure_kind", "message"), [
+    ("STARTING_SOLVER", None, "CRASH_BEFORE_READY",
+     "The solver exited during startup with code 7"),
+    ("RUNTIME_METADATA", None, "CRASH_AFTER_READY",
+     "The solver exited immediately after becoming ready."),
+    ("UPLOADING", None, "CRASH_DURING_SCENE_TRANSFER",
+     "The solver crashed while transferring the scene."),
+    ("BUILDING", None, "CRASH_DURING_PROJECT_BUILD",
+     "The solver crashed while building the simulation project."),
+    ("SIMULATING", 4, "CRASH_DURING_SIMULATION",
+     "The solver exited while simulating frame 4."),
+    ("FETCHING", 4, "CRASH_DURING_FRAME_FETCH",
+     "The solver crashed while fetching frame data."),
+])
+def test_owned_process_exit_keeps_exact_pipeline_phase(
+        tmp_path, operation, frame, failure_kind, message):
+    from types import SimpleNamespace
+
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    executable.with_name("ppf-contact-solver.exe").write_bytes(b"solver")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.13", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path / "run")
+    poll = SimpleNamespace(
+        running=False, process_id=123, exit_code=7,
+        stdout_tail=("ready",), stderr_tail=("CUDA failed",),
+        contact_peak=0, contact_last=0, contact_samples=0,
+        owned_process_ids=(123, 456), launch_id="launch-phase",
+        progress=SimpleNamespace(tail=("SERVER_READY",)))
+
+    class Manager:
+        def poll(self):
+            return poll
+
+        def final_poll(self):
+            return poll
+
+        def early_exit_error(self, _poll):
+            return ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_CONNECTION,
+                user_message="The solver exited with code 7.",
+                technical_message=(
+                    "failure_kind=NONZERO_PROCESS_EXIT; "
+                    "launch_id=launch-phase; stderr_tail=('CUDA failed',)"),
+                recommended_action="Inspect logs.", recoverable=True))
+
+    session._manager = Manager()
+    session._address = wire.ServerAddress("127.0.0.1", 49540)
+    session.diagnostics.active_operation = operation
+    session.diagnostics.current_logical_frame = frame
+    session.diagnostics.last_valid_health_response = {
+        "protocol_version": "0.13", "schema_version": "2"}
+    connection = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="connection refused",
+        recommended_action="Retry.", recoverable=True))
+
+    classified = session._owned_connection_error(connection)
+
+    assert classified.record.user_message.startswith(message)
+    assert failure_kind in classified.record.technical_message
+    assert "launch-phase" in classified.record.technical_message
+    assert "CUDA failed" in classified.record.technical_message
+    assert "last_valid_health_response" in (
+        classified.record.technical_message)
+
+
+def test_abnormal_solver_worker_status_preserves_pid_and_last_frame(
+        tmp_path):
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(frame_count=150),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 49152))
+    error = session._fail_from_status({
+        "status": "FAILED",
+        "error": (
+            "Solver exited abnormally: pid 72436 stopped after frame 103 "
+            "without writing a terminal outcome "
+            "(segfault / OOM-kill / unrecoverable abort)")},
+        "simulating")
+
+    assert error.record.user_message == (
+        "The solver exited while simulating frame 104.")
+    assert "SOLVER_WORKER_ABNORMAL_EXIT" in error.record.technical_message
+    assert "solver_worker_pid=72436" in error.record.technical_message
+    assert session.diagnostics.last_completed_logical_frame == 103
 
 
 def test_project_name_generation():
@@ -1096,3 +1277,79 @@ def test_cleanup_failure_does_not_replace_primary_connection_error(
         "Additional process cleanup issue: RuntimeError: "
         "process reader thread did not stop"]
     assert session._manager is not None
+
+
+def test_failure_diagnostics_include_verified_recovery_checkpoint(
+        tmp_path):
+    metadata = tmp_path / "recovery.json"
+    project_root = tmp_path / "server" / "project"
+    checkpoint = project_root / "session" / "output" / "state_4.bin.gz"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(gzip.compress(b"checkpoint"))
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="params",
+        export_uuids=("uuid-cloth",), geometry_fingerprint="geometry",
+        topology_fingerprint="topology", frame_start=1, frame_end=8,
+        fps=24.0, collider_sampling=(), solver_version="0.1.0",
+        protocol_version="0.13", solver_schema_version="2")
+    record = recovery.create_project(
+        metadata, project_id="project", identity=identity,
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(
+        metadata, record, (4,), keep=3)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    session._recovery_record = record
+    primary = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver exited while simulating frame 5.",
+        technical_message="failure_kind=SOLVER_WORKER_ABNORMAL_EXIT",
+        recommended_action="Retry.", recoverable=True))
+
+    enriched = session._with_recovery_evidence(primary)
+
+    assert enriched.record.user_message.startswith(
+        "The solver exited while simulating frame 5.")
+    assert enriched.record.user_message.endswith(
+        "A recovery checkpoint is available from frame 4.")
+    assert "recovery_checkpoint_frame=4" in (
+        enriched.record.technical_message)
+
+
+def test_failure_diagnostics_do_not_claim_unverified_partial_is_resumable(
+        tmp_path):
+    partial = tmp_path / "open-partial.pc2"
+    partial.write_bytes(b"not independently verified here")
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="params",
+        export_uuids=("uuid-cloth",), geometry_fingerprint="geometry",
+        topology_fingerprint="topology", frame_start=1, frame_end=8,
+        fps=24.0, collider_sampling=(), solver_version="0.1.0",
+        protocol_version="0.13", solver_schema_version="2")
+    record = recovery.ProjectRecord(
+        project_id="project", state=recovery.ProjectState.FAILED,
+        identity=identity, server_data_root=str(tmp_path / "server"),
+        project_root=str(tmp_path / "server" / "project"),
+        partial_pc2=(("uuid-cloth", str(partial)),))
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    session._recovery_record = record
+    primary = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver stopped.",
+        technical_message="failure_kind=CRASH_DURING_SIMULATION",
+        recommended_action="Retry.", recoverable=True))
+
+    enriched = session._with_recovery_evidence(primary)
+
+    assert enriched.record.user_message.endswith(
+        "No verified recovery checkpoint is available.")
+    assert "A recovery checkpoint is available" not in (
+        enriched.record.user_message)
+    assert partial.name in enriched.record.technical_message

@@ -258,6 +258,10 @@ class ProcessPoll:
     activity_code: str = ""
     activity_message: str = ""
     owned_process_ids: tuple[int, ...] = ()
+    launch_id: str = ""
+    started_at: float | None = None
+    exit_observed_at: float | None = None
+    termination_requested: bool = False
 
 
 class SolverProcessManager:
@@ -274,6 +278,11 @@ class SolverProcessManager:
         self._contact_samples = 0
         self._activity_code = ""
         self._activity_message = ""
+        self._launch_id = ""
+        self._started_at: float | None = None
+        self._exit_observed_at: float | None = None
+        self._exit_code: int | None = None
+        self._termination_requested = False
         self._logger = get_logger("ppf.process")
 
     @property
@@ -304,13 +313,37 @@ class SolverProcessManager:
             raise PermissionError("external server ownership cannot start a process")
         if self._process is not None and self._process.poll() is None:
             raise RuntimeError("solver process is already running")
+        # A launch generation owns all process-derived state.  Never let a
+        # previous process' output or activity contaminate its replacement.
+        self._launch_id = uuid.uuid4().hex
+        self._started_at = time.time()
+        self._exit_observed_at = None
+        self._exit_code = None
+        self._termination_requested = False
+        self._stdout.clear()
+        self._stderr.clear()
+        self._contact_peak = self._contact_last = self._contact_samples = 0
+        self._activity_code = self._activity_message = ""
+        while not self._lines.empty():
+            try:
+                self._lines.get_nowait()
+            except queue.Empty:
+                break
         self.config.progress_file.parent.mkdir(parents=True, exist_ok=True)
         sanitized = [self.config.executable_path.name, "--host", self.config.host,
                      "--port", str(self.config.port), "--progress-file", "<instance-progress-file>"]
         if self.config.debug:
             sanitized.append("--debug")
         log_with_context(self._logger, 20, "process start attempt",
-                         {"host": self.config.host, "port": self.config.port, "arguments": sanitized})
+                         {"launch_id": self._launch_id,
+                          "executable": str(self.config.executable_path),
+                          "working_directory": str(
+                              self.config.working_directory),
+                          "ownership": self.ownership.name,
+                          "host": self.config.host, "port": self.config.port,
+                          "arguments": sanitized,
+                          "environment_overrides": tuple(
+                              key for key, _value in self.config.environment)})
         try:
             job = _WindowsJob()
             self._process = subprocess.Popen(
@@ -334,15 +367,41 @@ class SolverProcessManager:
                 raise
             self._job = job
         except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            if isinstance(exc, PermissionError) or winerror == 5:
+                user_message = "Windows denied access while starting the solver."
+                failure_kind = "WINDOWS_ACCESS_DENIED"
+            elif isinstance(exc, FileNotFoundError) or winerror in {2, 3}:
+                user_message = "The solver executable could not be found."
+                failure_kind = "EXECUTABLE_MISSING"
+            elif winerror in {126, 127}:
+                user_message = (
+                    "The solver could not start because a runtime dependency "
+                    "is missing.")
+                failure_kind = "RUNTIME_DEPENDENCY_MISSING"
+            else:
+                user_message = "The solver process could not be created."
+                failure_kind = "PROCESS_CREATION_FAILED"
             raise ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_INSTALLATION,
-                user_message="The PPF solver process could not be started.",
-                technical_message=f"Popen failed: {exc}",
+                user_message=user_message,
+                technical_message=(
+                    f"failure_kind={failure_kind}; "
+                    f"Popen failed: {type(exc).__name__}: {exc}; "
+                    f"winerror={winerror}; launch_id={self._launch_id}"),
                 recommended_action="Verify the executable, permissions, and solver installation.",
                 recoverable=True,
+                context={"failure_kind": failure_kind,
+                         "launch_id": self._launch_id,
+                         "executable": str(self.config.executable_path),
+                         "working_directory": str(
+                             self.config.working_directory),
+                         "winerror": winerror},
                 exception=exc,
             )) from exc
-        log_with_context(self._logger, 20, "process started", {"process_id": self._process.pid})
+        log_with_context(self._logger, 20, "process started",
+                         {"launch_id": self._launch_id,
+                          "process_id": self._process.pid})
         self._threads = []
         for label, stream in (("stdout", self._process.stdout), ("stderr", self._process.stderr)):
             assert stream is not None
@@ -376,7 +435,12 @@ class SolverProcessManager:
 
     def poll(self) -> ProcessPoll:
         self._drain()
-        code = None if self._process is None else self._process.poll()
+        code = (
+            self._exit_code if self._exit_observed_at is not None
+            else (None if self._process is None else self._process.poll()))
+        if code is not None and self._exit_observed_at is None:
+            self._exit_code = code
+            self._exit_observed_at = time.time()
         return ProcessPoll(
             running=self._process is not None and code is None,
             process_id=None if self._process is None else self._process.pid,
@@ -389,7 +453,24 @@ class SolverProcessManager:
             owned_process_ids=(
                 self._job.process_ids() if self._job is not None else ()),
             progress=read_progress(self.config.progress_file),
+            launch_id=self._launch_id,
+            started_at=self._started_at,
+            exit_observed_at=self._exit_observed_at,
+            termination_requested=self._termination_requested,
         )
+
+    def final_poll(self) -> ProcessPoll:
+        """Drain bounded final output after an already-observed process exit."""
+        initial = self.poll()
+        if initial.running:
+            return initial
+        deadline = time.monotonic() + min(
+            1.0, self.config.shutdown_timeout)
+        for thread in tuple(self._threads):
+            remaining = max(0.0, deadline - time.monotonic())
+            thread.join(timeout=remaining)
+        self._drain()
+        return self.poll()
 
     def stop(self) -> ProcessPoll:
         if self.ownership is not ConnectionOwnership.OWNED_PROCESS:
@@ -401,6 +482,7 @@ class SolverProcessManager:
         owned_process_ids = (
             self._job.process_ids() if self._job is not None else ())
         if process.poll() is None:
+            self._termination_requested = True
             process.terminate()
             try:
                 process.wait(timeout=self.config.shutdown_timeout)
@@ -423,7 +505,7 @@ class SolverProcessManager:
             raise RuntimeError(
                 "process reader thread did not stop after owned process-tree "
                 f"shutdown; owned_process_ids={owned_process_ids}")
-        result = self.poll()
+        result = self.final_poll()
         log_with_context(self._logger, 20, "shutdown result", {"exit_code": result.exit_code})
         self._process = None
         self._job = None
@@ -445,12 +527,36 @@ class SolverProcessManager:
         self.start()
 
     def early_exit_error(self, poll: ProcessPoll) -> ClothNextError:
+        if not poll.running:
+            poll = self.final_poll()
+        lifetime = (
+            max(0.0, poll.exit_observed_at - poll.started_at)
+            if poll.started_at is not None
+            and poll.exit_observed_at is not None else None)
+        if poll.exit_code == 0:
+            user_message = (
+                "The solver exited cleanly without a shutdown request.")
+            failure_kind = "UNREQUESTED_CLEAN_EXIT"
+        elif poll.exit_code is None:
+            user_message = (
+                "The solver process ended, but no exit code was available.")
+            failure_kind = "PROCESS_DISAPPEARED"
+        else:
+            user_message = (
+                f"The solver exited with code "
+                f"{format_windows_exit_code(poll.exit_code)}.")
+            failure_kind = "NONZERO_PROCESS_EXIT"
         return ClothNextError(ErrorRecord.create(
             category=ErrorCategory.SOLVER_CONNECTION,
-            user_message="The PPF control server exited unexpectedly.",
+            user_message=user_message,
             technical_message=(
+                f"failure_kind={failure_kind}; launch_id={poll.launch_id}; "
                 f"control_server_pid={poll.process_id}; "
                 f"control_server_exit_code={format_windows_exit_code(poll.exit_code)}; "
+                f"process_started_at={poll.started_at}; "
+                f"process_exit_observed_at={poll.exit_observed_at}; "
+                f"process_lifetime_seconds={lifetime}; "
+                f"termination_requested={poll.termination_requested}; "
                 f"owned_process_ids={poll.owned_process_ids}; "
                 f"contacts(last={poll.contact_last}, peak={poll.contact_peak}, "
                 f"samples={poll.contact_samples}); stdout_tail={poll.stdout_tail}; "
@@ -461,5 +567,11 @@ class SolverProcessManager:
             recoverable=True,
             context={"control_server_pid": poll.process_id,
                      "exit_code": poll.exit_code,
-                     "owned_process_ids": poll.owned_process_ids},
+                     "owned_process_ids": poll.owned_process_ids,
+                     "failure_kind": failure_kind,
+                     "launch_id": poll.launch_id,
+                     "started_at": poll.started_at,
+                     "exit_observed_at": poll.exit_observed_at,
+                     "lifetime_seconds": lifetime,
+                     "termination_requested": poll.termination_requested},
         ))
