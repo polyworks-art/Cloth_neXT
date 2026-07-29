@@ -35,6 +35,15 @@ def test_full_extension_namespace_remains_preferred():
     assert value is full
 
 
+def test_unready_full_namespace_falls_back_to_manifest_preferences():
+    fallback = SimpleNamespace(name="fallback")
+    value = addon_preferences(context({
+        "bl_ext.user_default.cloth_next": SimpleNamespace(preferences=None),
+        "cloth_next": SimpleNamespace(preferences=fallback),
+    }), "bl_ext.user_default.cloth_next.blender")
+    assert value is fallback
+
+
 def test_missing_preferences_is_explicit():
     with pytest.raises(KeyError, match="preferences are unavailable"):
         addon_preferences(context({}), "cloth_next.blender")
