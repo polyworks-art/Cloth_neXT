@@ -541,6 +541,68 @@ def test_multi_worker_writes_one_authenticated_cache_per_object(
         assert inspection.condition is cache_metadata.CacheCondition.READY
 
 
+def test_multi_worker_does_not_mislabel_solver_failure_as_cache_failure(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+
+    class FailingSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self):
+            raise RuntimeError("control server disappeared")
+
+    monkeypatch.setattr(module, "SolverSession", FailingSession)
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = tuple(
+        module.DeformablePlan(
+            ((float(index), 0.0, 0.0),), identity, name, uuid,
+            tmp_path / f"{name}.pc2", f"topology-{name}", {}, "CLOTH")
+        for index, (name, uuid) in enumerate(
+            (("A", "uuid-a"), ("B", "uuid-b"))))
+    plan = module.RunPlan(
+        SimpleNamespace(cloth_uuid="uuid-a"), SimpleNamespace(),
+        targets[0].initial_local, identity, "A", tmp_path / "run",
+        targets[0].pc2_path, 2, deformables=targets)
+
+    module._worker_main_multi(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "error"
+    assert message[1] == "The solver session failed unexpectedly."
+    assert "multi-object playback caches" not in message[1]
+    assert "control server disappeared" in message[2]
+
+
+def test_multi_worker_keeps_cache_message_for_real_writer_failure(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    monkeypatch.setattr(
+        module.pc2, "StreamingPc2Writer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            OSError("cache directory is read-only")))
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = tuple(
+        module.DeformablePlan(
+            ((float(index), 0.0, 0.0),), identity, name, uuid,
+            tmp_path / f"{name}.pc2", f"topology-{name}", {}, "CLOTH")
+        for index, (name, uuid) in enumerate(
+            (("A", "uuid-a"), ("B", "uuid-b"))))
+    plan = module.RunPlan(
+        SimpleNamespace(cloth_uuid="uuid-a"), SimpleNamespace(),
+        targets[0].initial_local, identity, "A", tmp_path / "run",
+        targets[0].pc2_path, 2, deformables=targets)
+
+    module._worker_main_multi(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "error"
+    assert message[1] == "Creating the multi-object playback caches failed."
+    assert "cache directory is read-only" in message[2]
+
+
 def test_failed_worker_leaves_unusable_failure_record(blender_env, monkeypatch,
                                                        tmp_path):
     module = blender_env.solver_test

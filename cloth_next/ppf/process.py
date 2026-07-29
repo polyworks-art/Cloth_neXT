@@ -9,6 +9,7 @@ import queue
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -22,6 +23,117 @@ from ..core.logging import get_logger, log_with_context
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress
+
+
+class _WindowsJob:
+    """Own a spawned server and every descendant it creates.
+
+    The official control server launches ``ppf-contact-solver.exe`` itself.
+    A plain ``Popen`` handle therefore cannot stop the GPU worker after the
+    server exits.  A kill-on-close Job Object gives Cloth NeXt one bounded
+    ownership boundary without discovering or redistributing solver binaries.
+    """
+
+    def __init__(self) -> None:
+        self._handle = None
+        if sys.platform != "win32":
+            return
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateJobObjectW.argtypes = (
+            ctypes.c_void_p, wintypes.LPCWSTR)
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        kernel32.SetInformationJobObject.argtypes = (
+            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
+        kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        kernel32.AssignProcessToJobObject.argtypes = (
+            wintypes.HANDLE, wintypes.HANDLE)
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel32.QueryInformationJobObject.argtypes = (
+            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD))
+        kernel32.QueryInformationJobObject.restype = wintypes.BOOL
+        handle = kernel32.CreateJobObjectW(None, None)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        class BasicLimit(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+
+        class IoCounters(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_uint64),
+                ("WriteOperationCount", ctypes.c_uint64),
+                ("OtherOperationCount", ctypes.c_uint64),
+                ("ReadTransferCount", ctypes.c_uint64),
+                ("WriteTransferCount", ctypes.c_uint64),
+                ("OtherTransferCount", ctypes.c_uint64),
+            ]
+
+        class ExtendedLimit(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", BasicLimit),
+                ("IoInfo", IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        info = ExtendedLimit()
+        info.BasicLimitInformation.LimitFlags = 0x00002000
+        if not kernel32.SetInformationJobObject(
+                handle, 9, ctypes.byref(info), ctypes.sizeof(info)):
+            error = ctypes.get_last_error()
+            kernel32.CloseHandle(handle)
+            raise ctypes.WinError(error)
+        self._handle = handle
+        self._kernel32 = kernel32
+
+    def assign(self, process: subprocess.Popen[str]) -> None:
+        if self._handle is None:
+            return
+        import ctypes
+        raw_handle = getattr(process, "_handle", None)
+        if not isinstance(raw_handle, int):
+            # Test doubles do not own an OS handle.
+            return
+        if not self._kernel32.AssignProcessToJobObject(
+                self._handle, ctypes.c_void_p(raw_handle)):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    def process_ids(self) -> tuple[int, ...]:
+        if self._handle is None:
+            return ()
+        import ctypes
+        buffer = ctypes.create_string_buffer(4096)
+        returned = ctypes.c_ulong()
+        if not self._kernel32.QueryInformationJobObject(
+                self._handle, 3, buffer, len(buffer), ctypes.byref(returned)):
+            return ()
+        count = ctypes.c_ulong.from_buffer(buffer, 4).value
+        offset = 8
+        values = (ctypes.c_size_t * count).from_buffer(buffer, offset)
+        return tuple(int(value) for value in values)
+
+    def close(self) -> None:
+        handle, self._handle = self._handle, None
+        if handle is not None:
+            self._kernel32.CloseHandle(handle)
 
 
 _CONTACT_LABEL = re.compile(r"\bnum[-_ ]?contacts?\b", re.IGNORECASE)
@@ -41,6 +153,16 @@ def _contact_counts(line: str) -> tuple[int, ...]:
         return (int(scalar.group(1)),)
     # PPF metrics may be logged as ``[(simulation_time, count), ...]``.
     return tuple(int(match.group(1)) for match in _CONTACT_TUPLE.finditer(tail))
+
+
+def format_windows_exit_code(code: int | None) -> str:
+    if code is None:
+        return "unknown"
+    unsigned = int(code) & 0xFFFFFFFF
+    signed = unsigned if unsigned < 0x80000000 else unsigned - 0x100000000
+    if sys.platform == "win32" or int(code) != signed:
+        return f"{signed} (0x{unsigned:08X}; unsigned {unsigned})"
+    return str(code)
 
 
 def _solver_activity(line: str) -> tuple[str, str] | None:
@@ -135,6 +257,7 @@ class ProcessPoll:
     contact_samples: int = 0
     activity_code: str = ""
     activity_message: str = ""
+    owned_process_ids: tuple[int, ...] = ()
 
 
 class SolverProcessManager:
@@ -145,6 +268,7 @@ class SolverProcessManager:
         self._stdout: list[str] = []
         self._stderr: list[str] = []
         self._threads: list[threading.Thread] = []
+        self._job: _WindowsJob | None = None
         self._contact_peak = 0
         self._contact_last = 0
         self._contact_samples = 0
@@ -188,11 +312,27 @@ class SolverProcessManager:
         log_with_context(self._logger, 20, "process start attempt",
                          {"host": self.config.host, "port": self.config.port, "arguments": sanitized})
         try:
+            job = _WindowsJob()
             self._process = subprocess.Popen(
                 self.config.arguments(), cwd=self.config.working_directory,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                 bufsize=1, shell=False, env=self.config.subprocess_environment(),
             )
+            try:
+                job.assign(self._process)
+            except BaseException:
+                try:
+                    self._process.terminate()
+                    try:
+                        self._process.wait(timeout=self.config.shutdown_timeout)
+                    except subprocess.TimeoutExpired:
+                        job.close()
+                        self._process.wait(timeout=self.config.shutdown_timeout)
+                finally:
+                    job.close()
+                    self._process = None
+                raise
+            self._job = job
         except OSError as exc:
             raise ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_INSTALLATION,
@@ -246,6 +386,8 @@ class SolverProcessManager:
             contact_samples=self._contact_samples,
             activity_code=self._activity_code,
             activity_message=self._activity_message,
+            owned_process_ids=(
+                self._job.process_ids() if self._job is not None else ()),
             progress=read_progress(self.config.progress_file),
         )
 
@@ -256,22 +398,35 @@ class SolverProcessManager:
         if process is None:
             return self.poll()
         log_with_context(self._logger, 20, "shutdown attempt", {"process_id": process.pid})
+        owned_process_ids = (
+            self._job.process_ids() if self._job is not None else ())
         if process.poll() is None:
             process.terminate()
             try:
                 process.wait(timeout=self.config.shutdown_timeout)
             except subprocess.TimeoutExpired:
-                process.kill()
+                if self._job is not None:
+                    self._job.close()
+                else:
+                    process.kill()
                 process.wait(timeout=self.config.shutdown_timeout)
         else:
             process.wait()
+        # The server may already be gone while its solver child remains alive.
+        # Closing the kill-on-close job terminates every still-owned descendant
+        # before pipe readers are joined.
+        if self._job is not None:
+            self._job.close()
         for thread in self._threads:
             thread.join(timeout=self.config.shutdown_timeout)
         if any(thread.is_alive() for thread in self._threads):
-            raise RuntimeError("process reader thread did not stop")
+            raise RuntimeError(
+                "process reader thread did not stop after owned process-tree "
+                f"shutdown; owned_process_ids={owned_process_ids}")
         result = self.poll()
         log_with_context(self._logger, 20, "shutdown result", {"exit_code": result.exit_code})
         self._process = None
+        self._job = None
         self._threads.clear()
         if self.config.cleanup_progress_file:
             try:
@@ -291,13 +446,20 @@ class SolverProcessManager:
 
     def early_exit_error(self, poll: ProcessPoll) -> ClothNextError:
         return ClothNextError(ErrorRecord.create(
-            category=ErrorCategory.SOLVER_INSTALLATION,
-            user_message="The PPF solver exited before it became ready.",
-            technical_message=(f"exit_code={poll.exit_code}; "
+            category=ErrorCategory.SOLVER_CONNECTION,
+            user_message="The PPF control server exited unexpectedly.",
+            technical_message=(
+                f"control_server_pid={poll.process_id}; "
+                f"control_server_exit_code={format_windows_exit_code(poll.exit_code)}; "
+                f"owned_process_ids={poll.owned_process_ids}; "
                 f"contacts(last={poll.contact_last}, peak={poll.contact_peak}, "
                 f"samples={poll.contact_samples}); stdout_tail={poll.stdout_tail}; "
                 f"stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}"),
-            recommended_action="Inspect the solver and Cloth NeXt logs, verify CUDA requirements, and retry.",
+            recommended_action=(
+                "Inspect the retained run log. Cloth NeXt terminated every "
+                "remaining process in the owned solver job before allowing a retry."),
             recoverable=True,
-            context={"exit_code": poll.exit_code},
+            context={"control_server_pid": poll.process_id,
+                     "exit_code": poll.exit_code,
+                     "owned_process_ids": poll.owned_process_ids},
         ))

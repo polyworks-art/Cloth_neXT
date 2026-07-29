@@ -1038,3 +1038,61 @@ def test_failed_owned_stop_keeps_manager_reference(monkeypatch):
     with pytest.raises(RuntimeError, match="reader thread still alive"):
         session._stop_owned()
     assert session._manager is manager
+
+
+def test_cleanup_failure_does_not_replace_primary_connection_error(
+        monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    executable.with_name("ppf-contact-solver.exe").write_bytes(b"solver")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.13", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path / "run")
+
+    class Manager:
+        def poll(self):
+            return SimpleNamespace(
+                running=False, process_id=123, exit_code=4294967295,
+                stdout_tail=(), stderr_tail=(), contact_peak=0,
+                contact_last=0, contact_samples=0,
+                owned_process_ids=(123, 456),
+                progress=SimpleNamespace(tail=()))
+
+        def stop(self):
+            raise RuntimeError("process reader thread did not stop")
+
+        def early_exit_error(self, _poll):
+            return ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SOLVER_CONNECTION,
+                user_message="The PPF control server exited unexpectedly.",
+                technical_message="control server exited",
+                recommended_action="retry", recoverable=True))
+
+    session._manager = Manager()
+    session._address = wire.ServerAddress("127.0.0.1", 49540)
+    monkeypatch.setattr(session, "_start_owned_solver", lambda: None)
+    monkeypatch.setattr(session, "_metadata_event", lambda: None)
+    monkeypatch.setattr(session, "_delete_project", lambda: None)
+
+    connection = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="connect refused",
+        recommended_action="retry", recoverable=True))
+    monkeypatch.setattr(
+        session, "_upload",
+        lambda: (_ for _ in ()).throw(connection))
+
+    with pytest.raises(ClothNextError) as caught:
+        session.run()
+
+    assert "control server exited" in caught.value.record.technical_message
+    assert "process reader thread did not stop" not in str(caught.value)
+    assert caught.value.__notes__ == [
+        "Additional process cleanup issue: RuntimeError: "
+        "process reader thread did not stop"]
+    assert session._manager is not None

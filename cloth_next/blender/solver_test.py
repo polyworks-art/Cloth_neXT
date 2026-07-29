@@ -4868,6 +4868,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
     recovery_partials = dict(
         plan.recovery_options.partial_pc2
         if plan.recovery_options is not None else ())
+    failure_stage = "CACHE_SETUP"
     try:
         for target in targets:
             if target.material_meta:
@@ -4927,6 +4928,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             work_directory=plan.work_directory, emit=emit,
             cancel_event=_cancel_event, frame_sink=consume,
             recovery_options=plan.recovery_options)
+        failure_stage = "SIMULATION"
         diagnostics = session.run()
         _merge_export_diagnostics(diagnostics, plan)
         diagnostics.timings["coordinate_transform"] = transform_seconds
@@ -4936,6 +4938,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             "message": f"Finalizing {len(targets)} playback caches",
             "frame_current": None, "frame_total": plan.frame_count,
             "indeterminate": True})())
+        failure_stage = "CACHE_FINALIZE"
         headers = {}
         for target in targets:
             writer = writers[target.uuid]
@@ -4989,8 +4992,12 @@ def _worker_main_multi(plan: RunPlan) -> None:
             writer.abort()
         details = traceback.format_exc()
         _discard_incomplete(plan, state="failed", reason=details[-2000:])
-        summary = "Creating the multi-object playback caches failed."
-        code = classify_error("IMPORTING", summary, details)
+        if failure_stage in {"CACHE_SETUP", "CACHE_FINALIZE"}:
+            summary = "Creating the multi-object playback caches failed."
+            code = classify_error("IMPORTING", summary, details)
+        else:
+            summary = "The solver session failed unexpectedly."
+            code = classify_error("SIMULATING", summary, details)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details, code), code))
 

@@ -73,6 +73,7 @@ with the installed build remains visible.
 | `CNX-E143` | Upload rejected/not acknowledged | Verify the matching solver version. |
 | `CNX-E144` | Payload hash/identity mismatch | Repair the solver and start a fresh Bake. |
 | `CNX-E145` | Malformed/oversized response | Repair or update the solver. |
+| `CNX-E146` | PPF control server exited while an owned solver descendant remained active | Retain the diagnostic log; Cloth NeXt terminates the owned process tree before a retry. |
 
 ## Project build (`CNX-E15x`)
 

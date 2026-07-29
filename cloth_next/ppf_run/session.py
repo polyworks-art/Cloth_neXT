@@ -34,7 +34,8 @@ from ..ppf import results, wire
 from ..ppf.health import start_owned_and_wait
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.models import ConnectionOwnership
-from ..ppf.process import SolverProcessConfig, SolverProcessManager
+from ..ppf.process import (SolverProcessConfig, SolverProcessManager,
+                           format_windows_exit_code)
 from ..ppf.resolver import ResolvedSolver
 from ..ppf.transport import TransportConfig
 from .. import recovery
@@ -241,6 +242,11 @@ class SessionDiagnostics:
     upload_data_bytes: int = 0
     upload_param_bytes: int = 0
     upload_total_bytes: int = 0
+    control_server_alive: bool | None = None
+    control_server_exit_code: int | None = None
+    owned_process_ids: tuple[int, ...] = ()
+    last_output_frame: int | None = None
+    cleanup_issues: list[str] = field(default_factory=list)
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -381,6 +387,24 @@ class SolverSession:
             self.diagnostics.contact_peak = poll.contact_peak
             self.diagnostics.contact_last = poll.contact_last
             self.diagnostics.contact_samples = poll.contact_samples
+            self.diagnostics.control_server_alive = getattr(
+                poll, "running", None)
+            self.diagnostics.control_server_exit_code = getattr(
+                poll, "exit_code", None)
+            self.diagnostics.owned_process_ids = tuple(
+                getattr(poll, "owned_process_ids", ()))
+        output = (self._server_data_root() / self.scene.project_name /
+                  "session" / "output")
+        frames = []
+        try:
+            for path in output.glob("vert_*.bin"):
+                try:
+                    frames.append(int(path.stem.removeprefix("vert_")))
+                except ValueError:
+                    continue
+        except OSError:
+            pass
+        self.diagnostics.last_output_frame = max(frames, default=None)
 
     def _owned_connection_error(self, exc: ClothNextError) -> ClothNextError:
         """Replace opaque socket failures with owned-process evidence."""
@@ -408,7 +432,25 @@ class SolverSession:
         self.diagnostics.stdout_tail = poll.stdout_tail
         self.diagnostics.stderr_tail = poll.stderr_tail
         if not poll.running:
-            return self._manager.early_exit_error(poll)
+            error = self._manager.early_exit_error(poll)
+            record = error.record
+            return ClothNextError(ErrorRecord.create(
+                category=record.category,
+                user_message=record.user_message,
+                technical_message=(
+                    f"{record.technical_message}; ipc_endpoint="
+                    f"{self._address.host}:{self._address.port}; "
+                    f"last_output_frame={self.diagnostics.last_output_frame}"),
+                recommended_action=record.recommended_action,
+                recoverable=True,
+                context={
+                    "control_server_pid": poll.process_id,
+                    "control_server_exit_code":
+                        format_windows_exit_code(poll.exit_code),
+                    "owned_process_ids": poll.owned_process_ids,
+                    "last_output_frame": self.diagnostics.last_output_frame,
+                    "ipc_host": self._address.host,
+                    "ipc_port": self._address.port}))
         record = exc.record
         return ClothNextError(ErrorRecord.create(
             category=record.category,
@@ -1314,6 +1356,7 @@ class SolverSession:
         owned = self.resolved.ownership is ConnectionOwnership.OWNED_PROCESS
         completed = False
         preserved = False
+        primary_error: BaseException | None = None
         try:
             self._check_cancel()
             self._recovery_start()
@@ -1380,8 +1423,10 @@ class SolverSession:
             outcome = self._save_recovery_on_cancel()
             if not outcome.checkpoint_saved:
                 self._cancel_server_side()
-            raise SessionCancelled(resumable=outcome.checkpoint_saved,
-                                   recovery_outcome=outcome)
+            primary_error = SessionCancelled(
+                resumable=outcome.checkpoint_saved,
+                recovery_outcome=outcome)
+            raise primary_error
         except ClothNextError as exc:
             if self._recovery_record is not None and self._recovery is not None:
                 try:
@@ -1395,7 +1440,12 @@ class SolverSession:
                 except (OSError, ValueError):
                     pass
             if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
-                raise self._owned_connection_error(exc) from exc
+                primary_error = self._owned_connection_error(exc)
+                raise primary_error from exc
+            primary_error = exc
+            raise
+        except BaseException as exc:
+            primary_error = exc
             raise
         finally:
             try:
@@ -1412,7 +1462,24 @@ class SolverSession:
                             pass
             finally:
                 if owned:
-                    self._stop_owned()
+                    try:
+                        self._stop_owned()
+                    except BaseException as cleanup_exc:
+                        message = (
+                            "Additional process cleanup issue: "
+                            f"{type(cleanup_exc).__name__}: {cleanup_exc}")
+                        self.diagnostics.cleanup_issues.append(message)
+                        log_with_context(
+                            self._logger, logging.ERROR,
+                            "owned process cleanup failed",
+                            {"project": self.scene.project_name,
+                             "primary_error": (
+                                 type(primary_error).__name__
+                                 if primary_error is not None else None),
+                             "cleanup_error": str(cleanup_exc)})
+                        if primary_error is None:
+                            raise
+                        primary_error.add_note(message)
                 payload = self.scene.data_payload
                 if isinstance(payload, Path):
                     try:
