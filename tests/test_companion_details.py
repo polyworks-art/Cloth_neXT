@@ -104,6 +104,31 @@ def test_details_replaces_nonfunctional_pause_control():
     assert "self.pause" not in source
 
 
+def test_solver_statistics_row_owns_estimated_fill_without_new_row():
+    source=inspect.getsource(app.BakeWindow._build)
+    assert "self.status_fill=self.status.create_rectangle" in source
+    assert "self.status.grid(row=1,column=0" in source
+    assert source.count("self.status.grid(") == 1
+    assert "CurrentFrameProgressEstimator" in inspect.getsource(app)
+
+
+def test_solver_statistics_use_existing_semantic_icons():
+    source=inspect.getsource(app.BakeWindow._build)
+    assert 'particle_collision_16.png' in source
+    assert 'particle_quality_12.png' in source
+    assert 'particle_solver_16.png' in source
+    parser=inspect.getsource(app.BakeWindow._solver_status_values)
+    assert "contacts" in parser
+    assert "Newton" in parser
+    assert "linear iterations" in parser
+    assert app.BakeWindow._solver_status_values(
+        None,
+        "Solver · 408 contacts · Newton 2 · 187 linear iterations") == (
+            ("contacts","408"),("newton","2"),("iterations","187"))
+    setter=inspect.getsource(app.BakeWindow._set_activity)
+    assert "if not self._solver_status_values(value)" in setter
+
+
 def test_error_documentation_link_lives_in_details_foldout():
     source=inspect.getsource(app.BakeWindow)
     assert "self.error_docs_link" in source

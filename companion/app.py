@@ -16,13 +16,14 @@ import time
 import traceback
 import webbrowser
 from dataclasses import replace
-from tkinter import ttk
+from tkinter import font as tkfont, ttk
 
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from companion.particle_motion import advance_particle, smooth_rate
 from companion.performance_graph import FramePerformanceHistory
+from companion.frame_progress import CurrentFrameProgressEstimator
 from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
 
 COMPANION_MESSAGE_BATCH_LIMIT=2048
@@ -43,6 +44,7 @@ def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
 GRAPH=AMBER; GRAPH_FILL="#4b3b25"; GRID="#3b3b3b"; ERROR="#ff5964"
+FRAME_FILL="#4b3b25"
 ABOUT_TOOLTIP="SideFX, please don’t sue me."
 ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
 COMPACT_HEIGHT=118; DETAILS_HEIGHT=232
@@ -243,6 +245,10 @@ class BakeWindow:
         self._blink_after=None; self._blink_phase=False
         self._progress_fraction=0.0
         self._performance=FramePerformanceHistory()
+        self._frame_progress=CurrentFrameProgressEstimator()
+        self._frame_progress_state=self._frame_progress.tick()
+        self._status_fill_after=None
+        self._status_fill_phase=0.0
         self._error_guidance=ErrorGuidanceClient()
         self._guidance_code=""
         self._job_modal=False
@@ -252,6 +258,7 @@ class BakeWindow:
         self._details_visible=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
         self.show(BakeSnapshot()); self.particles.start()
+        self._tick_status_fill()
         self.root.update_idletasks()
         self._center_on_screen()
         if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") != "hidden":
@@ -326,11 +333,26 @@ class BakeWindow:
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
         self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
         self.progress.bind("<Configure>",self._resize_progress)
-        self.status=tk.Label(
-            right,textvariable=self.activity_text,bg=PANEL,fg=TEXT,
-            font=("Segoe UI",8),anchor="center",justify="center",
-            highlightbackground="#777777",highlightthickness=1,height=1)
-        self.status.grid(row=1,column=0,sticky="ew",pady=(5,0),ipady=3)
+        self.status=tk.Canvas(
+            right,height=20,bg=PANEL,highlightbackground="#777777",
+            highlightthickness=1,borderwidth=0)
+        self.status.grid(row=1,column=0,sticky="ew",pady=(5,0))
+        self.status_fill=self.status.create_rectangle(
+            0,0,0,20,fill=FRAME_FILL,outline="",tags=("fill",))
+        try:
+            self._solver_stat_icons={
+                "contacts":tk.PhotoImage(
+                    file=str(_asset("particle_collision_16.png"))),
+                "newton":tk.PhotoImage(
+                    file=str(_asset("particle_quality_12.png"))),
+                "iterations":tk.PhotoImage(
+                    file=str(_asset("particle_solver_16.png")))}
+        except tk.TclError:
+            self._solver_stat_icons={}
+        self._status_font=tkfont.Font(family="Segoe UI",size=8)
+        self.status.bind("<Configure>",self._resize_status)
+        self.status_tooltip=HoverTooltip(
+            self.status,"Contacts · Newton steps · Linear iterations")
         self.details_panel=tk.Frame(outer,bg=PANEL,highlightbackground=BORDER,
                                     highlightthickness=1,padx=8,pady=6)
         self.details_panel.grid(row=1,column=0,sticky="nsew",pady=(5,0))
@@ -381,6 +403,80 @@ class BakeWindow:
         width=max(1,event.width if event is not None else self.progress.winfo_width())
         self.progress.coords(self.progress_fill,0,0,width*self._progress_fraction,22)
         self.progress.coords(self.progress_label,width/2,11)
+
+    def _resize_status(self,event=None):
+        self._draw_status_fill(
+            event.width if event is not None else None)
+        self._draw_status_content(
+            event.width if event is not None else None)
+
+    def _solver_status_values(self,value):
+        if not str(value).startswith("Solver"):
+            return ()
+        patterns=(
+            ("contacts",r"([\d,]+)\s+contacts\b"),
+            ("newton",r"\bNewton\s+([\d,]+)\b"),
+            ("iterations",r"([\d,]+)\s+linear iterations\b"))
+        result=[]
+        for name,pattern in patterns:
+            match=re.search(pattern,value,re.IGNORECASE)
+            if match:result.append((name,match.group(1)))
+        return tuple(result)
+
+    def _draw_status_content(self,width=None):
+        canvas=self.status
+        width=max(1,width or canvas.winfo_width())
+        height=max(1,canvas.winfo_height())
+        canvas.delete("content")
+        value=self.activity_text.get()
+        values=self._solver_status_values(value)
+        if not values or not self._solver_stat_icons:
+            canvas.create_text(
+                width/2,height/2,text=value,fill=TEXT,
+                font=self._status_font,tags=("content",))
+            return
+        entries=[]
+        total=0
+        for name,number in values:
+            image=self._solver_stat_icons[name]
+            entry_width=image.width()+3+self._status_font.measure(number)
+            entries.append((name,number,image,entry_width))
+            total+=entry_width
+        total+=10*max(0,len(entries)-1)
+        x=(width-total)/2
+        for name,number,image,entry_width in entries:
+            canvas.create_image(
+                x+image.width()/2,height/2,image=image,
+                tags=("content",f"stat-{name}"))
+            x+=image.width()+3
+            canvas.create_text(
+                x,height/2,text=number,fill=TEXT,font=self._status_font,
+                anchor="w",tags=("content",f"stat-{name}"))
+            x+=self._status_font.measure(number)+10
+
+    def _draw_status_fill(self,width=None):
+        width=max(1,width or self.status.winfo_width())
+        height=max(1,self.status.winfo_height())
+        state=self._frame_progress_state
+        if state.indeterminate:
+            pulse=max(24.0,width*.28)
+            travel=width+pulse
+            left=(self._status_fill_phase*travel)-pulse
+            self.status.coords(
+                self.status_fill,max(0,left),0,min(width,left+pulse),height)
+        else:
+            self.status.coords(
+                self.status_fill,0,0,width*state.fraction,height)
+
+    def _tick_status_fill(self):
+        if self._closed:return
+        self._frame_progress_state=self._frame_progress.tick()
+        self._status_fill_phase=(
+            self._status_fill_phase+0.055)%1.0
+        self._draw_status_fill()
+        try:self._status_fill_after=self.root.after(
+            80,self._tick_status_fill)
+        except tk.TclError:self._status_fill_after=None
 
     def _draw_performance(self,event=None):
         canvas=self.performance
@@ -476,14 +572,19 @@ class BakeWindow:
     def _set_activity(self,value,immediate=False):
         value=" ".join(str(value).replace("\\","/").split())
         if ":/" in value or "0x" in value:value="Running solver"
-        value=value[:52]
+        if not self._solver_status_values(value):value=value[:52]
         if not value or value==self.progress_text.get():value="Running solver"
         self._activity_pending=value
-        if immediate:self.activity_text.set(value); return
+        if immediate:
+            self.activity_text.set(value)
+            self._draw_status_content()
+            return
         if self._activity_after is None:
             def apply():
                 self._activity_after=None
-                if not self._closed and self._activity_pending:self.activity_text.set(self._activity_pending)
+                if not self._closed and self._activity_pending:
+                    self.activity_text.set(self._activity_pending)
+                    self._draw_status_content()
             self._activity_after=self.root.after(180,apply)
 
     def _set_error_blink(self,enabled):
@@ -515,6 +616,7 @@ class BakeWindow:
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
         performance_changed=self._performance.observe(snapshot)
+        self._frame_progress_state=self._frame_progress.observe(snapshot)
         self.root.update_idletasks()
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
         self._progress_fraction=fraction
@@ -591,6 +693,10 @@ class BakeWindow:
     def close(self):
         if self._closed:return
         self._closed=True; self.particles.close()
+        if self._status_fill_after is not None:
+            try:self.root.after_cancel(self._status_fill_after)
+            except tk.TclError:pass
+            self._status_fill_after=None
         if self._blink_after is not None:
             try:self.root.after_cancel(self._blink_after)
             except tk.TclError:pass
