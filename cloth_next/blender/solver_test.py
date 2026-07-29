@@ -29,6 +29,7 @@ import os
 import queue
 import re
 import shutil
+import struct
 import threading
 import time
 import traceback
