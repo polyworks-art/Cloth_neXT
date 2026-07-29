@@ -1,0 +1,63 @@
+name: Apply PR 32 hotfix once
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/fix-character-cage-proxy-ui'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fix-character-cage-proxy-ui
+          fetch-depth: 0
+
+      - id: pending
+        name: Detect pending patch scripts
+        shell: bash
+        run: |
+          if [[ -f maintenance/apply_character_cage_proxy_ui_fix.py && \
+                -f maintenance/apply_animated_collider_cache_fix.py ]]; then
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apply=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.pending.outputs.apply == 'true'
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install test dependencies
+        if: steps.pending.outputs.apply == 'true'
+        run: pip install -r requirements-build.txt
+
+      - name: Apply combined hotfix
+        if: steps.pending.outputs.apply == 'true'
+        run: |
+          python maintenance/prepare_hotfix_patch_scripts.py
+          python maintenance/apply_character_cage_proxy_ui_fix.py
+          python maintenance/apply_animated_collider_cache_fix.py
+
+      - name: Validate focused regression suite
+        if: steps.pending.outputs.apply == 'true'
+        run: |
+          pytest -q tests/test_phase3b_material_ui.py tests/test_solver_test_ui.py tests/test_export_cache.py tests/test_ppf_schema.py
+          python tools/validate_extension.py cloth_next --phase source
+          python -m compileall -q cloth_next tools
+
+      - name: Commit product changes
+        if: steps.pending.outputs.apply == 'true'
+        run: |
+          git config user.name polyworks-art
+          git config user.email 78053410+polyworks-art@users.noreply.github.com
+          git add -A
+          git commit -m "Fix proxy UI and animated Collider cache identity"
+          git push origin HEAD:agent/fix-character-cage-proxy-ui
