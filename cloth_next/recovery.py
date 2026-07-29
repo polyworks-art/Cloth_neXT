@@ -132,6 +132,18 @@ class Compatibility:
     params_changed: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class RecoveryAssessment:
+    """One verified answer shared by recovery UI and execution guards."""
+
+    available: bool
+    checkpoint: CheckpointRecord | None
+    can_resume: bool
+    reason: str
+    record: ProjectRecord | None = None
+    compatible: bool = False
+
+
 def recovery_root(cache_directory: Path, scene_key: str) -> Path:
     return Path(cache_directory) / ".cloth_next_recovery" / scene_key
 
@@ -598,6 +610,57 @@ def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
             False, "Pin, force, material, FPS/Time Scale, or solver "
             "parameters changed")
     return Compatibility(True, "Compatible")
+
+
+def assess_recovery(path: Path, *,
+                    current_identity: RecoveryIdentity | None = None,
+                    busy: bool = False) -> RecoveryAssessment:
+    """Verify recovery bytes, identity, lifecycle and runtime availability."""
+    path = Path(path)
+    unverified = load_project(path, verify_checkpoints=False)
+    if unverified is None:
+        reason = (
+            "Recovery metadata file is missing"
+            if not path.is_file()
+            else "Recovery metadata could not be loaded")
+        return RecoveryAssessment(False, None, False, reason)
+    verified = load_project(path)
+    if verified is None:
+        return RecoveryAssessment(
+            False, None, False,
+            "Recovery metadata could not be loaded")
+    checkpoints = tuple(sorted(
+        verified.checkpoints, key=lambda item: (item.frame, item.created_at)))
+    if not checkpoints:
+        reason = (
+            "Recovery checkpoint file is missing, incomplete, or damaged"
+            if unverified.checkpoints
+            else "No verified recovery checkpoint is available")
+        return RecoveryAssessment(False, None, False, reason, verified)
+    checkpoint = checkpoints[-1]
+    if current_identity is not None:
+        match = compatibility(verified.identity, current_identity)
+        if not match.compatible:
+            return RecoveryAssessment(
+                True, checkpoint, False, match.reason, verified)
+    if verified.state not in {ProjectState.RESUMABLE, ProjectState.FAILED}:
+        return RecoveryAssessment(
+            True, checkpoint, False,
+            f"Recovery project state is {verified.state.value.title()}",
+            verified, True)
+    if busy:
+        return RecoveryAssessment(
+            True, checkpoint, False,
+            "A solver or Bake operation is still running", verified, True)
+    invalid_newer = any(
+        item.frame > checkpoint.frame for item in unverified.checkpoints
+        if item not in checkpoints)
+    reason = (
+        f"Newest checkpoint is invalid; frame {checkpoint.frame} is verified"
+        if invalid_newer else
+        f"Verified checkpoint at frame {checkpoint.frame}")
+    return RecoveryAssessment(
+        True, checkpoint, True, reason, verified, True)
 
 
 def apply_retention(path: Path, keep: int) -> tuple[Path, ...]:

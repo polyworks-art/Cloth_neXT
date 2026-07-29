@@ -5801,6 +5801,37 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
+def _apply_recovery_assessment(settings, assessment) -> None:
+    """Cache one verified assessment for draw-time UI reads."""
+    settings.compatible = assessment.compatible
+    settings.resumable = assessment.can_resume
+    settings.latest_checkpoint_frame = (
+        assessment.checkpoint.frame if assessment.checkpoint else 0)
+    settings.checkpoint_count = (
+        len(assessment.record.checkpoints) if assessment.record else 0)
+    settings.older_checkpoint_preserved = bool(
+        assessment.can_resume and assessment.record
+        and assessment.record.error)
+    settings.status = (
+        "Recovery available" if assessment.can_resume
+        else ("Recovery point found" if assessment.available
+              else "Recovery unavailable"))
+    settings.status_detail = (
+        assessment.record.error
+        if assessment.can_resume and assessment.record
+        and assessment.record.error
+        else assessment.reason)
+
+
+def _tag_recovery_redraw() -> None:
+    screen = getattr(getattr(bpy, "context", None), "screen", None)
+    for area in tuple(getattr(screen, "areas", ()) or ()):
+        try:
+            area.tag_redraw()
+        except (AttributeError, RuntimeError):
+            continue
+
+
 def _refresh_recovery_ui(plan: RunPlan) -> None:
     """Verify metadata on the main thread and cache artist-facing UI fields."""
     options = getattr(plan, "recovery_options", None)
@@ -5808,39 +5839,34 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
         getattr(bpy.context, "scene", None), "cloth_next_recovery", None)
     if options is None or settings is None:
         return
-    record = recovery.load_project(options.metadata_path)
-    if record is None:
-        settings.status = "Checkpoint damaged"
-        settings.status_detail = "Recovery metadata is missing or invalid"
-        settings.compatible = False
-        settings.resumable = False
-        settings.latest_checkpoint_frame = 0
-        settings.checkpoint_count = 0
-        settings.older_checkpoint_preserved = False
+    assessment = recovery.assess_recovery(
+        options.metadata_path, current_identity=options.identity,
+        busy=run_active() or shared_controller.snapshot().active)
+    _apply_recovery_assessment(settings, assessment)
+    _tag_recovery_redraw()
+
+
+def _mark_unexpected_recovery_failure(plan: RunPlan, reason: str) -> None:
+    """Make verified on-disk state resumable after a silent worker crash."""
+    options = getattr(plan, "recovery_options", None)
+    if options is None:
         return
-    match = recovery.compatibility(record.identity, options.identity)
-    settings.compatible = match.compatible
-    settings.resumable = bool(
-        match.compatible and record.checkpoints
-        and record.state in {
-            recovery.ProjectState.RESUMABLE,
-            recovery.ProjectState.FAILED})
-    settings.latest_checkpoint_frame = max(
-        (item.frame for item in record.checkpoints), default=0)
-    settings.checkpoint_count = len(record.checkpoints)
-    settings.older_checkpoint_preserved = bool(
-        settings.resumable and record.error)
-    settings.status = (
-        "Recovery available" if settings.resumable
-        else record.state.value.title())
-    if settings.resumable:
-        settings.status_detail = (
-            record.error if record.error else
-            "Verified checkpoint · Resume available")
-    elif record.state is recovery.ProjectState.FAILED and record.error:
-        settings.status_detail = record.error
-    else:
-        settings.status_detail = match.reason
+    record = recovery.load_project(
+        options.metadata_path, verify_checkpoints=False)
+    if record is None:
+        return
+    try:
+        record = recovery.confirm_saved_states(
+            options.metadata_path, record, (),
+            keep=options.keep_saved_states)
+        if (record.checkpoints and record.state not in {
+                recovery.ProjectState.FAILED,
+                recovery.ProjectState.RESUMABLE}):
+            recovery.transition(
+                options.metadata_path, record, recovery.ProjectState.FAILED,
+                error=reason)
+    except (OSError, ValueError):
+        return
 
 
 def _attach_cancelled_preview(plan: RunPlan, header) -> int:
@@ -6033,9 +6059,9 @@ def _pump_once() -> float | None:
                 _safe_transition(BakeState.CANCELLED, **changes)
             if not resumable and not cached_frames:
                 _discard_incomplete(plan)
-            _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
+            _refresh_recovery_ui(plan)
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "error":
@@ -6067,18 +6093,22 @@ def _pump_once() -> float | None:
                     progress_total=plan.frame_count)
             else:
                 _discard_incomplete(plan)
-            _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
+            _refresh_recovery_ui(plan)
             shared_telemetry.set_solver_pid(None)
             return None
     if _worker is not None and not _worker.is_alive() and _queue.empty():
         # The worker died without posting a terminal message.
         shared_controller.fail("The solver test worker stopped unexpectedly.",
                                "no terminal message from the worker thread")
-        _discard_incomplete(plan)
+        _mark_unexpected_recovery_failure(
+            plan, "Solver worker stopped without a terminal message")
+        if not _has_verified_recovery_checkpoint(plan):
+            _discard_incomplete(plan)
         modal_lock.release()
         _worker, _active_plan = None, None
+        _refresh_recovery_ui(plan)
         return None
     now = _time.monotonic()
     snapshot = shared_controller.snapshot()
@@ -7259,10 +7289,30 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         settings = getattr(context.scene, "cloth_next_recovery", None)
-        return bool(settings and settings.resumable and not run_active())
+        if settings is None:
+            return False
+        busy = run_active() or shared_controller.snapshot().active
+        allowed = bool(
+            settings.compatible and settings.resumable and not busy)
+        if not allowed and hasattr(cls, "poll_message_set"):
+            cls.poll_message_set(
+                "A solver or Bake operation is still running"
+                if busy else (settings.status_detail
+                              or "No verified recovery checkpoint is available"))
+        return allowed
 
     def execute(self, context):
-        context.scene.cloth_next_recovery.resume_requested = True
+        settings = context.scene.cloth_next_recovery
+        metadata = _recovery_metadata_from_scene(context.scene)
+        assessment = recovery.assess_recovery(
+            metadata if metadata is not None else Path(),
+            busy=run_active() or shared_controller.snapshot().active)
+        if (not settings.compatible or not settings.resumable
+                or not assessment.can_resume):
+            _apply_recovery_assessment(settings, assessment)
+            self.report({"WARNING"}, assessment.reason)
+            return {"CANCELLED"}
+        settings.resume_requested = True
         try:
             bpy.ops.clothnext.bake("INVOKE_DEFAULT")
         except (AttributeError, RuntimeError):

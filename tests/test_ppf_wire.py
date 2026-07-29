@@ -106,7 +106,7 @@ def test_recovery_request_bytes_are_typed_and_bounded():
     latest = b"--name p1 --request resume"
     assert wire.tcmd_request_bytes("p1", wire.REQUEST_RESUME) == (
         b"TCMD" + len(latest).to_bytes(4, "big") + latest)
-    explicit = b"--name p1 --request resume --frame 20"
+    explicit = b"--name p1 --request resume --resume_from 20"
     assert wire.tcmd_request_bytes(
         "p1", wire.REQUEST_RESUME, frame=20) == (
             b"TCMD" + len(explicit).to_bytes(4, "big") + explicit)

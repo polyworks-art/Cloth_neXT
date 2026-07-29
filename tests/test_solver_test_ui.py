@@ -1403,6 +1403,79 @@ def test_configure_recovery_uses_payload_hash_when_early_cache_is_unsafe(
     assert configured.recovery_options.identity.param_key == "param-hash"
 
 
+def test_silent_worker_crash_promotes_verified_checkpoint_and_enables_resume(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.EXPORTING)
+    current = module.recovery.RecoveryIdentity(
+        scene_key="scene", param_key="param", export_uuids=("cloth",),
+        geometry_fingerprint="geometry", topology_fingerprint="topology",
+        frame_start=1, frame_end=10, fps=24.0, collider_sampling=(),
+        solver_version="0.1.0", protocol_version="0.13",
+        solver_schema_version="2", solver_installation_id="solver")
+    project_root = tmp_path / "server data ü" / "saved-job"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery folder ü" / "metadata.json"
+    record = module.recovery.create_project(
+        metadata, project_id="saved-job", identity=current,
+        server_data_root=project_root.parent, project_root=project_root)
+    record = module.recovery.transition(
+        metadata, record, module.recovery.ProjectState.RUNNING)
+    (output / "state_6.bin.gz").write_bytes(
+        __import__("gzip").compress(b"checkpoint-6"))
+    module.recovery.confirm_saved_states(metadata, record, (6,), keep=3)
+    settings = SimpleNamespace(
+        compatible=False, resumable=False, status="", status_detail="",
+        latest_checkpoint_frame=0, checkpoint_count=0,
+        older_checkpoint_preserved=False,
+        recovery_directory=str(metadata.parent), resume_requested=False)
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+    plan = SimpleNamespace(recovery_options=SimpleNamespace(
+        metadata_path=metadata, identity=current, keep_saved_states=3))
+    module._active_plan = plan
+    module._worker = SimpleNamespace(is_alive=lambda: False)
+    monkeypatch.setattr(module, "_discard_incomplete", lambda *_a, **_k: None)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+
+    assert module._pump_once() is None
+
+    result = module.recovery.assess_recovery(
+        metadata, current_identity=current)
+    assert result.can_resume and result.checkpoint.frame == 6
+    assert module.recovery.load_project(
+        metadata).state is module.recovery.ProjectState.FAILED
+    assert settings.resumable and settings.latest_checkpoint_frame == 6
+    assert module.CLOTHNEXT_OT_recovery_resume_latest.poll(
+        blender_env.bpy.context)
+
+
+def test_resume_execute_revalidates_missing_checkpoint_and_explains_failure(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    settings = SimpleNamespace(
+        compatible=True, resumable=True, status="Recovery available",
+        status_detail="", latest_checkpoint_frame=9, checkpoint_count=1,
+        older_checkpoint_preserved=False,
+        recovery_directory=str(tmp_path / "missing recovery"),
+        resume_requested=False)
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest()
+
+    result = operator.execute(blender_env.bpy.context)
+
+    assert result == {"CANCELLED"}
+    assert not settings.resume_requested and not settings.resumable
+    assert "missing" in settings.status_detail.lower()
+    assert "missing" in operator.reports[-1][1].lower()
+
+
 def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

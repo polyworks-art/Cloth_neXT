@@ -6,7 +6,7 @@ import pytest
 
 from cloth_next.recovery import (
     ProjectState, RecoveryIdentity, apply_retention, clear_checkpoints,
-    compatibility, confirm_saved_states, create_project,
+    assess_recovery, compatibility, confirm_saved_states, create_project,
     discover_checkpoint_frames, load_project, load_records,
     publish_checkpoint, publish_partial_caches, recovery_root, transition,
     verified_partial_cache,
@@ -271,3 +271,73 @@ def test_missing_project_is_not_reported_resumable(tmp_path):
     assert record is not None
     assert record.state is ProjectState.ABANDONED
     assert record.error == "Recovery project missing"
+
+
+def _resumable_project(tmp_path, *, current=None, frames=(4, 7)):
+    current = current or identity(protocol_version="0.13",
+                                  solver_schema_version="2")
+    project_root = tmp_path / "server data ü" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery folder ü" / "metadata.json"
+    record = create_project(
+        metadata, project_id="job-123", identity=current,
+        server_data_root=project_root.parent, project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    for frame in frames:
+        (output / f"state_{frame}.bin.gz").write_bytes(
+            gzip.compress(f"state-{frame}".encode()))
+    record = confirm_saved_states(metadata, record, frames, keep=10)
+    record = transition(metadata, record, ProjectState.FAILED)
+    return metadata, current
+
+
+def test_recovery_assessment_selects_latest_verified_protocol_013_checkpoint(
+        tmp_path):
+    metadata, current = _resumable_project(tmp_path)
+
+    result = assess_recovery(metadata, current_identity=current)
+
+    assert result.available and result.can_resume
+    assert result.checkpoint.frame == 7
+    assert "frame 7" in result.reason
+
+
+def test_recovery_assessment_explains_busy_missing_corrupt_and_wrong_job(
+        tmp_path):
+    metadata, current = _resumable_project(tmp_path)
+    assert "still running" in assess_recovery(
+        metadata, current_identity=current, busy=True).reason
+    assert not assess_recovery(tmp_path / "missing.json").can_resume
+    metadata.write_text("{broken", encoding="utf-8")
+    assert "could not be loaded" in assess_recovery(metadata).reason
+
+    metadata, current = _resumable_project(tmp_path / "other")
+    changed = replace(current, scene_key="different-job")
+    result = assess_recovery(metadata, current_identity=changed)
+    assert result.available and not result.can_resume
+    assert "Scene data changed" in result.reason
+
+
+def test_recovery_assessment_falls_back_from_newer_damaged_checkpoint(
+        tmp_path):
+    metadata, current = _resumable_project(tmp_path, frames=(4, 7))
+    raw = load_project(metadata, verify_checkpoints=False)
+    damaged = Path(raw.checkpoints[-1].checkpoint_path)
+    damaged.write_bytes(b"truncated")
+
+    result = assess_recovery(metadata, current_identity=current)
+
+    assert result.can_resume
+    assert result.checkpoint.frame == 4
+    assert "Newest checkpoint is invalid" in result.reason
+
+
+def test_recovery_assessment_rejects_protocol_or_solver_mismatch(tmp_path):
+    metadata, current = _resumable_project(tmp_path)
+    protocol = assess_recovery(
+        metadata, current_identity=replace(current, protocol_version="0.11"))
+    solver = assess_recovery(
+        metadata, current_identity=replace(current, solver_version="different"))
+    assert not protocol.can_resume and protocol.reason == "Protocol version changed"
+    assert not solver.can_resume and solver.reason == "Solver version changed"

@@ -1467,6 +1467,20 @@ class SolverSession:
             primary_error = exc
             raise
         except BaseException as exc:
+            if self._recovery_record is not None and self._recovery is not None:
+                try:
+                    self._recovery_record = recovery.confirm_saved_states(
+                        self._recovery.metadata_path, self._recovery_record, (),
+                        keep=self._recovery.keep_saved_states)
+                    if self._recovery_record.checkpoints:
+                        self._recovery_record = recovery.transition(
+                            self._recovery.metadata_path,
+                            self._recovery_record,
+                            recovery.ProjectState.FAILED,
+                            error=f"{type(exc).__name__}: {exc}")
+                        preserved = True
+                except (OSError, ValueError):
+                    pass
             primary_error = exc
             raise
         finally:
