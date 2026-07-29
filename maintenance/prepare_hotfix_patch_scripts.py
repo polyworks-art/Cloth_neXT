@@ -8,39 +8,70 @@ text = text.replace(
     '    bend.deform_axis = "X"\n',
 )
 
-old_motion = '''replace_exact(
+# Replace the original broad line-level patch with two complete, uniquely
+# identifiable motion_meta blocks. Their indentation differs, and matching the
+# shorter indentation alone also matches inside the longer one.
+start_marker = """replace_exact(
     solver_path,
-    ''' + "'''" + '''                                "samples_per_frame": (int(getattr(
-''' + "'''" + ''',
-    ''' + "'''" + '''                                "animation_digest": (
-                                    capture.content_digest
-                                    if capture is not None else ""),
-                                "samples_per_frame": (int(getattr(
-''' + "'''" + ''',
-    count=2)
-'''
-new_motion = '''replace_exact(
-    solver_path,
-    ''' + "'''" + '''                                "samples_per_frame": (int(getattr(
-''' + "'''" + ''',
-    ''' + "'''" + '''                                "animation_digest": (
-                                    capture.content_digest
-                                    if capture is not None else ""),
-                                "samples_per_frame": (int(getattr(
-''' + "'''" + ''')
+    '''                                \"samples_per_frame\": (int(getattr(
+"""
+end_marker = """
 replace_exact(
     solver_path,
-    ''' + "'''" + '''                            "samples_per_frame": (int(getattr(
-''' + "'''" + ''',
-    ''' + "'''" + '''                            "animation_digest": (
+    '''        \"export_schema\": 2,
+"""
+start = text.index(start_marker)
+end = text.index(end_marker, start)
+motion_patch = """replace_exact(
+    solver_path,
+    '''            motion_meta.append({\"name\": obj.name, \"motion_type\": motion_type,
+                                \"samples_per_frame\": (int(getattr(
+                                    obj.cloth_next,
+                                    \"collider_samples_per_frame\",
+                                    COLLIDER_SAMPLES_PER_FRAME))
+                                    if capture is not None else 0),
+                                \"vertex_count\": len(vertices),
+                                \"triangle_count\": len(triangles)})
+''',
+    '''            motion_meta.append({\"name\": obj.name, \"motion_type\": motion_type,
+                                \"animation_digest\": (
+                                    capture.content_digest
+                                    if capture is not None else \"\"),
+                                \"samples_per_frame\": (int(getattr(
+                                    obj.cloth_next,
+                                    \"collider_samples_per_frame\",
+                                    COLLIDER_SAMPLES_PER_FRAME))
+                                    if capture is not None else 0),
+                                \"vertex_count\": len(vertices),
+                                \"triangle_count\": len(triangles)})
+''')
+replace_exact(
+    solver_path,
+    '''        motion_meta.append({\"name\": current.name, \"uuid\": collider_uuid,
+                            \"motion_type\": motion_type,
+                            \"samples_per_frame\": (int(getattr(
+                                current.cloth_next,
+                                \"collider_samples_per_frame\",
+                                COLLIDER_SAMPLES_PER_FRAME))
+                                if capture is not None else 0),
+                            \"vertex_count\": len(vertices),
+                            \"triangle_count\": len(triangles)})
+''',
+    '''        motion_meta.append({\"name\": current.name, \"uuid\": collider_uuid,
+                            \"motion_type\": motion_type,
+                            \"animation_digest\": (
                                 capture.content_digest
-                                if capture is not None else ""),
-                            "samples_per_frame": (int(getattr(
-''' + "'''" + ''')
-'''
-if old_motion not in text:
-    raise RuntimeError("animated collider patch motion metadata anchor changed")
-text = text.replace(old_motion, new_motion)
+                                if capture is not None else \"\"),
+                            \"samples_per_frame\": (int(getattr(
+                                current.cloth_next,
+                                \"collider_samples_per_frame\",
+                                COLLIDER_SAMPLES_PER_FRAME))
+                                if capture is not None else 0),
+                            \"vertex_count\": len(vertices),
+                            \"triangle_count\": len(triangles)})
+''')
+"""
+text = text[:start] + motion_patch + text[end:]
 
 old_artifact = '''artifact_path = "tests/test_built_artifacts.py"
 replace_exact(
