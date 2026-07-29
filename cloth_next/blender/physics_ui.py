@@ -1250,45 +1250,91 @@ class CLOTHNEXT_PT_simulation_proxy(_ClothNextSubpanel, bpy.types.Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        layout.prop(settings, "collider_proxy_target_vertices",
-                    text="Target Vertices")
+
+        layout.prop(settings, "collider_proxy_type")
+        cage_mode = settings.collider_proxy_type == "CHARACTER_CAGE"
+        if cage_mode:
+            cage = layout.column(align=True)
+            cage.prop(settings, "collider_cage_margin")
+            cage.prop(settings, "collider_cage_joint_overlap")
+            cage.prop(settings, "collider_cage_sample_step")
+            cage.prop(settings, "collider_cage_weight_threshold")
+            cage.prop(settings, "collider_cage_min_vertices")
+        else:
+            layout.prop(settings, "collider_proxy_target_vertices",
+                        text="Target Vertices")
+
         proxy = getattr(settings, "collider_proxy_object", None)
+        cage_proxy = bool(
+            proxy is not None and
+            collider_proxy.character_collision_cage.is_primary_cage_segment(proxy))
+        simple_proxy = bool(
+            proxy is not None and
+            not collider_proxy.character_collision_cage.is_cage_segment(proxy))
+        proxy_matches_mode = cage_proxy if cage_mode else simple_proxy
+
         action = layout.row()
         action.enabled = not shared_controller.snapshot().active
         action.operator(
             "clothnext.generate_collider_proxy",
-            text="Regenerate Proxy" if proxy else "Generate Proxy")
-        if proxy is None:
+            text=("Regenerate Character Cage" if proxy_matches_mode and cage_mode
+                  else "Generate Character Cage" if cage_mode
+                  else "Regenerate Simple Proxy" if proxy_matches_mode
+                  else "Generate Simple Proxy"))
+
+        if not proxy_matches_mode:
             if bool(settings.collider_proxy_enabled):
-                layout.label(text="Simulation Proxy is missing; regenerate it",
-                             icon="ERROR")
+                layout.prop(settings, "collider_proxy_enabled",
+                            text="Use Simulation Proxy")
+                layout.label(
+                    text="Selected Proxy Type is missing; generate it or disable Proxy",
+                    icon="ERROR")
+            elif proxy is not None:
+                layout.label(
+                    text="Generate the selected Proxy Type before enabling it",
+                    icon="INFO")
             else:
                 layout.label(
                     text="Original Collider remains active until generated",
                     icon="INFO")
             return
+
         layout.prop(settings, "collider_proxy_enabled",
                     text="Use Simulation Proxy")
+        # Panel.draw must never inspect proxy geometry. Generation stores these
+        # counts on the source; use only those cached values during redraw.
         source_vertices = int(
             getattr(settings, "collider_proxy_source_vertices", 0) or 0)
         proxy_vertices = int(
             getattr(settings, "collider_proxy_result_vertices", 0) or 0)
-        layout.label(text=f"Source: {source_vertices:,} vertices")
-        layout.label(text=f"Proxy: {proxy_vertices:,} vertices")
         frame_settings = _authoritative_frame_settings(context)
         samples = collider_proxy.motion_sample_count(
             int(frame_settings.bake_start), int(frame_settings.bake_end),
             int(settings.collider_samples_per_frame))
+        proxy_samples = 1 if cage_mode else samples
         source_peak = collider_proxy.estimated_ppf_peak_bytes(
             source_vertices, samples)
         proxy_peak = collider_proxy.estimated_ppf_peak_bytes(
-            proxy_vertices, samples)
+            proxy_vertices, proxy_samples)
+        if cage_mode:
+            segment_count = (collider_proxy.character_collision_cage.
+                             cage_segment_count(context.object))
+            layout.label(
+                text=(f"Cage: {segment_count} bone hulls · "
+                      f"{proxy_vertices:,} vertices"))
+            layout.label(
+                text="Character sampled once; Bake uses rigid bone hulls",
+                icon="ARMATURE_DATA")
+        else:
+            layout.label(text=f"Source: {source_vertices:,} vertices")
+            layout.label(text=f"Proxy: {proxy_vertices:,} vertices")
         layout.label(text="Estimated Peak Memory")
-        layout.label(text=(
-            f"{collider_proxy.format_bytes(source_peak)} → "
-            f"{collider_proxy.format_bytes(proxy_peak)}"), icon="MEMORY")
         layout.label(
-            text="Regenerate after topology or deformer changes",
+            text=(f"{collider_proxy.format_bytes(source_peak)} → "
+                  f"{collider_proxy.format_bytes(proxy_peak)}"),
+            icon="MEMORY")
+        layout.label(
+            text="Regenerate after topology, rig, or animation changes",
             icon="INFO")
 
 

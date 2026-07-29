@@ -83,11 +83,16 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
     assert "CHARACTER_CAGE" in proxy
     assert "CHARACTER_CAGE" in properties
     assert "Simulation Proxy" in physics_ui
+    assert 'layout.prop(settings, "collider_proxy_type")' in physics_ui
+    assert "Generate Character Cage" in physics_ui
 
     assert "def _schema2_full_frame_indices" in scene_wire
     assert 'animation.pop("_sample_frame_offset", None)' in scene_wire
     assert "settings.fps * settings.time_scale" in pin_wire
     assert '"_sample_frame_offset": frame_offsets' in solver_export
+    assert "SCENE_EXPORT_CACHE_SCHEMA = 3" in solver_export
+    assert '"animation_digest"' in solver_export
+    assert "content_digest=motion_hasher.hexdigest()" in solver_export
 
 
 def test_release_candidate_passes_complete_artifact_scan(extension_zip):

@@ -211,6 +211,10 @@ class ColliderMotionCapture:
     transform: tuple[tuple[float, float, float, float], ...]
     animation: dict | None = None
     temporary_path: Path | None = None
+    # Digest of the exact sampled motion that produced ``animation``. It is
+    # part of the persistent Scene payload identity so an old Frame-1 collider
+    # can never be restored after animation or exporter changes.
+    content_digest: str = ""
 
     def cleanup(self) -> None:
         # Release a memmap before deleting its backing file on Windows.
@@ -1903,7 +1907,9 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
     identity = {
         # v2 captures Follow Animation Pins on the dense Collider timeline.
         # Keep pre-v2 Scene plans from silently restoring sparse Pin tracks.
-        "export_schema": 2,
+        # v3 invalidates plans written before animated Collider frame
+        # digests participated in the Scene payload identity.
+        "export_schema": SCENE_EXPORT_CACHE_SCHEMA,
         "solver_installation": _solver_selection_key(context),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
         "geometry": snapshot.geometry_fingerprint,
@@ -2212,7 +2218,20 @@ def _matrix_trs(matrix):
             [float(value) for value in scale])
 
 
+def _collider_motion_digest(frame_offsets, samples, *, dtype="<f8") -> str:
+    """Hash the exact sampled motion without materializing a second full copy."""
+    digest = hashlib.sha256()
+    offsets = np.ascontiguousarray(frame_offsets, dtype="<f8")
+    digest.update(memoryview(offsets).cast("B"))
+    values = np.asarray(samples, dtype=dtype)
+    if not values.flags.c_contiguous:
+        values = np.ascontiguousarray(values)
+    digest.update(memoryview(values).cast("B"))
+    return digest.hexdigest()
+
+
 COLLIDER_SAMPLES_PER_FRAME = 8
+SCENE_EXPORT_CACHE_SCHEMA = 3
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
@@ -2439,7 +2458,8 @@ def _capture_transform_only_collider_motion(
                  {"interpolation": "LINEAR",
                   "handle_right": [1.0 / 3.0, 0.0],
                   "handle_left": [2.0 / 3.0, 1.0]}
-                 for _index in range(len(sample_points) - 1)]})
+                 for _index in range(len(sample_points) - 1)]},
+            content_digest=_collider_motion_digest(frame_offsets, matrices))
     finally:
         scene.frame_set(original_frame, subframe=original_subframe)
 
@@ -2469,6 +2489,7 @@ def _capture_collider_motion(context, collider_obj,
     local_samples = None
     temporary_path = None
     deforming = False
+    motion_hasher = hashlib.sha256()
     topology_check_mode = _collider_topology_check_mode(collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
@@ -2560,8 +2581,12 @@ def _capture_collider_motion(context, collider_obj,
                 # Store solver-world positions immediately.  This replaces
                 # the former second pass over every frame and every vertex.
                 transform = np.asarray(solver_matrix, dtype=np.float64)
-                local_samples[offset] = (
-                    local @ transform[:3, :3].T + transform[:3, 3])
+                world_sample = np.asarray(
+                    local @ transform[:3, :3].T + transform[:3, 3],
+                    dtype="<f4")
+                local_samples[offset] = world_sample
+                motion_hasher.update(struct.pack("<d", float(frame_offsets[offset])))
+                motion_hasher.update(memoryview(world_sample).cast("B"))
             finally:
                 evaluated.to_mesh_clear()
 
@@ -2588,7 +2613,8 @@ def _capture_collider_motion(context, collider_obj,
                      {"interpolation": "LINEAR",
                       "handle_right": [1.0 / 3.0, 0.0],
                       "handle_left": [2.0 / 3.0, 1.0]}
-                     for _index in range(sample_count - 1)]})
+                     for _index in range(sample_count - 1)]},
+                content_digest=motion_hasher.hexdigest())
             local_samples._mmap.close()
             temporary_path.unlink(missing_ok=True)
             return result
@@ -2601,7 +2627,8 @@ def _capture_collider_motion(context, collider_obj,
             tuple(tuple(float(value) for value in row)
                   for row in local_samples[0]),
             reference_triangles, identity,
-            {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": local_samples}, temporary_path)
+            {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": local_samples},
+            temporary_path, content_digest=motion_hasher.hexdigest())
     except Exception:
         mapping = getattr(local_samples, "_mmap", None)
         if mapping is not None:
@@ -3691,6 +3718,9 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 motion_type = capture.motion_type
             scene_colliders.append(exported)
             motion_meta.append({"name": obj.name, "motion_type": motion_type,
+                                "animation_digest": (
+                                    capture.content_digest
+                                    if capture is not None else ""),
                                 "samples_per_frame": (int(getattr(
                                     obj.cloth_next,
                                     "collider_samples_per_frame",
@@ -4084,6 +4114,9 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         scene_colliders.append(exported)
         motion_meta.append({"name": current.name, "uuid": collider_uuid,
                             "motion_type": motion_type,
+                            "animation_digest": (
+                                capture.content_digest
+                                if capture is not None else ""),
                             "samples_per_frame": (int(getattr(
                                 current.cloth_next,
                                 "collider_samples_per_frame",

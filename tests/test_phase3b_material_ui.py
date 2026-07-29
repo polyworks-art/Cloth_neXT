@@ -295,6 +295,48 @@ def test_cloth_workflow_panels_are_registered(blender_env):
         assert expected in names
 
 
+def test_active_simulation_proxy_panel_exposes_simple_and_character_modes(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "COLLIDER"
+    settings.collider_motion = "ANIMATED"
+    context = SimpleNamespace(
+        object=obj, active_object=obj,
+        scene=SimpleNamespace(objects=[obj]))
+
+    settings.collider_proxy_type = "SIMPLE"
+    panel = env.physics_ui.CLOTHNEXT_PT_simulation_proxy()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert panel.layout.props == [
+        "collider_proxy_type", "collider_proxy_target_vertices"]
+    assert ("clothnext.generate_collider_proxy", "Generate Simple Proxy")         in panel.layout.operators
+
+    settings.collider_proxy_type = "CHARACTER_CAGE"
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+    assert panel.layout.props == [
+        "collider_proxy_type", "collider_cage_margin",
+        "collider_cage_joint_overlap", "collider_cage_sample_step",
+        "collider_cage_weight_threshold", "collider_cage_min_vertices"]
+    assert "collider_proxy_target_vertices" not in panel.layout.props
+    assert ("clothnext.generate_collider_proxy", "Generate Character Cage")         in panel.layout.operators
+    env.registration.unregister()
+
+
+def test_proxy_type_change_disables_the_other_generated_mode(blender_env):
+    env = blender_env
+    env.registration.register()
+    _obj, settings = _settings(env)
+    settings.collider_proxy_enabled = True
+    env.object_properties._on_collider_proxy_type_update(settings, None)
+    assert settings.collider_proxy_enabled is False
+    env.registration.unregister()
+
+
 def test_material_panel_displays_artist_facing_names(blender_env):
     env = blender_env
     env.registration.register()
@@ -725,9 +767,10 @@ def test_collider_proxy_panel_uses_cached_estimates_only(
     panel.layout = RecordingLayout()
     panel.draw(context)
     assert panel.layout.props == [
-        "collider_proxy_target_vertices", "collider_proxy_enabled"]
+        "collider_proxy_type", "collider_proxy_target_vertices",
+        "collider_proxy_enabled"]
     assert panel.layout.operators == [
-        ("clothnext.generate_collider_proxy", "Regenerate Proxy")]
+        ("clothnext.generate_collider_proxy", "Regenerate Simple Proxy")]
     assert "Source: 184,320 vertices" in panel.layout.labels
     assert "Proxy: 8,000 vertices" in panel.layout.labels
     assert "Estimated Peak Memory" in panel.layout.labels
