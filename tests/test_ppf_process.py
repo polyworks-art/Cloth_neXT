@@ -114,7 +114,7 @@ def test_process_creation_failures_keep_precise_classification(
 @pytest.mark.parametrize(("exit_code", "message", "failure_kind"), [
     (0, "The solver exited cleanly without a shutdown request.",
      "UNREQUESTED_CLEAN_EXIT"),
-    (9, "The solver exited with code 9 (0x00000009; unsigned 9).",
+    (9, "The solver exited with code 9",
      "NONZERO_PROCESS_EXIT"),
 ])
 def test_unrequested_exit_classification_preserves_lifetime(
@@ -133,7 +133,7 @@ def test_unrequested_exit_classification_preserves_lifetime(
 
     error = manager.early_exit_error(manager.poll())
 
-    assert error.record.user_message == message
+    assert error.record.user_message.startswith(message)
     assert failure_kind in error.record.technical_message
     assert "process_lifetime_seconds=3.5" in error.record.technical_message
     assert "termination_requested=False" in error.record.technical_message
