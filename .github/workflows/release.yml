@@ -37,29 +37,43 @@ jobs:
       - name: Require matching unpublished preflight
         env: {GH_TOKEN: "${{ github.token }}"}
         run: python tools/check_release_preflight.py --commit "$GITHUB_SHA" --version "${{ needs.candidate.outputs.version }}"
-      - name: Enforce immutable tag and release
-        env: {GH_TOKEN: "${{ github.token }}"}
+      - name: Enforce immutable source tag
+        shell: bash
         run: |
           TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
-          ! gh release view "$TAG" >/dev/null 2>&1
-      - run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "$GITHUB_SHA" --output-dir dist
+      - name: Generate canonical release metadata
+        run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "$GITHUB_SHA" --output-dir dist
       - run: python tools/validate_release_policy.py --phase post-build --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}"
-      - env: {GH_TOKEN: "${{ github.token }}"}
-        run: |
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          FLAG=""; [ "${{ needs.candidate.outputs.channel }}" = beta ] && FLAG=--prerelease
-          gh release create "$TAG" --draft $FLAG --title "Cloth NeXt ${{ needs.candidate.outputs.version }}" --notes-file RELEASE_NOTES.md
-          gh release upload "$TAG" "dist/${{ needs.candidate.outputs.zip-name }}" dist/release-manifest.json dist/SHA256SUMS.txt
-      - shell: bash
+      - name: Download Blender
+        shell: bash
         run: |
           curl -fsSL "https://download.blender.org/release/Blender${BLENDER_SERIES}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o blender.tar.xz
-          mkdir -p "$RUNNER_TEMP/blender"; tar -xf blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xf blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
           echo "CLOTH_NEXT_BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
-      - run: |
+      - name: Load current Pages state
+        shell: bash
+        run: |
           git fetch origin gh-pages || true
           mkdir -p site
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then git worktree add site-publish origin/gh-pages; cp -r site-publish/. site/ || true; rm -rf site/.git; fi
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add site-publish origin/gh-pages
+            cp -r site-publish/. site/ || true
+            rm -rf site/.git
+          fi
+      - name: Stage immutable canonical Pages artifact
+        shell: bash
+        run: |
+          VERSION="${{ needs.candidate.outputs.version }}"
+          ARTIFACT_DIR="site/artifacts/$VERSION"
+          if [ -e "$ARTIFACT_DIR" ]; then
+            echo "Pages artifact $VERSION already exists and is immutable" >&2
+            exit 1
+          fi
+          mkdir -p "$ARTIFACT_DIR"
+          cp "dist/${{ needs.candidate.outputs.zip-name }}" "$ARTIFACT_DIR/"
+          cp dist/release-manifest.json dist/SHA256SUMS.txt RELEASE_NOTES.md "$ARTIFACT_DIR/"
       - name: Build every cumulative channel repository
         shell: bash
         run: |
@@ -71,18 +85,47 @@ jobs:
           for TARGET in $TARGETS; do
             python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "$TARGET" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
           done
-      - run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
-      - run: |
+      - name: Validate complete Pages publication
+        run: python tools/validate_release_policy.py --phase pre-publish --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}" --release-manifest dist/release-manifest.json --sha256sums dist/SHA256SUMS.txt --site-dir site
+      - name: Publish canonical artifact and channel repositories
+        shell: bash
+        run: |
+          VERSION="${{ needs.candidate.outputs.version }}"
           CHANNEL="${{ needs.candidate.outputs.channel }}"
           if [ "$CHANNEL" = stable ]; then TARGETS="stable beta dev"; else TARGETS="beta dev"; fi
-          if [ ! -d site-publish ]; then git worktree add --detach site-publish; git -C site-publish checkout --orphan gh-pages; git -C site-publish rm -rf --quiet . || true; fi
+          if [ ! -d site-publish ]; then
+            git worktree add --detach site-publish
+            git -C site-publish checkout --orphan gh-pages
+            git -C site-publish rm -rf --quiet . || true
+          fi
+          if [ -e "site-publish/artifacts/$VERSION" ]; then
+            echo "Pages artifact $VERSION already exists and is immutable" >&2
+            exit 1
+          fi
+          mkdir -p site-publish/artifacts
+          cp -r "site/artifacts/$VERSION" "site-publish/artifacts/$VERSION"
           for TARGET in $TARGETS; do
             rm -rf "site-publish/$TARGET"
             cp -r "site/$TARGET" "site-publish/$TARGET"
           done
           touch site-publish/.nojekyll
           git -C site-publish add -A
-          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL release to $TARGETS for ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          while IFS= read -r path; do
+            case "$path" in
+              "artifacts/$VERSION/"*|.nojekyll) ;;
+              stable/*) [ "$CHANNEL" = stable ] || { echo "unexpected Stable path: $path" >&2; exit 1; } ;;
+              beta/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Beta path: $path" >&2; exit 1; } ;;
+              dev/*) ;;
+              *) echo "attempted non-release Pages modification: $path" >&2; exit 1 ;;
+            esac
+          done < <(git -C site-publish diff --cached --name-only)
+          git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL $VERSION through Pages"
           git -C site-publish push origin HEAD:gh-pages
-      - env: {GH_TOKEN: "${{ github.token }}"}
-        run: gh release edit "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --draft=false
+      - name: Summary
+        shell: bash
+        run: |
+          echo "## Published Cloth NeXt ${{ needs.candidate.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Channel: ${{ needs.candidate.outputs.channel }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical artifact and Blender repositories were published through gh-pages." >> "$GITHUB_STEP_SUMMARY"
+          echo "No GitHub Release was created." >> "$GITHUB_STEP_SUMMARY"
