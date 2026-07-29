@@ -27,7 +27,7 @@ from .addon_versions import AddonVersion, parse_version
 from .channel_policy import allowed_release_channels
 
 EXTENSION_ID = "cloth_next"
-RELEASES_PAGE_URL = "https://github.com/polyworks-art/Cloth_neXT/releases"
+RELEASES_PAGE_URL = "https://polyworks-art.github.io/Cloth_neXT/releases/"
 _ALLOWED_INDEX_HOST = "polyworks-art.github.io"
 MAX_INDEX_SIZE = 4 * 1024 * 1024  # a channel index is tiny; anything larger is wrong
 
@@ -200,9 +200,8 @@ def run_update_check(session: AddonUpdateSession, channel: UpdateChannel,
 
 def release_notes_url(version: AddonVersion | None) -> str:
     """Release notes are human documentation only, never an update source."""
-    if version is None:
-        return RELEASES_PAGE_URL
-    return f"{RELEASES_PAGE_URL}/tag/{version}"
+    del version
+    return RELEASES_PAGE_URL
 
 
 STATUS_LABELS = {
