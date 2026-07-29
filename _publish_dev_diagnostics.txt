@@ -1,0 +1,292 @@
+Recent publish-dev runs
+=======================
+[{"conclusion":"success","createdAt":"2026-07-29T17:40:09Z","databaseId":30476384006,"event":"workflow_dispatch","headSha":"af52042f492f061a586c80fa8387d1fdf059ade8","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30476384006"},{"conclusion":"success","createdAt":"2026-07-29T16:24:42Z","databaseId":30470589739,"event":"workflow_dispatch","headSha":"3811bf047b7741202ddd6321ec5d7945eba92cb7","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30470589739"},{"conclusion":"success","createdAt":"2026-07-29T15:58:19Z","databaseId":30468475377,"event":"workflow_dispatch","headSha":"12a920741725e66e705f972fb2ca9a3d8f49b800","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30468475377"},{"conclusion":"success","createdAt":"2026-07-29T15:11:10Z","databaseId":30464618926,"event":"workflow_dispatch","headSha":"d08d28c5af4d07844e15150c858c47b992f76e8b","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30464618926"},{"conclusion":"success","createdAt":"2026-07-29T13:42:18Z","databaseId":30457244464,"event":"workflow_dispatch","headSha":"62d2d0ef951707fff2c8ab25ebb5a4ec02470bb4","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30457244464"},{"conclusion":"failure","createdAt":"2026-07-29T13:37:05Z","databaseId":30456833587,"event":"workflow_dispatch","headSha":"b0bbb758439b67241bf03f2959e2ee8effe9e171","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30456833587"},{"conclusion":"failure","createdAt":"2026-07-29T13:31:54Z","databaseId":30456431214,"event":"workflow_dispatch","headSha":"0a33946513690ea849e0bde0f16935eb6d512128","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30456431214"},{"conclusion":"success","createdAt":"2026-07-29T11:53:23Z","databaseId":30449322840,"event":"workflow_dispatch","headSha":"b28de9af44b440b36e6fdadd3e299d57291f66fd","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30449322840"},{"conclusion":"success","createdAt":"2026-07-29T03:09:27Z","databaseId":30418798873,"event":"workflow_dispatch","headSha":"dbc0a8c6c6b49658c026b4da042f93f5ffaa9009","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30418798873"},{"conclusion":"failure","createdAt":"2026-07-29T03:00:47Z","databaseId":30418376617,"event":"workflow_dispatch","headSha":"bd9ae21bee9ee12364a9ae5c0e0b95a4b2cb3e59","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30418376617"},{"conclusion":"success","createdAt":"2026-07-29T01:36:20Z","databaseId":30414541188,"event":"workflow_dispatch","headSha":"45ae58731dca4550905ab42e55d289072fa6e4f5","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30414541188"},{"conclusion":"success","createdAt":"2026-07-28T21:29:32Z","databaseId":30400882998,"event":"workflow_dispatch","headSha":"e45405c8cb92464118273307eb49d5b5e2ab0cf7","status":"completed","url":"https://github.com/polyworks-art/Cloth_neXT/actions/runs/30400882998"}]
+
+
+Relevant log excerpts
+=====================
+
+--- RUN 30476384006 ---
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3288669Z   BLENDER_SERIES: 5.1
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3288871Z   PYTHON_VERSION: 3.11
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3289334Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3289772Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3290212Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3290605Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3290989Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3291424Z   CLOTH_NEXT_BLENDER: D:\a\_temp\blender\blender-5.1.2-windows-x64\blender.exe
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.3291808Z ##[endgroup]
+publish	Run python tools/scan_release_artifact.py "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.7261912Z artifact scan passed: dist\cloth_next-2.1.29-windows-x64.zip contains no PPF solver material
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	﻿2026-07-29T17:42:18.8608840Z ##[group]Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8609969Z ^[[36;1m& "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"^[[0m
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8672134Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8672486Z env:
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8672658Z   BLENDER_VERSION: 5.1.2
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8672861Z   BLENDER_SERIES: 5.1
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8673051Z   PYTHON_VERSION: 3.11
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8673330Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8673766Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8674203Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8674593Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8674975Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8675436Z   CLOTH_NEXT_BLENDER: D:\a\_temp\blender\blender-5.1.2-windows-x64\blender.exe
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:18.8675786Z ##[endgroup]
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:19.7278561Z Success parsing TOML in "dist/cloth_next-2.1.29-windows-x64.zip"
+publish	Run & "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-2.1.29-windows-x64.zip"	2026-07-29T17:42:19.7690202Z Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+publish	Publish isolated Dev repository	﻿2026-07-29T17:42:20.0022552Z ##[group]Run git fetch origin gh-pages
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0023078Z ^[[36;1mgit fetch origin gh-pages^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0023434Z ^[[36;1mgit worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0023834Z ^[[36;1m$dev=Join-Path "$env:RUNNER_TEMP\pages" dev^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0024194Z ^[[36;1mNew-Item -ItemType Directory -Force $dev | Out-Null^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0024567Z ^[[36;1m$zip="dist/cloth_next-2.1.29-windows-x64.zip"^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0024922Z ^[[36;1m$destination=Join-Path $dev (Split-Path $zip -Leaf)^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0025379Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0025878Z ^[[36;1mCopy-Item -LiteralPath $zip -Destination $destination^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0026370Z ^[[36;1m$archives=Get-ChildItem $dev -Filter 'cloth_next-*-windows-x64.zip' | ForEach-Object {^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0026954Z ^[[36;1m  $current=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-windows-x64\.zip$')^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0027541Z ^[[36;1m  $legacy=[regex]::Match($_.Name,'^cloth_next-(\d+)\.(\d+)\.(\d+)-dev\.(\d+)-windows-x64\.zip$')^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0028362Z ^[[36;1m  if ($current.Success) { [pscustomobject]@{File=$_; Stable=[int]$current.Groups[1].Value; Beta=[int]$current.Groups[2].Value; Dev=[int]$current.Groups[3].Value} }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0029396Z ^[[36;1m  elseif ($legacy.Success) { [pscustomobject]@{File=$_; Stable=[int]$legacy.Groups[1].Value; Beta=[int]$legacy.Groups[2].Value; Dev=[int]$legacy.Groups[4].Value} }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0030103Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0030398Z ^[[36;1m}^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0030989Z ^[[36;1m$old=$archives | Sort-Object @{Expression='Stable';Descending=$true},@{Expression='Beta';Descending=$true},@{Expression='Dev';Descending=$true} | Select-Object -Skip 5^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0031888Z ^[[36;1m$old.File | Remove-Item -Force^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0032233Z ^[[36;1m$indexStage=Join-Path "$env:RUNNER_TEMP" "dev-index-current"^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0033253Z ^[[36;1mpython -c "from pathlib import Path; from tools.build_extension_repository import generate_single_candidate_index; generate_single_candidate_index(r'$env:CLOTH_NEXT_BLENDER', Path(r'$dev'), Path(r'$destination'), Path(r'$indexStage'))"^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0034302Z ^[[36;1m$index=Get-Content (Join-Path $dev 'index.json') -Raw | ConvertFrom-Json^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0034784Z ^[[36;1m$candidates=@($index.data | Where-Object {$_.id -eq 'cloth_next'})^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0035320Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0035923Z ^[[36;1mif ($candidates[0].version -cne '2.1.29') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0036401Z ^[[36;1mpython tools/scan_release_artifact.py $destination^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0036743Z ^[[36;1mgit -C "$env:RUNNER_TEMP\pages" add dev^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0037131Z ^[[36;1m$changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0037677Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0038553Z ^[[36;1mgit -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish Dev 2.1.29"^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0039312Z ^[[36;1mgit -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages^[[0m
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0100314Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0100672Z env:
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0100840Z   BLENDER_VERSION: 5.1.2
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0101145Z   BLENDER_SERIES: 5.1
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0101358Z   PYTHON_VERSION: 3.11
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0101639Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0102089Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.11.9\x64/lib/pkgconfig
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0104869Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0105292Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0105688Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.11.9\x64
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0106116Z   CLOTH_NEXT_BLENDER: D:\a\_temp\blender\blender-5.1.2-windows-x64\blender.exe
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.0106494Z ##[endgroup]
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.7271527Z From https://github.com/polyworks-art/Cloth_neXT
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.7272550Z  * branch            gh-pages   -> FETCH_HEAD
+publish	Publish isolated Dev repository	2026-07-29T17:42:20.7749345Z Preparing worktree (detached HEAD ed28300)
+publish	Publish isolated Dev repository	2026-07-29T17:42:21.8601294Z Updating files:  45% (31/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:21.9600175Z Updating files:  47% (32/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.0290323Z Updating files:  48% (33/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.1049964Z Updating files:  50% (34/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.1737666Z Updating files:  51% (35/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2429511Z Updating files:  52% (36/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2432024Z Updating files:  54% (37/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2437930Z Updating files:  55% (38/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2440479Z Updating files:  57% (39/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2443666Z Updating files:  58% (40/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2446119Z Updating files:  60% (41/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2450972Z Updating files:  61% (42/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2454486Z Updating files:  63% (43/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2456780Z Updating files:  64% (44/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2459110Z Updating files:  66% (45/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.2461434Z Updating files:  67% (46/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.3542585Z Updating files:  69% (47/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4391580Z Updating files:  70% (48/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4394983Z Updating files:  72% (49/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4399697Z Updating files:  73% (50/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4404098Z Updating files:  75% (51/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4406516Z Updating files:  76% (52/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4410018Z Updating files:  77% (53/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4411996Z Updating files:  79% (54/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4414845Z Updating files:  80% (55/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4417793Z Updating files:  82% (56/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4851120Z Updating files:  83% (57/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.4907071Z Updating files:  85% (58/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5328455Z Updating files:  86% (59/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5363936Z Updating files:  88% (60/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5367150Z Updating files:  89% (61/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5537445Z Updating files:  91% (62/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5542635Z Updating files:  92% (63/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5549890Z Updating files:  94% (64/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5785803Z Updating files:  95% (65/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5789250Z Updating files:  97% (66/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5793876Z Updating files:  98% (67/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5794798Z Updating files: 100% (68/68)
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5795521Z Updating files: 100% (68/68), done.
+publish	Publish isolated Dev repository	2026-07-29T17:42:22.5927023Z HEAD is now at ed28300 Update Superhive release countdown to July 30 noon
+publish	Publish isolated Dev repository	2026-07-29T17:42:23.7149650Z found 1 packages.
+publish	Publish isolated Dev repository	2026-07-29T17:42:23.9301018Z artifact scan passed: D:\a\_temp\pages\dev\cloth_next-2.1.29-windows-x64.zip contains no PPF solver material
+publish	Publish isolated Dev repository	2026-07-29T17:42:26.3468599Z [detached HEAD f3190af] Publish Dev 2.1.29
+publish	Publish isolated Dev repository	2026-07-29T17:42:26.3469312Z  2 files changed, 4 insertions(+), 4 deletions(-)
+publish	Publish isolated Dev repository	2026-07-29T17:42:26.3470866Z  rename dev/{cloth_next-2.1.24-windows-x64.zip => cloth_next-2.1.29-windows-x64.zip} (85%)
+publish	Publish isolated Dev repository	2026-07-29T17:42:31.8690641Z To https://github.com/polyworks-art/Cloth_neXT
+publish	Publish isolated Dev repository	2026-07-29T17:42:31.8691353Z    ed28300..f3190af  HEAD -> gh-pages
+publish	Summary	﻿2026-07-29T17:42:31.9503432Z ##[group]Run "## Published Cloth NeXt 2.1.29" >> $env:GITHUB_STEP_SUMMARY
+publish	Summary	2026-07-29T17:42:31.9504012Z ^[[36;1m"## Published Cloth NeXt 2.1.29" >> $env:GITHUB_STEP_SUMMARY^[[0m
+
+--- RUN 30470589739 ---
+publish	UNKNOWN STEP	2026-07-29T16:24:51.2338919Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T16:24:51.2339958Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:24:51.2340950Z ^[[36;1mif ('1936652dcbcc76c3dd98b5cff3d886a936930b51' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:24:51.2341942Z ^[[36;1mif ('2.1.28' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:25:17.8694638Z ##[group]Run if ((git rev-parse HEAD) -cne '1936652dcbcc76c3dd98b5cff3d886a936930b51') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T16:25:17.8695330Z ^[[36;1mif ((git rev-parse HEAD) -cne '1936652dcbcc76c3dd98b5cff3d886a936930b51') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:25:39.6834673Z (node:3288) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T16:26:04.5116533Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:26:49.6495060Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:26:49.6499000Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:26:49.6505013Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:26:49.6505512Z ^[[36;1mif ($candidates[0].version -cne '2.1.28') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:26:49.6506877Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30468475377 ---
+publish	UNKNOWN STEP	2026-07-29T15:58:31.8291093Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T15:58:31.8292375Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:58:31.8293638Z ^[[36;1mif ('f2e77adb424cd01ef1f72340d5190904a3f8704a' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:58:31.8294900Z ^[[36;1mif ('2.1.27' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:58:55.1342965Z ##[group]Run if ((git rev-parse HEAD) -cne 'f2e77adb424cd01ef1f72340d5190904a3f8704a') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T15:58:55.1343881Z ^[[36;1mif ((git rev-parse HEAD) -cne 'f2e77adb424cd01ef1f72340d5190904a3f8704a') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:59:01.1518137Z (node:2640) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T15:59:21.7787144Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:00:20.1388849Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:00:20.1393819Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:00:20.1399576Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:00:20.1400409Z ^[[36;1mif ($candidates[0].version -cne '2.1.27') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T16:00:20.1402267Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30464618926 ---
+publish	UNKNOWN STEP	2026-07-29T15:11:17.9721940Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T15:11:17.9723725Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:11:17.9725930Z ^[[36;1mif ('587ea1470b8722b084d2ab261f4dedd77ef8ba50' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:11:17.9727818Z ^[[36;1mif ('2.1.26' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:11:39.9019448Z ##[group]Run if ((git rev-parse HEAD) -cne '587ea1470b8722b084d2ab261f4dedd77ef8ba50') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T15:11:39.9020133Z ^[[36;1mif ((git rev-parse HEAD) -cne '587ea1470b8722b084d2ab261f4dedd77ef8ba50') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:11:43.8564366Z (node:7752) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T15:12:00.5953774Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:12:53.1026089Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:12:53.1029609Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:12:53.1041032Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:12:53.1041493Z ^[[36;1mif ($candidates[0].version -cne '2.1.26') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T15:12:53.1042849Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30457244464 ---
+publish	UNKNOWN STEP	2026-07-29T13:42:25.2113342Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T13:42:25.2114661Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:42:25.2115753Z ^[[36;1mif ('62d2d0ef951707fff2c8ab25ebb5a4ec02470bb4' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:42:25.2116910Z ^[[36;1mif ('2.1.25' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:42:46.8371024Z ##[group]Run if ((git rev-parse HEAD) -cne '62d2d0ef951707fff2c8ab25ebb5a4ec02470bb4') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T13:42:46.8371724Z ^[[36;1mif ((git rev-parse HEAD) -cne '62d2d0ef951707fff2c8ab25ebb5a4ec02470bb4') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:42:54.6863095Z (node:4148) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T13:43:14.7865404Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:44:09.2559540Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:44:09.2563132Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:44:09.2567131Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:44:09.2567577Z ^[[36;1mif ($candidates[0].version -cne '2.1.25') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:44:09.2568915Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30456833587 ---
+publish	UNKNOWN STEP	2026-07-29T13:37:16.7799507Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T13:37:16.7801196Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:37:16.7803083Z ^[[36;1mif ('b0bbb758439b67241bf03f2959e2ee8effe9e171' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:37:16.7805157Z ^[[36;1mif ('2.1.25' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:37:57.6309790Z ##[group]Run if ((git rev-parse HEAD) -cne 'b0bbb758439b67241bf03f2959e2ee8effe9e171') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T13:37:57.6310451Z ^[[36;1mif ((git rev-parse HEAD) -cne 'b0bbb758439b67241bf03f2959e2ee8effe9e171') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:38:01.1763582Z (node:7152) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T13:38:17.3942421Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:39:00.5273480Z tests\test_built_artifacts.py:97: AssertionError
+publish	UNKNOWN STEP	2026-07-29T13:39:00.5275465Z FAILED tests/test_built_artifacts.py::test_release_candidate_contains_current_feature_set - assert '"_sample_frame_offset": frame_offsets' in '# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors\r\n# SPDX-License-Identifier: GPL-3.0-or-la...ompanion_open_logs,\r\n           CLOTHNEXT_OT_set_cache_directory,\r\n           CLOTHNEXT_OT_inspect_parameters)\r\n'
+publish	UNKNOWN STEP	2026-07-29T13:39:00.5276700Z ========================= 1 failed, 2 passed in 0.14s =========================
+publish	UNKNOWN STEP	2026-07-29T13:39:00.6252161Z ##[error]Process completed with exit code 1.
+
+--- RUN 30456431214 ---
+publish	UNKNOWN STEP	2026-07-29T13:32:06.1524330Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T13:32:06.1526561Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:32:06.1527997Z ^[[36;1mif ('0a33946513690ea849e0bde0f16935eb6d512128' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:32:06.1529404Z ^[[36;1mif ('2.1.25' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:32:24.1544420Z ##[group]Run if ((git rev-parse HEAD) -cne '0a33946513690ea849e0bde0f16935eb6d512128') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T13:32:24.1545451Z ^[[36;1mif ((git rev-parse HEAD) -cne '0a33946513690ea849e0bde0f16935eb6d512128') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:32:28.3723204Z (node:9140) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T13:33:00.2037269Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T13:33:49.5435243Z tests\test_built_artifacts.py:90: AssertionError
+publish	UNKNOWN STEP	2026-07-29T13:33:49.5437608Z FAILED tests/test_built_artifacts.py::test_release_candidate_contains_current_feature_set - assert 'animation.pop("_sample_frame_offset", None)' in '# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors\r\n# SPDX-License-Identifier: GPL-3.0-or-la...n        if (nx * nx + ny * ny + nz * nz) <= epsilon * epsilon:\r\n            bad.append(index)\r\n    return bad\r\n'
+publish	UNKNOWN STEP	2026-07-29T13:33:49.5439023Z ========================= 1 failed, 2 passed in 0.19s =========================
+publish	UNKNOWN STEP	2026-07-29T13:33:49.6656814Z ##[error]Process completed with exit code 1.
+
+--- RUN 30449322840 ---
+publish	UNKNOWN STEP	2026-07-29T11:53:37.8500376Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T11:53:37.8501602Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:53:37.8502365Z ^[[36;1mif ('e7ffda6b5670e5e177d906e60216fba0e6821106' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:53:37.8503144Z ^[[36;1mif ('2.1.24' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:54:08.2377015Z ##[group]Run if ((git rev-parse HEAD) -cne 'e7ffda6b5670e5e177d906e60216fba0e6821106') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T11:54:08.2377919Z ^[[36;1mif ((git rev-parse HEAD) -cne 'e7ffda6b5670e5e177d906e60216fba0e6821106') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:54:33.5864913Z (node:4300) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T11:54:55.3963131Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:55:51.6834480Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:55:51.6839268Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:55:51.6844380Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:55:51.6845186Z ^[[36;1mif ($candidates[0].version -cne '2.1.24') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T11:55:51.6846944Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30418798873 ---
+publish	UNKNOWN STEP	2026-07-29T03:09:32.4684929Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T03:09:32.4686541Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:09:32.4687928Z ^[[36;1mif ('3fb451ee20e0e2002f2035d1263e1c394e4cdc6c' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:09:32.4689300Z ^[[36;1mif ('2.1.23' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:09:52.6489083Z ##[group]Run if ((git rev-parse HEAD) -cne '3fb451ee20e0e2002f2035d1263e1c394e4cdc6c') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T03:09:52.6490091Z ^[[36;1mif ((git rev-parse HEAD) -cne '3fb451ee20e0e2002f2035d1263e1c394e4cdc6c') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:09:56.3550028Z (node:1264) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T03:10:14.6164830Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:11:03.6269559Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:11:03.6273994Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:11:03.6279173Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:11:03.6279787Z ^[[36;1mif ($candidates[0].version -cne '2.1.23') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:11:03.6281674Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30418376617 ---
+publish	UNKNOWN STEP	2026-07-29T03:00:55.9402000Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T03:00:55.9404710Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:00:55.9407461Z ^[[36;1mif ('5cb470922b7c2e04c4c109e892669f66db018c2b' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:00:55.9410062Z ^[[36;1mif ('2.1.23' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:01:25.4667637Z ##[group]Run if ((git rev-parse HEAD) -cne '5cb470922b7c2e04c4c109e892669f66db018c2b') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T03:01:25.4668549Z ^[[36;1mif ((git rev-parse HEAD) -cne '5cb470922b7c2e04c4c109e892669f66db018c2b') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:01:29.3779311Z (node:10116) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T03:01:50.9430119Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T03:02:38.7922110Z E       AssertionError: assert 'Character Collision Cage' in '# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors\r\n# SPDX-License-Identifier: GPL-3.0-or-la..._PT_result,\r\n           CLOTHNEXT_PT_diagnostics, CLOTHNEXT_PT_maintenance,\r\n           CLOTHNEXT_PT_advanced)\r\n'
+publish	UNKNOWN STEP	2026-07-29T03:02:38.7923280Z tests\test_built_artifacts.py:85: AssertionError
+publish	UNKNOWN STEP	2026-07-29T03:02:38.7925163Z FAILED tests/test_built_artifacts.py::test_release_candidate_contains_current_feature_set - AssertionError: assert 'Character Collision Cage' in '# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors\r\n# SPDX-License-Identifier: GPL-3.0-or-la..._PT_result,\r\n           CLOTHNEXT_PT_diagnostics, CLOTHNEXT_PT_maintenance,\r\n           CLOTHNEXT_PT_advanced)\r\n'
+publish	UNKNOWN STEP	2026-07-29T03:02:38.7926623Z ========================= 1 failed, 2 passed in 0.20s =========================
+publish	UNKNOWN STEP	2026-07-29T03:02:38.9332151Z ##[error]Process completed with exit code 1.
+
+--- RUN 30414541188 ---
+publish	UNKNOWN STEP	2026-07-29T01:36:33.1030983Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-29T01:36:33.1033252Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:36:33.1035631Z ^[[36;1mif ('5bef12ea4e9c60279c0cafc5315d2a097182db6f' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:36:33.1038113Z ^[[36;1mif ('2.1.22' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:37:07.5653220Z ##[group]Run if ((git rev-parse HEAD) -cne '5bef12ea4e9c60279c0cafc5315d2a097182db6f') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-29T01:37:07.5654115Z ^[[36;1mif ((git rev-parse HEAD) -cne '5bef12ea4e9c60279c0cafc5315d2a097182db6f') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:37:11.4611440Z (node:3392) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-29T01:37:32.0461393Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:38:21.6094767Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:38:21.6102581Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:38:21.6111329Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:38:21.6112350Z ^[[36;1mif ($candidates[0].version -cne '2.1.22') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-29T01:38:21.6115296Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
+
+--- RUN 30400882998 ---
+publish	UNKNOWN STEP	2026-07-28T21:29:38.1399445Z ##[group]Run if ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }
+publish	UNKNOWN STEP	2026-07-28T21:29:38.1400757Z ^[[36;1mif ('PUBLISH_DEV' -cne 'PUBLISH_DEV') { throw 'confirmation must be PUBLISH_DEV' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:29:38.1402018Z ^[[36;1mif ('e45405c8cb92464118273307eb49d5b5e2ab0cf7' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact commit SHA' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:29:38.1403313Z ^[[36;1mif ('2.1.21' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:29:58.2249504Z ##[group]Run if ((git rev-parse HEAD) -cne 'e45405c8cb92464118273307eb49d5b5e2ab0cf7') { throw 'checkout SHA mismatch' }
+publish	UNKNOWN STEP	2026-07-28T21:29:58.2250410Z ^[[36;1mif ((git rev-parse HEAD) -cne 'e45405c8cb92464118273307eb49d5b5e2ab0cf7') { throw 'checkout SHA mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:30:02.6044945Z (node:6800) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+publish	UNKNOWN STEP	2026-07-28T21:30:31.2484843Z ^[[36;1mif ($hits) { throw 'potential secret found in source' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:31:23.4553683Z ^[[36;1mif (Test-Path $destination) { throw 'Dev version already exists and is immutable' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:31:23.4558502Z ^[[36;1m  else { throw "invalid Dev archive name: $($_.Name)" }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:31:23.4563577Z ^[[36;1mif ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:31:23.4564186Z ^[[36;1mif ($candidates[0].version -cne '2.1.21') { throw 'Dev index candidate version mismatch' }^[[0m
+publish	UNKNOWN STEP	2026-07-28T21:31:23.4566143Z ^[[36;1mif ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }^[[0m
