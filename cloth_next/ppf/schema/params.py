@@ -275,6 +275,24 @@ def _attach_dynamic_params(payload: dict, settings: SimulationSettings) -> dict:
     return payload
 
 
+def _pin_wire_config(static_pin: StaticPinConfig, index: int, offset: int) -> dict:
+    """Encode one hard-fix or soft-pull Pin config entry."""
+    strength = float(static_pin.pull_strength)
+    if not math.isfinite(strength) or strength < 0.0:
+        raise ParamEncodeError(
+            "pin pull strength must be finite and non-negative")
+    config = {"pin_group_id": static_pin.pin_group_id, "operations": []}
+    if strength > 0.0:
+        config["pull_strength"] = float(strength)
+    if static_pin.times:
+        config["embedded_move_index"] = 0
+        config["pin_anim"] = {
+            index: {"time": list(static_pin.times),
+                    "position": [list(frame[offset])
+                                 for frame in static_pin.positions]}}
+    return config
+
+
 def build_param_payload(settings: SimulationSettings,
                         cloth_name: str, cloth_uuid: str,
                         collider_name: str, collider_uuid: str, *,
@@ -294,19 +312,12 @@ def build_param_payload(settings: SimulationSettings,
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
     ]
-    # A plain hard hold is established by SceneObject.pin.  Upstream's
-    # pin_config is optional behavior; retaining only the deterministic group
-    # identity avoids turning pull_strength=0 into the soft-pull code path.
     pin_config = {}
     if static_pin is not None:
         pin_config[cloth_uuid] = {}
         for offset,index in enumerate(static_pin.indices):
-            config={"pin_group_id":static_pin.pin_group_id,"operations":[]}
-            if static_pin.times:
-                config["embedded_move_index"]=0
-                config["pin_anim"]={index:{"time":list(static_pin.times),
-                    "position":[list(frame[offset]) for frame in static_pin.positions]}}
-            pin_config[cloth_uuid][index]=config
+            pin_config[cloth_uuid][index] = _pin_wire_config(
+                static_pin, index, offset)
     payload = {"scene": scene, "group": group, "pin_config": pin_config}
     if schema_version == 2:
         payload["time_scale"] = float(settings.time_scale)
@@ -405,15 +416,8 @@ def build_multi_deformable_param_payload(
         if static_pin is not None:
             object_pins = {}
             for offset, index in enumerate(static_pin.indices):
-                config = {"pin_group_id": static_pin.pin_group_id,
-                          "operations": []}
-                if static_pin.times:
-                    config["embedded_move_index"] = 0
-                    config["pin_anim"] = {
-                        index: {"time": list(static_pin.times),
-                                "position": [list(frame[offset])
-                                             for frame in static_pin.positions]}}
-                object_pins[index] = config
+                object_pins[index] = _pin_wire_config(
+                    static_pin, index, offset)
             pin_config[uuid] = object_pins
     payload = {"scene": _scene_wire_params(
                    settings, contact_enabled, schema_version=schema_version),
