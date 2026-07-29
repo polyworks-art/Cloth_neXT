@@ -94,6 +94,12 @@ jobs:
           "$BLENDER" --background \
             --python-exit-code 1 --python tools/blender_multi_object_smoke.py
 
+      - name: Collider proxy and character cage smoke test
+        run: |
+          set -euo pipefail
+          "$BLENDER" --background \
+            --python-exit-code 1 --python tools/blender_collider_proxy_smoke.py
+
       # Exercises the update operator against Blender's real extension
       # machinery, including a sync of the live Beta channel repository.
       - name: Add-on update path smoke test

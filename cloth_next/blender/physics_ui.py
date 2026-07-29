@@ -1469,30 +1469,53 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                 else:
                     layout.label(text="High-fidelity animated Collider sampling",
                                  icon="CHECKMARK")
-                if not collider_proxy.is_generated_proxy(context.object):
+                if not collider_proxy.is_proxy_implementation_object(context.object):
                     proxy_box = layout.box()
                     proxy_box.label(text="Simulation Proxy · Preview",
                                     icon="ERROR")
-                    proxy_box.prop(settings, "collider_proxy_target_vertices")
+                    proxy_box.prop(settings, "collider_proxy_type")
+                    cage_mode = settings.collider_proxy_type == "CHARACTER_CAGE"
+                    if cage_mode:
+                        proxy_box.prop(settings, "collider_cage_margin")
+                        proxy_box.prop(settings, "collider_cage_joint_overlap")
+                        proxy_box.prop(settings, "collider_cage_sample_step")
+                        proxy_box.prop(settings, "collider_cage_weight_threshold")
+                        proxy_box.prop(settings, "collider_cage_min_vertices")
+                    else:
+                        proxy_box.prop(settings, "collider_proxy_target_vertices")
                     proxy = getattr(settings, "collider_proxy_object", None)
                     action = proxy_box.row(align=True)
                     action.operator(
                         "clothnext.generate_collider_proxy",
-                        text="Regenerate Proxy" if proxy else "Generate Proxy")
+                        text=("Regenerate Character Cage" if proxy and cage_mode else
+                              "Generate Character Cage" if cage_mode else
+                              "Regenerate Simple Proxy" if proxy else
+                              "Generate Simple Proxy"))
                     if proxy:
                         proxy_box.prop(settings, "collider_proxy_enabled")
                         estimate = collider_proxy.proxy_estimate(
                             context.object, proxy)
-                        proxy_box.label(
-                            text=(f"Geometry: {estimate.source_vertices:,} → "
-                                  f"{estimate.proxy_vertices:,} vertices"))
+                        if cage_mode:
+                            segment_count = (collider_proxy.character_collision_cage.
+                                             cage_segment_count(context.object))
+                            proxy_box.label(
+                                text=(f"Cage: {segment_count} bone hulls · "
+                                      f"{estimate.proxy_vertices:,} vertices"))
+                            proxy_box.label(
+                                text=("Mesh deformation is captured once while fitting; "
+                                      "Bake uses transform-only rigid hulls"),
+                                icon="ARMATURE_DATA")
+                        else:
+                            proxy_box.label(
+                                text=(f"Geometry: {estimate.source_vertices:,} → "
+                                      f"{estimate.proxy_vertices:,} vertices"))
                         proxy_box.label(
                             text=(f"Estimated PPF peak: "
                                   f"{collider_proxy.format_bytes(estimate.source_peak_bytes)} "
                                   f"→ {collider_proxy.format_bytes(estimate.proxy_peak_bytes)}"),
                             icon="MEMORY")
                         proxy_box.label(
-                            text="Regenerate after topology or deformer changes",
+                            text="Regenerate after topology, rig, or animation changes",
                             icon="INFO")
                     else:
                         proxy_box.label(

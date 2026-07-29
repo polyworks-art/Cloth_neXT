@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Opt-in experimental low-poly proxies for deforming Collider animation."""
+"""Opt-in generated proxies for animated Collider motion."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import bpy
 
 from ..bake.controller import shared_controller
+from . import character_collision_cage
 
 PROXY_COLLECTION = "Cloth NeXt Proxies"
 PROXY_MARKER = "cloth_next_experimental_collider_proxy"
@@ -52,22 +53,32 @@ def estimated_ppf_peak_bytes(vertex_count: int, sample_count: int) -> int:
 
 def proxy_estimate(source, proxy=None) -> ColliderProxyEstimate:
     settings = source.cloth_next
-    source_vertices = int(getattr(settings,
-                                  "collider_proxy_source_vertices", 0) or 0)
+    source_vertices = int(getattr(
+        settings, "collider_proxy_source_vertices", 0) or 0)
     if source_vertices <= 0:
-        source_vertices = len(getattr(getattr(source, "data", None),
-                                      "vertices", ()))
-    proxy_vertices = int(getattr(settings,
-                                 "collider_proxy_result_vertices", 0) or 0)
-    if proxy is not None:
-        proxy_vertices = len(getattr(getattr(proxy, "data", None),
-                                     "vertices", ()))
-    samples = motion_sample_count(settings.bake_start, settings.bake_end,
-                                  settings.collider_samples_per_frame)
+        source_vertices = len(getattr(
+            getattr(source, "data", None), "vertices", ()))
+    proxy_vertices = int(getattr(
+        settings, "collider_proxy_result_vertices", 0) or 0)
+    cage_mode = str(getattr(
+        settings, "collider_proxy_type", "SIMPLE")) == "CHARACTER_CAGE"
+    if cage_mode:
+        counted = character_collision_cage.cage_vertex_count(source)
+        if counted:
+            proxy_vertices = counted
+    elif proxy is not None:
+        proxy_vertices = len(getattr(
+            getattr(proxy, "data", None), "vertices", ()))
+    samples = motion_sample_count(
+        settings.bake_start, settings.bake_end,
+        settings.collider_samples_per_frame)
+    # Character cages upload each rigid hull once. Their motion track contains
+    # matrices rather than one full vertex buffer per motion sample.
+    proxy_samples = 1 if cage_mode else samples
     return ColliderProxyEstimate(
         source_vertices, proxy_vertices, samples,
         estimated_ppf_peak_bytes(source_vertices, samples),
-        estimated_ppf_peak_bytes(proxy_vertices, samples))
+        estimated_ppf_peak_bytes(proxy_vertices, proxy_samples))
 
 
 def format_bytes(value: int) -> str:
@@ -77,8 +88,34 @@ def format_bytes(value: int) -> str:
 
 
 def is_generated_proxy(obj) -> bool:
+    """Whether discovery should skip this implementation object.
+
+    The primary Character Cage segment is resolved through its logical source
+    and must always be skipped when scene discovery reaches it again. Secondary
+    segments are normal solver colliders only while their source cage is active;
+    otherwise they are hidden implementation objects as well.
+    """
     try:
-        return bool(obj.get(PROXY_MARKER, False))
+        if bool(obj.get(PROXY_MARKER, False)):
+            return True
+    except (AttributeError, TypeError):
+        return False
+    if character_collision_cage.is_cage_segment(obj):
+        source = proxy_source(obj)
+        settings = getattr(source, "cloth_next", None) if source else None
+        active = bool(
+            settings and settings.collider_proxy_enabled and
+            str(getattr(settings, "collider_proxy_type", "SIMPLE")) ==
+            "CHARACTER_CAGE")
+        return not active
+    return False
+
+
+def is_proxy_implementation_object(obj) -> bool:
+    """True for every generated Simple Proxy or Character Cage segment."""
+    try:
+        return (bool(obj.get(PROXY_MARKER, False)) or
+                character_collision_cage.is_cage_segment(obj))
     except (AttributeError, TypeError):
         return False
 
@@ -92,6 +129,12 @@ def resolve_proxy(source):
     settings = source.cloth_next
     if not bool(getattr(settings, "collider_proxy_enabled", False)):
         return source
+    if str(getattr(
+            settings, "collider_proxy_type", "SIMPLE")) == "CHARACTER_CAGE":
+        try:
+            return character_collision_cage.validate_character_cage(source)
+        except character_collision_cage.CharacterCageError as exc:
+            raise ColliderProxyError(str(exc)) from exc
     proxy = getattr(settings, "collider_proxy_object", None)
     if proxy is None:
         raise ColliderProxyError(
@@ -127,6 +170,9 @@ def _copy_collider_settings(source, proxy) -> None:
 
 def sync_proxy_settings(source, proxy) -> None:
     """Keep solver-facing contact and range settings owned by the source."""
+    if character_collision_cage.is_cage_segment(proxy):
+        character_collision_cage.sync_character_cage_settings(source)
+        return
     _copy_collider_settings(source, proxy)
 
 
@@ -139,6 +185,7 @@ def _proxy_collection(scene):
 
 
 def _remove_owned_proxy(source) -> None:
+    character_collision_cage.remove_owned_character_cage(source)
     proxy = getattr(source.cloth_next, "collider_proxy_object", None)
     if proxy is None or not is_generated_proxy(proxy):
         return
@@ -163,9 +210,9 @@ def _apply_modifier(context, obj, modifier_name: str) -> None:
 def _reduce_to_vertex_target(context, obj, target: int) -> None:
     """Reduce ``obj`` until its vertex count reaches the requested ceiling.
 
-    Blender's Decimate ratio controls faces, not vertices.  A single ratio
+    Blender's Decimate ratio controls faces, not vertices. A single ratio
     derived from the vertex count can consequently leave a proxy far above
-    the value shown in the UI.  Correct the remaining error with bounded
+    the value shown in the UI. Correct the remaining error with bounded
     follow-up passes; stop if Blender can no longer make progress.
     """
     previous = len(obj.data.vertices)
@@ -194,6 +241,15 @@ def generate_proxy(context, source):
         raise ColliderProxyError(
             "Experimental Collider Proxies require an enabled, animated "
             "Mesh Collider.")
+    if str(getattr(
+            settings, "collider_proxy_type", "SIMPLE")) == "CHARACTER_CAGE":
+        _remove_owned_proxy(source)
+        try:
+            return character_collision_cage.generate_character_cage(
+                context, source).primary
+        except character_collision_cage.CharacterCageError as exc:
+            raise ColliderProxyError(str(exc)) from exc
+
     original_frame = int(context.scene.frame_current)
     created = None
     try:
@@ -233,8 +289,8 @@ def generate_proxy(context, source):
                 created.modifiers.remove(modifier)
 
         base_vertices = len(created.data.vertices)
-        target = min(max(500, int(settings.collider_proxy_target_vertices)),
-                     base_vertices)
+        target = min(max(
+            500, int(settings.collider_proxy_target_vertices)), base_vertices)
         if target < base_vertices:
             if getattr(created.data, "shape_keys", None) is not None:
                 raise ColliderProxyError(
@@ -266,10 +322,10 @@ def generate_proxy(context, source):
 
 
 class CLOTHNEXT_OT_generate_collider_proxy(bpy.types.Operator):
-    """Generate or replace an experimental animated Collider proxy"""
+    """Generate or replace an animated Collider proxy"""
 
     bl_idname = "clothnext.generate_collider_proxy"
-    bl_label = "Generate Experimental Proxy"
+    bl_label = "Generate Simulation Proxy"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -279,7 +335,7 @@ class CLOTHNEXT_OT_generate_collider_proxy(bpy.types.Operator):
         return bool(obj is not None and obj.type == "MESH" and settings and
                     settings.enabled and settings.role == "COLLIDER" and
                     settings.collider_motion == "ANIMATED" and
-                    not is_generated_proxy(obj) and
+                    not is_proxy_implementation_object(obj) and
                     not shared_controller.snapshot().active)
 
     def execute(self, context):
@@ -288,8 +344,12 @@ class CLOTHNEXT_OT_generate_collider_proxy(bpy.types.Operator):
         except (ColliderProxyError, RuntimeError, ValueError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
-        self.report({"INFO"},
-                    f"Experimental Collider Proxy '{proxy.name}' generated.")
+        mode = str(getattr(
+            context.active_object.cloth_next,
+            "collider_proxy_type", "SIMPLE"))
+        label = ("Character Collision Cage" if mode == "CHARACTER_CAGE"
+                 else "Simple Collider Proxy")
+        self.report({"INFO"}, f"{label} '{proxy.name}' generated.")
         return {"FINISHED"}
 
 
