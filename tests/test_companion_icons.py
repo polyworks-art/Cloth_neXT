@@ -4,6 +4,7 @@ from PIL import Image
 
 from companion.build_assets import build
 from companion.build_assets import PARTICLE_ASSETS
+from companion.build_assets import STATUS_ASSETS,STATUS_SIZE
 from companion.app import error_activity_label
 from cloth_next.bake.status import BakeSnapshot,BakeState
 
@@ -29,6 +30,13 @@ def test_generated_companion_executable_is_not_committed():
     executables=[path for path in tracked if path.lower().endswith(".exe")]
     assert executables == []
 
+
+def test_companion_build_packages_every_solver_status_icon():
+    source=(ROOT/"companion"/"build_companion.py").read_text(encoding="utf-8")
+    assert "STATUS_ASSETS" in source
+    assert "*[f\"--add-data={assets/name};companion_assets\"" in source
+
+
 def test_particle_assets_are_deterministic_translucent_icons():
     build(); target=ROOT/"companion"/"assets"
     before={name:(target/name).read_bytes() for name in PARTICLE_ASSETS}; build()
@@ -40,6 +48,21 @@ def test_particle_assets_are_deterministic_translucent_icons():
             assert image.mode=="RGBA" and image.size==size
             visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
             assert visible and max(pixel[3] for pixel in visible) <= 184
+
+
+def test_solver_status_assets_are_deterministic_colored_and_equally_sized():
+    build(); target=ROOT/"companion"/"assets"
+    before={name:(target/name).read_bytes() for name in STATUS_ASSETS}; build()
+    assert before == {name:(target/name).read_bytes() for name in STATUS_ASSETS}
+    for name,(_source,color) in STATUS_ASSETS.items():
+        with Image.open(target/name) as image:
+            rgba=image.convert("RGBA")
+            visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
+            assert image.mode=="RGBA" and image.size==STATUS_SIZE
+            assert visible and all(pixel[:3]==color for pixel in visible)
+            bounds=rgba.getchannel("A").getbbox()
+            assert bounds is not None
+            assert max(bounds[2]-bounds[0],bounds[3]-bounds[1]) == 12
 
 
 def test_blender_runtime_icons_are_white_for_dark_theme():
