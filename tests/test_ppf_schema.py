@@ -185,6 +185,10 @@ def test_schema2_envelope_animation_offsets_and_required_time_scale():
              (0, 0, 1, 0), (0, 0, 0, 1))),
         transform_animation={
             "time": [0.0, 1.0 / 24.0],
+            "_sample_frame_offset": [0.0, 1.0],
+            "_logical_frame_count": 2,
+            "_samples_per_frame": 1,
+            "_capture_fps": 24.0,
             "translation": [[0, 0, 0], [1, 0, 0]],
             "quaternion": [[1, 0, 0, 0], [1, 0, 0, 0]],
             "scale": [[1, 1, 1], [1, 1, 1]],
@@ -221,6 +225,10 @@ def test_schema2_static_deform_has_no_time_array():
              (0, 0, 1, 0), (0, 0, 0, 1))),
         static_deform_animation={
             "time": [0.0, 1.0 / 24.0],
+            "_sample_frame_offset": [0.0, 1.0],
+            "_logical_frame_count": 2,
+            "_samples_per_frame": 1,
+            "_capture_fps": 24.0,
             "vert_frames": np.zeros((2, 3, 3), dtype=np.float64)})
     info = deform.info_dict(schema_version=2)
     assert "time" not in info["static_deform_animation"]
@@ -237,6 +245,9 @@ def test_schema2_dense_transform_capture_keeps_only_full_frames():
         transform_animation={
             "time": [offset / 30.0 for offset in offsets],
             "_sample_frame_offset": offsets,
+            "_logical_frame_count": 3,
+            "_samples_per_frame": 8,
+            "_capture_fps": 30.0,
             "translation": [[offset, 0.0, 0.0] for offset in offsets],
             "quaternion": [[1.0, 0.0, 0.0, 0.0] for _ in offsets],
             "scale": [[1.0, 1.0, 1.0] for _ in offsets],
@@ -268,6 +279,9 @@ def test_schema2_dense_deforming_capture_keeps_only_full_frames():
         static_deform_animation={
             "time": [offset / 30.0 for offset in offsets],
             "_sample_frame_offset": offsets,
+            "_logical_frame_count": 3,
+            "_samples_per_frame": 8,
+            "_capture_fps": 30.0,
             "vert_frames": frames,
         })
 
@@ -279,6 +293,60 @@ def test_schema2_dense_deforming_capture_keeps_only_full_frames():
     assert encoded[:, 0, 0].tolist() == [0.0, 8.0, 16.0]
     assert "time" not in animation
     assert "_sample_frame_offset" not in animation
+
+
+def test_schema2_frames_1_to_64_do_not_serialize_505_solver_frames():
+    offsets = [index / 8.0 for index in range(505)]
+    collider = SceneObject(
+        "Collider", "timeline-64-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        transform_animation={
+            "time": [offset / 30.0 for offset in offsets],
+            "_sample_frame_offset": offsets,
+            "_logical_frame_count": 64,
+            "_samples_per_frame": 8,
+            "_capture_fps": 30.0,
+            "translation": [[offset, 0.0, 0.0] for offset in offsets],
+            "quaternion": [[1.0, 0.0, 0.0, 0.0] for _ in offsets],
+            "scale": [[1.0, 1.0, 1.0] for _ in offsets],
+            "segments": [{"interpolation": "LINEAR"}
+                         for _ in range(504)],
+        })
+
+    animation = collider.info_dict(
+        schema_version=2)["transform_animation"]
+
+    assert animation["frame_offset"] == list(range(64))
+    assert len(animation["translation"]) == 64
+    assert animation["translation"][1][0] == 1.0
+    assert animation["translation"][-1][0] == 63.0
+    assert len(animation["segments"]) == 63
+
+
+def test_schema2_rejects_stretched_or_incomplete_collider_timeline():
+    collider = SceneObject(
+        "Collider", "bad-timeline-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        transform_animation={
+            "time": [0.0, 1.0 / 30.0],
+            "_sample_frame_offset": [0.0, 1.0],
+            "_logical_frame_count": 64,
+            "_samples_per_frame": 8,
+            "_capture_fps": 30.0,
+            "translation": [[0.0, 0.0, 0.0]] * 2,
+            "quaternion": [[1.0, 0.0, 0.0, 0.0]] * 2,
+            "scale": [[1.0, 1.0, 1.0]] * 2,
+            "segments": [{"interpolation": "LINEAR"}],
+        })
+
+    with pytest.raises(SceneEncodeError, match="expected 505"):
+        collider.info_dict(schema_version=2)
 
 
 def test_schema1_dense_capture_retains_subframes_without_private_metadata():
@@ -293,6 +361,9 @@ def test_schema1_dense_capture_retains_subframes_without_private_metadata():
         static_deform_animation={
             "time": [offset / 30.0 for offset in offsets],
             "_sample_frame_offset": offsets,
+            "_logical_frame_count": 2,
+            "_samples_per_frame": 8,
+            "_capture_fps": 30.0,
             "vert_frames": frames,
         })
 

@@ -87,6 +87,31 @@ Fetched vertex arrays are converted into PC2 (`POINTCACHE2`, version 1, little-e
 float32 XYZ, constant vertex count) by the official add-on and played through Blender's
 Mesh Cache modifier. PC2 is a client cache format, not the network frame format.
 
+## Protocol 0.13 / Schema 2 animated Collider timeline
+
+The official Schema 2 decoder does not accept a time array for
+`static_deform_animation`. It interprets row `i` of `vert_frames` as logical
+frame offset `i` and derives time as `i / scene.fps`. Transform animation uses
+the same logical frame-offset convention. Therefore Cloth NeXt may evaluate an
+animated Collider densely inside Blender, but it must serialize exactly one
+pose per logical Blender frame. Sending all sub-frame samples would turn a
+64-frame bake with 8 samples per frame into 505 solver frames and stretch the
+motion.
+
+Cloth NeXt uses one canonical interval timeline. For inclusive Blender range
+`S..E`, sample `i` is at `S + i / samples_per_frame`, with
+`(E-S) * samples_per_frame + 1` captured samples. The first and final samples
+are exact. The Schema 2 payload selects sample
+`frame_offset * samples_per_frame`, producing `E-S+1` logical poses and
+duration `(E-S) / effective_fps`. Samples per frame changes capture density
+only; it never changes logical frame count, solver FPS, duration, Pin timing,
+or playback frame count.
+
+Schema 2 parameters carry the effective solver FPS once. Time Scale is applied
+there once and is not folded into Collider sample indices or cache playback a
+second time. The encoder rejects missing, incomplete, non-finite, or
+inconsistent canonical timeline metadata before solver startup.
+
 ## Release/update observations
 
 Phase 3A fetches `session/map.pickle`, a CBOR `VertexMap` envelope mapping

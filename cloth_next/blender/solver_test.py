@@ -47,7 +47,7 @@ from .. import manifest_version
 from .. import export_identity, recovery
 from .. import intersection_diagnostics
 from ..export_cache import ExportPayloadCache, deterministic_key
-from ..sample_plan import build_sample_plan
+from ..sample_plan import build_collider_timeline, build_sample_plan
 from ..bake import cache_metadata
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
@@ -1917,6 +1917,8 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         # Keep pre-v2 Scene plans from silently restoring sparse Pin tracks.
         # v3 invalidates plans written before animated Collider frame
         # digests participated in the Scene payload identity.
+        # v4 makes the dense capture timeline explicit and prevents Schema 2
+        # from interpreting sub-frame samples as additional logical frames.
         "export_schema": SCENE_EXPORT_CACHE_SCHEMA,
         "solver_installation": _solver_selection_key(context),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
@@ -2239,7 +2241,7 @@ def _collider_motion_digest(frame_offsets, samples, *, dtype="<f8") -> str:
 
 
 COLLIDER_SAMPLES_PER_FRAME = 8
-SCENE_EXPORT_CACHE_SCHEMA = 3
+SCENE_EXPORT_CACHE_SCHEMA = 4
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
@@ -2262,19 +2264,26 @@ class AnimatedColliderCaptureWarning:
 def _collider_sample_points(bake_range: BakeFrameRange, fps: float,
                             samples_per_frame: int = COLLIDER_SAMPLES_PER_FRAME):
     """Dense evaluated samples, including both Bake endpoints exactly."""
-    if not 2 <= int(samples_per_frame) <= 32:
-        raise ValueError("Collider samples per frame must be between 2 and 32")
-    samples_per_frame = int(samples_per_frame)
-    intervals = bake_range.output_count - 1
-    count = intervals * samples_per_frame + 1
-    result = []
-    for index in range(count):
-        position = bake_range.start + index / samples_per_frame
-        frame = math.floor(position)
-        subframe = position - frame
-        result.append((frame, subframe,
-                       index / (float(fps) * samples_per_frame)))
-    return tuple(result)
+    timeline = build_collider_timeline(
+        bake_range.start, bake_range.end,
+        samples_per_frame=int(samples_per_frame), fps=float(fps))
+    return tuple(
+        (point.frame, point.subframe, time)
+        for point, time in zip(timeline.points, timeline.times))
+
+
+def _collider_animation_metadata(bake_range: BakeFrameRange, fps: float,
+                                 samples_per_frame: int) -> dict:
+    timeline = build_collider_timeline(
+        bake_range.start, bake_range.end,
+        samples_per_frame=samples_per_frame, fps=fps)
+    return {
+        "time": list(timeline.times),
+        "_sample_frame_offset": list(timeline.frame_offsets),
+        "_logical_frame_count": timeline.logical_frame_count,
+        "_samples_per_frame": timeline.samples_per_frame,
+        "_capture_fps": timeline.fps,
+    }
 
 
 def _animated_collider_capture_bytes(vertex_count: int,
@@ -2420,9 +2429,13 @@ def _capture_transform_only_collider_motion(
         bake_range, _scene_fps(context),
         int(getattr(collider_obj.cloth_next,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
-    times = [point[2] for point in sample_points]
-    frame_offsets = [point[0] + point[1] - bake_range.start
-                     for point in sample_points]
+    samples_per_frame = int(getattr(
+        collider_obj.cloth_next, "collider_samples_per_frame",
+        COLLIDER_SAMPLES_PER_FRAME))
+    metadata = _collider_animation_metadata(
+        bake_range, _scene_fps(context), samples_per_frame)
+    times = metadata["time"]
+    frame_offsets = metadata["_sample_frame_offset"]
     matrices = []
     vertices = triangles = None
     try:
@@ -2460,7 +2473,7 @@ def _capture_transform_only_collider_motion(
             scales.append(scale)
         return ColliderMotionCapture(
             "RIGID_ANIMATED", vertices, triangles, matrices[0],
-            {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+            {**metadata, "translation": translations,
              "quaternion": quaternions, "scale": scales,
              "segments": [
                  {"interpolation": "LINEAR",
@@ -2486,9 +2499,13 @@ def _capture_collider_motion(context, collider_obj,
         int(getattr(collider_obj.cloth_next,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
     sample_count = len(sample_points)
-    times = [point[2] for point in sample_points]
-    frame_offsets = [point[0] + point[1] - bake_range.start
-                     for point in sample_points]
+    samples_per_frame = int(getattr(
+        collider_obj.cloth_next, "collider_samples_per_frame",
+        COLLIDER_SAMPLES_PER_FRAME))
+    metadata = _collider_animation_metadata(
+        bake_range, _scene_fps(context), samples_per_frame)
+    times = metadata["time"]
+    frame_offsets = metadata["_sample_frame_offset"]
     reference_vertices = None
     reference_triangles = None
     reference_topology = None
@@ -2615,7 +2632,7 @@ def _capture_collider_motion(context, collider_obj,
                 tuple(tuple(float(value) for value in row)
                       for row in reference_vertices),
                 reference_triangles, matrices[0],
-                {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+                {**metadata, "translation": translations,
                  "quaternion": quaternions, "scale": scales,
                  "segments": [
                      {"interpolation": "LINEAR",
@@ -2635,7 +2652,7 @@ def _capture_collider_motion(context, collider_obj,
             tuple(tuple(float(value) for value in row)
                   for row in local_samples[0]),
             reference_triangles, identity,
-            {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": local_samples},
+            {**metadata, "vert_frames": local_samples},
             temporary_path, content_digest=motion_hasher.hexdigest())
     except Exception:
         mapping = getattr(local_samples, "_mmap", None)
@@ -2670,8 +2687,10 @@ def _capture_animated_colliders_shared(
                               COLLIDER_SAMPLES_PER_FRAME))
         for obj in colliders
     }
-    plans = {
-        obj.name: _collider_sample_points(bake_range, fps, rates[obj.name])
+    timelines = {
+        obj.name: build_collider_timeline(
+            bake_range.start, bake_range.end,
+            samples_per_frame=rates[obj.name], fps=fps)
         for obj in colliders
     }
     required = {
@@ -2693,7 +2712,8 @@ def _capture_animated_colliders_shared(
     try:
         for obj in colliders:
             mode = _effective_collider_capture_mode(obj)
-            count = len(plans[obj.name])
+            timeline = timelines[obj.name]
+            count = len(timeline.points)
             states[obj.name] = {
                 "obj": obj, "mode": mode, "matrices": [],
                 "vertices": None, "triangles": None, "topology": None,
@@ -2701,6 +2721,13 @@ def _capture_animated_colliders_shared(
                 "deforming": False,
                 "topology_mode": _collider_topology_check_mode(obj),
                 "sample_count": count,
+                "metadata": {
+                    "time": list(timeline.times),
+                    "_sample_frame_offset": list(timeline.frame_offsets),
+                    "_logical_frame_count": timeline.logical_frame_count,
+                    "_samples_per_frame": timeline.samples_per_frame,
+                    "_capture_fps": timeline.fps,
+                },
             }
         if _export_timing_sink is not None:
             _export_timing_sink["sample_plan_points"] = float(len(union))
@@ -2820,10 +2847,9 @@ def _capture_animated_colliders_shared(
         for obj in colliders:
             state = states[obj.name]
             matrices = state["matrices"]
-            times = [sample[2] for sample in plans[obj.name]]
-            frame_offsets = [
-                sample[0] + sample[1] - bake_range.start
-                for sample in plans[obj.name]]
+            metadata = state["metadata"]
+            times = metadata["time"]
+            frame_offsets = metadata["_sample_frame_offset"]
             if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
                 translations, quaternions, scales = [], [], []
                 for matrix in matrices:
@@ -2838,12 +2864,14 @@ def _capture_animated_colliders_shared(
                 captures[obj.name] = ColliderMotionCapture(
                     "RIGID_ANIMATED", state["vertices"], state["triangles"],
                     matrices[0],
-                    {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+                    {**metadata, "translation": translations,
                      "quaternion": quaternions, "scale": scales,
                      "segments": [{"interpolation": "LINEAR",
                                    "handle_right": [1.0 / 3.0, 0.0],
                                    "handle_left": [2.0 / 3.0, 1.0]}
-                                  for _ in range(len(times) - 1)]})
+                                  for _ in range(len(times) - 1)]},
+                    content_digest=_collider_motion_digest(
+                        frame_offsets, matrices))
                 samples = state["samples"]
                 if samples is not None:
                     samples._mmap.close()
@@ -2858,8 +2886,10 @@ def _capture_animated_colliders_shared(
                     tuple(tuple(float(value) for value in row)
                           for row in state["samples"][0]),
                     state["triangles"], identity,
-                    {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": state["samples"]},
-                    state["path"])
+                    {**metadata, "vert_frames": state["samples"]},
+                    state["path"],
+                    content_digest=_collider_motion_digest(
+                        frame_offsets, state["samples"], dtype="<f4"))
         if _export_timing_sink is not None:
             _export_timing_sink["capture_seconds"] = (
                 _export_timing_sink.get("capture_seconds", 0.0) +
@@ -2888,15 +2918,20 @@ def _begin_collider_pump(colliders, bake_range, fps):
         rate = int(getattr(
             obj.cloth_next, "collider_samples_per_frame",
             COLLIDER_SAMPLES_PER_FRAME))
-        points = build_sample_plan(
+        timeline = build_collider_timeline(
             bake_range.start, bake_range.end,
-            collider_samples=(rate,), include_integer_frames=False)
+            samples_per_frame=rate, fps=fps)
+        points = timeline.points
         result[obj.name] = {
             "obj": obj, "points": {
                 point.position: index for index, point in enumerate(points)},
-            "times": [
-                float(point.position - bake_range.start) / float(fps)
-                for point in points],
+            "metadata": {
+                "time": list(timeline.times),
+                "_sample_frame_offset": list(timeline.frame_offsets),
+                "_logical_frame_count": timeline.logical_frame_count,
+                "_samples_per_frame": timeline.samples_per_frame,
+                "_capture_fps": timeline.fps,
+            },
             "mode": _effective_collider_capture_mode(obj),
             "matrices": [], "vertices": None, "triangles": None,
             "topology": None, "topology_buffers": None,
@@ -2999,6 +3034,8 @@ def _finish_collider_pump(states):
     captures = {}
     for name, state in states.items():
         matrices = state["matrices"]
+        metadata = state["metadata"]
+        frame_offsets = metadata["_sample_frame_offset"]
         if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
             translations, quaternions, scales = [], [], []
             for matrix in matrices:
@@ -3013,12 +3050,14 @@ def _finish_collider_pump(states):
             captures[name] = ColliderMotionCapture(
                 "RIGID_ANIMATED", state["vertices"], state["triangles"],
                 matrices[0],
-                {"time": state["times"], "translation": translations,
+                {**metadata, "translation": translations,
                  "quaternion": quaternions, "scale": scales,
                  "segments": [{"interpolation": "LINEAR",
                                "handle_right": [1.0 / 3.0, 0.0],
                                "handle_left": [2.0 / 3.0, 1.0]}
-                              for _ in range(len(matrices) - 1)]})
+                              for _ in range(len(matrices) - 1)]},
+                content_digest=_collider_motion_digest(
+                    frame_offsets, matrices))
             if state["samples"] is not None:
                 state["samples"]._mmap.close()
                 state["path"].unlink(missing_ok=True)
@@ -3032,8 +3071,9 @@ def _finish_collider_pump(states):
                 tuple(tuple(float(value) for value in row)
                       for row in state["samples"][0]),
                 state["triangles"], identity,
-                {"time": state["times"],
-                 "vert_frames": state["samples"]}, state["path"])
+                {**metadata, "vert_frames": state["samples"]}, state["path"],
+                content_digest=_collider_motion_digest(
+                    frame_offsets, state["samples"], dtype="<f4"))
     return captures
 
 

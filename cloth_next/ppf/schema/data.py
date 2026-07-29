@@ -47,39 +47,56 @@ def _float32(value: float) -> float:
     return struct.unpack("<f", struct.pack("<f", value))[0]
 
 
-def _schema2_full_frame_indices(name: str, sample_offsets):
+def _schema2_full_frame_indices(name: str, animation: dict):
     """Select the one captured pose that belongs to each Blender frame.
 
     Protocol 0.13 removed per-sample times from the DATA payload. Row ``i`` of
     ``static_deform_animation`` is therefore frame offset ``i``; dense Cloth
     NeXt sub-frame samples must not be serialized as additional full frames.
     """
-    if sample_offsets is None:
-        return None
+    sample_offsets = animation.get("_sample_frame_offset")
+    logical_count = animation.get("_logical_frame_count")
+    samples_per_frame = animation.get("_samples_per_frame")
+    capture_fps = animation.get("_capture_fps")
+    times = animation.get("time")
+    if any(value is None for value in (
+            sample_offsets, logical_count, samples_per_frame,
+            capture_fps, times)):
+        raise SceneEncodeError(
+            f"{name}: Schema 2 animated Collider is missing canonical "
+            "timeline metadata")
+    logical_count = int(logical_count)
+    samples_per_frame = int(samples_per_frame)
+    capture_fps = float(capture_fps)
+    if logical_count < 2 or not 1 <= samples_per_frame <= 32:
+        raise SceneEncodeError(
+            f"{name}: invalid animated Collider logical frame/sample count")
+    if not math.isfinite(capture_fps) or capture_fps <= 0.0:
+        raise SceneEncodeError(
+            f"{name}: animated Collider capture FPS must be positive")
     offsets = [float(value) for value in sample_offsets]
-    if len(offsets) < 2:
+    times = [float(value) for value in times]
+    expected_samples = (logical_count - 1) * samples_per_frame + 1
+    if len(offsets) != expected_samples or len(times) != expected_samples:
         raise SceneEncodeError(
-            f"{name}: collider animation needs at least two sample offsets")
-    selected = []
-    frame_offsets = []
-    previous = -math.inf
-    for index, value in enumerate(offsets):
-        if not math.isfinite(value) or value <= previous:
+            f"{name}: animated Collider timeline has {len(offsets)} offsets "
+            f"and {len(times)} times; expected {expected_samples}")
+    for index, (offset, time_value) in enumerate(zip(offsets, times)):
+        expected_offset = index / float(samples_per_frame)
+        expected_time = expected_offset / capture_fps
+        if (not math.isfinite(offset)
+                or abs(offset - expected_offset) > 1e-9):
             raise SceneEncodeError(
-                f"{name}: collider sample offsets must be finite and increase")
-        previous = value
-        nearest = int(round(value))
-        if abs(value - nearest) <= 1e-6:
-            selected.append(index)
-            frame_offsets.append(nearest)
-    if not frame_offsets or frame_offsets[0] != 0:
-        raise SceneEncodeError(
-            f"{name}: collider capture must include Blender frame offset 0")
-    expected = list(range(frame_offsets[-1] + 1))
-    if frame_offsets != expected:
-        raise SceneEncodeError(
-            f"{name}: collider capture is missing a full Blender-frame pose")
-    return tuple(selected), frame_offsets
+                f"{name}: animated Collider sample {index} has frame offset "
+                f"{offset!r}; expected {expected_offset!r}")
+        if (not math.isfinite(time_value)
+                or abs(time_value - expected_time) > 1e-9):
+            raise SceneEncodeError(
+                f"{name}: animated Collider sample {index} has time "
+                f"{time_value!r}; expected {expected_time!r}")
+    selected = tuple(
+        frame * samples_per_frame for frame in range(logical_count))
+    return selected, list(range(logical_count))
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,46 +250,55 @@ class SceneObject:
                            list(self.pin_indices))
         if self.transform_animation is not None:
             animation = dict(self.transform_animation)
-            sample_offsets = animation.pop("_sample_frame_offset", None)
             if schema_version == 2:
-                times = animation.pop("time")
-                frame_samples = _schema2_full_frame_indices(
-                    self.name, sample_offsets)
-                if frame_samples is not None:
-                    indices, frame_offsets = frame_samples
-                    for key in ("translation", "quaternion", "scale"):
-                        animation[key] = [animation[key][index]
-                                          for index in indices]
-                    animation["segments"] = [
-                        {"interpolation": "LINEAR",
-                         "handle_right": [1.0 / 3.0, 0.0],
-                         "handle_left": [2.0 / 3.0, 1.0]}
-                        for _index in range(len(indices) - 1)]
-                    animation["frame_offset"] = frame_offsets
-                elif len(times) > 1:
-                    step = float(times[1]) - float(times[0])
-                    if step <= 0.0:
+                indices, frame_offsets = _schema2_full_frame_indices(
+                    self.name, animation)
+                sample_count = indices[-1] + 1
+                for key in ("translation", "quaternion", "scale"):
+                    if len(animation.get(key, ())) != sample_count:
                         raise SceneEncodeError(
-                            f"{self.name}: animation times must increase")
-                    animation["frame_offset"] = [
-                        int(round((float(value) - float(times[0])) / step))
-                        for value in times]
+                            f"{self.name}: animated Collider {key} has "
+                            f"{len(animation.get(key, ()))} samples; expected "
+                            f"{sample_count}")
+                if len(animation.get("segments", ())) != sample_count - 1:
+                    raise SceneEncodeError(
+                        f"{self.name}: animated Collider segments has "
+                        f"{len(animation.get('segments', ()))} entries; "
+                        f"expected {sample_count - 1}")
+                animation.pop("time")
+                for key in ("translation", "quaternion", "scale"):
+                    animation[key] = [animation[key][index]
+                                      for index in indices]
+                source_segments = animation["segments"]
+                animation["segments"] = [
+                    source_segments[indices[index]]
+                    for index in range(len(indices) - 1)]
+                animation["frame_offset"] = frame_offsets
+            for key in (
+                    "_sample_frame_offset", "_logical_frame_count",
+                    "_samples_per_frame", "_capture_fps"):
+                animation.pop(key, None)
             info["transform_animation"] = animation
         if self.static_deform_animation is not None:
             animation = dict(self.static_deform_animation)
-            sample_offsets = animation.pop("_sample_frame_offset", None)
             if schema_version == 2:
+                indices, _frame_offsets = _schema2_full_frame_indices(
+                    self.name, animation)
                 animation.pop("time", None)
-                frame_samples = _schema2_full_frame_indices(
-                    self.name, sample_offsets)
-                if frame_samples is not None:
-                    indices, _frame_offsets = frame_samples
-                    frames = animation["vert_frames"]
-                    try:
-                        animation["vert_frames"] = frames[list(indices)]
-                    except TypeError:
-                        animation["vert_frames"] = [frames[index]
-                                                    for index in indices]
+                frames = animation["vert_frames"]
+                if len(frames) != indices[-1] + 1:
+                    raise SceneEncodeError(
+                        f"{self.name}: animated Collider vert_frames has "
+                        f"{len(frames)} samples; expected {indices[-1] + 1}")
+                try:
+                    animation["vert_frames"] = frames[list(indices)]
+                except TypeError:
+                    animation["vert_frames"] = [frames[index]
+                                                for index in indices]
+            for key in (
+                    "_sample_frame_offset", "_logical_frame_count",
+                    "_samples_per_frame", "_capture_fps"):
+                animation.pop(key, None)
             info["static_deform_animation"] = animation
         if self.static_operations:
             operations = []

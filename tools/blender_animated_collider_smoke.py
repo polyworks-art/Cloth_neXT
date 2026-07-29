@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from cloth_next.bake.frame_range import BakeFrameRange  # noqa: E402
 from cloth_next.blender import registration, solver_test  # noqa: E402
+from cloth_next.ppf.schema.data import SceneObject  # noqa: E402
 from cloth_next.ppf_run.session import SessionCancelled  # noqa: E402
 
 
@@ -35,7 +36,7 @@ def _capture(obj, start=1, end=3):
 def main():
     registration.register()
     scene = bpy.context.scene
-    scene.render.fps = 24
+    scene.render.fps = 30
     scene.frame_set(2)
 
     bpy.ops.mesh.primitive_cube_add()
@@ -44,17 +45,38 @@ def main():
     rigid.cloth_next.enabled = True
     rigid.cloth_next.role = "COLLIDER"
     rigid.cloth_next.collider_motion = "ANIMATED"
+    rigid.cloth_next.collider_samples_per_frame = 8
     rigid.location.x = 0.0
     rigid.keyframe_insert("location", frame=1)
     rigid.location.x = 2.0
     rigid.rotation_euler.z = 0.7
     rigid.scale = (1.0, 2.0, 0.5)
-    rigid.keyframe_insert("location", frame=3)
-    rigid.keyframe_insert("rotation_euler", frame=3)
-    rigid.keyframe_insert("scale", frame=3)
-    rigid_capture, rigid_seconds, rigid_peak = _capture(rigid)
+    rigid.keyframe_insert("location", frame=64)
+    rigid.keyframe_insert("rotation_euler", frame=64)
+    rigid.keyframe_insert("scale", frame=64)
+    bake_range = BakeFrameRange(1, 64)
+    rigid_capture, rigid_seconds, rigid_peak = _capture(rigid, 1, 64)
     assert rigid_capture.motion_type == "RIGID_ANIMATED"
-    assert len(rigid_capture.animation["time"]) == 5
+    assert len(rigid_capture.animation["time"]) == 505
+    assert abs(rigid_capture.animation["time"][-1] - 2.1) < 1e-12
+    assert rigid_capture.animation["_logical_frame_count"] == 64
+    assert rigid_capture.animation["_sample_frame_offset"][1] == 0.125
+    assert rigid_capture.animation["_sample_frame_offset"][8] == 1.0
+    encoded = SceneObject(
+        rigid.name, "rigid-smoke", rigid_capture.vertices,
+        rigid_capture.triangles, rigid_capture.transform,
+        transform_animation=rigid_capture.animation).info_dict(
+            schema_version=2)["transform_animation"]
+    assert encoded["frame_offset"] == list(range(64))
+    assert len(encoded["translation"]) == 64
+    assert encoded["translation"][1] != encoded["translation"][0]
+    assert encoded["translation"][-1] != encoded["translation"][0]
+    playback_frames = [
+        bake_range.blender_frame(step)
+        for step in range(bake_range.output_count)]
+    assert bake_range.solver_steps == 63
+    assert bake_range.output_count == 64
+    assert playback_frames == list(range(1, 65))
     rigid_capture.cleanup()
 
     bpy.ops.mesh.primitive_cube_add()
@@ -63,6 +85,7 @@ def main():
     deform.cloth_next.enabled = True
     deform.cloth_next.role = "COLLIDER"
     deform.cloth_next.collider_motion = "ANIMATED"
+    deform.cloth_next.collider_samples_per_frame = 2
     deform.shape_key_add(name="Basis")
     key = deform.shape_key_add(name="Raise")
     key.data[0].co.z += 1.0
@@ -115,9 +138,11 @@ def main():
                                     + len(deform.data.vertices)),
         "rigid_capture_seconds": rigid_seconds,
         "deforming_capture_seconds": deform_seconds,
-        "samples_per_collider": 5,
+        "rigid_samples": 505,
+        "deforming_samples": 5,
+        "logical_playback_frames": 64,
         "average_capture_seconds_per_sample": (
-            rigid_seconds + deform_seconds) / 10.0,
+            rigid_seconds + deform_seconds) / 510.0,
         "temporary_file_bytes": temp_size,
         "python_peak_bytes": max(rigid_peak, deform_peak),
         "frame_restored": scene.frame_current == 2,
