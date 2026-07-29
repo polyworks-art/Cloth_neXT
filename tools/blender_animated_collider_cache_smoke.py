@@ -55,20 +55,23 @@ def main():
         source.cloth_next.collider_capture_mode = "DEFORMING"
         source.cloth_next.collider_samples_per_frame = 2
 
-        bend = source.modifiers.new("Digest Bend", "SIMPLE_DEFORM")
-        bend.deform_method = "BEND"
-        bend.deform_axis = "X"
-        bend.angle = 0.0
-        bend.keyframe_insert("angle", frame=1)
-        bend.angle = 0.35
-        bend.keyframe_insert("angle", frame=3)
+        source.shape_key_add(name="Basis")
+        deform = source.shape_key_add(name="Deform")
+        # Guaranteed local-space deformation with unchanged topology and world
+        # transform, matching an Armature/shape-key character Collider.
+        for point in deform.data:
+            point.co.z += 0.25 * (1.0 + float(point.co.x))
+        deform.value = 0.0
+        deform.keyframe_insert("value", frame=1)
+        deform.value = 1.0
+        deform.keyframe_insert("value", frame=3)
 
         bake_range = BakeFrameRange(1, 3)
         print("[animated-collider-cache] capture A", flush=True)
         first_digest, first_last = _capture(source, bake_range)
 
-        bend.angle = 0.8
-        bend.keyframe_insert("angle", frame=3)
+        deform.value = 0.45
+        deform.keyframe_insert("value", frame=3)
         print("[animated-collider-cache] capture B", flush=True)
         second_digest, second_last = _capture(source, bake_range)
 
