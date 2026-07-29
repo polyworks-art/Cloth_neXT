@@ -6,6 +6,14 @@ on:
       - main
     paths:
       - .github/workflows/branch-cleanup-once.yml
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
 
 permissions:
   contents: write
