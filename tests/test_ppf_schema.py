@@ -207,7 +207,7 @@ def test_schema2_envelope_animation_offsets_and_required_time_scale():
         schema_version=2)
     param = cbor_codec.loads(param_blob)
     assert param["version"] == 2
-    assert param["payload"]["scene"]["fps"] == pytest.approx(23.976)
+    assert param["payload"]["scene"]["fps"] == pytest.approx(11.988)
     assert param["payload"]["time_scale"] == pytest.approx(0.5)
 
 
@@ -224,6 +224,83 @@ def test_schema2_static_deform_has_no_time_array():
             "vert_frames": np.zeros((2, 3, 3), dtype=np.float64)})
     info = deform.info_dict(schema_version=2)
     assert "time" not in info["static_deform_animation"]
+
+
+def test_schema2_dense_transform_capture_keeps_only_full_frames():
+    offsets = [index / 8.0 for index in range(17)]
+    collider = SceneObject(
+        "Collider", "dense-transform-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        transform_animation={
+            "time": [offset / 30.0 for offset in offsets],
+            "_sample_frame_offset": offsets,
+            "translation": [[offset, 0.0, 0.0] for offset in offsets],
+            "quaternion": [[1.0, 0.0, 0.0, 0.0] for _ in offsets],
+            "scale": [[1.0, 1.0, 1.0] for _ in offsets],
+            "segments": [{"interpolation": "LINEAR"}
+                         for _ in range(len(offsets) - 1)],
+        })
+
+    animation = collider.info_dict(
+        schema_version=2)["transform_animation"]
+
+    assert animation["frame_offset"] == [0, 1, 2]
+    assert [row[0] for row in animation["translation"]] == [0.0, 1.0, 2.0]
+    assert len(animation["segments"]) == 2
+    assert "time" not in animation
+    assert "_sample_frame_offset" not in animation
+
+
+def test_schema2_dense_deforming_capture_keeps_only_full_frames():
+    offsets = [index / 8.0 for index in range(17)]
+    frames = np.asarray([
+        np.full((3, 3), index, dtype=np.float64)
+        for index in range(len(offsets))])
+    collider = SceneObject(
+        "Collider", "dense-deform-v2",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        static_deform_animation={
+            "time": [offset / 30.0 for offset in offsets],
+            "_sample_frame_offset": offsets,
+            "vert_frames": frames,
+        })
+
+    animation = collider.info_dict(
+        schema_version=2)["static_deform_animation"]
+    encoded = np.asarray(animation["vert_frames"])
+
+    assert encoded.shape == (3, 3, 3)
+    assert encoded[:, 0, 0].tolist() == [0.0, 8.0, 16.0]
+    assert "time" not in animation
+    assert "_sample_frame_offset" not in animation
+
+
+def test_schema1_dense_capture_retains_subframes_without_private_metadata():
+    offsets = [index / 8.0 for index in range(9)]
+    frames = np.zeros((9, 3, 3), dtype=np.float64)
+    collider = SceneObject(
+        "Collider", "dense-deform-v1",
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),), solver_world_matrix(
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1))),
+        static_deform_animation={
+            "time": [offset / 30.0 for offset in offsets],
+            "_sample_frame_offset": offsets,
+            "vert_frames": frames,
+        })
+
+    animation = collider.info_dict()["static_deform_animation"]
+
+    assert len(animation["time"]) == 9
+    assert np.asarray(animation["vert_frames"]).shape[0] == 9
+    assert "_sample_frame_offset" not in animation
 
 
 def test_multiple_colliders_keep_deterministic_scene_and_param_order():

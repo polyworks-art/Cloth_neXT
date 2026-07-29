@@ -242,8 +242,10 @@ def _scene_wire_params(settings: SimulationSettings,
                  for value in blender_vector_to_ppf(settings.wind_blender)],
         # Blender frames 1..N map to solver frames 0..N-1 (upstream contract).
         "frames": int(settings.frame_count) - 1,
-        "fps": (float(settings.fps) if schema_version == 2
-                else int(settings.fps)),
+        # Protocol 0.13 uses the Time-Scaled solver rate. The
+        # collider schedule and physical integration must share it.
+        "fps": (float(settings.fps * settings.time_scale)
+                if schema_version == 2 else int(settings.fps)),
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }

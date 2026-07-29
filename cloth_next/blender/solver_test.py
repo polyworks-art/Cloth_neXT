@@ -2394,6 +2394,8 @@ def _capture_transform_only_collider_motion(
         int(getattr(collider_obj.cloth_next,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
     times = [point[2] for point in sample_points]
+    frame_offsets = [point[0] + point[1] - bake_range.start
+                     for point in sample_points]
     matrices = []
     vertices = triangles = None
     try:
@@ -2431,7 +2433,7 @@ def _capture_transform_only_collider_motion(
             scales.append(scale)
         return ColliderMotionCapture(
             "RIGID_ANIMATED", vertices, triangles, matrices[0],
-            {"time": times, "translation": translations,
+            {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
              "quaternion": quaternions, "scale": scales,
              "segments": [
                  {"interpolation": "LINEAR",
@@ -2457,6 +2459,8 @@ def _capture_collider_motion(context, collider_obj,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
     sample_count = len(sample_points)
     times = [point[2] for point in sample_points]
+    frame_offsets = [point[0] + point[1] - bake_range.start
+                     for point in sample_points]
     reference_vertices = None
     reference_triangles = None
     reference_topology = None
@@ -2578,7 +2582,7 @@ def _capture_collider_motion(context, collider_obj,
                 tuple(tuple(float(value) for value in row)
                       for row in reference_vertices),
                 reference_triangles, matrices[0],
-                {"time": times, "translation": translations,
+                {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
                  "quaternion": quaternions, "scale": scales,
                  "segments": [
                      {"interpolation": "LINEAR",
@@ -2597,7 +2601,7 @@ def _capture_collider_motion(context, collider_obj,
             tuple(tuple(float(value) for value in row)
                   for row in local_samples[0]),
             reference_triangles, identity,
-            {"time": times, "vert_frames": local_samples}, temporary_path)
+            {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": local_samples}, temporary_path)
     except Exception:
         mapping = getattr(local_samples, "_mmap", None)
         if mapping is not None:
@@ -2782,6 +2786,9 @@ def _capture_animated_colliders_shared(
             state = states[obj.name]
             matrices = state["matrices"]
             times = [sample[2] for sample in plans[obj.name]]
+            frame_offsets = [
+                sample[0] + sample[1] - bake_range.start
+                for sample in plans[obj.name]]
             if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
                 translations, quaternions, scales = [], [], []
                 for matrix in matrices:
@@ -2796,7 +2803,7 @@ def _capture_animated_colliders_shared(
                 captures[obj.name] = ColliderMotionCapture(
                     "RIGID_ANIMATED", state["vertices"], state["triangles"],
                     matrices[0],
-                    {"time": times, "translation": translations,
+                    {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
                      "quaternion": quaternions, "scale": scales,
                      "segments": [{"interpolation": "LINEAR",
                                    "handle_right": [1.0 / 3.0, 0.0],
@@ -2816,7 +2823,7 @@ def _capture_animated_colliders_shared(
                     tuple(tuple(float(value) for value in row)
                           for row in state["samples"][0]),
                     state["triangles"], identity,
-                    {"time": times, "vert_frames": state["samples"]},
+                    {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": state["samples"]},
                     state["path"])
         if _export_timing_sink is not None:
             _export_timing_sink["capture_seconds"] = (

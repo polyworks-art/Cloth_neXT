@@ -47,6 +47,41 @@ def _float32(value: float) -> float:
     return struct.unpack("<f", struct.pack("<f", value))[0]
 
 
+def _schema2_full_frame_indices(name: str, sample_offsets):
+    """Select the one captured pose that belongs to each Blender frame.
+
+    Protocol 0.13 removed per-sample times from the DATA payload. Row ``i`` of
+    ``static_deform_animation`` is therefore frame offset ``i``; dense Cloth
+    NeXt sub-frame samples must not be serialized as additional full frames.
+    """
+    if sample_offsets is None:
+        return None
+    offsets = [float(value) for value in sample_offsets]
+    if len(offsets) < 2:
+        raise SceneEncodeError(
+            f"{name}: collider animation needs at least two sample offsets")
+    selected = []
+    frame_offsets = []
+    previous = -math.inf
+    for index, value in enumerate(offsets):
+        if not math.isfinite(value) or value <= previous:
+            raise SceneEncodeError(
+                f"{name}: collider sample offsets must be finite and increase")
+        previous = value
+        nearest = int(round(value))
+        if abs(value - nearest) <= 1e-6:
+            selected.append(index)
+            frame_offsets.append(nearest)
+    if not frame_offsets or frame_offsets[0] != 0:
+        raise SceneEncodeError(
+            f"{name}: collider capture must include Blender frame offset 0")
+    expected = list(range(frame_offsets[-1] + 1))
+    if frame_offsets != expected:
+        raise SceneEncodeError(
+            f"{name}: collider capture is missing a full Blender-frame pose")
+    return tuple(selected), frame_offsets
+
+
 @dataclass(frozen=True, slots=True)
 class SceneObject:
     """Immutable, pure-Python description of one exported mesh object."""
@@ -198,9 +233,23 @@ class SceneObject:
                            list(self.pin_indices))
         if self.transform_animation is not None:
             animation = dict(self.transform_animation)
+            sample_offsets = animation.pop("_sample_frame_offset", None)
             if schema_version == 2:
                 times = animation.pop("time")
-                if len(times) > 1:
+                frame_samples = _schema2_full_frame_indices(
+                    self.name, sample_offsets)
+                if frame_samples is not None:
+                    indices, frame_offsets = frame_samples
+                    for key in ("translation", "quaternion", "scale"):
+                        animation[key] = [animation[key][index]
+                                          for index in indices]
+                    animation["segments"] = [
+                        {"interpolation": "LINEAR",
+                         "handle_right": [1.0 / 3.0, 0.0],
+                         "handle_left": [2.0 / 3.0, 1.0]}
+                        for _index in range(len(indices) - 1)]
+                    animation["frame_offset"] = frame_offsets
+                elif len(times) > 1:
                     step = float(times[1]) - float(times[0])
                     if step <= 0.0:
                         raise SceneEncodeError(
@@ -211,8 +260,19 @@ class SceneObject:
             info["transform_animation"] = animation
         if self.static_deform_animation is not None:
             animation = dict(self.static_deform_animation)
+            sample_offsets = animation.pop("_sample_frame_offset", None)
             if schema_version == 2:
                 animation.pop("time", None)
+                frame_samples = _schema2_full_frame_indices(
+                    self.name, sample_offsets)
+                if frame_samples is not None:
+                    indices, _frame_offsets = frame_samples
+                    frames = animation["vert_frames"]
+                    try:
+                        animation["vert_frames"] = frames[list(indices)]
+                    except TypeError:
+                        animation["vert_frames"] = [frames[index]
+                                                    for index in indices]
             info["static_deform_animation"] = animation
         if self.static_operations:
             operations = []
