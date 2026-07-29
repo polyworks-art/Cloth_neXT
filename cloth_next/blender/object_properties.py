@@ -556,7 +556,14 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Use Experimental Proxy", default=False,
         update=_on_settings_update,
         description="Replace this logical Collider with its generated "
-                    "low-poly simulation Proxy during Bake")
+                    "simulation Proxy during Bake")
+    collider_proxy_type: bpy.props.EnumProperty(
+        name="Proxy Type", default="SIMPLE", update=_on_settings_update,
+        items=(("SIMPLE", "Simple Proxy",
+                "Use the existing reduced deforming Mesh proxy"),
+               ("CHARACTER_CAGE", "Character Collision Cage",
+                "Build conservative rigid bone hulls from the animated Character")),
+        description="Choose the generated Collider proxy strategy")
     collider_proxy_target_vertices: bpy.props.IntProperty(
         name="Target Vertices", default=12000, min=500, max=250000,
         update=_on_settings_update,
@@ -572,6 +579,26 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Proxy Source Vertices", default=0, options={"HIDDEN"})
     collider_proxy_result_vertices: bpy.props.IntProperty(
         name="Proxy Result Vertices", default=0, options={"HIDDEN"})
+    collider_cage_margin: bpy.props.FloatProperty(
+        name="Cage Margin", default=0.003, min=0.0, soft_max=0.02,
+        precision=4, update=_on_settings_update,
+        description="Outward safety margin added to every bone hull in world units")
+    collider_cage_joint_overlap: bpy.props.FloatProperty(
+        name="Joint Overlap", default=0.01, min=0.0, soft_max=0.05,
+        precision=4, update=_on_settings_update,
+        description="Extend bone hulls along the bone axis so joints overlap")
+    collider_cage_sample_step: bpy.props.IntProperty(
+        name="Animation Sample Step", default=1, min=1, max=32,
+        update=_on_settings_update,
+        description="Frames between one-time Character evaluations while fitting the cage")
+    collider_cage_weight_threshold: bpy.props.FloatProperty(
+        name="Bone Weight Threshold", default=0.2, min=0.0, max=1.0,
+        precision=2, update=_on_settings_update,
+        description="Minimum skin weight for a Character vertex to contribute to a bone hull")
+    collider_cage_min_vertices: bpy.props.IntProperty(
+        name="Minimum Bone Vertices", default=24, min=4, max=10000,
+        update=_on_settings_update,
+        description="Ignore deform bones with fewer weighted Character vertices")
     material: bpy.props.PointerProperty(type=CLOTHNEXT_PG_material_settings)
     damping: bpy.props.PointerProperty(type=CLOTHNEXT_PG_damping_settings)
     pressure: bpy.props.PointerProperty(type=CLOTHNEXT_PG_pressure_settings)
@@ -736,6 +763,12 @@ def reset_settings(settings) -> None:
     settings.collider_capture_mode = "AUTO"
     settings.collider_samples_per_frame = 8
     settings.collider_proxy_enabled = False
+    settings.collider_proxy_type = "SIMPLE"
+    settings.collider_cage_margin = 0.003
+    settings.collider_cage_joint_overlap = 0.01
+    settings.collider_cage_sample_step = 1
+    settings.collider_cage_weight_threshold = 0.2
+    settings.collider_cage_min_vertices = 24
     owner = getattr(settings, "id_data", None)
     if owner is not None:
         validation_state.forget(owner)
