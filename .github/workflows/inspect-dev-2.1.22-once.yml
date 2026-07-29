@@ -1,8 +1,8 @@
 name: One-time Dev 2.1.22 package inspector
 
 on:
-  push:
-    branches: [main]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   inspect:
+    if: >-
+      github.event.comment.user.login == 'polyworks-art' &&
+      github.event.comment.body == '/inspect-dev-2.1.22-v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +27,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import urllib.error
           import urllib.parse
           import urllib.request
           import zipfile
@@ -102,8 +106,10 @@ jobs:
                       headers=headers)
                   with urllib.request.urlopen(current_request) as response:
                       current = json.load(response)
-              except Exception:
-                  continue
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404:
+                      continue
+                  raise
               delete_request = urllib.request.Request(
                   f'https://api.github.com/repos/{repo}/contents/{quoted}',
                   data=json.dumps({
@@ -115,4 +121,16 @@ jobs:
                   method='DELETE')
               with urllib.request.urlopen(delete_request):
                   pass
+
+          branch_ref = urllib.parse.quote(
+              'heads/maintenance/inspect-dev-2.1.22', safe='/')
+          branch_request = urllib.request.Request(
+              f'https://api.github.com/repos/{repo}/git/refs/{branch_ref}',
+              headers=headers, method='DELETE')
+          try:
+              with urllib.request.urlopen(branch_request):
+                  pass
+          except urllib.error.HTTPError as exc:
+              if exc.code not in (404, 422):
+                  raise
           PY
