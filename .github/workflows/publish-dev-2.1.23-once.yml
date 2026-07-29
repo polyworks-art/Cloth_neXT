@@ -1,0 +1,145 @@
+name: Publish Dev 2.1.23 once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  publish:
+    if: github.event.head_commit.message == 'Trigger Dev 2.1.23 publish'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SOURCE_SHA: 5cb470922b7c2e04c4c109e892669f66db018c2b
+      VERSION: 2.1.23
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Dispatch immutable Dev publish
+        id: dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(gh run list --workflow publish-dev.yml --event workflow_dispatch --limit 50 --json databaseId --jq '.[].databaseId' || true)"
+          gh workflow run publish-dev.yml \
+            --ref main \
+            -f ref="$SOURCE_SHA" \
+            -f version="$VERSION" \
+            -f build_note="Materials, Soft and Hard Pins, Character Collision Cage, Protocol 0.13 timing fix" \
+            -f confirmation=PUBLISH_DEV
+
+          run_id=""
+          for _ in $(seq 1 60); do
+            while read -r candidate; do
+              [ -z "$candidate" ] && continue
+              if ! grep -qx "$candidate" <<< "$before"; then
+                run_id="$candidate"
+                break
+              fi
+            done < <(gh run list --workflow publish-dev.yml --event workflow_dispatch --limit 20 --json databaseId --jq '.[].databaseId')
+            [ -n "$run_id" ] && break
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo "Could not resolve the dispatched publish-dev run" >&2
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          gh run watch "$run_id" --exit-status --interval 10
+
+      - name: Verify published Dev repository and ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git worktree add "$RUNNER_TEMP/pages" origin/gh-pages
+          python - <<'PY'
+          import json
+          import zipfile
+          from pathlib import Path
+
+          dev = Path.home()  # replaced below through environment-safe path
+          import os
+          dev = Path(os.environ['RUNNER_TEMP']) / 'pages' / 'dev'
+          index = json.loads((dev / 'index.json').read_text(encoding='utf-8'))
+          candidates = [entry for entry in index['data'] if entry.get('id') == 'cloth_next']
+          assert len(candidates) == 1, candidates
+          candidate = candidates[0]
+          assert candidate['version'] == '2.1.23', candidate
+          archive = dev / candidate['archive_url'].removeprefix('./')
+          assert archive.is_file(), archive
+
+          required_files = {
+              'materials/product_shell_presets.toml',
+              'blender/pin_constraints.py',
+              'pinning.py',
+              'ppf/schema/data.py',
+              'ppf/schema/params.py',
+              'blender/solver_test.py',
+              'blender/character_collision_cage.py',
+              'blender/collider_proxy.py',
+              'blender/physics_ui.py',
+          }
+          with zipfile.ZipFile(archive) as bundle:
+              names = set(bundle.namelist())
+              missing = sorted(required_files - names)
+              assert not missing, missing
+              material = bundle.read('materials/product_shell_presets.toml').decode('utf-8')
+              pins = bundle.read('blender/pin_constraints.py').decode('utf-8')
+              pin_model = bundle.read('pinning.py').decode('utf-8')
+              scene_wire = bundle.read('ppf/schema/data.py').decode('utf-8')
+              params = bundle.read('ppf/schema/params.py').decode('utf-8')
+              solver_export = bundle.read('blender/solver_test.py').decode('utf-8')
+              cage = bundle.read('blender/character_collision_cage.py').decode('utf-8')
+              proxy = bundle.read('blender/collider_proxy.py').decode('utf-8')
+              ui = bundle.read('blender/physics_ui.py').decode('utf-8')
+
+          assert 'PRODUCT_GORETEX_PRO_3L' in material
+          assert '("SOFT", "Soft Pin"' in pins
+          assert '("HARD", "Hard Pin"' in pins
+          assert 'class PinConstraintType' in pin_model
+          assert 'def _schema2_full_frame_indices' in scene_wire
+          assert 'settings.fps * settings.time_scale' in params
+          assert '"_sample_frame_offset": frame_offsets' in solver_export
+          assert 'conservative 26-DOP' in cage
+          assert 'CHARACTER_CAGE' in proxy
+          assert 'Character Collision Cage' in ui
+          print(json.dumps({
+              'version': candidate['version'],
+              'archive': archive.name,
+              'size': candidate['archive_size'],
+              'hash': candidate['archive_hash'],
+          }))
+          PY
+
+      - name: Report success
+        if: success()
+        shell: bash
+        run: |
+          gh pr comment 31 --body "Dev **2.1.23** published successfully from source commit \`$SOURCE_SHA\`. The published ZIP passed the Materials, Soft/Hard Pins, Character Collision Cage, and Protocol 0.13 timing-fix gates. Publish run: https://github.com/${{ github.repository }}/actions/runs/${{ steps.dispatch.outputs.run_id }}"
+
+      - name: Report failure
+        if: failure()
+        shell: bash
+        run: |
+          gh pr comment 31 --body "Dev **2.1.23** publish failed in the one-time dispatcher. Source commit: \`$SOURCE_SHA\`. Dispatcher run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+
+      - name: Remove one-time dispatcher
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f .github/workflows/publish-dev-2.1.23-once.yml maintenance/trigger-dev-2.1.23.txt
+          git add -A
+          git commit -m "Remove Dev 2.1.23 dispatcher"
+          git push origin HEAD:main
