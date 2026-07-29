@@ -41,24 +41,59 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _ACTIVE_EXTENSION = None
+_ACTIVE_EXTENSION_ENABLED_BY_TEST = False
+
+
+def _disable_active_extension() -> None:
+    """Undo only the activation performed by this smoke test."""
+    global _ACTIVE_EXTENSION, _ACTIVE_EXTENSION_ENABLED_BY_TEST
+    extension = _ACTIVE_EXTENSION
+    if extension is None:
+        return
+    try:
+        if _ACTIVE_EXTENSION_ENABLED_BY_TEST:
+            import addon_utils
+            addon_utils.disable(
+                extension.__name__, default_set=True, handle_error=None)
+    finally:
+        _ACTIVE_EXTENSION = None
+        _ACTIVE_EXTENSION_ENABLED_BY_TEST = False
 
 
 def _load_updates_module():
-    """Import the operators from the enabled extension or the source tree."""
-    global _ACTIVE_EXTENSION
+    """Enable the installed extension or source fallback through Blender.
+
+    Calling ``register()`` directly does not create an entry in
+    ``preferences.addons``.  That made the Dev-channel acknowledgement gate
+    fail before the update repository path was exercised, while also skipping
+    the exact AddonPreferences namespace behavior this smoke test must cover.
+    """
+    global _ACTIVE_EXTENSION, _ACTIVE_EXTENSION_ENABLED_BY_TEST
+    import addon_utils
+    import bpy
+
+    sys.path.insert(0, str(REPO_ROOT))
     for candidate in ("bl_ext.user_default.cloth_next", "cloth_next"):
         try:
             extension = importlib.import_module(candidate)
-            break
         except ModuleNotFoundError:
             continue
-    else:
-        sys.path.insert(0, str(REPO_ROOT))
-        extension = importlib.import_module("cloth_next")
-    extension.register()
-    _ACTIVE_EXTENSION = extension
-    return extension, importlib.import_module(
-        extension.__name__ + ".blender.addon_update_operators")
+
+        already_enabled = candidate in bpy.context.preferences.addons
+        if not already_enabled:
+            enabled = addon_utils.enable(
+                candidate, default_set=True, persistent=False,
+                handle_error=None)
+            if enabled is None:
+                continue
+            extension = enabled
+            _ACTIVE_EXTENSION_ENABLED_BY_TEST = True
+        _ACTIVE_EXTENSION = extension
+        return extension, importlib.import_module(
+            extension.__name__ + ".blender.addon_update_operators")
+
+    raise SystemExit(
+        "cloth_next could not be activated through Blender's add-on system")
 
 
 def main() -> None:
@@ -106,7 +141,7 @@ def main() -> None:
         result = run_handoff()
         assert result == {"CANCELLED"}
         assert session.state is state_cls.ONLINE_ACCESS_DISABLED, session.state
-        extension.unregister()
+        _disable_active_extension()
         print("Cloth NeXt add-on update smoke test passed "
               f"(Blender {bpy.app.version_string}, offline: online gate only)")
         return
@@ -224,7 +259,7 @@ def main() -> None:
         updates._blender_repo_sync = original_sync
         updates.refresh_update_session = original_refresh
 
-    extension.unregister()
+    _disable_active_extension()
     print("Cloth NeXt add-on update smoke test passed "
           f"(Blender {bpy.app.version_string}, online={online})")
 
@@ -236,5 +271,4 @@ if __name__ == "__main__":
         # Keep CI failures bounded.  An assertion may happen before main's
         # explicit cleanup, but Blender must still be able to shut down and
         # report the real failure instead of timing out with handlers alive.
-        if _ACTIVE_EXTENSION is not None:
-            _ACTIVE_EXTENSION.unregister()
+        _disable_active_extension()
