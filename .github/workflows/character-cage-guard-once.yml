@@ -1,0 +1,91 @@
+name: One-time character cage mode guard
+
+on:
+  push:
+    branches:
+      - agent/character-collision-cage
+    paths:
+      - .github/workflows/character-cage-guard-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/character-collision-cage
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add proxy type mismatch guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("cloth_next/blender/collider_proxy.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    proxy = getattr(settings, "collider_proxy_object", None)
+    if proxy is None:
+        raise ColliderProxyError(
+            f'{source.name}: Experimental Collider Proxy is enabled, but no '
+            'generated Proxy is assigned. Generate or disable the Proxy.')
+    if getattr(proxy, "type", "") != "MESH" or not is_generated_proxy(proxy):
+'''
+          new = '''    proxy = getattr(settings, "collider_proxy_object", None)
+    if proxy is None:
+        raise ColliderProxyError(
+            f'{source.name}: Experimental Collider Proxy is enabled, but no '
+            'generated Proxy is assigned. Generate or disable the Proxy.')
+    if character_collision_cage.is_cage_segment(proxy):
+        raise ColliderProxyError(
+            f'{source.name}: Simple Proxy is selected, but the generated object '
+            'is a Character Collision Cage. Regenerate the selected Proxy type.')
+    if getattr(proxy, "type", "") != "MESH" or not is_generated_proxy(proxy):
+'''
+          if text.count(old) != 1:
+              raise RuntimeError(f"Expected one resolve_proxy anchor, found {text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          test_path = Path("tests/test_collider_proxy.py")
+          test = test_path.read_text(encoding="utf-8")
+          addition = '''
+
+
+def test_simple_mode_rejects_existing_character_cage(blender_env):
+    env = blender_env
+    env.registration.register()
+    source = env.bpy.types.Object(name="Body", type="MESH")
+    source.cloth_next.collider_proxy_enabled = True
+    source.cloth_next.collider_proxy_type = "SIMPLE"
+    primary = _marked_proxy(env, source)
+    original_get = primary.get
+    primary.get = lambda key, default=None: (
+        True if key in {
+            env.collider_proxy.PROXY_MARKER,
+            env.collider_proxy.character_collision_cage.CAGE_SEGMENT_MARKER,
+            env.collider_proxy.character_collision_cage.CAGE_PRIMARY_MARKER,
+        } else original_get(key, default))
+    source.cloth_next.collider_proxy_object = primary
+
+    with pytest.raises(env.collider_proxy.ColliderProxyError,
+                       match="Character Collision Cage"):
+        env.collider_proxy.resolve_proxy(source)
+    env.registration.unregister()
+'''
+          if "test_simple_mode_rejects_existing_character_cage" not in test:
+              test_path.write_text(test + addition, encoding="utf-8")
+          PY
+          rm .github/workflows/character-cage-guard-once.yml
+          python -m py_compile cloth_next/blender/collider_proxy.py
+
+      - name: Commit guard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cloth_next/blender/collider_proxy.py \
+                  tests/test_collider_proxy.py \
+                  .github/workflows/character-cage-guard-once.yml
+          git commit -m "Reject stale character cages in simple proxy mode"
+          git push origin HEAD:agent/character-collision-cage
