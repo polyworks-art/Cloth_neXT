@@ -1884,6 +1884,7 @@ class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         settings = context.scene.cloth_next_recovery
+        bake_active = shared_controller.snapshot().active
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
@@ -1903,6 +1904,10 @@ class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
                          icon="CHECKMARK" if settings.compatible else "INFO")
         if settings.status_detail:
             layout.label(text=settings.status_detail)
+        if settings.resumable and bake_active:
+            layout.label(
+                text="Resume unavailable while a Bake is running",
+                icon="INFO")
         if settings.resumable:
             layout.label(
                 text=f"Latest checkpoint: Frame "
@@ -1917,8 +1922,7 @@ class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
                 icon="INFO")
         actions = layout.column(align=True)
         resume = actions.row()
-        resume.enabled = (
-            settings.resumable and not shared_controller.snapshot().active)
+        resume.enabled = settings.resumable and not bake_active
         resume.operator("clothnext.recovery_resume_latest",
                         text="Resume Latest", icon="PLAY")
         actions.operator("clothnext.recovery_start_fresh",

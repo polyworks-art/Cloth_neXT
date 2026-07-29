@@ -96,7 +96,7 @@ def tcmd_request_bytes(project_name: str, request: str | None = None, *,
     if frame is not None:
         if request != REQUEST_RESUME or int(frame) < 0:
             raise ValueError("frame is valid only for a non-negative resume")
-        payload += f" --frame {int(frame)}"
+        payload += f" --resume_from {int(frame)}"
     raw = payload.encode("utf-8")
     return TCMD_HEADER + len(raw).to_bytes(4, "big") + raw
 

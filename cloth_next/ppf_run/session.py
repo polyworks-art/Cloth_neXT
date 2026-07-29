@@ -132,6 +132,7 @@ class RecoveryOptions:
     identity: recovery.RecoveryIdentity
     server_data_root: Path
     resume: bool = False
+    resume_from_frame: int | None = None
     keep_saved_states: int = 3
     save_on_cancel: bool = True
     keep_on_finish: bool = False
@@ -827,9 +828,18 @@ class SolverSession:
                     self._event("BUILDING", info, indeterminate=True,
                                 activity_code=activity_code)
             elif status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT):
+                details = {
+                    key: response.get(key)
+                    for key in (
+                        "status", "data", "frame", "initialized",
+                        "progress", "info", "saved_states", "upload_id",
+                    )
+                    if key in response
+                }
                 raise _session_error(
                     "The solver project is unexpectedly busy.",
-                    f"status {status} while waiting for the build")
+                    f"status {status} while waiting for the build; "
+                    f"response={details!r}")
             if time.monotonic() > deadline:
                 raise _session_error("The solver build timed out.",
                                      f"no READY status within "
@@ -935,9 +945,12 @@ class SolverSession:
         total = self.scene.solver_frame_count
         if resume:
             assert self._address is not None
+            resume_from = (
+                self._recovery.resume_from_frame
+                if self._recovery is not None else None)
             response = wire.send_tcmd(
                 self._address, self.transport, self.scene.project_name,
-                wire.REQUEST_RESUME)
+                wire.REQUEST_RESUME, frame=resume_from)
             self.diagnostics.note_status(str(response.get("status", "")))
         else:
             self._request(REQUEST_START_ALIAS)
@@ -1385,10 +1398,19 @@ class SolverSession:
                     raise _session_error(
                         "The saved solver project does not match this Bake.",
                         "server data/param hash differs from recovery identity")
-                if not self._saved_states(response):
+                saved_states = self._saved_states(response)
+                if not saved_states:
                     raise _session_error(
                         "The recovery project has no confirmed Saved State.",
                         "server status has no saved_states")
+                resume_from = self._recovery.resume_from_frame
+                if (resume_from is None
+                        or resume_from not in saved_states):
+                    raise _session_error(
+                        "The selected recovery checkpoint is no longer "
+                        "available.",
+                        f"requested checkpoint {resume_from}; "
+                        f"server saved_states={saved_states}")
             else:
                 self._event("UPLOADING", "Uploading scene",
                             indeterminate=True)
@@ -1445,6 +1467,20 @@ class SolverSession:
             primary_error = exc
             raise
         except BaseException as exc:
+            if self._recovery_record is not None and self._recovery is not None:
+                try:
+                    self._recovery_record = recovery.confirm_saved_states(
+                        self._recovery.metadata_path, self._recovery_record, (),
+                        keep=self._recovery.keep_saved_states)
+                    if self._recovery_record.checkpoints:
+                        self._recovery_record = recovery.transition(
+                            self._recovery.metadata_path,
+                            self._recovery_record,
+                            recovery.ProjectState.FAILED,
+                            error=f"{type(exc).__name__}: {exc}")
+                        preserved = True
+                except (OSError, ValueError):
+                    pass
             primary_error = exc
             raise
         finally:

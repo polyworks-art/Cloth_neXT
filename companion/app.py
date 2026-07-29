@@ -43,11 +43,15 @@ def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
-GRAPH=AMBER; GRAPH_FILL="#4b3b25"; GRID="#3b3b3b"; ERROR="#ff5964"
+GRAPH="#7fc7e8"; GRAPH_AVERAGE="#d99a32"; GRID="#3b3b3b"; ERROR="#ff5964"
 FRAME_FILL="#4b3b25"
 ABOUT_TOOLTIP="SideFX, please don’t sue me."
 ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
 COMPACT_HEIGHT=118; DETAILS_HEIGHT=232
+
+def format_frame_time(seconds):
+    if seconds is None or not math.isfinite(seconds) or seconds<0:return "—"
+    return f"{seconds:.1f} s"
 
 def _logger():
     root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
@@ -239,6 +243,7 @@ class BakeWindow:
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self.frame_count_text=tk.StringVar(value="")
         self.details_meta_text=tk.StringVar(value="No additional Bake details yet.")
         self.activity_text=tk.StringVar(value="Waiting for a Bake")
         self._activity_pending=None; self._activity_after=None; self._closed=False
@@ -342,11 +347,11 @@ class BakeWindow:
         try:
             self._solver_stat_icons={
                 "contacts":tk.PhotoImage(
-                    file=str(_asset("particle_collision_16.png"))),
+                    file=str(_asset("status_contacts_14.png"))),
                 "newton":tk.PhotoImage(
-                    file=str(_asset("particle_quality_12.png"))),
+                    file=str(_asset("status_newton_14.png"))),
                 "iterations":tk.PhotoImage(
-                    file=str(_asset("particle_solver_16.png")))}
+                    file=str(_asset("status_iterations_14.png")))}
         except tk.TclError:
             self._solver_stat_icons={}
         self._status_font=tkfont.Font(family="Segoe UI",size=8)
@@ -382,10 +387,16 @@ class BakeWindow:
             highlightbackground=BORDER,highlightthickness=1,borderwidth=0)
         self.performance.pack(fill="x")
         self.performance.bind("<Configure>",self._draw_performance)
+        self.performance_footer=tk.Frame(self.performance_section,bg=PANEL)
+        self.performance_footer.pack(fill="x",pady=(4,0))
+        tk.Label(
+            self.performance_footer,textvariable=self.frame_count_text,
+            bg=PANEL,fg=MUTED,font=("Segoe UI",8),anchor="w").pack(
+                side="left")
         self.performance_eta=tk.Label(
-            self.performance_section,textvariable=self.remaining_text,
-            bg=PANEL,fg=TEXT,font=("Segoe UI Semibold",8),anchor="center")
-        self.performance_eta.pack(fill="x",pady=(4,0))
+            self.performance_footer,textvariable=self.remaining_text,
+            bg=PANEL,fg=TEXT,font=("Segoe UI Semibold",8),anchor="e")
+        self.performance_eta.pack(side="right")
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
             style="CN.TButton",command=self._toggle_details)
@@ -483,31 +494,45 @@ class BakeWindow:
         width=max(2,event.width if event is not None else canvas.winfo_width())
         height=max(2,event.height if event is not None else canvas.winfo_height())
         canvas.delete("all")
-        for fraction in (.25,.5,.75):
-            y=round(height*fraction)
+        header=20
+        for fraction in (.33,.66):
+            y=round(header+(height-header-6)*fraction)
             canvas.create_line(0,y,width,y,fill=GRID)
-        values=tuple(self._performance.scores)
+        values=tuple(self._performance.durations)
+        canvas.create_text(7,6,text="FRAME TIME",fill=MUTED,
+                           font=("Segoe UI Semibold",6),anchor="nw")
         if not values:
             canvas.create_text(
-                7,height/2,text="Collecting frame performance…",fill=MUTED,
-                font=("Segoe UI",7),anchor="w")
+                width/2,(header+height)/2,
+                text="Collecting completed-frame timings…",fill=MUTED,
+                font=("Segoe UI",7),anchor="center")
             return
-        usable_width=max(1,width-12); usable_height=max(1,height-12)
+        canvas.create_text(
+            width-7,6,text=format_frame_time(self._performance.latest_seconds),
+            fill=TEXT,font=("Segoe UI Semibold",7),anchor="ne")
+        usable_width=max(1,width-12); usable_height=max(1,height-header-6)
         step=usable_width/max(1,len(values)-1)
+        low,high=self._performance.display_range or (min(values),max(values))
+        scale=max(.001,high-low)
         points=[]
         for index,value in enumerate(values):
-            points.extend((6+index*step,6+usable_height*(1-value/100.0)))
+            points.extend((
+                6+index*step,header+usable_height*(1-(value-low)/scale)))
+        average=self._performance.average_seconds
+        if average is not None:
+            average_y=header+usable_height*(1-(average-low)/scale)
+            average_y=max(header,min(height-6,average_y))
+            canvas.create_line(
+                6,average_y,width-6,average_y,fill=GRAPH_AVERAGE,
+                dash=(3,3))
+            canvas.create_text(
+                8,average_y-2,text=f"Avg {format_frame_time(average)}",
+                fill=GRAPH_AVERAGE,font=("Segoe UI",6),anchor="sw")
         if len(values)>1:
-            area=[points[0],height-5,*points,points[-2],height-5]
-            canvas.create_polygon(area,fill=GRAPH_FILL,outline="")
             canvas.create_line(*points,fill=GRAPH,width=2,smooth=True)
         else:
             canvas.create_oval(points[0]-2,points[1]-2,
                                points[0]+2,points[1]+2,fill=GRAPH,outline="")
-        canvas.create_text(7,6,text="PERFORMANCE",fill=MUTED,
-                           font=("Segoe UI Semibold",6),anchor="nw")
-        canvas.create_text(width-7,6,text=str(self._performance.latest),
-                           fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
 
     def _show_performance_details(self,snapshot):
         if snapshot.state is BakeState.ERROR:
@@ -658,8 +683,13 @@ class BakeWindow:
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
-        self.remaining_text.set("ETA calculating…" if remaining=="Unknown"
-                                else f"ETA  {remaining}")
+        self.remaining_text.set(
+            "Remaining: calculating…" if remaining=="Unknown"
+            else f"Remaining  {remaining}")
+        if snapshot.progress_total:
+            self.frame_count_text.set(
+                f"{snapshot.progress_current} / {snapshot.progress_total} frames")
+        else:self.frame_count_text.set("")
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
         if self._details_visible:

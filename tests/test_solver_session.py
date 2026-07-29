@@ -900,7 +900,7 @@ def test_resume_skips_upload_build_and_fetches_only_missing_frames(
     def recovery_wire(address, config, project, request=None, *, frame=None):
         nonlocal resumed
         if request == "resume":
-            scripted.log.append(("tcmd", project, request))
+            scripted.log.append(("tcmd", project, request, frame))
             resumed = True
             return {**scripted.base, "status": "BUSY", "frame": 3,
                     "saved_states": [3]}
@@ -926,6 +926,7 @@ def test_resume_skips_upload_build_and_fetches_only_missing_frames(
     frames = []
     options = RecoveryOptions(
         True, metadata, identity, server_root, resume=True,
+        resume_from_frame=3,
         completed_solver_frames=(1, 2, 3), keep_on_finish=True)
     session = SolverSession(
         resolved=_external_resolved(), scene=_scene(),
@@ -940,6 +941,7 @@ def test_resume_skips_upload_build_and_fetches_only_missing_frames(
     assert "build" not in requests
     assert "start" not in requests
     assert "resume" in requests
+    assert ("tcmd", _scene().project_name, "resume", 3) in scripted.log
 
 
 def test_import_result_playback_conversion():

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import struct
 import time
 import uuid
@@ -18,7 +19,7 @@ import numpy as np
 PC2_MAGIC = b"POINTCACHE2\0"
 PC2_VERSION = 1
 PC2_HEADER_SIZE = 32
-PC2_WRITER_VERSION = 2
+PC2_WRITER_VERSION = 3
 
 
 class Pc2Error(ValueError):
@@ -31,6 +32,31 @@ class Pc2Header:
     start_frame: float
     sample_rate: float
     frame_count: int
+
+
+@dataclass(slots=True)
+class PartialPreviewPublication:
+    """A published preview that can still participate in group rollback."""
+
+    final_path: Path
+    backup_path: Path | None
+    header: Pc2Header
+    _resolved: bool = False
+
+    def commit(self) -> Pc2Header:
+        if not self._resolved and self.backup_path is not None:
+            self.backup_path.unlink(missing_ok=True)
+        self._resolved = True
+        return self.header
+
+    def rollback(self) -> None:
+        if self._resolved:
+            return
+        if self.backup_path is not None and self.backup_path.exists():
+            os.replace(self.backup_path, self.final_path)
+        else:
+            self.final_path.unlink(missing_ok=True)
+        self._resolved = True
 
 
 def _header_bytes(header: Pc2Header) -> bytes:
@@ -76,6 +102,10 @@ class StreamingPc2Writer:
         except Exception:
             self.abort()
             raise
+
+    @property
+    def finished(self) -> bool:
+        return self._finished
 
     def _resume_existing(self) -> None:
         stream = self.temporary_path.open("r+b")
@@ -174,6 +204,65 @@ class StreamingPc2Writer:
         self._finished = True
         return self.temporary_path
 
+    def prepare_partial_preview(self) -> PartialPreviewPublication:
+        """Publish a playable prefix while retaining rollback and resume data."""
+        if self._finished:
+            raise Pc2Error("writer is already finalized or aborted")
+        if self.frames_written <= 0:
+            raise Pc2Error("partial PC2 contains no complete frames")
+        partial_path = self.preserve()
+        header = Pc2Header(
+            self.header.vertex_count, self.header.start_frame,
+            self.header.sample_rate, self.frames_written)
+        expected_size = (
+            PC2_HEADER_SIZE
+            + self.frames_written * self.header.vertex_count * 12)
+        temporary = self.final_path.with_name(
+            f".{self.final_path.name}.{uuid.uuid4().hex}.partial.tmp")
+        backup = self.final_path.with_name(
+            f".{self.final_path.name}.{uuid.uuid4().hex}.bak")
+        backup_path = None
+        try:
+            with partial_path.open("rb") as source, temporary.open("xb") as target:
+                if source.read(PC2_HEADER_SIZE) != _header_bytes(self.header):
+                    raise Pc2Error(
+                        "partial PC2 header changed before preview publication")
+                target.write(_header_bytes(header))
+                shutil.copyfileobj(source, target, length=4 * 1024 * 1024)
+                target.flush()
+                if target.tell() != expected_size:
+                    raise Pc2Error(
+                        "partial PC2 preview ended off a complete frame boundary")
+                os.fsync(target.fileno())
+            if self.final_path.exists():
+                os.link(self.final_path, backup)
+                backup_path = backup
+            os.replace(temporary, self.final_path)
+            if read_header(self.final_path) != header:
+                raise Pc2Error("published partial PC2 failed validation")
+            return PartialPreviewPublication(
+                self.final_path, backup_path, header)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            if backup_path is not None and backup_path.exists():
+                try:
+                    os.replace(backup_path, self.final_path)
+                except OSError:
+                    pass
+            elif (self.final_path.exists()
+                  and partial_path.resolve() != self.final_path.resolve()):
+                self.final_path.unlink(missing_ok=True)
+            raise
+
+    def publish_partial_preview(self) -> Pc2Header:
+        publication = self.prepare_partial_preview()
+        return publication.commit()
+
+    def discard_preserved_stream(self) -> None:
+        """Remove resume-only bytes without touching a published preview."""
+        if self.temporary_path.resolve() != self.final_path.resolve():
+            self.temporary_path.unlink(missing_ok=True)
+
     def abort(self) -> None:
         if getattr(self, "_finished", False):
             return
@@ -244,15 +333,20 @@ def partial_frame_count(path: Path, expected: Pc2Header) -> int:
     path = Path(path)
     with path.open("rb") as stream:
         raw = stream.read(PC2_HEADER_SIZE)
-        stream.seek(0, 2)
-        size = stream.tell()
+        frame_bytes = expected.vertex_count * 12
+        frames = 0
+        while True:
+            payload = stream.read(frame_bytes)
+            if not payload:
+                break
+            if len(payload) != frame_bytes:
+                raise Pc2Error("partial PC2 ends inside a frame")
+            values = np.frombuffer(payload, dtype="<f4")
+            if not np.isfinite(values).all():
+                raise Pc2Error("partial PC2 contains non-finite positions")
+            frames += 1
     if raw != _header_bytes(expected):
         raise Pc2Error("partial PC2 header does not match")
-    frame_bytes = expected.vertex_count * 12
-    payload = size - PC2_HEADER_SIZE
-    if payload < 0 or payload % frame_bytes:
-        raise Pc2Error("partial PC2 ends inside a frame")
-    frames = payload // frame_bytes
     if frames > expected.frame_count:
         raise Pc2Error("partial PC2 contains too many frames")
     return frames

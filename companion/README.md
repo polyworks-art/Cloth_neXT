@@ -48,4 +48,6 @@ The executable, taskbar, title bar, and Tk window use the approved `cloth_next`
 project identity icon. The approved croissant remains distinct and appears only
 as the Bake/progress symbol inside the window. Deterministic PNG/ICO derivatives
 are produced by `python companion/build_assets.py` during the development build;
-normal startup performs no conversion.
+normal startup performs no conversion. The solver-statistics row uses three
+dedicated, equally sized colored icons derived from the approved Contact, Newton,
+and Linear Iterations source artwork in `assets/solver_status_icons`.

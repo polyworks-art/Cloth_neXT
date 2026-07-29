@@ -79,12 +79,14 @@ def test_details_height_uses_requested_content_height():
     assert "max(DETAILS_HEIGHT,requested)" in source
 
 
-def test_details_graph_owns_normal_panel_and_eta_sits_below_it():
+def test_details_graph_owns_normal_panel_and_summary_footer_sits_below_it():
     source=inspect.getsource(app.BakeWindow._build)
     states=inspect.getsource(app.BakeWindow._show_performance_details)
     assert 'self.performance_section.pack(fill="both",expand=True)' in source
     assert 'height=92' in source
-    assert 'self.performance_eta.pack(fill="x",pady=(4,0))' in source
+    assert 'self.performance_footer.pack(fill="x",pady=(4,0))' in source
+    assert 'textvariable=self.frame_count_text' in source
+    assert 'self.performance_eta.pack(side="right")' in source
     assert "self.diagnostics_section.pack_forget()" in states
 
 
@@ -112,11 +114,11 @@ def test_solver_statistics_row_owns_estimated_fill_without_new_row():
     assert "CurrentFrameProgressEstimator" in inspect.getsource(app)
 
 
-def test_solver_statistics_use_existing_semantic_icons():
+def test_solver_statistics_use_dedicated_colored_icons():
     source=inspect.getsource(app.BakeWindow._build)
-    assert 'particle_collision_16.png' in source
-    assert 'particle_quality_12.png' in source
-    assert 'particle_solver_16.png' in source
+    assert 'status_contacts_14.png' in source
+    assert 'status_newton_14.png' in source
+    assert 'status_iterations_14.png' in source
     parser=inspect.getsource(app.BakeWindow._solver_status_values)
     assert "contacts" in parser
     assert "Newton" in parser

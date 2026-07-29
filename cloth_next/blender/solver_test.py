@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import copy
 import json
+import logging
 import math
 import os
 import queue
@@ -3613,11 +3614,16 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             obj = entry.obj
             precomputed = (animated_pin_samples.get(obj.name)
                            if isinstance(animated_pin_samples, dict) else None)
-            pin_snapshot = _capture_animated_pin(
-                context, obj, bake_range, entry.pin_membership, precomputed)
-            _validate_deformable_modifier_path(obj, pin_snapshot)
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
+                # A cancelled preview is an output of this same simulation,
+                # never an input to a rebake/resume.  Pin capture evaluates
+                # the object, so hide owned playback here just like the
+                # deformable mesh extraction below.
+                pin_snapshot = _capture_animated_pin(
+                    context, obj, bake_range, entry.pin_membership,
+                    precomputed)
+                _validate_deformable_modifier_path(obj, pin_snapshot)
                 if entry.role == "ROD":
                     vertices, edges, _splines = sample_curve(obj)
                     triangles = ()
@@ -4444,13 +4450,19 @@ def build_run_plan(context, *, animated_pin_samples=None,
 
 def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     settings = getattr(context.scene, "cloth_next_recovery", None)
+    # ``scene_cache_key`` is intentionally unavailable for captures that
+    # must evaluate Blender state (for example Shape-Key colliders).  That
+    # must disable only early export reuse, not recovery: the completed
+    # Scene payload hash is an equally deterministic identity at this point.
+    recovery_scene_key = str(getattr(plan.scene, "data_hash", ""))
+    recovery_param_key = str(getattr(plan.scene, "param_hash", ""))
     if (snapshot is None or settings is None
             or not bool(getattr(settings, "enabled", False))
-            or not plan.scene_cache_key or not plan.param_cache_key):
+            or not recovery_scene_key or not recovery_param_key):
         return plan
     targets = _plan_deformables(plan)
     cache_root = targets[0].pc2_path.parent
-    root = recovery.recovery_root(cache_root, plan.scene_cache_key)
+    root = recovery.recovery_root(cache_root, recovery_scene_key)
     metadata = root / recovery.METADATA_NAME
     partials = tuple(
         (target.uuid, str(
@@ -4461,8 +4473,8 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
          int(getattr(obj.cloth_next, "collider_samples_per_frame", 1)))
         for obj in snapshot.collider_objs))
     identity = recovery.RecoveryIdentity(
-        scene_key=plan.scene_cache_key,
-        param_key=plan.param_cache_key,
+        scene_key=recovery_scene_key,
+        param_key=recovery_param_key,
         export_uuids=tuple(sorted(
             [target.uuid for target in targets]
             + [export_identity.export_uuid(obj)
@@ -4483,7 +4495,12 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         solver_release_tag=_resolved_release_tag(plan.resolved))
     resume_requested = bool(getattr(settings, "resume_requested", False))
     existing = recovery.load_project(metadata)
+    if existing is not None:
+        existing = recovery.confirm_saved_states(
+            metadata, existing, (),
+            keep=int(settings.keep_saved_states))
     resume = False
+    resume_from = None
     completed = ()
     server_root = root / "server-data"
     project_name = plan.scene.project_name
@@ -4491,55 +4508,77 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     settings.status_detail = ""
     settings.compatible = False
     settings.resumable = False
+    assessment = (
+        recovery.assess_recovery(metadata, current_identity=identity)
+        if existing is not None else None)
+    if assessment is not None:
+        _apply_recovery_assessment(settings, assessment)
+    if resume_requested and existing is None:
+        settings.resume_requested = False
+        raise SceneValidationError(
+            "Resume was refused because no complete recovery metadata and "
+            "checkpoint are available. Start a fresh Bake.")
     if existing is not None and resume_requested:
-        match = recovery.compatibility(existing.identity, identity)
-        if (match.compatible and existing.state in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED}
-                and existing.checkpoints):
-            resume = True
-            server_root = Path(existing.server_data_root)
-            project_name = existing.project_id
-            counts = []
-            for target in targets:
-                partial_path = dict(existing.partial_pc2).get(target.uuid)
-                if not partial_path:
+        if assessment is None or not assessment.can_resume:
+            settings.resume_requested = False
+            reason = (
+                assessment.reason if assessment is not None
+                else "No verified recovery checkpoint is available")
+            raise SceneValidationError(
+                f"Resume was refused: {reason}. Start a fresh Bake.")
+        existing = assessment.record
+        resume = True
+        resume_from = assessment.checkpoint.frame
+        server_root = Path(existing.server_data_root)
+        project_name = existing.project_id
+        counts = []
+        for target in targets:
+            partial_path = dict(existing.partial_pc2).get(target.uuid)
+            if not partial_path:
+                counts = []
+                break
+            authenticated = recovery.verified_partial_cache(
+                existing, target.uuid, Path(partial_path))
+            if authenticated is None:
+                counts = []
+                break
+            try:
+                count = pc2.partial_frame_count(
+                    Path(partial_path), pc2.Pc2Header(
+                        len(target.initial_local),
+                        import_result.PC2_START_FRAME,
+                        import_result.PC2_SAMPLE_RATE,
+                        plan.frame_count))
+                if count != authenticated.frame_count:
                     counts = []
                     break
+                counts.append(count)
+            except (OSError, pc2.Pc2Error):
+                counts = []
+                break
+        if counts and len(set(counts)) == 1:
+            # PC2 frame zero is the initial pose; solver frames start at 1.
+            completed = tuple(range(1, max(1, counts[0])))
+        else:
+            # Without an authenticated partial, fetch every output frame
+            # again. The solver project is still safely reusable.
+            completed = ()
+            for _uuid, partial_path in existing.partial_pc2:
                 try:
-                    counts.append(pc2.partial_frame_count(
-                        Path(partial_path), pc2.Pc2Header(
-                            len(target.initial_local),
-                            import_result.PC2_START_FRAME,
-                            import_result.PC2_SAMPLE_RATE,
-                            plan.frame_count)))
-                except (OSError, pc2.Pc2Error):
-                    counts = []
-                    break
-            if counts and len(set(counts)) == 1:
-                # PC2 frame zero is the initial pose; solver frames start at 1.
-                completed = tuple(range(1, max(1, counts[0])))
-            else:
-                # Without an authenticated partial, fetch every output frame
-                # again. The solver project is still safely reusable.
-                completed = ()
-    if existing is not None:
-        match = recovery.compatibility(existing.identity, identity)
-        settings.compatible = match.compatible
-        settings.resumable = bool(
-            match.compatible and existing.checkpoints
-            and existing.state in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED})
-        settings.status = (
-            f"Frame {existing.last_frame} · Compatible"
-            if settings.resumable else existing.state.value.title())
-        settings.status_detail = (
-            "Checkpoint saved · Resume available"
-            if settings.resumable else match.reason)
+                    Path(partial_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            existing = recovery.transition(
+                metadata, existing, existing.state, partial_caches=())
+        if completed and resume_from < completed[-1]:
+            settings.resume_requested = False
+            raise SceneValidationError(
+                "Resume was refused because the newest solver checkpoint "
+                "predates the playable cache prefix. Start a fresh Bake.")
     options = RecoveryOptions(
         enabled=True, metadata_path=metadata, identity=identity,
         server_data_root=server_root, resume=resume,
+        resume_from_frame=(resume_from if resume else None),
         keep_saved_states=int(settings.keep_saved_states),
         save_on_cancel=bool(settings.save_on_cancel),
         keep_on_finish=bool(settings.save_on_finish),
@@ -4645,6 +4684,134 @@ def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
             sidecar.unlink(missing_ok=True)
         except OSError:
             pass
+
+
+def _partial_preview_metadata(plan: RunPlan, target: DeformablePlan,
+                              header: pc2.Pc2Header) -> dict | None:
+    """Authenticate a shortened cache without changing its resume stream."""
+    material_meta = target.material_meta or {}
+    try:
+        fingerprints = material_meta["fingerprints"]
+        identities = material_meta["identities"]
+        expected = dict(material_meta["expected"])
+        details = dict(material_meta["details"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    expected.update({
+        "vertex_count": header.vertex_count,
+        "frame_count": header.frame_count,
+        "start_frame": header.start_frame,
+        "sample_rate": header.sample_rate,
+    })
+    details.update({
+        "blender_end_frame": plan.frame_start + header.frame_count - 1,
+        "partial_result": {
+            "cached_frame_count": header.frame_count,
+            "requested_frame_count": plan.frame_count,
+            "cancelled": True,
+        },
+    })
+    return cache_metadata.partial_metadata(
+        cache_path=target.pc2_path, fingerprints=fingerprints,
+        identities=identities, expected=expected, details=details)
+
+
+def _publish_cancelled_previews(plan: RunPlan, writers: dict,
+                                partials: dict) -> object | None:
+    """Atomically publish an equal, playable prefix for every deformable."""
+    targets = _plan_deformables(plan)
+    counts = {
+        int(writers[target.uuid].frames_written) for target in targets
+        if target.uuid in writers}
+    # Frame zero is the initial pose. It is not evidence that the solver
+    # completed an output frame.
+    if len(counts) != 1 or next(iter(counts), 0) <= 1:
+        return None
+    records = {}
+    for target in targets:
+        writer = writers.get(target.uuid)
+        if writer is None:
+            return None
+        header = pc2.Pc2Header(
+            writer.header.vertex_count, writer.header.start_frame,
+            writer.header.sample_rate, writer.frames_written)
+        metadata = _partial_preview_metadata(plan, target, header)
+        if metadata is None:
+            return None
+        records[target.uuid] = metadata
+
+    publications = []
+    headers = {}
+    try:
+        for target in targets:
+            publication = writers[target.uuid].prepare_partial_preview()
+            publications.append(publication)
+            headers[target.uuid] = publication.header
+        for target in targets:
+            completed = cache_metadata.completed_metadata(
+                records[target.uuid], cache_path=target.pc2_path)
+            cache_metadata.write_atomic(
+                cache_metadata.sidecar_path(target.pc2_path),
+                completed)
+        for publication in publications:
+            publication.commit()
+        options = getattr(plan, "recovery_options", None)
+        if options is not None:
+            try:
+                recovery.publish_partial_caches(
+                    options.metadata_path,
+                    tuple(
+                        (target.uuid,
+                         writers[target.uuid].temporary_path,
+                         headers[target.uuid].frame_count)
+                        for target in targets))
+            except (OSError, ValueError) as exc:
+                log_with_context(
+                    get_logger("playback.cache"), logging.WARNING,
+                    "Partial cache integrity metadata could not be published", {
+                        "reason": f"{type(exc).__name__}: {exc}",
+                    })
+    except Exception as exc:  # noqa: BLE001 — cancellation must stay terminal
+        for publication in reversed(publications):
+            try:
+                publication.rollback()
+            except OSError:
+                pass
+        for target in targets:
+            previous = partials.get(target.uuid)
+            if previous is None:
+                continue
+            try:
+                cache_metadata.write_atomic(
+                    cache_metadata.sidecar_path(target.pc2_path), previous)
+            except OSError:
+                pass
+        log_with_context(
+            get_logger("playback.cache"), logging.WARNING,
+            "Cancelled Bake prefix could not be published", {
+                "objects": len(targets),
+                "reason": f"{type(exc).__name__}: {exc}",
+            })
+        return None
+    log_with_context(
+        get_logger("playback.cache"), logging.INFO,
+        "Cancelled Bake retained a playable partial cache", {
+            "objects": len(targets),
+            "frames": next(iter(headers.values())).frame_count,
+        })
+    return (headers if plan.deformables
+            else headers[targets[0].uuid])
+
+
+def _has_verified_recovery_checkpoint(plan: RunPlan) -> bool:
+    options = getattr(plan, "recovery_options", None)
+    if options is None:
+        return False
+    record = recovery.load_project(options.metadata_path)
+    return bool(
+        record is not None and record.checkpoints
+        and recovery.compatibility(
+            record.identity, options.identity).compatible)
 
 
 def _record_worker_failure(plan: RunPlan, summary: str, details: str,
@@ -5009,15 +5176,30 @@ def _worker_main_multi(plan: RunPlan) -> None:
         diagnostics.timings["total"] = time.monotonic() - _run_started_at
         _queue.put(("finished", headers, diagnostics))
     except SessionCancelled as exc:
+        preview = _publish_cancelled_previews(plan, writers, partials)
         for writer in writers.values():
+            if writer.finished:
+                if not exc.resumable:
+                    writer.discard_preserved_stream()
+                continue
             writer.preserve() if exc.resumable else writer.abort()
-        _discard_incomplete(plan, state="cancelled",
-                            reason="Bake cancelled before publication")
-        _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
+        if preview is None:
+            _discard_incomplete(
+                plan, state="cancelled",
+                reason="Bake cancelled before partial cache publication")
+        _queue.put(
+            ("cancelled", exc.resumable, exc.recovery_outcome, preview))
     except ClothNextError as exc:
+        preview = _publish_cancelled_previews(plan, writers, partials)
+        preserve = _has_verified_recovery_checkpoint(plan)
         for writer in writers.values():
-            writer.abort()
-        _discard_incomplete(plan, state="failed", reason=str(exc))
+            if writer.finished:
+                if not preserve:
+                    writer.discard_preserved_stream()
+                continue
+            writer.preserve() if preserve else writer.abort()
+        if preview is None:
+            _discard_incomplete(plan, state="failed", reason=str(exc))
         violations = _convert_solver_violations(plan, exc)
         summary, details = _present_worker_error(
             plan, exc, enriched=violations)
@@ -5026,7 +5208,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
                     _record_worker_failure(
                         plan, summary, details, code,
                         technical_details=exc.record.technical_message), code,
-                    violations))
+                    violations, preview))
     except Exception:
         for writer in writers.values():
             writer.abort()
@@ -5050,6 +5232,7 @@ def _worker_main(plan: RunPlan) -> None:
         _queue.put(("event", event))
 
     writer = None
+    partial = None
     try:
         if plan.material_meta:
             partial = cache_metadata.partial_metadata(
@@ -5158,15 +5341,36 @@ def _worker_main(plan: RunPlan) -> None:
         })
         _queue.put(("finished", header, diagnostics))
     except SessionCancelled as exc:
+        preview = None
         if writer is not None:
-            writer.preserve() if exc.resumable else writer.abort()
-        _discard_incomplete(plan, state="cancelled",
-                            reason="Bake cancelled before publication")
-        _queue.put(("cancelled", exc.resumable, exc.recovery_outcome))
+            target = _plan_deformables(plan)[0]
+            preview = _publish_cancelled_previews(
+                plan, {target.uuid: writer},
+                ({target.uuid: partial} if partial is not None else {}))
+            if not writer.finished:
+                writer.preserve() if exc.resumable else writer.abort()
+            elif not exc.resumable:
+                writer.discard_preserved_stream()
+        if preview is None:
+            _discard_incomplete(
+                plan, state="cancelled",
+                reason="Bake cancelled before partial cache publication")
+        _queue.put(
+            ("cancelled", exc.resumable, exc.recovery_outcome, preview))
     except ClothNextError as exc:
+        preview = None
         if writer is not None:
-            writer.abort()
-        _discard_incomplete(plan, state="failed", reason=str(exc))
+            target = _plan_deformables(plan)[0]
+            preview = _publish_cancelled_previews(
+                plan, {target.uuid: writer},
+                ({target.uuid: partial} if partial is not None else {}))
+            preserve = _has_verified_recovery_checkpoint(plan)
+            if not writer.finished:
+                writer.preserve() if preserve else writer.abort()
+            elif not preserve:
+                writer.discard_preserved_stream()
+        if preview is None:
+            _discard_incomplete(plan, state="failed", reason=str(exc))
         violations = _convert_solver_violations(plan, exc)
         summary, details = _present_worker_error(
             plan, exc, enriched=violations)
@@ -5175,7 +5379,7 @@ def _worker_main(plan: RunPlan) -> None:
                     _record_worker_failure(
                         plan, summary, details, code,
                         technical_details=exc.record.technical_message), code,
-                    violations))
+                    violations, preview))
     except Exception:  # noqa: BLE001 — surfaced as a visible ERROR state
         if writer is not None:
             writer.abort()
@@ -5581,6 +5785,37 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
+def _apply_recovery_assessment(settings, assessment) -> None:
+    """Cache one verified assessment for draw-time UI reads."""
+    settings.compatible = assessment.compatible
+    settings.resumable = assessment.can_resume
+    settings.latest_checkpoint_frame = (
+        assessment.checkpoint.frame if assessment.checkpoint else 0)
+    settings.checkpoint_count = (
+        len(assessment.record.checkpoints) if assessment.record else 0)
+    settings.older_checkpoint_preserved = bool(
+        assessment.can_resume and assessment.record
+        and assessment.record.error)
+    settings.status = (
+        "Recovery available" if assessment.can_resume
+        else ("Recovery point found" if assessment.available
+              else "Recovery unavailable"))
+    settings.status_detail = (
+        assessment.record.error
+        if assessment.can_resume and assessment.record
+        and assessment.record.error
+        else assessment.reason)
+
+
+def _tag_recovery_redraw() -> None:
+    screen = getattr(getattr(bpy, "context", None), "screen", None)
+    for area in tuple(getattr(screen, "areas", ()) or ()):
+        try:
+            area.tag_redraw()
+        except (AttributeError, RuntimeError):
+            continue
+
+
 def _refresh_recovery_ui(plan: RunPlan) -> None:
     """Verify metadata on the main thread and cache artist-facing UI fields."""
     options = getattr(plan, "recovery_options", None)
@@ -5588,39 +5823,50 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
         getattr(bpy.context, "scene", None), "cloth_next_recovery", None)
     if options is None or settings is None:
         return
-    record = recovery.load_project(options.metadata_path)
-    if record is None:
-        settings.status = "Checkpoint damaged"
-        settings.status_detail = "Recovery metadata is missing or invalid"
-        settings.compatible = False
-        settings.resumable = False
-        settings.latest_checkpoint_frame = 0
-        settings.checkpoint_count = 0
-        settings.older_checkpoint_preserved = False
+    assessment = recovery.assess_recovery(
+        options.metadata_path, current_identity=options.identity,
+        busy=run_active() or shared_controller.snapshot().active)
+    _apply_recovery_assessment(settings, assessment)
+    _tag_recovery_redraw()
+
+
+def _mark_unexpected_recovery_failure(plan: RunPlan, reason: str) -> None:
+    """Make verified on-disk state resumable after a silent worker crash."""
+    options = getattr(plan, "recovery_options", None)
+    if options is None:
         return
-    match = recovery.compatibility(record.identity, options.identity)
-    settings.compatible = match.compatible
-    settings.resumable = bool(
-        match.compatible and record.checkpoints
-        and record.state in {
-            recovery.ProjectState.RESUMABLE,
-            recovery.ProjectState.FAILED})
-    settings.latest_checkpoint_frame = max(
-        (item.frame for item in record.checkpoints), default=0)
-    settings.checkpoint_count = len(record.checkpoints)
-    settings.older_checkpoint_preserved = bool(
-        settings.resumable and record.error)
-    settings.status = (
-        "Recovery available" if settings.resumable
-        else record.state.value.title())
-    if settings.resumable:
-        settings.status_detail = (
-            record.error if record.error else
-            "Verified checkpoint · Resume available")
-    elif record.state is recovery.ProjectState.FAILED and record.error:
-        settings.status_detail = record.error
-    else:
-        settings.status_detail = match.reason
+    record = recovery.load_project(
+        options.metadata_path, verify_checkpoints=False)
+    if record is None:
+        return
+    try:
+        record = recovery.confirm_saved_states(
+            options.metadata_path, record, (),
+            keep=options.keep_saved_states)
+        if (record.checkpoints and record.state not in {
+                recovery.ProjectState.FAILED,
+                recovery.ProjectState.RESUMABLE}):
+            recovery.transition(
+                options.metadata_path, record, recovery.ProjectState.FAILED,
+                error=reason)
+    except (OSError, ValueError):
+        return
+
+
+def _attach_cancelled_preview(plan: RunPlan, header) -> int:
+    values = tuple(header.values()) if isinstance(header, dict) else (header,)
+    counts = {int(item.frame_count) for item in values}
+    if len(counts) != 1:
+        raise ValueError(
+            "Cancelled multi-object caches do not share one frame prefix")
+    frame_count = next(iter(counts))
+    if frame_count <= 1 or frame_count > plan.frame_count:
+        raise ValueError("Cancelled playback cache has an invalid frame prefix")
+    partial_plan = replace(
+        plan, frame_count=frame_count,
+        frame_end=plan.frame_start + frame_count - 1)
+    _attach_playback(partial_plan, header)
+    return frame_count
 
 
 def _pump_once() -> float | None:
@@ -5740,6 +5986,17 @@ def _pump_once() -> float | None:
         elif kind == "cancelled":
             resumable = message[1] if len(message) > 1 else False
             recovery_outcome = message[2] if len(message) > 2 else None
+            preview = message[3] if len(message) > 3 else None
+            cached_frames = 0
+            if preview is not None:
+                try:
+                    cached_frames = _attach_cancelled_preview(plan, preview)
+                except (OSError, ValueError, RuntimeError, pc2.Pc2Error) as exc:
+                    log_with_context(
+                        get_logger("playback.cache"), logging.ERROR,
+                        "Cancelled Bake prefix could not be attached", {
+                            "reason": f"{type(exc).__name__}: {exc}",
+                        })
             if _ram_auto_cancel_triggered:
                 shared_controller.fail(
                     "Bake stopped at the RAM safety limit.",
@@ -5768,20 +6025,44 @@ def _pump_once() -> float | None:
                         "Bake cancelled · Recovery checkpoint could not be saved")
                 else:
                     status_msg = "Solver test cancelled"
-                _safe_transition(BakeState.CANCELLED,
-                                 status_message=status_msg,
-                                 estimated_remaining_seconds=None)
-            if not resumable:
+                if cached_frames:
+                    suffix = "frame" if cached_frames == 1 else "frames"
+                    status_msg = (
+                        f"{status_msg} Â· {cached_frames} {suffix} cached")
+                changes = {
+                    "status_message": status_msg,
+                    "estimated_remaining_seconds": None,
+                }
+                if cached_frames:
+                    changes.update({
+                        "current_frame": (
+                            plan.frame_start + cached_frames - 1),
+                        "progress_current": cached_frames,
+                        "progress_total": plan.frame_count,
+                    })
+                _safe_transition(BakeState.CANCELLED, **changes)
+            if not resumable and not cached_frames:
                 _discard_incomplete(plan)
-            _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
+            _refresh_recovery_ui(plan)
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "error":
             code = message[3] if len(message) > 3 else ""
             _intersection_violations = (
                 tuple(message[4]) if len(message) > 4 else ())
+            preview = message[5] if len(message) > 5 else None
+            cached_frames = 0
+            if preview is not None:
+                try:
+                    cached_frames = _attach_cancelled_preview(plan, preview)
+                except (OSError, ValueError, RuntimeError, pc2.Pc2Error) as exc:
+                    log_with_context(
+                        get_logger("playback.cache"), logging.ERROR,
+                        "Failed Bake prefix could not be attached", {
+                            "reason": f"{type(exc).__name__}: {exc}",
+                        })
             _intersection_violation_index = 0
             if _intersection_violations:
                 from . import intersection_overlay
@@ -5789,19 +6070,29 @@ def _pump_once() -> float | None:
                     _intersection_violations,
                     plan.solver_input if plan is not None else None)
             shared_controller.fail(message[1], message[2], error_code=code)
-            _discard_incomplete(plan)
-            _refresh_recovery_ui(plan)
+            if cached_frames:
+                shared_controller.update(
+                    current_frame=plan.frame_start + cached_frames - 1,
+                    progress_current=cached_frames,
+                    progress_total=plan.frame_count)
+            else:
+                _discard_incomplete(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
+            _refresh_recovery_ui(plan)
             shared_telemetry.set_solver_pid(None)
             return None
     if _worker is not None and not _worker.is_alive() and _queue.empty():
         # The worker died without posting a terminal message.
         shared_controller.fail("The solver test worker stopped unexpectedly.",
                                "no terminal message from the worker thread")
-        _discard_incomplete(plan)
+        _mark_unexpected_recovery_failure(
+            plan, "Solver worker stopped without a terminal message")
+        if not _has_verified_recovery_checkpoint(plan):
+            _discard_incomplete(plan)
         modal_lock.release()
         _worker, _active_plan = None, None
+        _refresh_recovery_ui(plan)
         return None
     now = _time.monotonic()
     snapshot = shared_controller.snapshot()
@@ -6979,13 +7270,41 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         "Continue this Bake from the latest verified solver checkpoint")
     bl_options = {"INTERNAL"}
 
+    @staticmethod
+    def _disabled_reason(settings) -> str:
+        reason = str(getattr(settings, "status_detail", "") or "").strip()
+        # Old scene files and builds may have cached identity compatibility as
+        # the disabled reason even though compatibility is not the blocker.
+        if not reason or reason.casefold() == "compatible":
+            return "No verified resumable checkpoint is available"
+        return reason
+
     @classmethod
     def poll(cls, context):
         settings = getattr(context.scene, "cloth_next_recovery", None)
-        return bool(settings and settings.resumable and not run_active())
+        if settings is None:
+            return False
+        busy = run_active() or shared_controller.snapshot().active
+        allowed = bool(
+            settings.compatible and settings.resumable and not busy)
+        if not allowed and hasattr(cls, "poll_message_set"):
+            cls.poll_message_set(
+                "A solver or Bake operation is still running"
+                if busy else cls._disabled_reason(settings))
+        return allowed
 
     def execute(self, context):
-        context.scene.cloth_next_recovery.resume_requested = True
+        settings = context.scene.cloth_next_recovery
+        metadata = _recovery_metadata_from_scene(context.scene)
+        assessment = recovery.assess_recovery(
+            metadata if metadata is not None else Path(),
+            busy=run_active() or shared_controller.snapshot().active)
+        if (not settings.compatible or not settings.resumable
+                or not assessment.can_resume):
+            _apply_recovery_assessment(settings, assessment)
+            self.report({"WARNING"}, assessment.reason)
+            return {"CANCELLED"}
+        settings.resume_requested = True
         try:
             bpy.ops.clothnext.bake("INVOKE_DEFAULT")
         except (AttributeError, RuntimeError):

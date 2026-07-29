@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from cloth_next.bake import cache_metadata
+from cloth_next.bake import cache_metadata, pc2
 from cloth_next.bake.status import BakeState
 from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
 
@@ -1207,6 +1207,290 @@ def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
     assert len(objects[1].modifiers) == 0
 
 
+def test_cancelled_multi_object_prefix_is_published_for_every_target(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = []
+    writers = {}
+    for index in range(2):
+        path = tmp_path / f"cn_test_cloth_{index}.pc2"
+        meta = _phase4_meta()
+        meta["expected"]["frame_count"] = 4
+        target = module.DeformablePlan(
+            ((0, 0, 0),), identity, f"cloth-{index}", f"uuid-{index}",
+            path, "topology", meta, "CLOTH")
+        targets.append(target)
+        writer = pc2.StreamingPc2Writer(
+            path, vertex_count=1, frame_count=4,
+            resume_path=tmp_path / f"{target.uuid}.partial")
+        writer.write_frame([[0, 0, 0]])
+        writer.write_frame([[index + 1, 0, 0]])
+        writers[target.uuid] = writer
+    first = targets[0]
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), first.initial_local, identity,
+        first.object_name, tmp_path, first.pc2_path, 4,
+        frame_start=10, frame_end=13,
+        settings_fingerprint="settings", geometry_fingerprint="geometry",
+        material_meta=first.material_meta, deformables=tuple(targets))
+
+    headers = module._publish_cancelled_previews(plan, writers, {})
+
+    assert set(headers) == {"uuid-0", "uuid-1"}
+    assert {header.frame_count for header in headers.values()} == {2}
+    for target in targets:
+        assert pc2.read_header(target.pc2_path).frame_count == 2
+        assert writers[target.uuid].temporary_path.exists()
+        inspection = cache_metadata.inspect_cache(
+            target.pc2_path, settings_fingerprint="settings",
+            geometry_fingerprint="geometry")
+        assert inspection.usable
+        assert inspection.metadata["details"]["partial_result"] == {
+            "cached_frame_count": 2,
+            "requested_frame_count": 4,
+            "cancelled": True,
+        }
+
+
+def test_cancelled_cache_without_solver_frame_is_not_published(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    path = tmp_path / "cn_test_cloth.pc2"
+    target = module.DeformablePlan(
+        ((0, 0, 0),), identity, "cloth", "uuid", path,
+        "topology", _phase4_meta(), "CLOTH")
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), target.initial_local, identity,
+        target.object_name, tmp_path, path, 4, deformables=(target,))
+    writer = pc2.StreamingPc2Writer(
+        path, vertex_count=1, frame_count=4,
+        resume_path=tmp_path / "uuid.partial")
+    writer.write_frame([[0, 0, 0]])
+
+    assert module._publish_cancelled_previews(
+        plan, {"uuid": writer}, {}) is None
+    assert not path.exists()
+    writer.abort()
+
+
+def test_cancelled_preview_uses_shortened_plan_for_attachment(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),), identity,
+        "cloth", SimpleNamespace(), SimpleNamespace(), 8,
+        frame_start=12, frame_end=19)
+    observed = []
+    monkeypatch.setattr(
+        module, "_attach_playback",
+        lambda partial, header: observed.append((partial, header)))
+    headers = {
+        "a": SimpleNamespace(frame_count=3),
+        "b": SimpleNamespace(frame_count=3),
+    }
+
+    assert module._attach_cancelled_preview(plan, headers) == 3
+    assert observed[0][0].frame_count == 3
+    assert observed[0][0].frame_end == 14
+
+
+def test_configure_recovery_after_restart_selects_latest_checkpoint_and_rejects(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    settings = SimpleNamespace(
+        enabled=True, resume_requested=False, keep_saved_states=3,
+        save_on_cancel=True, save_on_finish=False,
+        status="", status_detail="", compatible=False, resumable=False,
+        recovery_directory="")
+    context = SimpleNamespace(
+        scene=SimpleNamespace(cloth_next_recovery=settings))
+    identity_matrix = ((1, 0, 0, 0), (0, 1, 0, 0),
+                       (0, 0, 1, 0), (0, 0, 0, 1))
+    path = tmp_path / "cn_test_cloth.pc2"
+    scene = module.SessionScene(
+        "fresh", "Cloth", "cloth", 1, "Collider", "collider", 8,
+        b"scene", b"param", "data-hash", "param-hash")
+    plan = module.RunPlan(
+        scene,
+        SimpleNamespace(
+            package_version="0.1.0", protocol_version="0.13",
+            schema_version="2", installation_id="solver",
+            installation=None),
+        ((0, 0, 0),), identity_matrix, "Cloth", tmp_path, path, 8,
+        frame_start=1, frame_end=8, fps=24.0,
+        geometry_fingerprint="geometry", topology_signature="topology",
+        material_meta=_phase4_meta(), scene_cache_key="scene-key",
+        param_cache_key="param-with-pin-and-time-scale")
+    snapshot = SimpleNamespace(collider_objs=())
+    configured = module._configure_recovery(context, snapshot, plan)
+    options = configured.recovery_options
+    project_root = options.server_data_root / "saved-project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    record = module.recovery.create_project(
+        options.metadata_path, project_id="saved-project",
+        identity=options.identity, server_data_root=options.server_data_root,
+        project_root=project_root, partial_pc2=options.partial_pc2)
+    record = module.recovery.transition(
+        options.metadata_path, record, module.recovery.ProjectState.RUNNING)
+    for frame in (3, 6):
+        (output / f"state_{frame}.bin.gz").write_bytes(
+            __import__("gzip").compress(f"state-{frame}".encode()))
+    record = module.recovery.confirm_saved_states(
+        options.metadata_path, record, (3, 6), keep=3)
+    module._configure_recovery(context, snapshot, plan)
+    assert not settings.resumable
+    assert settings.status_detail == (
+        "Recovery project state is Checkpoint Confirmed")
+    record = module.recovery.transition(
+        options.metadata_path, record, module.recovery.ProjectState.SAVED)
+    module.recovery.transition(
+        options.metadata_path, record, module.recovery.ProjectState.RESUMABLE)
+
+    settings.resume_requested = True
+    resumed = module._configure_recovery(context, snapshot, plan)
+
+    assert resumed.recovery_options.resume
+    assert resumed.recovery_options.resume_from_frame == 6
+    assert resumed.scene.project_name == "saved-project"
+
+    settings.resume_requested = True
+    changed = module.replace(
+        plan, scene=module.replace(
+            plan.scene, param_hash="changed-pin-or-time-scale"))
+    with pytest.raises(module.SceneValidationError, match="Pin.*Time Scale"):
+        module._configure_recovery(context, snapshot, changed)
+    assert not settings.resume_requested
+
+
+def test_configure_recovery_uses_payload_hash_when_early_cache_is_unsafe(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    settings = SimpleNamespace(
+        enabled=True, resume_requested=False, keep_saved_states=3,
+        save_on_cancel=True, save_on_finish=False,
+        status="", status_detail="", compatible=False, resumable=False,
+        recovery_directory="")
+    context = SimpleNamespace(
+        scene=SimpleNamespace(cloth_next_recovery=settings))
+    scene = module.SessionScene(
+        "fresh", "Cloth", "cloth", 1, "Collider", "collider", 4,
+        b"captured-shape-key-scene", b"param",
+        "captured-scene-hash", "param-hash")
+    plan = module.RunPlan(
+        scene,
+        SimpleNamespace(
+            package_version="0.1.0", protocol_version="0.13",
+            schema_version="2", installation_id="solver",
+            installation=None),
+        ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        "Cloth", tmp_path, tmp_path / "cloth.pc2", 4,
+        frame_start=1, frame_end=4, fps=24.0,
+        geometry_fingerprint="geometry", topology_signature="topology",
+        material_meta=_phase4_meta(), scene_cache_key="",
+        param_cache_key="param-key")
+
+    configured = module._configure_recovery(
+        context, SimpleNamespace(collider_objs=()), plan)
+
+    assert configured.recovery_options is not None
+    assert configured.recovery_options.identity.scene_key == (
+        "captured-scene-hash")
+    assert configured.recovery_options.identity.param_key == "param-hash"
+
+
+def test_silent_worker_crash_promotes_verified_checkpoint_and_enables_resume(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.EXPORTING)
+    current = module.recovery.RecoveryIdentity(
+        scene_key="scene", param_key="param", export_uuids=("cloth",),
+        geometry_fingerprint="geometry", topology_fingerprint="topology",
+        frame_start=1, frame_end=10, fps=24.0, collider_sampling=(),
+        solver_version="0.1.0", protocol_version="0.13",
+        solver_schema_version="2", solver_installation_id="solver")
+    project_root = tmp_path / "server data ü" / "saved-job"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery folder ü" / "metadata.json"
+    record = module.recovery.create_project(
+        metadata, project_id="saved-job", identity=current,
+        server_data_root=project_root.parent, project_root=project_root)
+    record = module.recovery.transition(
+        metadata, record, module.recovery.ProjectState.RUNNING)
+    (output / "state_6.bin.gz").write_bytes(
+        __import__("gzip").compress(b"checkpoint-6"))
+    module.recovery.confirm_saved_states(metadata, record, (6,), keep=3)
+    settings = SimpleNamespace(
+        compatible=False, resumable=False, status="", status_detail="",
+        latest_checkpoint_frame=0, checkpoint_count=0,
+        older_checkpoint_preserved=False,
+        recovery_directory=str(metadata.parent), resume_requested=False)
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+    plan = SimpleNamespace(recovery_options=SimpleNamespace(
+        metadata_path=metadata, identity=current, keep_saved_states=3))
+    module._active_plan = plan
+    module._worker = SimpleNamespace(is_alive=lambda: False)
+    monkeypatch.setattr(module, "_discard_incomplete", lambda *_a, **_k: None)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+
+    assert module._pump_once() is None
+
+    result = module.recovery.assess_recovery(
+        metadata, current_identity=current)
+    assert result.can_resume and result.checkpoint.frame == 6
+    assert module.recovery.load_project(
+        metadata).state is module.recovery.ProjectState.FAILED
+    assert settings.resumable and settings.latest_checkpoint_frame == 6
+    assert module.CLOTHNEXT_OT_recovery_resume_latest.poll(
+        blender_env.bpy.context)
+
+
+def test_resume_execute_revalidates_missing_checkpoint_and_explains_failure(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    settings = SimpleNamespace(
+        compatible=True, resumable=True, status="Recovery available",
+        status_detail="", latest_checkpoint_frame=9, checkpoint_count=1,
+        older_checkpoint_preserved=False,
+        recovery_directory=str(tmp_path / "missing recovery"),
+        resume_requested=False)
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest()
+
+    result = operator.execute(blender_env.bpy.context)
+
+    assert result == {"CANCELLED"}
+    assert not settings.resume_requested and not settings.resumable
+    assert "missing" in settings.status_detail.lower()
+    assert "missing" in operator.reports[-1][1].lower()
+
+
+def test_resume_disabled_reason_never_reports_compatible(blender_env):
+    operator = blender_env.solver_test.CLOTHNEXT_OT_recovery_resume_latest
+
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Compatible")) == (
+            "No verified resumable checkpoint is available")
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Recovery project state is Checkpoint Confirmed")) == (
+            "Recovery project state is Checkpoint Confirmed")
+
+
 def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
@@ -1272,6 +1556,44 @@ def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
     snapshot = module.shared_controller.snapshot()
     assert snapshot.state is BakeState.ERROR
     assert "attach boom" in snapshot.error_details
+
+
+def test_solver_failure_attaches_valid_prefix_before_reporting_error(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.EXPORTING)
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    plan = module.RunPlan(
+        module.SessionScene(
+            "project", "Cloth", "cloth", 1, "Collider", "collider", 8,
+            b"scene", b"param", "data", "param"),
+        SimpleNamespace(), ((0, 0, 0),), identity, "Cloth",
+        SimpleNamespace(), SimpleNamespace(), 8,
+        frame_start=10, frame_end=17)
+    module._active_plan = plan
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    monkeypatch.setattr(
+        module, "_attach_cancelled_preview",
+        lambda _plan, _preview: 3)
+    monkeypatch.setattr(module, "_discard_incomplete", lambda *_a, **_k: None)
+    monkeypatch.setattr(module, "_refresh_recovery_ui", lambda *_a: None)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._queue.put((
+        "error", "The solver connection was lost.", "socket closed",
+        "CNX-E101", (), object()))
+
+    assert module._pump_once() is None
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.state is BakeState.ERROR
+    assert snapshot.current_frame == 12
+    assert snapshot.progress_current == 3
+    assert snapshot.progress_total == 8
+    assert "socket closed" in snapshot.error_details
 
 
 def test_ram_safety_cancel_becomes_actionable_error(blender_env, monkeypatch):

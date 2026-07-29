@@ -17,9 +17,15 @@ PC2 only after every expected frame exists. Cloth NeXt then calculates the PC2
 SHA-256, writes the complete metadata to another temporary file, flushes it,
 and atomically replaces the partial sidecar.
 
-Cancellation or failure removes an unpublished PC2 and leaves a small
-`cancelled` or `failed` sidecar for diagnosis. Every state other than
-`complete` is classified as partial and is unusable for playback.
+If at least one solver frame completed before cancellation or solver loss,
+Cloth NeXt may publish the common multi-object prefix as a shortened,
+authenticated PC2 result. Its sidecar is `complete` for that shortened file
+and `details.partial_result` records the cached and originally requested frame
+counts. The full-range resume stream remains separate and is authenticated in
+the recovery metadata. If no solver frame completed, publication is
+all-or-nothing across deformables and the unpublished files are discarded.
+An unauthenticated `partial`, `cancelled`, or `failed` sidecar remains unusable
+for playback.
 
 The previous attached result is not removed until the new PC2/metadata pair is
 authenticated and attached successfully.

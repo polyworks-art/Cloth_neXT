@@ -20,6 +20,33 @@ from tests import mesh_fixtures
 SOLVER_TEST_SOURCE = Path("cloth_next/blender/solver_test.py")
 
 
+def test_multi_object_pin_capture_hides_owned_playback():
+    tree = ast.parse(SOLVER_TEST_SOURCE.read_text(encoding="utf-8"))
+    function = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_build_multi_run_plan")
+    parents = {}
+    for parent in ast.walk(function):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    captures = [
+        node for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_capture_animated_pin"]
+    assert len(captures) == 1
+    ancestor = parents.get(captures[0])
+    while ancestor is not None and not isinstance(ancestor, ast.With):
+        ancestor = parents.get(ancestor)
+    assert ancestor is not None
+    assert any(
+        isinstance(item.context_expr, ast.Call)
+        and isinstance(item.context_expr.func, ast.Name)
+        and item.context_expr.func.id == "without_owned_playback"
+        for item in ancestor.items)
+
+
 def test_param_cache_identity_changes_with_dense_pin_trajectory(env):
     module = env.solver_test
     sparse = StaticPinConfig(

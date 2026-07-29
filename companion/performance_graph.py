@@ -10,29 +10,28 @@ from cloth_next.bake.status import BakeState
 
 @dataclass
 class FramePerformanceHistory:
-    """Convert solver frame timing into a bounded relative score.
+    """Keep bounded timing data for completed solver frames."""
 
-    A score of 50 means the latest frame group matches the recent smoothed
-    pace. Higher is faster and lower is slower. This remains meaningful across
-    scenes without pretending that one absolute frame time is universally good.
-    """
-
-    limit: int = 72
-    scores: deque[float] = field(init=False)
+    limit: int = 60
+    durations: deque[float] = field(init=False)
     _job_id: str = field(default="", init=False)
     _frame: int | None = field(default=None, init=False)
     _elapsed: float | None = field(default=None, init=False)
-    _seconds_per_frame: float | None = field(default=None, init=False)
+    _average_seconds: float | None = field(default=None, init=False)
+    _display_low: float | None = field(default=None, init=False)
+    _display_high: float | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        self.scores = deque(maxlen=max(8, int(self.limit)))
+        self.durations = deque(maxlen=max(8, int(self.limit)))
 
     def reset(self, job_id: str = "") -> None:
-        self.scores.clear()
+        self.durations.clear()
         self._job_id = str(job_id or "")
         self._frame = None
         self._elapsed = None
-        self._seconds_per_frame = None
+        self._average_seconds = None
+        self._display_low = None
+        self._display_high = None
 
     def observe(self, snapshot) -> bool:
         job_id = str(getattr(snapshot, "job_id", "") or "")
@@ -55,15 +54,39 @@ class FramePerformanceHistory:
         if frame_delta <= 0 or elapsed_delta <= 0.0:
             return False
         current = elapsed_delta / frame_delta
-        expected = self._seconds_per_frame or current
-        score = max(0.0, min(100.0, 50.0 * expected / current))
-        for _ in range(min(frame_delta, self.scores.maxlen)):
-            self.scores.append(score)
-        # Slow adaptation preserves visible short-term performance changes.
-        self._seconds_per_frame = expected * 0.82 + current * 0.18
+        for _ in range(min(frame_delta, self.durations.maxlen)):
+            self.durations.append(current)
+        self._average_seconds = (
+            current if self._average_seconds is None
+            else self._average_seconds*.7+current*.3)
+        self._update_display_range()
         return True
 
     @property
-    def latest(self) -> int | None:
-        return round(self.scores[-1]) if self.scores else None
+    def latest_seconds(self) -> float | None:
+        return self.durations[-1] if self.durations else None
+
+    @property
+    def average_seconds(self) -> float | None:
+        return self._average_seconds
+
+    @property
+    def display_range(self) -> tuple[float,float] | None:
+        if self._display_low is None or self._display_high is None:
+            return None
+        return self._display_low,self._display_high
+
+    def _update_display_range(self) -> None:
+        values=tuple(self.durations)
+        if not values:return
+        low,high=min(values),max(values)
+        span=max(high-low,(self._average_seconds or high)*.1,.1)
+        target_low=max(0.,low-span*.25)
+        target_high=high+span*.25
+        if self._display_low is None or self._display_high is None:
+            self._display_low,self._display_high=target_low,target_high
+            return
+        # Expand immediately for outliers, contract gradually to avoid jitter.
+        self._display_low=min(target_low,self._display_low*.85+target_low*.15)
+        self._display_high=max(target_high,self._display_high*.85+target_high*.15)
 
