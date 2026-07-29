@@ -1389,3 +1389,15 @@ def test_recovery_related_operators_have_useful_tooltips(blender_env):
     assert "cannot be resumed" in (
         module.CLOTHNEXT_OT_recovery_start_fresh.bl_description)
     assert "attempt" in module.CLOTHNEXT_OT_bake_cancel.bl_description
+
+
+def test_recovery_resume_disabled_reason_never_reports_compatible(blender_env):
+    module = blender_env.solver_test
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest
+
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Compatible")) == (
+            "No verified resumable checkpoint is available")
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Recovery project state is Checkpoint Confirmed")) == (
+            "Recovery project state is Checkpoint Confirmed")

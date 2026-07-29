@@ -6979,10 +6979,28 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         "Continue this Bake from the latest verified solver checkpoint")
     bl_options = {"INTERNAL"}
 
+    @staticmethod
+    def _disabled_reason(settings) -> str:
+        reason = str(getattr(settings, "status_detail", "") or "").strip()
+        # Old scene files and builds may have cached identity compatibility as
+        # the disabled reason even though compatibility is not the blocker.
+        if not reason or reason.casefold() == "compatible":
+            return "No verified resumable checkpoint is available"
+        return reason
+
     @classmethod
     def poll(cls, context):
         settings = getattr(context.scene, "cloth_next_recovery", None)
-        return bool(settings and settings.resumable and not run_active())
+        if settings is None:
+            return False
+        busy = run_active() or shared_controller.snapshot().active
+        allowed = bool(
+            settings.compatible and settings.resumable and not busy)
+        if not allowed and hasattr(cls, "poll_message_set"):
+            cls.poll_message_set(
+                "A solver or Bake operation is still running"
+                if busy else cls._disabled_reason(settings))
+        return allowed
 
     def execute(self, context):
         context.scene.cloth_next_recovery.resume_requested = True
