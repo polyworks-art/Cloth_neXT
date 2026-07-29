@@ -4,7 +4,7 @@
   const banner = document.querySelector('[data-release-banner]');
   if (!banner) return;
 
-  const releaseAt = new Date(banner.getAttribute('data-release-at') || '2026-07-29T21:00:00+02:00');
+  const releaseAt = new Date(banner.getAttribute('data-release-at') || '2026-07-30T12:00:00+02:00');
   const hoursNode = banner.querySelector('[data-countdown-hours]');
   const minutesNode = banner.querySelector('[data-countdown-minutes]');
   const secondsNode = banner.querySelector('[data-countdown-seconds]');
