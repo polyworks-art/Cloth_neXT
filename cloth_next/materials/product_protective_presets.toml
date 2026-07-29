@@ -1,0 +1,164 @@
+# Cloth NeXt branded protective material samples.
+# Product names are nominative references. Published facts and Cloth NeXt
+# solver calibrations are deliberately separated; no endorsement or exact
+# certified digital twin is claimed.
+
+[provenance]
+source_project = "Official manufacturer data for protective materials"
+source_commit = "retrieved-2026-07-29"
+source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
+source_license = "Facts-only reference metadata; no third-party code or media redistributed"
+notes = "PPF-only mechanics are Cloth NeXt artist calibrations; see the sources document for evidence and limitations."
+
+[[preset]]
+id = "PRODUCT_KEVLAR_K29_7451S"
+label = "DuPont Kevlar · K29 7451S"
+category = "PRODUCT_SAMPLES"
+description = "Official 465 gsm plain-weave para-aramid armor fabric with very low stretch and strong shape retention"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "DuPont"
+product_style = "Kevlar K29 Plain Weave · 745GR/7451S"
+data_basis = "Official conditioned weight, para-aramid structure and armor applications; PPF mechanics calibrated to the fabric class"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_KEVLAR_K29_7451S"
+measured_area_weight_g_m2 = 465.0
+model = "FABRIC"
+surface_weight = 0.465
+stretch_resistance = 50000.0
+sideways_response = 0.14
+bend_resistance = 9.0
+surface_grip = 0.48
+stretch_limit_enabled = true
+maximum_stretch_percent = 0.8
+
+[[preset]]
+id = "PRODUCT_NOMEX_450A"
+label = "DuPont Nomex · Essential 450A"
+category = "PRODUCT_SAMPLES"
+description = "Official 150 gsm plain-weave protective uniform fabric blended with Kevlar and antistatic fiber"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "DuPont"
+product_style = "Nomex Essential 450A"
+data_basis = "Official fiber blend, plain-weave construction and 150 gsm basis weight; PPF mechanics calibrated for protective uniform cloth"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_NOMEX_450A"
+measured_area_weight_g_m2 = 150.0
+measured_area_weight_oz_yd2 = 4.5
+model = "FABRIC"
+surface_weight = 0.15
+stretch_resistance = 8500.0
+sideways_response = 0.3
+bend_resistance = 3.2
+surface_grip = 0.42
+stretch_limit_enabled = true
+maximum_stretch_percent = 3.0
+
+[[preset]]
+id = "PRODUCT_NOMEX_ARC650"
+label = "DuPont Nomex · Arc 650"
+category = "PRODUCT_SAMPLES"
+description = "Official 220 gsm twill protective fabric with Kevlar, Nomex, modacrylic and antistatic fibers"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "DuPont"
+product_style = "Nomex Essential Arc 650"
+data_basis = "Official fiber blend, twill construction and 220 gsm basis weight; PPF mechanics calibrated for firm naval protective clothing"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_NOMEX_ARC650"
+measured_area_weight_g_m2 = 220.0
+measured_area_weight_oz_yd2 = 6.5
+model = "FABRIC"
+surface_weight = 0.22
+stretch_resistance = 10000.0
+sideways_response = 0.28
+bend_resistance = 4.6
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "PRODUCT_TYVEK_400"
+label = "DuPont Tyvek · 400"
+category = "PRODUCT_SAMPLES"
+description = "Official 41.5 gsm flash-spun protective sheet with crisp paper-like folds and low stretch"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "DuPont"
+product_style = "Tyvek 400"
+data_basis = "Official DIN EN ISO 536 basis weight and protective-sheet construction; PPF mechanics calibrated for nonwoven sheet behavior"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_TYVEK_400"
+measured_area_weight_g_m2 = 41.5
+model = "FABRIC"
+surface_weight = 0.0415
+stretch_resistance = 16000.0
+sideways_response = 0.2
+bend_resistance = 8.0
+surface_grip = 0.3
+stretch_limit_enabled = true
+maximum_stretch_percent = 1.5
+
+[[preset]]
+id = "PRODUCT_CORDURA_CLASSIC_500D"
+label = "CORDURA Classic · 500D"
+category = "PRODUCT_SAMPLES"
+description = "High-tenacity air-jet-textured nylon pack cloth with rugged woven behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "CORDURA"
+product_style = "CORDURA Classic 500D"
+data_basis = "Official 100% high-tenacity nylon 6,6 construction and 500D yarn class; representative 250 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_CORDURA_CLASSIC"
+model = "FABRIC"
+surface_weight = 0.25
+stretch_resistance = 15000.0
+sideways_response = 0.24
+bend_resistance = 5.5
+surface_grip = 0.52
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "PRODUCT_CORDURA_CLASSIC_1000D"
+label = "CORDURA Classic · 1000D"
+category = "PRODUCT_SAMPLES"
+description = "Heavy high-tenacity textured nylon for luggage, tactical gear and abrasion-heavy panels"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "CORDURA"
+product_style = "CORDURA Classic 1000D"
+data_basis = "Official 100% high-tenacity nylon 6,6 construction and 1000D yarn class; representative 370 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_CORDURA_CLASSIC"
+model = "FABRIC"
+surface_weight = 0.37
+stretch_resistance = 19000.0
+sideways_response = 0.22
+bend_resistance = 8.0
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.0
+
+[[preset]]
+id = "PRODUCT_CORDURA_BALLISTIC_1680D"
+label = "CORDURA Ballistic · 1680D"
+category = "PRODUCT_SAMPLES"
+description = "Dense basket-weave ballistic nylon reference with substantial mass and highly structured folds"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "CORDURA"
+product_style = "CORDURA Ballistic 1680D"
+data_basis = "Official high-tenacity nylon 6,6 Ballistic product family; representative 475 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_CORDURA_BALLISTIC"
+model = "FABRIC"
+surface_weight = 0.475
+stretch_resistance = 22000.0
+sideways_response = 0.2
+bend_resistance = 11.0
+surface_grip = 0.56
+stretch_limit_enabled = true
+maximum_stretch_percent = 1.8

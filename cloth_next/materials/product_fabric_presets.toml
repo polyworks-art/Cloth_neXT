@@ -1,0 +1,288 @@
+# Cloth NeXt real-world outdoor product material samples (read-only).
+#
+# Published construction and areal-weight facts are separated from Cloth NeXt's
+# solver calibration. Product names are nominative references only and do not
+# imply endorsement, certification, sponsorship, or an exact digital twin.
+
+[provenance]
+source_project = "Official manufacturer product data and documented commercial samples"
+source_commit = "retrieved-2026-07-29"
+source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
+source_license = "Facts-only reference metadata; no third-party code or product media redistributed"
+notes = "PPF stretch, bending, Poisson response, friction, and strain limits are Cloth NeXt artist calibrations. See the sources document for exact evidence and limitations."
+
+[[preset]]
+id = "PRODUCT_GORETEX_ARCTIC_3L"
+label = "GORE-TEX · Arctic Stretch 3L"
+category = "PRODUCT_SAMPLES"
+description = "Real 3-layer GORE-TEX laminate sample; published 180 gsm mass with calibrated hardshell response"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "W. L. Gore & Associates"
+product_style = "Arctic Stretch 3-Ply"
+data_basis = "Published 180 gsm commercial sample and official 3-layer laminate construction; PPF mechanics calibrated as a slightly flexible hardshell"
+data_quality = "PUBLISHED_PRODUCT_SAMPLE"
+source_reference = "PRODUCT_SOURCE_GORETEX_ARCTIC_3L"
+measured_area_weight_g_m2 = 180.0
+measured_area_weight_oz_yd2 = 5.31
+model = "FABRIC"
+surface_weight = 0.180
+stretch_resistance = 9500.0
+sideways_response = 0.36
+bend_resistance = 4.2
+surface_grip = 0.40
+stretch_limit_enabled = true
+maximum_stretch_percent = 4.0
+
+[[preset]]
+id = "PRODUCT_XPAC_VX21"
+label = "X-Pac · VX21"
+category = "PRODUCT_SAMPLES"
+description = "Official VX21 pack laminate; 210D face, waterproof film and X-PLY reinforcement"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "X-Pac"
+product_style = "VX21"
+data_basis = "Official 210 gsm construction and low-stretch product description; PPF mechanics calibrated for structured pack fabric"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_XPAC_VX21"
+measured_area_weight_g_m2 = 210.0
+measured_area_weight_oz_yd2 = 6.2
+model = "FABRIC"
+surface_weight = 0.210
+stretch_resistance = 18000.0
+sideways_response = 0.22
+bend_resistance = 6.0
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.0
+
+[[preset]]
+id = "PRODUCT_XPAC_VX21_SOFT"
+label = "X-Pac · VX21 Soft"
+category = "PRODUCT_SAMPLES"
+description = "Softer film-free VX21 laminate; official 188 gsm mass and compressible hand"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "X-Pac"
+product_style = "VX21 Soft"
+data_basis = "Official 188 gsm construction and softer-hand description; PPF mechanics calibrated below standard VX21 bending"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_XPAC_VX21_SOFT"
+measured_area_weight_g_m2 = 188.0
+measured_area_weight_oz_yd2 = 5.5
+model = "FABRIC"
+surface_weight = 0.188
+stretch_resistance = 14000.0
+sideways_response = 0.25
+bend_resistance = 3.5
+surface_grip = 0.45
+stretch_limit_enabled = true
+maximum_stretch_percent = 2.5
+
+[[preset]]
+id = "PRODUCT_XPAC_LS21"
+label = "X-Pac · LS21"
+category = "PRODUCT_SAMPLES"
+description = "LiteSkin pack laminate; official 214 gsm mass with high abrasion-oriented structure"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "X-Pac"
+product_style = "LS21"
+data_basis = "Official 214 gsm laminate construction; PPF mechanics calibrated for crisp abrasion-resistant pack panels"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_XPAC_LS21"
+measured_area_weight_g_m2 = 214.0
+measured_area_weight_oz_yd2 = 6.3
+model = "FABRIC"
+surface_weight = 0.214
+stretch_resistance = 19000.0
+sideways_response = 0.20
+bend_resistance = 6.5
+surface_grip = 0.42
+stretch_limit_enabled = true
+maximum_stretch_percent = 1.8
+
+[[preset]]
+id = "PRODUCT_POLARTEC_ALPHA_DIRECT_90"
+label = "Polartec Alpha Direct · 90"
+category = "PRODUCT_SAMPLES"
+description = "Official Alpha Direct style 4004; exposed-loft active insulation at 85 gsm"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Polartec"
+product_style = "Alpha Direct 90 · Style 4004"
+data_basis = "Official 85 gsm style data; PPF mechanics calibrated for soft open-loft stretch and low bending"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4004"
+measured_area_weight_g_m2 = 85.0
+measured_area_weight_oz_yd2 = 2.5
+model = "FABRIC"
+surface_weight = 0.085
+stretch_resistance = 500.0
+sideways_response = 0.45
+bend_resistance = 0.8
+surface_grip = 0.50
+stretch_limit_enabled = true
+maximum_stretch_percent = 18.0
+
+[[preset]]
+id = "PRODUCT_POLARTEC_ALPHA_DIRECT_120"
+label = "Polartec Alpha Direct · 120"
+category = "PRODUCT_SAMPLES"
+description = "Official recycled Alpha Direct style 4411RC; 119 gsm active insulation"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Polartec"
+product_style = "Alpha Direct 120 · Style 4411RC"
+data_basis = "Official 119 gsm style data; PPF mechanics calibrated for medium-loft open knit"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4411RC"
+measured_area_weight_g_m2 = 119.0
+measured_area_weight_oz_yd2 = 3.5
+model = "FABRIC"
+surface_weight = 0.119
+stretch_resistance = 600.0
+sideways_response = 0.45
+bend_resistance = 1.0
+surface_grip = 0.52
+stretch_limit_enabled = true
+maximum_stretch_percent = 16.0
+
+[[preset]]
+id = "PRODUCT_POLARTEC_ALPHA_DIRECT_190"
+label = "Polartec Alpha Direct · 190"
+category = "PRODUCT_SAMPLES"
+description = "Official heavyweight Alpha Direct style 4024; 186 gsm exposed insulation"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Polartec"
+product_style = "Alpha Direct 190 · Style 4024"
+data_basis = "Official 186 gsm style data; PPF mechanics calibrated for dense lofty insulation"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4024"
+measured_area_weight_g_m2 = 186.0
+measured_area_weight_oz_yd2 = 5.5
+model = "FABRIC"
+surface_weight = 0.186
+stretch_resistance = 750.0
+sideways_response = 0.44
+bend_resistance = 1.4
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 14.0
+
+[[preset]]
+id = "PRODUCT_POLARTEC_ALPHA_WOOL"
+label = "Polartec Alpha Direct · Wool"
+category = "PRODUCT_SAMPLES"
+description = "Official Alpha Direct wool-blend style 4048; 153 gsm lining material"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Polartec"
+product_style = "Alpha Direct with Wool · Style 4048"
+data_basis = "Official 153 gsm wool-blend style data; PPF mechanics calibrated for grippy soft lining"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_POLARTEC_ALPHA_4048"
+measured_area_weight_g_m2 = 153.0
+measured_area_weight_oz_yd2 = 4.5
+model = "FABRIC"
+surface_weight = 0.153
+stretch_resistance = 900.0
+sideways_response = 0.42
+bend_resistance = 1.6
+surface_grip = 0.58
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "PRODUCT_CHALLENGE_ULTRA_100"
+label = "Challenge ULTRA · 100"
+category = "PRODUCT_SAMPLES"
+description = "Official UHMWPE composite pack fabric; 99 gsm with waterproof film backing"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Challenge Sailcloth"
+product_style = "ULTRA 100"
+data_basis = "Official 99 gsm construction and performance data; PPF mechanics calibrated for very low-stretch ultralight laminate"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_CHALLENGE_ULTRA_100"
+measured_area_weight_g_m2 = 99.0
+measured_area_weight_oz_yd2 = 2.92
+model = "FABRIC"
+surface_weight = 0.099
+stretch_resistance = 22000.0
+sideways_response = 0.18
+bend_resistance = 4.5
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 1.5
+
+[[preset]]
+id = "PRODUCT_CHALLENGE_ULTRA_200"
+label = "Challenge ULTRA · 200"
+category = "PRODUCT_SAMPLES"
+description = "Official 200D UHMWPE composite; 119 gsm, waterproof and highly dimensionally stable"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Challenge Sailcloth"
+product_style = "ULTRA 200"
+data_basis = "Official 119 gsm construction and performance data; PPF mechanics calibrated for stiff low-stretch pack fabric"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_CHALLENGE_ULTRA_200"
+measured_area_weight_g_m2 = 119.0
+measured_area_weight_oz_yd2 = 3.5
+model = "FABRIC"
+surface_weight = 0.119
+stretch_resistance = 24000.0
+sideways_response = 0.16
+bend_resistance = 5.5
+surface_grip = 0.35
+stretch_limit_enabled = true
+maximum_stretch_percent = 1.2
+
+[[preset]]
+id = "PRODUCT_DYNEEMA_DCF_055"
+label = "Dyneema Composite · 0.55"
+category = "PRODUCT_SAMPLES"
+description = "Official CT1E.08 tent composite; only 19 gsm, waterproof and near-zero stretch"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Dyneema / Avient"
+product_style = "Dyneema Composite Fabric 0.55 · CT1E.08"
+data_basis = "Official 19 gsm film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for crisp ultralight composite"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_DYNEEMA_CT1E08"
+measured_area_weight_g_m2 = 19.0
+measured_area_weight_oz_yd2 = 0.55
+model = "FABRIC"
+surface_weight = 0.019
+stretch_resistance = 30000.0
+sideways_response = 0.15
+bend_resistance = 12.0
+surface_grip = 0.20
+stretch_limit_enabled = true
+maximum_stretch_percent = 0.8
+
+[[preset]]
+id = "PRODUCT_DYNEEMA_DCF_16"
+label = "Dyneema Composite · 1.6"
+category = "PRODUCT_SAMPLES"
+description = "Official CT5K.18 pack composite; 53 gsm, waterproof and dimensionally stable"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Dyneema / Avient"
+product_style = "Dyneema Composite Fabric 1.6 · CT5K.18"
+data_basis = "Official 53 gsm film-fiber-film construction and zero-stretch product data; PPF mechanics calibrated for pack-grade composite"
+data_quality = "OFFICIAL_PRODUCT_DATA"
+source_reference = "PRODUCT_SOURCE_DYNEEMA_CT5K18"
+measured_area_weight_g_m2 = 53.0
+measured_area_weight_oz_yd2 = 1.6
+model = "FABRIC"
+surface_weight = 0.053
+stretch_resistance = 32000.0
+sideways_response = 0.14
+bend_resistance = 10.0
+surface_grip = 0.22
+stretch_limit_enabled = true
+maximum_stretch_percent = 0.8

@@ -169,7 +169,7 @@ def test_preset_items_are_builtin_order_plus_custom(blender_env):
     identifiers = [item[0] for item in items]
     assert identifiers[:7] == ["DEFAULT_CLOTH", "SILK", "FLAG", "COTTON",
                               "WOOL", "DENIM", "LEATHER"]
-    assert len(identifiers) == 38
+    assert len(identifiers) == 76
     assert identifiers[-1] == "CUSTOM"
     assert items[-1][1] == "Custom"
 

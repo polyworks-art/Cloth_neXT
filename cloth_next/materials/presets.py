@@ -3,18 +3,16 @@
 
 """Read-only bundled material presets (pure Python, no ``bpy``).
 
-The packaged ``ppf_fabric_presets.toml`` is parsed and validated exactly
-once (cached); Panel draw code must never trigger a file read. A malformed
-bundle raises :class:`PresetError` with a visible message and applies
-nothing — the parse is all-or-nothing, so a broken file can never leave a
-half-applied preset behind.
+Scientific presets and real-world product samples live in separate TOML files
+but are parsed, cross-validated and cached as one immutable library. A malformed
+bundle poisons the whole load, so the UI can never apply a half-valid preset.
 """
 
 from __future__ import annotations
 
+import math
 import tomllib
 from dataclasses import dataclass
-import math
 from pathlib import Path
 
 from .models import ShellMaterialSettings
@@ -28,6 +26,8 @@ DEFAULT_PRESET_ID = "DEFAULT_CLOTH"
 CATEGORY_ORDER = (
     "ESSENTIALS", "LIGHTWEIGHT", "NATURAL_WOVENS", "KNITS_STRETCH",
     "PILE_SOFT", "HEAVY_STRUCTURED", "TECHNICAL_COATED",
+    "PRODUCT_OUTDOOR", "PRODUCT_PERFORMANCE", "PRODUCT_PROTECTIVE",
+    "PRODUCT_SHELLS", "PRODUCT_INTERIORS",
 )
 CATEGORY_LABELS = {
     "ESSENTIALS": "Essentials",
@@ -37,9 +37,26 @@ CATEGORY_LABELS = {
     "PILE_SOFT": "Pile & Soft",
     "HEAVY_STRUCTURED": "Heavy & Structured",
     "TECHNICAL_COATED": "Technical & Coated",
+    "PRODUCT_OUTDOOR": "Products · Outdoor Laminates",
+    "PRODUCT_PERFORMANCE": "Products · Performance & Stretch",
+    "PRODUCT_PROTECTIVE": "Products · Protective",
+    "PRODUCT_SHELLS": "Products · Shells & Softshells",
+    "PRODUCT_INTERIORS": "Products · Insulation & Interiors",
 }
+_PRODUCT_CATEGORIES = frozenset({
+    "PRODUCT_SAMPLES", "PRODUCT_OUTDOOR", "PRODUCT_PERFORMANCE",
+    "PRODUCT_PROTECTIVE", "PRODUCT_SHELLS", "PRODUCT_INTERIORS",
+})
 
-_PRESET_FILE = Path(__file__).resolve().parent / "ppf_fabric_presets.toml"
+_MATERIAL_DIR = Path(__file__).resolve().parent
+_PRESET_FILE = _MATERIAL_DIR / "ppf_fabric_presets.toml"
+_PRODUCT_PRESET_FILES = (
+    (_MATERIAL_DIR / "product_fabric_presets.toml", "PRODUCT_OUTDOOR"),
+    (_MATERIAL_DIR / "product_performance_presets.toml", "PRODUCT_PERFORMANCE"),
+    (_MATERIAL_DIR / "product_protective_presets.toml", "PRODUCT_PROTECTIVE"),
+    (_MATERIAL_DIR / "product_shell_presets.toml", "PRODUCT_SHELLS"),
+    (_MATERIAL_DIR / "product_interior_presets.toml", "PRODUCT_INTERIORS"),
+)
 
 _REQUIRED_KEYS = frozenset({
     "id", "label", "category", "description", "upstream_calibrated", "model",
@@ -48,17 +65,25 @@ _REQUIRED_KEYS = frozenset({
     "maximum_stretch_percent",
 })
 _OPTIONAL_KEYS = frozenset({
-    "shape_damping", "fold_damping", "collision_gap",
-    "surface_offset", "source_reference", "measured_area_weight_oz_yd2",
-    "measured_bending_stiffness_lbf_in2",
+    "shape_damping", "fold_damping", "collision_gap", "surface_offset",
+    "source_reference", "measured_area_weight_oz_yd2",
+    "measured_area_weight_g_m2", "measured_bending_stiffness_lbf_in2",
+    "product_sample", "manufacturer", "product_style", "data_basis",
+    "data_quality",
 })
 _METADATA_KEYS = frozenset({
     "id", "label", "category", "description", "upstream_calibrated",
     "source_reference", "measured_area_weight_oz_yd2",
-    "measured_bending_stiffness_lbf_in2",
+    "measured_area_weight_g_m2", "measured_bending_stiffness_lbf_in2",
+    "product_sample", "manufacturer", "product_style", "data_basis",
+    "data_quality",
 })
 _REQUIRED_PROVENANCE = frozenset({
     "source_project", "source_commit", "source_path", "source_license",
+})
+_DATA_QUALITY = frozenset({
+    "SCIENTIFIC_MEASUREMENT", "OFFICIAL_PRODUCT_DATA",
+    "PUBLISHED_PRODUCT_SAMPLE", "CALIBRATED_REFERENCE",
 })
 
 
@@ -77,13 +102,36 @@ class MaterialPreset:
     upstream_calibrated: bool
     source_reference: str | None
     measured_area_weight_oz_yd2: float | None
+    measured_area_weight_g_m2: float | None
     measured_bending_stiffness_lbf_in2: float | None
+    product_sample: bool
+    manufacturer: str | None
+    product_style: str | None
+    data_basis: str | None
+    data_quality: str
     settings: ShellMaterialSettings
 
 
-def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
-                                      dict[str, str]]:
-    """Parse and fully validate preset TOML text (all-or-nothing)."""
+def _optional_text(entry: dict, key: str) -> str | None:
+    value = entry.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        raise PresetError(
+            f"preset {entry.get('id')!r} requires a non-empty {key}")
+    return text
+
+
+def parse_presets(
+        text: str, *, category_override: str | None = None
+        ) -> tuple[tuple[MaterialPreset, ...], dict[str, str]]:
+    """Parse and fully validate one preset TOML bundle.
+
+    Product data packs deliberately store the neutral ``PRODUCT_SAMPLES``
+    category. The bundled loader assigns each pack to one stable UI section;
+    direct tests and third-party tooling can still parse a pack by itself.
+    """
     try:
         document = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
@@ -96,8 +144,11 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
                           f"keys {sorted(_REQUIRED_PROVENANCE)}")
     entries = document.get("preset")
     if not isinstance(entries, list) or not entries:
-        raise PresetError("bundled preset file contains no [[preset]] "
-                          "entries")
+        raise PresetError("bundled preset file contains no [[preset]] entries")
+    if category_override is not None and category_override not in _PRODUCT_CATEGORIES:
+        raise PresetError(f"unsupported product category override "
+                          f"{category_override!r}")
+
     presets: list[MaterialPreset] = []
     seen: set[str] = set()
     for index, entry in enumerate(entries):
@@ -112,29 +163,64 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
         if missing:
             raise PresetError(f"preset entry {index} is missing keys "
                               f"{sorted(missing)}")
-        identifier = entry["id"]
+
+        identifier = str(entry["id"])
         if identifier in seen or identifier == PRESET_CUSTOM:
-            raise PresetError(f"duplicate or reserved preset id "
-                              f"{identifier!r}")
+            raise PresetError(
+                f"duplicate or reserved preset id {identifier!r}")
         seen.add(identifier)
-        category = str(entry["category"])
-        if category not in CATEGORY_LABELS:
+        file_category = str(entry["category"])
+        if category_override is not None and file_category != "PRODUCT_SAMPLES":
+            raise PresetError(
+                f"preset {identifier!r} in a product data pack must use "
+                "PRODUCT_SAMPLES")
+        category = category_override or file_category
+        if category not in CATEGORY_LABELS and category != "PRODUCT_SAMPLES":
             raise PresetError(f"preset {identifier!r} has unknown category "
                               f"{category!r}")
-        measured = {}
+
+        measured: dict[str, float | None] = {}
         for key in ("measured_area_weight_oz_yd2",
+                    "measured_area_weight_g_m2",
                     "measured_bending_stiffness_lbf_in2"):
             value = entry.get(key)
             if value is not None:
                 try:
                     value = float(value)
                 except (TypeError, ValueError) as exc:
-                    raise PresetError(f"preset {identifier!r} has invalid "
-                                      f"{key}") from exc
+                    raise PresetError(
+                        f"preset {identifier!r} has invalid {key}") from exc
                 if not math.isfinite(value) or value <= 0.0:
                     raise PresetError(f"preset {identifier!r} requires a "
                                       f"positive finite {key}")
             measured[key] = value
+
+        product_sample = bool(entry.get("product_sample", False))
+        manufacturer = _optional_text(entry, "manufacturer")
+        product_style = _optional_text(entry, "product_style")
+        data_basis = _optional_text(entry, "data_basis")
+        quality_default = (
+            "OFFICIAL_PRODUCT_DATA" if product_sample
+            else "SCIENTIFIC_MEASUREMENT"
+            if entry.get("source_reference") else "CALIBRATED_REFERENCE")
+        data_quality = str(entry.get("data_quality", quality_default))
+        if data_quality not in _DATA_QUALITY:
+            raise PresetError(f"preset {identifier!r} has unsupported "
+                              f"data_quality {data_quality!r}")
+        if product_sample:
+            if category not in _PRODUCT_CATEGORIES:
+                raise PresetError(
+                    f"product preset {identifier!r} requires a product category")
+            if not all((manufacturer, product_style, data_basis,
+                        entry.get("source_reference"))):
+                raise PresetError(
+                    f"product preset {identifier!r} requires manufacturer, "
+                    "product_style, data_basis, and source_reference")
+        elif category in _PRODUCT_CATEGORIES:
+            raise PresetError(
+                f"preset {identifier!r} in a Product section must set "
+                "product_sample = true")
+
         material_keys = keys - _METADATA_KEYS
         try:
             settings = ShellMaterialSettings(
@@ -143,7 +229,8 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
             raise PresetError(f"preset {identifier!r} holds invalid "
                               f"material values: {exc}") from exc
         presets.append(MaterialPreset(
-            identifier=identifier, label=str(entry["label"]),
+            identifier=identifier,
+            label=str(entry["label"]),
             category=category,
             description=str(entry["description"]),
             upstream_calibrated=bool(entry["upstream_calibrated"]),
@@ -151,8 +238,15 @@ def parse_presets(text: str) -> tuple[tuple[MaterialPreset, ...],
                               if entry.get("source_reference") else None),
             measured_area_weight_oz_yd2=
                 measured["measured_area_weight_oz_yd2"],
+            measured_area_weight_g_m2=
+                measured["measured_area_weight_g_m2"],
             measured_bending_stiffness_lbf_in2=
                 measured["measured_bending_stiffness_lbf_in2"],
+            product_sample=product_sample,
+            manufacturer=manufacturer,
+            product_style=product_style,
+            data_basis=data_basis,
+            data_quality=data_quality,
             settings=settings))
     return tuple(presets), {key: str(value)
                             for key, value in provenance.items()}
@@ -169,7 +263,24 @@ def _load() -> tuple[tuple[MaterialPreset, ...], dict[str, str]]:
     if _load_error is not None:
         raise PresetError(_load_error)
     try:
-        _cache = parse_presets(_PRESET_FILE.read_text(encoding="utf-8"))
+        scientific, provenance = parse_presets(
+            _PRESET_FILE.read_text(encoding="utf-8"))
+        products: list[MaterialPreset] = []
+        combined_provenance = dict(provenance)
+        for index, (path, category) in enumerate(
+                _PRODUCT_PRESET_FILES, start=1):
+            parsed, product_provenance = parse_presets(
+                path.read_text(encoding="utf-8"),
+                category_override=category)
+            products.extend(parsed)
+            combined_provenance.update({
+                f"product_{index}_{key}": value
+                for key, value in product_provenance.items()})
+        identifiers = [
+            preset.identifier for preset in (*scientific, *products)]
+        if len(set(identifiers)) != len(identifiers):
+            raise PresetError("bundled preset files contain duplicate ids")
+        _cache = ((*scientific, *products), combined_provenance)
     except (OSError, PresetError) as exc:
         _load_error = str(exc)
         raise PresetError(_load_error) from exc
@@ -186,7 +297,6 @@ def builtin_provenance() -> dict[str, str]:
 
 
 def load_error() -> str | None:
-    """The cached load failure message, if the bundle is unusable."""
     if _cache is not None:
         return None
     try:
@@ -201,14 +311,11 @@ def preset_by_identifier(identifier: str) -> MaterialPreset | None:
         presets = builtin_presets()
     except PresetError:
         return None
-    for preset in presets:
-        if preset.identifier == identifier:
-            return preset
-    return None
+    return next((preset for preset in presets
+                 if preset.identifier == identifier), None)
 
 
 def presets_in_category(category: str) -> tuple[MaterialPreset, ...]:
-    """Bundled presets in one stable, validated UI category."""
     if category not in CATEGORY_LABELS:
         return ()
     try:
@@ -216,3 +323,25 @@ def presets_in_category(category: str) -> tuple[MaterialPreset, ...]:
                      if preset.category == category)
     except PresetError:
         return ()
+
+
+def product_manufacturers() -> tuple[str, ...]:
+    """Stable manufacturer names across all Product sections."""
+    try:
+        presets = builtin_presets()
+    except PresetError:
+        return ()
+    return tuple(dict.fromkeys(
+        preset.manufacturer for preset in presets
+        if preset.product_sample and preset.manufacturer))
+
+
+def product_presets_by_manufacturer(
+        manufacturer: str) -> tuple[MaterialPreset, ...]:
+    try:
+        presets = builtin_presets()
+    except PresetError:
+        return ()
+    return tuple(
+        preset for preset in presets
+        if preset.product_sample and preset.manufacturer == manufacturer)

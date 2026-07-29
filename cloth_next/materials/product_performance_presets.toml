@@ -1,0 +1,200 @@
+# Cloth NeXt branded performance material samples.
+# Product names are nominative references. Published facts and Cloth NeXt
+# solver calibrations are deliberately separated; no endorsement or exact
+# certified digital twin is claimed.
+
+[provenance]
+source_project = "Official manufacturer data for performance materials"
+source_commit = "retrieved-2026-07-29"
+source_path = "docs/MATERIAL_LIBRARY_SOURCES.md"
+source_license = "Facts-only reference metadata; no third-party code or media redistributed"
+notes = "PPF-only mechanics are Cloth NeXt artist calibrations; see the sources document for evidence and limitations."
+
+[[preset]]
+id = "PRODUCT_ADIDAS_TIRO25_MATCH"
+label = "adidas AEROREADY · Match Jersey"
+category = "PRODUCT_SAMPLES"
+description = "Light recycled-polyester match jersey with mesh ventilation and calibrated sportswear drape"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "adidas"
+product_style = "Tiro 25 Competition Match Jersey"
+data_basis = "Official 100% recycled polyester, AEROREADY and mesh construction; representative 150 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_ADIDAS_TIRO25_MATCH"
+model = "FABRIC"
+surface_weight = 0.15
+stretch_resistance = 1100.0
+sideways_response = 0.44
+bend_resistance = 1.15
+surface_grip = 0.28
+stretch_limit_enabled = true
+maximum_stretch_percent = 12.0
+
+[[preset]]
+id = "PRODUCT_ADIDAS_TIRO25_TRAINING"
+label = "adidas AEROREADY · Training Jersey"
+category = "PRODUCT_SAMPLES"
+description = "Smooth recycled-polyester training jersey with mesh inserts and flexible lightweight behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "adidas"
+product_style = "Tiro 25 Competition Training Jersey"
+data_basis = "Official recycled-polyester main material, AEROREADY and mesh construction; representative 140 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_ADIDAS_TIRO25_TRAINING"
+model = "FABRIC"
+surface_weight = 0.14
+stretch_resistance = 1000.0
+sideways_response = 0.45
+bend_resistance = 1.0
+surface_grip = 0.28
+stretch_limit_enabled = true
+maximum_stretch_percent = 14.0
+
+[[preset]]
+id = "PRODUCT_POLARTEC_POWER_GRID"
+label = "Polartec Power Grid · Midweight"
+category = "PRODUCT_SAMPLES"
+description = "Bi-component grid knit with lightweight loft, high breathability and directional sportswear stretch"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Polartec"
+product_style = "Power Grid Midweight"
+data_basis = "Official bi-component knit and lightweight movement-focused product family; representative 180 gsm mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_POLARTEC_POWER_GRID"
+model = "FABRIC"
+surface_weight = 0.18
+stretch_resistance = 1200.0
+sideways_response = 0.44
+bend_resistance = 1.5
+surface_grip = 0.5
+stretch_limit_enabled = true
+maximum_stretch_percent = 14.0
+
+[[preset]]
+id = "PRODUCT_LYCRA_SPORT"
+label = "LYCRA SPORT · Performance Knit"
+category = "PRODUCT_SAMPLES"
+description = "Certified activewear stretch profile tuned for close fit, recovery and second-skin movement"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "The LYCRA Company"
+product_style = "LYCRA SPORT Performance Knit"
+data_basis = "Official PCE-certified activewear technology for power, comfort and energy performance; representative 220 gsm knit and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_LYCRA_SPORT"
+model = "FABRIC"
+surface_weight = 0.22
+stretch_resistance = 320.0
+sideways_response = 0.47
+bend_resistance = 1.2
+surface_grip = 0.32
+stretch_limit_enabled = true
+maximum_stretch_percent = 28.0
+
+[[preset]]
+id = "PRODUCT_COOLMAX_ECOMADE_JERSEY"
+label = "COOLMAX EcoMade · Jersey"
+category = "PRODUCT_SAMPLES"
+description = "Moisture-managing performance jersey reference with soft, flexible athletic drape"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "The LYCRA Company"
+product_style = "COOLMAX EcoMade Performance Jersey"
+data_basis = "Official COOLMAX moisture-management technology; representative 160 gsm polyester jersey and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_COOLMAX_ECOMADE"
+model = "FABRIC"
+surface_weight = 0.16
+stretch_resistance = 950.0
+sideways_response = 0.43
+bend_resistance = 1.1
+surface_grip = 0.3
+stretch_limit_enabled = true
+maximum_stretch_percent = 13.0
+
+[[preset]]
+id = "PRODUCT_TENCEL_LYOCELL_JERSEY"
+label = "TENCEL Lyocell · Jersey"
+category = "PRODUCT_SAMPLES"
+description = "Soft regenerated-cellulose jersey reference with fluid drape and comfortable moderate stretch"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Lenzing"
+product_style = "TENCEL Lyocell Jersey"
+data_basis = "Official Lyocell softness, strength and moisture-control properties; representative 180 gsm jersey and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_TENCEL_LYOCELL"
+model = "FABRIC"
+surface_weight = 0.18
+stretch_resistance = 1350.0
+sideways_response = 0.41
+bend_resistance = 1.25
+surface_grip = 0.38
+stretch_limit_enabled = true
+maximum_stretch_percent = 11.0
+
+[[preset]]
+id = "PRODUCT_YAMAMOTO_39_3MM"
+label = "Yamamoto #39 · 3 mm Jersey"
+category = "PRODUCT_SAMPLES"
+description = "SuperLight limestone chloroprene wetsuit sheet with flexible, buoyant foam-laminate behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Yamamoto Corporation"
+product_style = "#39 SuperLight · 3 mm Jersey Laminate"
+data_basis = "Official #39 SuperLight closed-cell limestone chloroprene identity and wetsuit use; 3 mm jersey-laminate mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_YAMAMOTO_39"
+model = "FABRIC"
+surface_weight = 0.56
+stretch_resistance = 420.0
+sideways_response = 0.48
+bend_resistance = 2.8
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 32.0
+
+[[preset]]
+id = "PRODUCT_YAMAMOTO_40_3MM"
+label = "Yamamoto #40 · 3 mm SuperStretch"
+category = "PRODUCT_SAMPLES"
+description = "High-flex limestone chloroprene wetsuit sheet developed beyond #39 for unrestricted movement"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Yamamoto Corporation"
+product_style = "#40 SuperStretch · 3 mm Jersey Laminate"
+data_basis = "Official #40 higher-flexibility closed-cell limestone chloroprene identity; 3 mm jersey-laminate mass and PPF mechanics are calibrated"
+data_quality = "CALIBRATED_REFERENCE"
+source_reference = "PRODUCT_SOURCE_YAMAMOTO_40"
+model = "FABRIC"
+surface_weight = 0.54
+stretch_resistance = 300.0
+sideways_response = 0.485
+bend_resistance = 2.4
+surface_grip = 0.55
+stretch_limit_enabled = true
+maximum_stretch_percent = 38.0
+
+[[preset]]
+id = "PRODUCT_NEOPRENE_3MM_DOUBLE_JERSEY"
+label = "Neoprene · 3 mm Double Jersey"
+category = "PRODUCT_SAMPLES"
+description = "Commercial double-sided jersey-laminated CR foam with thick, elastic sheet behavior"
+upstream_calibrated = false
+product_sample = true
+manufacturer = "Commercial Neoprene Sample"
+product_style = "3 mm Double-Jersey CR Foam"
+data_basis = "Published 3 mm thickness, 170 ± 30 kg/m³ rubber density and double fabric lining; surface mass and PPF mechanics are derived/calibrated"
+data_quality = "PUBLISHED_PRODUCT_SAMPLE"
+source_reference = "PRODUCT_SOURCE_NEOPRENE_3MM_SAMPLE"
+model = "FABRIC"
+surface_weight = 0.61
+stretch_resistance = 520.0
+sideways_response = 0.48
+bend_resistance = 3.2
+surface_grip = 0.58
+stretch_limit_enabled = true
+maximum_stretch_percent = 30.0
