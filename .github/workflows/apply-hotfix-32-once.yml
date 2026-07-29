@@ -22,11 +22,16 @@ jobs:
         name: Detect pending patch scripts
         shell: bash
         run: |
-          if [[ -f maintenance/apply_character_cage_proxy_ui_fix.py && \
-                -f maintenance/apply_animated_collider_cache_fix.py ]]; then
+          if [[ -f maintenance/add_solver_struct_import.py ]]; then
             echo "apply=true" >> "$GITHUB_OUTPUT"
+            echo "mode=followup" >> "$GITHUB_OUTPUT"
+          elif [[ -f maintenance/apply_character_cage_proxy_ui_fix.py && \
+                  -f maintenance/apply_animated_collider_cache_fix.py ]]; then
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+            echo "mode=initial" >> "$GITHUB_OUTPUT"
           else
             echo "apply=false" >> "$GITHUB_OUTPUT"
+            echo "mode=none" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/setup-python@v5
@@ -39,12 +44,17 @@ jobs:
         if: steps.pending.outputs.apply == 'true'
         run: pip install -r requirements-build.txt
 
-      - name: Apply combined hotfix
+      - name: Apply hotfix patch
         if: steps.pending.outputs.apply == 'true'
+        shell: bash
         run: |
-          python maintenance/prepare_hotfix_patch_scripts.py
-          python maintenance/apply_character_cage_proxy_ui_fix.py
-          python maintenance/apply_animated_collider_cache_fix.py
+          if [[ "${{ steps.pending.outputs.mode }}" == "followup" ]]; then
+            python maintenance/add_solver_struct_import.py
+          else
+            python maintenance/prepare_hotfix_patch_scripts.py
+            python maintenance/apply_character_cage_proxy_ui_fix.py
+            python maintenance/apply_animated_collider_cache_fix.py
+          fi
 
       - name: Validate focused regression suite
         if: steps.pending.outputs.apply == 'true'
@@ -59,5 +69,5 @@ jobs:
           git config user.name polyworks-art
           git config user.email 78053410+polyworks-art@users.noreply.github.com
           git add -A
-          git commit -m "Fix proxy UI and animated Collider cache identity"
+          git commit -m "Finish PR 32 animated Collider cache hotfix"
           git push origin HEAD:agent/fix-character-cage-proxy-ui
