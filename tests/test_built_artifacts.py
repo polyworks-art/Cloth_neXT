@@ -37,7 +37,9 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         "materials/product_performance_presets.toml",
         "blender/pin_constraints.py",
         "pinning.py",
+        "ppf/schema/data.py",
         "ppf/schema/params.py",
+        "blender/solver_test.py",
         "blender/character_collision_cage.py",
         "blender/collider_proxy.py",
         "blender/object_properties.py",
@@ -54,7 +56,9 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         pin_controls = bundle.read(
             "blender/pin_constraints.py").decode("utf-8")
         pin_model = bundle.read("pinning.py").decode("utf-8")
+        scene_wire = bundle.read("ppf/schema/data.py").decode("utf-8")
         pin_wire = bundle.read("ppf/schema/params.py").decode("utf-8")
+        solver_export = bundle.read("blender/solver_test.py").decode("utf-8")
         cage = bundle.read(
             "blender/character_collision_cage.py").decode("utf-8")
         proxy = bundle.read("blender/collider_proxy.py").decode("utf-8")
@@ -79,6 +83,11 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
     assert "CHARACTER_CAGE" in proxy
     assert "CHARACTER_CAGE" in properties
     assert "Character Collision Cage" in physics_ui
+
+    assert "def _schema2_full_frame_indices" in scene_wire
+    assert 'animation.pop("_sample_frame_offset", None)' in scene_wire
+    assert "settings.fps * settings.time_scale" in pin_wire
+    assert '"_sample_frame_offset": frame_offsets' in solver_export
 
 
 def test_release_candidate_passes_complete_artifact_scan(extension_zip):
