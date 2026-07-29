@@ -1,0 +1,48 @@
+name: patch-pages-release-note-test
+
+on:
+  push:
+    branches: [agent/pages-only-release-distribution]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pages-only-release-distribution
+          fetch-depth: 0
+      - name: Update stale release notes assertions and remove this workflow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/test_addon_update_ui.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    assert opened == ["https://github.com/polyworks-art/Cloth_neXT/releases"]
+              module.session().latest = parse_version("9.9.9-rc.3")
+              op.execute(env.bpy.context)
+              assert opened[-1].endswith("/releases/tag/9.9.9-rc.3")
+          '''
+          new = '''    expected = "https://polyworks-art.github.io/Cloth_neXT/releases/"
+              assert opened == [expected]
+              module.session().latest = parse_version("9.9.9-rc.3")
+              op.execute(env.bpy.context)
+              assert opened[-1] == expected
+              assert all("github.com" not in url for url in opened)
+          '''
+          if old not in text:
+              raise SystemExit('expected stale release-notes assertion block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          Path('.github/workflows/patch-pages-release-note-test.yml').unlink()
+          PY
+          git config user.name github-actions
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests/test_addon_update_ui.py .github/workflows/patch-pages-release-note-test.yml
+          git commit -m "Update release notes operator regression"
+          git push origin HEAD:agent/pages-only-release-distribution
