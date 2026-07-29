@@ -1,0 +1,91 @@
+name: One-time branch cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/branch-cleanup-once.yml
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale branches and remove this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          repository = os.environ["REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+          api = "https://api.github.com"
+          workflow_path = ".github/workflows/branch-cleanup-once.yml"
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {token}",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "cloth-next-branch-cleanup",
+          }
+
+          def request(method, path, payload=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(
+                  api + path, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as response:
+                      raw = response.read()
+                      return response.status, json.loads(raw) if raw else None
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(
+                      f"GitHub API {method} {path} failed: {exc.code} {detail}") from exc
+
+          branches = []
+          page = 1
+          while True:
+              _status, batch = request(
+                  "GET", f"/repos/{repository}/branches?per_page=100&page={page}")
+              branches.extend(item["name"] for item in batch)
+              if len(batch) < 100:
+                  break
+              page += 1
+
+          keep = {"main", "gh-pages"}
+          targets = sorted(name for name in branches if name not in keep)
+          deleted = []
+          for name in targets:
+              encoded = urllib.parse.quote(name, safe="")
+              request("DELETE", f"/repos/{repository}/git/refs/heads/{encoded}")
+              deleted.append(name)
+              print(f"Deleted {name}")
+
+          body = (
+              "Repository branch cleanup completed.\n\n"
+              "Kept: `main`, `gh-pages`\n\n"
+              "Deleted:\n" +
+              ("\n".join(f"- `{name}`" for name in deleted)
+               if deleted else "- No additional branches were present")
+          )
+          request("POST", f"/repos/{repository}/issues/26/comments", {"body": body})
+
+          encoded_path = urllib.parse.quote(workflow_path, safe="")
+          _status, workflow = request(
+              "GET", f"/repos/{repository}/contents/{encoded_path}?ref=main")
+          request("DELETE", f"/repos/{repository}/contents/{encoded_path}", {
+              "message": "Remove completed one-time branch cleanup workflow",
+              "sha": workflow["sha"],
+              "branch": "main",
+          })
+          print("Removed one-time workflow from main")
+          PY
