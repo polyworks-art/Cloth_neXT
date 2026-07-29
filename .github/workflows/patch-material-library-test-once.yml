@@ -1,0 +1,39 @@
+name: Patch expanded material library test once
+
+on:
+  push:
+    branches:
+      - agent/expand-scientific-material-library
+    paths:
+      - .github/workflows/patch-material-library-test-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/expand-scientific-material-library
+          fetch-depth: 0
+      - name: Update exact preset count assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_phase3b_material_ui.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    assert len(identifiers) == 38\n'
+          new = '    assert len(identifiers) == 76\n'
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one legacy preset-count assertion')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+      - name: Commit focused test update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/test_phase3b_material_ui.py
+          git commit -m "Update UI test for expanded material library"
+          git push origin HEAD:agent/expand-scientific-material-library
