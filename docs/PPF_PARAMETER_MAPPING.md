@@ -110,7 +110,7 @@ each carry their own friction/gap/offset.
 | Vertex Air Damping Force Empty | `isotropic-air-friction` | Sum of enabled Vertex Air Damping Empty values | isotropic per-vertex damping |
 | Animated Forces | `dyn_param` | Native Blender keyframes sampled once per output frame | PPF linearly interpolates the samples during solver substeps |
 | Frame count | `frames` | Blender frames `N-1` | Blender 1..N → solver 0..N-1; development slice N=8 |
-| FPS | `fps` | Blender scene FPS | frame→time conversion |
+| FPS | `fps` | Blender effective scene FPS (`render.fps / render.fps_base`) | shared frame→time conversion for solver output, Pins, Colliders, and Forces |
 | Friction mode | `friction-mode` | fixed `"min"` | Minimum combination: both touching surfaces need high grip; shown read-only in Advanced PPF |
 | Contact | `disable-contact` | cloth's Enable Contact | inverted boolean |
 

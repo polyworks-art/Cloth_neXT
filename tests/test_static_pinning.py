@@ -257,3 +257,19 @@ def test_pin_time_scale_is_validated_and_fingerprinted():
         True, "Pins", "id", 4, (0, 2), mode=PinMode.FOLLOW_ANIMATION,
         samples=animated().samples, bake_start=20, bake_end=30, fps=25,
         time_scale=0.5).fingerprint
+
+
+def test_fractional_blender_fps_is_preserved_in_pin_schedule():
+    samples = tuple(
+        AnimatedPinTargetSample(
+            frame, ((float(frame), 0.0, 0.0),))
+        for frame in (1.0, 2.0))
+    snapshot = StaticPinSnapshot(
+        True, "Pins", "id", 1, (0,),
+        mode=PinMode.FOLLOW_ANIMATION, samples=samples,
+        bake_start=1, bake_end=2, fps=30.0 / 1.001)
+
+    config = static_pin_config(snapshot, schema_version=2)
+
+    assert snapshot.fps == pytest.approx(29.97002997002997)
+    assert config.times == pytest.approx((0.0, 1.001 / 30.0))

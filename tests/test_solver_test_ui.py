@@ -28,6 +28,14 @@ def _phase4_meta():
     }
 
 
+def test_scene_fps_uses_blender_fps_base(blender_env):
+    module = blender_env.solver_test
+    context = SimpleNamespace(scene=SimpleNamespace(
+        render=SimpleNamespace(fps=30, fps_base=1.001)))
+
+    assert module._scene_fps(context) == pytest.approx(30.0 / 1.001)
+
+
 def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
     module = blender_env.solver_test
     offsets = (0.0, 1.0)

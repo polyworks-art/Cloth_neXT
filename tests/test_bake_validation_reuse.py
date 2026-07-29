@@ -351,6 +351,18 @@ def test_settings_fingerprint_ignores_the_mesh_but_tracks_settings(env):
     assert module.cheap_settings_fingerprint(scene.context) != before
 
 
+def test_settings_fingerprint_tracks_blender_fps_base(env):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    module = env.solver_test
+    scene.context.scene.render.fps = 30
+    scene.context.scene.render.fps_base = 1.0
+    before = module.cheap_settings_fingerprint(scene.context)
+
+    scene.context.scene.render.fps_base = 1.001
+
+    assert module.cheap_settings_fingerprint(scene.context) != before
+
+
 def test_geometry_fingerprint_tracks_topology_and_pins(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=2_500,
                                             pinning=True)

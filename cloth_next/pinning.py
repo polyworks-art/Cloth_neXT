@@ -73,7 +73,7 @@ class StaticPinSnapshot:
     samples: tuple[AnimatedPinTargetSample, ...] = ()
     bake_start: int = 1
     bake_end: int = 1
-    fps: int = 24
+    fps: float = 24.0
     time_scale: float = 1.0
     constraint_type: PinConstraintType = PinConstraintType.SOFT
     pull_strength: float = 1.0
@@ -139,7 +139,10 @@ class StaticPinSnapshot:
                     "Animated Pin targets must include every Blender frame.")
             if any(len(sample.positions)!=len(indices) for sample in samples):
                 raise StaticPinError("Every animated Pin sample must contain one position per pinned vertex.")
-        if self.fps<1: raise StaticPinError("Bake FPS must be at least 1.")
+        fps = float(self.fps)
+        if not math.isfinite(fps) or fps <= 0.0:
+            raise StaticPinError("Bake FPS must be finite and greater than zero.")
+        object.__setattr__(self, "fps", fps)
         time_scale = float(self.time_scale)
         if not math.isfinite(time_scale) or time_scale <= 0.0:
             raise StaticPinError("Time Scale must be finite and greater than zero.")
@@ -158,7 +161,7 @@ class StaticPinSnapshot:
             "topology": self.source_topology_signature,
             "mode": mode.value, "constraint_type": constraint_type.value,
             "pull_strength": pull_strength, "bake_start":self.bake_start,
-            "bake_end":self.bake_end, "fps":self.fps,
+            "bake_end":self.bake_end, "fps":fps,
             "time_scale": time_scale,
             "samples":[{"frame":s.blender_frame,"positions":s.positions}
                        for s in samples],

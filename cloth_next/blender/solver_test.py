@@ -261,7 +261,7 @@ class RunPlan:
     frame_count: int
     frame_start: int = 1
     frame_end: int = 1
-    fps: int = 24
+    fps: float = 24.0
     # Immutable pure snapshot metadata: the fingerprint marks the finished
     # result and the JSON-safe meta dict is written next to the PC2 cache so a
     # stale result stays detectable. The fingerprint is stored in halves — the
@@ -534,7 +534,7 @@ _SCALAR_FORCE_FIELDS = {
 }
 
 
-def _wind_oscillation(obj, frame: int, fps: int) -> float:
+def _wind_oscillation(obj, frame: int, fps: float) -> float:
     """Stable smooth pseudo-random gust value in the closed range [-1, 1]."""
     identity = str(getattr(obj, "name_full", getattr(obj, "name", "Wind")))
     digest = hashlib.sha256(identity.encode("utf-8")).digest()
@@ -1140,12 +1140,18 @@ def _cheap_pinning_fingerprint(cloth_obj) -> str:
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
 
 
-def _scene_fps(context) -> int:
+def _scene_fps(context) -> float:
+    """Return Blender's effective playback rate, including ``fps_base``."""
     render = getattr(getattr(context, "scene", None), "render", None)
     try:
-        return int(getattr(render, "fps", 24) or 24)
+        fps = float(getattr(render, "fps", 24) or 24)
+        fps_base = float(getattr(render, "fps_base", 1.0) or 1.0)
     except (TypeError, ValueError):
-        return 24
+        return 24.0
+    if (not math.isfinite(fps) or fps <= 0.0
+            or not math.isfinite(fps_base) or fps_base <= 0.0):
+        return 24.0
+    return fps / fps_base
 
 
 def _blender_version() -> str:
@@ -1918,7 +1924,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         "objects": objects,
         "frame_range": [
             snapshot.bake_range.start, snapshot.bake_range.end],
-        "fps": int(context.scene.render.fps),
+        "fps": _scene_fps(context),
         # Blender and other add-ons commonly register stable frame handlers.
         # Their presence alone must not disable the cache. Their executable
         # identity participates in the key so changing the handler set or
@@ -1960,7 +1966,7 @@ def _depsgraph_update(context):
 
 
 def _force_capture_from_samples(samples, active_scalar_types, bake_range,
-                                fps: int) -> ForceCapture:
+                                fps: float) -> ForceCapture:
     """Encode already evaluated Force states without revisiting frames."""
     initial = samples[0]
     tracks = (
@@ -2172,7 +2178,7 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
     mode=PinMode(str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC")))
     common=dict(source_topology_signature=membership.source_topology_signature,
                 mode=mode,bake_start=bake_range.start,bake_end=bake_range.end,
-                fps=int(context.scene.render.fps))
+                fps=_scene_fps(context))
     if not membership.enabled or mode is PinMode.STATIC:
         return StaticPinSnapshot(membership.enabled,membership.group_name,
             membership.source_object_id,membership.source_vertex_count,
@@ -2253,7 +2259,7 @@ class AnimatedColliderCaptureWarning:
         return f"{self.total_bytes / float(1024 ** 2):.0f} MiB"
 
 
-def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
+def _collider_sample_points(bake_range: BakeFrameRange, fps: float,
                             samples_per_frame: int = COLLIDER_SAMPLES_PER_FRAME):
     """Dense evaluated samples, including both Bake endpoints exactly."""
     if not 2 <= int(samples_per_frame) <= 32:
@@ -3301,7 +3307,7 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
                          cache, target_uuids, *, schema_version: int = 1):
     entries = snapshot.deformables
     settings = SimulationSettings(
-        snapshot.bake_range.output_count, int(context.scene.render.fps),
+        snapshot.bake_range.output_count, _scene_fps(context),
         force_capture.initial.gravity, snapshot.quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -3369,7 +3375,7 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
         "force_dynamic": repr(force_capture.dynamic_parameters),
         "frame_range": [
             snapshot.bake_range.start, snapshot.bake_range.end],
-        "fps": int(context.scene.render.fps),
+        "fps": _scene_fps(context),
         "object_uuids": [
             *target_uuids, *collider_uuids],
         "pin_tracks": _pin_configs_cache_identity(pin_configs),
@@ -3457,7 +3463,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
                 row["material_meta"], snapshot, entry, resolved,
                 vertex_count=shape[0],
                 frame_count=snapshot.bake_range.output_count)
-            meta["details"]["fps"] = int(context.scene.render.fps)
+            meta["details"]["fps"] = _scene_fps(context)
             target_plans.append(DeformablePlan(
                 initial, world, entry.obj.name, expected_uuid, pc2_path,
                 entry.topology_signature, meta, entry.role,
@@ -3504,7 +3510,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             first.world_matrix, first.object_name, work_directory,
             first.pc2_path, snapshot.bake_range.output_count,
             snapshot.bake_range.start, snapshot.bake_range.end,
-            int(context.scene.render.fps), snapshot.settings_fingerprint,
+            _scene_fps(context), snapshot.settings_fingerprint,
             snapshot.geometry_fingerprint, first.topology_signature,
             snapshot.preset_identifier, first.material_meta, first.role,
             tuple(target_plans), first.stitch_pairs,
@@ -3801,7 +3807,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 capture.cleanup()
     frame_count = bake_range.output_count
     settings = SimulationSettings(
-        frame_count, int(scene.render.fps),
+        frame_count, _scene_fps(context),
         force_capture.initial.gravity, snapshot.quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -3830,7 +3836,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene_identity = {
         "settings_fingerprint": snapshot.settings_fingerprint,
         "geometry_fingerprint": snapshot.geometry_fingerprint,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "frame_start": bake_range.start,
         "frame_end": bake_range.end,
         "deformables": sorted([{
@@ -3899,7 +3905,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     first = target_plans[0]
     return RunPlan(session_scene, resolved, first.initial_local,
         first.world_matrix, first.object_name, work_directory, first.pc2_path,
-        frame_count, bake_range.start, bake_range.end, int(scene.render.fps),
+        frame_count, bake_range.start, bake_range.end, _scene_fps(context),
         snapshot.settings_fingerprint, snapshot.geometry_fingerprint,
         first.topology_signature, snapshot.preset_identifier,
         first.material_meta, first.role, tuple(target_plans),
@@ -4159,7 +4165,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         "sewing": stitch_pairs,
         "friction_regions": _friction_region_settings(cloth_obj),
         "frame_range": [bake_range.start, bake_range.end],
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
     })
     try:
         deforming_capture = any(
@@ -4212,7 +4218,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     frame_count = bake_range.output_count
     quality = snapshot.quality
     settings = SimulationSettings(
-        frame_count=frame_count, fps=int(scene.render.fps),
+        frame_count=frame_count, fps=_scene_fps(context),
         gravity_blender=force_capture.initial.gravity, quality=quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -4255,7 +4261,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     scene_identity = {
         "settings_fingerprint": settings_fp,
         "geometry_fingerprint": geometry_fp,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "frame_start": bake_range.start,
         "frame_end": bake_range.end,
         "colliders": [{key: value for key, value in item.items()
@@ -4308,7 +4314,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         "blender_end_frame": bake_range.end,
         "output_frame_count": frame_count,
         "solver_step_count": bake_range.solver_steps,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "pinning": {
             "enabled": pin_snapshot.enabled,
             "mode": pin_snapshot.mode.value,
@@ -4346,7 +4352,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                    work_directory=work_directory, pc2_path=pc2_path,
                    frame_count=frame_count,
                    frame_start=bake_range.start, frame_end=bake_range.end,
-                   fps=int(scene.render.fps),
+                   fps=_scene_fps(context),
                    settings_fingerprint=settings_fp,
                    geometry_fingerprint=geometry_fp,
                    topology_signature=snapshot.topology_signature,
@@ -6408,7 +6414,7 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     bake_range = snapshot.bake_range
     settings = SimulationSettings(
         frame_count=bake_range.output_count,
-        fps=int(scene.render.fps),
+        fps=_scene_fps(context),
         gravity_blender=snapshot.gravity_blender,
         quality=snapshot.quality,
         wind_blender=snapshot.wind_blender)
