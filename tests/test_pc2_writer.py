@@ -168,6 +168,43 @@ def test_partial_pc2_resumes_only_at_valid_frame_boundary(tmp_path):
     ]
 
 
+def test_partial_preview_is_playable_without_consuming_resume_stream(tmp_path):
+    final = tmp_path / "result.pc2"
+    partial = tmp_path / "result.pc2.partial"
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=2, frame_count=4, resume_path=partial)
+    writer.write_frame([[0, 0, 0], [1, 0, 0]])
+    writer.write_frame([[0, 1, 0], [1, 1, 0]])
+
+    preview = writer.publish_partial_preview()
+
+    assert preview == pc2.Pc2Header(2, 0.0, 1.0, 2)
+    assert pc2.read_header(final) == preview
+    assert pc2.partial_frame_count(
+        partial, pc2.Pc2Header(2, 0.0, 1.0, 4)) == 2
+    assert [frame.tolist() for frame in pc2.iter_frames(final)] == [
+        [[0, 0, 0], [1, 0, 0]],
+        [[0, 1, 0], [1, 1, 0]],
+    ]
+
+
+def test_partial_preview_transaction_can_restore_previous_cache(tmp_path):
+    final = tmp_path / "result.pc2"
+    previous = _frames(frame_count=2, vertex_count=1)
+    pc2.write_pc2(final, previous)
+    previous_bytes = final.read_bytes()
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=1, frame_count=4,
+        resume_path=tmp_path / "result.partial")
+    writer.write_frame([[9, 0, 0]])
+
+    publication = writer.prepare_partial_preview()
+    assert pc2.read_header(final).frame_count == 1
+    publication.rollback()
+
+    assert final.read_bytes() == previous_bytes
+
+
 def test_damaged_partial_is_never_resumed(tmp_path):
     partial = tmp_path / "damaged.partial"
     partial.write_bytes(b"not a pc2")
@@ -176,3 +213,14 @@ def test_damaged_partial_is_never_resumed(tmp_path):
             tmp_path / "result.pc2", vertex_count=1, frame_count=2,
             resume_path=partial)
     assert not partial.exists()
+
+
+def test_nonfinite_partial_frame_is_rejected(tmp_path):
+    partial = tmp_path / "nonfinite.partial"
+    expected = pc2.Pc2Header(1, 0.0, 1.0, 2)
+    partial.write_bytes(
+        pc2._header_bytes(expected)
+        + np.asarray([[float("nan"), 0.0, 0.0]], dtype="<f4").tobytes())
+
+    with pytest.raises(pc2.Pc2Error, match="non-finite"):
+        pc2.partial_frame_count(partial, expected)

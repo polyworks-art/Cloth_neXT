@@ -18,7 +18,7 @@ from pathlib import Path
 import tempfile
 import time
 
-RECOVERY_SCHEMA_VERSION = 2
+RECOVERY_SCHEMA_VERSION = 3
 METADATA_NAME = "metadata.json"
 
 
@@ -99,6 +99,16 @@ class CheckpointRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class PartialCacheRecord:
+    object_uuid: str
+    path: str
+    frame_count: int
+    file_size: int
+    sha256: str
+    integrity: str = "VERIFIED"
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectRecord:
     project_id: str
     state: ProjectState
@@ -107,6 +117,7 @@ class ProjectRecord:
     project_root: str
     checkpoints: tuple[CheckpointRecord, ...] = ()
     partial_pc2: tuple[tuple[str, str], ...] = ()
+    partial_caches: tuple[PartialCacheRecord, ...] = ()
     last_frame: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -135,6 +146,15 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(4 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _gzip_is_complete(path: Path) -> bool:
+    """Drain the stream so gzip CRC and footer validation must succeed."""
+    produced = False
+    with gzip.open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            produced = produced or bool(chunk)
+    return produced
 
 
 def _atomic_json(path: Path, value: object) -> None:
@@ -204,6 +224,18 @@ def _record_from_dict(value: dict) -> CheckpointRecord:
         integrity=str(value.get("integrity", "VERIFIED")))
 
 
+def _partial_record_dict(record: PartialCacheRecord) -> dict:
+    return asdict(record)
+
+
+def _partial_record_from_dict(value: dict) -> PartialCacheRecord:
+    return PartialCacheRecord(
+        object_uuid=str(value["object_uuid"]), path=str(value["path"]),
+        frame_count=int(value["frame_count"]), file_size=int(value["file_size"]),
+        sha256=str(value["sha256"]),
+        integrity=str(value.get("integrity", "VERIFIED")))
+
+
 def _verified_checkpoint(record: CheckpointRecord) -> bool:
     path = Path(record.checkpoint_path)
     try:
@@ -213,10 +245,9 @@ def _verified_checkpoint(record: CheckpointRecord) -> bool:
                 or _sha256(path) != record.checkpoint_sha256):
             return False
         if path.suffix == ".gz":
-            with gzip.open(path, "rb") as stream:
-                return bool(stream.read(1))
+            return _gzip_is_complete(path)
         return True
-    except (OSError, EOFError):
+    except (OSError, EOFError, gzip.BadGzipFile):
         return False
 
 
@@ -232,6 +263,8 @@ def _project_dict(record: ProjectRecord) -> dict:
             "checkpoints": [_record_dict(item)
                             for item in record.checkpoints],
             "partial_pc2": [list(item) for item in record.partial_pc2],
+            "partial_caches": [
+                _partial_record_dict(item) for item in record.partial_caches],
             "last_frame": record.last_frame,
             "created_at": record.created_at,
             "updated_at": record.updated_at,
@@ -281,6 +314,9 @@ def load_project(path: Path, *, verify_checkpoints: bool = True) \
             partial_pc2=tuple(
                 (str(uuid), str(path))
                 for uuid, path in value.get("partial_pc2", ())),
+            partial_caches=tuple(
+                _partial_record_from_dict(item)
+                for item in value.get("partial_caches", ())),
             last_frame=int(value.get("last_frame", 0)),
             created_at=float(value["created_at"]),
             updated_at=float(value["updated_at"]),
@@ -298,7 +334,13 @@ def transition(path: Path, record: ProjectRecord, state: ProjectState, *,
                last_frame: int | None = None,
                checkpoints: tuple[CheckpointRecord, ...] | None = None,
                partial_pc2: tuple[tuple[str, str], ...] | None = None,
+               partial_caches: tuple[PartialCacheRecord, ...] | None = None,
                error: str = "") -> ProjectRecord:
+    current = load_project(path, verify_checkpoints=False)
+    if (current is not None and current.project_id == record.project_id
+            and current.identity == record.identity
+            and current.generation > record.generation):
+        record = current
     state = ProjectState(state)
     if state != record.state and state not in _TRANSITIONS[record.state]:
         raise ValueError(
@@ -312,8 +354,67 @@ def transition(path: Path, record: ProjectRecord, state: ProjectState, *,
                      else checkpoints),
         partial_pc2=(record.partial_pc2 if partial_pc2 is None
                      else tuple(sorted(partial_pc2))),
+        partial_caches=(
+            record.partial_caches if partial_caches is None
+            else tuple(sorted(
+                partial_caches, key=lambda item: item.object_uuid))),
         error=str(error), generation=record.generation + 1)
     return publish_project(path, updated)
+
+
+def publish_partial_caches(
+        path: Path, entries: tuple[tuple[str, Path, int], ...]) \
+        -> ProjectRecord:
+    """Authenticate stable, frame-aligned partial streams in project metadata."""
+    record = load_project(path)
+    if record is None:
+        raise ValueError("recovery metadata is missing or invalid")
+    expected_paths = dict(record.partial_pc2)
+    verified = []
+    for object_uuid, raw_path, frame_count in entries:
+        cache_path = Path(raw_path).resolve()
+        if (str(cache_path)
+                != str(Path(expected_paths.get(object_uuid, "")).resolve())):
+            raise ValueError(
+                f"partial cache path changed for {object_uuid}")
+        before = cache_path.stat()
+        if frame_count <= 0 or before.st_size <= 0:
+            raise ValueError("partial cache contains no complete frames")
+        digest = _sha256(cache_path)
+        after = cache_path.stat()
+        if (before.st_size != after.st_size
+                or before.st_mtime_ns != after.st_mtime_ns):
+            raise ValueError("partial cache changed during verification")
+        verified.append(PartialCacheRecord(
+            object_uuid=str(object_uuid), path=str(cache_path),
+            frame_count=int(frame_count), file_size=after.st_size,
+            sha256=digest))
+    if {item.object_uuid for item in verified} != set(expected_paths):
+        raise ValueError("partial cache set is incomplete")
+    return transition(
+        path, record, record.state, partial_caches=tuple(verified))
+
+
+def verified_partial_cache(record: ProjectRecord, object_uuid: str,
+                           expected_path: Path) \
+        -> PartialCacheRecord | None:
+    """Return an authenticated partial record only while its bytes are stable."""
+    candidate = next(
+        (item for item in record.partial_caches
+         if item.object_uuid == object_uuid), None)
+    if candidate is None or candidate.integrity != "VERIFIED":
+        return None
+    path = Path(expected_path).resolve()
+    try:
+        if (path != Path(candidate.path).resolve()
+                or not path.is_file()
+                or candidate.frame_count <= 0
+                or candidate.file_size != path.stat().st_size
+                or candidate.sha256 != _sha256(path)):
+            return None
+    except OSError:
+        return None
+    return candidate
 
 
 def checkpoint_path(project_root: Path, frame: int) -> Path:
@@ -321,39 +422,90 @@ def checkpoint_path(project_root: Path, frame: int) -> Path:
             / f"state_{int(frame)}.bin.gz")
 
 
+def discover_checkpoint_frames(project_root: Path) -> tuple[int, ...]:
+    """Return solver checkpoint filenames without treating them as verified."""
+    output = Path(project_root) / "session" / "output"
+    frames = set()
+    try:
+        candidates = tuple(output.glob("state_*.bin.gz"))
+    except OSError:
+        return ()
+    for candidate in candidates:
+        name = candidate.name
+        try:
+            frame = int(name[len("state_"):-len(".bin.gz")])
+        except (TypeError, ValueError):
+            continue
+        if frame >= 0:
+            frames.add(frame)
+    return tuple(sorted(frames))
+
+
+def _checkpoint_record(record: ProjectRecord, frame: int) \
+        -> CheckpointRecord | None:
+    path = checkpoint_path(Path(record.project_root), frame)
+    try:
+        before = path.stat()
+        if not path.is_file() or before.st_size <= 0:
+            return None
+        if not _gzip_is_complete(path):
+            return None
+        digest = _sha256(path)
+        after = path.stat()
+        if (after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns):
+            return None
+    except (OSError, EOFError, gzip.BadGzipFile):
+        return None
+    return CheckpointRecord(
+        frame=frame, project_id=record.project_id,
+        identity=record.identity, created_at=time.time(),
+        checkpoint_path=str(path.resolve()),
+        checkpoint_size=after.st_size, checkpoint_sha256=digest)
+
+
 def confirm_saved_states(path: Path, record: ProjectRecord,
                          saved_states, *, keep: int) -> ProjectRecord:
-    """Publish newly server-confirmed states before pruning old ones."""
+    """Publish complete states found in solver status or its output directory."""
+    current = load_project(path, verify_checkpoints=False)
+    if (current is not None and current.project_id == record.project_id
+            and current.identity == record.identity
+            and current.generation > record.generation):
+        record = current
     by_frame = {item.frame: item for item in record.checkpoints
                 if _verified_checkpoint(item)}
-    for frame_value in sorted({int(value) for value in saved_states}):
-        state_path = checkpoint_path(Path(record.project_root), frame_value)
-        try:
-            if not state_path.is_file() or state_path.stat().st_size <= 0:
-                continue
-            with gzip.open(state_path, "rb") as stream:
-                if not stream.read(1):
-                    continue
-            size = state_path.stat().st_size
-            digest = _sha256(state_path)
-        except (OSError, EOFError):
+    reported = {
+        int(value) for value in saved_states
+        if isinstance(value, (int, float)) and int(value) >= 0}
+    reported.update(discover_checkpoint_frames(record.project_root))
+    for frame_value in sorted(reported):
+        candidate = _checkpoint_record(record, frame_value)
+        if candidate is None:
             continue
         existing = by_frame.get(frame_value)
-        if (existing is not None and existing.checkpoint_size == size
-                and existing.checkpoint_sha256 == digest):
+        if (existing is not None
+                and existing.checkpoint_size == candidate.checkpoint_size
+                and existing.checkpoint_sha256 == candidate.checkpoint_sha256):
             continue
-        by_frame[frame_value] = CheckpointRecord(
-            frame=frame_value, project_id=record.project_id,
-            identity=record.identity, created_at=time.time(),
-            checkpoint_path=str(state_path.resolve()),
-            checkpoint_size=size, checkpoint_sha256=digest)
+        by_frame[frame_value] = candidate
     confirmed = tuple(sorted(
         by_frame.values(), key=lambda item: (item.frame, item.created_at)))
-    state = (ProjectState.CHECKPOINT_CONFIRMED if confirmed
-             else record.state)
-    published = transition(
-        path, record, state, checkpoints=confirmed,
-        last_frame=max((item.frame for item in confirmed), default=0))
+    confirming_states = {
+        ProjectState.RUNNING, ProjectState.RESUMING,
+        ProjectState.CHECKPOINT_REQUESTED,
+    }
+    state = (
+        ProjectState.CHECKPOINT_CONFIRMED
+        if confirmed and record.state in confirming_states
+        else record.state)
+    last_frame = max((item.frame for item in confirmed), default=0)
+    if (state is record.state and confirmed == record.checkpoints
+            and last_frame == record.last_frame):
+        published = record
+    else:
+        published = transition(
+            path, record, state, checkpoints=confirmed,
+            last_frame=last_frame)
     keep = max(1, int(keep))
     if len(confirmed) <= keep:
         return published
@@ -361,7 +513,8 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
     # Publish retention first. A crash can leave an extra old state, never a
     # metadata entry pointing to a state that was already removed.
     published = transition(
-        path, published, published.state, checkpoints=tuple(retained))
+        path, published, published.state, checkpoints=tuple(retained),
+        last_frame=max(item.frame for item in retained))
     for item in stale:
         try:
             Path(item.checkpoint_path).unlink()
@@ -414,13 +567,13 @@ def load_records(path: Path) -> tuple[CheckpointRecord, ...]:
 def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
                   can_update_params: bool = False) -> Compatibility:
     scene_fields = (
-        "scene_key", "export_uuids", "geometry_fingerprint",
-        "topology_fingerprint", "frame_start", "frame_end", "fps",
+        "export_uuids", "geometry_fingerprint", "topology_fingerprint",
+        "frame_start", "frame_end", "fps",
         "collider_sampling", "solver_version", "protocol_version",
         "solver_schema_version", "recovery_schema_version",
-        "solver_installation_id", "solver_release_tag")
+        "solver_installation_id", "solver_release_tag", "scene_key")
     labels = {
-        "scene_key": "Scene data changed",
+        "scene_key": "Animated Collider or exported Scene data changed",
         "export_uuids": "Object identity or role changed",
         "geometry_fingerprint": "Geometry changed",
         "topology_fingerprint": "Topology changed",
@@ -441,7 +594,9 @@ def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
     if saved.param_key != current.param_key:
         if can_update_params:
             return Compatibility(True, "Parameters can be updated", True)
-        return Compatibility(False, "Material or solver settings changed")
+        return Compatibility(
+            False, "Pin, force, material, FPS/Time Scale, or solver "
+            "parameters changed")
     return Compatibility(True, "Compatible")
 
 

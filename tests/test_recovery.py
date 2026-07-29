@@ -6,8 +6,10 @@ import pytest
 
 from cloth_next.recovery import (
     ProjectState, RecoveryIdentity, apply_retention, clear_checkpoints,
-    compatibility, confirm_saved_states, create_project, load_project,
-    load_records, publish_checkpoint, recovery_root, transition,
+    compatibility, confirm_saved_states, create_project,
+    discover_checkpoint_frames, load_project, load_records,
+    publish_checkpoint, publish_partial_caches, recovery_root, transition,
+    verified_partial_cache,
 )
 
 
@@ -44,9 +46,22 @@ def test_geometry_and_params_compatibility():
     assert not compatibility(
         current, replace(current, geometry_fingerprint="changed")).compatible
     changed = replace(current, param_key="changed")
-    assert not compatibility(current, changed).compatible
+    rejected = compatibility(current, changed)
+    assert not rejected.compatible
+    assert "Pin" in rejected.reason
+    assert "Time Scale" in rejected.reason
     allowed = compatibility(current, changed, can_update_params=True)
     assert allowed.compatible and allowed.params_changed
+
+
+def test_compatibility_reports_specific_scene_boundary():
+    current = identity()
+    assert compatibility(
+        current, replace(
+            current, topology_fingerprint="changed")).reason == (
+                "Topology changed")
+    assert "Animated Collider" in compatibility(
+        current, replace(current, scene_key="changed")).reason
 
 
 def test_retention_publishes_metadata_before_deleting_old(tmp_path):
@@ -119,6 +134,129 @@ def test_confirmed_state_is_published_before_retention(tmp_path):
     assert not (output / "state_20.bin.gz").exists()
     assert (output / "state_40.bin.gz").exists()
     assert load_project(metadata).state is ProjectState.CHECKPOINT_CONFIRMED
+
+
+def test_checkpoint_is_discovered_when_status_response_lags(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    (output / "state_17.bin.gz").write_bytes(gzip.compress(b"state-17"))
+
+    assert discover_checkpoint_frames(project_root) == (17,)
+    record = confirm_saved_states(metadata, record, (), keep=3)
+
+    assert [item.frame for item in record.checkpoints] == [17]
+    assert record.last_frame == 17
+
+
+def test_truncated_gzip_checkpoint_is_never_published(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    payload = gzip.compress(b"large-enough-state" * 256)
+    (output / "state_9.bin.gz").write_bytes(payload[:-8])
+
+    record = confirm_saved_states(metadata, record, (9,), keep=3)
+
+    assert record.checkpoints == ()
+    assert record.last_frame == 0
+
+
+def test_newest_complete_checkpoint_wins_over_newer_truncated_file(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    (output / "state_11.bin.gz").write_bytes(gzip.compress(b"valid-11"))
+    damaged = gzip.compress(b"damaged-12" * 128)
+    (output / "state_12.bin.gz").write_bytes(damaged[:-4])
+
+    record = confirm_saved_states(metadata, record, (11, 12), keep=1)
+
+    assert [item.frame for item in record.checkpoints] == [11]
+    assert record.last_frame == 11
+
+
+def test_stale_transition_cannot_erase_new_checkpoint(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    stale = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    stale = transition(metadata, stale, ProjectState.RUNNING)
+    (output / "state_23.bin.gz").write_bytes(gzip.compress(b"state-23"))
+    confirmed = confirm_saved_states(metadata, stale, (23,), keep=3)
+    assert confirmed.checkpoints
+
+    requested = transition(
+        metadata, stale, ProjectState.CHECKPOINT_REQUESTED)
+
+    assert [item.frame for item in requested.checkpoints] == [23]
+    assert load_project(metadata).checkpoints[0].frame == 23
+
+
+def test_restart_discovers_newer_checkpoint_without_losing_resumable_state(
+        tmp_path):
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    (output / "state_4.bin.gz").write_bytes(gzip.compress(b"state-4"))
+    record = confirm_saved_states(metadata, record, (4,), keep=3)
+    record = transition(metadata, record, ProjectState.SAVED)
+    record = transition(metadata, record, ProjectState.RESUMABLE)
+    (output / "state_7.bin.gz").write_bytes(gzip.compress(b"state-7"))
+
+    reloaded = load_project(metadata)
+    discovered = confirm_saved_states(metadata, reloaded, (), keep=3)
+
+    assert discovered.state is ProjectState.RESUMABLE
+    assert [item.frame for item in discovered.checkpoints] == [4, 7]
+    assert discovered.last_frame == 7
+
+
+def test_partial_cache_integrity_survives_restart_and_rejects_tampering(
+        tmp_path):
+    project_root = tmp_path / "server" / "project"
+    project_root.mkdir(parents=True)
+    partial = tmp_path / "partials" / "cloth.pc2.partial"
+    partial.parent.mkdir()
+    partial.write_bytes(b"authenticated partial bytes")
+    metadata = tmp_path / "metadata.json"
+    create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root,
+        partial_pc2=(("cloth", str(partial)),))
+
+    published = publish_partial_caches(
+        metadata, (("cloth", partial, 4),))
+    reloaded = load_project(metadata)
+
+    assert reloaded.partial_caches == published.partial_caches
+    assert verified_partial_cache(
+        reloaded, "cloth", partial).frame_count == 4
+    partial.write_bytes(b"x" * len(partial.read_bytes()))
+    assert verified_partial_cache(reloaded, "cloth", partial) is None
 
 
 def test_missing_project_is_not_reported_resumable(tmp_path):
