@@ -273,7 +273,8 @@ def test_missing_project_is_not_reported_resumable(tmp_path):
     assert record.error == "Recovery project missing"
 
 
-def _resumable_project(tmp_path, *, current=None, frames=(4, 7)):
+def _resumable_project(tmp_path, *, current=None, frames=(4, 7),
+                       final_state=ProjectState.FAILED):
     current = current or identity(protocol_version="0.13",
                                   solver_schema_version="2")
     project_root = tmp_path / "server data ü" / "project"
@@ -288,7 +289,8 @@ def _resumable_project(tmp_path, *, current=None, frames=(4, 7)):
         (output / f"state_{frame}.bin.gz").write_bytes(
             gzip.compress(f"state-{frame}".encode()))
     record = confirm_saved_states(metadata, record, frames, keep=10)
-    record = transition(metadata, record, ProjectState.FAILED)
+    if final_state is not ProjectState.CHECKPOINT_CONFIRMED:
+        transition(metadata, record, final_state)
     return metadata, current
 
 
@@ -317,6 +319,17 @@ def test_recovery_assessment_explains_busy_missing_corrupt_and_wrong_job(
     result = assess_recovery(metadata, current_identity=changed)
     assert result.available and not result.can_resume
     assert "Scene data changed" in result.reason
+
+
+def test_recovery_assessment_formats_checkpoint_confirmed_as_blocking_state(
+        tmp_path):
+    metadata, current = _resumable_project(
+        tmp_path, final_state=ProjectState.CHECKPOINT_CONFIRMED)
+
+    result = assess_recovery(metadata, current_identity=current)
+
+    assert result.available and result.compatible and not result.can_resume
+    assert result.reason == "Recovery project state is Checkpoint Confirmed"
 
 
 def test_recovery_assessment_falls_back_from_newer_damaged_checkpoint(

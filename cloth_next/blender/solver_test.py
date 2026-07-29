@@ -4508,29 +4508,27 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     settings.status_detail = ""
     settings.compatible = False
     settings.resumable = False
+    assessment = (
+        recovery.assess_recovery(metadata, current_identity=identity)
+        if existing is not None else None)
+    if assessment is not None:
+        _apply_recovery_assessment(settings, assessment)
     if resume_requested and existing is None:
         settings.resume_requested = False
         raise SceneValidationError(
             "Resume was refused because no complete recovery metadata and "
             "checkpoint are available. Start a fresh Bake.")
     if existing is not None and resume_requested:
-        match = recovery.compatibility(existing.identity, identity)
-        if not match.compatible:
+        if assessment is None or not assessment.can_resume:
             settings.resume_requested = False
-            settings.status_detail = match.reason
+            reason = (
+                assessment.reason if assessment is not None
+                else "No verified recovery checkpoint is available")
             raise SceneValidationError(
-                f"Resume was refused: {match.reason}. Start a fresh Bake "
-                "after reviewing the changed scene settings.")
-        if (existing.state not in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED}
-                or not existing.checkpoints):
-            settings.resume_requested = False
-            raise SceneValidationError(
-                "Resume was refused because no verified solver checkpoint "
-                "is available. Start a fresh Bake.")
+                f"Resume was refused: {reason}. Start a fresh Bake.")
+        existing = assessment.record
         resume = True
-        resume_from = max(item.frame for item in existing.checkpoints)
+        resume_from = assessment.checkpoint.frame
         server_root = Path(existing.server_data_root)
         project_name = existing.project_id
         counts = []
@@ -4577,20 +4575,6 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
             raise SceneValidationError(
                 "Resume was refused because the newest solver checkpoint "
                 "predates the playable cache prefix. Start a fresh Bake.")
-    if existing is not None:
-        match = recovery.compatibility(existing.identity, identity)
-        settings.compatible = match.compatible
-        settings.resumable = bool(
-            match.compatible and existing.checkpoints
-            and existing.state in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED})
-        settings.status = (
-            f"Frame {existing.last_frame} · Compatible"
-            if settings.resumable else existing.state.value.title())
-        settings.status_detail = (
-            "Checkpoint saved · Resume available"
-            if settings.resumable else match.reason)
     options = RecoveryOptions(
         enabled=True, metadata_path=metadata, identity=identity,
         server_data_root=server_root, resume=resume,
@@ -7286,6 +7270,15 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         "Continue this Bake from the latest verified solver checkpoint")
     bl_options = {"INTERNAL"}
 
+    @staticmethod
+    def _disabled_reason(settings) -> str:
+        reason = str(getattr(settings, "status_detail", "") or "").strip()
+        # Old scene files and builds may have cached identity compatibility as
+        # the disabled reason even though compatibility is not the blocker.
+        if not reason or reason.casefold() == "compatible":
+            return "No verified resumable checkpoint is available"
+        return reason
+
     @classmethod
     def poll(cls, context):
         settings = getattr(context.scene, "cloth_next_recovery", None)
@@ -7297,8 +7290,7 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         if not allowed and hasattr(cls, "poll_message_set"):
             cls.poll_message_set(
                 "A solver or Bake operation is still running"
-                if busy else (settings.status_detail
-                              or "No verified recovery checkpoint is available"))
+                if busy else cls._disabled_reason(settings))
         return allowed
 
     def execute(self, context):

@@ -644,9 +644,10 @@ def assess_recovery(path: Path, *,
             return RecoveryAssessment(
                 True, checkpoint, False, match.reason, verified)
     if verified.state not in {ProjectState.RESUMABLE, ProjectState.FAILED}:
+        state_label = verified.state.value.replace("_", " ").title()
         return RecoveryAssessment(
             True, checkpoint, False,
-            f"Recovery project state is {verified.state.value.title()}",
+            f"Recovery project state is {state_label}",
             verified, True)
     if busy:
         return RecoveryAssessment(

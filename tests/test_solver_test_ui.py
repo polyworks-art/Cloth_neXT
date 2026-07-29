@@ -1344,6 +1344,10 @@ def test_configure_recovery_after_restart_selects_latest_checkpoint_and_rejects(
             __import__("gzip").compress(f"state-{frame}".encode()))
     record = module.recovery.confirm_saved_states(
         options.metadata_path, record, (3, 6), keep=3)
+    module._configure_recovery(context, snapshot, plan)
+    assert not settings.resumable
+    assert settings.status_detail == (
+        "Recovery project state is Checkpoint Confirmed")
     record = module.recovery.transition(
         options.metadata_path, record, module.recovery.ProjectState.SAVED)
     module.recovery.transition(
@@ -1474,6 +1478,17 @@ def test_resume_execute_revalidates_missing_checkpoint_and_explains_failure(
     assert not settings.resume_requested and not settings.resumable
     assert "missing" in settings.status_detail.lower()
     assert "missing" in operator.reports[-1][1].lower()
+
+
+def test_resume_disabled_reason_never_reports_compatible(blender_env):
+    operator = blender_env.solver_test.CLOTHNEXT_OT_recovery_resume_latest
+
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Compatible")) == (
+            "No verified resumable checkpoint is available")
+    assert operator._disabled_reason(SimpleNamespace(
+        status_detail="Recovery project state is Checkpoint Confirmed")) == (
+            "Recovery project state is Checkpoint Confirmed")
 
 
 def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
