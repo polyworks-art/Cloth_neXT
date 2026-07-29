@@ -40,10 +40,12 @@ from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+_ACTIVE_EXTENSION = None
 
 
 def _load_updates_module():
     """Import the operators from the enabled extension or the source tree."""
+    global _ACTIVE_EXTENSION
     for candidate in ("bl_ext.user_default.cloth_next", "cloth_next"):
         try:
             extension = importlib.import_module(candidate)
@@ -54,6 +56,7 @@ def _load_updates_module():
         sys.path.insert(0, str(REPO_ROOT))
         extension = importlib.import_module("cloth_next")
     extension.register()
+    _ACTIVE_EXTENSION = extension
     return extension, importlib.import_module(
         extension.__name__ + ".blender.addon_update_operators")
 
@@ -227,4 +230,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # Keep CI failures bounded.  An assertion may happen before main's
+        # explicit cleanup, but Blender must still be able to shut down and
+        # report the real failure instead of timing out with handlers alive.
+        if _ACTIVE_EXTENSION is not None:
+            _ACTIVE_EXTENSION.unregister()

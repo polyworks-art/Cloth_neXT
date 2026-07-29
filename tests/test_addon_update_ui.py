@@ -340,12 +340,32 @@ def test_handoff_quiesces_preview_and_companion_safely(blender_env, monkeypatch)
     import cloth_next.blender.companion_manager as companion_manager
     calls = []
     monkeypatch.setattr(bake_preview, "stop", lambda: calls.append("preview"))
-    monkeypatch.setattr(companion_manager, "shutdown",
-                        lambda: calls.append("companion"))
+    monkeypatch.setattr(
+        companion_manager, "shutdown",
+        lambda: calls.append("companion") or True)
     mark_update_available(module)
     op = module.CLOTHNEXT_OT_addon_update_through_blender()
     assert op.execute(env.bpy.context) == {"FINISHED"}
     assert calls == ["preview", "companion"]
+    env.registration.unregister()
+
+
+def test_handoff_aborts_when_companion_does_not_exit(blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    set_channel(env)
+    add_repo(env, BETA_URL)
+    module = updater(env)
+    import cloth_next.blender.companion_manager as companion_manager
+    monkeypatch.setattr(companion_manager, "shutdown", lambda: False)
+    mark_update_available(module)
+
+    op = module.CLOTHNEXT_OT_addon_update_through_blender()
+    assert op.execute(env.bpy.context) == {"CANCELLED"}
+    assert module.session().state is AddonUpdateState.INSTALL_BLOCKED
+    assert "Bake window" in module.session().message
+    assert all(name != "extensions.repo_sync"
+               for name, _kwargs in env.bpy.ops_log)
     env.registration.unregister()
 
 

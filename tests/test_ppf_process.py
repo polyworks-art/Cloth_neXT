@@ -23,7 +23,29 @@ def test_config_normalizes_paths_and_builds_argument_list(tmp_path):
     cfg = config(tmp_path)
     assert cfg.executable_path.is_absolute()
     assert cfg.progress_file.is_absolute()
+    assert cfg.cleanup_progress_file is True
     assert cfg.arguments()[1:7] == ["--host", "127.0.0.1", "--port", "9090", "--progress-file", str(cfg.progress_file)]
+
+
+def test_caller_owned_progress_file_is_preserved(tmp_path):
+    progress = tmp_path / "diagnostics" / "progress.log"
+    cfg = SolverProcessConfig(Path(sys.executable), tmp_path, progress_file=progress)
+    assert cfg.cleanup_progress_file is False
+
+
+def test_generated_progress_file_is_removed_after_owned_process_stops(tmp_path):
+    process = MagicMock()
+    process.poll.side_effect = [None, 0]
+    process.pid = 123
+    process.stdout = StringIO("")
+    process.stderr = StringIO("")
+    manager = SolverProcessManager(config(tmp_path))
+    manager.config.progress_file.parent.mkdir(parents=True, exist_ok=True)
+    manager.config.progress_file.write_text("ready", encoding="utf-8")
+    with patch("cloth_next.ppf.process.subprocess.Popen", return_value=process):
+        manager.start()
+        manager.stop()
+    assert not manager.config.progress_file.exists()
 
 
 def test_missing_or_directory_executable_rejected(tmp_path):

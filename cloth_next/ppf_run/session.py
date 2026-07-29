@@ -1289,17 +1289,21 @@ class SolverSession:
             pass
 
     def _stop_owned(self) -> None:
-        if self._manager is not None:
-            self._capture_process_tails()
-            try:
-                poll = self._manager.stop()
-                self.diagnostics.stdout_tail = poll.stdout_tail
-                self.diagnostics.stderr_tail = poll.stderr_tail
-                self.diagnostics.contact_peak = poll.contact_peak
-                self.diagnostics.contact_last = poll.contact_last
-                self.diagnostics.contact_samples = poll.contact_samples
-            finally:
-                self._manager = None
+        manager = self._manager
+        if manager is None:
+            return
+        self._capture_process_tails()
+        poll = manager.stop()
+        self.diagnostics.stdout_tail = poll.stdout_tail
+        self.diagnostics.stderr_tail = poll.stderr_tail
+        self.diagnostics.contact_peak = poll.contact_peak
+        self.diagnostics.contact_last = poll.contact_last
+        self.diagnostics.contact_samples = poll.contact_samples
+        # Clear ownership only after stop() has reaped the process and joined
+        # its reader threads. Keeping the reference on failure prevents the
+        # session from falsely claiming no owned process remains.
+        if self._manager is manager:
+            self._manager = None
 
     # -- entry point ---------------------------------------------------------
 

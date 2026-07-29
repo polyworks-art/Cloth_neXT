@@ -84,15 +84,18 @@ class SolverProcessConfig:
     shutdown_timeout: float = 5.0
     ownership_mode: ConnectionOwnership = ConnectionOwnership.OWNED_PROCESS
     environment: tuple[tuple[str, str], ...] = ()
+    cleanup_progress_file: bool = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         executable = self.executable_path.expanduser().resolve()
         workdir = self.working_directory.expanduser().resolve()
+        generated_progress = self.progress_file is None
         progress = (self.progress_file.expanduser().resolve() if self.progress_file else
                     Path(gettempdir()).resolve() / "cloth-next" / f"progress-{uuid.uuid4().hex}.log")
         object.__setattr__(self, "executable_path", executable)
         object.__setattr__(self, "working_directory", workdir)
         object.__setattr__(self, "progress_file", progress)
+        object.__setattr__(self, "cleanup_progress_file", generated_progress)
         if not executable.is_file():
             raise ValueError(f"solver executable is not a file: {executable}")
         if not workdir.is_dir():
@@ -270,6 +273,14 @@ class SolverProcessManager:
         log_with_context(self._logger, 20, "shutdown result", {"exit_code": result.exit_code})
         self._process = None
         self._threads.clear()
+        if self.config.cleanup_progress_file:
+            try:
+                self.config.progress_file.unlink(missing_ok=True)
+            except OSError:
+                # The process is already reaped.  A locked diagnostic file is
+                # not allowed to turn a successful shutdown into a leaked
+                # process/thread report.
+                pass
         return result
 
     def restart(self) -> None:

@@ -401,7 +401,8 @@ def _dispose_transport() -> None:
     _transport_ready = False
 
 
-def shutdown() -> None:
+def shutdown() -> bool:
+    """Stop the owned Companion and preserve references if it resists exit."""
     global _process, _server, _unsubscribe, _pending_request, _ready
     global _production_session, _production_job_id, _owned_for_attempt
     global _terminal_deadline, _force_deadline, _kill_deadline
@@ -410,18 +411,48 @@ def shutdown() -> None:
     _pending_request = None; _ready = None
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
-    if _server: _server.shutdown_companion()
+    server = _server
+    if server:
+        try:
+            server.shutdown_companion()
+        except OSError:
+            pass
     process = _process
+    process_stopped = process is None
     if process:
-        try: process.wait(timeout=1.5)
+        try:
+            process.wait(timeout=1.5)
+            process_stopped = True
         except subprocess.TimeoutExpired:
-            process.terminate()
-            try: process.wait(timeout=1)
-            except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=1)
-    if _server: _server.close()
-    _process = None; _server = None
+            try:
+                process.terminate()
+            except OSError:
+                pass
+            try:
+                process.wait(timeout=1)
+                process_stopped = True
+            except subprocess.TimeoutExpired:
+                try:
+                    process.kill()
+                except OSError:
+                    pass
+                try:
+                    process.wait(timeout=1)
+                    process_stopped = True
+                except subprocess.TimeoutExpired:
+                    process_stopped = False
+    transport_stopped = server is None
+    if server:
+        try:
+            server.close()
+            transport_stopped = True
+        except RuntimeError:
+            transport_stopped = False
+    _process = None if process_stopped else process
+    _server = None if transport_stopped else server
     _production_session = False; _production_job_id = ""
     _owned_for_attempt = False
     _terminal_deadline = None; _force_deadline = None; _kill_deadline = None
     _pending_deadline = None; _startup_error = ""
     _transport_ready = False
+    return process_stopped and transport_stopped

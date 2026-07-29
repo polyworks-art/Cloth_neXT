@@ -74,6 +74,7 @@ class StaticPinSnapshot:
     bake_start: int = 1
     bake_end: int = 1
     fps: int = 24
+    time_scale: float = 1.0
     constraint_type: PinConstraintType = PinConstraintType.SOFT
     pull_strength: float = 1.0
 
@@ -139,6 +140,10 @@ class StaticPinSnapshot:
             if any(len(sample.positions)!=len(indices) for sample in samples):
                 raise StaticPinError("Every animated Pin sample must contain one position per pinned vertex.")
         if self.fps<1: raise StaticPinError("Bake FPS must be at least 1.")
+        time_scale = float(self.time_scale)
+        if not math.isfinite(time_scale) or time_scale <= 0.0:
+            raise StaticPinError("Time Scale must be finite and greater than zero.")
+        object.__setattr__(self, "time_scale", time_scale)
         object.__setattr__(self,"mode",mode); object.__setattr__(self,"samples",samples)
         object.__setattr__(self, "constraint_type", constraint_type)
         object.__setattr__(self, "pull_strength", pull_strength)
@@ -154,6 +159,7 @@ class StaticPinSnapshot:
             "mode": mode.value, "constraint_type": constraint_type.value,
             "pull_strength": pull_strength, "bake_start":self.bake_start,
             "bake_end":self.bake_end, "fps":self.fps,
+            "time_scale": time_scale,
             "samples":[{"frame":s.blender_frame,"positions":s.positions}
                        for s in samples],
         }
@@ -178,13 +184,19 @@ class StaticPinConfig:
     positions: tuple[tuple[tuple[float, float, float], ...], ...] = ()
 
 
-def static_pin_config(snapshot: StaticPinSnapshot) -> StaticPinConfig | None:
+def static_pin_config(
+        snapshot: StaticPinSnapshot, *, schema_version: int = 1
+        ) -> StaticPinConfig | None:
     if not snapshot.enabled:
         return None
+    if schema_version not in (1, 2):
+        raise StaticPinError(f"Unsupported Pin schema version {schema_version}.")
     group_id = "cn-pin-v1-" + hashlib.sha256(
         f"{snapshot.source_object_id}\0{snapshot.group_name}".encode("utf-8")
     ).hexdigest()[:24]
-    times=tuple((float(sample.blender_frame)-snapshot.bake_start)/snapshot.fps
+    solver_fps = snapshot.fps * (snapshot.time_scale
+                                 if schema_version == 2 else 1.0)
+    times=tuple((float(sample.blender_frame)-snapshot.bake_start)/solver_fps
                 for sample in snapshot.samples)
     positions=tuple(sample.positions for sample in snapshot.samples)
     return StaticPinConfig(snapshot.vertex_indices, pin_group_id=group_id,

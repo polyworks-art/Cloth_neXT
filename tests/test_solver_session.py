@@ -1016,3 +1016,25 @@ def test_runtime_activity_reads_live_ppf_metric_files(tmp_path):
     assert code == "SOLVING_CONSTRAINTS"
     assert message == "Solver · 408 contacts · Newton 2 · 187 linear iterations"
     assert solver.diagnostics.contact_last == 408
+
+
+def test_failed_owned_stop_keeps_manager_reference(monkeypatch):
+    from types import SimpleNamespace
+
+    session, _scripted, _frames, _events = _run_session(monkeypatch)
+
+    class Manager:
+        def poll(self):
+            return SimpleNamespace(
+                stdout_tail=(), stderr_tail=(), contact_peak=0,
+                contact_last=0, contact_samples=0)
+
+        def stop(self):
+            raise RuntimeError("reader thread still alive")
+
+    manager = Manager()
+    session._manager = manager
+
+    with pytest.raises(RuntimeError, match="reader thread still alive"):
+        session._stop_owned()
+    assert session._manager is manager

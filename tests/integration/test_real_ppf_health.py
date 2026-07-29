@@ -44,11 +44,13 @@ def test_real_pinned_ppf_health():
         resolved.root_directory, port=_free_port(), progress_file=runtime / "progress.log",
         environment=layout.process_environment()))
     try:
+        package_version, protocol_version, schema_version = manager.executable_version()
         health = start_owned_and_wait(manager, project_name="cloth-next-real-health")
         assert health.reachable
         assert health.compatible
-        assert health.protocol_version == "0.11"
-        assert health.schema_version == "1"
+        assert health.package_version == package_version
+        assert health.protocol_version == protocol_version
+        assert health.schema_version == schema_version
     finally:
         manager.stop()
         import shutil

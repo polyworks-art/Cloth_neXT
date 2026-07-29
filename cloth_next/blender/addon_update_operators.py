@@ -60,8 +60,9 @@ from ..updater.addon_update_guard import (ADDON_UPDATE_PREPARATION,
                                           can_start_addon_update)
 from ..updater.addon_updates import AddonUpdateState, UpdateChannel
 from ..updater.addon_versions import AddonVersion, parse_version
+from .addon_identity import addon_preferences, package_addon_id
 
-_ADDON_ID = __package__.partition(".blender")[0]
+_ADDON_ID = package_addon_id(__package__)
 
 # Read once at import (a local file read, no network); the manifest is the
 # canonical version source (docs/RELEASE_POLICY.md section 2).
@@ -121,7 +122,7 @@ def _shutdown_owned_solvers() -> bool:
 
 def selected_channel(context) -> UpdateChannel:
     try:
-        preferences = context.preferences.addons[_ADDON_ID].preferences
+        preferences = addon_preferences(context, __package__)
     except (KeyError, AttributeError):
         return DEFAULT_CHANNEL
     name = getattr(preferences, "update_channel", None)
@@ -139,7 +140,7 @@ def dev_access_error(context, channel: UpdateChannel) -> str:
     if channel is not UpdateChannel.DEV:
         return ""
     try:
-        preferences = context.preferences.addons[_ADDON_ID].preferences
+        preferences = addon_preferences(context, __package__)
     except (KeyError, AttributeError):
         return "Dev channel preferences are unavailable."
     if not getattr(preferences, "dev_channel_acknowledged", False):
@@ -373,7 +374,13 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
         # Companion ownership is deliberately separate from solver ownership.
         from . import bake_preview, companion_manager
         bake_preview.stop()
-        companion_manager.shutdown()
+        if not companion_manager.shutdown():
+            _session.state = AddonUpdateState.INSTALL_BLOCKED
+            _session.message = (
+                "The Cloth NeXt Bake window did not close cleanly; "
+                "close it before updating.")
+            self.report({"ERROR"}, _session.message)
+            return {"CANCELLED"}
         channel = selected_channel(context)
         if error := dev_access_error(context, channel):
             _session.state = AddonUpdateState.INSTALL_BLOCKED
@@ -485,25 +492,25 @@ class CLOTHNEXT_OT_addon_open_release_notes(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def shutdown(join_timeout: float = 5.0) -> None:
-    """Join the check worker, drop the timer, reset the session state.
-
-    Called on unregister; safe to call multiple times; leaves no thread,
-    timer, or stale callback behind.
-    """
+def shutdown(join_timeout: float = 5.0) -> bool:
+    """Join the check worker without forgetting one that exceeds the timeout."""
     global _worker, _automatic_requested_channel, _automatic_checked_channel
     worker = _worker
     if worker is not None and worker.is_alive():
-        worker.join(timeout=join_timeout)
-    _worker = None
+        worker.join(timeout=max(0.0, float(join_timeout)))
+    stopped = worker is None or not worker.is_alive()
+    if stopped and _worker is worker:
+        _worker = None
     if bpy.app.timers.is_registered(_ui_refresh_pulse):
         bpy.app.timers.unregister(_ui_refresh_pulse)
     if bpy.app.timers.is_registered(_automatic_update_check_timer):
         bpy.app.timers.unregister(_automatic_update_check_timer)
     _automatic_requested_channel = None
     _automatic_checked_channel = None
-    _session.reset()
+    if stopped:
+        _session.reset()
     _owned_managers.clear()
+    return stopped
 
 
 CLASSES = (

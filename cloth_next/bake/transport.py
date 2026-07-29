@@ -151,9 +151,18 @@ class LocalSocketServer:
                 self._send("session_hello")
                 buffer = b""
                 while not self._stop.is_set():
-                    try: chunk = client.recv(4096)
-                    except socket.timeout: continue
-                    if not chunk: break
+                    try:
+                        chunk = client.recv(4096)
+                    except socket.timeout:
+                        continue
+                    except OSError:
+                        # ``close()`` deliberately closes the active socket to
+                        # wake this thread.  Treat that shutdown race exactly
+                        # like EOF instead of leaking an unhandled thread
+                        # exception into Blender/pytest.
+                        break
+                    if not chunk:
+                        break
                     buffer += chunk
                     if len(buffer) > MAX_MESSAGE_BYTES: break
                     while b"\n" in buffer:
@@ -201,10 +210,18 @@ class LocalSocketServer:
         except OSError: pass
         with self._lock: client=self._client; self._client=None
         if client:
-            try: client.close()
-            except OSError: pass
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                client.close()
+            except OSError:
+                pass
         if join:
             self._thread.join(timeout=1)
+            if self._thread.is_alive():
+                raise RuntimeError("companion IPC thread did not stop")
 
 
 class LocalSocketClient:

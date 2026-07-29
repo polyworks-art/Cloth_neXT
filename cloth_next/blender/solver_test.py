@@ -41,6 +41,8 @@ from pathlib import Path
 import bpy
 import numpy as np
 
+from .addon_identity import addon_preferences, package_addon_id
+
 from .. import manifest_version
 from .. import export_identity, recovery
 from .. import intersection_diagnostics
@@ -362,10 +364,9 @@ def _managed_root() -> Path | None:
 
 
 def resolve_solver(context) -> ResolvedSolver:
-    addon_id = __package__.partition(".blender")[0]
     selected = None
     try:
-        preferences = context.preferences.addons[addon_id].preferences
+        preferences = addon_preferences(context, __package__)
         registry = load_registry(ManagedSolverPaths.default().registry_json)
         requested = (getattr(
             preferences, "selected_solver_installation_id", "") or "").strip()
@@ -3389,8 +3390,7 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
 
 def _solver_selection_key(context) -> str:
     try:
-        preferences = context.preferences.addons[
-            __package__.partition(".blender")[0]].preferences
+        preferences = addon_preferences(context, __package__)
         return str(getattr(
             preferences, "selected_solver_installation_id", "") or "")
     except (KeyError, AttributeError):
@@ -3691,7 +3691,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             uv_faces=uv_faces, face_friction=face_friction), group))
         param_dynamics.append((entry.obj.name, dynamic_uuid, group,
                                entry.material,
-                               static_pin_config(pin_snapshot)))
+                               static_pin_config(pin_snapshot, schema_version=wire_schema)))
         session_dynamics.append(SessionDeformable(
             entry.obj.name, dynamic_uuid, len(vertices), group,
             solver_world_matrix(world)))
@@ -3905,7 +3905,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         first.material_meta, first.role, tuple(target_plans),
         first.stitch_pairs, first.stitch_snap_distance,
         pin_configs=tuple(
-            static_pin_config(record[1]) for record in dynamic_records),
+            static_pin_config(record[1], schema_version=wire_schema)
+            for record in dynamic_records),
         param_cache_key=param_cache_key,
         solver_input=solver_input)
 
@@ -4082,7 +4083,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             if capture is not None:
                 capture.cleanup()
         raise
-    pin_config = static_pin_config(pin_snapshot)
+    pin_config = static_pin_config(
+        pin_snapshot, schema_version=wire_schema)
 
     cloth_uuid = export_identity.export_uuid(cloth_obj)
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
@@ -5822,7 +5824,7 @@ def _start_prepared_run(plan: RunPlan) -> None:
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
     _worker = threading.Thread(target=_worker_main, args=(plan,),
-                               name="clothnext-bake-worker", daemon=False)
+                               name="clothnext-bake-worker", daemon=True)
     try:
         _worker.start()
     except Exception as exc:
@@ -5867,7 +5869,7 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
 def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     global _pending_plan,_pending_job_id,_ram_auto_cancel_enabled
     try:
-        prefs=context.preferences.addons[__package__.partition(".blender")[0]].preferences
+        prefs = addon_preferences(context, __package__)
         auto_launch=bool(prefs.auto_launch_bake_window)
         shared_telemetry.configure(prefs.telemetry_refresh_seconds)
         _ram_auto_cancel_enabled=bool(getattr(prefs,"auto_cancel_high_ram",True))
@@ -5959,8 +5961,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 or force_capture is None)
             if needs_timeline:
                 try:
-                    prefs = context.preferences.addons[
-                        __package__.partition(".blender")[0]].preferences
+                    prefs = addon_preferences(context, __package__)
                     open_preparation_window = bool(
                         prefs.auto_launch_bake_window)
                 except (KeyError, AttributeError):
@@ -6316,10 +6317,15 @@ def request_cancel() -> None:
         shared_controller.request_cancel()
 
 
-def shutdown(join_timeout: float = 30.0) -> None:
-    """Unregister/exit path: cancel, join the worker, drop the timer. The
-    session's own cleanup stops the exact owned solver process and never an
-    external server."""
+def shutdown(join_timeout: float = 30.0) -> bool:
+    """Cancel and detach Blender callbacks without forgetting a live worker.
+
+    The worker is normally joined completely.  If an external process or I/O
+    call ignores cancellation past the bounded timeout, keep the worker/plan
+    references so another Bake cannot start on top of it.  The thread is a
+    daemon only as a final Blender-exit safeguard; owned solver cleanup still
+    happens inside the session worker.
+    """
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
@@ -6332,9 +6338,16 @@ def shutdown(join_timeout: float = 30.0) -> None:
     _cancel_event.set()
     worker = _worker
     if worker is not None and worker.is_alive():
-        worker.join(timeout=join_timeout)
-    _worker, _active_plan = None, None
-    shared_telemetry.set_solver_pid(None)
+        worker.join(timeout=max(0.0, float(join_timeout)))
+    stopped = worker is None or not worker.is_alive()
+    if stopped:
+        _worker, _active_plan = None, None
+        shared_telemetry.set_solver_pid(None)
+    else:
+        log_with_context(
+            get_logger("solver.worker"), 40,
+            "Bake worker did not stop during add-on shutdown",
+            {"join_timeout": float(join_timeout)})
     if _unsubscribe is not None:
         _unsubscribe()
         _unsubscribe = None
@@ -6351,6 +6364,7 @@ def shutdown(join_timeout: float = 30.0) -> None:
             _queue.get_nowait()
         except queue.Empty:
             break
+    return stopped
 
 
 # ---------------------------------------------------------------------------
@@ -6710,7 +6724,7 @@ class CLOTHNEXT_OT_open_preferences(bpy.types.Operator):
             bpy.context.preferences.active_section = "ADDONS"
             addon_show = getattr(bpy.ops.preferences, "addon_show", None)
             if addon_show is not None:
-                addon_show(module=__package__.partition(".blender")[0])
+                addon_show(module=package_addon_id(__package__))
         except (AttributeError, RuntimeError):
             self.report({"WARNING"}, "Open Edit > Preferences > Add-ons > Cloth NeXt.")
         return {"FINISHED"}

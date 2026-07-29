@@ -32,5 +32,20 @@ def test_service_cached_stale_start_stop_and_pid():
     assert service.start() is True and service.start() is False
     service.set_solver_pid(123); time.sleep(.35)
     snap=service.snapshot(); assert snap.primary_gpu and snap.stale and snap.solver_process_id==123
-    service.stop(); assert not any(t.name=="clothnext-telemetry" for t in threading.enumerate())
+    assert service.stop() is True
+    assert not any(t.name=="clothnext-telemetry" for t in threading.enumerate())
     assert service.snapshot().solver_process_id is None
+
+
+def test_stop_timeout_keeps_live_worker_registered_and_blocks_duplicate_start():
+    entered=threading.Event(); release=threading.Event()
+    def gpu():
+        entered.set(); release.wait(1); return ()
+    service=TelemetryService(refresh_seconds=.25,gpu_provider=gpu,system_provider=System())
+    assert service.start() is True; assert entered.wait(1)
+    assert service.stop(timeout=0) is False
+    assert service.start() is False
+    assert service._thread is not None and service._thread.is_alive()
+    release.set()
+    assert service.stop(timeout=1) is True
+    assert service._thread is None
