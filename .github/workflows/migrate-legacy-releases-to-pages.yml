@@ -1,0 +1,263 @@
+name: migrate-legacy-releases-to-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/migrate-legacy-releases-to-pages.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migrate-legacy-releases-to-pages
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      WORKFLOW_PATH: .github/workflows/migrate-legacy-releases-to-pages.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install release validation dependencies
+        run: pip install -r requirements-build.txt
+
+      - name: Discover and validate the public release set
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t RELEASE_TAGS < <(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[].tag_name'
+          )
+
+          if [ "${#RELEASE_TAGS[@]}" -ne 2 ]; then
+            printf 'Expected exactly two public releases (2.0.0 and 2.1.0), found %s:\n' "${#RELEASE_TAGS[@]}" >&2
+            printf '  %s\n' "${RELEASE_TAGS[@]:-<none>}" >&2
+            exit 1
+          fi
+
+          declare -A FOUND=()
+          for tag in "${RELEASE_TAGS[@]}"; do
+            version="${tag#v}"
+            case "$version" in
+              2.0.0|2.1.0) FOUND["$version"]="$tag" ;;
+              *) echo "Unexpected public release $tag; refusing destructive cleanup" >&2; exit 1 ;;
+            esac
+          done
+
+          for version in 2.0.0 2.1.0; do
+            if [ -z "${FOUND[$version]:-}" ]; then
+              echo "Missing public release $version" >&2
+              exit 1
+            fi
+            printf '%s=%s\n' "$version" "${FOUND[$version]}" >> "$RUNNER_TEMP/release-tags.env"
+          done
+
+      - name: Download and authenticate both legacy releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/release-tags.env"
+          git fetch origin --tags --force
+          mkdir -p "$RUNNER_TEMP/legacy-releases"
+
+          for version in 2.0.0 2.1.0; do
+            case "$version" in
+              2.0.0) tag="$2_0_0" ;;
+              2.1.0) tag="$2_1_0" ;;
+            esac
+          done
+        continue-on-error: true
+
+      - name: Prepare release tag map
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_200="$(awk -F= '$1=="2.0.0" {print $2}' "$RUNNER_TEMP/release-tags.env")"
+          TAG_210="$(awk -F= '$1=="2.1.0" {print $2}' "$RUNNER_TEMP/release-tags.env")"
+          test -n "$TAG_200" && test -n "$TAG_210"
+          echo "TAG_200=$TAG_200" >> "$GITHUB_ENV"
+          echo "TAG_210=$TAG_210" >> "$GITHUB_ENV"
+
+      - name: Download, validate, and stage immutable artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin --tags --force
+          git fetch origin gh-pages
+          git worktree add "$RUNNER_TEMP/pages" origin/gh-pages
+          mkdir -p "$RUNNER_TEMP/legacy-releases"
+
+          for version in 2.0.0 2.1.0; do
+            if [ "$version" = 2.0.0 ]; then tag="$TAG_200"; else tag="$TAG_210"; fi
+            source_dir="$RUNNER_TEMP/legacy-releases/$version"
+            mkdir -p "$source_dir"
+            gh release download "$tag" --dir "$source_dir"
+
+            archive="$source_dir/cloth_next-$version-windows-x64.zip"
+            manifest="$source_dir/release-manifest.json"
+            sums="$source_dir/SHA256SUMS.txt"
+            for path in "$archive" "$manifest" "$sums"; do
+              test -f "$path" || { echo "Missing required release asset: $path" >&2; exit 1; }
+            done
+
+            gh release view "$tag" --json body --jq '.body // ""' > "$source_dir/RELEASE_NOTES.md"
+            if ! grep -q '[^[:space:]]' "$source_dir/RELEASE_NOTES.md"; then
+              printf '# Cloth NeXt %s\n\nLegacy GitHub release notes were empty.\n' "$version" > "$source_dir/RELEASE_NOTES.md"
+            fi
+
+            tag_commit="$(git rev-list -n 1 "$tag")"
+            VERSION="$version" TAG_NAME="$tag" TAG_COMMIT="$tag_commit" SOURCE_DIR="$source_dir" python - <<'PY'
+import json
+import os
+from pathlib import Path
+from tools.validate_release_policy import (
+    check_release_manifest,
+    check_sha256sums,
+    check_zip,
+    parse_version,
+)
+
+version_text = os.environ["VERSION"]
+tag = os.environ["TAG_NAME"]
+tag_commit = os.environ["TAG_COMMIT"]
+root = Path(os.environ["SOURCE_DIR"])
+archive = root / f"cloth_next-{version_text}-windows-x64.zip"
+manifest_path = root / "release-manifest.json"
+sums_path = root / "SHA256SUMS.txt"
+version = parse_version(version_text)
+check_zip(archive, version)
+check_release_manifest(manifest_path, archive, version, tag)
+check_sha256sums(sums_path, archive)
+metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
+if metadata.get("git_commit") != tag_commit:
+    raise SystemExit(
+        f"release manifest commit {metadata.get('git_commit')!r} does not match tag commit {tag_commit!r}"
+    )
+PY
+
+            destination="$RUNNER_TEMP/pages/artifacts/$version"
+            if [ -e "$destination" ]; then
+              for name in "$(basename "$archive")" release-manifest.json SHA256SUMS.txt RELEASE_NOTES.md; do
+                cmp "$source_dir/$name" "$destination/$name" || {
+                  echo "Existing Pages artifact differs for $version/$name" >&2
+                  exit 1
+                }
+              done
+            else
+              mkdir -p "$destination"
+              cp "$archive" "$manifest" "$sums" "$source_dir/RELEASE_NOTES.md" "$destination/"
+            fi
+          done
+
+      - name: Publish canonical Pages artifact sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C "$RUNNER_TEMP/pages" add artifacts/2.0.0 artifacts/2.1.0
+          mapfile -t CHANGED < <(git -C "$RUNNER_TEMP/pages" diff --cached --name-only)
+          for path in "${CHANGED[@]}"; do
+            case "$path" in
+              artifacts/2.0.0/*|artifacts/2.1.0/*) ;;
+              *) echo "Unexpected gh-pages path staged: $path" >&2; exit 1 ;;
+            esac
+          done
+          if [ "${#CHANGED[@]}" -gt 0 ]; then
+            git -C "$RUNNER_TEMP/pages" -c user.name=github-actions \
+              -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+              commit -m "Migrate 2.0.0 and 2.1.0 release artifacts"
+            git -C "$RUNNER_TEMP/pages" push origin HEAD:gh-pages
+          fi
+
+          git fetch origin gh-pages
+          test "$(git -C "$RUNNER_TEMP/pages" rev-parse HEAD)" = "$(git rev-parse origin/gh-pages)"
+
+      - name: Re-verify artifacts from the published Pages commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in 2.0.0 2.1.0; do
+            if [ "$version" = 2.0.0 ]; then tag="$TAG_200"; else tag="$TAG_210"; fi
+            root="$RUNNER_TEMP/pages/artifacts/$version"
+            tag_commit="$(git rev-list -n 1 "$tag")"
+            VERSION="$version" TAG_NAME="$tag" TAG_COMMIT="$tag_commit" SOURCE_DIR="$root" python - <<'PY'
+import json
+import os
+from pathlib import Path
+from tools.validate_release_policy import (
+    check_release_manifest,
+    check_sha256sums,
+    check_zip,
+    parse_version,
+)
+
+version_text = os.environ["VERSION"]
+tag = os.environ["TAG_NAME"]
+tag_commit = os.environ["TAG_COMMIT"]
+root = Path(os.environ["SOURCE_DIR"])
+archive = root / f"cloth_next-{version_text}-windows-x64.zip"
+version = parse_version(version_text)
+check_zip(archive, version)
+check_release_manifest(root / "release-manifest.json", archive, version, tag)
+check_sha256sums(root / "SHA256SUMS.txt", archive)
+if not (root / "RELEASE_NOTES.md").is_file():
+    raise SystemExit("published RELEASE_NOTES.md is missing")
+metadata = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
+if metadata.get("git_commit") != tag_commit:
+    raise SystemExit("published release manifest no longer matches the immutable tag")
+PY
+          done
+
+      - name: Delete public GitHub releases while preserving tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT_200="$(git rev-list -n 1 "$TAG_200")"
+          COMMIT_210="$(git rev-list -n 1 "$TAG_210")"
+
+          gh release delete "$TAG_200" --yes
+          gh release delete "$TAG_210" --yes
+
+          git fetch origin --tags --force
+          test "$(git rev-list -n 1 "$TAG_200")" = "$COMMIT_200"
+          test "$(git rev-list -n 1 "$TAG_210")" = "$COMMIT_210"
+
+          mapfile -t REMAINING < <(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[].tag_name'
+          )
+          if [ "${#REMAINING[@]}" -ne 0 ]; then
+            printf 'Public releases remain after cleanup:\n  %s\n' "${REMAINING[@]}" >&2
+            exit 1
+          fi
+
+      - name: Remove this one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+          rm "$WORKFLOW_PATH"
+          git add "$WORKFLOW_PATH"
+          git -c user.name=github-actions \
+              -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+              commit -m "Remove legacy release migration workflow"
+          git push origin HEAD:main
+
+      - name: Summary
+        run: |
+          echo "## Legacy release migration complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 2.0.0 and 2.1.0 were authenticated and copied to gh-pages/artifacts/<version>/" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public GitHub releases were deleted" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Both immutable Git tags were preserved" >> "$GITHUB_STEP_SUMMARY"
