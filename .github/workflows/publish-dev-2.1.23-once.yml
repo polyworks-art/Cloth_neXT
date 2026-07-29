@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SOURCE_SHA: 5cb470922b7c2e04c4c109e892669f66db018c2b
+      SOURCE_SHA: 3fb451ee20e0e2002f2035d1263e1c394e4cdc6c
       VERSION: 2.1.23
     steps:
       - uses: actions/checkout@v4
@@ -63,11 +63,10 @@ jobs:
           git worktree add "$RUNNER_TEMP/pages" origin/gh-pages
           python - <<'PY'
           import json
+          import os
           import zipfile
           from pathlib import Path
 
-          dev = Path.home()  # replaced below through environment-safe path
-          import os
           dev = Path(os.environ['RUNNER_TEMP']) / 'pages' / 'dev'
           index = json.loads((dev / 'index.json').read_text(encoding='utf-8'))
           candidates = [entry for entry in index['data'] if entry.get('id') == 'cloth_next']
@@ -111,7 +110,7 @@ jobs:
           assert '"_sample_frame_offset": frame_offsets' in solver_export
           assert 'conservative 26-DOP' in cage
           assert 'CHARACTER_CAGE' in proxy
-          assert 'Character Collision Cage' in ui
+          assert 'Simulation Proxy' in ui
           print(json.dumps({
               'version': candidate['version'],
               'archive': archive.name,
