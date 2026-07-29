@@ -28,6 +28,14 @@ def _phase4_meta():
     }
 
 
+def test_scene_fps_uses_blender_fps_base(blender_env):
+    module = blender_env.solver_test
+    context = SimpleNamespace(scene=SimpleNamespace(
+        render=SimpleNamespace(fps=30, fps_base=1.001)))
+
+    assert module._scene_fps(context) == pytest.approx(30.0 / 1.001)
+
+
 def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
     module = blender_env.solver_test
     offsets = (0.0, 1.0)
@@ -41,7 +49,7 @@ def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
         assert module._collider_motion_digest(offsets, moved, dtype="<f4") != baseline
 
     assert module._collider_motion_digest((0.0, 2.0), base, dtype="<f4") != baseline
-    assert module.SCENE_EXPORT_CACHE_SCHEMA == 3
+    assert module.SCENE_EXPORT_CACHE_SCHEMA == 4
 
 
 def test_shell_uv_export_preserves_authored_uvs_and_generates_fallback(
@@ -395,6 +403,56 @@ def test_cancel_during_pin_capture_does_not_continue_startup(
             module.shared_controller.reset()
 
 
+def test_async_collider_pump_keeps_canonical_schema2_timeline(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    collider = SimpleNamespace(
+        name="Animated Collider",
+        cloth_next=SimpleNamespace(
+            collider_samples_per_frame=8,
+            collider_motion_capture="TRANSFORM_ONLY"))
+
+    states = module._begin_collider_pump(
+        (collider,), module.BakeFrameRange(1, 64), 30.0)
+    state = states[collider.name]
+    metadata = state["metadata"]
+
+    assert state["sample_count"] == 505
+    assert metadata["_logical_frame_count"] == 64
+    assert metadata["_samples_per_frame"] == 8
+    assert metadata["_capture_fps"] == 30.0
+    assert metadata["_sample_frame_offset"][:9] == [
+        0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]
+    assert metadata["_sample_frame_offset"][-1] == 63.0
+    assert metadata["time"][-1] == pytest.approx(2.1)
+
+    state["vertices"] = (
+        (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    state["triangles"] = ((0, 1, 2),)
+    state["matrices"] = [
+        ((1.0, 0.0, 0.0, offset),
+         (0.0, 1.0, 0.0, 0.0),
+         (0.0, 0.0, 1.0, 0.0),
+        (0.0, 0.0, 0.0, 1.0))
+        for offset in metadata["_sample_frame_offset"]]
+    monkeypatch.setattr(
+        module, "_matrix_trs",
+        lambda matrix: (
+            [matrix[0][3], matrix[1][3], matrix[2][3]],
+            [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0]))
+    capture = module._finish_collider_pump(states)[collider.name]
+    assert capture.content_digest
+    animation = module.SceneObject(
+        collider.name, "async-collider", capture.vertices,
+        capture.triangles, capture.transform,
+        transform_animation=capture.animation).info_dict(
+            schema_version=2)["transform_animation"]
+    assert animation["frame_offset"] == list(range(64))
+    assert len(animation["translation"]) == 64
+    assert animation["translation"][1][0] == pytest.approx(1.0)
+    assert animation["translation"][-1][0] == pytest.approx(63.0)
+
+
 def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     main_ident = threading.get_ident()
@@ -531,6 +589,68 @@ def test_multi_worker_writes_one_authenticated_cache_per_object(
             target.pc2_path, settings_fingerprint="settings",
             geometry_fingerprint="geometry")
         assert inspection.condition is cache_metadata.CacheCondition.READY
+
+
+def test_multi_worker_does_not_mislabel_solver_failure_as_cache_failure(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+
+    class FailingSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self):
+            raise RuntimeError("control server disappeared")
+
+    monkeypatch.setattr(module, "SolverSession", FailingSession)
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = tuple(
+        module.DeformablePlan(
+            ((float(index), 0.0, 0.0),), identity, name, uuid,
+            tmp_path / f"{name}.pc2", f"topology-{name}", {}, "CLOTH")
+        for index, (name, uuid) in enumerate(
+            (("A", "uuid-a"), ("B", "uuid-b"))))
+    plan = module.RunPlan(
+        SimpleNamespace(cloth_uuid="uuid-a"), SimpleNamespace(),
+        targets[0].initial_local, identity, "A", tmp_path / "run",
+        targets[0].pc2_path, 2, deformables=targets)
+
+    module._worker_main_multi(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "error"
+    assert message[1] == "The solver session failed unexpectedly."
+    assert "multi-object playback caches" not in message[1]
+    assert "control server disappeared" in message[2]
+
+
+def test_multi_worker_keeps_cache_message_for_real_writer_failure(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    monkeypatch.setattr(
+        module.pc2, "StreamingPc2Writer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            OSError("cache directory is read-only")))
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = tuple(
+        module.DeformablePlan(
+            ((float(index), 0.0, 0.0),), identity, name, uuid,
+            tmp_path / f"{name}.pc2", f"topology-{name}", {}, "CLOTH")
+        for index, (name, uuid) in enumerate(
+            (("A", "uuid-a"), ("B", "uuid-b"))))
+    plan = module.RunPlan(
+        SimpleNamespace(cloth_uuid="uuid-a"), SimpleNamespace(),
+        targets[0].initial_local, identity, "A", tmp_path / "run",
+        targets[0].pc2_path, 2, deformables=targets)
+
+    module._worker_main_multi(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "error"
+    assert message[1] == "Creating the multi-object playback caches failed."
+    assert "cache directory is read-only" in message[2]
 
 
 def test_failed_worker_leaves_unusable_failure_record(blender_env, monkeypatch,
@@ -930,8 +1050,9 @@ def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
     assert points[0] == (10, 0.0, 0.0)
     assert points[-1] == (11, 0.0, 1.0 / 24.0)
     assert points[1] == (10, 0.125, 1.0 / 192.0)
-    with pytest.raises(ValueError):
-        module._collider_sample_points(module.BakeFrameRange(1, 2), 24, 1)
+    assert module._collider_sample_points(
+        module.BakeFrameRange(1, 2), 24, 1) == (
+            (1, 0.0, 0.0), (2, 0.0, 1.0 / 24.0))
 
 
 def test_animated_collider_topology_ignores_quad_diagonal_flip(blender_env):

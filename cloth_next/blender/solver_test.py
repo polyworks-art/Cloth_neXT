@@ -41,11 +41,13 @@ from pathlib import Path
 import bpy
 import numpy as np
 
+from .addon_identity import addon_preferences, package_addon_id
+
 from .. import manifest_version
 from .. import export_identity, recovery
 from .. import intersection_diagnostics
 from ..export_cache import ExportPayloadCache, deterministic_key
-from ..sample_plan import build_sample_plan
+from ..sample_plan import build_collider_timeline, build_sample_plan
 from ..bake import cache_metadata
 from ..bake import pc2
 from ..bake.controller import InvalidTransition, shared_controller
@@ -259,7 +261,7 @@ class RunPlan:
     frame_count: int
     frame_start: int = 1
     frame_end: int = 1
-    fps: int = 24
+    fps: float = 24.0
     # Immutable pure snapshot metadata: the fingerprint marks the finished
     # result and the JSON-safe meta dict is written next to the PC2 cache so a
     # stale result stays detectable. The fingerprint is stored in halves — the
@@ -362,10 +364,9 @@ def _managed_root() -> Path | None:
 
 
 def resolve_solver(context) -> ResolvedSolver:
-    addon_id = __package__.partition(".blender")[0]
     selected = None
     try:
-        preferences = context.preferences.addons[addon_id].preferences
+        preferences = addon_preferences(context, __package__)
         registry = load_registry(ManagedSolverPaths.default().registry_json)
         requested = (getattr(
             preferences, "selected_solver_installation_id", "") or "").strip()
@@ -533,7 +534,7 @@ _SCALAR_FORCE_FIELDS = {
 }
 
 
-def _wind_oscillation(obj, frame: int, fps: int) -> float:
+def _wind_oscillation(obj, frame: int, fps: float) -> float:
     """Stable smooth pseudo-random gust value in the closed range [-1, 1]."""
     identity = str(getattr(obj, "name_full", getattr(obj, "name", "Wind")))
     digest = hashlib.sha256(identity.encode("utf-8")).digest()
@@ -1139,12 +1140,18 @@ def _cheap_pinning_fingerprint(cloth_obj) -> str:
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
 
 
-def _scene_fps(context) -> int:
+def _scene_fps(context) -> float:
+    """Return Blender's effective playback rate, including ``fps_base``."""
     render = getattr(getattr(context, "scene", None), "render", None)
     try:
-        return int(getattr(render, "fps", 24) or 24)
+        fps = float(getattr(render, "fps", 24) or 24)
+        fps_base = float(getattr(render, "fps_base", 1.0) or 1.0)
     except (TypeError, ValueError):
-        return 24
+        return 24.0
+    if (not math.isfinite(fps) or fps <= 0.0
+            or not math.isfinite(fps_base) or fps_base <= 0.0):
+        return 24.0
+    return fps / fps_base
 
 
 def _blender_version() -> str:
@@ -1910,6 +1917,8 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         # Keep pre-v2 Scene plans from silently restoring sparse Pin tracks.
         # v3 invalidates plans written before animated Collider frame
         # digests participated in the Scene payload identity.
+        # v4 makes the dense capture timeline explicit and prevents Schema 2
+        # from interpreting sub-frame samples as additional logical frames.
         "export_schema": SCENE_EXPORT_CACHE_SCHEMA,
         "solver_installation": _solver_selection_key(context),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
@@ -1917,7 +1926,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         "objects": objects,
         "frame_range": [
             snapshot.bake_range.start, snapshot.bake_range.end],
-        "fps": int(context.scene.render.fps),
+        "fps": _scene_fps(context),
         # Blender and other add-ons commonly register stable frame handlers.
         # Their presence alone must not disable the cache. Their executable
         # identity participates in the key so changing the handler set or
@@ -1959,7 +1968,7 @@ def _depsgraph_update(context):
 
 
 def _force_capture_from_samples(samples, active_scalar_types, bake_range,
-                                fps: int) -> ForceCapture:
+                                fps: float) -> ForceCapture:
     """Encode already evaluated Force states without revisiting frames."""
     initial = samples[0]
     tracks = (
@@ -2171,7 +2180,7 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
     mode=PinMode(str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC")))
     common=dict(source_topology_signature=membership.source_topology_signature,
                 mode=mode,bake_start=bake_range.start,bake_end=bake_range.end,
-                fps=int(context.scene.render.fps))
+                fps=_scene_fps(context))
     if not membership.enabled or mode is PinMode.STATIC:
         return StaticPinSnapshot(membership.enabled,membership.group_name,
             membership.source_object_id,membership.source_vertex_count,
@@ -2232,7 +2241,7 @@ def _collider_motion_digest(frame_offsets, samples, *, dtype="<f8") -> str:
 
 
 COLLIDER_SAMPLES_PER_FRAME = 8
-SCENE_EXPORT_CACHE_SCHEMA = 3
+SCENE_EXPORT_CACHE_SCHEMA = 4
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
@@ -2252,22 +2261,29 @@ class AnimatedColliderCaptureWarning:
         return f"{self.total_bytes / float(1024 ** 2):.0f} MiB"
 
 
-def _collider_sample_points(bake_range: BakeFrameRange, fps: int,
+def _collider_sample_points(bake_range: BakeFrameRange, fps: float,
                             samples_per_frame: int = COLLIDER_SAMPLES_PER_FRAME):
     """Dense evaluated samples, including both Bake endpoints exactly."""
-    if not 2 <= int(samples_per_frame) <= 32:
-        raise ValueError("Collider samples per frame must be between 2 and 32")
-    samples_per_frame = int(samples_per_frame)
-    intervals = bake_range.output_count - 1
-    count = intervals * samples_per_frame + 1
-    result = []
-    for index in range(count):
-        position = bake_range.start + index / samples_per_frame
-        frame = math.floor(position)
-        subframe = position - frame
-        result.append((frame, subframe,
-                       index / (float(fps) * samples_per_frame)))
-    return tuple(result)
+    timeline = build_collider_timeline(
+        bake_range.start, bake_range.end,
+        samples_per_frame=int(samples_per_frame), fps=float(fps))
+    return tuple(
+        (point.frame, point.subframe, time)
+        for point, time in zip(timeline.points, timeline.times))
+
+
+def _collider_animation_metadata(bake_range: BakeFrameRange, fps: float,
+                                 samples_per_frame: int) -> dict:
+    timeline = build_collider_timeline(
+        bake_range.start, bake_range.end,
+        samples_per_frame=samples_per_frame, fps=fps)
+    return {
+        "time": list(timeline.times),
+        "_sample_frame_offset": list(timeline.frame_offsets),
+        "_logical_frame_count": timeline.logical_frame_count,
+        "_samples_per_frame": timeline.samples_per_frame,
+        "_capture_fps": timeline.fps,
+    }
 
 
 def _animated_collider_capture_bytes(vertex_count: int,
@@ -2413,9 +2429,13 @@ def _capture_transform_only_collider_motion(
         bake_range, _scene_fps(context),
         int(getattr(collider_obj.cloth_next,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
-    times = [point[2] for point in sample_points]
-    frame_offsets = [point[0] + point[1] - bake_range.start
-                     for point in sample_points]
+    samples_per_frame = int(getattr(
+        collider_obj.cloth_next, "collider_samples_per_frame",
+        COLLIDER_SAMPLES_PER_FRAME))
+    metadata = _collider_animation_metadata(
+        bake_range, _scene_fps(context), samples_per_frame)
+    times = metadata["time"]
+    frame_offsets = metadata["_sample_frame_offset"]
     matrices = []
     vertices = triangles = None
     try:
@@ -2453,7 +2473,7 @@ def _capture_transform_only_collider_motion(
             scales.append(scale)
         return ColliderMotionCapture(
             "RIGID_ANIMATED", vertices, triangles, matrices[0],
-            {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+            {**metadata, "translation": translations,
              "quaternion": quaternions, "scale": scales,
              "segments": [
                  {"interpolation": "LINEAR",
@@ -2479,9 +2499,13 @@ def _capture_collider_motion(context, collider_obj,
         int(getattr(collider_obj.cloth_next,
                     "collider_samples_per_frame", COLLIDER_SAMPLES_PER_FRAME)))
     sample_count = len(sample_points)
-    times = [point[2] for point in sample_points]
-    frame_offsets = [point[0] + point[1] - bake_range.start
-                     for point in sample_points]
+    samples_per_frame = int(getattr(
+        collider_obj.cloth_next, "collider_samples_per_frame",
+        COLLIDER_SAMPLES_PER_FRAME))
+    metadata = _collider_animation_metadata(
+        bake_range, _scene_fps(context), samples_per_frame)
+    times = metadata["time"]
+    frame_offsets = metadata["_sample_frame_offset"]
     reference_vertices = None
     reference_triangles = None
     reference_topology = None
@@ -2608,7 +2632,7 @@ def _capture_collider_motion(context, collider_obj,
                 tuple(tuple(float(value) for value in row)
                       for row in reference_vertices),
                 reference_triangles, matrices[0],
-                {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+                {**metadata, "translation": translations,
                  "quaternion": quaternions, "scale": scales,
                  "segments": [
                      {"interpolation": "LINEAR",
@@ -2628,7 +2652,7 @@ def _capture_collider_motion(context, collider_obj,
             tuple(tuple(float(value) for value in row)
                   for row in local_samples[0]),
             reference_triangles, identity,
-            {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": local_samples},
+            {**metadata, "vert_frames": local_samples},
             temporary_path, content_digest=motion_hasher.hexdigest())
     except Exception:
         mapping = getattr(local_samples, "_mmap", None)
@@ -2663,8 +2687,10 @@ def _capture_animated_colliders_shared(
                               COLLIDER_SAMPLES_PER_FRAME))
         for obj in colliders
     }
-    plans = {
-        obj.name: _collider_sample_points(bake_range, fps, rates[obj.name])
+    timelines = {
+        obj.name: build_collider_timeline(
+            bake_range.start, bake_range.end,
+            samples_per_frame=rates[obj.name], fps=fps)
         for obj in colliders
     }
     required = {
@@ -2686,7 +2712,8 @@ def _capture_animated_colliders_shared(
     try:
         for obj in colliders:
             mode = _effective_collider_capture_mode(obj)
-            count = len(plans[obj.name])
+            timeline = timelines[obj.name]
+            count = len(timeline.points)
             states[obj.name] = {
                 "obj": obj, "mode": mode, "matrices": [],
                 "vertices": None, "triangles": None, "topology": None,
@@ -2694,6 +2721,13 @@ def _capture_animated_colliders_shared(
                 "deforming": False,
                 "topology_mode": _collider_topology_check_mode(obj),
                 "sample_count": count,
+                "metadata": {
+                    "time": list(timeline.times),
+                    "_sample_frame_offset": list(timeline.frame_offsets),
+                    "_logical_frame_count": timeline.logical_frame_count,
+                    "_samples_per_frame": timeline.samples_per_frame,
+                    "_capture_fps": timeline.fps,
+                },
             }
         if _export_timing_sink is not None:
             _export_timing_sink["sample_plan_points"] = float(len(union))
@@ -2813,10 +2847,9 @@ def _capture_animated_colliders_shared(
         for obj in colliders:
             state = states[obj.name]
             matrices = state["matrices"]
-            times = [sample[2] for sample in plans[obj.name]]
-            frame_offsets = [
-                sample[0] + sample[1] - bake_range.start
-                for sample in plans[obj.name]]
+            metadata = state["metadata"]
+            times = metadata["time"]
+            frame_offsets = metadata["_sample_frame_offset"]
             if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
                 translations, quaternions, scales = [], [], []
                 for matrix in matrices:
@@ -2831,12 +2864,14 @@ def _capture_animated_colliders_shared(
                 captures[obj.name] = ColliderMotionCapture(
                     "RIGID_ANIMATED", state["vertices"], state["triangles"],
                     matrices[0],
-                    {"time": times, "_sample_frame_offset": frame_offsets, "translation": translations,
+                    {**metadata, "translation": translations,
                      "quaternion": quaternions, "scale": scales,
                      "segments": [{"interpolation": "LINEAR",
                                    "handle_right": [1.0 / 3.0, 0.0],
                                    "handle_left": [2.0 / 3.0, 1.0]}
-                                  for _ in range(len(times) - 1)]})
+                                  for _ in range(len(times) - 1)]},
+                    content_digest=_collider_motion_digest(
+                        frame_offsets, matrices))
                 samples = state["samples"]
                 if samples is not None:
                     samples._mmap.close()
@@ -2851,8 +2886,10 @@ def _capture_animated_colliders_shared(
                     tuple(tuple(float(value) for value in row)
                           for row in state["samples"][0]),
                     state["triangles"], identity,
-                    {"time": times, "_sample_frame_offset": frame_offsets, "vert_frames": state["samples"]},
-                    state["path"])
+                    {**metadata, "vert_frames": state["samples"]},
+                    state["path"],
+                    content_digest=_collider_motion_digest(
+                        frame_offsets, state["samples"], dtype="<f4"))
         if _export_timing_sink is not None:
             _export_timing_sink["capture_seconds"] = (
                 _export_timing_sink.get("capture_seconds", 0.0) +
@@ -2881,15 +2918,20 @@ def _begin_collider_pump(colliders, bake_range, fps):
         rate = int(getattr(
             obj.cloth_next, "collider_samples_per_frame",
             COLLIDER_SAMPLES_PER_FRAME))
-        points = build_sample_plan(
+        timeline = build_collider_timeline(
             bake_range.start, bake_range.end,
-            collider_samples=(rate,), include_integer_frames=False)
+            samples_per_frame=rate, fps=fps)
+        points = timeline.points
         result[obj.name] = {
             "obj": obj, "points": {
                 point.position: index for index, point in enumerate(points)},
-            "times": [
-                float(point.position - bake_range.start) / float(fps)
-                for point in points],
+            "metadata": {
+                "time": list(timeline.times),
+                "_sample_frame_offset": list(timeline.frame_offsets),
+                "_logical_frame_count": timeline.logical_frame_count,
+                "_samples_per_frame": timeline.samples_per_frame,
+                "_capture_fps": timeline.fps,
+            },
             "mode": _effective_collider_capture_mode(obj),
             "matrices": [], "vertices": None, "triangles": None,
             "topology": None, "topology_buffers": None,
@@ -2992,6 +3034,8 @@ def _finish_collider_pump(states):
     captures = {}
     for name, state in states.items():
         matrices = state["matrices"]
+        metadata = state["metadata"]
+        frame_offsets = metadata["_sample_frame_offset"]
         if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
             translations, quaternions, scales = [], [], []
             for matrix in matrices:
@@ -3006,12 +3050,14 @@ def _finish_collider_pump(states):
             captures[name] = ColliderMotionCapture(
                 "RIGID_ANIMATED", state["vertices"], state["triangles"],
                 matrices[0],
-                {"time": state["times"], "translation": translations,
+                {**metadata, "translation": translations,
                  "quaternion": quaternions, "scale": scales,
                  "segments": [{"interpolation": "LINEAR",
                                "handle_right": [1.0 / 3.0, 0.0],
                                "handle_left": [2.0 / 3.0, 1.0]}
-                              for _ in range(len(matrices) - 1)]})
+                              for _ in range(len(matrices) - 1)]},
+                content_digest=_collider_motion_digest(
+                    frame_offsets, matrices))
             if state["samples"] is not None:
                 state["samples"]._mmap.close()
                 state["path"].unlink(missing_ok=True)
@@ -3025,8 +3071,9 @@ def _finish_collider_pump(states):
                 tuple(tuple(float(value) for value in row)
                       for row in state["samples"][0]),
                 state["triangles"], identity,
-                {"time": state["times"],
-                 "vert_frames": state["samples"]}, state["path"])
+                {**metadata, "vert_frames": state["samples"]}, state["path"],
+                content_digest=_collider_motion_digest(
+                    frame_offsets, state["samples"], dtype="<f4"))
     return captures
 
 
@@ -3300,7 +3347,7 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
                          cache, target_uuids, *, schema_version: int = 1):
     entries = snapshot.deformables
     settings = SimulationSettings(
-        snapshot.bake_range.output_count, int(context.scene.render.fps),
+        snapshot.bake_range.output_count, _scene_fps(context),
         force_capture.initial.gravity, snapshot.quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -3368,7 +3415,7 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
         "force_dynamic": repr(force_capture.dynamic_parameters),
         "frame_range": [
             snapshot.bake_range.start, snapshot.bake_range.end],
-        "fps": int(context.scene.render.fps),
+        "fps": _scene_fps(context),
         "object_uuids": [
             *target_uuids, *collider_uuids],
         "pin_tracks": _pin_configs_cache_identity(pin_configs),
@@ -3389,8 +3436,7 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
 
 def _solver_selection_key(context) -> str:
     try:
-        preferences = context.preferences.addons[
-            __package__.partition(".blender")[0]].preferences
+        preferences = addon_preferences(context, __package__)
         return str(getattr(
             preferences, "selected_solver_installation_id", "") or "")
     except (KeyError, AttributeError):
@@ -3457,7 +3503,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
                 row["material_meta"], snapshot, entry, resolved,
                 vertex_count=shape[0],
                 frame_count=snapshot.bake_range.output_count)
-            meta["details"]["fps"] = int(context.scene.render.fps)
+            meta["details"]["fps"] = _scene_fps(context)
             target_plans.append(DeformablePlan(
                 initial, world, entry.obj.name, expected_uuid, pc2_path,
                 entry.topology_signature, meta, entry.role,
@@ -3504,7 +3550,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             first.world_matrix, first.object_name, work_directory,
             first.pc2_path, snapshot.bake_range.output_count,
             snapshot.bake_range.start, snapshot.bake_range.end,
-            int(context.scene.render.fps), snapshot.settings_fingerprint,
+            _scene_fps(context), snapshot.settings_fingerprint,
             snapshot.geometry_fingerprint, first.topology_signature,
             snapshot.preset_identifier, first.material_meta, first.role,
             tuple(target_plans), first.stitch_pairs,
@@ -3691,7 +3737,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             uv_faces=uv_faces, face_friction=face_friction), group))
         param_dynamics.append((entry.obj.name, dynamic_uuid, group,
                                entry.material,
-                               static_pin_config(pin_snapshot)))
+                               static_pin_config(pin_snapshot, schema_version=wire_schema)))
         session_dynamics.append(SessionDeformable(
             entry.obj.name, dynamic_uuid, len(vertices), group,
             solver_world_matrix(world)))
@@ -3801,7 +3847,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 capture.cleanup()
     frame_count = bake_range.output_count
     settings = SimulationSettings(
-        frame_count, int(scene.render.fps),
+        frame_count, _scene_fps(context),
         force_capture.initial.gravity, snapshot.quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -3830,7 +3876,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene_identity = {
         "settings_fingerprint": snapshot.settings_fingerprint,
         "geometry_fingerprint": snapshot.geometry_fingerprint,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "frame_start": bake_range.start,
         "frame_end": bake_range.end,
         "deformables": sorted([{
@@ -3899,13 +3945,14 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     first = target_plans[0]
     return RunPlan(session_scene, resolved, first.initial_local,
         first.world_matrix, first.object_name, work_directory, first.pc2_path,
-        frame_count, bake_range.start, bake_range.end, int(scene.render.fps),
+        frame_count, bake_range.start, bake_range.end, _scene_fps(context),
         snapshot.settings_fingerprint, snapshot.geometry_fingerprint,
         first.topology_signature, snapshot.preset_identifier,
         first.material_meta, first.role, tuple(target_plans),
         first.stitch_pairs, first.stitch_snap_distance,
         pin_configs=tuple(
-            static_pin_config(record[1]) for record in dynamic_records),
+            static_pin_config(record[1], schema_version=wire_schema)
+            for record in dynamic_records),
         param_cache_key=param_cache_key,
         solver_input=solver_input)
 
@@ -4082,7 +4129,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             if capture is not None:
                 capture.cleanup()
         raise
-    pin_config = static_pin_config(pin_snapshot)
+    pin_config = static_pin_config(
+        pin_snapshot, schema_version=wire_schema)
 
     cloth_uuid = export_identity.export_uuid(cloth_obj)
     scene_cloth = SceneObject(cloth_obj.name, cloth_uuid, cloth_vertices,
@@ -4157,7 +4205,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         "sewing": stitch_pairs,
         "friction_regions": _friction_region_settings(cloth_obj),
         "frame_range": [bake_range.start, bake_range.end],
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
     })
     try:
         deforming_capture = any(
@@ -4210,7 +4258,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     frame_count = bake_range.output_count
     quality = snapshot.quality
     settings = SimulationSettings(
-        frame_count=frame_count, fps=int(scene.render.fps),
+        frame_count=frame_count, fps=_scene_fps(context),
         gravity_blender=force_capture.initial.gravity, quality=quality,
         wind_blender=force_capture.initial.wind,
         air_density=(force_capture.initial.air_density
@@ -4253,7 +4301,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     scene_identity = {
         "settings_fingerprint": settings_fp,
         "geometry_fingerprint": geometry_fp,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "frame_start": bake_range.start,
         "frame_end": bake_range.end,
         "colliders": [{key: value for key, value in item.items()
@@ -4306,7 +4354,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         "blender_end_frame": bake_range.end,
         "output_frame_count": frame_count,
         "solver_step_count": bake_range.solver_steps,
-        "fps": int(scene.render.fps),
+        "fps": _scene_fps(context),
         "pinning": {
             "enabled": pin_snapshot.enabled,
             "mode": pin_snapshot.mode.value,
@@ -4344,7 +4392,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                    work_directory=work_directory, pc2_path=pc2_path,
                    frame_count=frame_count,
                    frame_start=bake_range.start, frame_end=bake_range.end,
-                   fps=int(scene.render.fps),
+                   fps=_scene_fps(context),
                    settings_fingerprint=settings_fp,
                    geometry_fingerprint=geometry_fp,
                    topology_signature=snapshot.topology_signature,
@@ -4860,6 +4908,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
     recovery_partials = dict(
         plan.recovery_options.partial_pc2
         if plan.recovery_options is not None else ())
+    failure_stage = "CACHE_SETUP"
     try:
         for target in targets:
             if target.material_meta:
@@ -4919,6 +4968,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             work_directory=plan.work_directory, emit=emit,
             cancel_event=_cancel_event, frame_sink=consume,
             recovery_options=plan.recovery_options)
+        failure_stage = "SIMULATION"
         diagnostics = session.run()
         _merge_export_diagnostics(diagnostics, plan)
         diagnostics.timings["coordinate_transform"] = transform_seconds
@@ -4928,6 +4978,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             "message": f"Finalizing {len(targets)} playback caches",
             "frame_current": None, "frame_total": plan.frame_count,
             "indeterminate": True})())
+        failure_stage = "CACHE_FINALIZE"
         headers = {}
         for target in targets:
             writer = writers[target.uuid]
@@ -4981,8 +5032,12 @@ def _worker_main_multi(plan: RunPlan) -> None:
             writer.abort()
         details = traceback.format_exc()
         _discard_incomplete(plan, state="failed", reason=details[-2000:])
-        summary = "Creating the multi-object playback caches failed."
-        code = classify_error("IMPORTING", summary, details)
+        if failure_stage in {"CACHE_SETUP", "CACHE_FINALIZE"}:
+            summary = "Creating the multi-object playback caches failed."
+            code = classify_error("IMPORTING", summary, details)
+        else:
+            summary = "The solver session failed unexpectedly."
+            code = classify_error("SIMULATING", summary, details)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details, code), code))
 
@@ -5822,7 +5877,7 @@ def _start_prepared_run(plan: RunPlan) -> None:
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
     _worker = threading.Thread(target=_worker_main, args=(plan,),
-                               name="clothnext-bake-worker", daemon=False)
+                               name="clothnext-bake-worker", daemon=True)
     try:
         _worker.start()
     except Exception as exc:
@@ -5867,7 +5922,7 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
 def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     global _pending_plan,_pending_job_id,_ram_auto_cancel_enabled
     try:
-        prefs=context.preferences.addons[__package__.partition(".blender")[0]].preferences
+        prefs = addon_preferences(context, __package__)
         auto_launch=bool(prefs.auto_launch_bake_window)
         shared_telemetry.configure(prefs.telemetry_refresh_seconds)
         _ram_auto_cancel_enabled=bool(getattr(prefs,"auto_cancel_high_ram",True))
@@ -5959,8 +6014,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 or force_capture is None)
             if needs_timeline:
                 try:
-                    prefs = context.preferences.addons[
-                        __package__.partition(".blender")[0]].preferences
+                    prefs = addon_preferences(context, __package__)
                     open_preparation_window = bool(
                         prefs.auto_launch_bake_window)
                 except (KeyError, AttributeError):
@@ -6316,10 +6370,15 @@ def request_cancel() -> None:
         shared_controller.request_cancel()
 
 
-def shutdown(join_timeout: float = 30.0) -> None:
-    """Unregister/exit path: cancel, join the worker, drop the timer. The
-    session's own cleanup stops the exact owned solver process and never an
-    external server."""
+def shutdown(join_timeout: float = 30.0) -> bool:
+    """Cancel and detach Blender callbacks without forgetting a live worker.
+
+    The worker is normally joined completely.  If an external process or I/O
+    call ignores cancellation past the bounded timeout, keep the worker/plan
+    references so another Bake cannot start on top of it.  The thread is a
+    daemon only as a final Blender-exit safeguard; owned solver cleanup still
+    happens inside the session worker.
+    """
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
@@ -6332,9 +6391,16 @@ def shutdown(join_timeout: float = 30.0) -> None:
     _cancel_event.set()
     worker = _worker
     if worker is not None and worker.is_alive():
-        worker.join(timeout=join_timeout)
-    _worker, _active_plan = None, None
-    shared_telemetry.set_solver_pid(None)
+        worker.join(timeout=max(0.0, float(join_timeout)))
+    stopped = worker is None or not worker.is_alive()
+    if stopped:
+        _worker, _active_plan = None, None
+        shared_telemetry.set_solver_pid(None)
+    else:
+        log_with_context(
+            get_logger("solver.worker"), 40,
+            "Bake worker did not stop during add-on shutdown",
+            {"join_timeout": float(join_timeout)})
     if _unsubscribe is not None:
         _unsubscribe()
         _unsubscribe = None
@@ -6351,6 +6417,7 @@ def shutdown(join_timeout: float = 30.0) -> None:
             _queue.get_nowait()
         except queue.Empty:
             break
+    return stopped
 
 
 # ---------------------------------------------------------------------------
@@ -6394,7 +6461,7 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
     bake_range = snapshot.bake_range
     settings = SimulationSettings(
         frame_count=bake_range.output_count,
-        fps=int(scene.render.fps),
+        fps=_scene_fps(context),
         gravity_blender=snapshot.gravity_blender,
         quality=snapshot.quality,
         wind_blender=snapshot.wind_blender)
@@ -6710,7 +6777,7 @@ class CLOTHNEXT_OT_open_preferences(bpy.types.Operator):
             bpy.context.preferences.active_section = "ADDONS"
             addon_show = getattr(bpy.ops.preferences, "addon_show", None)
             if addon_show is not None:
-                addon_show(module=__package__.partition(".blender")[0])
+                addon_show(module=package_addon_id(__package__))
         except (AttributeError, RuntimeError):
             self.report({"WARNING"}, "Open Edit > Preferences > Add-ons > Cloth NeXt.")
         return {"FINISHED"}

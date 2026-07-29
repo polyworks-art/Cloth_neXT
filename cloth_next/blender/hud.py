@@ -9,6 +9,7 @@ from ..bake.controller import shared_controller
 from ..bake.status import BakeState
 from ..telemetry import shared_telemetry
 from ..telemetry.hud_layout import ResourceHistory, build_resource_card
+from .addon_identity import addon_preferences
 
 _handle = None
 _draw_failed = False
@@ -43,8 +44,7 @@ def _redraw_pulse():
 
 def _preferences():
     try:
-        return bpy.context.preferences.addons[
-            __package__.partition(".blender")[0]].preferences
+        return addon_preferences(bpy.context, __package__)
     except (KeyError, AttributeError):
         return None
 

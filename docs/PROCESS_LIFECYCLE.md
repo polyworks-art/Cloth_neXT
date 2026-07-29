@@ -55,6 +55,19 @@ The audited server has no separate verified administrative server-shutdown reque
 the pre-simulation health state. The owned child therefore uses `Popen.terminate()`,
 waits, then uses `kill()` only after timeout. It never uses `taskkill` or a shell.
 Reader threads are non-daemon, close streams, and must join before cleanup returns.
+On Windows, every owned control server is assigned immediately to a private Job
+Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The job owns the server and
+every solver process it launches. Shutdown first terminates and waits for the
+server, then closes the job to terminate any surviving descendant before
+joining pipe readers. External servers are never assigned to or controlled by
+this job.
+
+If IPC fails after the control server exits, the session records the server
+PID, signed/hexadecimal exit code, endpoint, owned job PIDs, bounded log tails,
+and the last locally published `vert_<N>.bin`. A later cleanup failure is added
+as secondary exception context and logged; it never replaces the primary
+connection/control-server failure. Cache-specific wording is reserved for
+writer setup or finalization failures.
 
 ## Readiness, races, and failure
 

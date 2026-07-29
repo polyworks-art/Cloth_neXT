@@ -346,3 +346,40 @@ def test_cache_deletion_failure_after_ready_prevents_worker_and_releases_lock(
     # the timer on any path that does not return RUNNING_MODAL.
     assert "modal" not in calls and "timer" not in calls
     module.shared_controller.reset()
+
+
+def test_shutdown_preserves_companion_that_resists_kill(blender_env, monkeypatch):
+    manager = __import__("cloth_next.blender.companion_manager", fromlist=["x"])
+    calls = []
+
+    class Process:
+        def wait(self, timeout):
+            calls.append(("wait", timeout))
+            raise manager.subprocess.TimeoutExpired("companion", timeout)
+
+        def terminate(self):
+            calls.append(("terminate", None))
+
+        def kill(self):
+            calls.append(("kill", None))
+
+    class Server:
+        def shutdown_companion(self):
+            calls.append(("shutdown", None))
+
+        def close(self):
+            calls.append(("close", None))
+
+    process = Process()
+    manager._process = process
+    manager._server = Server()
+    manager._unsubscribe = None
+
+    assert manager.shutdown() is False
+    assert manager._process is process
+    assert manager._server is None
+    assert ("terminate", None) in calls
+    assert ("kill", None) in calls
+    assert ("close", None) in calls
+
+    manager._process = None

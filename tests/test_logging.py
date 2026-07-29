@@ -2,9 +2,32 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import logging
+
+import pytest
 from logging.handlers import RotatingFileHandler
 
 from cloth_next.core.logging import get_logger, initialize_logging, safe_context
+
+
+@pytest.fixture(autouse=True)
+def _restore_logging_state():
+    """Keep logging tests from mutating the process-wide add-on logger."""
+    logger = get_logger()
+    handlers = tuple(logger.handlers)
+    level = logger.level
+    propagate = logger.propagate
+    disabled = logger.disabled
+    try:
+        yield
+    finally:
+        for handler in tuple(logger.handlers):
+            if handler not in handlers:
+                logger.removeHandler(handler)
+                handler.close()
+        logger.handlers[:] = handlers
+        logger.setLevel(level)
+        logger.propagate = propagate
+        logger.disabled = disabled
 
 
 def test_import_does_not_configure_handlers():

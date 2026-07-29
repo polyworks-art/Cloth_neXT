@@ -22,15 +22,35 @@ class TelemetryService:
         with self._lock: return self._snapshot
     def start(self):
         with self._lock:
-            if self._thread and self._thread.is_alive(): return False
-            self._stop.clear(); self._thread=threading.Thread(target=self._run,name="clothnext-telemetry",daemon=False); self._thread.start(); return True
+            thread = self._thread
+            if thread is not None and thread.is_alive():
+                return False
+            self._stop.clear()
+            thread = threading.Thread(
+                target=self._run, name="clothnext-telemetry", daemon=True)
+            self._thread = thread
+            try:
+                thread.start()
+            except Exception:
+                self._thread = None
+                raise
+            return True
     def stop(self, timeout=3.0):
-        self._stop.set(); thread=self._thread
-        if thread: thread.join(timeout)
+        self._stop.set()
         with self._lock:
-            self._thread=None; self._pid=None
+            thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(max(0.0, float(timeout)))
+        stopped = thread is None or not thread.is_alive()
+        with self._lock:
+            # Never forget a still-running worker: doing so would allow a
+            # second sampler to start during add-on reload/unregister.
+            if stopped and self._thread is thread:
+                self._thread = None
+            self._pid=None
             self._snapshot=replace(self._snapshot, solver_process_id=None,
                                    solver_process_memory_bytes=None)
+        return stopped
     def _sample(self):
         now=time.time(); errors=[]
         try: gpus=self._gpu()

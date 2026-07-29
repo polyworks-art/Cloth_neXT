@@ -553,7 +553,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         ),
         description="How animated Collider geometry is captured")
     collider_samples_per_frame: bpy.props.IntProperty(
-        name="Motion Samples / Frame", default=8, min=2, max=32,
+        name="Motion Samples / Frame", default=8, min=1, max=32,
         update=_on_settings_update,
         description="Animated Collider samples per Blender frame. Increase "
                     "this for fast or strongly curved motion to prevent the "

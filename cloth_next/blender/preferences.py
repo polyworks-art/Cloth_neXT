@@ -26,6 +26,7 @@ from ..ppf.layout import BundledSolverLayout
 from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
 from . import addon_update_operators
+from .addon_identity import addon_preferences, package_addon_id
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
 from ..updater.modes import InstallationMode
@@ -37,7 +38,7 @@ from ..updater.solver_registry import (
     SolverInstallation, SolverRegistry, external_installation_id, load_registry,
     migrate_legacy_current, write_registry)
 
-_ADDON_ID = __package__.partition(".blender")[0]
+_ADDON_ID = package_addon_id(__package__)
 _PLATFORM = "windows-x86_64"
 
 
@@ -188,9 +189,8 @@ class CLOTHNEXT_OT_solver_use(bpy.types.Operator):
         except (OSError, ValueError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
-        context.preferences.addons[
-            _ADDON_ID].preferences.selected_solver_installation_id = (
-                self.installation_id)
+        addon_preferences(
+            context, __package__).selected_solver_installation_id = self.installation_id
         self.report({"INFO"}, "Active solver installation changed.")
         return {"FINISHED"}
 
@@ -265,8 +265,7 @@ def _ui_refresh_pulse() -> float | None:
         selected = registry.selected_installation_id
         if selected:
             try:
-                preferences = bpy.context.preferences.addons[
-                    _ADDON_ID].preferences
+                preferences = addon_preferences(bpy.context, __package__)
                 preferences.selected_solver_installation_id = selected
             except (KeyError, AttributeError):
                 pass
@@ -295,21 +294,19 @@ def _run_in_worker(target, *, status: str | None = None) -> None:
         bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
 
 
-def shutdown(join_timeout: float = 10.0) -> None:
-    """Cancel running downloads and join the worker; called on unregister.
-
-    Leaves no running worker thread, no open download handle, no UI refresh
-    timer, and no partially started installer behind. Safe to call multiple
-    times.
-    """
+def shutdown(join_timeout: float = 10.0) -> bool:
+    """Cancel installer work without forgetting a worker still winding down."""
     installer = _session.installer
     if installer is not None:
         installer.cancel()
     worker = _session.worker
     if worker is not None and worker.is_alive():
-        worker.join(timeout=join_timeout)
+        worker.join(timeout=max(0.0, float(join_timeout)))
+    stopped = worker is None or not worker.is_alive()
     if bpy.app.timers.is_registered(_ui_refresh_pulse):
         bpy.app.timers.unregister(_ui_refresh_pulse)
+    if not stopped:
+        return False
     _session.worker = None
     _session.installer = None
     _session.entry = None
@@ -319,6 +316,7 @@ def shutdown(join_timeout: float = 10.0) -> None:
     _session.worker_error = None
     _session.disabled_reason = None
     _session.loaded = False
+    return True
 
 
 class _SolverInstallDialog:

@@ -81,6 +81,13 @@ def test_typed_category_and_stage_fallbacks_remain_compatible():
     assert classify_error("SIMULATING", "unknown solve failure") == "CNX-E160"
 
 
+def test_control_server_exit_has_distinct_connection_code():
+    assert classify_error(
+        "SIMULATING",
+        details=("PPF control server exited unexpectedly; "
+                 "owned_process_ids=(123, 456)")) == "CNX-E146"
+
+
 def test_controller_accepts_only_registered_explicit_codes():
     controller = BakeController()
     controller.transition(BakeState.PREPARING)

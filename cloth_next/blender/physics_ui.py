@@ -39,6 +39,7 @@ from ..solver_quality import (
 )
 from . import (beta_tools, collider_proxy, icon_registry, object_properties,
                physics_operators, validation_state)
+from .addon_identity import addon_preferences
 from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
@@ -533,9 +534,8 @@ def _solver_status(context) -> _SolverStatus:
         ) if value)
         protocol = resolved.protocol_version or "unknown"
         return _SolverStatus(True, f"Ready · Protocol {protocol}", details)
-    addon_id = __package__.partition(".blender")[0]
     try:
-        prefs = context.preferences.addons[addon_id].preferences
+        prefs = addon_preferences(context, __package__)
         raw = str(prefs.external_solver_path or "").strip()
     except (KeyError, AttributeError):
         prefs = None
@@ -1606,10 +1606,9 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
 def _developer_tools_enabled(context) -> bool:
     if not _developer_tools_build_enabled():
         return False
-    addon_id = __package__.partition(".blender")[0]
     try:
-        return bool(context.preferences.addons[addon_id]
-                    .preferences.developer_tools)
+        return bool(addon_preferences(
+            context, __package__).developer_tools)
     except (KeyError, AttributeError):
         return False
 

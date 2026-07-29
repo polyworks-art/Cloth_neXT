@@ -38,7 +38,7 @@ def test_particle_assets_are_deterministic_translucent_icons():
         with Image.open(target/name) as image:
             rgba=image.convert("RGBA")
             assert image.mode=="RGBA" and image.size==size
-            visible=[pixel for pixel in rgba.getdata() if pixel[3]]
+            visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
             assert visible and max(pixel[3] for pixel in visible) <= 184
 
 
@@ -46,7 +46,7 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
     source = ROOT / "cloth_next" / "assets" / "icons"
     for path in source.glob("*.png"):
         with Image.open(path) as image:
-            visible = [pixel for pixel in image.convert("RGBA").getdata()
+            visible = [pixel for pixel in image.convert("RGBA").get_flattened_data()
                        if pixel[3]]
             assert visible, path
         assert all(pixel[:3] == (255, 255, 255) for pixel in visible), path

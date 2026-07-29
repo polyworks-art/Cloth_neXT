@@ -229,3 +229,47 @@ def test_ppf_follow_animation_emits_per_vertex_tracks_and_soft_pull():
         assert track["time"][0] == 0
         assert track["time"][-1] == .4
         assert len(track["position"]) == 11
+
+
+def test_protocol_013_pin_times_follow_time_scaled_solver_rate():
+    samples = tuple(
+        AnimatedPinTargetSample(
+            frame, ((float(frame), 0.0, 0.0), (0.0, float(frame), 0.0)))
+        for frame in (20.0, 21.0))
+    snapshot = StaticPinSnapshot(
+        True, "Pins", "id", 4, (0, 2),
+        mode=PinMode.FOLLOW_ANIMATION, samples=samples,
+        bake_start=20, bake_end=21, fps=25, time_scale=0.5)
+
+    legacy = static_pin_config(snapshot, schema_version=1)
+    current = static_pin_config(snapshot, schema_version=2)
+
+    assert legacy.times == pytest.approx((0.0, 0.04))
+    assert current.times == pytest.approx((0.0, 0.08))
+    assert legacy.positions == current.positions
+
+
+def test_pin_time_scale_is_validated_and_fingerprinted():
+    with pytest.raises(StaticPinError, match="Time Scale"):
+        StaticPinSnapshot(
+            True, "Pins", "id", 4, (0,), time_scale=0.0)
+    assert animated().fingerprint != StaticPinSnapshot(
+        True, "Pins", "id", 4, (0, 2), mode=PinMode.FOLLOW_ANIMATION,
+        samples=animated().samples, bake_start=20, bake_end=30, fps=25,
+        time_scale=0.5).fingerprint
+
+
+def test_fractional_blender_fps_is_preserved_in_pin_schedule():
+    samples = tuple(
+        AnimatedPinTargetSample(
+            frame, ((float(frame), 0.0, 0.0),))
+        for frame in (1.0, 2.0))
+    snapshot = StaticPinSnapshot(
+        True, "Pins", "id", 1, (0,),
+        mode=PinMode.FOLLOW_ANIMATION, samples=samples,
+        bake_start=1, bake_end=2, fps=30.0 / 1.001)
+
+    config = static_pin_config(snapshot, schema_version=2)
+
+    assert snapshot.fps == pytest.approx(29.97002997002997)
+    assert config.times == pytest.approx((0.0, 1.001 / 30.0))

@@ -33,6 +33,14 @@ def test_wrong_token_never_becomes_request():
     client.request_cancel(); time.sleep(.1)
     assert server.poll_request() is None
     client.close(); server.close()
+    assert not server._thread.is_alive()
+
+def test_server_close_is_idempotent_and_joins_active_client_thread():
+    server=LocalSocketServer(); client=LocalSocketClient(server.port,server.token)
+    assert client.receive(1)["type"]=="session_hello"
+    server.close(); server.close()
+    assert not server._thread.is_alive()
+    client.close()
 
 def test_non_localhost_server_rejected():
     with pytest.raises(ValueError): LocalSocketServer("0.0.0.0")

@@ -50,14 +50,15 @@ try:
     air.keyframe_insert(data_path="cloth_next.force.air_density", frame=1)
     air.cloth_next.force.air_density = 0.5
     air.keyframe_insert(data_path="cloth_next.force.air_density", frame=3)
-    for cloth in (cloth_a, cloth_b):
+    for cloth, pin_mode in (
+            (cloth_a, "STATIC"), (cloth_b, "FOLLOW_ANIMATION")):
         cloth.cloth_next.bake_start = 1
         cloth.cloth_next.bake_end = 3
         group = cloth.vertex_groups.new(name="Pins")
         group.add([0], 1.0, "REPLACE")
         cloth.cloth_next.pinning_enabled = True
         cloth.cloth_next.pin_group = group.name
-        cloth.cloth_next.pin_mode = "FOLLOW_ANIMATION"
+        cloth.cloth_next.pin_mode = pin_mode
         cloth.keyframe_insert("location", frame=1)
         cloth.location.z += 0.15
         cloth.keyframe_insert("location", frame=3)
@@ -69,13 +70,16 @@ try:
     assert snapshot.wind_blender == (0.0, 0.0, 1.0)
     assert {entry.obj.name for entry in snapshot.deformables} == {
         "MultiClothA", "MultiClothB"}
-    samples = {entry.obj.name: solver_test._capture_animated_pin(
-        bpy.context, entry.obj, snapshot.bake_range,
-        entry.pin_membership).samples for entry in snapshot.deformables}
+    samples = {
+        entry.obj.name: solver_test._capture_animated_pin(
+            bpy.context, entry.obj, snapshot.bake_range,
+            entry.pin_membership).samples
+        for entry in snapshot.deformables
+        if entry.obj.cloth_next.pin_mode == "FOLLOW_ANIMATION"}
 
     resolved = SimpleNamespace(
         mode=SimpleNamespace(name="SMOKE"), package_version="test",
-        protocol_version="0.11", schema_version="1",
+        protocol_version="0.13", schema_version="2",
         source_metadata={}, executable_path=Path("smoke-solver"))
     original_resolve = solver_test.resolve_solver
     solver_test.resolve_solver = lambda _context: resolved
@@ -90,10 +94,25 @@ try:
     assert len({target.pc2_path for target in plan.deformables}) == 2
     from cloth_next.ppf.schema import envelope
     params = envelope.loads_envelope(plan.scene.param_payload,
-                                     envelope.KIND_PARAM)
+                                     envelope.KIND_PARAM,
+                                     schema_version=2)
     assert set(params["pin_config"]) == {
         target.uuid for target in plan.deformables}
     assert all(len(config) == 1 for config in params["pin_config"].values())
+    configs_by_uuid = params["pin_config"]
+    target_by_name = {
+        target.object_name: target for target in plan.deformables}
+    static_config = configs_by_uuid[
+        target_by_name["MultiClothA"].uuid][0]
+    follow_config = configs_by_uuid[
+        target_by_name["MultiClothB"].uuid][0]
+    assert "pin_anim" not in static_config
+    follow_track = follow_config["pin_anim"][0]
+    assert len(follow_track["time"]) == 17
+    assert follow_track["time"][0] == 0.0
+    assert abs(follow_track["time"][1] - 1.0 / 192.0) < 1e-12
+    assert abs(follow_track["time"][8] - 1.0 / 24.0) < 1e-12
+    assert abs(follow_track["time"][-1] - 2.0 / 24.0) < 1e-12
     assert abs(params["scene"]["air-density"] - 0.1) < 1e-6
     assert set(params["dyn_param"]) == {"wind", "air-density"}
     assert params["dyn_param"]["wind"][-1][1] == [0.0, 3.0, -0.0]
