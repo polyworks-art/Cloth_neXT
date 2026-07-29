@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Real-Blender regression for deforming Collider Scene cache identity."""
+"""Real-Blender regression for deforming Collider Scene cache identity.
+
+The same topology is captured twice with a changed deformation curve. Both the
+sampled frame and the persistent motion digest must change, proving that a
+Frame-1 Scene payload cannot be reused for a different Collider animation.
+"""
 from __future__ import annotations
 
 import json
