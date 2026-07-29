@@ -143,6 +143,12 @@ def _on_settings_update(self, _context) -> None:
     _mark_dirty(self)
 
 
+def _on_collider_proxy_type_update(self, _context) -> None:
+    """Changing strategy invalidates the generated proxy from the other mode."""
+    self.collider_proxy_enabled = False
+    _mark_dirty(self)
+
+
 def apply_preset(settings, identifier: str) -> bool:
     """Deterministically copy one bundled preset onto the property groups.
 
@@ -558,7 +564,8 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         description="Replace this logical Collider with its generated "
                     "simulation Proxy during Bake")
     collider_proxy_type: bpy.props.EnumProperty(
-        name="Proxy Type", default="SIMPLE", update=_on_settings_update,
+        name="Proxy Type", default="SIMPLE",
+        update=_on_collider_proxy_type_update,
         items=(("SIMPLE", "Simple Proxy",
                 "Use the existing reduced deforming Mesh proxy"),
                ("CHARACTER_CAGE", "Character Collision Cage",

@@ -100,6 +100,14 @@ jobs:
           "$BLENDER" --background \
             --python-exit-code 1 --python tools/blender_collider_proxy_smoke.py
 
+      - name: Animated Collider cache identity smoke test
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          "$BLENDER" --factory-startup --background \
+            --python-exit-code 1 \
+            --python tools/blender_animated_collider_cache_smoke.py
+
       # Exercises the update operator against Blender's real extension
       # machinery, including a sync of the live Beta channel repository.
       - name: Add-on update path smoke test

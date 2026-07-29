@@ -28,6 +28,22 @@ def _phase4_meta():
     }
 
 
+def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
+    module = blender_env.solver_test
+    offsets = (0.0, 1.0)
+    base = np.zeros((2, 3, 3), dtype=np.float32)
+    baseline = module._collider_motion_digest(offsets, base, dtype="<f4")
+    assert baseline == module._collider_motion_digest(offsets, base.copy(), dtype="<f4")
+
+    for axis in range(3):
+        moved = base.copy()
+        moved[1, :, axis] = float(axis + 1)
+        assert module._collider_motion_digest(offsets, moved, dtype="<f4") != baseline
+
+    assert module._collider_motion_digest((0.0, 2.0), base, dtype="<f4") != baseline
+    assert module.SCENE_EXPORT_CACHE_SCHEMA == 3
+
+
 def test_shell_uv_export_preserves_authored_uvs_and_generates_fallback(
         blender_env):
     module = blender_env.solver_test
