@@ -105,6 +105,11 @@ def main() -> None:
     channel = updates.DEFAULT_CHANNEL
     channel_url = channel.index_url
     session = updates.session()
+    if channel is updates.UpdateChannel.DEV:
+        # This build intentionally encodes the Dev channel. Exercise the real
+        # acknowledgement property instead of bypassing the production gate.
+        preferences = updates.addon_preferences(bpy.context, updates.__package__)
+        preferences.dev_channel_acknowledged = True
 
     # The unsafe self-install helper must stay deleted.
     assert not hasattr(updates, "_blender_package_install"), \
