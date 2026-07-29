@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - agent/full-addon-simulation-pipeline-audit
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   snapshot:
+    if: github.head_ref == 'agent/full-addon-simulation-pipeline-audit' || github.ref_name == 'agent/full-addon-simulation-pipeline-audit'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
