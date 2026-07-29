@@ -68,6 +68,8 @@ def test_preflight_cannot_publish_and_release_reuses_candidate():
 def test_stable_and_beta_publish_only_through_pages():
     release=workflow("release.yml")
     assert "gh release" not in release
+    assert "--draft" not in release
+    assert "--prerelease" not in release
     assert "site/artifacts/$VERSION" in release
     assert "release-manifest.json" in release
     assert "SHA256SUMS.txt" in release
