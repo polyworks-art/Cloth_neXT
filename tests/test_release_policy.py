@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import json
+import shutil
 import zipfile
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 from tools.release_metadata import write_metadata
 from tools.scan_release_artifact import scan_names, scan_zip
 from tools.validate_release_policy import (check_channel, check_channel_separation,
+                                           check_pages_artifact_store,
                                            check_release_manifest, check_sha256sums,
                                            check_tag_matches_manifest, check_zip,
                                            expected_zip_name, parse_version,
@@ -51,6 +53,24 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
         for member in extra:
             bundle.writestr(member, b"data")
     return path
+
+
+def stage_pages_artifact(tmp_path, version="0.2.0", tag="v0.2.0"):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    make_repo(repo_root, version)
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+    tested_zip = make_zip(build_dir, version)
+    site = tmp_path / "site"
+    artifact_dir = site / "artifacts" / version
+    artifact_dir.mkdir(parents=True)
+    archive = artifact_dir / tested_zip.name
+    shutil.copyfile(tested_zip, archive)
+    write_metadata(repo_root, archive, artifact_dir, tag=tag, commit="abc123")
+    (artifact_dir / "RELEASE_NOTES.md").write_text(
+        f"# Cloth NeXt {version}\n", encoding="utf-8")
+    return site, tested_zip, archive
 
 
 @pytest.mark.parametrize("text", ["0.2.0", "0.2.1", "1.0.0", "0.3.0-beta.1",
@@ -162,6 +182,22 @@ def test_release_manifest_hash_mismatch_rejected(tmp_path):
         check_release_manifest(manifest_path, zip_path, parse_version("0.2.0"), "v0.2.0")
     with pytest.raises(ValueError, match="hash mismatch"):
         check_sha256sums(sums_path, zip_path)
+
+
+def test_pages_artifact_store_accepts_complete_byte_identical_release(tmp_path):
+    site, tested_zip, _archive = stage_pages_artifact(tmp_path)
+    check_pages_artifact_store(site, tested_zip, parse_version("0.2.0"), "v0.2.0")
+
+
+def test_pages_artifact_store_rejects_missing_or_modified_release(tmp_path):
+    site, tested_zip, archive = stage_pages_artifact(tmp_path)
+    (site / "artifacts" / "0.2.0" / "RELEASE_NOTES.md").unlink()
+    with pytest.raises(ValueError, match="RELEASE_NOTES"):
+        check_pages_artifact_store(site, tested_zip, parse_version("0.2.0"), "v0.2.0")
+    (site / "artifacts" / "0.2.0" / "RELEASE_NOTES.md").write_text("notes")
+    archive.write_bytes(b"different")
+    with pytest.raises(ValueError, match="byte-identical"):
+        check_pages_artifact_store(site, tested_zip, parse_version("0.2.0"), "v0.2.0")
 
 
 def write_index(directory, version):

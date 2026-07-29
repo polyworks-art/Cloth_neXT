@@ -33,35 +33,41 @@ jobs:
           Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
           $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
           "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
-      - name: Download and verify immutable release assets
+      - name: Load and verify immutable Pages artifact
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
           REPAIR_VERSION: ${{ inputs.version }}
         run: |
-          $download=Join-Path $env:RUNNER_TEMP 'verified-release'
-          New-Item -ItemType Directory -Force $download | Out-Null
+          git fetch origin gh-pages
+          $pages=Join-Path $env:RUNNER_TEMP 'pages'
+          git worktree add $pages origin/gh-pages
+          $verified=Join-Path $pages ("artifacts\" + $env:REPAIR_VERSION)
           $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
-          gh release download "$env:REPAIR_VERSION" --pattern $name --pattern release-manifest.json --pattern SHA256SUMS.txt --dir $download
-          $archive=Join-Path $download $name
-          $manifest=Join-Path $download 'release-manifest.json'
-          $sums=Join-Path $download 'SHA256SUMS.txt'
-          python -c "import os; from pathlib import Path; from tools.validate_release_policy import check_release_manifest, check_sha256sums, check_zip, parse_version; root=Path(os.environ['RUNNER_TEMP'])/'verified-release'; version=parse_version(os.environ['REPAIR_VERSION']); archive=root/f'cloth_next-{version.text}-windows-x64.zip'; check_zip(archive, version); check_release_manifest(root/'release-manifest.json', archive, version, version.text); check_sha256sums(root/'SHA256SUMS.txt', archive)"
+          $archive=Join-Path $verified $name
+          $manifest=Join-Path $verified 'release-manifest.json'
+          $sums=Join-Path $verified 'SHA256SUMS.txt'
+          $notes=Join-Path $verified 'RELEASE_NOTES.md'
+          foreach ($path in @($archive,$manifest,$sums,$notes)) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "canonical Pages artifact is incomplete: $path" }
+          }
           $metadata=Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+          $tag=[string]$metadata.git_tag
+          python -c "import json, os; from pathlib import Path; from tools.validate_release_policy import check_release_manifest, check_sha256sums, check_zip, parse_version; root=Path(os.environ['RUNNER_TEMP'])/'pages'/'artifacts'/os.environ['REPAIR_VERSION']; version=parse_version(os.environ['REPAIR_VERSION']); archive=root/f'cloth_next-{version.text}-windows-x64.zip'; metadata=json.loads((root/'release-manifest.json').read_text(encoding='utf-8')); check_zip(archive, version); check_release_manifest(root/'release-manifest.json', archive, version, str(metadata['git_tag'])); check_sha256sums(root/'SHA256SUMS.txt', archive)"
           git fetch origin --tags --force
-          $tagCommit=git rev-list -n 1 "$env:REPAIR_VERSION"
+          $tagCommit=(git rev-list -n 1 $tag)
+          if (-not $tagCommit) { throw 'canonical Pages artifact references a missing immutable tag' }
           if ($metadata.git_commit -cne $tagCommit) { throw 'release manifest commit does not match immutable tag' }
+          "CLOTH_NEXT_VERIFIED_RELEASE=$verified" >> $env:GITHUB_ENV
       - name: Generate and verify the single release candidate
         shell: pwsh
         env:
           REPAIR_VERSION: ${{ inputs.version }}
           REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
-          git fetch origin gh-pages
-          git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
-          $channel=Join-Path "$env:RUNNER_TEMP\pages" $env:REPAIR_CHANNEL
-          $duplicate=Join-Path "$env:RUNNER_TEMP" 'duplicate-release'
-          $repaired=Join-Path "$env:RUNNER_TEMP" 'repaired-release'
+          $pages=Join-Path $env:RUNNER_TEMP 'pages'
+          $channel=Join-Path $pages $env:REPAIR_CHANNEL
+          $duplicate=Join-Path $env:RUNNER_TEMP 'duplicate-release'
+          $repaired=Join-Path $env:RUNNER_TEMP 'repaired-release'
           $existing=Test-Path -LiteralPath $channel
           if ($existing) {
             Copy-Item -LiteralPath $channel -Destination $duplicate -Recurse
@@ -71,9 +77,9 @@ jobs:
           New-Item -ItemType Directory -Force $repaired | Out-Null
           $name="cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
           $archive=Join-Path $channel $name
-          $verified=Join-Path "$env:RUNNER_TEMP\verified-release" $name
+          $verified=Join-Path $env:CLOTH_NEXT_VERIFIED_RELEASE $name
           if (Test-Path -LiteralPath $archive) {
-            if ((Get-FileHash $archive -Algorithm SHA256).Hash -cne (Get-FileHash $verified -Algorithm SHA256).Hash) { throw 'published archive differs from verified release asset' }
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash -cne (Get-FileHash $verified -Algorithm SHA256).Hash) { throw 'published archive differs from canonical Pages artifact' }
           } else {
             Copy-Item -LiteralPath $verified -Destination $archive
           }
@@ -104,5 +110,6 @@ jobs:
         shell: pwsh
         run: |
           "${{ inputs.channel }} index repaired to one candidate: ${{ inputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          "The source archive and metadata came from the immutable gh-pages artifact store." >> $env:GITHUB_STEP_SUMMARY
           "Blender 5.1.2 repository generation passed; existing repositories also passed the duplicate/repaired regression." >> $env:GITHUB_STEP_SUMMARY
-          "Only the selected channel index and missing verified release ZIP may change; older immutable ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY
+          "Only the selected channel index and missing verified archive may change; older immutable ZIPs were retained." >> $env:GITHUB_STEP_SUMMARY

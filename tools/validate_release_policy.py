@@ -27,7 +27,7 @@ from cloth_next.updater.solver_manifest import parse_manifest
 from tools.scan_release_artifact import scan_names
 from cloth_next.bake.companion_bundle import validate_bundle
 from cloth_next.updater.channel_policy import (allowed_release_channels,
-                                                publication_targets)
+                                                 publication_targets)
 from cloth_next.updater.addon_versions import parse_version as parse_addon_version
 
 RELEASE_PLATFORM = "windows-x64"
@@ -177,6 +177,25 @@ def check_sha256sums(path: Path, zip_path: Path) -> None:
     raise ValueError(f"SHA256SUMS.txt has no entry for {zip_path.name}")
 
 
+def check_pages_artifact_store(site_dir: Path, zip_path: Path,
+                               version: ReleaseVersion, tag: str) -> None:
+    """Validate the canonical immutable gh-pages artifact for a release."""
+    artifact_dir = site_dir / "artifacts" / version.text
+    archive = artifact_dir / zip_path.name
+    manifest = artifact_dir / "release-manifest.json"
+    sums = artifact_dir / "SHA256SUMS.txt"
+    notes = artifact_dir / "RELEASE_NOTES.md"
+    for path in (archive, manifest, sums, notes):
+        if not path.is_file():
+            raise ValueError(f"canonical Pages artifact misses {path.relative_to(site_dir)}")
+    if sha256_file(archive) != sha256_file(zip_path):
+        raise ValueError("canonical Pages archive is not byte-identical to the tested ZIP")
+    check_release_manifest(manifest, archive, version, tag)
+    check_sha256sums(sums, archive)
+    if not notes.read_text(encoding="utf-8").strip():
+        raise ValueError("canonical Pages RELEASE_NOTES.md is empty")
+
+
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
     """Enforce cumulative Stable -> Beta -> Dev repository visibility."""
     required = publication_targets(version.channel)
@@ -254,6 +273,7 @@ def main() -> int:
             check_release_manifest(args.release_manifest, args.zip, version, args.tag)
             check_sha256sums(args.sha256sums, args.zip)
             if args.site_dir is not None:
+                check_pages_artifact_store(args.site_dir, args.zip, version, args.tag)
                 check_channel_separation(args.site_dir, version)
     except (OSError, ValueError) as exc:
         print(f"RELEASE POLICY VIOLATION ({args.phase}): {exc}", file=sys.stderr)

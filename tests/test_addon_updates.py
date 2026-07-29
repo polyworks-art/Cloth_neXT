@@ -67,7 +67,6 @@ def test_validate_index_url_rejects_foreign_hosts_and_http():
 
 def test_find_channel_repo_matches_only_its_own_channel():
     repos = [repo("https://polyworks-art.github.io/Cloth_neXT/stable/index.json")]
-    # Beta never treats a Stable-only repository configuration as its source.
     assert find_channel_repo(repos, UpdateChannel.BETA) is None
     assert find_channel_repo(repos, UpdateChannel.STABLE) == 0
 
@@ -102,15 +101,17 @@ def test_beta_channel_accepts_stable_releases():
     versions = parse_index_versions(payload, UpdateChannel.BETA)
     assert tuple(map(str, versions)) == ("1.0.0",)
 
+
 def test_dev_channel_accepts_dev_beta_and_stable_versions():
     for value in ("0.3.21", "0.3.0", "0.2.0-beta.7",
                   "0.2.0-rc.1", "1.0.0"):
         versions = parse_index_versions(index_payload(value), UpdateChannel.DEV)
         assert str(versions[0]) == value
 
+
 def test_beta_rejects_dev_versions():
     with pytest.raises(ValueError):
-        parse_index_versions(index_payload("0.3.21"),UpdateChannel.BETA)
+        parse_index_versions(index_payload("0.3.21"), UpdateChannel.BETA)
 
 
 def test_parse_index_ignores_other_extensions():
@@ -123,7 +124,7 @@ def test_parse_index_rejects_malformed_payloads():
         parse_index_versions({"data": "nope"}, UpdateChannel.BETA)
     with pytest.raises(ValueError):
         parse_index_versions({}, UpdateChannel.BETA)
-    with pytest.raises(ValueError):  # malformed version string inside
+    with pytest.raises(ValueError):
         parse_index_versions(index_payload("latest"), UpdateChannel.BETA)
 
 
@@ -196,11 +197,11 @@ def test_installed_version_comes_from_the_manifest():
 
 # --- release notes -------------------------------------------------------------------
 
-def test_release_notes_url():
-    assert release_notes_url(None) == \
-        "https://github.com/polyworks-art/Cloth_neXT/releases"
-    assert release_notes_url(parse_version("0.2.0-beta.1")) == \
-        "https://github.com/polyworks-art/Cloth_neXT/releases/tag/0.2.0-beta.1"
+def test_release_notes_url_uses_the_project_website_only():
+    expected = "https://polyworks-art.github.io/Cloth_neXT/releases/"
+    assert release_notes_url(None) == expected
+    assert release_notes_url(parse_version("0.2.0-beta.1")) == expected
+    assert "github.com" not in expected
 
 
 # --- section view --------------------------------------------------------------------
@@ -210,7 +211,6 @@ def test_section_view_state_mapping():
                               parse_version("0.2.0-beta.1"), "")
     assert view.show_update_handoff and not view.show_open_extensions
     assert "0.2.0-beta.1" in view.status_text
-    # honest wording: the update completes in Blender, not in Cloth NeXt
     assert "native extension manager" in view.message
     assert "0.2.0-beta.1 is available" in view.message
 
@@ -218,7 +218,6 @@ def test_section_view_state_mapping():
     assert not view.show_update_handoff and view.show_open_extensions
 
     view = build_section_view(AddonUpdateState.READY_IN_BLENDER, None, "m")
-    # opening the update view proves no installation: never claim one
     assert "install" not in view.status_text.lower()
     assert "restart" not in view.status_text.lower()
 
@@ -245,6 +244,6 @@ def test_update_guard_allows_only_documented_safe_states():
 
 def test_update_guard_blocks_every_unsafe_state():
     unsafe = [s for s in ApplicationState if s not in UPDATE_SAFE_STATES]
-    assert unsafe  # the state machine has blocking states
+    assert unsafe
     for state in unsafe:
         assert not can_start_addon_update(state)

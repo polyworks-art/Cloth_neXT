@@ -63,3 +63,16 @@ def test_preflight_cannot_publish_and_release_reuses_candidate():
         assert forbidden not in preflight
     assert "needs: candidate" in release
     assert "check_release_preflight.py" in release
+
+
+def test_stable_and_beta_publish_only_through_pages():
+    release=workflow("release.yml")
+    assert "gh release" not in release
+    assert "--draft" not in release
+    assert "--prerelease" not in release
+    assert "site/artifacts/$VERSION" in release
+    assert "release-manifest.json" in release
+    assert "SHA256SUMS.txt" in release
+    assert "RELEASE_NOTES.md" in release
+    assert "push origin HEAD:gh-pages" in release
+    assert "No GitHub Release was created." in release

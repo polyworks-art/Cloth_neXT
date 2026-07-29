@@ -7,6 +7,7 @@ from tools.prepare_dev_build import prepare
 from tools.build_extension_repository import generate_single_candidate_index
 from tools.run_blender_dev_repository_regression import validate_results
 
+
 def test_prepare_dev_build_updates_only_isolated_version_metadata(tmp_path):
     root=tmp_path; package=root/"cloth_next"; package.mkdir()
     (package/"blender_manifest.toml").write_text('id="cloth_next"\nversion = "0.2.0-beta.6"\n')
@@ -17,6 +18,7 @@ def test_prepare_dev_build_updates_only_isolated_version_metadata(tmp_path):
     metadata=json.loads((package/"dev_build.json").read_text())
     assert metadata["experimental"] is True and metadata["source_commit"]=="a"*40
 
+
 def test_prepare_accepts_next_release_line(tmp_path):
     package=tmp_path/"cloth_next"; package.mkdir()
     (package/"blender_manifest.toml").write_text('version = "0.2.0-beta.6"\n')
@@ -24,10 +26,12 @@ def test_prepare_accepts_next_release_line(tmp_path):
     prepare(tmp_path,"0.3.21","b"*40,"456")
     assert 'version = "0.3.21"' in (package/"blender_manifest.toml").read_text()
 
+
 def test_prepare_rejects_invalid_or_reused_style(tmp_path):
     with pytest.raises(ValueError): prepare(tmp_path,"0.2.0-beta.7","a"*40,"1")
     with pytest.raises(ValueError): prepare(tmp_path,"00.3.21","a"*40,"1")
     with pytest.raises(ValueError): prepare(tmp_path,"0.3.0","a"*40,"1")
+
 
 def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     text=(Path(__file__).parents[1]/".github/workflows/publish-dev.yml").read_text()
@@ -96,7 +100,7 @@ def test_index_repair_runs_real_blender_and_changes_only_index():
         assert source in probe
 
 
-def test_release_repository_repair_uses_verified_asset_and_single_candidate():
+def test_release_repository_repair_uses_pages_artifact_and_single_candidate():
     root = Path(__file__).parents[1]
     workflow = (root / ".github/workflows/repair-release-index.yml").read_text()
     assert "options: [dev, beta, stable]" in workflow
@@ -107,6 +111,9 @@ def test_release_repository_repair_uses_verified_asset_and_single_candidate():
     assert "candidates.Count -ne 1" in workflow
     assert "check_release_manifest" in workflow
     assert "check_sha256sums" in workflow
+    assert "artifacts\\" in workflow
+    assert "canonical Pages artifact" in workflow
+    assert "gh release" not in workflow
     assert "release manifest commit does not match immutable tag" in workflow
     assert "$existing=Test-Path -LiteralPath $channel" in workflow
     assert "New-Item -ItemType Directory -Force $channel" in workflow

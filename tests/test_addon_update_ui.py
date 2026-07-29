@@ -728,10 +728,12 @@ def test_release_notes_operator_opens_documented_urls(blender_env, monkeypatch):
     monkeypatch.setattr(module.webbrowser, "open", opened.append)
     op = module.CLOTHNEXT_OT_addon_open_release_notes()
     op.execute(env.bpy.context)
-    assert opened == ["https://github.com/polyworks-art/Cloth_neXT/releases"]
+    expected = "https://polyworks-art.github.io/Cloth_neXT/releases/"
+    assert opened == [expected]
     module.session().latest = parse_version("9.9.9-rc.3")
     op.execute(env.bpy.context)
-    assert opened[-1].endswith("/releases/tag/9.9.9-rc.3")
+    assert opened[-1] == expected
+    assert all("github.com" not in url for url in opened)
     env.registration.unregister()
 
 
