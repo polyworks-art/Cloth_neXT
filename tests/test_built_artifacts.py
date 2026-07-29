@@ -82,7 +82,7 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
     assert "transform-only STATIC colliders" in cage
     assert "CHARACTER_CAGE" in proxy
     assert "CHARACTER_CAGE" in properties
-    assert "Character Collision Cage" in physics_ui
+    assert "Simulation Proxy" in physics_ui
 
     assert "def _schema2_full_frame_indices" in scene_wire
     assert 'animation.pop("_sample_frame_offset", None)' in scene_wire
