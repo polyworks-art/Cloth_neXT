@@ -1,0 +1,123 @@
+name: run-dev-2.1.24-main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+
+jobs:
+  publish:
+    if: startsWith(github.event.head_commit.message, 'Run Dev 2.1.24 dispatcher')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch and monitor Dev publish
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(gh run list --repo polyworks-art/Cloth_neXT --workflow publish-dev.yml --event workflow_dispatch --limit 20 --json databaseId --jq 'map(.databaseId) | join(" ")')"
+
+          set +e
+          dispatch_output="$(gh workflow run publish-dev.yml \
+            --repo polyworks-art/Cloth_neXT \
+            --ref main \
+            -f ref=e7ffda6b5670e5e177d906e60216fba0e6821106 \
+            -f version=2.1.24 \
+            -f build_note='PR #33 simulation pipeline audit build for interactive testing' \
+            -f confirmation=PUBLISH_DEV 2>&1)"
+          dispatch_rc=$?
+          set -e
+
+          if [[ "$dispatch_rc" -ne 0 ]]; then
+            body="<!-- dev-2.1.24-result -->
+## Dev 2.1.24 publish
+
+Dispatch failed before the publish workflow started.
+
+\`\`\`
+$dispatch_output
+\`\`\`"
+            gh api repos/polyworks-art/Cloth_neXT/issues/33/comments -f body="$body" >/dev/null || true
+            exit "$dispatch_rc"
+          fi
+
+          run_id=""
+          for _ in $(seq 1 60); do
+            candidate="$(gh run list --repo polyworks-art/Cloth_neXT --workflow publish-dev.yml --event workflow_dispatch --limit 10 --json databaseId --jq '.[0].databaseId // empty')"
+            if [[ -n "$candidate" && " $before " != *" $candidate "* ]]; then
+              run_id="$candidate"
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ -z "$run_id" ]]; then
+            body='<!-- dev-2.1.24-result -->
+## Dev 2.1.24 publish
+
+The publish workflow was dispatched, but its run could not be identified.'
+            gh api repos/polyworks-art/Cloth_neXT/issues/33/comments -f body="$body" >/dev/null || true
+            exit 1
+          fi
+
+          set +e
+          gh run watch "$run_id" --repo polyworks-art/Cloth_neXT --exit-status
+          watch_rc=$?
+          set -e
+
+          result="$(gh run view "$run_id" --repo polyworks-art/Cloth_neXT --json databaseId,status,conclusion,url,createdAt,updatedAt)"
+          conclusion="$(jq -r '.conclusion // "unknown"' <<<"$result")"
+          url="$(jq -r '.url' <<<"$result")"
+          failed=""
+          if [[ "$watch_rc" -ne 0 ]]; then
+            failed="$(gh run view "$run_id" --repo polyworks-art/Cloth_neXT --log-failed 2>&1 || true)"
+            failed="$(printf '%s' "$failed" | tail -c 12000)"
+          fi
+
+          body="<!-- dev-2.1.24-result -->
+## Dev 2.1.24 publish
+
+- Run: $run_id
+- Conclusion: $conclusion
+- Source: \`e7ffda6b5670e5e177d906e60216fba0e6821106\`
+- Workflow: $url"
+          if [[ -n "$failed" ]]; then
+            body="$body
+
+### Failed log tail
+
+\`\`\`
+$failed
+\`\`\`"
+          fi
+          gh api repos/polyworks-art/Cloth_neXT/issues/33/comments -f body="$body" >/dev/null || true
+          exit "$watch_rc"
+
+      - name: Remove one-time dispatcher and temporary branches
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          dispatcher_sha="$(gh api 'repos/polyworks-art/Cloth_neXT/contents/.github/workflows/run-dev-2.1.24-main.yml?ref=main' --jq .sha 2>/dev/null || true)"
+          if [[ -n "$dispatcher_sha" ]]; then
+            gh api --method DELETE repos/polyworks-art/Cloth_neXT/contents/.github/workflows/run-dev-2.1.24-main.yml \
+              -f message='Remove Dev 2.1.24 dispatcher' \
+              -f sha="$dispatcher_sha" \
+              -f branch=main >/dev/null 2>&1 || true
+          fi
+          for ref in \
+            ops/main-dispatch-2.1.24 \
+            ops/dev-2.1.24-trigger \
+            ops/dev-2.1.24-dispatch \
+            ops/publish-dev-2.1.24 \
+            ops/diagnose-dev-2.1.24; do
+            gh api --method DELETE "repos/polyworks-art/Cloth_neXT/git/refs/heads/$ref" >/dev/null 2>&1 || true
+          done
