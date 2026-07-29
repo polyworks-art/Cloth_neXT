@@ -1,0 +1,26 @@
+name: Audit source snapshot
+
+on:
+  push:
+    branches:
+      - agent/full-addon-simulation-pipeline-audit
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Remove Git metadata
+        run: rm -rf .git
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloth-next-audit-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
