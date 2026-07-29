@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
+from ..core.logging import get_logger, log_with_context
 from ..core.state import ApplicationState
 from .compatibility import (CompatibilityResult, DEFAULT_PROTOCOL_PROFILE,
                             ProtocolProfile, protocol_profile,
@@ -103,17 +104,32 @@ def start_owned_and_wait(manager: SolverProcessManager,
                          expected_profile: ProtocolProfile | None = None,
                          ) -> HealthSnapshot:
     cfg = manager.config
+    logger = get_logger("ppf.health")
+    startup_started = time.monotonic()
     if port_reachable(cfg.host, cfg.port, cfg.connect_timeout):
         existing = query_health(host=cfg.host, port=cfg.port, project_name=project_name,
             ownership=ConnectionOwnership.EXTERNAL_SERVER,
             transport=TransportConfig(cfg.connect_timeout, cfg.read_timeout))
-        if existing.protocol_version is not None:
-            return existing
-        raise ClothNextError(existing.last_error)  # type: ignore[arg-type]
+        raise ClothNextError(ErrorRecord.create(
+            category=ErrorCategory.SOLVER_CONNECTION,
+            user_message=f"Port {cfg.port} is already in use.",
+            technical_message=(
+                f"owned launch refused before Popen because "
+                f"{cfg.host}:{cfg.port} accepted a connection; "
+                f"service_protocol={existing.protocol_version!r}; "
+                f"service_status={existing.wire_status!r}; "
+                f"service_error={existing.last_error}"),
+            recommended_action=(
+                "Close the process using the port or retry with a new port."),
+            recoverable=True,
+            context={"failure_kind": "PORT_ALREADY_OCCUPIED",
+                     "host": cfg.host, "port": cfg.port}))
     versions = manager.executable_version()
     profile = expected_profile or protocol_profile(versions[1], versions[2])
     manager.start()
-    deadline = time.monotonic() + cfg.startup_timeout
+    deadline = startup_started + cfg.startup_timeout
+    attempts = 0
+    last_health: HealthSnapshot | None = None
     try:
         if profile is None:
             raise ClothNextError(ErrorRecord.create(
@@ -129,11 +145,30 @@ def start_owned_and_wait(manager: SolverProcessManager,
             if not poll.running:
                 raise manager.early_exit_error(poll)
             if poll.progress.ready:
+                attempts += 1
+                elapsed = time.monotonic() - startup_started
                 health = query_health(host=cfg.host, port=cfg.port, project_name=project_name,
                     ownership=ConnectionOwnership.OWNED_PROCESS,
                     transport=TransportConfig(cfg.connect_timeout, cfg.read_timeout),
                     local_versions=versions, expected_profile=profile,
                     process_running=True, process_id=poll.process_id)
+                last_health = health
+                log_with_context(logger, 20, "startup health attempt", {
+                    "launch_id": getattr(poll, "launch_id", ""),
+                    "process_id": poll.process_id,
+                    "attempt": attempts,
+                    "elapsed_seconds": round(elapsed, 6),
+                    "host": cfg.host,
+                    "port": cfg.port,
+                    "reachable": health.reachable,
+                    "compatible": health.compatible,
+                    "protocol": health.protocol_version,
+                    "schema": health.schema_version,
+                    "wire_status": health.wire_status,
+                    "last_error": (
+                        health.last_error.technical_message
+                        if health.last_error is not None else ""),
+                })
                 if health.reachable:
                     if not health.compatible:
                         # An incompatible solver is never reported as started.
@@ -149,15 +184,39 @@ def start_owned_and_wait(manager: SolverProcessManager,
                                                "listed in the compatibility manifest.",
                             recoverable=True,
                         ))
+                    log_with_context(logger, 20, "solver ready", {
+                        "launch_id": getattr(poll, "launch_id", ""),
+                        "process_id": poll.process_id,
+                        "attempts": attempts,
+                        "elapsed_seconds": round(elapsed, 6),
+                        "protocol": health.protocol_version,
+                        "schema": health.schema_version,
+                    })
                     return health
             time.sleep(poll_interval)
         raise ClothNextError(ErrorRecord.create(
             category=ErrorCategory.SOLVER_CONNECTION,
-            user_message="The PPF solver did not become ready in time.",
-            technical_message=f"startup timeout after {cfg.startup_timeout}s; progress={manager.poll().progress.tail}",
+            user_message=(
+                f"The solver started but did not become ready within "
+                f"{cfg.startup_timeout:g} seconds."),
+            technical_message=(
+                f"failure_kind=STARTUP_TIMEOUT_ALIVE; "
+                f"startup timeout after {cfg.startup_timeout}s; "
+                f"connection_attempts={attempts}; "
+                f"last_health={last_health}; "
+                f"poll={manager.poll()}"),
             recommended_action="Inspect solver logs and verify that the configured port is available.",
             recoverable=True,
+            context={"failure_kind": "STARTUP_TIMEOUT_ALIVE",
+                     "connection_attempts": attempts,
+                     "host": cfg.host, "port": cfg.port,
+                     "startup_timeout": cfg.startup_timeout},
         ))
-    except Exception:
-        manager.stop()
+    except Exception as primary:
+        try:
+            manager.stop()
+        except BaseException as cleanup:
+            primary.add_note(
+                "Additional owned-process cleanup failure: "
+                f"{type(cleanup).__name__}: {cleanup}")
         raise

@@ -155,7 +155,11 @@ _RULES = tuple((re.compile(pattern, re.IGNORECASE), code) for pattern, code in (
     (r"no .*deformable|at least one.*(?:cloth|deformable)", "CNX-E101"),
     (r"bake range|frame (?:range|start|end)", "CNX-E102"),
     (r"multi.object(?! playback)|all deformables need the same", "CNX-E106"),
-    (r"pin.*(?:topology|group|target|capture)|animated pin", "CNX-E105"),
+    # Word boundaries deliberately exclude traceback identifiers such as
+    # ``_pin_capture_pump``. Internal function names must not turn a Recovery
+    # or transport failure into an artist-facing Pin error.
+    (r"\bpin(?:ning)?\b.*(?:topology|group|target|capture)|"
+     r"\banimated pin(?:ning)?\b", "CNX-E105"),
     (r"force.*(?:invalid|unsupported|empty)|wind|gravity", "CNX-E108"),
     (r"object .*no longer exists|object disappeared", "CNX-E107"),
     (r"multi.object playback cache|missing cache for|cache set", "CNX-E187"),
@@ -171,7 +175,9 @@ _RULES = tuple((re.compile(pattern, re.IGNORECASE), code) for pattern, code in (
     (r"result.*(?:size|vertex count).*mismatch|expected_count", "CNX-E176"),
     (r"disk space|no space left|disk full", "CNX-E125"),
     (r"worker could not be started|thread.*start", "CNX-E126"),
-    (r"partial (?:bake|cache)|stale.*(?:bake|cache)", "CNX-E127"),
+    (r"partial (?:bake|cache)|stale.*(?:bake|cache)|"
+     r"checkpoint.*(?:predates|stale|incomplete).*(?:cache|prefix)",
+     "CNX-E127"),
     (r"scene.*encod|parameter.*encod|cbor", "CNX-E123"),
     (r"evaluated.*geometry|to_mesh|scene export", "CNX-E122"),
     (r"material|quality|time step|substep", "CNX-E104"),

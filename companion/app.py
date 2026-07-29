@@ -506,7 +506,11 @@ class BakeWindow:
                                points[0]+2,points[1]+2,fill=GRAPH,outline="")
         canvas.create_text(7,6,text="PERFORMANCE",fill=MUTED,
                            font=("Segoe UI Semibold",6),anchor="nw")
-        canvas.create_text(width-7,6,text=str(self._performance.latest),
+        average=self._performance.average_frame_seconds
+        average_text=(
+            f"AVG {average:.2f}s" if average is not None and average < 10.0
+            else (f"AVG {average:.1f}s" if average is not None else ""))
+        canvas.create_text(width-7,6,text=average_text,
                            fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
 
     def _show_performance_details(self,snapshot):

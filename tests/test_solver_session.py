@@ -220,6 +220,28 @@ def test_build_failure_surfaces_server_error(monkeypatch):
         session.run()
 
 
+def test_protocol_013_busy_build_finalization_waits_for_ready(
+        monkeypatch, tmp_path):
+    events = []
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        emit=events.append, poll_interval=0.0, build_timeout=1.0)
+    responses = iter((
+        {"status": "BUILDING", "info": "Build complete."},
+        {"status": "BUSY", "frame": 0},
+        {"status": "READY", "frame": 0},
+    ))
+    monkeypatch.setattr(session, "_status", lambda: next(responses))
+
+    session._await_build()
+
+    assert session.diagnostics.last_successful_stage == "PROJECT_BUILD"
+    assert any(event.message == "Finalizing solver project"
+               for event in events)
+
+
 def test_cancel_during_build_sends_cancel_build_then_delete(monkeypatch):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_build = True
@@ -312,6 +334,94 @@ def test_external_server_is_never_stopped(monkeypatch):
     assert session._manager is None  # no owned process was ever created
     # ownership rule: the resolver marked this EXTERNAL_SERVER
     assert session.resolved.ownership is ConnectionOwnership.EXTERNAL_SERVER
+
+
+def test_unreachable_external_server_reports_endpoint_and_is_not_stopped(
+        monkeypatch, tmp_path):
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 49152))
+    failure = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="connection refused",
+        recommended_action="retry", recoverable=True))
+    monkeypatch.setattr(
+        wire, "send_tcmd",
+        lambda *_a, **_k: (_ for _ in ()).throw(failure))
+
+    with pytest.raises(ClothNextError) as caught:
+        session.run()
+
+    assert caught.value.record.user_message == (
+        "The configured external solver server could not be reached at "
+        "127.0.0.1:49152.")
+    assert "EXTERNAL_SERVER_UNREACHABLE" in (
+        caught.value.record.technical_message)
+    assert session._manager is None
+
+
+def test_owned_transport_loss_while_process_alive_is_not_called_process_exit(
+        tmp_path):
+    from types import SimpleNamespace
+
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    executable.with_name("ppf-contact-solver.exe").write_bytes(b"solver")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.13", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path)
+    session._address = wire.ServerAddress("127.0.0.1", 49152)
+    session.diagnostics.active_operation = "SIMULATING"
+    session.diagnostics.current_logical_frame = 42
+
+    class Manager:
+        def poll(self):
+            return SimpleNamespace(
+                running=True, process_id=123, exit_code=None,
+                stdout_tail=("still alive",), stderr_tail=(),
+                contact_peak=0, contact_last=0, contact_samples=0,
+                owned_process_ids=(123,), progress=SimpleNamespace(tail=()))
+
+    session._manager = Manager()
+    original = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="Could not connect to the solver.",
+        technical_message="status request timed out",
+        recommended_action="retry", recoverable=True))
+
+    classified = session._owned_connection_error(original)
+
+    assert classified.record.user_message == (
+        "The solver connection was lost, but the process is still running.")
+    assert "TRANSPORT_LOST_PROCESS_ALIVE" in (
+        classified.record.technical_message)
+    assert "current_logical_frame=42" in (
+        classified.record.technical_message)
+
+
+def test_abnormal_solver_worker_status_preserves_pid_and_last_frame(
+        tmp_path):
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(frame_count=150),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 49152))
+    error = session._fail_from_status({
+        "status": "FAILED",
+        "error": (
+            "Solver exited abnormally: pid 72436 stopped after frame 103 "
+            "without writing a terminal outcome "
+            "(segfault / OOM-kill / unrecoverable abort)")},
+        "simulating")
+
+    assert error.record.user_message == (
+        "The solver exited while simulating frame 104.")
+    assert "SOLVER_WORKER_ABNORMAL_EXIT" in error.record.technical_message
+    assert "solver_worker_pid=72436" in error.record.technical_message
+    assert session.diagnostics.last_completed_logical_frame == 103
 
 
 def test_project_name_generation():

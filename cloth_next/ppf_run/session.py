@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import json
+import re
 import threading
 import time
 import uuid as uuid_module
@@ -247,6 +248,15 @@ class SessionDiagnostics:
     owned_process_ids: tuple[int, ...] = ()
     last_output_frame: int | None = None
     cleanup_issues: list[str] = field(default_factory=list)
+    solver_launch_id: str = ""
+    active_operation: str = "INITIALIZING"
+    last_successful_stage: str = ""
+    last_successful_command: str = ""
+    command_in_flight: str = ""
+    current_logical_frame: int | None = None
+    last_completed_logical_frame: int | None = None
+    last_fetched_frame: int | None = None
+    termination_requested: bool = False
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -318,6 +328,10 @@ class SolverSession:
             raise SessionCancelled()
 
     def _event(self, phase: str, message: str, **kwargs) -> None:
+        self.diagnostics.active_operation = str(phase)
+        frame = kwargs.get("frame_current")
+        if isinstance(frame, int):
+            self.diagnostics.current_logical_frame = frame
         self._emit(SessionEvent(phase=phase, message=message, **kwargs))
 
     def _metadata_event(self) -> None:
@@ -331,8 +345,11 @@ class SolverSession:
 
     def _status(self) -> dict:
         assert self._address is not None
-        response = wire.send_tcmd(self._address, self.transport,
-                                  self.scene.project_name)
+        self.diagnostics.command_in_flight = "status"
+        response = wire.send_tcmd(
+            self._address, self.transport, self.scene.project_name)
+        self.diagnostics.last_successful_command = "status"
+        self.diagnostics.command_in_flight = ""
         status = str(response.get("status", ""))
         self.diagnostics.note_status(status)
         self._sync_checkpoints(response)
@@ -374,8 +391,11 @@ class SolverSession:
 
     def _request(self, request: str) -> dict:
         assert self._address is not None
+        self.diagnostics.command_in_flight = request
         response = wire.send_tcmd(self._address, self.transport,
                                   self.scene.project_name, request)
+        self.diagnostics.last_successful_command = request
+        self.diagnostics.command_in_flight = ""
         self.diagnostics.note_status(str(response.get("status", "")))
         return response
 
@@ -428,16 +448,52 @@ class SolverSession:
                 context={"worker_path": str(worker)}))
         if self._manager is None:
             return exc
+        self._capture_process_tails()
         poll = self._manager.poll()
         self.diagnostics.stdout_tail = poll.stdout_tail
         self.diagnostics.stderr_tail = poll.stderr_tail
         if not poll.running:
             error = self._manager.early_exit_error(poll)
+            final_poll = getattr(self._manager, "final_poll", None)
+            poll = final_poll() if final_poll is not None else poll
             record = error.record
+            operation = self.diagnostics.active_operation
+            frame = self.diagnostics.current_logical_frame
+            if operation == "STARTING_SOLVER":
+                user_message = (
+                    f"The solver exited during startup with code "
+                    f"{format_windows_exit_code(poll.exit_code)}.")
+                failure_kind = "CRASH_BEFORE_READY"
+            elif operation == "UPLOADING":
+                user_message = "The solver crashed while transferring the scene."
+                failure_kind = "CRASH_DURING_SCENE_TRANSFER"
+            elif operation == "BUILDING":
+                user_message = (
+                    "The solver crashed while building the simulation project.")
+                failure_kind = "CRASH_DURING_PROJECT_BUILD"
+            elif operation == "FETCHING":
+                user_message = "The solver crashed while fetching frame data."
+                failure_kind = "CRASH_DURING_FRAME_FETCH"
+            elif operation == "SIMULATING" and frame is not None:
+                user_message = f"The solver exited while simulating frame {frame}."
+                failure_kind = "CRASH_DURING_SIMULATION"
+            else:
+                user_message = record.user_message
+                failure_kind = "UNEXPECTED_PROCESS_EXIT"
             return ClothNextError(ErrorRecord.create(
                 category=record.category,
-                user_message=record.user_message,
+                user_message=user_message,
                 technical_message=(
+                    f"failure_kind={failure_kind}; "
+                    f"run_id={self.diagnostics.run_id}; "
+                    f"active_operation={operation}; "
+                    f"current_logical_frame={frame}; "
+                    f"last_completed_logical_frame="
+                    f"{self.diagnostics.last_completed_logical_frame}; "
+                    f"last_fetched_frame={self.diagnostics.last_fetched_frame}; "
+                    f"last_successful_command="
+                    f"{self.diagnostics.last_successful_command}; "
+                    f"command_in_flight={self.diagnostics.command_in_flight}; "
                     f"{record.technical_message}; ipc_endpoint="
                     f"{self._address.host}:{self._address.port}; "
                     f"last_output_frame={self.diagnostics.last_output_frame}"),
@@ -448,14 +504,35 @@ class SolverSession:
                     "control_server_exit_code":
                         format_windows_exit_code(poll.exit_code),
                     "owned_process_ids": poll.owned_process_ids,
+                    "failure_kind": failure_kind,
+                    "solver_launch_id": getattr(poll, "launch_id", ""),
+                    "active_operation": operation,
+                    "current_logical_frame": frame,
+                    "last_completed_logical_frame":
+                        self.diagnostics.last_completed_logical_frame,
+                    "last_fetched_frame": self.diagnostics.last_fetched_frame,
                     "last_output_frame": self.diagnostics.last_output_frame,
                     "ipc_host": self._address.host,
                     "ipc_port": self._address.port}))
         record = exc.record
+        operation = self.diagnostics.active_operation
+        frame = self.diagnostics.current_logical_frame
         return ClothNextError(ErrorRecord.create(
             category=record.category,
-            user_message=record.user_message,
-            technical_message=(f"{record.technical_message}; "
+            user_message=(
+                "The solver connection was lost, but the process is still "
+                "running."),
+            technical_message=(
+                f"failure_kind=TRANSPORT_LOST_PROCESS_ALIVE; "
+                f"run_id={self.diagnostics.run_id}; "
+                f"active_operation={operation}; "
+                f"current_logical_frame={frame}; "
+                f"last_completed_logical_frame="
+                f"{self.diagnostics.last_completed_logical_frame}; "
+                f"last_successful_command="
+                f"{self.diagnostics.last_successful_command}; "
+                f"command_in_flight={self.diagnostics.command_in_flight}; "
+                f"{record.technical_message}; "
                 f"owned_process_id={poll.process_id}; "
                 f"stdout_tail={poll.stdout_tail}; "
                 f"stderr_tail={poll.stderr_tail}; "
@@ -463,11 +540,70 @@ class SolverSession:
             recommended_action=record.recommended_action,
             recoverable=record.recoverable,
             context={"process_id": poll.process_id,
-                     "exit_code": poll.exit_code}))
+                     "exit_code": poll.exit_code,
+                     "failure_kind": "TRANSPORT_LOST_PROCESS_ALIVE",
+                     "active_operation": operation,
+                     "current_logical_frame": frame}))
+
+    def _external_connection_error(
+            self, exc: ClothNextError) -> ClothNextError:
+        """Add endpoint/mode evidence without claiming ownership or cleanup."""
+        assert self._address is not None
+        record = exc.record
+        if ("invalid response" in record.user_message.casefold()
+                or "response was too large" in record.user_message.casefold()):
+            message = record.user_message
+            failure_kind = "MALFORMED_HEALTH_RESPONSE"
+        elif self.diagnostics.active_operation == "STARTING_SOLVER":
+            message = (
+                "The configured external solver server could not be reached "
+                f"at {self._address.host}:{self._address.port}.")
+            failure_kind = "EXTERNAL_SERVER_UNREACHABLE"
+        else:
+            message = (
+                "The solver connection was lost. The external process was "
+                "not modified.")
+            failure_kind = "EXTERNAL_TRANSPORT_LOST"
+        return ClothNextError(ErrorRecord.create(
+            category=record.category,
+            user_message=message,
+            technical_message=(
+                f"failure_kind={failure_kind}; "
+                f"run_id={self.diagnostics.run_id}; "
+                f"active_operation={self.diagnostics.active_operation}; "
+                f"last_successful_command="
+                f"{self.diagnostics.last_successful_command}; "
+                f"command_in_flight={self.diagnostics.command_in_flight}; "
+                f"endpoint={self._address.host}:{self._address.port}; "
+                f"original_error={record.technical_message}"),
+            recommended_action=record.recommended_action,
+            recoverable=record.recoverable,
+            context={"failure_kind": failure_kind,
+                     "ownership": "EXTERNAL_SERVER",
+                     "host": self._address.host,
+                     "port": self._address.port},
+            exception=exc))
 
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
         error_text = str(response.get("error", "") or "no server error text")
+        abnormal = re.search(
+            r"Solver exited abnormally: pid\s+(\d+)\s+stopped after frame\s+"
+            r"(\d+)\s+without writing a terminal outcome",
+            error_text, re.IGNORECASE)
+        if abnormal is not None:
+            pid, completed = int(abnormal.group(1)), int(abnormal.group(2))
+            self.diagnostics.last_completed_logical_frame = completed
+            self.diagnostics.current_logical_frame = completed + 1
+            return _session_error(
+                f"The solver exited while simulating frame {completed + 1}.",
+                f"failure_kind=SOLVER_WORKER_ABNORMAL_EXIT; "
+                f"solver_worker_pid={pid}; "
+                f"last_completed_logical_frame={completed}; "
+                f"server_error={error_text}; "
+                f"stdout_tail={self.diagnostics.stdout_tail}; "
+                f"stderr_tail={self.diagnostics.stderr_tail}",
+                category=ErrorCategory.SIMULATION)
         parsed_violations = []
         raw_violations = response.get("violations", ())
         if isinstance(raw_violations, (list, tuple)):
@@ -743,9 +879,11 @@ class SolverSession:
         poll = self._manager.poll()
         self.diagnostics.host, self.diagnostics.port = config.host, config.port
         self.diagnostics.process_id = poll.process_id
+        self.diagnostics.solver_launch_id = poll.launch_id
         self.diagnostics.package_version = health.package_version
         self.diagnostics.protocol_version = health.protocol_version
         self.diagnostics.schema_version = health.schema_version
+        self.diagnostics.last_successful_stage = "READY"
         self._address = wire.ServerAddress(config.host, config.port)
 
     def _upload(self) -> None:
@@ -801,6 +939,7 @@ class SolverSession:
                                  f"(status={response.get('status')!r})")
         self.diagnostics.upload_id = upload_id
         self.diagnostics.bytes_transferred += total_bytes
+        self.diagnostics.last_successful_stage = "SCENE_TRANSFER"
 
     def _await_build(self) -> None:
         deadline = time.monotonic() + self._build_timeout
@@ -809,6 +948,7 @@ class SolverSession:
             response = self._status()
             status = str(response.get("status", ""))
             if status == STATUS_READY:
+                self.diagnostics.last_successful_stage = "PROJECT_BUILD"
                 return
             if status == STATUS_FAILED:
                 raise self._fail_from_status(response, "building")
@@ -826,7 +966,15 @@ class SolverSession:
                 else:
                     self._event("BUILDING", info, indeterminate=True,
                                 activity_code=activity_code)
-            elif status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT):
+            elif status == STATUS_BUSY:
+                # Protocol 0.13 / Schema 2 may publish BUSY briefly after its
+                # worker reports "Build complete" and before the project
+                # settles on READY.  No start request has been sent yet, so
+                # this is a bounded build-finalization state, not simulation.
+                self._event(
+                    "BUILDING", "Finalizing solver project",
+                    indeterminate=True)
+            elif status == STATUS_SAVE_AND_QUIT:
                 raise _session_error(
                     "The solver project is unexpectedly busy.",
                     f"status {status} while waiting for the build")
@@ -988,6 +1136,8 @@ class SolverSession:
                 self._frame_sink(solver_output)
                 fetched.add(frame)
                 self.diagnostics.fetched_frames.append(frame)
+                self.diagnostics.last_fetched_frame = frame
+                self.diagnostics.last_completed_logical_frame = frame
                 deadline = time.monotonic() + self._simulate_timeout
             if len(fetched) >= total:
                 break
@@ -1334,6 +1484,7 @@ class SolverSession:
         manager = self._manager
         if manager is None:
             return
+        self.diagnostics.termination_requested = True
         self._capture_process_tails()
         poll = manager.stop()
         self.diagnostics.stdout_tail = poll.stdout_tail
@@ -1441,6 +1592,10 @@ class SolverSession:
                     pass
             if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
                 primary_error = self._owned_connection_error(exc)
+                raise primary_error from exc
+            if (not owned
+                    and exc.record.category is ErrorCategory.SOLVER_CONNECTION):
+                primary_error = self._external_connection_error(exc)
                 raise primary_error from exc
             primary_error = exc
             raise

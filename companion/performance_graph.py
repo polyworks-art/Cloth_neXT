@@ -41,19 +41,26 @@ class FramePerformanceHistory:
         if getattr(snapshot, "state", None) is not BakeState.SIMULATING:
             return False
         frame = getattr(snapshot, "current_frame", None)
-        elapsed = getattr(snapshot, "elapsed_seconds", None)
-        if frame is None or elapsed is None:
+        # ``elapsed_seconds`` is refreshed by Blender's coarse UI pump and may
+        # still be stale when the real frame-completion transition arrives.
+        # ``updated_at`` is stamped on that exact transition.  Falling back
+        # keeps older Companion transports readable.
+        observed_at = getattr(snapshot, "updated_at", None)
+        if observed_at is None:
+            observed_at = getattr(snapshot, "elapsed_seconds", None)
+        if frame is None or observed_at is None:
             return False
-        frame, elapsed = int(frame), float(elapsed)
-        if not math.isfinite(elapsed):
+        frame, observed_at = int(frame), float(observed_at)
+        if not math.isfinite(observed_at):
             return False
         if self._frame is None or self._elapsed is None:
-            self._frame, self._elapsed = frame, elapsed
+            self._frame, self._elapsed = frame, observed_at
             return False
-        frame_delta, elapsed_delta = frame - self._frame, elapsed - self._elapsed
-        self._frame, self._elapsed = frame, elapsed
+        frame_delta = frame - self._frame
+        elapsed_delta = observed_at - self._elapsed
         if frame_delta <= 0 or elapsed_delta <= 0.0:
             return False
+        self._frame, self._elapsed = frame, observed_at
         current = elapsed_delta / frame_delta
         expected = self._seconds_per_frame or current
         score = max(0.0, min(100.0, 50.0 * expected / current))
@@ -66,4 +73,8 @@ class FramePerformanceHistory:
     @property
     def latest(self) -> int | None:
         return round(self.scores[-1]) if self.scores else None
+
+    @property
+    def average_frame_seconds(self) -> float | None:
+        return self._seconds_per_frame
 
