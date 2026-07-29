@@ -1,11 +1,6 @@
 name: One-time branch cleanup
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/branch-cleanup-once.yml
   pull_request:
     branches:
       - main
@@ -17,7 +12,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 jobs:
   cleanup:
@@ -71,26 +65,16 @@ jobs:
 
           keep = {"main", "gh-pages"}
           targets = sorted(name for name in branches if name not in keep)
-          deleted = []
+          print("Branches found:", json.dumps(sorted(branches)))
+          print("Deleting:", json.dumps(targets))
           for name in targets:
               encoded = urllib.parse.quote(name, safe="")
               request("DELETE", f"/repos/{repository}/git/refs/heads/{encoded}")
-              deleted.append(name)
               print(f"Deleted {name}")
 
-          body = (
-              "Repository branch cleanup completed.\n\n"
-              "Kept: `main`, `gh-pages`\n\n"
-              "Deleted:\n" +
-              ("\n".join(f"- `{name}`" for name in deleted)
-               if deleted else "- No additional branches were present")
-          )
-          request("POST", f"/repos/{repository}/issues/26/comments", {"body": body})
-
-          encoded_path = urllib.parse.quote(workflow_path, safe="")
           _status, workflow = request(
-              "GET", f"/repos/{repository}/contents/{encoded_path}?ref=main")
-          request("DELETE", f"/repos/{repository}/contents/{encoded_path}", {
+              "GET", f"/repos/{repository}/contents/{workflow_path}?ref=main")
+          request("DELETE", f"/repos/{repository}/contents/{workflow_path}", {
               "message": "Remove completed one-time branch cleanup workflow",
               "sha": workflow["sha"],
               "branch": "main",
