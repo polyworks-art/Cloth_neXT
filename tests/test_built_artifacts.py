@@ -94,7 +94,11 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
     assert "Schema 2 animated Collider is missing canonical" in scene_wire
     assert "expected_samples = (" in scene_wire
     assert "settings.fps * settings.time_scale" in pin_wire
-    assert '"_sample_frame_offset": frame_offsets' in solver_export
+    assert "def _collider_animation_metadata" in solver_export
+    assert '"_sample_frame_offset": list(timeline.frame_offsets)' in \
+        solver_export
+    assert '"_logical_frame_count": timeline.logical_frame_count' in \
+        solver_export
     assert "SCENE_EXPORT_CACHE_SCHEMA = 4" in solver_export
     assert '"animation_digest"' in solver_export
     assert "content_digest=motion_hasher.hexdigest()" in solver_export
