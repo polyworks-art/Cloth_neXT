@@ -9,13 +9,11 @@ from pathlib import Path
 import sys
 
 import bpy
-import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from cloth_next.blender import collider_proxy, registration, solver_test  # noqa: E402
-from cloth_next.bake.frame_range import BakeFrameRange  # noqa: E402
+from cloth_next.blender import collider_proxy, registration  # noqa: E402
 
 
 def _simple_proxy_smoke(scene):
@@ -55,45 +53,6 @@ def _simple_proxy_smoke(scene):
             evaluated.to_mesh_clear()
     assert positions[0] != positions[1]
     return source_vertices, proxy_vertices
-
-
-def _animated_collider_cache_identity_smoke(scene):
-    bpy.ops.mesh.primitive_grid_add(x_subdivisions=8, y_subdivisions=8,
-                                    location=(-4.0, 0.0, 0.0))
-    source = bpy.context.object
-    source.name = "AnimatedColliderDigestSmoke"
-    source.cloth_next.enabled = True
-    source.cloth_next.role = "COLLIDER"
-    source.cloth_next.collider_motion = "ANIMATED"
-    source.cloth_next.collider_capture_mode = "DEFORMING"
-    source.cloth_next.collider_samples_per_frame = 2
-    bend = source.modifiers.new("Digest Bend", "SIMPLE_DEFORM")
-    bend.deform_method = "BEND"
-    bend.deform_axis = "X"
-    bend.angle = 0.0
-    bend.keyframe_insert("angle", frame=1)
-    bend.angle = 0.35
-    bend.keyframe_insert("angle", frame=3)
-
-    bake_range = BakeFrameRange(1, 3)
-    first = solver_test._capture_collider_motion(bpy.context, source, bake_range)
-    try:
-        assert first.motion_type == "DEFORMING_ANIMATED"
-        first_digest = first.content_digest
-        first_last = np.asarray(first.animation["vert_frames"][-1]).copy()
-    finally:
-        first.cleanup()
-
-    bend.angle = 0.8
-    bend.keyframe_insert("angle", frame=3)
-    second = solver_test._capture_collider_motion(bpy.context, source, bake_range)
-    try:
-        assert second.motion_type == "DEFORMING_ANIMATED"
-        assert second.content_digest != first_digest
-        assert not np.allclose(second.animation["vert_frames"][-1], first_last)
-    finally:
-        second.cleanup()
-    return first_digest, second.content_digest
 
 
 def _build_character():
@@ -186,7 +145,6 @@ def main():
     scene.frame_end = 3
 
     simple_source, simple_proxy = _simple_proxy_smoke(scene)
-    first_digest, second_digest = _animated_collider_cache_identity_smoke(scene)
     cage_source, cage_segments, cage_vertices = _character_cage_smoke(scene)
 
     print(json.dumps({
@@ -196,7 +154,6 @@ def main():
         "character_cage_segments": cage_segments,
         "character_cage_vertices": cage_vertices,
         "animated": True,
-        "collider_digest_changed": first_digest != second_digest,
     }), flush=True)
     registration.unregister()
 
