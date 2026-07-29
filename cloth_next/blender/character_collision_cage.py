@@ -4,16 +4,17 @@
 """Animation-aware rigid character collision cages.
 
 The visible character mesh is evaluated across the requested bake range once.
-Vertices are grouped by deform bone, transformed back into that bone's local
-space and reduced to deterministic support points. Each bone receives one
-conservative convex hull driven by a Copy Transforms constraint. PPF therefore
-sees ordinary transform-only STATIC colliders instead of a full deforming mesh
-sample at every motion sample.
+Vertices are grouped by deform bone and transformed back into that bone's local
+space. A conservative 26-DOP is fitted from support planes, so every sampled
+character point lies inside its bone hull. Each hull is then driven by a Copy
+Transforms constraint. PPF sees ordinary transform-only STATIC colliders rather
+than a complete deforming character mesh at every motion sample.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations
 
 import bpy
 import numpy as np
@@ -39,14 +40,14 @@ class CharacterCageResult:
 def is_cage_segment(obj) -> bool:
     try:
         return bool(obj.get(CAGE_SEGMENT_MARKER, False))
-    except (AttributeError, TypeError):
+    except (AttributeError, ReferenceError, TypeError):
         return False
 
 
 def is_primary_cage_segment(obj) -> bool:
     try:
         return bool(obj.get(CAGE_PRIMARY_MARKER, False))
-    except (AttributeError, TypeError):
+    except (AttributeError, ReferenceError, TypeError):
         return False
 
 
@@ -154,7 +155,16 @@ def _find_armature(source):
         raise CharacterCageError(
             f"{source.name}: Character Collision Cage requires exactly one "
             "enabled Armature modifier with an assigned Armature object.")
-    return unique[0]
+    armature = unique[0]
+    try:
+        scale = tuple(float(value) for value in armature.matrix_world.to_scale())
+    except AttributeError:
+        scale = (1.0, 1.0, 1.0)
+    if any(abs(value - 1.0) > 1e-4 for value in scale):
+        raise CharacterCageError(
+            f"{source.name}: apply the Armature object's scale before generating "
+            "a Character Collision Cage so Margin remains a world-space value.")
+    return armature
 
 
 def _bone_vertex_indices(source, armature, threshold: float,
@@ -201,6 +211,29 @@ def _support_directions() -> np.ndarray:
     return np.asarray(directions, dtype=np.float64)
 
 
+def _halfspace_vertices(directions: np.ndarray,
+                        support: np.ndarray) -> np.ndarray:
+    """Vertices of ``direction dot x <= support`` for a bounded 26-DOP."""
+    if len(directions) != len(support) or not np.isfinite(support).all():
+        raise CharacterCageError("Character Cage support planes are invalid.")
+    tolerance = max(1e-7, float(np.max(np.abs(support))) * 1e-6)
+    vertices = []
+    for plane_indices in combinations(range(len(directions)), 3):
+        index = np.asarray(plane_indices, dtype=np.int32)
+        matrix = directions[index]
+        determinant = float(np.linalg.det(matrix))
+        if abs(determinant) <= 1e-9:
+            continue
+        candidate = np.linalg.solve(matrix, support[index])
+        if (np.isfinite(candidate).all() and
+                np.all(directions @ candidate <= support + tolerance)):
+            vertices.append(candidate)
+    if len(vertices) < 4:
+        raise CharacterCageError(
+            "Character Cage could not construct a bounded conservative hull.")
+    return np.unique(np.round(np.asarray(vertices), decimals=7), axis=0)
+
+
 def _matrix_array(matrix) -> np.ndarray:
     result = np.asarray([
         [float(matrix[row][column]) for column in range(4)]
@@ -218,12 +251,14 @@ def _transform_points(points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return (homogeneous @ matrix.T)[:, :3]
 
 
-def _capture_support_points(context, source, armature,
-                            assignments: dict[str, np.ndarray],
-                            frames: tuple[int, ...]) -> dict[str, np.ndarray]:
+def _capture_cage_vertices(context, source, armature,
+                           assignments: dict[str, np.ndarray],
+                           frames: tuple[int, ...], margin: float,
+                           joint_overlap: float) -> dict[str, np.ndarray]:
     directions = _support_directions()
-    collected: dict[str, list[np.ndarray]] = {
-        name: [] for name in assignments
+    supports = {
+        name: np.full(len(directions), -np.inf, dtype=np.float64)
+        for name in assignments
     }
     expected_vertices = len(source.data.vertices)
     for frame in frames:
@@ -254,19 +289,21 @@ def _capture_support_points(context, source, armature,
                         f"{source.name}: bone {bone_name!r} has a singular "
                         f"transform at frame {frame}.") from exc
                 points = _transform_points(world[indices], world_to_bone)
-                dots = points @ directions.T
-                support_indices = np.unique(np.argmax(dots, axis=0))
-                collected[bone_name].append(points[support_indices])
+                supports[bone_name] = np.maximum(
+                    supports[bone_name], np.max(points @ directions.T, axis=0))
         finally:
             evaluated.to_mesh_clear()
+
     result = {}
-    for bone_name, chunks in collected.items():
-        if not chunks:
+    thickness = max(0.0, float(margin))
+    overlap = max(0.0, float(joint_overlap))
+    for bone_name, support in supports.items():
+        if not np.isfinite(support).all():
             continue
-        points = np.concatenate(chunks, axis=0)
-        points = np.unique(np.round(points, decimals=7), axis=0)
-        if len(points) >= 4:
-            result[bone_name] = points
+        # Minkowski expansion by a sphere-like margin and a segment along the
+        # bone-local Y axis. Every original support inequality only moves out.
+        expanded = support + thickness + np.abs(directions[:, 1]) * overlap
+        result[bone_name] = _halfspace_vertices(directions, expanded)
     return result
 
 
@@ -280,8 +317,7 @@ def _proxy_collection(scene):
     return collection
 
 
-def _hull_mesh(name: str, points: np.ndarray, bone_length: float,
-               margin: float, joint_overlap: float):
+def _hull_mesh(name: str, points: np.ndarray):
     import bmesh
 
     mesh = bpy.data.meshes.new(name)
@@ -303,21 +339,7 @@ def _hull_mesh(name: str, points: np.ndarray, bone_length: float,
         if len(bm.faces) < 4:
             raise CharacterCageError(
                 f"{name}: could not form a closed convex hull.")
-        length = max(float(bone_length), 1e-5)
-        overlap = max(0.0, float(joint_overlap))
-        if overlap:
-            center_y = length * 0.5
-            scale_y = (length + 2.0 * overlap) / length
-            for vertex in bm.verts:
-                vertex.co.y = center_y + (
-                    vertex.co.y - center_y) * scale_y
         bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
-        bm.normal_update()
-        thickness = max(0.0, float(margin))
-        if thickness:
-            for vertex in bm.verts:
-                vertex.co += vertex.normal * thickness
-            bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
         bm.to_mesh(mesh)
         mesh.update()
         return mesh
@@ -332,16 +354,12 @@ def _create_segment(context, source, armature, bone_name: str,
                     points: np.ndarray, primary: bool):
     from . import collider_proxy
 
-    pose_bone = armature.pose.bones.get(bone_name)
-    if pose_bone is None:
+    if armature.pose.bones.get(bone_name) is None:
         raise CharacterCageError(
             f"{source.name}: bone {bone_name!r} disappeared.")
     safe_name = bone_name.replace("/", "_").replace("\\", "_")
     mesh = _hull_mesh(
-        f"{source.data.name}_CNX_Cage_{safe_name}", points,
-        float(getattr(pose_bone, "length", 0.0)),
-        float(source.cloth_next.collider_cage_margin),
-        float(source.cloth_next.collider_cage_joint_overlap))
+        f"{source.data.name}_CNX_Cage_{safe_name}", points)
     obj = bpy.data.objects.new(
         f"{source.name}_CNX_Cage_{safe_name}", mesh)
     _proxy_collection(context.scene).objects.link(obj)
@@ -402,19 +420,21 @@ def generate_character_cage(context, source) -> CharacterCageResult:
     original_frame = int(context.scene.frame_current)
     created = []
     try:
-        support = _capture_support_points(
-            context, source, armature, assignments, frames)
-        if not support:
+        cage_vertices = _capture_cage_vertices(
+            context, source, armature, assignments, frames,
+            float(settings.collider_cage_margin),
+            float(settings.collider_cage_joint_overlap))
+        if not cage_vertices:
             raise CharacterCageError(
                 f"{source.name}: animation sampling produced no usable bone "
                 "hulls.")
         remove_owned_character_cage(source)
         primary_bone = max(
-            support, key=lambda name: len(assignments[name]))
-        for bone_name in sorted(support):
+            cage_vertices, key=lambda name: len(assignments[name]))
+        for bone_name in sorted(cage_vertices):
             created.append(_create_segment(
                 context, source, armature, bone_name,
-                support[bone_name], bone_name == primary_bone))
+                cage_vertices[bone_name], bone_name == primary_bone))
         primary = next(
             item for item in created if is_primary_cage_segment(item))
         settings.collider_proxy_object = primary
@@ -427,11 +447,15 @@ def generate_character_cage(context, source) -> CharacterCageResult:
             int(settings.collider_proxy_result_vertices), frames)
     except Exception:
         for obj in tuple(created):
-            if getattr(obj, "name", "") in bpy.data.objects:
+            try:
                 mesh = obj.data
                 bpy.data.objects.remove(obj, do_unlink=True)
                 if mesh is not None and getattr(mesh, "users", 1) == 0:
                     bpy.data.meshes.remove(mesh)
+            except (ReferenceError, RuntimeError):
+                pass
+        settings.collider_proxy_object = None
+        settings.collider_proxy_enabled = False
         raise
     finally:
         context.scene.frame_set(original_frame)
