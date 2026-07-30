@@ -1,6 +1,14 @@
 (() => {
   'use strict';
 
+  const softBodyVideo = [...document.querySelectorAll('video')].find((video) =>
+    video.querySelector('source[src="Softbody.mp4"]')
+  );
+  const softBodyFrame = softBodyVideo?.closest('.feature-media');
+  if (softBodyFrame) {
+    softBodyFrame.style.aspectRatio = '1 / 1';
+  }
+
   document.querySelectorAll('[data-year]').forEach((node) => {
     node.textContent = new Date().getFullYear();
   });
