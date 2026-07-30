@@ -1,43 +1,53 @@
-# Cloth NeXt 2.1.0 Beta
+# Cloth NeXt 2.2.0 Beta
 
-Cloth NeXt 2.1.0 brings the current Dev line to the Beta channel for broader
-testing before the next Stable release.
+Cloth NeXt 2.2.0 brings the latest development line to the Beta channel with a
+major focus on animated-character workflows, preparation speed, recovery, pin
+control, and a cleaner artist-facing interface.
 
-## New simulation workflows
+## Animated character simulation
 
-- PDRD Rigid Bodies can participate in the same solve as Cloth and use the
-  same artist-oriented setup and Bake-range workflow.
-- Friction can be overridden per vertex group while all remaining vertices
-  continue to use the object's general Friction value.
-- Blender-style Sewing turns face-less connecting edges into stitch
-  constraints and closes solved seams in the playback cache.
-- Wind strength can oscillate with configurable randomized variation.
+- Corrected the Protocol 0.13 / Schema 2 animation timebase so dense animated
+  Collider samples improve motion fidelity without becoming additional logical
+  solver frames or stretching the simulation duration.
+- Added verified support for the current Protocol 0.13 solver alongside the
+  existing Protocol 0.11 release, including side-by-side managed and external
+  installations with an explicit active-solver selector.
+- Added animation-aware Character Collision Cage proxies for conservative
+  per-bone character collision setups.
+- Improved animated Collider and Pin preparation through reusable evaluated
+  data, cache identities, and reduced repeated Blender dependency-graph work.
 
-## Workflow and update experience
+## Pins and materials
 
-- The Physics panel shows the installed version and whether the selected
-  GitHub channel offers an update.
-- Repository registration is available directly below the update-channel
-  selector.
-- The Cloth NeXt Physics button now follows Blender's two-column grid and uses
-  the white Cloth NeXt logo.
+- Added configurable Hard and Soft Pin constraints, including yielding pin
+  behavior and animated targets synchronized with Collider sampling.
+- Expanded the bundled material library to 75 categorized presets, combining
+  scientific references with practical product-oriented starting points.
 
-## Bake reliability and diagnostics
+## Bake, recovery, and diagnostics
 
-- Rigged deformables are exported in their Bake-start pose and playback is
-  inserted after the last enabled Armature modifier.
-- Multi-object Bake ranges include Cloth, Rod, Soft Body, and Rigid Body
-  objects consistently.
-- Cache attachment, solver startup, cancellation, and error reporting received
-  additional hardening.
-- Solver-reported self-intersections now show a concise error instead of a
-  full internal process trace in Blender.
-- Experimental shell Shrink remains disabled until the external solver offers
-  a stable implementation.
+- Recovery data is preserved after unexpected solver exits when a valid
+  authenticated checkpoint remains available.
+- Recovery identity now includes the exact selected solver installation and
+  official release, preventing incompatible checkpoint reuse.
+- Added an estimated fill indicator for the solver's current frame alongside
+  the existing progress and performance statistics.
+- Hardened solver ownership, shutdown, worker diagnostics, cache identity, and
+  scene lifecycle handling across Blender reload, cancellation, and failure
+  paths.
+
+## Interface and workflow
+
+- Reworked Physics Properties into role-specific workflows for Cloth, Cable /
+  Rope, Soft Body, Rigid Body, Collider, and Force objects.
+- Grouped controls into clearer Setup, Simulation, Material, Shape, Collision,
+  and Advanced sections with role-appropriate icons and descriptions.
+- Improved Collider proxy, update, solver-selection, validation, and recovery
+  feedback while keeping detailed Bake telemetry in the dedicated Bake window.
 
 ## Distribution
 
-- Release tag: `2.1.0` — no leading `v`.
+- Release tag: `2.2.0` — no leading `v`.
 - Channel: **Beta**; the verified package is published to Beta and Dev only.
 - The PPF Contact Solver remains separate and is downloaded only from its
   manifest-pinned official upstream release after explicit confirmation.
