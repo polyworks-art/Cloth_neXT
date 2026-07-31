@@ -22,7 +22,8 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, hud, icon_registry,
                object_properties, physics_operators, physics_ui,
                pin_constraints, preferences, solver_preferences_ui,
-               solver_test, test_scene, validation_state)
+               solver_release_naming, solver_test, test_scene,
+               validation_state)
 
 _CLASSES = (
     preferences.CLASSES
@@ -45,6 +46,7 @@ _registered = False
 def _steps() -> list[tuple]:
     """Ordered (apply, revert) pairs covering all registration side effects."""
     steps: list[tuple] = [
+        (solver_release_naming.install, solver_release_naming.uninstall),
         (solver_preferences_ui.install, solver_preferences_ui.uninstall),
     ]
     steps.extend(
