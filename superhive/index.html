@@ -58,7 +58,7 @@ h3 {
   line-height: 1.08;
   letter-spacing: -.034em;
 }
-.eyebrow, .label, figcaption, .status, .metric span {
+.eyebrow, .label, figcaption, .status, .metric span, .media-feature__tag {
   font-size: .65rem;
   font-weight: 820;
   letter-spacing: .15em;
@@ -119,12 +119,10 @@ h3 {
 .section { padding: clamp(5.2rem, 9vw, 7.5rem) clamp(1.2rem, 6vw, 4rem); border-bottom: 1px solid var(--line); }
 .section-copy { max-width: 670px; margin-bottom: 2.6rem; }
 .section-copy p, .split-copy p { color: var(--muted); }
-.video-shell, .image-shell { position: relative; overflow: hidden; background: #050706; border: 1px solid var(--line); }
-.video-shell video, .image-shell img { width: 100%; height: 100%; }
-.video-shell video { object-fit: contain; background: #050706; }
+.video-shell { position: relative; overflow: hidden; background: #050706; border: 1px solid var(--line); }
+.video-shell video { width: 100%; height: 100%; object-fit: contain; background: #050706; }
 .character-video { aspect-ratio: 16 / 9; }
 .softbody-video { aspect-ratio: 1 / 1; }
-.image-shell img { object-fit: cover; }
 figcaption {
   position: absolute;
   left: .85rem;
@@ -159,20 +157,79 @@ figcaption {
 .feature-card { min-height: 280px; padding: 1.8rem; background: var(--soft); }
 .feature-card img { width: 30px; height: 30px; margin-bottom: 2.35rem; object-fit: contain; filter: invert(1); opacity: .9; }
 .feature-card p { margin-bottom: 0; color: var(--muted); font-size: .82rem; }
-.workflow-shot { margin: 0; }
-.workflow-shot .image-shell { box-shadow: 0 32px 70px rgba(0,0,0,.28); }
-.workflow-shot img { width: 100%; height: auto; object-fit: contain; }
-.workflow-caption { position: static; display: grid; grid-template-columns: .65fr 1.35fr; gap: 1.5rem; margin-top: 1rem; padding: 0; color: inherit; background: transparent; border: 0; backdrop-filter: none; }
-.workflow-caption strong { color: var(--accent); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; }
-.workflow-caption p { margin: 0; color: var(--muted); font-size: .8rem; }
+.media-feature {
+  position: relative;
+  isolation: isolate;
+  min-height: 620px;
+  padding: clamp(4.6rem, 8vw, 6.4rem) clamp(1.2rem, 6vw, 4rem);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: #090b0a;
+}
+.media-feature__image {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  transform: scale(1.015);
+  filter: saturate(.84) contrast(1.05) brightness(.82);
+}
+.media-feature::before,
+.media-feature::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.media-feature::before { z-index: -2; }
+.media-feature::after {
+  z-index: -1;
+  background: linear-gradient(0deg, rgba(8,10,9,.72) 0%, transparent 34%, rgba(8,10,9,.18) 100%);
+}
+.media-feature--copy-left::before {
+  background: linear-gradient(90deg, #080a09 0%, rgba(8,10,9,.97) 24%, rgba(8,10,9,.78) 46%, rgba(8,10,9,.17) 72%, rgba(8,10,9,.04) 100%);
+}
+.media-feature--copy-right::before {
+  background: linear-gradient(90deg, rgba(8,10,9,.04) 0%, rgba(8,10,9,.15) 28%, rgba(8,10,9,.76) 57%, rgba(8,10,9,.97) 78%, #080a09 100%);
+}
+.media-feature__copy {
+  position: relative;
+  z-index: 1;
+  width: min(50%, 420px);
+  text-shadow: 0 2px 22px rgba(0,0,0,.62);
+}
+.media-feature--copy-right .media-feature__copy { margin-left: auto; }
+.media-feature__copy p { color: #c4ccc8; }
+.media-feature__copy ul { margin: 1.7rem 0 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.16); }
+.media-feature__copy li { padding: .72rem 0; border-bottom: 1px solid rgba(255,255,255,.1); color: #e1e7e4; font-size: .78rem; }
+.media-feature__copy li::before { content: "+"; margin-right: .65rem; color: var(--accent); }
+.media-feature__tag {
+  position: absolute;
+  z-index: 2;
+  left: clamp(1.2rem, 6vw, 4rem);
+  bottom: 1.25rem;
+  padding: .52rem .7rem;
+  color: var(--accent);
+  background: rgba(7,9,8,.76);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+}
+.media-feature--copy-right .media-feature__tag { right: clamp(1.2rem, 6vw, 4rem); left: auto; }
+.media-feature--workflow .media-feature__image { object-position: 72% center; }
+.media-feature--cage .media-feature__image { object-position: 18% center; }
+.media-feature--bake .media-feature__image { object-position: 100% center; }
+.media-feature--bake { min-height: 590px; }
 .split { display: grid; grid-template-columns: 1.04fr .96fr; align-items: center; gap: clamp(2rem, 7vw, 4.2rem); }
 .split.reverse { grid-template-columns: .96fr 1.04fr; }
 .split.reverse > :first-child { order: 2; }
 .split-copy ul { margin: 1.7rem 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 .split-copy li { padding: .72rem 0; border-bottom: 1px solid var(--line-soft); color: #d4dbd8; font-size: .78rem; }
 .split-copy li::before { content: "+"; margin-right: .65rem; color: var(--accent); }
-.bake-shot .image-shell { aspect-ratio: 1.86 / 1; }
-.bake-shot img { object-fit: cover; object-position: center; }
 .scope-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin-top: 2.2rem; background: var(--line); border: 1px solid var(--line); }
 .scope-grid article { min-height: 165px; padding: 1.4rem; background: var(--soft); }
 .scope-grid strong { display: block; margin-bottom: .4rem; font-size: .88rem; }
@@ -190,6 +247,17 @@ figcaption {
   .feature-card { min-height: 220px; }
   .split, .split.reverse { grid-template-columns: 1fr; }
   .split.reverse > :first-child { order: 0; }
+  .media-feature { min-height: 720px; align-items: flex-end; padding-top: 19rem; }
+  .media-feature__copy { width: 100%; }
+  .media-feature--copy-left::before,
+  .media-feature--copy-right::before {
+    background: linear-gradient(0deg, #080a09 0%, rgba(8,10,9,.98) 35%, rgba(8,10,9,.54) 63%, rgba(8,10,9,.08) 100%);
+  }
+  .media-feature--workflow .media-feature__image { object-position: 66% top; }
+  .media-feature--cage .media-feature__image { object-position: center 12%; }
+  .media-feature--bake .media-feature__image { object-position: 25% top; }
+  .media-feature__tag,
+  .media-feature--copy-right .media-feature__tag { left: 1.2rem; right: auto; top: 1rem; bottom: auto; }
 }
 @media (max-width: 680px) {
   h1 { font-size: clamp(3rem, 14.5vw, 4.65rem); }
@@ -201,8 +269,6 @@ figcaption {
   .before-buy { grid-template-columns: 1fr; }
   .before-buy .stack { text-align: left; }
   .metric-strip { grid-template-columns: repeat(2, 1fr); }
-  .workflow-caption { grid-template-columns: 1fr; gap: .35rem; }
-  .bake-shot .image-shell { aspect-ratio: 1 / 1; }
   .scope-grid { grid-template-columns: 1fr; }
 }
 </style>
@@ -216,7 +282,6 @@ figcaption {
   </div>
   <span class="status">Beta 2.2.0</span>
 </header>
-
 <section class="hero">
   <img src="../assets/media/WP_Hero2.webp" alt="Simulated garment rendered with Cloth NeXt" width="2048" height="1152">
   <div class="hero-copy">
@@ -226,12 +291,10 @@ figcaption {
     <div class="hero-facts"><span>Layered cloth contact</span><span>Animated characters</span><span>Guided baking</span></div>
   </div>
 </section>
-
 <section class="before-buy">
   <div><strong>Before you buy</strong><p>The external PPF Contact Solver is free and installed separately. Cloth NeXt guides the setup and checks compatibility.</p></div>
   <div class="stack">Blender 5.0+ · Windows x64 · NVIDIA GPU</div>
 </section>
-
 <section class="section">
   <div class="section-copy">
     <span class="eyebrow">REAL CHARACTER TEST</span>
@@ -253,7 +316,6 @@ figcaption {
   <p class="metric-note">Measured from the Cloth NeXt character demo shown above. Values are approximate.</p>
   <div class="proof-note"><strong>The solver underneath is built for extreme contact counts.</strong> ZOZO’s official PPF documentation reports stress tests beyond 180 million contacts. Cloth NeXt turns that solver into a guided Blender workflow.</div>
 </section>
-
 <section class="section">
   <div class="section-copy">
     <span class="eyebrow">WHY CLOTH NEXT</span>
@@ -281,52 +343,36 @@ figcaption {
     </article>
   </div>
 </section>
-
-<section class="section">
-  <div class="section-copy">
+<section class="media-feature media-feature--copy-left media-feature--workflow">
+  <img class="media-feature__image" src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt inside Blender with a simulated garment and material controls visible" width="1917" height="1007" loading="lazy">
+  <div class="media-feature__copy">
     <span class="eyebrow">BLENDER WORKFLOW</span>
     <h2>Set up cloth without learning another application.</h2>
     <p>Add Cloth NeXt in Physics Properties, select an object role, choose a material, validate the scene and start the bake.</p>
+    <ul><li>Role-specific Physics Properties</li><li>75 material starting points</li><li>Scene context and playback stay visible</li></ul>
   </div>
-  <figure class="workflow-shot">
-    <div class="image-shell">
-      <img src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt inside Blender with a simulated garment and material controls visible" width="1917" height="1007" loading="lazy">
-    </div>
-    <figcaption class="workflow-caption">
-      <strong>Cloth NeXt in Blender</strong>
-      <p>Role-specific settings, scene context and cached playback stay together in the application you already use.</p>
-    </figcaption>
-  </figure>
+  <span class="media-feature__tag">CLOTH NEXT IN BLENDER</span>
 </section>
-
-<section class="section split reverse">
-  <figure class="image-shell" style="aspect-ratio:1/1">
-    <img src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character with a Cloth NeXt collision cage visible" width="811" height="811" loading="lazy">
-    <figcaption>CHARACTER COLLISION CAGES</figcaption>
-  </figure>
-  <div class="split-copy">
+<section class="media-feature media-feature--copy-right media-feature--cage">
+  <img class="media-feature__image" src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character with a Cloth NeXt collision cage visible" width="811" height="811" loading="lazy">
+  <div class="media-feature__copy">
     <span class="eyebrow">OPTIONAL CHARACTER PROXIES</span>
     <h2>Make heavy character collisions faster when you need to.</h2>
     <p>Create animation-aware collision cages around the rig for scenes where simulating against the full character mesh is unnecessary.</p>
     <ul><li>Per-bone collision structure</li><li>Visible and editable in Blender</li><li>Reusable evaluated data</li></ul>
   </div>
+  <span class="media-feature__tag">CHARACTER COLLISION CAGES</span>
 </section>
-
-<section class="section split">
-  <figure class="bake-shot">
-    <div class="image-shell">
-      <img src="../assets/media/Bake.png" alt="Cloth NeXt Bake Companion showing progress and system activity" width="1920" height="1032" loading="lazy">
-      <figcaption>LIVE BAKE FEEDBACK</figcaption>
-    </div>
-  </figure>
-  <div class="split-copy">
+<section class="media-feature media-feature--copy-right media-feature--bake">
+  <img class="media-feature__image" src="../assets/media/Bake.png" alt="Cloth NeXt Bake Companion showing progress and system activity" width="1920" height="1032" loading="lazy">
+  <div class="media-feature__copy">
     <span class="eyebrow">BAKE COMPANION</span>
     <h2>Know what your bake is doing.</h2>
     <p>See the current frame, solver activity, timing and system load instead of staring at an unresponsive Blender window.</p>
     <ul><li>Current frame and overall progress</li><li>Estimated remaining time</li><li>CPU, RAM and VRAM monitoring</li></ul>
   </div>
+  <span class="media-feature__tag">LIVE BAKE FEEDBACK</span>
 </section>
-
 <section class="section split reverse">
   <figure class="video-shell softbody-video">
     <video autoplay muted loop playsinline preload="metadata" aria-label="Cloth NeXt soft-body simulation">
@@ -341,7 +387,6 @@ figcaption {
     <ul><li>Automatic internal tetrahedral volume</li><li>Shared object-to-object contact</li><li>Cached playback inside Blender</li></ul>
   </div>
 </section>
-
 <section class="section">
   <div class="section-copy">
     <span class="eyebrow">CURRENT BETA SCOPE</span>
@@ -357,7 +402,6 @@ figcaption {
     <div><strong>Cloth NeXt and PPF are separate projects.</strong><p>Cloth NeXt provides the Blender workflow. The PPF Contact Solver is maintained and distributed separately by ST Tech / ZOZO and is never bundled with the add-on.</p></div>
   </div>
 </section>
-
 <section class="closing">
   <img src="../assets/cloth-next-white.svg" alt="" width="78" height="60">
   <span class="eyebrow">CLOTH NEXT · BETA 2.2.0</span>
