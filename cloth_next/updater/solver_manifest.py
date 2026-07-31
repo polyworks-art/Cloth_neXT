@@ -45,12 +45,18 @@ class SolverCompatibilityEntry:
     health_check_required: bool
     release_id: str = ""
     display_name: str = ""
+    codename: str = ""
     channel: str = "stable"
 
     @property
     def official_release_page(self) -> str:
         return (f"https://github.com/{OFFICIAL_REPOSITORY_SLUG}"
                 f"/releases/tag/{self.official_release_tag}")
+
+    @property
+    def release_name(self) -> str:
+        """Product-facing name while preserving the upstream display name."""
+        return self.codename or self.display_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,14 +136,23 @@ def parse_entry(platform: str, payload: Mapping[str, Any], *,
     health = payload.get("health_check_required")
     if health is not True:
         raise ValueError(f"{platform}: health_check_required must be true")
+
+    display_name = (
+        f"PPF Contact Solver {tag}" if legacy
+        else _require_text(payload, "display_name", platform))
+    raw_codename = payload.get("codename")
+    codename = (
+        display_name
+        if legacy or raw_codename is None
+        else _require_text(payload, "codename", platform))
+
     return SolverCompatibilityEntry(
         platform=platform,
         release_id=(
             f"legacy-{tag}" if legacy
             else _require_text(payload, "id", platform)),
-        display_name=(
-            f"PPF Contact Solver {tag}" if legacy
-            else _require_text(payload, "display_name", platform)),
+        display_name=display_name,
+        codename=codename,
         channel=(
             "stable" if legacy
             else _require_text(payload, "channel", platform).lower()),
