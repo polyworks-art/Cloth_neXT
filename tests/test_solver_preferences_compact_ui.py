@@ -159,6 +159,38 @@ def test_single_installed_release_hides_release_selector(blender_env, monkeypatc
     compact_ui.uninstall()
 
 
+def test_registered_release_without_selection_shows_selector_not_install(
+        blender_env, monkeypatch, tmp_path):
+    installed = make_installation(
+        tmp_path,
+        installation_id="available",
+        display_name="Available Release",
+        protocol="0.11",
+        schema="1",
+        release_tag="available-tag",
+    )
+    registry = SolverRegistry((installed,), None)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = "NONE"
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+
+    labels = [text for text, _icon in layout.labels]
+    assert "No Solver Selected" in labels
+    assert "The selected solver installation is missing." not in labels
+    assert layout.props == [
+        ("selected_solver_installation_id", "Release", True)
+    ]
+    assert not any(
+        idname == "clothnext.solver_download" and text == "Install Solver"
+        for idname, text, _operator, _enabled in layout.operators
+    )
+
+    compact_ui.uninstall()
+
+
 def test_manage_menu_keeps_both_transition_releases(blender_env, monkeypatch,
                                                      tmp_path):
     installed = make_installation(
