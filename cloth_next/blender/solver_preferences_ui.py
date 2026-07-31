@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import bpy
 
-from . import preferences as _preferences
 from ..updater.states import InstallerState
+from . import preferences as _preferences
 
 
 def _status(installation) -> tuple[str, str]:
@@ -39,12 +39,19 @@ def _is_selectable(installation) -> bool:
     )
 
 
+def _worker_active() -> bool:
+    worker = _preferences._session.worker
+    return bool(worker is not None and worker.is_alive())
+
+
 def _selected_installation(preferences, registry):
     selected_id = (
         getattr(preferences, "selected_solver_installation_id", "")
         or registry.selected_installation_id
         or ""
     )
+    if selected_id == "NONE":
+        selected_id = ""
     return selected_id, registry.get(selected_id)
 
 
@@ -81,6 +88,7 @@ def draw_solver_section(self, layout) -> None:
     registry, registry_error = _preferences._read_registry()
     selected_id, active = _selected_installation(self, registry)
     session_active = _preferences._solver_session_active()
+    busy = session_active or _worker_active()
 
     if registry_error:
         box.label(text=registry_error, icon="ERROR")
@@ -95,15 +103,21 @@ def draw_solver_section(self, layout) -> None:
         if selected_id:
             box.label(text="The selected solver installation is missing.")
 
-        actions = box.row(align=True)
-        preferred = _preferences._session.entry
-        if preferred is not None:
-            install = actions.operator(
-                "clothnext.solver_download", text="Install Solver"
-            )
-            install.release_id = preferred.release_id
-            install.activate_after_install = True
-        actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
+        if registry.installations:
+            selector = box.row()
+            selector.enabled = not busy
+            selector.prop(self, "selected_solver_installation_id", text="Release")
+            box.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
+        else:
+            actions = box.row(align=True)
+            preferred = _preferences._session.entry
+            if preferred is not None:
+                install = actions.operator(
+                    "clothnext.solver_download", text="Install Solver"
+                )
+                install.release_id = preferred.release_id
+                install.activate_after_install = True
+            actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
         _draw_worker_state(box)
         return
 
@@ -122,7 +136,7 @@ def draw_solver_section(self, layout) -> None:
 
     if len(registry.installations) > 1:
         selector = box.row()
-        selector.enabled = not session_active
+        selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
 
     if active.error:
@@ -135,7 +149,7 @@ def draw_solver_section(self, layout) -> None:
 
     actions = box.row(align=True)
     test_row = actions.row(align=True)
-    test_row.enabled = not session_active
+    test_row.enabled = not busy
     test = test_row.operator("clothnext.solver_health_check", text="Test")
     test.installation_id = active.installation_id
     actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
@@ -155,6 +169,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
         registry, registry_error = _preferences._read_registry()
         active = registry.selected
         session_active = _preferences._solver_session_active()
+        busy = session_active or _worker_active()
 
         if registry_error:
             layout.label(text=registry_error, icon="ERROR")
@@ -170,7 +185,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
                     )
                     continue
                 use_row = layout.row()
-                use_row.enabled = not session_active and _is_selectable(installation)
+                use_row.enabled = not busy and _is_selectable(installation)
                 use = use_row.operator(
                     "clothnext.solver_use",
                     text=f"Use {installation.display_name}",
@@ -187,7 +202,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
         for entry in _preferences._session.entries:
             installed = installed_by_tag.get(entry.official_release_tag)
             release_row = layout.row()
-            release_row.enabled = not session_active
+            release_row.enabled = not busy
             if installed is None:
                 operator = release_row.operator(
                     "clothnext.solver_download",
@@ -205,10 +220,12 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
                 operator.activate_after_install = False
 
         layout.separator()
-        layout.operator(
+        maintenance = layout.column()
+        maintenance.enabled = not busy
+        maintenance.operator(
             "clothnext.solver_select_existing", text="Select Existing Solver"
         )
-        layout.operator(
+        maintenance.operator(
             "clothnext.solver_refresh_installations", text="Refresh Installations"
         )
         layout.operator(
@@ -224,7 +241,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
         )
         folder.installation_id = active.installation_id
         remove_row = layout.row()
-        remove_row.enabled = not session_active
+        remove_row.enabled = not busy
         remove = remove_row.operator(
             "clothnext.solver_remove_managed",
             text=("Remove Solver" if active.managed else "Unregister Solver"),
