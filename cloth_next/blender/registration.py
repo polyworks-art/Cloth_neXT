@@ -21,11 +21,12 @@ import bpy
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, hud, icon_registry,
                object_properties, physics_operators, physics_ui,
-               pin_constraints, preferences, solver_test, test_scene,
-               validation_state)
+               pin_constraints, preferences, solver_preferences_ui,
+               solver_test, test_scene, validation_state)
 
 _CLASSES = (
     preferences.CLASSES
+    + solver_preferences_ui.CLASSES
     + addon_update_operators.CLASSES
     + object_properties.CLASSES
     + collider_proxy.CLASSES
@@ -44,10 +45,13 @@ _registered = False
 def _steps() -> list[tuple]:
     """Ordered (apply, revert) pairs covering all registration side effects."""
     steps: list[tuple] = [
+        (solver_preferences_ui.install, solver_preferences_ui.uninstall),
+    ]
+    steps.extend(
         (lambda cls=cls: bpy.utils.register_class(cls),
          lambda cls=cls: bpy.utils.unregister_class(cls))
         for cls in _CLASSES
-    ]
+    )
     steps.append((object_properties.attach_to_object,
                   object_properties.detach_from_object))
     steps.append((pin_constraints.install_runtime_hooks,
