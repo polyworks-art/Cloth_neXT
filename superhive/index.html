@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080a09">
-<meta name="description" content="Cloth NeXt delivers Houdini-level cloth contact through a production-ready Blender workflow for cloth, cables and soft bodies.">
-<title>Cloth NeXt | The cloth add-on Blender has been missing</title>
+<meta name="description" content="Cloth NeXt brings Houdini-level contact simulation into a guided Blender workflow for cloth, cables and soft bodies.">
+<title>Cloth NeXt | Cloth simulation that just works</title>
 <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
 <link rel="preload" href="../assets/media/WP_Hero2.webp" as="image" type="image/webp">
 <style>
@@ -135,13 +135,13 @@ figcaption {
 }
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   margin-top: 1px;
   background: var(--line);
   gap: 1px;
 }
-.metric { min-height: 112px; padding: 1.2rem; display: flex; flex-direction: column; justify-content: center; background: var(--soft); }
-.metric strong { font-size: clamp(1.65rem, 4vw, 2.7rem); line-height: 1; letter-spacing: -.05em; }
+.metric { min-height: 112px; padding: 1.05rem; display: flex; flex-direction: column; justify-content: center; background: var(--soft); }
+.metric strong { font-size: clamp(1.5rem, 3.6vw, 2.5rem); line-height: 1; letter-spacing: -.05em; }
 .metric span { margin-top: .42rem; color: var(--quiet); }
 .metric-note { margin: 1rem 0 0; color: var(--quiet); font-size: .68rem; }
 .proof-note {
@@ -307,7 +307,7 @@ figcaption {
   <div class="section-copy">
     <span class="eyebrow">PROOF, NOT PROMISES</span>
     <h2>Throw a full character at it. Cloth NeXt keeps going.</h2>
-    <p>This 223-frame garment simulation ran directly against the complete animated character. No collision proxy was used for the body.</p>
+    <p>This 223-frame test simulated 230k cloth triangles directly against a complete animated character with another 200k triangles. No collision proxy was used for the body.</p>
   </div>
   <figure class="video-shell character-video">
     <video autoplay muted loop playsinline preload="metadata" aria-label="Animated character wearing a Cloth NeXt garment simulation">
@@ -316,8 +316,9 @@ figcaption {
     <figcaption>ANIMATED CHARACTER SIMULATION</figcaption>
   </figure>
   <div class="metric-strip" aria-label="Character simulation data">
-    <div class="metric"><strong>230k</strong><span>character triangles</span></div>
-    <div class="metric"><strong>~50k</strong><span>contacts</span></div>
+    <div class="metric"><strong>230k</strong><span>cloth triangles</span></div>
+    <div class="metric"><strong>200k</strong><span>character triangles</span></div>
+    <div class="metric"><strong>~100k</strong><span>contacts</span></div>
     <div class="metric"><strong>223</strong><span>simulation frames</span></div>
     <div class="metric"><strong>~25 min</strong><span>simulation time</span></div>
   </div>
