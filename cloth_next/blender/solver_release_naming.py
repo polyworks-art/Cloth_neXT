@@ -12,6 +12,7 @@ identity, compatibility, paths, ownership, or release metadata.
 from __future__ import annotations
 
 from dataclasses import replace
+from functools import lru_cache
 
 from ..updater.solver_manifest import load_bundled_manifest
 from ..updater.solver_registry import SolverRegistry
@@ -25,9 +26,14 @@ _ORIGINAL_READ_REGISTRY = getattr(
 )
 
 
+@lru_cache(maxsize=1)
+def _releases():
+    """Read the bundled metadata once per add-on module lifetime."""
+    return load_bundled_manifest().releases_for(_PLATFORM)
+
+
 def _entry_for_installation(installation):
-    manifest = load_bundled_manifest()
-    releases = manifest.releases_for(_PLATFORM)
+    releases = _releases()
 
     if installation.official_release_tag:
         exact = next(
