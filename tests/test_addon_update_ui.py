@@ -79,7 +79,11 @@ class FakeLayout:
         self.log.append(("operator_text", idname, text))
         return SimpleNamespace()
 
-    def prop(self, _data, prop_name):
+    def menu(self, idname, text=None, icon=None):
+        self.log.append(("menu", idname))
+        self.log.append(("menu_text", idname, text))
+
+    def prop(self, _data, prop_name, text=None):
         self.log.append(("prop", prop_name))
 
 
@@ -591,8 +595,8 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     labels = [text for kind, text in pairs if kind == "label"]
     operators = [text for kind, text in pairs if kind == "operator"]
     assert "Cloth NeXt" in labels
-    assert "PPF Contact Solver" in labels
-    assert labels.index("Cloth NeXt") < labels.index("PPF Contact Solver")
+    assert "Solver" in labels
+    assert labels.index("Cloth NeXt") < labels.index("Solver")
     assert any(text.startswith("Installed Version:") for text in labels)
     assert any(text.startswith("Update Status:") for text in labels)
     assert ("prop", "update_channel") in log
