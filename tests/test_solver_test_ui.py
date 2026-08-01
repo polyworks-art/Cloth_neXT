@@ -1537,10 +1537,10 @@ def test_load_post_refreshes_recovery_snapshot_from_disk(blender_env, tmp_path):
 
     # No RunPlan or identity exists after a file load; the snapshot reports the
     # on-disk truth provisionally and Bake start re-verifies compatibility.
-    assert settings.compatible is True
+    assert settings.compatible is False
     assert settings.resumable is True
-    assert settings.status == "Recovery available"
-    assert settings.status_detail == "Verified checkpoint · Resume available"
+    assert settings.status == "Checkpoint found"
+    assert "Compatibility will be checked" in settings.status_detail
     assert settings.latest_checkpoint_frame == 20
     assert settings.checkpoint_count == 1
 

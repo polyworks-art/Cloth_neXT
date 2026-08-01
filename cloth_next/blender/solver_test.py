@@ -3452,6 +3452,11 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             _export_timing_sink["scene_early_cache_hit"] = 0.0
         if _export_cache_event_sink is not None:
             _export_cache_event_sink["scene_cache_miss_reason"] = lookup.reason
+        if _export_timing_sink is not None:
+            _export_timing_sink["mesh_export_cache_misses"] = float(
+                len(snapshot.deformables) + len(snapshot.collider_objs))
+            _export_timing_sink["mesh_export_cache_invalidations"] = float(
+                lookup.reason not in {"missing", ""})
         return None
     artifacts = cache.lookup_artifacts("scene", source_key)
     if not artifacts:
@@ -3460,6 +3465,10 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
         if _export_cache_event_sink is not None:
             _export_cache_event_sink["scene_cache_miss_reason"] = (
                 "missing or corrupt plan artifacts")
+        if _export_timing_sink is not None:
+            _export_timing_sink["mesh_export_cache_misses"] = float(
+                len(snapshot.deformables) + len(snapshot.collider_objs))
+            _export_timing_sink["mesh_export_cache_invalidations"] = 1.0
         return None
     try:
         record = lookup.metadata
@@ -3540,6 +3549,20 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             deformables=tuple(session_targets))
         if _export_timing_sink is not None:
             _export_timing_sink["scene_early_cache_hit"] = 1.0
+            # These counters intentionally count exported object artifacts,
+            # not merely one opaque scene-envelope lookup.  The persistent
+            # plan keeps each deformable's initial geometry and pin data as
+            # independently hash-verified artifacts.
+            _export_timing_sink["mesh_export_cache_hits"] = float(
+                len(target_plans) + len(snapshot.collider_objs))
+            _export_timing_sink["mesh_export_cache_misses"] = 0.0
+            _export_timing_sink["mesh_export_cache_invalidations"] = 0.0
+            _export_timing_sink["mesh_export_cache_bytes_reused"] = float(
+                lookup.size + sum(path.stat().st_size
+                                  for path in artifacts.values()))
+            # Wall-clock savings are measured by the deterministic developer
+            # benchmark; do not manufacture a per-run estimate here.
+            _export_timing_sink["mesh_export_cache_time_saved"] = 0.0
         if _export_cache_event_sink is not None:
             _export_cache_event_sink["scene_cache_miss_reason"] = ""
         shared_controller.update(
@@ -4569,6 +4592,14 @@ def _apply_eligibility_to_settings(settings, eligibility) -> None:
     if state is None:
         settings.status = "No checkpoint"
         settings.status_detail = eligibility.reason
+    elif eligibility.compatible is None:
+        # load_post has only durable metadata.  It may show a verified state,
+        # but calling it compatible before Bake preparation recomputes the
+        # current identity would be misleading and could invite unsafe reuse.
+        settings.status = "Checkpoint found"
+        settings.status_detail = (
+            "Verified checkpoint · Compatibility will be checked before "
+            "Resume")
     elif eligibility.resumable:
         settings.status = "Recovery available"
         settings.status_detail = (
@@ -5696,9 +5727,6 @@ def _refresh_recovery_ui_from_disk() -> None:
         return
     metadata = Path(root) / recovery.METADATA_NAME
     eligibility = recovery.evaluate_resumable(metadata)
-    if eligibility.available:
-        eligibility = replace(
-            eligibility, compatible=True, resumable=True, reason="Compatible")
     _apply_eligibility_to_settings(settings, eligibility)
 
 

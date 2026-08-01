@@ -148,6 +148,38 @@ def test_verified_early_scene_hit_skips_all_mesh_capture(
     assert warmed.scene.param_hash != first.scene.param_hash
     assert warmed.export_timings["scene_early_cache_hit"] == 1.0
     assert warmed.export_timings.get("to_mesh_count", 0.0) == 0.0
+    assert warmed.export_timings["mesh_export_cache_hits"] >= 2.0
+    assert warmed.export_timings["mesh_export_cache_misses"] == 0.0
+    assert warmed.export_timings["mesh_export_cache_bytes_reused"] > 0.0
+
+
+def test_export_cache_benchmark_reuses_only_unchanged_scene_artifacts(
+        env, monkeypatch, tmp_path):
+    """Deterministic preparation benchmark: cold, warm, then one change."""
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    module = env.solver_test
+    monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())
+    monkeypatch.setattr(module, "_extract_mesh",
+                        lambda obj, _d, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    cold = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+    warm = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+    # A coordinate edit changes the authoritative validation fingerprint and
+    # therefore forces a fresh export; it never reuses by name or dirty flag.
+    scene.cloth.data.move_vertex(0, 0.25)
+    changed = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+
+    assert cold.export_timings.get("mesh_export_cache_hits", 0.0) == 0.0
+    assert warm.export_timings["mesh_export_cache_hits"] >= 2.0
+    assert warm.export_timings.get("to_mesh_count", 0.0) == 0.0
+    assert changed.export_timings.get("mesh_export_cache_misses", 0.0) >= 2.0
+    assert changed.scene.data_hash != warm.scene.data_hash
 
 
 def test_stable_frame_handler_participates_in_cache_key_without_disabling_hit(

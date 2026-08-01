@@ -25,9 +25,11 @@ from cloth_next.ppf.schema import cbor_codec
 from cloth_next.ppf_run import import_result, session as session_module
 from cloth_next.ppf_run.session import (RecoveryOptions, RecoveryOutcome,
                                         RecoveryOutcomeKind,
+                                        ResumeServerState,
                                         SessionCancelled, SessionScene,
                                         SessionDeformable, SolverFrame, SolverSession,
-                                        new_project_name)
+                                        new_project_name,
+                                        reconcile_resume_server_state)
 
 
 def _scene(frame_count=8) -> SessionScene:
@@ -1192,6 +1194,61 @@ def test_hard_interrupt_preserves_verified_checkpoint_as_resumable(
     assert [item.frame for item in record.checkpoints] == [3]
     requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
     assert "delete" not in requests
+
+
+@pytest.mark.parametrize(("status", "state", "may_resume"), [
+    ("BUSY", ResumeServerState.ACTIVE, False),
+    ("SAVE_AND_QUIT", ResumeServerState.ACTIVE, False),
+    ("BUILDING", ResumeServerState.ACTIVE, False),
+    ("RESUMABLE", ResumeServerState.RESUMABLE, True),
+    ("READY", ResumeServerState.READY, True),
+    ("FAILED", ResumeServerState.FAILED_WITH_CHECKPOINT, True),
+    ("NO_DATA", ResumeServerState.MISSING, False),
+])
+def test_resume_server_reconciliation_classifies_without_mutation(
+        status, state, may_resume):
+    result = reconcile_resume_server_state({"status": status})
+    assert result.state is state
+    assert result.may_resume is may_resume
+
+
+def test_busy_recovery_project_is_not_sent_a_second_resume(
+        monkeypatch, tmp_path):
+    scripted = ScriptedWire(monkeypatch)
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    (output / "state_3.bin.gz").write_bytes(gzip.compress(b"checkpoint"))
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    record = recovery.create_project(
+        metadata, project_id=_scene().project_name, identity=identity,
+        server_data_root=server_root, project_root=project_root)
+    record = recovery.transition(metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(metadata, record, (3,), keep=3)
+    recovery.transition(metadata, record, recovery.ProjectState.RESUMABLE)
+
+    def busy_wire(address, config, project, request=None, *, frame=None):
+        scripted.log.append(("tcmd", project, request))
+        if request is None:
+            return {**scripted.base, "status": "BUSY", "frame": 3,
+                    "saved_states": [3]}
+        return scripted._send_tcmd(address, config, project, request, frame=frame)
+
+    monkeypatch.setattr(wire, "send_tcmd", busy_wire)
+    active = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        recovery_options=RecoveryOptions(
+            True, metadata, identity, server_root, resume=True))
+    with pytest.raises(ClothNextError, match="recovery_server_state=ACTIVE"):
+        active.run()
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "resume" not in requests
+    assert "terminate" not in requests
+    assert recovery.load_project(metadata).state is recovery.ProjectState.RESUMABLE
 
 
 def test_hard_interrupt_without_checkpoint_keeps_project(monkeypatch, tmp_path):

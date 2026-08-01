@@ -72,6 +72,68 @@ class RecoveryOutcomeKind(str, Enum):
     FAILED = "FAILED"
 
 
+class ResumeServerState(str, Enum):
+    """Authoritative server-side disposition before sending ``resume``.
+
+    Durable checkpoint metadata is deliberately not enough to decide whether a
+    remote PPF project may be resumed: after a host crash it can still be
+    simulating.  This value is diagnostic as well as a gate; it never causes
+    a request that changes an external server.
+    """
+    RESUMABLE = "RESUMABLE"
+    ACTIVE = "ACTIVE"
+    READY = "READY"
+    FAILED_WITH_CHECKPOINT = "FAILED_WITH_CHECKPOINT"
+    MISSING = "MISSING"
+    STALE = "STALE"
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeServerReconciliation:
+    state: ResumeServerState
+    status: str
+    message: str
+    may_resume: bool
+
+
+def reconcile_resume_server_state(response: dict) -> ResumeServerReconciliation:
+    """Classify a checked server project without mutating it.
+
+    Call this immediately before ``REQUEST_RESUME``.  In particular, BUSY is
+    not a resumable state: it means the old solver session is still active and
+    must be reconnected to, allowed to finish, or explicitly stopped by the
+    artist outside this automatic recovery path.
+    """
+    status = str(response.get("status", "") or "")
+    if status in {STATUS_BUSY, STATUS_SAVE_AND_QUIT, STATUS_BUILDING}:
+        return ResumeServerReconciliation(
+            ResumeServerState.ACTIVE, status,
+            "The saved solver project is still active. Reconnect or wait for "
+            "it to finish; Cloth NeXt will not start a second resume or stop "
+            "an external server automatically.", False)
+    if status == STATUS_RESUMABLE:
+        return ResumeServerReconciliation(
+            ResumeServerState.RESUMABLE, status,
+            "Saved project is resumable.", True)
+    if status == STATUS_READY:
+        return ResumeServerReconciliation(
+            ResumeServerState.READY, status,
+            "Saved project is ready and not currently simulating.", True)
+    if status == STATUS_FAILED:
+        return ResumeServerReconciliation(
+            ResumeServerState.FAILED_WITH_CHECKPOINT, status,
+            "The solver project failed but retains a verified checkpoint.",
+            True)
+    if status in {STATUS_NO_DATA, STATUS_NO_BUILD}:
+        return ResumeServerReconciliation(
+            ResumeServerState.MISSING, status,
+            "The saved solver project no longer exists on this server.", False)
+    return ResumeServerReconciliation(
+        ResumeServerState.STALE, status,
+        "The saved solver project returned an unrecognised status; recovery "
+        "metadata may be stale.", False)
+
+
 @dataclass(frozen=True, slots=True)
 class RecoveryOutcome:
     """Structured result of a recovery checkpoint attempt on cancellation."""
@@ -1591,6 +1653,14 @@ class SolverSession:
             resuming = bool(self._recovery and self._recovery.resume)
             if resuming:
                 response = self._status()
+                server_state = reconcile_resume_server_state(response)
+                self.diagnostics.note_status(server_state.status)
+                if not server_state.may_resume:
+                    raise _session_error(
+                        "Recovery could not resume the saved solver project.",
+                        f"recovery_server_state={server_state.state.value}; "
+                        f"status={server_state.status}; "
+                        f"{server_state.message}")
                 if (str(response.get("data_hash", "")) != self.scene.data_hash
                         or str(response.get("param_hash", ""))
                         != self.scene.param_hash):
