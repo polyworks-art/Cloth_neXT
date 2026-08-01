@@ -526,9 +526,10 @@ def _on_newton_preview_toggle(self, context) -> None:
 
 class CLOTHNEXT_PG_newton_preview_settings(bpy.types.PropertyGroup):
     bake_backend: bpy.props.EnumProperty(
-        name="Bake Backend", default="PPF",
-        items=(("PPF", "PPF", "Production PPF solver with Recovery support"),
-               ("NEWTON", "Newton Experimental",
+        name="Solver", default="PPF",
+        items=(("PPF", "Production (Lunelle)",
+                "Production solver with Recovery support"),
+               ("NEWTON", "Preview (Principia)",
                 "Experimental external Newton Bake; Recovery is not available")))
     enabled: bpy.props.BoolProperty(
         name="Live Preview", default=False, update=_on_newton_preview_toggle,

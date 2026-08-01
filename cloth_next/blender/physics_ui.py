@@ -934,7 +934,7 @@ def _draw_bake_action(layout, context, model, snapshot) -> None:
     if newton is not None:
         backend = layout.row(align=True)
         backend.enabled = not snapshot.active
-        backend.prop(newton, "bake_backend", text="Backend")
+        backend.prop(newton, "bake_backend", text="Solver")
         if str(getattr(newton, "bake_backend", "PPF")) == "NEWTON":
             layout.label(text="Experimental · No Recovery checkpoints",
                          icon="EXPERIMENTAL")
@@ -1003,12 +1003,13 @@ def _draw_newton_live_preview(layout, context, snapshot) -> None:
     """The primary experimental Newton action, directly below Bake."""
     settings = getattr(getattr(context, "scene", None),
                        "cloth_next_newton_preview", None)
-    if settings is None:
+    if (settings is None
+            or str(getattr(settings, "bake_backend", "PPF")) != "NEWTON"):
         return
     row = layout.row(align=True)
     row.enabled = not snapshot.active
-    row.prop(settings, "enabled", text="Live Preview", toggle=True,
-             icon="PLAY" if settings.enabled else "PAUSE")
+    row.prop(settings, "enabled", text="",
+             toggle=True, icon="PAUSE" if settings.enabled else "PLAY")
     status = str(getattr(settings, "status", "") or "")
     if settings.enabled or status not in {"", "Newton unavailable"}:
         icon = "ERROR" if status in {"Preview Error", "Worker Crashed",

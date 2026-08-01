@@ -107,7 +107,8 @@ model.
 
 ## Experimental offline Bake
 
-The Simulation panel offers **Backend: PPF / Newton Experimental**. PPF is the
+The Simulation panel offers **Solver: Production (Lunelle) / Preview
+(Principia)**. Production is the
 default and is unchanged. Selecting Newton routes the normal `clothnext.bake`
 operator through the same immutable snapshot and owned worker boundary used by
 preview. Every complete, checksummed worker result is converted from Newton

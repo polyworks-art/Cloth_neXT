@@ -79,7 +79,14 @@ def _enabled_objects(scene):
                                  "enabled", False)))
 
 
-def _triangulated_world_mesh(context, obj) -> PreviewMesh:
+def _evaluated_world_mesh_data(context, obj):
+    """Return world-space triangles plus the pre-triangulation topology.
+
+    Blender may choose a different diagonal for a deformed ngon/quad when
+    ``calc_loop_triangles`` is called at another frame.  Polygon vertex loops
+    are the durable topology signal; loop-triangle ordering is an export
+    detail and must remain fixed to the first sample for animated Colliders.
+    """
     matrix = tuple(tuple(float(value) for value in row)
                    for row in obj.matrix_world)
     validate_world_transform(matrix)
@@ -88,6 +95,8 @@ def _triangulated_world_mesh(context, obj) -> PreviewMesh:
         evaluated = obj.evaluated_get(context.evaluated_depsgraph_get())
         mesh = evaluated.to_mesh()
         try:
+            topology = tuple(tuple(int(index) for index in polygon.vertices)
+                             for polygon in mesh.polygons)
             mesh.calc_loop_triangles()
             vertices = tuple(transform_position(matrix, vertex.co)
                              for vertex in mesh.vertices)
@@ -95,9 +104,31 @@ def _triangulated_world_mesh(context, obj) -> PreviewMesh:
                               for tri in mesh.loop_triangles)
             result = PreviewMesh(vertices, triangles)
             result.validate(label=str(obj.name))
-            return result
+            return result, topology
         finally:
             evaluated.to_mesh_clear()
+
+
+def _triangulated_world_mesh(context, obj) -> PreviewMesh:
+    return _evaluated_world_mesh_data(context, obj)[0]
+
+
+def _animated_collider_samples(context, scene, collider, reference,
+                               frame_start, frame_end):
+    """Capture positions while retaining the reference triangle ordering."""
+    samples = []
+    reference_topology = None
+    for frame in range(frame_start, frame_end + 1):
+        scene.frame_set(frame)
+        sample, topology = _evaluated_world_mesh_data(context, collider)
+        if reference_topology is None:
+            reference_topology = topology
+        if (topology != reference_topology
+                or len(sample.vertices) != len(reference.vertices)):
+            raise ValueError(
+                f"{collider.name}: animated Collider topology must remain constant")
+        samples.append(sample.vertices)
+    return tuple(samples)
 
 
 def _mesh_capture_key(obj):
@@ -466,18 +497,10 @@ def _capture(context) -> _Captured:
         for collider_index, collider in enumerate(colliders):
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
                 continue
-            samples = []
             reference = collider_meshes[collider_index]
-            for frame in range(start, end + 1):
-                scene.frame_set(frame)
-                sample = _triangulated_world_mesh(context, collider)
-                if (sample.triangles != reference.triangles
-                        or len(sample.vertices) != len(reference.vertices)):
-                    raise ValueError(
-                        f"{collider.name}: animated Collider topology must remain constant")
-                samples.append(sample.vertices)
             collider_animations.append(ColliderAnimation(
-                collider_index, tuple(samples)))
+                collider_index, _animated_collider_samples(
+                    context, scene, collider, reference, start, end)))
     finally:
         scene.frame_set(original_frame)
     pin_sets = tuple(_pin_indices(cloth, len(mesh.vertices))

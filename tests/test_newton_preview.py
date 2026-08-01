@@ -17,6 +17,7 @@ from cloth_next.newton_preview.protocol import (command_message,
 from cloth_next.newton_preview.snapshots import SnapshotStore
 from cloth_next.newton_preview.state import (PreviewState, status_label,
                                              transition)
+from tests import fake_bpy
 
 
 def _request(**updates):
@@ -43,6 +44,19 @@ def test_backend_capabilities_advertise_multi_cloth_and_animated_colliders():
     assert capabilities.deforming_colliders is True
     assert capabilities.follow_animation_pins is False
     assert capabilities.pressure is False
+
+
+def test_solver_selector_uses_product_names_without_changing_saved_ids(
+        blender_env):
+    props = fake_bpy._resolved_props(
+        blender_env.object_properties.CLOTHNEXT_PG_newton_preview_settings)
+    selector = props["bake_backend"]
+    assert selector.keywords["name"] == "Solver"
+    assert selector.keywords["default"] == "PPF"
+    assert [(item[0], item[1]) for item in selector.keywords["items"]] == [
+        ("PPF", "Production (Lunelle)"),
+        ("NEWTON", "Preview (Principia)"),
+    ]
 
 
 def test_request_round_trip_has_stable_scene_identity():
@@ -309,6 +323,44 @@ def test_mesh_capture_cache_reuses_geometry_across_quality_only_change(
     obj.cloth_next.role = "COLLIDER"
     newton_preview._cached_triangulated_world_mesh(context, obj)
     assert calls == ["evaluated", "evaluated"]
+
+
+def test_animated_collider_accepts_changed_triangulation_with_same_topology(
+        blender_env, monkeypatch):
+    from cloth_next.blender import newton_preview
+
+    vertices = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                (1.0, 1.0, 0.0), (0.0, 1.0, 0.0))
+    reference = contracts.PreviewMesh(vertices, ((0, 1, 2), (0, 2, 3)))
+    flipped = contracts.PreviewMesh(vertices, ((0, 1, 3), (1, 2, 3)))
+    samples = iter(((reference, ((0, 1, 2, 3),)),
+                    (flipped, ((0, 1, 2, 3),))))
+    monkeypatch.setattr(newton_preview, "_evaluated_world_mesh_data",
+                        lambda _context, _obj: next(samples))
+    scene = SimpleNamespace(frame_set=lambda _frame: None)
+    collider = SimpleNamespace(name="Deforming Quad")
+
+    captured = newton_preview._animated_collider_samples(
+        SimpleNamespace(), scene, collider, reference, 1, 2)
+    assert captured == (vertices, vertices)
+
+
+def test_animated_collider_rejects_actual_polygon_topology_change(
+        blender_env, monkeypatch):
+    from cloth_next.blender import newton_preview
+
+    vertices = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                (1.0, 1.0, 0.0), (0.0, 1.0, 0.0))
+    reference = contracts.PreviewMesh(vertices, ((0, 1, 2), (0, 2, 3)))
+    samples = iter(((reference, ((0, 1, 2, 3),)),
+                    (reference, ((0, 1, 2), (0, 2, 3)))))
+    monkeypatch.setattr(newton_preview, "_evaluated_world_mesh_data",
+                        lambda _context, _obj: next(samples))
+    scene = SimpleNamespace(frame_set=lambda _frame: None)
+    with pytest.raises(ValueError, match="topology must remain constant"):
+        newton_preview._animated_collider_samples(
+            SimpleNamespace(), scene, SimpleNamespace(name="Changing"),
+            reference, 1, 2)
 
 
 def test_mesh_capture_key_invalidates_geometry_topology_uuid_and_armature_pose(

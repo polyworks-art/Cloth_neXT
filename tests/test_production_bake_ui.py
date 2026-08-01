@@ -349,7 +349,7 @@ def test_live_preview_checkbox_is_in_primary_simulation_panel_below_bake(
     env = blender_env; env.registration.register()
     context = _context(env, _objects(env))
     preview = SimpleNamespace(enabled=False, status="Newton unavailable",
-                              status_detail="")
+                              status_detail="", bake_backend="NEWTON")
     context.scene.cloth_next_newton_preview = preview
     ui = env.physics_ui
     monkeypatch.setattr(ui, "_solver_status",
@@ -362,6 +362,55 @@ def test_live_preview_checkbox_is_in_primary_simulation_panel_below_bake(
     # Bake is emitted first, then the Live Preview property, before any
     # Recovery banner actions in the production panel draw.
     assert panel.layout.operators[0][0] == "clothnext.bake"
+    env.registration.unregister()
+
+
+def test_live_preview_is_hidden_for_production_solver(blender_env,
+                                                       monkeypatch):
+    env = blender_env; env.registration.register()
+    context = _context(env, _objects(env))
+    preview = SimpleNamespace(
+        enabled=False, status="Newton unavailable", status_detail="",
+        bake_backend="PPF")
+    context.scene.cloth_next_newton_preview = preview
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation(); panel.layout = RecordingLayout()
+
+    panel.draw(context)
+
+    assert not any(obj is preview and name == "enabled"
+                   for obj, name, _enabled in panel.layout.properties)
+    env.registration.unregister()
+
+
+@pytest.mark.parametrize("enabled", (False, True))
+def test_live_preview_toggle_uses_only_the_current_newton_action_icon(
+        blender_env, monkeypatch, enabled):
+    env = blender_env; env.registration.register()
+    context = _context(env, _objects(env))
+    context.scene.cloth_next_newton_preview = SimpleNamespace(
+        enabled=enabled, status="Live", status_detail="", quality="BALANCED",
+        enable_self_contact=True, time_scale=1.0, bake_backend="NEWTON")
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation(); panel.layout = RecordingLayout()
+
+    panel.draw(context)
+
+    preview_properties = [item for item in panel.layout.properties
+                          if item[0] is context.scene.cloth_next_newton_preview
+                          and item[1] == "enabled"]
+    assert len(preview_properties) == 1
+    # RecordingLayout stores property identity only; verify the draw source
+    # uses an icon-only toggle with the two unambiguous states.
+    source = Path(ui.__file__).read_text(encoding="utf-8")
+    assert 'row.prop(settings, "enabled", text="",' in source
+    assert 'icon="PAUSE" if settings.enabled else "PLAY"' in source
+    assert not any(identifier == "screen.animation_play"
+                   for identifier, _text, _enabled in panel.layout.operators)
     env.registration.unregister()
 
 

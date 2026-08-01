@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.2.11 — 2026-08-02 (Dev channel)
+
+### Fixed
+
+- Deforming quad and ngon Colliders no longer fail Newton capture merely
+  because Blender chooses a different loop-triangle diagonal at another frame.
+  Stable evaluated polygon loops remain the authoritative topology check while
+  every sample uses the initial deterministic triangle ordering.
+
+### Interface
+
+- The Bake selector is now labelled `Solver` and presents the product-facing
+  choices `Production (Lunelle)` and `Preview (Principia)` without changing
+  the stored `PPF` and `NEWTON` identifiers.
+- The Newton Live Preview toggle is icon-only: Play while inactive and Pause
+  while active.
+- Live Preview controls are hidden while `Production (Lunelle)` is selected
+  and appear only for `Preview (Principia)`.
+
 ## 2.2.10 — 2026-08-02 (Dev channel)
 
 ### Added

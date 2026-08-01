@@ -102,18 +102,10 @@ def _capture(context) -> _BakeSession:
         for collider_index, collider in enumerate(colliders):
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
                 continue
-            samples = []
             reference = collider_meshes[collider_index]
-            for frame in range(start, end + 1):
-                scene.frame_set(frame)
-                sample = newton_preview._triangulated_world_mesh(context, collider)
-                if (sample.triangles != reference.triangles
-                        or len(sample.vertices) != len(reference.vertices)):
-                    raise ValueError(
-                        f"{collider.name}: animated Collider topology must remain constant")
-                samples.append(sample.vertices)
             collider_animations.append(ColliderAnimation(
-                collider_index, tuple(samples)))
+                collider_index, newton_preview._animated_collider_samples(
+                    context, scene, collider, reference, start, end)))
     finally:
         scene.frame_set(original_frame)
     pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
