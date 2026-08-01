@@ -1,6 +1,7 @@
 from dataclasses import replace
 import gzip
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,30 @@ def checkpoint(tmp_path: Path, name: str, payload=b"state") -> Path:
     path = tmp_path / name
     path.write_bytes(payload)
     return path
+
+
+def test_atomic_metadata_retries_transient_windows_replace_denial(
+        tmp_path, monkeypatch):
+    path = tmp_path / "metadata.json"
+    path.write_text('{"old":true}', encoding="utf-8")
+    real_replace = os.replace
+    calls = []
+
+    def flaky_replace(source, target):
+        calls.append((source, target))
+        if len(calls) < 3:
+            raise PermissionError(13, "sharing violation")
+        real_replace(source, target)
+
+    monkeypatch.setattr("cloth_next.recovery.os.name", "nt")
+    monkeypatch.setattr("cloth_next.recovery.os.replace", flaky_replace)
+    monkeypatch.setattr("cloth_next.recovery.time.sleep", lambda _delay: None)
+
+    from cloth_next.recovery import _atomic_json
+    _atomic_json(path, {"new": True})
+
+    assert len(calls) == 3
+    assert json.loads(path.read_text(encoding="utf-8")) == {"new": True}
 
 
 def test_publish_reload_and_corruption_fail_closed(tmp_path):

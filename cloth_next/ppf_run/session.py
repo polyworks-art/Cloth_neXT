@@ -1017,6 +1017,9 @@ class SolverSession:
             return
         saved = self._saved_states(response)
         self._known_saved_states = saved
+        confirmed = tuple(item.frame for item in record.checkpoints)
+        if saved == confirmed:
+            return
         self._recovery_record = recovery.confirm_saved_states(
             options.metadata_path, record, saved,
             keep=options.keep_saved_states)

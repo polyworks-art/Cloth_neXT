@@ -825,6 +825,37 @@ def test_periodic_checkpoint_emits_verified_recovery_event(
                 if event.phase == "RECOVERY_SAVED"]) == 1
 
 
+def test_identical_saved_states_do_not_republish_metadata(
+        monkeypatch, tmp_path):
+    scene = _scene()
+    server_root = tmp_path / "server"
+    project_root = server_root / scene.project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        auto_save_interval=5)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        recovery_options=options)
+    session._recovery_start()
+    (output / "state_5.bin.gz").write_bytes(gzip.compress(b"state"))
+    session._sync_checkpoints({"saved_states": [5]})
+    published = []
+    monkeypatch.setattr(
+        recovery, "confirm_saved_states",
+        lambda *args, **kwargs: published.append((args, kwargs)))
+
+    session._sync_checkpoints({"saved_states": [5]})
+    session._sync_checkpoints({"saved_states": [5]})
+
+    assert session._known_saved_states == (5,)
+    assert published == []
+
+
 def test_cancel_without_recovery_returns_unresumable_outcome(monkeypatch):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_sim = True

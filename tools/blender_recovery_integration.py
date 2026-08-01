@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
+import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,7 +23,8 @@ def _args():
     values = sys.argv[sys.argv.index("--") + 1:]
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--phase", choices=("cancel", "crash", "fresh", "resume"),
+        "--phase", choices=(
+            "cancel", "crash", "fresh", "hard_abort", "resume"),
         required=True)
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--blend", type=Path, required=True)
@@ -50,7 +53,7 @@ def _make_scene(args):
     cloth.cloth_next.enabled = True
     cloth.cloth_next.role = "CLOTH"
     cloth.cloth_next.bake_start = 1
-    cloth.cloth_next.bake_end = 12
+    cloth.cloth_next.bake_end = 24
     cloth.cloth_next.cache_directory = str(args.cache)
     scene = bpy.context.scene
     scene.render.fps = 24
@@ -143,6 +146,99 @@ def cancel_phase(args, solver_test):
     }
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def hard_abort_phase(args, solver_test):
+    """Hard-exit Blender after the real solver publishes a periodic state."""
+    _make_scene(args)
+    args.cache.mkdir(parents=True, exist_ok=True)
+    plan = _plan(solver_test, bpy.context)
+    bpy.ops.wm.save_as_mainfile(
+        filepath=str(args.blend), check_existing=False)
+    solver_test._cancel_event.clear()
+    while not solver_test._queue.empty():
+        solver_test._queue.get_nowait()
+    worker = threading.Thread(
+        target=solver_test._worker_main, args=(plan,),
+        name="recovery-real-hard-abort")
+    worker.start()
+    statuses = []
+    deadline = time.monotonic() + 600
+    while time.monotonic() < deadline:
+        try:
+            message = solver_test._queue.get(timeout=0.1)
+        except queue.Empty:
+            continue
+        if message[0] != "event":
+            if message[0] in {"error", "cancelled", "finished"}:
+                raise AssertionError(
+                    f"Bake ended before a periodic checkpoint: {message}")
+            continue
+        event = message[1]
+        statuses.append({
+            "phase": event.phase,
+            "message": event.message,
+            "frame": event.frame_current,
+        })
+        if event.phase != "RECOVERY_SAVED":
+            continue
+        from cloth_next import recovery
+        options = plan.recovery_options
+        assert options is not None
+        record = recovery.load_project(options.metadata_path)
+        if record is None or not record.checkpoints:
+            raise AssertionError("checkpoint event had no verified metadata")
+        checkpoint = Path(record.checkpoints[-1].checkpoint_path)
+        with gzip.open(checkpoint, "rb") as stream:
+            decoded_size = len(stream.read())
+        param_toml = (Path(record.project_root) / "session" / "param.toml")
+        param_text = param_toml.read_text(encoding="utf-8")
+        report = {
+            "result": "recovery_unverified_resume_pending",
+            "solver": {
+                "executable": str(args.solver.resolve()),
+                "release": "2026-07-26-22-53",
+                "protocol": record.identity.protocol_version,
+                "schema": record.identity.solver_schema_version,
+                "installation_id": "official-2026-07-26-22-53-win64",
+            },
+            "project_id": record.project_id,
+            "server_data_root": record.server_data_root,
+            "metadata_path": str(options.metadata_path),
+            "data_hash": plan.scene.data_hash,
+            "parameter_hash": plan.scene.param_hash,
+            "outgoing_recovery_parameters": {
+                "scene.auto-save": {"value": 2, "type": "integer"},
+                "scene.keep-states": {"value": 3, "type": "integer"},
+                "scene.save-state-on-finish": {
+                    "value": False, "type": "boolean"},
+            },
+            "decoded_param_toml": param_text,
+            "observed_statuses": statuses,
+            "checkpoint": {
+                "frame": record.checkpoints[-1].frame,
+                "path": str(checkpoint),
+                "size": checkpoint.stat().st_size,
+                "decoded_size": decoded_size,
+                "sha256": _sha256(checkpoint),
+                "metadata_sha256": record.checkpoints[-1].checkpoint_sha256,
+            },
+            "hard_abort_exit_code": 91,
+        }
+        args.report.write_text(
+            json.dumps(report, indent=2), encoding="utf-8")
+        with args.report.open("r+b") as stream:
+            os.fsync(stream.fileno())
+        os._exit(91)
+    raise TimeoutError("no periodic solver checkpoint appeared")
 
 
 def crash_phase(args, solver_test):
@@ -251,6 +347,28 @@ def resume_phase(args, solver_test):
         "fetched_frames": diagnostics.fetched_frames,
         "headers": headers, "event_count": len(messages),
     }
+    if args.report.is_file():
+        existing = json.loads(args.report.read_text(encoding="utf-8"))
+        if existing.get("hard_abort_exit_code") == 91:
+            output = (Path(existing["server_data_root"])
+                      / existing["project_id"] / "session" / "output")
+            stdout = output.parent / "stdout.log"
+            command = (
+                stdout.read_text(encoding="utf-8", errors="replace")
+                .splitlines()[0]
+                if stdout.is_file()
+                else (f"{args.solver.resolve()} --path "
+                      f"{output.parent} --output {output} --load=-1"))
+            report = {
+                **existing,
+                "result": "passed",
+                "resume": {
+                    **report,
+                    "command": command,
+                    "first_frame_after_checkpoint": (
+                        int(existing["checkpoint"]["frame"]) + 1),
+                },
+            }
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
 
@@ -297,6 +415,8 @@ def main():
     solver_test = _load_addon(args)
     if args.phase == "cancel":
         cancel_phase(args, solver_test)
+    elif args.phase == "hard_abort":
+        hard_abort_phase(args, solver_test)
     elif args.phase == "crash":
         crash_phase(args, solver_test)
     else:

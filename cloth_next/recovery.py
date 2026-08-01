@@ -189,7 +189,18 @@ def _atomic_json(path: Path, value: object) -> None:
             json.dump(value, stream, sort_keys=True, separators=(",", ":"))
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows can briefly deny replacement while a virus scanner or
+        # indexer has the existing file open without delete sharing. Keep the
+        # flushed temporary file private and retry only the atomic publication
+        # step for a short, bounded period.
+        for attempt in range(6):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if os.name != "nt" or attempt == 5:
+                    raise
+                time.sleep(0.01 * (2 ** attempt))
     except Exception:
         try:
             os.unlink(temporary)
