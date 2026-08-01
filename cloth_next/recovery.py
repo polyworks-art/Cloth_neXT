@@ -19,6 +19,10 @@ import tempfile
 import time
 
 RECOVERY_SCHEMA_VERSION = 2
+# Schema 3 used the identical project/checkpoint wire layout, but recorded the
+# internal format number in every identity.  Keep it readable so a rollback to
+# this release cannot orphan checkpoints created by that short-lived build.
+_READABLE_RECOVERY_SCHEMA_VERSIONS = frozenset({2, 3})
 METADATA_NAME = "metadata.json"
 
 
@@ -217,12 +221,18 @@ def _identity_dict(identity: RecoveryIdentity) -> dict:
     return value
 
 
-def _identity_from_dict(value: dict) -> RecoveryIdentity:
+def _identity_from_dict(value: dict, *, stored_schema_version: int | None = None) \
+        -> RecoveryIdentity:
     data = dict(value)
     data["export_uuids"] = tuple(str(item) for item in data["export_uuids"])
     data["collider_sampling"] = tuple(
         (str(name), int(samples))
         for name, samples in data["collider_sampling"])
+    if stored_schema_version == 3:
+        # Schema 3 has the same durable representation as Schema 2.  Its
+        # differing embedded marker must not make an otherwise verified
+        # checkpoint incompatible merely because the reader was rolled back.
+        data["recovery_schema_version"] = RECOVERY_SCHEMA_VERSION
     return RecoveryIdentity(**data)
 
 
@@ -232,10 +242,12 @@ def _record_dict(record: CheckpointRecord) -> dict:
     return value
 
 
-def _record_from_dict(value: dict) -> CheckpointRecord:
+def _record_from_dict(value: dict, *, stored_schema_version: int | None = None) \
+        -> CheckpointRecord:
     return CheckpointRecord(
         frame=int(value["frame"]), project_id=str(value["project_id"]),
-        identity=_identity_from_dict(value["identity"]),
+        identity=_identity_from_dict(
+            value["identity"], stored_schema_version=stored_schema_version),
         created_at=float(value["created_at"]),
         checkpoint_path=str(value["checkpoint_path"]),
         checkpoint_size=int(value["checkpoint_size"]),
@@ -302,18 +314,21 @@ def load_project(path: Path, *, verify_checkpoints: bool = True) \
         -> ProjectRecord | None:
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
-        if int(raw["schema_version"]) != RECOVERY_SCHEMA_VERSION:
+        stored_schema_version = int(raw["schema_version"])
+        if stored_schema_version not in _READABLE_RECOVERY_SCHEMA_VERSIONS:
             return None
         value = raw["project"]
         checkpoints = tuple(
-            _record_from_dict(item) for item in value["checkpoints"])
+            _record_from_dict(item, stored_schema_version=stored_schema_version)
+            for item in value["checkpoints"])
         if verify_checkpoints:
             checkpoints = tuple(item for item in checkpoints
                                 if _verified_checkpoint(item))
         record = ProjectRecord(
             project_id=str(value["project_id"]),
             state=ProjectState(str(value["state"])),
-            identity=_identity_from_dict(value["identity"]),
+            identity=_identity_from_dict(
+                value["identity"], stored_schema_version=stored_schema_version),
             server_data_root=str(value["server_data_root"]),
             project_root=str(value["project_root"]),
             checkpoints=checkpoints,
@@ -440,11 +455,15 @@ def load_records(path: Path) -> tuple[CheckpointRecord, ...]:
     """Read either legacy checkpoint-only or project lifecycle metadata."""
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
-        if int(raw["schema_version"]) != RECOVERY_SCHEMA_VERSION:
+        stored_schema_version = int(raw["schema_version"])
+        if stored_schema_version not in _READABLE_RECOVERY_SCHEMA_VERSIONS:
             return ()
         values = (raw["project"]["checkpoints"]
                   if "project" in raw else raw["records"])
-        return tuple(record for record in map(_record_from_dict, values)
+        return tuple(record for record in (
+            _record_from_dict(
+                value, stored_schema_version=stored_schema_version)
+            for value in values)
                      if _verified_checkpoint(record))
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         return ()

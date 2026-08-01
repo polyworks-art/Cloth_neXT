@@ -1,5 +1,6 @@
 from dataclasses import replace
 import gzip
+import json
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,35 @@ def test_publish_reload_and_corruption_fail_closed(tmp_path):
     assert load_records(metadata)[0].frame == 20
     path.write_bytes(b"corrupt")
     assert load_records(metadata) == ()
+
+
+def test_schema_three_project_metadata_remains_resumable(tmp_path):
+    project_root = tmp_path / "server" / "project"
+    state = project_root / "session" / "output" / "state_20.bin.gz"
+    state.parent.mkdir(parents=True)
+    with gzip.open(state, "wb") as stream:
+        stream.write(b"state")
+    metadata = tmp_path / "metadata.json"
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    record = confirm_saved_states(metadata, record, [20], keep=3)
+    record = transition(metadata, record, ProjectState.RESUMABLE)
+    raw = json.loads(metadata.read_text(encoding="utf-8"))
+    raw["schema_version"] = 3
+    raw["project"]["identity"]["recovery_schema_version"] = 3
+    for checkpoint_record in raw["project"]["checkpoints"]:
+        checkpoint_record["identity"]["recovery_schema_version"] = 3
+    metadata.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = load_project(metadata)
+    eligibility = evaluate_resumable(metadata, identity())
+
+    assert loaded is not None
+    assert loaded.identity.recovery_schema_version == 2
+    assert [item.frame for item in loaded.checkpoints] == [20]
+    assert eligibility.resumable
 
 
 def test_geometry_and_params_compatibility():
