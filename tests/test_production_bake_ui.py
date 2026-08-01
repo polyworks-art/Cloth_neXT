@@ -19,7 +19,9 @@ class RecordingLayout:
             self.labels = []
             self.operators = []
             self.containers = []
+            self.properties = []
         self.enabled = True
+        self.alert = False
         self.scale_y = 1.0
 
     def label(self, text="", **_kw):
@@ -28,6 +30,9 @@ class RecordingLayout:
     def operator(self, identifier, text="", **_kw):
         self.sink.operators.append((identifier, text, self.enabled))
         return SimpleNamespace()
+
+    def prop(self, data, property_name, **_kw):
+        self.sink.properties.append((data, property_name, self.enabled))
 
     def row(self, **_kw):
         self.sink.containers.append("row")
@@ -39,6 +44,10 @@ class RecordingLayout:
 
     def column(self, **_kw):
         self.sink.containers.append("column")
+        return RecordingLayout(self.sink)
+
+    def box(self):
+        self.sink.containers.append("box")
         return RecordingLayout(self.sink)
 
 
@@ -308,6 +317,51 @@ def test_cloth_simulation_places_bake_directory_and_statistics_together(
                    for identifier, _text, _enabled in panel.layout.operators)
     assert "1 Deformables · 1 Collider · 1 Forces" in panel.layout.labels
     assert "Frames 1–180" in panel.layout.labels
+    env.registration.unregister()
+
+
+def test_primary_simulation_panel_exposes_provisional_recovery_banner(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    context = _context(env, _objects(env))
+    context.scene.cloth_next_recovery = SimpleNamespace(
+        enabled=True, status="Checkpoint Found", status_detail="Verified",
+        compatible=False, resumable=True, latest_checkpoint_frame=12)
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+
+    panel.draw(context)
+
+    assert "Recovery checkpoint found \u00b7 Frame 12" in panel.layout.labels
+    assert "Compatibility will be verified before Resume" in panel.layout.labels
+    assert ("clothnext.recovery_resume_latest", "Resume Bake", True) \
+        in panel.layout.operators
+    assert ("clothnext.recovery_start_fresh", "Start Fresh", True) \
+        in panel.layout.operators
+    env.registration.unregister()
+
+
+def test_live_preview_checkbox_is_in_primary_simulation_panel_below_bake(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    context = _context(env, _objects(env))
+    preview = SimpleNamespace(enabled=False, status="Newton unavailable",
+                              status_detail="")
+    context.scene.cloth_next_newton_preview = preview
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    panel = ui.CLOTHNEXT_PT_simulation(); panel.layout = RecordingLayout()
+
+    panel.draw(context)
+
+    assert (preview, "enabled", True) in panel.layout.properties
+    # Bake is emitted first, then the Live Preview property, before any
+    # Recovery banner actions in the production panel draw.
+    assert panel.layout.operators[0][0] == "clothnext.bake"
     env.registration.unregister()
 
 

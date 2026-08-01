@@ -517,6 +517,40 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         description="PPF isotropic-air-friction coefficient applied per vertex")
 
 
+def _on_newton_preview_toggle(self, context) -> None:
+    # Lazy import avoids coupling pure property registration to runtime/process
+    # code and keeps add-on registration side-effect free.
+    from . import newton_preview
+    newton_preview.request_toggle(context, bool(self.enabled))
+
+
+class CLOTHNEXT_PG_newton_preview_settings(bpy.types.PropertyGroup):
+    bake_backend: bpy.props.EnumProperty(
+        name="Bake Backend", default="PPF",
+        items=(("PPF", "PPF", "Production PPF solver with Recovery support"),
+               ("NEWTON", "Newton Experimental",
+                "Experimental external Newton Bake; Recovery is not available")))
+    enabled: bpy.props.BoolProperty(
+        name="Live Preview", default=False, update=_on_newton_preview_toggle,
+        description="Run an experimental Newton cloth preview while playing or scrubbing")
+    status: bpy.props.StringProperty(default="Newton unavailable", options={"HIDDEN"})
+    status_detail: bpy.props.StringProperty(default="", options={"HIDDEN"})
+    session_id: bpy.props.StringProperty(default="", options={"HIDDEN"})
+    current_frame: bpy.props.IntProperty(default=0, options={"HIDDEN"})
+    target_frame: bpy.props.IntProperty(default=0, options={"HIDDEN"})
+    quality: bpy.props.EnumProperty(
+        name="Preview Quality", default="BALANCED",
+        items=(("FAST", "Fast", "Lowest latency with fewer solver steps"),
+               ("BALANCED", "Balanced", "Recommended interactive preview quality"),
+               ("HIGH", "High", "Higher stability with greater frame latency")))
+    enable_self_contact: bpy.props.BoolProperty(
+        name="Self Collision", default=True,
+        description="Enable experimental Newton cloth self-contact")
+    time_scale: bpy.props.FloatProperty(
+        name="Preview Time Scale", default=1.0, min=0.01, max=4.0,
+        description="Scale Newton preview simulation time without changing Blender FPS")
+
+
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
@@ -789,9 +823,13 @@ def attach_to_object() -> None:
         type=CLOTHNEXT_PG_solver_quality_settings)
     bpy.types.Scene.cloth_next_recovery = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_recovery_settings)
+    bpy.types.Scene.cloth_next_newton_preview = bpy.props.PointerProperty(
+        type=CLOTHNEXT_PG_newton_preview_settings)
 
 
 def detach_from_object() -> None:
+    if hasattr(bpy.types.Scene, "cloth_next_newton_preview"):
+        del bpy.types.Scene.cloth_next_newton_preview
     if hasattr(bpy.types.Scene, "cloth_next_recovery"):
         del bpy.types.Scene.cloth_next_recovery
     if hasattr(bpy.types.Scene, "cloth_next_quality"):
@@ -808,4 +846,5 @@ CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_recovery_settings,
+           CLOTHNEXT_PG_newton_preview_settings,
            CLOTHNEXT_PG_object_settings)

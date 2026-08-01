@@ -20,12 +20,14 @@ from pathlib import Path
 import bpy
 
 from ..developer import is_dev_build
+from ..newton_preview import install as newton_install
 
 from ..ppf.compatibility import parse_executable_version
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
 from . import addon_update_operators
+from . import newton_preview as blender_newton_preview
 from .addon_identity import addon_preferences, package_addon_id
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
@@ -40,6 +42,22 @@ from ..updater.solver_registry import (
 
 _ADDON_ID = package_addon_id(__package__)
 _PLATFORM = "windows-x86_64"
+
+
+class _NewtonInstallSession:
+    def __init__(self):
+        self.worker = None
+        self.cancel_event = threading.Event()
+        self.process = None
+        self.status = ""
+        self.error = ""
+
+    @property
+    def active(self):
+        return bool(self.worker is not None and self.worker.is_alive())
+
+
+_newton_session = _NewtonInstallSession()
 
 
 class _SolverSession:
@@ -260,7 +278,9 @@ def _ui_refresh_pulse() -> float | None:
     """Timer callback: redraw preferences while the installer worker runs."""
     worker = _session.worker
     _tag_redraw_preferences()
-    if worker is None or not worker.is_alive():
+    solver_active = bool(worker is not None and worker.is_alive())
+    newton_active = _newton_session.active
+    if not solver_active:
         registry, _error = _read_registry()
         selected = registry.selected_installation_id
         if selected:
@@ -269,7 +289,8 @@ def _ui_refresh_pulse() -> float | None:
                 preferences.selected_solver_installation_id = selected
             except (KeyError, AttributeError):
                 pass
-        return None  # worker finished; final redraw done, stop the timer
+        if not newton_active:
+            return None  # both installers finished; final redraw done
     return 0.25
 
 
@@ -316,7 +337,19 @@ def shutdown(join_timeout: float = 10.0) -> bool:
     _session.worker_error = None
     _session.disabled_reason = None
     _session.loaded = False
-    return True
+    _newton_session.cancel_event.set()
+    process = _newton_session.process
+    if process is not None and process.poll() is None:
+        process.terminate()
+    newton_worker = _newton_session.worker
+    if newton_worker is not None and newton_worker.is_alive():
+        newton_worker.join(timeout=max(0.0, float(join_timeout)))
+    newton_stopped = newton_worker is None or not newton_worker.is_alive()
+    if newton_stopped:
+        _newton_session.worker = None
+        _newton_session.process = None
+        _newton_session.status = ""
+    return bool(newton_stopped)
 
 
 class _SolverInstallDialog:
@@ -688,6 +721,95 @@ _ACTION_OPERATORS = {
 }
 
 
+class CLOTHNEXT_OT_newton_install(bpy.types.Operator):
+    """Install the pinned Newton environment outside Blender"""
+    bl_idname = "clothnext.newton_install"
+    bl_label = "Install Newton · Principia"
+    bl_description = "Install the verified experimental Newton Live Preview backend"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        installed, _label, _path = blender_newton_preview.newton_installation_status()
+        return not installed and not _newton_session.active and not _solver_session_active()
+
+    def invoke(self, context, _event):
+        if not getattr(bpy.app, "online_access", True):
+            self.report({"ERROR"}, "Enable Allow Online Access in Blender Preferences before installing Newton.")
+            return {"CANCELLED"}
+        try:
+            newton_install.bootstrap_command()
+        except (OSError, ValueError) as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        return context.window_manager.invoke_props_dialog(self, width=520)
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.label(text="Newton · Principia", icon="PHYSICS")
+        layout.label(text="Newton 1.4.0 · Warp 1.15.0 · Experimental")
+        layout.label(text="External Python 3.11 environment · NVIDIA CUDA")
+        layout.label(text="Installed under Local AppData, never inside Blender or the add-on")
+        layout.label(text="Newton 1.4.0 and Warp 1.15.0: Apache-2.0")
+        layout.label(text="Approximately 550 MiB installed plus Warp JIT cache")
+        layout.operator("clothnext.newton_open_project", text="View Official Newton Project")
+
+    def execute(self, _context):
+        if _newton_session.active:
+            return {"CANCELLED"}
+        _newton_session.cancel_event = threading.Event()
+        _newton_session.error = ""
+        _newton_session.status = "Preparing Newton installation"
+
+        def set_process(process):
+            _newton_session.process = process
+
+        def run_install():
+            try:
+                newton_install.install(
+                    cancel_event=_newton_session.cancel_event,
+                    process_callback=set_process,
+                    status_callback=lambda value: setattr(
+                        _newton_session, "status", value))
+            except (OSError, ValueError, RuntimeError, TimeoutError) as exc:
+                _newton_session.error = str(exc)
+                _newton_session.status = "Newton installation failed"
+            finally:
+                _newton_session.process = None
+
+        _newton_session.worker = threading.Thread(
+            target=run_install, daemon=True, name="clothnext-newton-installer")
+        _newton_session.worker.start()
+        if not bpy.app.timers.is_registered(_ui_refresh_pulse):
+            bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
+        self.report({"INFO"}, "Installing Newton · Principia in the background.")
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_newton_cancel_install(bpy.types.Operator):
+    bl_idname = "clothnext.newton_cancel_install"
+    bl_label = "Cancel Newton Installation"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        return _newton_session.active
+
+    def execute(self, _context):
+        _newton_session.cancel_event.set()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_newton_open_project(bpy.types.Operator):
+    bl_idname = "clothnext.newton_open_project"
+    bl_label = "View Official Newton Project"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, _context):
+        webbrowser.open("https://github.com/newton-physics/newton/tree/v1.4.0")
+        return {"FINISHED"}
+
+
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
 
@@ -738,6 +860,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         self._draw_addon_update_section(layout, context)
         self._draw_solver_section(layout)
+        self._draw_newton_section(layout)
         if is_dev_build():
             layout.prop(self, "developer_tools")
         layout.prop(self, "auto_launch_bake_window")
@@ -748,6 +871,26 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         threshold=safety.row(); threshold.enabled=getattr(
             self,"auto_cancel_high_ram",True)
         threshold.prop(self,"auto_cancel_ram_percent")
+
+    def _draw_newton_section(self, layout) -> None:
+        box = layout.box()
+        installed, label, path = blender_newton_preview.newton_installation_status()
+        title = box.row(align=True)
+        title.label(text="Newton · Principia")
+        title.label(text="Ready" if installed else "Not Installed",
+                    icon="CHECKMARK" if installed else "INFO")
+        box.label(text="Experimental Live Preview · Newton 1.4.0 · Warp 1.15.0")
+        if installed:
+            box.label(text=label)
+        elif _newton_session.active:
+            box.label(text=_newton_session.status or "Installing Newton", icon="TIME")
+            box.operator("clothnext.newton_cancel_install", text="Cancel")
+        else:
+            box.operator("clothnext.newton_install", text="Install Newton")
+        if _newton_session.error:
+            box.label(text=_newton_session.error, icon="ERROR")
+        actions = box.row(align=True)
+        actions.operator("clothnext.newton_open_project", text="Official Project")
 
     def _draw_addon_update_section(self, layout, context) -> None:
         """Cloth NeXt's own update status; never performs network work."""
@@ -948,6 +1091,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
 
 CLASSES = (
+    CLOTHNEXT_OT_newton_install,
+    CLOTHNEXT_OT_newton_cancel_install,
+    CLOTHNEXT_OT_newton_open_project,
     CLOTHNEXT_OT_solver_use,
     CLOTHNEXT_OT_solver_refresh_installations,
     CLOTHNEXT_OT_solver_download,

@@ -77,6 +77,26 @@ _auto_validate = True
 _last_redraw_tag = 0.0
 _validation_due = 0.0
 _handlers_registered = False
+_depsgraph_observers: list = []
+
+
+def add_depsgraph_observer(callback) -> None:
+    """Share the one Cloth NeXt depsgraph hook with bounded feature observers."""
+    marker = bool(getattr(callback, "_clothnext_newton_preview_observer", False))
+    if marker:
+        _depsgraph_observers[:] = [
+            item for item in _depsgraph_observers
+            if not getattr(item, "_clothnext_newton_preview_observer", False)]
+    if callback not in _depsgraph_observers:
+        _depsgraph_observers.append(callback)
+
+
+def remove_depsgraph_observer(callback) -> None:
+    _depsgraph_observers[:] = [
+        item for item in _depsgraph_observers
+        if item is not callback and not (
+            getattr(callback, "_clothnext_newton_preview_observer", False)
+            and getattr(item, "_clothnext_newton_preview_observer", False))]
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +372,13 @@ def _on_depsgraph_update(scene, depsgraph=None) -> None:
     if touched:
         _tag_redraw()
         _schedule_validation()
+    for observer in tuple(_depsgraph_observers):
+        try:
+            observer(scene, depsgraph)
+        except Exception:
+            # A feature observer may update diagnostics, but it must never
+            # break Blender's authoritative dirty-marking callback.
+            continue
 
 
 def _on_load_post(*_args) -> None:
@@ -423,6 +450,7 @@ def unregister() -> None:
     except (AttributeError, ValueError):
         pass
     clear()
+    _depsgraph_observers.clear()
     _handlers_registered = False
 
 

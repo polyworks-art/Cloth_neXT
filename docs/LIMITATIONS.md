@@ -1,5 +1,12 @@
 # Audit limitations and unsupported claims
 
+- Newton Live Preview is experimental and currently limited to one triangle
+  Cloth, static triangle colliders, static hard pins and gravity. It rejects
+  animated colliders, Follow Animation pins, pressure, sewing, multiple Cloth
+  objects, Edit Mode and topology-changing modifiers. Its material translation
+  does not claim physical parity with PPF. Newton preview recovery and restart
+  persistence are not implemented. See `NEWTON_LIVE_PREVIEW.md`.
+
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
 Current production scope is multiple Cloth, Rod, and Soft Body deformables in

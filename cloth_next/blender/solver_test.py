@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import copy
 import json
+import logging
 import math
 import os
 import queue
@@ -40,6 +41,15 @@ from pathlib import Path
 
 import bpy
 import numpy as np
+
+try:
+    from bpy.app.handlers import persistent
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - pytest fake bpy
+    def persistent(function):
+        # Match Blender's decorator: persistence is identified by attribute
+        # presence; Blender stores None rather than a truthy value.
+        function._bpy_persistent = None
+        return function
 
 from .addon_identity import addon_preferences, package_addon_id
 
@@ -4479,10 +4489,6 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     cache_root = targets[0].pc2_path.parent
     root = recovery.recovery_root(cache_root, plan.scene_cache_key)
     metadata = root / recovery.METADATA_NAME
-    partials = tuple(
-        (target.uuid, str(
-            root / "partials" / f"{target.uuid}.pc2.partial"))
-        for target in targets)
     collider_sampling = tuple(sorted(
         (export_identity.export_uuid(obj),
          int(getattr(obj.cloth_next, "collider_samples_per_frame", 1)))
@@ -4509,10 +4515,37 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
             _resolved_installation_id(plan.resolved) or "unregistered"),
         solver_release_tag=_resolved_release_tag(plan.resolved))
     resume_requested = bool(getattr(settings, "resume_requested", False))
+    if resume_requested:
+        # load_post selected a specific durable project.  The Scene export
+        # cache key is deliberately conservative and can change when runtime
+        # handler identity changes across a Blender restart, even though all
+        # authoritative Recovery inputs are identical.  Resume the selected
+        # project only: preserve its opaque scene key, then compare every
+        # semantic identity field against the freshly built Bake identity.
+        selected_root = Path(str(getattr(
+            settings, "recovery_directory", "") or ""))
+        selected_metadata = selected_root / recovery.METADATA_NAME
+        selected_record = recovery.load_project(selected_metadata)
+        if selected_record is None:
+            settings.resume_requested = False
+            eligibility = recovery.evaluate_resumable(selected_metadata)
+            _apply_eligibility_to_settings(settings, eligibility)
+            raise SceneValidationError(
+                "The selected recovery metadata is missing, corrupt, or no "
+                "longer readable. Resume was stopped without starting a new "
+                "Bake.")
+        root = selected_root
+        metadata = selected_metadata
+        identity = replace(
+            identity, scene_key=selected_record.identity.scene_key)
+    partials = tuple(
+        (target.uuid, str(
+            root / "partials" / f"{target.uuid}.pc2.partial"))
+        for target in targets)
     # One authoritative eligibility decision for both the snapshot and the
     # resume gate; no caller maintains its own copy of the state set.
     eligibility = recovery.evaluate_resumable(metadata, identity)
-    if resume_requested and eligibility.available and not eligibility.resumable:
+    if resume_requested and not eligibility.resumable:
         # A verified checkpoint survives but no longer matches this scene or
         # solver. Refuse to silently start fresh and overwrite it. Leave the
         # panel honest and the gate un-stuck: the failure is permanent until
@@ -4597,18 +4630,18 @@ def _apply_eligibility_to_settings(settings, eligibility) -> None:
         eligibility.resumable and eligibility.error)
     state = eligibility.state
     if state is None:
-        settings.status = "No checkpoint"
+        settings.status = "No Recovery Checkpoint"
         settings.status_detail = eligibility.reason
     elif eligibility.compatible is None:
         # load_post has only durable metadata.  It may show a verified state,
         # but calling it compatible before Bake preparation recomputes the
         # current identity would be misleading and could invite unsafe reuse.
-        settings.status = "Checkpoint found"
+        settings.status = "Checkpoint Found"
         settings.status_detail = (
             "Verified checkpoint · Compatibility will be checked before "
             "Resume")
     elif eligibility.resumable:
-        settings.status = "Recovery available"
+        settings.status = "Resume Available"
         settings.status_detail = (
             eligibility.error or "Verified checkpoint · Resume available")
     elif state is recovery.ProjectState.FAILED and eligibility.error:
@@ -5545,6 +5578,15 @@ def _commit_playback_cleanup(records) -> None:
 
 
 def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
+    targets = _plan_deformables(plan)
+    if plan.deformables and len(targets) == 1:
+        # The worker deliberately uses the bounded single-cache path for one
+        # deformable and therefore returns one Pc2Header, not a UUID mapping.
+        # A RunPlan built by the modern scene exporter still carries a
+        # one-element ``deformables`` tuple; normalize it before preflight.
+        return _attach_playback(
+            _plan_for_target(plan, targets[0]), header,
+            _transaction=_transaction)
     if plan.deformables:
         # Preflight every cache and object before changing a single modifier.
         for target in plan.deformables:
@@ -5713,75 +5755,286 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
     _apply_eligibility_to_settings(settings, eligibility)
 
 
-def _refresh_recovery_ui_from_disk() -> None:
-    """Reconstruct the cached snapshot from durable metadata after file load.
+class _RecoveryRefreshDeferred(RuntimeError):
+    """The file loaded, but its RNA/path state is not ready for inspection."""
 
-    No RunPlan exists yet, so the current identity (and therefore exact
-    compatibility) cannot be recomputed without a full export.  The snapshot
-    reports the on-disk truth and the authoritative identity check happens at
-    Bake start, which refuses to overwrite a checkpoint that no longer
-    matches the scene.
-    """
-    try:
-        scene = bpy.context.scene
-    except (AttributeError, TypeError):
-        return
+
+_RECOVERY_REFRESH_MAX_ATTEMPTS = 3
+_recovery_refresh_generation = 0
+_recovery_refresh_attempt = 0
+_recovery_log = get_logger("recovery.ui")
+
+
+def _set_no_recovery(settings, detail="No verified checkpoint belongs to this scene"):
+    settings.compatible = False
+    settings.resumable = False
+    settings.latest_checkpoint_frame = 0
+    settings.checkpoint_count = 0
+    settings.older_checkpoint_preserved = False
+    settings.resume_requested = False
+    settings.status = "No Recovery Checkpoint"
+    settings.status_detail = detail
+
+
+def _recovery_discovery_context():
+    scene = getattr(getattr(bpy, "context", None), "scene", None)
+    if scene is None:
+        raise _RecoveryRefreshDeferred("active scene is not available yet")
     settings = getattr(scene, "cloth_next_recovery", None)
     if settings is None:
-        return
-    root = str(getattr(settings, "recovery_directory", "") or "").strip()
-    candidates = []
-    if root:
-        candidates.append(Path(root) / recovery.METADATA_NAME)
-    seen_cache_roots = set()
+        raise _RecoveryRefreshDeferred("Recovery scene properties are not available yet")
+
+    expected_uuids = []
+    cache_roots = []
     for obj in getattr(scene, "objects", ()):
         props = getattr(obj, "cloth_next", None)
+        role = str(getattr(props, "role", "") or "")
         if (props is None or not bool(getattr(props, "enabled", False))
-                or str(getattr(props, "role", "")) == "COLLIDER"):
+                or role not in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY",
+                                "COLLIDER"}):
             continue
+        persistent_id = str(
+            getattr(props, "persistent_export_id", "") or "").strip()
+        if not persistent_id:
+            raise _RecoveryRefreshDeferred(
+                f"object identity for {getattr(obj, 'name', '?')} is not ready")
+        expected_uuids.append(
+            export_identity.export_uuid_from_identity(persistent_id, role))
         cache_value = str(getattr(props, "cache_directory", "") or "").strip()
-        if not cache_value:
-            continue
+        if cache_value:
+            cache_roots.append(Path(bpy.path.abspath(cache_value)).resolve())
+
+    stored_root = str(
+        getattr(settings, "recovery_directory", "") or "").strip()
+    candidates = []
+    stored_metadata = None
+    if stored_root:
+        stored_metadata = Path(stored_root) / recovery.METADATA_NAME
+        candidates.append(stored_metadata)
+    for cache_root in dict.fromkeys(cache_roots):
         try:
-            cache_root = Path(bpy.path.abspath(cache_value)).resolve()
-        except (OSError, RuntimeError, ValueError):
-            continue
-        if cache_root in seen_cache_roots:
-            continue
-        seen_cache_roots.add(cache_root)
-        try:
-            candidates.extend(
+            candidates.extend(sorted(
                 (cache_root / ".cloth_next_recovery").glob(
-                    f"*/{recovery.METADATA_NAME}"))
+                    f"*/{recovery.METADATA_NAME}"), key=str))
         except OSError:
             continue
+    return (scene, settings, tuple(sorted(expected_uuids)),
+            tuple(dict.fromkeys(cache_roots)),
+            tuple(dict.fromkeys(Path(path) for path in candidates)),
+            stored_metadata)
+
+
+def _recovery_refresh_diagnostics(*, scene, cache_roots, candidates,
+                                  selected=None, metadata_exists=False,
+                                  metadata_parsed=False, checkpoint_count=0,
+                                  result="") -> dict:
+    return {
+        "stage": "LOAD_RECOVERY_REFRESH",
+        "blend_path": str(getattr(getattr(bpy, "data", None), "filepath", "")),
+        "scene": str(getattr(scene, "name", "")),
+        "candidate_cache_roots": tuple(map(str, cache_roots)),
+        "candidate_metadata_paths": tuple(map(str, candidates)),
+        "selected_metadata_path": str(selected or ""),
+        "metadata_exists": bool(metadata_exists),
+        "metadata_parsed": bool(metadata_parsed),
+        "checkpoint_count": int(checkpoint_count),
+        "resulting_ui_state": str(result),
+    }
+
+
+def _record_recovery_refresh_failure(settings, exc, diagnostics) -> None:
+    settings.compatible = False
+    settings.resumable = False
+    settings.latest_checkpoint_frame = 0
+    settings.checkpoint_count = 0
+    settings.older_checkpoint_preserved = False
+    settings.resume_requested = False
+    settings.status = "Recovery Check Failed"
+    settings.status_detail = "Recovery check failed \u00b7 Open diagnostics"
+    context = dict(diagnostics)
+    context.update(exception_type=type(exc).__name__, message=str(exc),
+                   resulting_ui_state=settings.status)
+    log_with_context(_recovery_log, logging.ERROR,
+                     "Recovery refresh failed", context)
+
+
+def _current_recovery_diagnostics(scene=None) -> dict:
+    """Best-effort context for failures after discovery has partially run."""
+    scene = scene or getattr(getattr(bpy, "context", None), "scene", None)
+    try:
+        (found_scene, _settings, _uuids, cache_roots, candidates,
+         _stored) = _recovery_discovery_context()
+        return _recovery_refresh_diagnostics(
+            scene=found_scene, cache_roots=cache_roots,
+            candidates=candidates, result="")
+    except Exception:  # noqa: BLE001 -- diagnostics must never mask the cause
+        return _recovery_refresh_diagnostics(
+            scene=scene, cache_roots=(), candidates=(), result="")
+
+
+def _refresh_recovery_ui_from_disk() -> dict:
+    """Rebuild display state from verified metadata owned by this scene.
+
+    The exact geometry/solver compatibility remains provisional until Bake
+    preparation recomputes the full RecoveryIdentity.  Project ownership is
+    not provisional: an exact saved directory is preferred and every scanned
+    record must match the enabled objects' durable export UUIDs.
+    """
+    (scene, settings, expected_uuids, cache_roots, candidates,
+     stored_metadata) = _recovery_discovery_context()
+    base = _recovery_refresh_diagnostics(
+        scene=scene, cache_roots=cache_roots, candidates=candidates)
     if not candidates:
-        return
-    unique = tuple(dict.fromkeys(Path(path) for path in candidates))
-    available = []
-    for metadata in unique:
+        _set_no_recovery(settings)
+        base["resulting_ui_state"] = settings.status
+        log_with_context(_recovery_log, logging.INFO,
+                         "Recovery refresh found no candidates", base)
+        return base
+
+    inspected = []
+    for metadata in candidates:
         eligibility = recovery.evaluate_resumable(metadata)
-        if not eligibility.available:
-            continue
         record = recovery.load_project(metadata)
-        if record is not None:
-            available.append((record.updated_at, record.generation,
-                              metadata, eligibility))
-    if available:
-        _updated, _generation, metadata, eligibility = max(
-            available, key=lambda item: (item[0], item[1], str(item[2])))
-        settings.recovery_directory = str(metadata.parent)
+        owned = bool(record is not None and expected_uuids
+                     and tuple(sorted(record.identity.export_uuids))
+                     == expected_uuids)
+        inspected.append((metadata, eligibility, record, owned))
+
+    # The directory stored inside this .blend is authoritative for ownership,
+    # but only when its metadata still names precisely the enabled objects.
+    selected = next((item for item in inspected
+                     if stored_metadata is not None
+                     and item[0] == stored_metadata and item[3]), None)
+    owned_available = [item for item in inspected
+                       if item[3] and item[1].available]
+    if selected is None:
+        identities = {(item[2].identity.scene_key, item[2].project_id)
+                      for item in owned_available if item[2] is not None}
+        if len(identities) > 1:
+            exc = ValueError(
+                "Ambiguous recovery projects belong to the enabled objects")
+            diagnostics = dict(base)
+            diagnostics["checkpoint_count"] = sum(
+                item[1].checkpoint_count for item in owned_available)
+            _record_recovery_refresh_failure(settings, exc, diagnostics)
+            return diagnostics
+        if owned_available:
+            selected = max(
+                owned_available,
+                key=lambda item: (item[2].generation, item[2].updated_at,
+                                  str(item[0])))
+
+    if selected is None:
+        # A saved exact path that no longer parses or verifies is an explicit
+        # invalid-metadata state. Unrelated scan results are never advertised.
+        exact = next((item for item in inspected
+                      if stored_metadata is not None
+                      and item[0] == stored_metadata), None)
+        if exact is not None and exact[0].exists():
+            settings.compatible = False
+            settings.resumable = False
+            settings.latest_checkpoint_frame = 0
+            settings.checkpoint_count = 0
+            settings.older_checkpoint_preserved = False
+            settings.resume_requested = False
+            settings.status = "Recovery Metadata Invalid"
+            settings.status_detail = exact[1].reason
+            selected = exact
+        else:
+            _set_no_recovery(settings)
+            base["resulting_ui_state"] = settings.status
+            return base
+
+    metadata, eligibility, record, _owned = selected
+    settings.recovery_directory = str(metadata.parent)
+    if record is not None and eligibility.available:
+        _apply_eligibility_to_settings(settings, eligibility)
+    elif record is not None and record.state is recovery.ProjectState.ABANDONED:
+        settings.compatible = False
+        settings.resumable = False
+        settings.latest_checkpoint_frame = 0
+        settings.checkpoint_count = 0
+        settings.older_checkpoint_preserved = False
+        settings.status = "Recovery Project Missing"
+        settings.status_detail = eligibility.reason
     else:
-        metadata = Path(root) / recovery.METADATA_NAME if root else unique[0]
-        eligibility = recovery.evaluate_resumable(metadata)
-    _apply_eligibility_to_settings(settings, eligibility)
+        settings.compatible = False
+        settings.resumable = False
+        settings.latest_checkpoint_frame = 0
+        settings.checkpoint_count = 0
+        settings.older_checkpoint_preserved = False
+        settings.status = "Recovery Metadata Invalid"
+        settings.status_detail = eligibility.reason
+    diagnostics = _recovery_refresh_diagnostics(
+        scene=scene, cache_roots=cache_roots, candidates=candidates,
+        selected=metadata, metadata_exists=metadata.is_file(),
+        metadata_parsed=record is not None,
+        checkpoint_count=eligibility.checkpoint_count,
+        result=settings.status)
+    log_with_context(_recovery_log, logging.INFO,
+                     "Recovery refresh completed", diagnostics)
+    return diagnostics
 
 
-def _on_load_post_refresh_recovery(*_args) -> None:
+def _cancel_delayed_recovery_refresh() -> None:
+    timer = getattr(getattr(bpy, "app", None), "timers", None)
+    if timer is not None and timer.is_registered(_delayed_recovery_refresh):
+        timer.unregister(_delayed_recovery_refresh)
+
+
+def _delayed_recovery_refresh() -> float | None:
+    global _recovery_refresh_attempt
+    _recovery_refresh_attempt += 1
     try:
         _refresh_recovery_ui_from_disk()
-    except Exception:  # noqa: BLE001 -- never break Blender's file load
+        return None
+    except _RecoveryRefreshDeferred as exc:
+        if _recovery_refresh_attempt < _RECOVERY_REFRESH_MAX_ATTEMPTS:
+            return 0.25
+        scene = getattr(getattr(bpy, "context", None), "scene", None)
+        settings = getattr(scene, "cloth_next_recovery", None)
+        if settings is not None:
+            diagnostics = _recovery_refresh_diagnostics(
+                scene=scene, cache_roots=(), candidates=(), result="")
+            _record_recovery_refresh_failure(settings, exc, diagnostics)
+        return None
+    except Exception as exc:  # noqa: BLE001 -- timer must not break Blender
+        scene = getattr(getattr(bpy, "context", None), "scene", None)
+        settings = getattr(scene, "cloth_next_recovery", None)
+        if settings is not None:
+            diagnostics = _current_recovery_diagnostics(scene)
+            _record_recovery_refresh_failure(settings, exc, diagnostics)
+        return None
+
+
+@persistent
+def _on_load_post_refresh_recovery(*_args) -> None:
+    """Persistent, non-blocking file-load hook; durable verification is delayed."""
+    global _recovery_refresh_generation, _recovery_refresh_attempt
+    _recovery_refresh_generation += 1
+    _recovery_refresh_attempt = 0
+    _cancel_delayed_recovery_refresh()
+    scene = getattr(getattr(bpy, "context", None), "scene", None)
+    settings = getattr(scene, "cloth_next_recovery", None)
+    if settings is not None:
+        settings.compatible = False
+        settings.resumable = False
+        settings.status = "Checking for Recovery"
+        settings.status_detail = "Inspecting durable recovery metadata"
+    try:
+        # Lightweight discovery catches a temporarily unavailable RNA/path
+        # state without hashing or opening checkpoint payloads in load_post.
+        _recovery_discovery_context()
+    except _RecoveryRefreshDeferred:
         pass
+    except Exception as exc:  # noqa: BLE001 -- never break Blender file load
+        if settings is not None:
+            diagnostics = _recovery_refresh_diagnostics(
+                scene=scene, cache_roots=(), candidates=(), result="")
+            _record_recovery_refresh_failure(settings, exc, diagnostics)
+    timer = getattr(getattr(bpy, "app", None), "timers", None)
+    if timer is not None and not timer.is_registered(_delayed_recovery_refresh):
+        timer.register(_delayed_recovery_refresh, first_interval=0.1)
 
 
 _on_load_post_refresh_recovery._clothnext_recovery_handler = True
@@ -5822,6 +6075,7 @@ def install_recovery_ui_handler() -> None:
 
 def uninstall_recovery_ui_handler() -> None:
     global _recovery_ui_handler_registered
+    _cancel_delayed_recovery_refresh()
     handlers = getattr(bpy.app, "handlers", None)
     if handlers is not None:
         for slot, attribute in _RECOVERY_HANDLER_SLOTS:
@@ -6579,6 +6833,9 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
+    from . import newton_bake
+    if newton_bake.request_cancel():
+        return
     if _pending_job_id:
         cancel_pending_startup(); return
     _cancel_event.set()
@@ -6809,8 +7066,16 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            _job_id, waiting = begin_production_bake(context)
-        except (SceneValidationError, ClothNextError) as exc:
+            backend = str(getattr(
+                getattr(getattr(context, "scene", None),
+                        "cloth_next_newton_preview", None),
+                "bake_backend", "PPF"))
+            if backend == "NEWTON":
+                from . import newton_bake
+                _job_id, waiting = newton_bake.begin(context)
+            else:
+                _job_id, waiting = begin_production_bake(context)
+        except (SceneValidationError, ClothNextError, ValueError) as exc:
             message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
             snapshot = shared_controller.snapshot()
             _console_error("PREPARING", message, snapshot.error_details,
@@ -7222,11 +7487,64 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         return allowed
 
     def execute(self, context):
-        context.scene.cloth_next_recovery.resume_requested = True
+        settings = getattr(context.scene, "cloth_next_recovery", None)
+        if settings is None:
+            self.report({"ERROR"}, "Recovery settings are unavailable.")
+            return {"CANCELLED"}
         try:
-            bpy.ops.clothnext.bake("INVOKE_DEFAULT")
-        except (AttributeError, RuntimeError):
-            self.report({"INFO"}, "Resume selected. Start Bake to continue.")
+            diagnostics = _refresh_recovery_ui_from_disk()
+        except Exception as exc:  # noqa: BLE001 -- operator reports a safe error
+            diagnostics = _current_recovery_diagnostics(context.scene)
+            _record_recovery_refresh_failure(settings, exc, diagnostics)
+            self.report({"ERROR"}, settings.status_detail)
+            return {"CANCELLED"}
+        metadata = _recovery_metadata_from_scene(context.scene)
+        eligibility = (recovery.evaluate_resumable(metadata)
+                       if metadata is not None else None)
+        if (eligibility is None or not eligibility.available
+                or eligibility.checkpoint_count <= 0):
+            settings.resume_requested = False
+            message = (eligibility.reason if eligibility is not None
+                       else "No selected Recovery metadata exists")
+            settings.status = "Recovery Metadata Invalid"
+            settings.status_detail = message
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+        if run_active() or shared_controller.snapshot().active:
+            settings.resume_requested = False
+            message = "A solver or Bake operation is still running"
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+
+        settings.resume_requested = True
+        settings.status = "Resume Starting"
+        settings.status_detail = (
+            f"Verifying compatibility for checkpoint frame "
+            f"{eligibility.latest_checkpoint_frame}")
+        try:
+            job_id, waiting = begin_production_bake(context)
+            snapshot = shared_controller.snapshot()
+            if not job_id or not snapshot.active:
+                raise SceneValidationError(
+                    "The production Bake did not enter a valid startup state")
+        except (SceneValidationError, ClothNextError, OSError, RuntimeError) as exc:
+            settings.resume_requested = False
+            message = (exc.record.user_message
+                       if isinstance(exc, ClothNextError) else str(exc))
+            settings.status = "Recovery Check Failed"
+            settings.status_detail = message or "Resume did not start"
+            context_data = dict(diagnostics)
+            context_data.update(
+                stage="RESUME_START", exception_type=type(exc).__name__,
+                message=message, resulting_ui_state=settings.status)
+            log_with_context(_recovery_log, logging.ERROR,
+                             "Recovery Resume failed to start", context_data)
+            self.report({"ERROR"}, settings.status_detail)
+            return {"CANCELLED"}
+        settings.status = "Resume Starting"
+        settings.status_detail = (
+            "Opening Bake window" if waiting else "Production Resume started")
+        self.report({"INFO"}, "Recovery Resume started.")
         return {"FINISHED"}
 
 

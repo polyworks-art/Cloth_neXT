@@ -7,6 +7,8 @@ import gzip
 import hashlib
 import json
 import threading
+from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -999,6 +1001,29 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.up_axis == "POS_Z"
 
 
+def test_single_deformable_tuple_accepts_single_worker_header(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    path = tmp_path / "cn_test_cloth_single.pc2"
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    target = module.DeformablePlan(
+        ((0, 0, 0),), identity, obj.name, "cloth-uuid", path,
+        "topology", {}, "CLOTH")
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), target.initial_local, identity,
+        obj.name, tmp_path, path, 1, deformables=(target,))
+
+    module._attach_playback(plan, header)
+
+    assert len(obj.modifiers) == 1
+    assert obj.modifiers[0].filepath == str(path)
+
+
 def test_attach_places_cache_after_armature_and_before_later_modifiers(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
@@ -1572,7 +1597,7 @@ def test_load_post_refreshes_recovery_snapshot_from_disk(blender_env, tmp_path):
     # on-disk truth provisionally and Bake start re-verifies compatibility.
     assert settings.compatible is False
     assert settings.resumable is True
-    assert settings.status == "Checkpoint found"
+    assert settings.status == "Checkpoint Found"
     assert "Compatibility will be checked" in settings.status_detail
     assert settings.latest_checkpoint_frame == 20
     assert settings.checkpoint_count == 1
@@ -1590,23 +1615,47 @@ def test_refresh_recovery_ui_from_disk_without_metadata_is_not_resumable(
 
     assert settings.resumable is False
     assert settings.compatible is False
-    assert settings.status == "No checkpoint"
+    assert settings.status == "No Recovery Checkpoint"
     assert settings.latest_checkpoint_frame == 0
     assert settings.checkpoint_count == 0
 
 
+def test_disk_refresh_marks_corrupt_checkpoint_invalid(blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    record = recovery.load_project(metadata)
+    Path(record.checkpoints[-1].checkpoint_path).write_bytes(b"truncated")
+    settings = _recovery_settings(recovery_directory=str(metadata.parent))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        name="Recovery Scene", cloth_next_recovery=settings, objects=())
+
+    module._refresh_recovery_ui_from_disk()
+
+    assert settings.status == "Recovery Metadata Invalid"
+    assert settings.resumable is False
+    assert settings.checkpoint_count == 0
+
+
 def test_load_post_discovers_new_recovery_root_from_enabled_cloth_cache(
-        blender_env, tmp_path):
+        blender_env, tmp_path, monkeypatch):
     module = blender_env.solver_test
     metadata, _identity = _verified_recovery(tmp_path)
     stale = tmp_path / "stale" / "old-scene"
     settings = _recovery_settings(recovery_directory=str(stale))
     cloth = SimpleNamespace(cloth_next=SimpleNamespace(
         enabled=True, role="CLOTH",
+        persistent_export_id="cloth-persistent-id",
         cache_directory=str(tmp_path / "cache")))
     collider = SimpleNamespace(cloth_next=SimpleNamespace(
         enabled=True, role="COLLIDER",
+        persistent_export_id="collider-persistent-id",
         cache_directory=str(tmp_path / "unrelated")))
+    monkeypatch.setattr(
+        module.export_identity, "export_uuid_from_identity",
+        lambda _identity, role: "target-a" if role == "CLOTH" else "collider")
+    # The fixture project contains one cloth and no collider; exclude the
+    # unrelated collider from the enabled Recovery identity.
+    collider.cloth_next.enabled = False
     blender_env.bpy.context.scene = SimpleNamespace(
         cloth_next_recovery=settings, objects=(cloth, collider))
 
@@ -1614,8 +1663,86 @@ def test_load_post_discovers_new_recovery_root_from_enabled_cloth_cache(
 
     assert settings.recovery_directory == str(metadata.parent)
     assert settings.resumable is True
-    assert settings.status == "Checkpoint found"
+    assert settings.status == "Checkpoint Found"
     assert settings.checkpoint_count == 1
+
+
+def test_recovery_scan_refuses_ambiguous_projects_for_same_objects(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    first_metadata, first_identity = _verified_recovery(tmp_path)
+    second_identity = replace(first_identity, scene_key="scene-two")
+    second_root = tmp_path / "server" / "project-two"
+    output = second_root / "session" / "output"
+    output.mkdir(parents=True)
+    second_metadata = recovery.metadata_path(tmp_path / "cache", "scene-two")
+    record = recovery.create_project(
+        second_metadata, project_id="project-two", identity=second_identity,
+        server_data_root=tmp_path / "server", project_root=second_root)
+    record = recovery.transition(
+        second_metadata, record, recovery.ProjectState.RUNNING)
+    (output / "state_20.bin.gz").write_bytes(gzip.compress(b"state-two"))
+    record = recovery.confirm_saved_states(
+        second_metadata, record, (20,), keep=3)
+    recovery.transition(
+        second_metadata, record, recovery.ProjectState.RESUMABLE)
+    settings = _recovery_settings()
+    cloth = SimpleNamespace(name="Cloth", cloth_next=SimpleNamespace(
+        enabled=True, role="CLOTH", persistent_export_id="cloth-id",
+        cache_directory=str(tmp_path / "cache")))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        name="Scene", cloth_next_recovery=settings, objects=(cloth,))
+    monkeypatch.setattr(
+        module.export_identity, "export_uuid_from_identity",
+        lambda _identity, _role: "target-a")
+
+    diagnostics = module._refresh_recovery_ui_from_disk()
+
+    assert first_metadata in tuple(map(type(first_metadata),
+                                      diagnostics["candidate_metadata_paths"]))
+    assert settings.status == "Recovery Check Failed"
+    assert settings.resumable is False
+    assert settings.recovery_directory == ""
+
+
+def test_recovery_scan_ignores_newer_unrelated_project(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    unrelated_identity = replace(_identity, scene_key="unrelated",
+                                 export_uuids=("other-object",))
+    unrelated_root = tmp_path / "server" / "unrelated"
+    unrelated_output = unrelated_root / "session" / "output"
+    unrelated_output.mkdir(parents=True)
+    unrelated_metadata = recovery.metadata_path(
+        tmp_path / "cache", "unrelated")
+    record = recovery.create_project(
+        unrelated_metadata, project_id="unrelated",
+        identity=unrelated_identity, server_data_root=tmp_path / "server",
+        project_root=unrelated_root)
+    record = recovery.transition(
+        unrelated_metadata, record, recovery.ProjectState.RUNNING)
+    (unrelated_output / "state_99.bin.gz").write_bytes(
+        gzip.compress(b"unrelated"))
+    record = recovery.confirm_saved_states(
+        unrelated_metadata, record, (99,), keep=3)
+    recovery.transition(
+        unrelated_metadata, record, recovery.ProjectState.RESUMABLE)
+    settings = _recovery_settings()
+    cloth = SimpleNamespace(name="Cloth", cloth_next=SimpleNamespace(
+        enabled=True, role="CLOTH", persistent_export_id="cloth-id",
+        cache_directory=str(tmp_path / "cache")))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        name="Scene", cloth_next_recovery=settings, objects=(cloth,))
+    monkeypatch.setattr(
+        module.export_identity, "export_uuid_from_identity",
+        lambda _identity, _role: "target-a")
+
+    module._refresh_recovery_ui_from_disk()
+
+    assert settings.recovery_directory == str(metadata.parent)
+    assert settings.latest_checkpoint_frame == 20
+    assert settings.status == "Checkpoint Found"
 
 
 def test_refresh_recovery_ui_from_disk_without_directory_is_untouched(
@@ -1628,7 +1755,7 @@ def test_refresh_recovery_ui_from_disk_without_directory_is_untouched(
     module._refresh_recovery_ui_from_disk()
 
     assert settings.resumable is False
-    assert settings.status == ""
+    assert settings.status == "No Recovery Checkpoint"
 
 
 def test_load_post_recovery_handler_registered_exactly_once(blender_env):
@@ -1641,6 +1768,30 @@ def test_load_post_recovery_handler_registered_exactly_once(blender_env):
     assert container.count(module._on_load_post_refresh_recovery) == 1
 
 
+def test_recovery_load_handler_is_blender_persistent(blender_env):
+    module = blender_env.solver_test
+
+    assert hasattr(module._on_load_post_refresh_recovery, "_bpy_persistent")
+
+
+def test_load_post_defers_authoritative_recovery_verification(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    settings = _recovery_settings(recovery_directory=str(metadata.parent))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        name="Recovery Scene", cloth_next_recovery=settings, objects=())
+
+    module._on_load_post_refresh_recovery(None)
+
+    assert settings.status == "Checking for Recovery"
+    assert blender_env.bpy.app.timers.is_registered(
+        module._delayed_recovery_refresh)
+    assert module._delayed_recovery_refresh() is None
+    assert settings.status == "Checkpoint Found"
+    assert settings.resumable is True
+
+
 def test_uninstall_removes_recovery_handler(blender_env):
     module = blender_env.solver_test
     container = blender_env.bpy.app.handlers.load_post
@@ -1649,6 +1800,8 @@ def test_uninstall_removes_recovery_handler(blender_env):
     module.uninstall_recovery_ui_handler()
 
     assert module._on_load_post_refresh_recovery not in container
+    assert not blender_env.bpy.app.timers.is_registered(
+        module._delayed_recovery_refresh)
 
 
 def test_install_purges_stale_recovery_handlers(blender_env):
@@ -1679,6 +1832,63 @@ def test_recovery_resume_poll_requires_resumable_and_idle(
 
     settings.resumable = False
     assert operator.poll(context) is False
+
+
+def test_recovery_resume_operator_starts_production_service(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    settings = _recovery_settings(
+        resumable=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        name="Recovery Scene", cloth_next_recovery=settings, objects=()))
+    blender_env.bpy.context.scene = context.scene
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest()
+    reports = []
+    operator.report = lambda level, message: reports.append((level, message))
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+
+    def begin(_context):
+        job_id = module.shared_controller.transition(
+            BakeState.PREPARING, status_message="Validating Resume").job_id
+        return job_id, True
+
+    monkeypatch.setattr(module, "run_active", lambda: False)
+    monkeypatch.setattr(module, "begin_production_bake", begin)
+
+    assert operator.execute(context) == {"FINISHED"}
+    assert module.shared_controller.snapshot().state is BakeState.PREPARING
+    assert reports[-1][0] == {"INFO"}
+    module.shared_controller.fail("test cleanup")
+    module.shared_controller.reset()
+
+
+def test_recovery_resume_operator_cancels_when_production_start_fails(
+        blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    settings = _recovery_settings(
+        resumable=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        name="Recovery Scene", cloth_next_recovery=settings, objects=()))
+    blender_env.bpy.context.scene = context.scene
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest()
+    reports = []
+    operator.report = lambda level, message: reports.append((level, message))
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    monkeypatch.setattr(module, "run_active", lambda: False)
+    monkeypatch.setattr(
+        module, "begin_production_bake",
+        lambda _context: (_ for _ in ()).throw(
+            module.SceneValidationError("Companion startup cancelled")))
+
+    assert operator.execute(context) == {"CANCELLED"}
+    assert settings.resume_requested is False
+    assert settings.status == "Recovery Check Failed"
+    assert "Companion startup cancelled" in settings.status_detail
+    assert reports[-1][0] == {"ERROR"}
 
     settings.resumable = True
     monkeypatch.setattr(module, "run_active", lambda: True)
@@ -1712,7 +1922,45 @@ def test_configure_recovery_resumes_compatible_project(blender_env, tmp_path):
     assert settings.resumable is True
     assert settings.compatible is True
     assert settings.resume_requested is False
-    assert settings.status == "Recovery available"
+    assert settings.status == "Resume Available"
+
+
+def test_configure_recovery_uses_selected_project_when_export_key_changes(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    plan = module.RunPlan(**{
+        **_recovery_plan(tmp_path), "scene_cache_key": "runtime-key-after-reopen"})
+    settings = _recovery_settings(
+        resume_requested=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+
+    result = module._configure_recovery(
+        context, SimpleNamespace(collider_objs=()), plan)
+
+    assert result.recovery_options.resume is True
+    assert result.recovery_options.metadata_path == metadata
+    assert result.recovery_options.identity.scene_key == "scene"
+    assert result.scene.project_name == "project"
+
+
+def test_configure_recovery_missing_selected_metadata_never_starts_fresh(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    plan = module.RunPlan(**_recovery_plan(tmp_path))
+    settings = _recovery_settings(
+        resume_requested=True,
+        recovery_directory=str(tmp_path / "missing-project"))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+
+    with pytest.raises(module.SceneValidationError) as caught:
+        module._configure_recovery(
+            context, SimpleNamespace(collider_objs=()), plan)
+
+    assert "without starting a new Bake" in str(caught.value)
+    assert settings.resume_requested is False
 
 
 def test_configure_recovery_refuses_incompatible_resume(blender_env, tmp_path):

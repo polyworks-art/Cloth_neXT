@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.2.8 — 2026-08-02 (Dev channel)
+
+### Added
+
+- Experimental Newton 1.4.0 integration with a compact, confirmation-gated
+  installer, isolated external Python environment, and the Principia codename.
+- Non-destructive Newton Live Preview with play, pause, scrubbing, rewind,
+  static colliders, hard static pins, self-contact, VBD, and experimental
+  Style3D support.
+- Experimental Newton offline Bake through the existing Cloth NeXt Bake
+  action, producing verified atomic PC2 playback caches without changing the
+  default PPF backend.
+- Persistent per-object mesh capture reuse and developer performance metrics
+  for Newton preview and Bake preparation.
+
+### Fixed
+
+- Recovery discovery now survives reopening a `.blend` and keeps checkpoint
+  compatibility provisional until the current Bake identity is recomputed.
+- Resume remains bound to the selected durable solver project even when the
+  conservative scene-export cache key changes across a Blender restart.
+- Missing, corrupt, incompatible, or replaced Recovery metadata now fails
+  closed instead of silently starting a fresh Bake.
+- The real artist-path Recovery gate now proves same-project resume, rejects
+  scene upload or project rebuild, and requires the solver's `--load=-1`
+  command after a hard Blender abort.
+
+### Known limitations
+
+- Newton support is experimental and currently targets one Cloth object with
+  static colliders. Newton Bake does not yet provide Recovery checkpoints.
+- The external PPF Contact Solver remains the default production backend and
+  is never bundled with Cloth NeXt.
+
 ## 2.1.18 — 2026-07-28 (Dev channel)
 
 ### Fixed

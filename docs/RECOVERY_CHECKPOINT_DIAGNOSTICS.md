@@ -34,20 +34,39 @@ Then press **Cancel**. Cloth NeXt sends the sole terminal command
 the newest configured number of records. It never sends `save_and_quit` for a
 periodic checkpoint.
 
-For a repeatable managed-solver run, provide the Blender executable and the
-selected solver explicitly:
+## Artist-facing Recovery UI gate
+
+The acceptance gate is `tools/blender_recovery_ui_gate.py`. It deliberately
+uses the registered production operators and load handler. It does not set an
+internal resume flag, construct a run plan, or invoke a worker directly.
+
+Run its two phases in separate UI-capable Blender processes. The first starts
+a real Bake, waits until a checkpoint is durable, saves the `.blend`, and then
+hard-aborts Blender with exit code `91`:
 
 ```powershell
 $blender = 'C:\Path\To\blender.exe'
 $solver = 'C:\Path\To\ppf-cts-server.exe'
 $root = (Get-Location).Path
 $work = Join-Path $env:TEMP 'cloth-next-recovery-proof'
-& $blender --background --python tools\blender_recovery_integration.py -- `
-  --phase cancel --repo $root --blend "$work\recovery.blend" `
-  --cache "$work\cache" --report "$work\cancel.json" --solver $solver
+& $blender --factory-startup --python tools\blender_recovery_ui_gate.py -- `
+  --phase hard-abort --repo $root --blend "$work\recovery.blend" `
+  --cache "$work\cache" --report "$work\evidence.json" --solver $solver
+
+& $blender --factory-startup --python tools\blender_recovery_ui_gate.py -- `
+  --phase resume --repo $root --blend "$work\recovery.blend" `
+  --cache "$work\cache" --report "$work\evidence.json" --solver $solver
 ```
 
-Run the same scene with the supported Schema 1 and Schema 2 solver selections.
-The generated JSON captures the persisted recovery result; the structured Bake
-log supplies the per-poll status and file evidence. This is an integration
-procedure, not a mocked proof.
+The second phase opens the saved file through `bpy.ops.wm.open_mainfile`, waits
+for the persistent post-load refresh, requires the primary Simulation panel's
+Recovery banner and operator poll to be available, and invokes
+`bpy.ops.clothnext.recovery_resume_latest`. The JSON evidence must show the
+same project identity, no scene upload or project rebuild, the first resumed
+frame after the checkpoint, a solver command containing `--load=-1`, and a
+valid final PC2.
+
+`tools/blender_recovery_integration.py` remains useful for lower-level solver
+diagnostics, but its direct worker path is not evidence that the artist-facing
+Recovery UI works. Run the UI gate with each supported solver schema when
+release-level compatibility evidence is required.

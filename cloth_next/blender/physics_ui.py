@@ -922,7 +922,7 @@ def _draw_quality_selector(layout, context, bake_active: bool) -> None:
     _draw_quality_buttons(layout, context, bake_active)
 
 
-def _draw_bake_action(layout, model, snapshot) -> None:
+def _draw_bake_action(layout, context, model, snapshot) -> None:
     if snapshot.active:
         layout.label(text="Bake running in Cloth NeXt Bake Window")
         cancel = layout.row()
@@ -930,6 +930,14 @@ def _draw_bake_action(layout, model, snapshot) -> None:
         cancel.operator("clothnext.bake_cancel", text="Cancel Bake",
                         **icon_registry.icon_kwargs("cancel", "CANCEL"))
         return
+    newton = getattr(context.scene, "cloth_next_newton_preview", None)
+    if newton is not None:
+        backend = layout.row(align=True)
+        backend.enabled = not snapshot.active
+        backend.prop(newton, "bake_backend", text="Backend")
+        if str(getattr(newton, "bake_backend", "PPF")) == "NEWTON":
+            layout.label(text="Experimental · No Recovery checkpoints",
+                         icon="EXPERIMENTAL")
     action = layout.row(align=True)
     split = action.split(factor=0.86, align=True)
     bake_button = split.column(align=True)
@@ -944,6 +952,76 @@ def _draw_bake_action(layout, model, snapshot) -> None:
                      icon="FILE_FOLDER")
     if model.reason:
         layout.label(text=model.reason, icon="ERROR")
+
+
+def _draw_recovery_banner(layout, context, snapshot) -> None:
+    """Compact durable-Recovery state in the primary Simulation workflow."""
+    settings = getattr(getattr(context, "scene", None),
+                       "cloth_next_recovery", None)
+    if settings is None or not bool(getattr(settings, "enabled", False)):
+        return
+    status = str(getattr(settings, "status", "") or "")
+    frame = int(getattr(settings, "latest_checkpoint_frame", 0) or 0)
+    banner = layout.box()
+    if status == "Checking for Recovery":
+        banner.label(text="Checking for Recovery", icon="TIME")
+        return
+    if status in {"Recovery Check Failed", "Recovery Metadata Invalid",
+                  "Recovery Incompatible", "Recovery Project Missing"}:
+        banner.alert = True
+        banner.label(text=status, icon="ERROR")
+        detail = str(getattr(settings, "status_detail", "") or "")
+        if detail:
+            banner.label(text=detail)
+        banner.operator("clothnext.companion_open_logs",
+                        text="Open Diagnostics", icon="FILE_FOLDER")
+        return
+    if bool(getattr(settings, "resumable", False)):
+        # Compatibility is deliberately not shown as green until Bake start
+        # has recomputed the complete current identity.
+        banner.label(
+            text=(f"Recovery checkpoint found \u00b7 Frame {frame}"
+                  if frame > 0 else "Recovery checkpoint found"),
+            icon="INFO")
+        if not bool(getattr(settings, "compatible", False)):
+            banner.label(text="Compatibility will be verified before Resume",
+                         icon="QUESTION")
+        actions = banner.row(align=True)
+        resume = actions.row(align=True)
+        resume.enabled = not snapshot.active
+        resume.operator("clothnext.recovery_resume_latest",
+                        text="Resume Bake", icon="PLAY")
+        fresh = actions.row(align=True)
+        fresh.enabled = not snapshot.active
+        fresh.operator("clothnext.recovery_start_fresh",
+                       text="Start Fresh", icon="FILE_REFRESH")
+        return
+    banner.label(text="No Recovery Checkpoint", icon="INFO")
+
+
+def _draw_newton_live_preview(layout, context, snapshot) -> None:
+    """The primary experimental Newton action, directly below Bake."""
+    settings = getattr(getattr(context, "scene", None),
+                       "cloth_next_newton_preview", None)
+    if settings is None:
+        return
+    row = layout.row(align=True)
+    row.enabled = not snapshot.active
+    row.prop(settings, "enabled", text="Live Preview", toggle=True,
+             icon="PLAY" if settings.enabled else "PAUSE")
+    status = str(getattr(settings, "status", "") or "")
+    if settings.enabled or status not in {"", "Newton unavailable"}:
+        icon = "ERROR" if status in {"Preview Error", "Worker Crashed",
+                                      "Scene Changed"} else "INFO"
+        layout.label(text=f"Status: {status}", icon=icon)
+    if settings.enabled:
+        controls = layout.column(align=True)
+        controls.prop(settings, "quality", text="Preview Quality")
+        controls.prop(settings, "enable_self_contact", text="Self Collision")
+        controls.prop(settings, "time_scale", text="Time Scale")
+    detail = str(getattr(settings, "status_detail", "") or "")
+    if detail:
+        layout.label(text=detail, icon="ERROR")
 
 
 def _draw_soft_body_material(layout, settings) -> None:
@@ -1068,7 +1146,9 @@ class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
         if context.object.cloth_next.role not in {"COLLIDER", "FORCE"}:
             _draw_quality_selector(layout, context, snapshot.active)
         model = _bake_panel_model(context, _solver_status(context))
-        _draw_bake_action(layout, model, snapshot)
+        _draw_bake_action(layout, context, model, snapshot)
+        _draw_newton_live_preview(layout, context, snapshot)
+        _draw_recovery_banner(layout, context, snapshot)
         _draw_scene_statistics(layout, context)
 
 
