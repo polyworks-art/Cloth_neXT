@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.9 — 2026-08-02 (Dev channel)
+
+### Fixed
+
+- Newton Preview registration no longer accesses `bpy.data.objects` while
+  Blender exposes its restricted registration context. Orphaned preview data
+  is cleaned on a deferred main-thread timer once normal data access becomes
+  available.
+- Newton cleanup and add-on unload tolerate Blender's restricted data state
+  without preventing the extension from enabling.
+
 ## 2.2.8 — 2026-08-02 (Dev channel)
 
 ### Added

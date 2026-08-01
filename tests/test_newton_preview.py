@@ -165,6 +165,29 @@ def test_blender_handler_registration_is_idempotent_and_removable(blender_env):
         validation_state._depsgraph_observers
 
 
+def test_newton_registration_defers_orphan_cleanup_under_restrict_data(
+        blender_env):
+    from cloth_next.blender import newton_preview
+
+    ordinary_data = blender_env.bpy.data
+
+    class _RestrictData:
+        pass
+
+    blender_env.bpy.data = _RestrictData()
+    try:
+        newton_preview.install()
+        assert blender_env.bpy.app.timers.is_registered(
+            newton_preview._cleanup_orphaned_preview_objects)
+    finally:
+        blender_env.bpy.data = ordinary_data
+
+    assert newton_preview._cleanup_orphaned_preview_objects() is None
+    newton_preview.uninstall()
+    assert not blender_env.bpy.app.timers.is_registered(
+        newton_preview._cleanup_orphaned_preview_objects)
+
+
 def test_newton_session_cleanup_is_strict_and_bounded(tmp_path):
     root = tmp_path / "newton" / "sessions"
     identifiers = [f"{index:032x}" for index in range(4)]

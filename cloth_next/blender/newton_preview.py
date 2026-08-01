@@ -729,7 +729,7 @@ def _cleanup_preview():
         bpy.data.objects.remove(preview, do_unlink=True)
         if mesh is not None and mesh.users == 0:
             bpy.data.meshes.remove(mesh)
-    except (ReferenceError, RuntimeError):
+    except (ReferenceError, RuntimeError, AttributeError):
         pass
 
 
@@ -782,6 +782,33 @@ def stop(*, wait=False):
                          name="clothnext-newton-stop").start()
 
 
+def _cleanup_orphaned_preview_objects():
+    """Remove stale preview data once Blender's normal data API is ready.
+
+    During add-on registration Blender may expose ``_RestrictData`` instead
+    of the ordinary ``bpy.data`` collections.  Returning a short timer delay
+    keeps registration side-effect safe and performs the cleanup immediately
+    after Blender releases that restriction.
+    """
+    data = getattr(bpy, "data", None)
+    objects = getattr(data, "objects", None)
+    meshes = getattr(data, "meshes", None)
+    if objects is None or meshes is None:
+        return 0.1
+    try:
+        candidates = tuple(objects)
+    except (AttributeError, ReferenceError, RuntimeError, TypeError):
+        return 0.1
+    for obj in candidates:
+        if callable(getattr(obj, "get", None)) and bool(
+                obj.get(_PREVIEW_MARKER, False)):
+            mesh = obj.data
+            objects.remove(obj, do_unlink=True)
+            if mesh is not None and mesh.users == 0:
+                meshes.remove(mesh)
+    return None
+
+
 def install():
     from . import validation_state
     collection = getattr(bpy.app.handlers, "frame_change_post", None)
@@ -791,14 +818,15 @@ def install():
         collection.append(_frame_change_post)
     _depsgraph_update_post._clothnext_newton_preview_observer = True
     validation_state.add_depsgraph_observer(_depsgraph_update_post)
-    # Remove orphaned objects from a previous failed reload before accepting a
-    # new session. Source objects were never modified geometrically.
-    for obj in tuple(bpy.data.objects):
-        if callable(getattr(obj, "get", None)) and bool(obj.get(_PREVIEW_MARKER, False)):
-            mesh = obj.data
-            bpy.data.objects.remove(obj, do_unlink=True)
-            if mesh is not None and mesh.users == 0:
-                bpy.data.meshes.remove(mesh)
+    # Registration can run under Blender's _RestrictData guard.  Attempt the
+    # orphan cleanup without assuming scene data is available and defer it to
+    # the main-thread timer when necessary.
+    delay = _cleanup_orphaned_preview_objects()
+    timers = getattr(bpy.app, "timers", None)
+    if (delay is not None and timers is not None
+            and not timers.is_registered(_cleanup_orphaned_preview_objects)):
+        timers.register(
+            _cleanup_orphaned_preview_objects, first_interval=delay)
 
 
 def uninstall():
@@ -809,5 +837,9 @@ def uninstall():
         while _frame_change_post in collection:
             collection.remove(_frame_change_post)
     validation_state.remove_depsgraph_observer(_depsgraph_update_post)
+    timers = getattr(bpy.app, "timers", None)
+    if (timers is not None
+            and timers.is_registered(_cleanup_orphaned_preview_objects)):
+        timers.unregister(_cleanup_orphaned_preview_objects)
     _mesh_capture_cache.clear()
     _owned_visibility_updates.clear()
