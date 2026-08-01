@@ -786,6 +786,45 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     assert "delete" not in requests
 
 
+def test_periodic_checkpoint_emits_verified_recovery_event(
+        monkeypatch, tmp_path):
+    scene = _scene()
+    server_root = tmp_path / "server"
+    project_root = server_root / scene.project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    events = []
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        auto_save_interval=5)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        emit=events.append, recovery_options=options)
+    session._recovery_start()
+    (output / "state_5.bin.gz").write_bytes(gzip.compress(b"state"))
+    monkeypatch.setattr(
+        wire, "send_tcmd", lambda *_args, **_kwargs: {
+            "status": "BUSY", "saved_states": [5]})
+
+    session._status()
+
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert [item.frame for item in record.checkpoints] == [5]
+    saved_events = [event for event in events
+                    if event.phase == "RECOVERY_SAVED"]
+    assert len(saved_events) == 1
+    assert saved_events[0].frame_current == 5
+    assert "Frame 5" in saved_events[0].message
+
+    session._status()
+    assert len([event for event in events
+                if event.phase == "RECOVERY_SAVED"]) == 1
+
+
 def test_cancel_without_recovery_returns_unresumable_outcome(monkeypatch):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_sim = True

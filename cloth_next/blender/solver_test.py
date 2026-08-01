@@ -5730,10 +5730,50 @@ def _refresh_recovery_ui_from_disk() -> None:
     if settings is None:
         return
     root = str(getattr(settings, "recovery_directory", "") or "").strip()
-    if not root:
+    candidates = []
+    if root:
+        candidates.append(Path(root) / recovery.METADATA_NAME)
+    seen_cache_roots = set()
+    for obj in getattr(scene, "objects", ()):
+        props = getattr(obj, "cloth_next", None)
+        if (props is None or not bool(getattr(props, "enabled", False))
+                or str(getattr(props, "role", "")) == "COLLIDER"):
+            continue
+        cache_value = str(getattr(props, "cache_directory", "") or "").strip()
+        if not cache_value:
+            continue
+        try:
+            cache_root = Path(bpy.path.abspath(cache_value)).resolve()
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if cache_root in seen_cache_roots:
+            continue
+        seen_cache_roots.add(cache_root)
+        try:
+            candidates.extend(
+                (cache_root / ".cloth_next_recovery").glob(
+                    f"*/{recovery.METADATA_NAME}"))
+        except OSError:
+            continue
+    if not candidates:
         return
-    metadata = Path(root) / recovery.METADATA_NAME
-    eligibility = recovery.evaluate_resumable(metadata)
+    unique = tuple(dict.fromkeys(Path(path) for path in candidates))
+    available = []
+    for metadata in unique:
+        eligibility = recovery.evaluate_resumable(metadata)
+        if not eligibility.available:
+            continue
+        record = recovery.load_project(metadata)
+        if record is not None:
+            available.append((record.updated_at, record.generation,
+                              metadata, eligibility))
+    if available:
+        _updated, _generation, metadata, eligibility = max(
+            available, key=lambda item: (item[0], item[1], str(item[2])))
+        settings.recovery_directory = str(metadata.parent)
+    else:
+        metadata = Path(root) / recovery.METADATA_NAME if root else unique[0]
+        eligibility = recovery.evaluate_resumable(metadata)
     _apply_eligibility_to_settings(settings, eligibility)
 
 
@@ -5833,8 +5873,13 @@ def _pump_once() -> float | None:
                     solver_process_id=event.process_id)
                 continue
             if event.phase == "RECOVERY_SAVED":
+                # Periodic solver checkpoints are verified on the worker
+                # thread. Reflect their durable metadata on Blender's main
+                # thread immediately instead of leaving the panel stale until
+                # Cancel or terminal cleanup.
+                _refresh_recovery_ui(plan)
                 shared_controller.update(
-                    status_message="Recovery checkpoint saved · Resume available",
+                    status_message=event.message,
                     activity_code=BakeActivity.RECOVERY)
                 continue
             if event.phase == "RECOVERY_WARNING":

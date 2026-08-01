@@ -1333,6 +1333,38 @@ def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
     assert "attach boom" in snapshot.error_details
 
 
+def test_periodic_recovery_event_refreshes_panel_from_durable_metadata(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    plan = SimpleNamespace()
+    module._active_plan = plan
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    refreshed = []
+    monkeypatch.setattr(
+        module, "_refresh_recovery_ui", lambda value: refreshed.append(value))
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._queue.put(("event", SimpleNamespace(
+        phase="RECOVERY_SAVED", message="Recovery checkpoint saved · Frame 5",
+        frame_current=5, activity_code="RECOVERY_SAVED",
+        process_id=None)))
+
+    try:
+        module._pump_once()
+
+        assert refreshed == [plan]
+        assert module.shared_controller.snapshot().status_message == (
+            "Recovery checkpoint saved · Frame 5")
+    finally:
+        module._active_plan = None
+        module._worker = None
+        module.shared_controller.fail("test cleanup", "")
+        module.shared_controller.reset()
+
+
 def test_ram_safety_cancel_becomes_actionable_error(blender_env, monkeypatch):
     module = blender_env.solver_test
     if module.shared_controller.snapshot().state is not BakeState.IDLE:
@@ -1561,6 +1593,29 @@ def test_refresh_recovery_ui_from_disk_without_metadata_is_not_resumable(
     assert settings.status == "No checkpoint"
     assert settings.latest_checkpoint_frame == 0
     assert settings.checkpoint_count == 0
+
+
+def test_load_post_discovers_new_recovery_root_from_enabled_cloth_cache(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    stale = tmp_path / "stale" / "old-scene"
+    settings = _recovery_settings(recovery_directory=str(stale))
+    cloth = SimpleNamespace(cloth_next=SimpleNamespace(
+        enabled=True, role="CLOTH",
+        cache_directory=str(tmp_path / "cache")))
+    collider = SimpleNamespace(cloth_next=SimpleNamespace(
+        enabled=True, role="COLLIDER",
+        cache_directory=str(tmp_path / "unrelated")))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings, objects=(cloth, collider))
+
+    module._refresh_recovery_ui_from_disk()
+
+    assert settings.recovery_directory == str(metadata.parent)
+    assert settings.resumable is True
+    assert settings.status == "Checkpoint found"
+    assert settings.checkpoint_count == 1
 
 
 def test_refresh_recovery_ui_from_disk_without_directory_is_untouched(

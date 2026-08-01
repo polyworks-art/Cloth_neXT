@@ -437,6 +437,12 @@ class SolverSession:
         current = (tuple(item.frame for item in self._recovery_record.checkpoints)
                    if self._recovery_record is not None else ())
         saved = self._saved_states(response)
+        if current != previous and current:
+            self._event(
+                "RECOVERY_SAVED",
+                f"Recovery checkpoint saved · Frame {current[-1]}",
+                frame_current=current[-1],
+                activity_code="RECOVERY_SAVED")
         output = self._checkpoint_output_directory()
         log_with_context(self._logger, logging.DEBUG,
             "Recovery checkpoint status observed", {
