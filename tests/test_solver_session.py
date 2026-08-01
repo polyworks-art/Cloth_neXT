@@ -523,6 +523,16 @@ def test_owned_solver_fails_before_start_when_native_worker_was_quarantined(
         caught.value.record.recommended_action
 
 
+def test_native_worker_path_accepts_official_source_tree(tmp_path):
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    worker = tmp_path / "target" / "release" / "ppf-contact-solver.exe"
+    worker.parent.mkdir(parents=True)
+    worker.write_bytes(b"solver")
+
+    assert session_module._native_worker_path(executable) == worker
+
+
 def _recovery_identity():
     return recovery.RecoveryIdentity(
         scene_key="scene", param_key="param",

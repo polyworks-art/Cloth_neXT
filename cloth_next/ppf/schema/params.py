@@ -181,6 +181,7 @@ class SimulationSettings:
         tuple[str, tuple[tuple[float, tuple[float, ...], bool], ...]], ...
     ] = ()
     auto_save_interval: int = 0
+    keep_saved_states: int = 0
     save_state_on_finish: bool = False
 
     def __post_init__(self) -> None:
@@ -192,6 +193,8 @@ class SimulationSettings:
             raise ParamEncodeError("time scale must be finite and positive")
         if self.auto_save_interval < 0:
             raise ParamEncodeError("auto-save interval must be non-negative")
+        if self.keep_saved_states < 0:
+            raise ParamEncodeError("keep saved states must be non-negative")
         if len(self.gravity_blender) != 3 or any(
                 not math.isfinite(c) for c in self.gravity_blender):
             raise ParamEncodeError("gravity must be a finite 3-vector")
@@ -251,6 +254,8 @@ def _scene_wire_params(settings: SimulationSettings,
     }
     if settings.auto_save_interval:
         scene["auto-save"] = int(settings.auto_save_interval)
+    if settings.keep_saved_states:
+        scene["keep-states"] = int(settings.keep_saved_states)
     if settings.save_state_on_finish:
         scene["save-state-on-finish"] = True
     for key, value in (("air-density", settings.air_density),

@@ -3338,6 +3338,8 @@ def _recovery_param_kwargs(scene) -> dict:
         "auto_save_interval": (
             int(settings.checkpoint_interval)
             if enabled and bool(settings.auto_save) else 0),
+        "keep_saved_states": (
+            int(settings.keep_saved_states) if enabled else 0),
         "save_state_on_finish": (
             enabled and bool(settings.save_on_finish)),
     }
@@ -3428,6 +3430,8 @@ def _param_source_key(context, snapshot, force_capture, target_uuids,
                 and getattr(recovery_settings, "auto_save", False)),
             "checkpoint_interval": int(getattr(
                 recovery_settings, "checkpoint_interval", 0)),
+            "keep_saved_states": int(getattr(
+                recovery_settings, "keep_saved_states", 0)),
             "save_on_finish": bool(getattr(
                 recovery_settings, "save_on_finish", False)),
         },
@@ -4571,6 +4575,9 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         keep_saved_states=int(settings.keep_saved_states),
         save_on_cancel=bool(settings.save_on_cancel),
         keep_on_finish=bool(settings.save_on_finish),
+        auto_save_interval=(int(getattr(settings, "checkpoint_interval", 0))
+                            if bool(getattr(settings, "auto_save", False))
+                            else 0),
         completed_solver_frames=completed, partial_pc2=partials)
     settings.resume_requested = False
     if resume:

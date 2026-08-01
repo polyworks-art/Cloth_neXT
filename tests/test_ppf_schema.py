@@ -435,6 +435,23 @@ def test_wind_vector_is_encoded_in_ppf_coordinates():
     assert payload["scene"]["wind"] == [1.0, 3.0, -2.0]
 
 
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_recovery_auto_save_configuration_reaches_both_param_schemas(
+        schema_version):
+    settings = SimulationSettings(
+        frame_count=8, fps=24, gravity_blender=(0.0, 0.0, -9.81),
+        auto_save_interval=2, keep_saved_states=3,
+        save_state_on_finish=True)
+    blob, _digest = encode_param(
+        settings, "Cloth", "cloth", "Collider", "collider",
+        shell=DEFAULT_SHELL_SETTINGS, static=DEFAULT_STATIC_SETTINGS,
+        schema_version=schema_version)
+    payload = cbor_codec.loads(blob)["payload"]
+    assert payload["scene"]["auto-save"] == 2
+    assert payload["scene"]["keep-states"] == 3
+    assert payload["scene"]["save-state-on-finish"] is True
+
+
 def test_all_ppf_force_fields_and_native_animation_tracks_are_encoded():
     settings = SimulationSettings(
         frame_count=3, fps=20, gravity_blender=(0.0, 0.0, -9.81),

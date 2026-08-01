@@ -64,6 +64,20 @@ _SOLVER_METRICS = {
 }
 
 
+def _native_worker_path(executable: Path) -> Path:
+    """Resolve the worker in both supported official solver layouts.
+
+    Release bundles keep it next to the control server; local official source
+    builds keep it below ``target/release``.  The latter is used by the real
+    Blender integration proof and must not be mistaken for a quarantined
+    worker.
+    """
+    bundled = executable.with_name("ppf-contact-solver.exe")
+    if bundled.is_file():
+        return bundled
+    return executable.parent / "target" / "release" / bundled.name
+
+
 class RecoveryOutcomeKind(str, Enum):
     SAVED = "SAVED"
     EXISTING_PRESERVED = "EXISTING_PRESERVED"
@@ -198,6 +212,7 @@ class RecoveryOptions:
     keep_saved_states: int = 3
     save_on_cancel: bool = True
     keep_on_finish: bool = False
+    auto_save_interval: int = 0
     completed_solver_frames: tuple[int, ...] = ()
     partial_pc2: tuple[tuple[str, str], ...] = ()
 
@@ -416,7 +431,28 @@ class SolverSession:
         self.diagnostics.command_in_flight = ""
         status = str(response.get("status", ""))
         self.diagnostics.note_status(status)
+        previous = (tuple(item.frame for item in self._recovery_record.checkpoints)
+                    if self._recovery_record is not None else ())
         self._sync_checkpoints(response)
+        current = (tuple(item.frame for item in self._recovery_record.checkpoints)
+                   if self._recovery_record is not None else ())
+        saved = self._saved_states(response)
+        output = self._checkpoint_output_directory()
+        log_with_context(self._logger, logging.DEBUG,
+            "Recovery checkpoint status observed", {
+                "project": self.scene.project_name,
+                "server_status": status,
+                "saved_states": saved,
+                "checkpoint_output_directory": str(output),
+                "checkpoint_files_exist": {
+                    int(frame): (output / f"state_{int(frame)}.bin.gz").is_file()
+                    for frame in saved},
+                "verified_before": previous,
+                "verified_after": current,
+                "metadata_updated": previous != current,
+                "metadata_path": (str(self._recovery.metadata_path)
+                                  if self._recovery is not None else ""),
+            })
         return response
 
     def _runtime_activity(self) -> tuple[str, str]:
@@ -453,6 +489,10 @@ class SolverSession:
             if self._recovery is not None
             else self.work_directory / "server-data")
 
+    def _checkpoint_output_directory(self) -> Path:
+        return (self._server_data_root() / self.scene.project_name /
+                "session" / "output")
+
     def _request(self, request: str) -> dict:
         assert self._address is not None
         self.diagnostics.command_in_flight = request
@@ -461,6 +501,15 @@ class SolverSession:
         self.diagnostics.last_successful_command = request
         self.diagnostics.command_in_flight = ""
         self.diagnostics.note_status(str(response.get("status", "")))
+        if request == wire.REQUEST_SAVE_AND_QUIT:
+            log_with_context(self._logger, logging.INFO,
+                "Recovery checkpoint request sent", {
+                    "project": self.scene.project_name,
+                    "request": request,
+                    "output_directory": str(self._checkpoint_output_directory()),
+                    "server_status": str(response.get("status", "")),
+                    "saved_states": self._saved_states(response),
+                })
         return response
 
     def _capture_process_tails(self) -> None:
@@ -494,7 +543,7 @@ class SolverSession:
         """Replace opaque socket failures with owned-process evidence."""
         executable = self.resolved.executable_path
         worker = (None if executable is None else
-                  executable.with_name("ppf-contact-solver.exe"))
+                  _native_worker_path(executable))
         if worker is not None and not worker.is_file():
             return ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_INSTALLATION,
@@ -904,6 +953,20 @@ class SolverSession:
             return
         path = options.metadata_path
         recovery.cleanup_temporary_files(path.parent)
+        log_with_context(self._logger, logging.INFO,
+            "Recovery checkpoint configuration", {
+                "project": self.scene.project_name,
+                "enabled": options.enabled,
+                "auto_save_interval": options.auto_save_interval,
+                "keep_saved_states": options.keep_saved_states,
+                "save_on_cancel": options.save_on_cancel,
+                "save_on_finish": options.keep_on_finish,
+                "server_data_root": str(options.server_data_root),
+                "checkpoint_output_directory": str(
+                    self._checkpoint_output_directory()),
+                "metadata_path": str(path),
+                "resume": options.resume,
+            })
         if options.resume:
             record = recovery.load_project(path)
             if record is None:
@@ -955,7 +1018,7 @@ class SolverSession:
     def _start_owned_solver(self) -> None:
         executable = self.resolved.executable_path
         assert executable is not None
-        worker = executable.with_name("ppf-contact-solver.exe")
+        worker = _native_worker_path(executable)
         if not worker.is_file():
             raise ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_INSTALLATION,

@@ -1465,7 +1465,8 @@ def test_recovery_resume_disabled_reason_never_reports_compatible(blender_env):
 def _recovery_settings(**changes):
     values = dict(
         enabled=True, resume_requested=False, keep_saved_states=3,
-        save_on_cancel=True, save_on_finish=False,
+        auto_save=False, checkpoint_interval=20, save_on_cancel=True,
+        save_on_finish=False,
         status="", status_detail="", compatible=False, resumable=False,
         latest_checkpoint_frame=0, checkpoint_count=0,
         older_checkpoint_preserved=False, recovery_directory="")
@@ -1639,7 +1640,8 @@ def test_configure_recovery_resumes_compatible_project(blender_env, tmp_path):
     metadata, _identity = _verified_recovery(tmp_path)
     plan = module.RunPlan(**_recovery_plan(tmp_path))
     settings = _recovery_settings(
-        resume_requested=True, recovery_directory=str(metadata.parent))
+        resume_requested=True, recovery_directory=str(metadata.parent),
+        auto_save=True, checkpoint_interval=2)
     context = SimpleNamespace(scene=SimpleNamespace(
         cloth_next_recovery=settings))
     snapshot = SimpleNamespace(collider_objs=())
@@ -1649,6 +1651,8 @@ def test_configure_recovery_resumes_compatible_project(blender_env, tmp_path):
     assert result.recovery_options is not None
     assert result.recovery_options.resume is True
     assert result.recovery_options.metadata_path == metadata
+    assert result.recovery_options.auto_save_interval == 2
+    assert result.recovery_options.keep_saved_states == 3
     assert settings.recovery_directory == str(metadata.parent)
     assert settings.resumable is True
     assert settings.compatible is True
