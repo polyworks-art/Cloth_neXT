@@ -9,19 +9,20 @@ import json
 import math
 from typing import Any
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 NEWTON_VERSION = "1.4.0"
 WARP_VERSION = "1.15.0"
 
 
 @dataclass(frozen=True)
 class BackendCapabilities:
-    cloth_objects: int = 1
+    cloth_objects: int = 64
     static_triangle_colliders: bool = True
     gravity: bool = True
     hard_static_pins: bool = True
     self_collision: bool = True
-    animated_colliders: bool = False
+    animated_colliders: bool = True
+    deforming_colliders: bool = True
     follow_animation_pins: bool = False
     pressure: bool = False
     sewing: bool = False
@@ -93,6 +94,45 @@ class PreviewMesh:
 
 
 @dataclass(frozen=True)
+class PreviewCloth:
+    identifier: str
+    mesh: PreviewMesh
+    pin_indices: tuple[int, ...]
+    material: PreviewMaterial
+
+    def validate(self, *, label: str) -> None:
+        if not self.identifier:
+            raise ValueError(f"{label} requires an identifier")
+        self.mesh.validate(label=label)
+        if any(index < 0 or index >= len(self.mesh.vertices)
+               for index in self.pin_indices):
+            raise ValueError(f"{label} pin index is outside the mesh")
+        if len(set(self.pin_indices)) != len(self.pin_indices):
+            raise ValueError(f"{label} pin indices must be unique")
+        self.material.validate()
+
+
+@dataclass(frozen=True)
+class ColliderAnimation:
+    collider_index: int
+    samples: tuple[tuple[tuple[float, float, float], ...], ...]
+
+    def validate(self, request: "PreviewCreateRequest") -> None:
+        if self.collider_index < 0 or self.collider_index >= len(request.colliders):
+            raise ValueError("Newton animated Collider index is outside the scene")
+        expected_frames = request.frame_end - request.frame_start + 1
+        if len(self.samples) != expected_frames:
+            raise ValueError("Newton animated Collider sample count does not match the frame range")
+        vertex_count = len(request.colliders[self.collider_index].vertices)
+        for sample in self.samples:
+            if len(sample) != vertex_count or any(
+                    len(vertex) != 3
+                    or not all(math.isfinite(float(value)) for value in vertex)
+                    for vertex in sample):
+                raise ValueError("Newton animated Collider topology or positions are invalid")
+
+
+@dataclass(frozen=True)
 class PreviewCreateRequest:
     session_id: str
     scene_identity: str
@@ -107,6 +147,8 @@ class PreviewCreateRequest:
     time_scale: float
     gravity: tuple[float, float, float]
     result_directory: str
+    additional_cloths: tuple[PreviewCloth, ...] = ()
+    collider_animations: tuple[ColliderAnimation, ...] = ()
     solver: str = "VBD"
     protocol_version: int = PROTOCOL_VERSION
     expected_newton_version: str = NEWTON_VERSION
@@ -128,6 +170,12 @@ class PreviewCreateRequest:
         if len(set(self.pin_indices)) != len(self.pin_indices):
             raise ValueError("Newton pin indices must be unique")
         self.material.validate()
+        identifiers = {"primary"}
+        for index, cloth in enumerate(self.additional_cloths):
+            cloth.validate(label=f"Cloth {index + 2}")
+            if cloth.identifier in identifiers:
+                raise ValueError("Newton Cloth identifiers must be unique")
+            identifiers.add(cloth.identifier)
         self.quality.validate()
         if self.frame_end < self.frame_start:
             raise ValueError("Newton preview end frame precedes its start frame")
@@ -137,6 +185,22 @@ class PreviewCreateRequest:
             raise ValueError("Newton preview time scale must be positive")
         if len(self.gravity) != 3 or not all(map(math.isfinite, self.gravity)):
             raise ValueError("Newton gravity must be a finite vector")
+        animated_indices = []
+        for animation in self.collider_animations:
+            animation.validate(self)
+            animated_indices.append(animation.collider_index)
+        if len(set(animated_indices)) != len(animated_indices):
+            raise ValueError("Newton Collider animation tracks must be unique")
+
+    @property
+    def cloths(self) -> tuple[PreviewCloth, ...]:
+        primary = PreviewCloth(
+            "primary", self.cloth, self.pin_indices, self.material)
+        return (primary, *self.additional_cloths)
+
+    @property
+    def total_cloth_vertices(self) -> int:
+        return sum(len(cloth.mesh.vertices) for cloth in self.cloths)
 
     def identity(self) -> str:
         value = asdict(self)
@@ -164,6 +228,20 @@ class PreviewCreateRequest:
             fps=float(value["fps"]), time_scale=float(value["time_scale"]),
             gravity=tuple(map(float, value["gravity"])),
             result_directory=str(value["result_directory"]),
+            additional_cloths=tuple(
+                PreviewCloth(
+                    identifier=str(item["identifier"]),
+                    mesh=PreviewMesh(**_mesh_args(item["mesh"])),
+                    pin_indices=tuple(map(int, item.get("pin_indices", ()))),
+                    material=PreviewMaterial(**item["material"]))
+                for item in value.get("additional_cloths", ())),
+            collider_animations=tuple(
+                ColliderAnimation(
+                    collider_index=int(item["collider_index"]),
+                    samples=tuple(tuple(tuple(map(float, vertex))
+                                        for vertex in sample)
+                                  for sample in item.get("samples", ())))
+                for item in value.get("collider_animations", ())),
             solver=str(value.get("solver", "VBD")),
             protocol_version=int(value.get("protocol_version", -1)),
             expected_newton_version=str(value.get("expected_newton_version", "")),
@@ -196,7 +274,7 @@ class PreviewResult:
             raise ValueError("stale Newton preview scene result")
         if not self.complete:
             raise ValueError("partial Newton preview result")
-        if self.vertex_count != len(request.cloth.vertices):
+        if self.vertex_count != request.total_cloth_vertices:
             raise ValueError("Newton preview result vertex count mismatch")
         if self.frame < request.frame_start or self.frame > request.frame_end:
             raise ValueError("Newton preview result frame is outside the range")

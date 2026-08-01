@@ -61,53 +61,64 @@ class WorkerSession:
         builder = newton.ModelBuilder(up_axis=newton.Axis.Z)
         if request.solver == "STYLE3D":
             newton.solvers.SolverStyle3D.register_custom_attributes(builder)
-        material = request.material
-        flat_indices = [index for tri in request.cloth.triangles for index in tri]
-        common_cloth = {
-            "pos": wp.vec3(0.0, 0.0, 0.0),
-            "rot": wp.quat_identity(),
-            "scale": 1.0,
-            "vel": wp.vec3(0.0, 0.0, 0.0),
-            "vertices": request.cloth.vertices,
-            "indices": flat_indices,
-            "density": material.surface_density,
-            "tri_kd": material.stretch_damping,
-            "edge_kd": material.bend_damping,
-            "particle_radius": material.particle_radius,
-            "validate_mesh": True,
-            "label": "Cloth NeXt Live Preview",
-        }
-        if request.solver == "STYLE3D":
-            from newton.solvers import style3d
-            panel_verts = _style3d_panel_coordinates(
-                np, request.cloth.vertices, request.cloth.triangles)
-            style3d.add_cloth_mesh(
-                builder, **common_cloth, panel_verts=panel_verts,
-                panel_indices=flat_indices,
-                tri_aniso_ke=wp.vec3(
-                    material.stretch_stiffness,
-                    material.stretch_stiffness,
-                    material.shear_stiffness),
-                edge_aniso_ke=wp.vec3(
-                    material.bend_stiffness,
-                    material.bend_stiffness,
-                    material.bend_stiffness),
-                tri_ka=material.shear_stiffness)
-        else:
-            builder.add_cloth_mesh(
-                **common_cloth,
-                tri_ke=material.stretch_stiffness,
-                tri_ka=material.shear_stiffness,
-                edge_ke=material.bend_stiffness)
+        self.cloth_slices = []
+        particle_offset = 0
+        for cloth_index, cloth in enumerate(request.cloths):
+            material = cloth.material
+            flat_indices = [index for tri in cloth.mesh.triangles for index in tri]
+            common_cloth = {
+                "pos": wp.vec3(0.0, 0.0, 0.0),
+                "rot": wp.quat_identity(),
+                "scale": 1.0,
+                "vel": wp.vec3(0.0, 0.0, 0.0),
+                "vertices": cloth.mesh.vertices,
+                "indices": flat_indices,
+                "density": material.surface_density,
+                "tri_kd": material.stretch_damping,
+                "edge_kd": material.bend_damping,
+                "particle_radius": material.particle_radius,
+                "validate_mesh": True,
+                "label": f"Cloth NeXt Live Preview {cloth.identifier}",
+            }
+            if request.solver == "STYLE3D":
+                from newton.solvers import style3d
+                panel_verts = _style3d_panel_coordinates(
+                    np, cloth.mesh.vertices, cloth.mesh.triangles)
+                style3d.add_cloth_mesh(
+                    builder, **common_cloth, panel_verts=panel_verts,
+                    panel_indices=flat_indices,
+                    tri_aniso_ke=wp.vec3(
+                        material.stretch_stiffness,
+                        material.stretch_stiffness,
+                        material.shear_stiffness),
+                    edge_aniso_ke=wp.vec3(
+                        material.bend_stiffness,
+                        material.bend_stiffness,
+                        material.bend_stiffness),
+                    tri_ka=material.shear_stiffness)
+            else:
+                builder.add_cloth_mesh(
+                    **common_cloth,
+                    tri_ke=material.stretch_stiffness,
+                    tri_ka=material.shear_stiffness,
+                    edge_ke=material.bend_stiffness)
+            count = len(cloth.mesh.vertices)
+            self.cloth_slices.append((cloth.identifier, particle_offset,
+                                      particle_offset + count))
+            particle_offset += count
 
+        materials = tuple(cloth.material for cloth in request.cloths)
         shape_cfg = newton.ModelBuilder.ShapeConfig()
-        shape_cfg.mu = material.friction
+        shape_cfg.mu = max(material.friction for material in materials)
         collider_started = time.perf_counter()
+        self.collider_sources = []
         for collider in request.colliders:
             mesh = newton.Mesh(
                 collider.vertices,
-                [index for tri in collider.triangles for index in tri])
+                [index for tri in collider.triangles for index in tri],
+                compute_inertia=False, is_solid=False)
             builder.add_shape_mesh(body=-1, mesh=mesh, cfg=shape_cfg)
+            self.collider_sources.append(mesh)
         self.newton_collider_build_seconds = time.perf_counter() - collider_started
 
         if request.solver == "VBD":
@@ -115,17 +126,21 @@ class WorkerSession:
         build_started = time.perf_counter()
         self.model = builder.finalize(device=device)
         self.model.set_gravity(request.gravity)
-        self.model.soft_contact_mu = material.friction
-        self.model.soft_contact_radius = material.particle_radius
-        self.model.soft_contact_margin = material.collision_margin
+        self.model.soft_contact_mu = max(material.friction for material in materials)
+        self.model.soft_contact_radius = max(material.particle_radius for material in materials)
+        self.model.soft_contact_margin = max(material.collision_margin for material in materials)
 
         flags = self.model.particle_flags.numpy()
-        for index in request.pin_indices:
-            flags[index] = flags[index] & ~newton.ParticleFlags.ACTIVE
+        for cloth, (_identifier, start, _end) in zip(
+                request.cloths, self.cloth_slices):
+            for index in cloth.pin_indices:
+                flags[start + index] = (
+                    flags[start + index] & ~newton.ParticleFlags.ACTIVE)
         self.model.particle_flags = wp.array(flags, device=device)
 
         self.pipeline = newton.CollisionPipeline(
-            self.model, soft_contact_margin=material.collision_margin)
+            self.model, soft_contact_margin=max(
+                material.collision_margin for material in materials))
         self.contacts = self.pipeline.contacts()
         if request.solver == "STYLE3D":
             self.solver = newton.solvers.SolverStyle3D(
@@ -135,8 +150,10 @@ class WorkerSession:
             self.solver = newton.solvers.SolverVBD(
                 self.model, iterations=request.quality.iterations,
                 particle_enable_self_contact=request.quality.self_collision,
-                particle_self_contact_radius=material.particle_radius,
-                particle_self_contact_margin=material.collision_margin,
+                particle_self_contact_radius=max(
+                    material.particle_radius for material in materials),
+                particle_self_contact_margin=max(
+                    material.collision_margin for material in materials),
                 deterministic=wp.DeterministicMode.RUN_TO_RUN)
         self.state_in = self.model.state()
         self.state_out = self.model.state()
@@ -162,9 +179,12 @@ class WorkerSession:
         dt = (self.request.time_scale / self.request.fps
               / self.request.quality.substeps)
         started = time.perf_counter()
-        for _ in range(self.request.quality.substeps):
+        for substep in range(self.request.quality.substeps):
             if self.cancelled:
                 return
+            self._update_animated_colliders(
+                self.current_frame,
+                float(substep + 1) / self.request.quality.substeps, dt)
             self.state_in.clear_forces()
             self.pipeline.collide(self.state_in, self.contacts)
             self.solver.step(self.state_in, self.state_out, self.control,
@@ -184,6 +204,29 @@ class WorkerSession:
         if ((self.current_frame - self.request.frame_start)
                 % self.request.quality.snapshot_cadence == 0):
             self.snapshot_store.put(self.current_frame, self._snapshot())
+
+    def _update_animated_colliders(self, frame: int, alpha: float,
+                                   dt: float) -> None:
+        if not self.request.collider_animations:
+            return
+        first = self.request.frame_start
+        source_index = max(0, min(frame - first,
+                                  self.request.frame_end - first))
+        target_index = min(source_index + 1,
+                           self.request.frame_end - first)
+        for animation in self.request.collider_animations:
+            source = self.collider_sources[animation.collider_index]
+            before = self.np.asarray(
+                animation.samples[source_index], dtype=self.np.float32)
+            after = self.np.asarray(
+                animation.samples[target_index], dtype=self.np.float32)
+            positions = before + (after - before) * float(alpha)
+            velocities = ((after - before) /
+                          max(dt * self.request.quality.substeps, 1.0e-12))
+            source.mesh.points.assign(positions)
+            source.mesh.velocities.assign(velocities)
+            source.mesh.refit()
+        self.model.bvh_refit_shapes(self.state_in)
 
     def advance_to(self, frame: int) -> dict:
         frame = max(self.request.frame_start,

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -23,7 +24,8 @@ from ..bake.status import BakeState
 from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
-from ..newton_preview.contracts import (NEWTON_VERSION, PROTOCOL_VERSION,
+from ..newton_preview.contracts import (ColliderAnimation, NEWTON_VERSION,
+                                        PROTOCOL_VERSION, PreviewCloth,
                                         PreviewCreateRequest, PreviewResult,
                                         WARP_VERSION)
 from . import newton_preview
@@ -32,14 +34,19 @@ _PUMP_INTERVAL = 0.05
 
 
 @dataclass
-class _BakeSession:
-    request: PreviewCreateRequest
+class _BakeTarget:
     source_name: str
     source_uuid: str
     source_local_vertices: tuple
     inverse_world: tuple
     pc2_path: Path
     metadata: dict
+
+
+@dataclass
+class _BakeSession:
+    request: PreviewCreateRequest
+    targets: tuple[_BakeTarget, ...]
     cancel_event: threading.Event
     messages: queue.Queue
     worker: threading.Thread | None = None
@@ -61,40 +68,62 @@ def _hash(value) -> str:
 
 def _capture(context) -> _BakeSession:
     scene = context.scene
-    cloth, colliders = newton_preview._validate_scope(scene)
-    configured = str(cloth.cloth_next.cache_directory or "").strip()
-    if not configured:
-        raise ValueError(
-            f"Set a Cache Directory for {cloth.name} before baking with Newton.")
+    cloths, colliders = newton_preview._validate_scope(scene)
+    configured = tuple(str(cloth.cloth_next.cache_directory or "").strip()
+                       for cloth in cloths)
+    for cloth, directory in zip(cloths, configured):
+        if not directory:
+            raise ValueError(
+                f"Set a Cache Directory for {cloth.name} before baking with Newton.")
     original_frame = int(scene.frame_current)
-    start = int(cloth.cloth_next.bake_start)
+    start = int(cloths[0].cloth_next.bake_start)
+    end = int(cloths[0].cloth_next.bake_end)
     try:
         scene.frame_set(start)
-        cloth_mesh = newton_preview._cached_triangulated_world_mesh(context, cloth)
+        cloth_meshes = tuple(newton_preview._cached_triangulated_world_mesh(
+            context, cloth) for cloth in cloths)
         collider_meshes = tuple(
             newton_preview._cached_triangulated_world_mesh(context, obj)
             for obj in colliders)
-        matrix = np.asarray(tuple(tuple(float(value) for value in row)
-                                  for row in cloth.matrix_world),
-                            dtype=np.float64)
-        inverse_array = np.linalg.inv(matrix)
-        world = np.asarray(cloth_mesh.vertices, dtype=np.float64)
-        homogeneous = np.concatenate(
-            (world, np.ones((len(world), 1), dtype=np.float64)), axis=1)
-        local = homogeneous @ inverse_array.T
-        local_vertices = tuple(tuple(float(value) for value in row[:3] / row[3])
-                               for row in local)
+        inverse_arrays, local_sets = [], []
+        for cloth, cloth_mesh in zip(cloths, cloth_meshes):
+            matrix = np.asarray(tuple(tuple(float(value) for value in row)
+                                      for row in cloth.matrix_world),
+                                dtype=np.float64)
+            inverse_array = np.linalg.inv(matrix)
+            world = np.asarray(cloth_mesh.vertices, dtype=np.float64)
+            homogeneous = np.concatenate(
+                (world, np.ones((len(world), 1), dtype=np.float64)), axis=1)
+            local = homogeneous @ inverse_array.T
+            local_sets.append(tuple(tuple(float(value) for value in row[:3] / row[3])
+                                    for row in local))
+            inverse_arrays.append(inverse_array)
+        collider_animations = []
+        for collider_index, collider in enumerate(colliders):
+            if str(collider.cloth_next.collider_motion) != "ANIMATED":
+                continue
+            samples = []
+            reference = collider_meshes[collider_index]
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample = newton_preview._triangulated_world_mesh(context, collider)
+                if (sample.triangles != reference.triangles
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{collider.name}: animated Collider topology must remain constant")
+                samples.append(sample.vertices)
+            collider_animations.append(ColliderAnimation(
+                collider_index, tuple(samples)))
     finally:
         scene.frame_set(original_frame)
-    if len(local_vertices) != len(cloth_mesh.vertices):
-        raise ValueError("Newton Bake requires constant evaluated Cloth topology")
-    pins = newton_preview._pin_indices(cloth, len(cloth_mesh.vertices))
+    pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
+                     for cloth, mesh in zip(cloths, cloth_meshes))
     settings = scene.cloth_next_newton_preview
     quality = newton_preview._quality(settings)
-    material = newton_preview._material(cloth)
+    materials = tuple(newton_preview._material(cloth) for cloth in cloths)
     identity = newton_preview._scene_identity(
-        scene, cloth, colliders, cloth_mesh, collider_meshes, pins,
-        material, quality)
+        scene, cloths, colliders, cloth_meshes, collider_meshes, pin_sets,
+        materials, quality, tuple(collider_animations))
     session_id = uuid.uuid4().hex
     app_data = Path(os.environ.get("LOCALAPPDATA", Path.home()))
     session_root = app_data / "ClothNeXt" / "newton" / "sessions" / session_id
@@ -104,67 +133,73 @@ def _capture(context) -> _BakeSession:
     except OSError:
         pass  # a stale diagnostic directory must not block a new Bake
     request = PreviewCreateRequest(
-        session_id, identity, cloth_mesh, collider_meshes, pins, material,
-        quality, start, int(cloth.cloth_next.bake_end),
+        session_id, identity, cloth_meshes[0], collider_meshes, pin_sets[0],
+        materials[0], quality, start, end,
         float(scene.render.fps) / float(scene.render.fps_base),
         float(settings.time_scale), newton_preview._gravity(scene),
-        str(session_root / "results"), solver="VBD")
+        str(session_root / "results"),
+        additional_cloths=tuple(PreviewCloth(
+            str(cloth.cloth_next.persistent_export_id), mesh, pins, material)
+            for cloth, mesh, pins, material in zip(
+                cloths[1:], cloth_meshes[1:], pin_sets[1:], materials[1:])),
+        collider_animations=tuple(collider_animations), solver="VBD")
     request.validate()
-    inverse = tuple(tuple(float(value) for value in row)
-                    for row in inverse_array)
-    cache_dir = Path(bpy.path.abspath(configured)).resolve()
-    cache_path = cache_dir / f"cloth_next_newton_{session_id[:12]}.pc2"
-    geometry_value = {
-        "backend_schema": 1, "object_uuid": str(cloth.cloth_next.persistent_export_id),
-        "role": str(cloth.cloth_next.role), "vertices": cloth_mesh.vertices,
-        "triangles": cloth_mesh.triangles, "pins": pins,
-        "colliders": [{"vertices": item.vertices, "triangles": item.triangles}
-                      for item in collider_meshes],
-    }
     settings_value = {
         "backend": "NEWTON", "newton": NEWTON_VERSION, "warp": WARP_VERSION,
         "protocol": PROTOCOL_VERSION, "solver": request.solver,
-        "material": material.__dict__, "quality": quality.__dict__,
+        "materials": [material.__dict__ for material in materials],
+        "quality": quality.__dict__,
         "frame_start": request.frame_start, "frame_end": request.frame_end,
         "fps": request.fps, "time_scale": request.time_scale,
         "gravity": request.gravity,
     }
-    geometry_hash, settings_hash = _hash(geometry_value), _hash(settings_value)
-    topology_hash = _hash({"triangles": cloth_mesh.triangles})
-    object_identity = {
-        "persistent_uuid": str(cloth.cloth_next.persistent_export_id),
-        "role": str(cloth.cloth_next.role), "name": str(cloth.name),
-    }
-    fingerprints = {
-        "settings": settings_hash, "geometry": geometry_hash,
-        "combined": _hash({"settings": settings_hash, "geometry": geometry_hash}),
-        "topology": topology_hash, "object": _hash(object_identity),
-        "scene": identity,
-    }
     frame_count = request.frame_end - request.frame_start + 1
-    metadata = {
-        "fingerprints": fingerprints,
-        "identities": {
-            "cloth_next_version": manifest_version(),
-            "blender_version": ".".join(map(str, bpy.app.version)),
-            "object": object_identity,
-            "solver": {"mode": "NEWTON_EXPERIMENTAL", "solver": request.solver,
-                       "newton_version": NEWTON_VERSION,
-                       "warp_version": WARP_VERSION,
-                       "protocol_version": str(PROTOCOL_VERSION)},
-        },
-        "expected": {"vertex_count": len(local_vertices),
-                     "frame_count": frame_count, "start_frame": 0.0,
-                     "sample_rate": 1.0},
-        "details": {"backend": "NEWTON_EXPERIMENTAL",
-                    "scene_identity": identity,
-                    "blender_start_frame": request.frame_start,
-                    "blender_end_frame": request.frame_end},
-    }
-    return _BakeSession(request, str(cloth.name),
-                        str(cloth.cloth_next.persistent_export_id),
-                        local_vertices, inverse, cache_path, metadata,
-                        threading.Event(), queue.Queue(maxsize=128))
+    targets = []
+    for cloth, mesh, pins, local_vertices, inverse_array, directory in zip(
+            cloths, cloth_meshes, pin_sets, local_sets, inverse_arrays, configured):
+        geometry_value = {
+            "backend_schema": 2,
+            "object_uuid": str(cloth.cloth_next.persistent_export_id),
+            "role": str(cloth.cloth_next.role), "vertices": mesh.vertices,
+            "triangles": mesh.triangles, "pins": pins,
+            "colliders": [{"vertices": item.vertices, "triangles": item.triangles}
+                          for item in collider_meshes],
+            "collider_animations": [item.__dict__ for item in collider_animations],
+        }
+        geometry_hash, settings_hash = _hash(geometry_value), _hash(settings_value)
+        object_identity = {
+            "persistent_uuid": str(cloth.cloth_next.persistent_export_id),
+            "role": str(cloth.cloth_next.role), "name": str(cloth.name)}
+        fingerprints = {
+            "settings": settings_hash, "geometry": geometry_hash,
+            "combined": _hash({"settings": settings_hash, "geometry": geometry_hash}),
+            "topology": _hash({"triangles": mesh.triangles}),
+            "object": _hash(object_identity), "scene": identity}
+        metadata = {
+            "fingerprints": fingerprints,
+            "identities": {
+                "cloth_next_version": manifest_version(),
+                "blender_version": ".".join(map(str, bpy.app.version)),
+                "object": object_identity,
+                "solver": {"mode": "NEWTON_EXPERIMENTAL", "solver": request.solver,
+                           "newton_version": NEWTON_VERSION,
+                           "warp_version": WARP_VERSION,
+                           "protocol_version": str(PROTOCOL_VERSION)}},
+            "expected": {"vertex_count": len(local_vertices),
+                         "frame_count": frame_count, "start_frame": 0.0,
+                         "sample_rate": 1.0},
+            "details": {"backend": "NEWTON_EXPERIMENTAL",
+                        "scene_identity": identity,
+                        "blender_start_frame": start, "blender_end_frame": end}}
+        cache_dir = Path(bpy.path.abspath(directory)).resolve()
+        cache_path = cache_dir / f"cloth_next_newton_{session_id[:12]}.pc2"
+        targets.append(_BakeTarget(
+            str(cloth.name), str(cloth.cloth_next.persistent_export_id),
+            local_vertices, tuple(tuple(float(value) for value in row)
+                                  for row in inverse_array),
+            cache_path, metadata))
+    return _BakeSession(request, tuple(targets), threading.Event(),
+                        queue.Queue(maxsize=128))
 
 
 def _wait(client, session, predicate, timeout=300.0):
@@ -227,16 +262,22 @@ def _worker_main(session):
         client.send("create_preview", request=session.request.to_wire())
         _wait(client, session, lambda item: item.get("event") == "created")
         frame_count = session.request.frame_end - session.request.frame_start + 1
-        partial = cache_metadata.partial_metadata(
-            cache_path=session.pc2_path,
-            fingerprints=session.metadata["fingerprints"],
-            identities=session.metadata["identities"],
-            expected=session.metadata["expected"],
-            details=session.metadata["details"])
-        cache_metadata.write_atomic(cache_metadata.sidecar_path(session.pc2_path), partial)
-        with pc2.StreamingPc2Writer(
-                session.pc2_path, vertex_count=len(session.source_local_vertices),
-                frame_count=frame_count) as writer:
+        partials = []
+        for target in session.targets:
+            partial = cache_metadata.partial_metadata(
+                cache_path=target.pc2_path,
+                fingerprints=target.metadata["fingerprints"],
+                identities=target.metadata["identities"],
+                expected=target.metadata["expected"],
+                details=target.metadata["details"])
+            cache_metadata.write_atomic(
+                cache_metadata.sidecar_path(target.pc2_path), partial)
+            partials.append(partial)
+        with ExitStack() as stack:
+            writers = [stack.enter_context(pc2.StreamingPc2Writer(
+                target.pc2_path,
+                vertex_count=len(target.source_local_vertices),
+                frame_count=frame_count)) for target in session.targets]
             for offset, frame in enumerate(range(session.request.frame_start,
                                                  session.request.frame_end + 1)):
                 if frame != session.request.frame_start:
@@ -244,16 +285,25 @@ def _worker_main(session):
                 result = _wait(
                     client, session, lambda item, expected=frame:
                     item.get("event") == "result" and item.get("frame") == expected)
-                writer.write_frame(_world_to_local(
-                    _result_positions(session.request, result), session.inverse_world))
+                positions = _result_positions(session.request, result)
+                vertex_offset = 0
+                for target, writer in zip(session.targets, writers):
+                    count = len(target.source_local_vertices)
+                    writer.write_frame(_world_to_local(
+                        positions[vertex_offset:vertex_offset + count],
+                        target.inverse_world))
+                    vertex_offset += count
                 session.messages.put(("progress", offset + 1, frame, frame_count))
-            header = writer.finalize()
-        complete = cache_metadata.completed_metadata(
-            partial, cache_path=session.pc2_path,
-            timings={"newton_bake_seconds": time.perf_counter() - started})
-        cache_metadata.write_atomic(cache_metadata.sidecar_path(session.pc2_path), complete)
+            headers = tuple(writer.finalize() for writer in writers)
+        elapsed = time.perf_counter() - started
+        for target, partial in zip(session.targets, partials):
+            complete = cache_metadata.completed_metadata(
+                partial, cache_path=target.pc2_path,
+                timings={"newton_bake_seconds": elapsed})
+            cache_metadata.write_atomic(
+                cache_metadata.sidecar_path(target.pc2_path), complete)
         disposable = True
-        session.messages.put(("finished", header))
+        session.messages.put(("finished", headers))
     except InterruptedError:
         disposable = True
         session.messages.put(("cancelled",))
@@ -288,7 +338,7 @@ def begin(context) -> tuple[str, bool]:
         _session = session
         shared_controller.transition(
             BakeState.STARTING_RUN, status_message="Starting Newton Bake",
-            active_object_name=session.source_name,
+            active_object_name=session.targets[0].source_name,
             frame_start=session.request.frame_start,
             frame_end=session.request.frame_end,
             progress_current=0,
@@ -308,25 +358,25 @@ def begin(context) -> tuple[str, bool]:
         raise
 
 
-def _playback_plan(session):
+def _playback_plan(session, target):
     from ..ppf_run.session import SessionScene
     from .solver_test import RunPlan
     scene = SessionScene(
-        "newton-experimental", session.source_name, session.source_uuid,
-        len(session.source_local_vertices), "", "", session.request.frame_end -
+        "newton-experimental", target.source_name, target.source_uuid,
+        len(target.source_local_vertices), "", "", session.request.frame_end -
         session.request.frame_start + 1, b"", b"", "newton", "newton")
     return RunPlan(
-        scene, None, session.source_local_vertices,
+        scene, None, target.source_local_vertices,
         tuple(tuple(float(v) for v in row) for row in
-              np.linalg.inv(np.asarray(session.inverse_world))),
-        session.source_name, session.pc2_path.parent, session.pc2_path,
+              np.linalg.inv(np.asarray(target.inverse_world))),
+        target.source_name, target.pc2_path.parent, target.pc2_path,
         session.request.frame_end - session.request.frame_start + 1,
         session.request.frame_start, session.request.frame_end,
         session.request.fps,
-        session.metadata["fingerprints"]["settings"],
-        session.metadata["fingerprints"]["geometry"],
-        session.metadata["fingerprints"]["topology"],
-        "Newton Experimental", session.metadata, "CLOTH")
+        target.metadata["fingerprints"]["settings"],
+        target.metadata["fingerprints"]["geometry"],
+        target.metadata["fingerprints"]["topology"],
+        "Newton Experimental", target.metadata, "CLOTH")
 
 
 def _pump():
@@ -357,7 +407,8 @@ def _pump():
                 from .solver_test import _attach_playback
                 shared_controller.transition(BakeState.IMPORTING,
                                              status_message="Attaching Newton PC2 cache")
-                _attach_playback(_playback_plan(session), message[1])
+                for target, header in zip(session.targets, message[1]):
+                    _attach_playback(_playback_plan(session, target), header)
                 total = session.request.frame_end - session.request.frame_start + 1
                 shared_controller.transition(
                     BakeState.FINISHED,

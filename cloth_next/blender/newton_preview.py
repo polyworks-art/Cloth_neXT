@@ -20,7 +20,8 @@ import numpy as np
 from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
-from ..newton_preview.contracts import (PreviewCreateRequest, PreviewMesh,
+from ..newton_preview.contracts import (ColliderAnimation, PreviewCloth,
+                                        PreviewCreateRequest, PreviewMesh,
                                         PreviewQuality, PreviewResult)
 from ..newton_preview.coordinates import (transform_position,
                                            validate_world_transform)
@@ -227,47 +228,56 @@ def _validate_scope(scene):
     colliders = [obj for obj in enabled if str(obj.cloth_next.role) == "COLLIDER"]
     unsupported = [obj for obj in enabled
                    if str(obj.cloth_next.role) not in {"CLOTH", "COLLIDER", "FORCE"}]
-    if len(cloths) != 1:
-        raise ValueError("Newton Live Preview currently requires exactly one Cloth object")
+    if not cloths:
+        raise ValueError("Newton Live Preview requires at least one Cloth object")
     if unsupported:
         raise ValueError("Newton Live Preview does not support "
                          + ", ".join(str(obj.cloth_next.role) for obj in unsupported))
-    for collider in colliders:
-        if str(collider.cloth_next.collider_motion) != "STATIC":
-            raise ValueError(f'{collider.name}: Newton Live Preview supports static Colliders only')
-    cloth = cloths[0]
-    unsupported_modifiers = [
-        modifier.name for modifier in cloth.modifiers
-        if bool(getattr(modifier, "show_viewport", True))
-        and not has_cloth_next_playback_marker(cloth, modifier)
-        and str(getattr(modifier, "type", "")) != "ARMATURE"]
-    if unsupported_modifiers:
-        raise ValueError(
-            "Newton Live Preview currently supports only Armature deformation; "
-            "disable unsupported Cloth modifiers: "
-            + ", ".join(map(str, unsupported_modifiers)))
-    if bool(cloth.cloth_next.pressure.enable_inflate):
-        raise ValueError("Newton Live Preview does not support Pressure")
-    if bool(cloth.cloth_next.pressure.sewing_enabled):
-        raise ValueError("Newton Live Preview does not support Sewing")
-    if getattr(cloth, "mode", "OBJECT") == "EDIT":
-        raise ValueError("Exit Edit Mode before enabling Newton Live Preview")
-    return cloth, tuple(colliders)
+    ranges = {(int(cloth.cloth_next.bake_start),
+               int(cloth.cloth_next.bake_end)) for cloth in cloths}
+    if len(ranges) != 1:
+        raise ValueError("Newton Live Preview requires the same Bake range on every Cloth object")
+    for cloth in cloths:
+        unsupported_modifiers = [
+            modifier.name for modifier in cloth.modifiers
+            if bool(getattr(modifier, "show_viewport", True))
+            and not has_cloth_next_playback_marker(cloth, modifier)
+            and str(getattr(modifier, "type", "")) != "ARMATURE"]
+        if unsupported_modifiers:
+            raise ValueError(
+                f"{cloth.name}: Newton Live Preview currently supports only "
+                "Armature deformation; disable unsupported Cloth modifiers: "
+                + ", ".join(map(str, unsupported_modifiers)))
+        if bool(cloth.cloth_next.pressure.enable_inflate):
+            raise ValueError(f"{cloth.name}: Newton Live Preview does not support Pressure")
+        if bool(cloth.cloth_next.pressure.sewing_enabled):
+            raise ValueError(f"{cloth.name}: Newton Live Preview does not support Sewing")
+        if getattr(cloth, "mode", "OBJECT") == "EDIT":
+            raise ValueError("Exit Edit Mode before enabling Newton Live Preview")
+    return tuple(sorted(cloths, key=lambda obj: (
+        str(obj.cloth_next.persistent_export_id), str(obj.name)))), tuple(
+            sorted(colliders, key=lambda obj: (
+                str(obj.cloth_next.persistent_export_id), str(obj.name))))
 
 
-def _scene_identity(scene, cloth, colliders, cloth_mesh, collider_meshes,
-                    pins, material, quality) -> str:
+def _scene_identity(scene, cloths, colliders, cloth_meshes, collider_meshes,
+                    pin_sets, materials, quality, collider_animations=()) -> str:
     value = {
-        "schema": 1, "scene": str(scene.name),
-        "cloth_uuid": str(cloth.cloth_next.persistent_export_id),
+        "schema": 2, "scene": str(scene.name),
+        "cloth_uuids": [str(cloth.cloth_next.persistent_export_id)
+                         for cloth in cloths],
         "collider_uuids": [str(obj.cloth_next.persistent_export_id)
                            for obj in colliders],
-        "cloth": {"vertices": cloth_mesh.vertices,
-                  "triangles": cloth_mesh.triangles},
+        "cloths": [{"vertices": mesh.vertices,
+                    "triangles": mesh.triangles}
+                   for mesh in cloth_meshes],
         "colliders": [{"vertices": mesh.vertices,
                        "triangles": mesh.triangles}
                       for mesh in collider_meshes],
-        "pins": pins, "material": material.__dict__,
+        "pins": pin_sets,
+        "materials": [material.__dict__ for material in materials],
+        "collider_animations": [animation.__dict__
+                                for animation in collider_animations],
         "quality": quality.__dict__, "fps": float(scene.render.fps)
         / float(scene.render.fps_base),
     }
@@ -276,46 +286,73 @@ def _scene_identity(scene, cloth, colliders, cloth_mesh, collider_meshes,
 
 
 @dataclass
-class _Captured:
-    request: PreviewCreateRequest
+class _CapturedCloth:
     source: object
     preview: object
     source_hide_viewport: bool
+
+
+@dataclass
+class _Captured:
+    request: PreviewCreateRequest
+    cloths: tuple[_CapturedCloth, ...]
     tracked_ids: tuple
+    animated_collider_ids: tuple
     cheap_identity: str
     capture_metrics: dict
 
+    @property
+    def source(self):
+        return self.cloths[0].source
 
-def _cheap_identity(scene, cloth, colliders, settings) -> str:
+    @property
+    def preview(self):
+        return self.cloths[0].preview
+
+    @property
+    def source_hide_viewport(self):
+        return self.cloths[0].source_hide_viewport
+
+
+def _cheap_identity(scene, cloths, colliders, settings) -> str:
     def matrix(obj):
         return tuple(tuple(round(float(value), 9) for value in row)
                      for row in obj.matrix_world)
-    material = cloth.cloth_next.material
-    damping = cloth.cloth_next.damping
-    collision = cloth.cloth_next.collision
+    def cloth_value(cloth):
+        material = cloth.cloth_next.material
+        damping = cloth.cloth_next.damping
+        collision = cloth.cloth_next.collision
+        return {
+            "object": (str(cloth.cloth_next.persistent_export_id),
+                       str(cloth.cloth_next.role), str(cloth.data.name),
+                       tuple((modifier.name, modifier.type,
+                              bool(modifier.show_viewport))
+                             for modifier in cloth.modifiers), matrix(cloth)),
+            "pins": (bool(cloth.cloth_next.pinning_enabled),
+                     str(cloth.cloth_next.pin_group),
+                     str(cloth.cloth_next.pin_mode)),
+            "range": (int(cloth.cloth_next.bake_start),
+                      int(cloth.cloth_next.bake_end)),
+            "material": tuple(float(item) for item in (
+                material.surface_weight, material.stretch_resistance,
+                material.sideways_response, material.bend_resistance,
+                damping.shape_damping, damping.fold_damping,
+                collision.surface_grip, collision.collision_gap,
+                collision.surface_offset)),
+        }
     value = {
-        "cloth": (str(cloth.cloth_next.persistent_export_id),
-                  str(cloth.cloth_next.role), str(cloth.data.name),
-                  tuple((modifier.name, modifier.type,
-                         bool(modifier.show_viewport))
-                        for modifier in cloth.modifiers), matrix(cloth)),
-        "pins": (bool(cloth.cloth_next.pinning_enabled),
-                 str(cloth.cloth_next.pin_group), str(cloth.cloth_next.pin_mode)),
-        "range": (int(cloth.cloth_next.bake_start),
-                  int(cloth.cloth_next.bake_end)),
+        "cloths": [cloth_value(cloth) for cloth in cloths],
         "timing": (float(scene.render.fps), float(scene.render.fps_base),
                    float(settings.time_scale)),
         "quality": (str(settings.quality), bool(settings.enable_self_contact)),
-        "material": tuple(float(item) for item in (
-            material.surface_weight, material.stretch_resistance,
-            material.sideways_response, material.bend_resistance,
-            damping.shape_damping, damping.fold_damping,
-            collision.surface_grip, collision.collision_gap,
-            collision.surface_offset)),
         "colliders": tuple((str(obj.cloth_next.persistent_export_id),
                             str(obj.cloth_next.role),
                             str(obj.cloth_next.collider_motion),
-                            str(obj.data.name), matrix(obj))
+                            str(obj.data.name),
+                            matrix(obj) if str(obj.cloth_next.collider_motion) == "STATIC"
+                            else tuple((modifier.name, modifier.type,
+                                        bool(modifier.show_viewport))
+                                       for modifier in obj.modifiers))
                            for obj in colliders),
         "forces": tuple((str(obj.cloth_next.persistent_export_id),
                          str(obj.cloth_next.force.force_type),
@@ -414,23 +451,43 @@ def _mark_owned_visibility_update(source):
 
 def _capture(context) -> _Captured:
     scene = context.scene
-    cloth, colliders = _validate_scope(scene)
+    cloths, colliders = _validate_scope(scene)
     original_frame = int(scene.frame_current)
-    start = int(cloth.cloth_next.bake_start)
+    start = int(cloths[0].cloth_next.bake_start)
+    end = int(cloths[0].cloth_next.bake_end)
     try:
         scene.frame_set(start)
         metrics_before = dict(_mesh_capture_metrics)
-        cloth_mesh = _cached_triangulated_world_mesh(context, cloth)
+        cloth_meshes = tuple(_cached_triangulated_world_mesh(context, cloth)
+                            for cloth in cloths)
         collider_meshes = tuple(_cached_triangulated_world_mesh(context, obj)
                                 for obj in colliders)
+        collider_animations = []
+        for collider_index, collider in enumerate(colliders):
+            if str(collider.cloth_next.collider_motion) != "ANIMATED":
+                continue
+            samples = []
+            reference = collider_meshes[collider_index]
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample = _triangulated_world_mesh(context, collider)
+                if (sample.triangles != reference.triangles
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{collider.name}: animated Collider topology must remain constant")
+                samples.append(sample.vertices)
+            collider_animations.append(ColliderAnimation(
+                collider_index, tuple(samples)))
     finally:
         scene.frame_set(original_frame)
-    pins = _pin_indices(cloth, len(cloth_mesh.vertices))
+    pin_sets = tuple(_pin_indices(cloth, len(mesh.vertices))
+                     for cloth, mesh in zip(cloths, cloth_meshes))
     settings = scene.cloth_next_newton_preview
     quality = _quality(settings)
-    material = _material(cloth)
-    identity = _scene_identity(scene, cloth, colliders, cloth_mesh,
-                               collider_meshes, pins, material, quality)
+    materials = tuple(_material(cloth) for cloth in cloths)
+    identity = _scene_identity(
+        scene, cloths, colliders, cloth_meshes, collider_meshes,
+        pin_sets, materials, quality, tuple(collider_animations))
     session_id = uuid.uuid4().hex
     base = (Path(os.environ.get("LOCALAPPDATA", Path.home()))
             / "ClothNeXt/newton/sessions" / session_id)
@@ -439,20 +496,47 @@ def _capture(context) -> _Captured:
     except OSError:
         pass  # retention failure is diagnostic-only, never a preview blocker
     request = PreviewCreateRequest(
-        session_id, identity, cloth_mesh, collider_meshes, pins, material,
-        quality, start, int(cloth.cloth_next.bake_end),
+        session_id, identity, cloth_meshes[0], collider_meshes, pin_sets[0],
+        materials[0], quality, start, end,
         float(scene.render.fps) / float(scene.render.fps_base),
-        float(settings.time_scale), _gravity(scene), str(base / "results"))
+        float(settings.time_scale), _gravity(scene), str(base / "results"),
+        additional_cloths=tuple(
+            PreviewCloth(str(cloth.cloth_next.persistent_export_id), mesh,
+                         pins, material)
+            for cloth, mesh, pins, material in zip(
+                cloths[1:], cloth_meshes[1:], pin_sets[1:], materials[1:])),
+        collider_animations=tuple(collider_animations))
     request.validate()
-    preview, source_hidden = _create_preview_object(context, cloth, cloth_mesh)
+    captured_cloths = []
+    try:
+        for cloth, mesh in zip(cloths, cloth_meshes):
+            preview, source_hidden = _create_preview_object(context, cloth, mesh)
+            captured_cloths.append(_CapturedCloth(
+                cloth, preview, source_hidden))
+    except Exception:
+        for captured in captured_cloths:
+            try:
+                captured.source.hide_viewport = captured.source_hide_viewport
+                mesh = captured.preview.data
+                bpy.data.objects.remove(captured.preview, do_unlink=True)
+                if mesh is not None and mesh.users == 0:
+                    bpy.data.meshes.remove(mesh)
+            except (ReferenceError, RuntimeError, AttributeError):
+                pass
+        raise
     settings.session_id = session_id
-    tracked = (cloth, cloth.data, *(item for collider in colliders
+    tracked = (*(item for cloth in cloths for item in (cloth, cloth.data)),
+               *(item for collider in colliders
                                    for item in (collider, collider.data)))
+    animated_ids = tuple(item for collider in colliders
+                         if str(collider.cloth_next.collider_motion) == "ANIMATED"
+                         for item in (collider, collider.data))
     capture_metrics = {
         f"newton_mesh_capture_{name}": _mesh_capture_metrics[name]
         - metrics_before[name] for name in metrics_before}
-    return _Captured(request, cloth, preview, source_hidden, tuple(tracked),
-                     _cheap_identity(scene, cloth, colliders, settings),
+    return _Captured(request, tuple(captured_cloths), tuple(tracked),
+                     animated_ids,
+                     _cheap_identity(scene, cloths, colliders, settings),
                      capture_metrics)
 
 
@@ -589,8 +673,10 @@ def _depsgraph_update_post(_scene, depsgraph):
         return
     tracked = _session.capture.tracked_ids
     for update in getattr(depsgraph, "updates", ()):
-        if update.id in tracked and (getattr(update, "is_updated_geometry", False)
-                                     or getattr(update, "is_updated_transform", False)):
+        if (update.id in tracked
+                and update.id not in _session.capture.animated_collider_ids
+                and (getattr(update, "is_updated_geometry", False)
+                     or getattr(update, "is_updated_transform", False))):
             _session.error = f"{getattr(update.id, 'name', 'Scene')} changed; disable and re-enable Live Preview"
             _session.set_state(PreviewState.STALE)
             return
@@ -624,12 +710,18 @@ def _apply_result(message):
     result, positions = _validate_artifact(message)
     if result.frame != _session.last_requested_frame:
         return  # never show a stale later/earlier frame as the current request
-    preview = _session.capture.preview
-    if preview.name not in bpy.data.objects:
-        raise RuntimeError("Newton preview object was removed")
     started = time.perf_counter()
-    preview.data.vertices.foreach_set("co", positions.reshape(-1))
-    preview.data.update()
+    offset = 0
+    for captured, cloth in zip(_session.capture.cloths,
+                               _session.capture.request.cloths):
+        preview = captured.preview
+        if preview.name not in bpy.data.objects:
+            raise RuntimeError("Newton preview object was removed")
+        count = len(cloth.mesh.vertices)
+        preview.data.vertices.foreach_set(
+            "co", positions[offset:offset + count].reshape(-1))
+        preview.data.update()
+        offset += count
     _session.last_applied_frame = result.frame
     _session.status_data["newton_viewport_apply_seconds"] = time.perf_counter() - started
     current = int(_session.status_data.get("current_frame", result.frame))
@@ -653,11 +745,9 @@ def _poll_timer():
                 and _session.state not in {PreviewState.STALE,
                                            PreviewState.STOPPING,
                                            PreviewState.FAILED}):
-            cloth, _colliders = _validate_scope(bpy.context.scene)
-            colliders = tuple(obj for obj in _enabled_objects(bpy.context.scene)
-                              if str(obj.cloth_next.role) == "COLLIDER")
+            cloths, colliders = _validate_scope(bpy.context.scene)
             current_identity = _cheap_identity(
-                bpy.context.scene, cloth, colliders, _settings())
+                bpy.context.scene, cloths, colliders, _settings())
             if current_identity != _session.capture.cheap_identity:
                 _session.error = "Simulation settings changed; disable and re-enable Live Preview"
                 _session.set_state(PreviewState.STALE)
@@ -717,20 +807,19 @@ def _cleanup_preview():
     captured = _session.capture
     if captured is None:
         return
-    source = captured.source
-    try:
-        _mark_owned_visibility_update(source)
-        source.hide_viewport = captured.source_hide_viewport
-    except (ReferenceError, AttributeError):
-        pass
-    preview = captured.preview
-    try:
-        mesh = preview.data
-        bpy.data.objects.remove(preview, do_unlink=True)
-        if mesh is not None and mesh.users == 0:
-            bpy.data.meshes.remove(mesh)
-    except (ReferenceError, RuntimeError, AttributeError):
-        pass
+    for item in captured.cloths:
+        try:
+            _mark_owned_visibility_update(item.source)
+            item.source.hide_viewport = item.source_hide_viewport
+        except (ReferenceError, AttributeError):
+            pass
+        try:
+            mesh = item.preview.data
+            bpy.data.objects.remove(item.preview, do_unlink=True)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+        except (ReferenceError, RuntimeError, AttributeError):
+            pass
 
 
 def _fail(message):

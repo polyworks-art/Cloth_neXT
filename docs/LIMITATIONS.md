@@ -1,9 +1,10 @@
 # Audit limitations and unsupported claims
 
-- Newton Live Preview is experimental and currently limited to one triangle
-  Cloth, static triangle colliders, static hard pins and gravity. It rejects
-  animated colliders, Follow Animation pins, pressure, sewing, multiple Cloth
-  objects, Edit Mode and topology-changing modifiers. Its material translation
+- Newton Live Preview is experimental and supports multiple triangle Cloth
+  objects plus static or animated/deforming triangle colliders with stable
+  topology, static hard pins and gravity. It rejects mismatched Cloth Bake
+  ranges, Follow Animation pins, pressure, sewing, Edit Mode and topology-changing
+  modifiers. Its material translation
   does not claim physical parity with PPF. Newton preview recovery and restart
   persistence are not implemented. See `NEWTON_LIVE_PREVIEW.md`.
 

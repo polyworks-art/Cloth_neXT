@@ -34,21 +34,59 @@ def _request(**updates):
     return contracts.PreviewCreateRequest(**values)
 
 
-def test_backend_capabilities_reject_unimplemented_scope():
+def test_backend_capabilities_advertise_multi_cloth_and_animated_colliders():
     capabilities = contracts.BackendCapabilities()
-    assert capabilities.cloth_objects == 1
+    assert capabilities.cloth_objects == 64
     assert capabilities.static_triangle_colliders is True
     assert capabilities.hard_static_pins is True
-    assert capabilities.animated_colliders is False
+    assert capabilities.animated_colliders is True
+    assert capabilities.deforming_colliders is True
     assert capabilities.follow_animation_pins is False
     assert capabilities.pressure is False
 
 
 def test_request_round_trip_has_stable_scene_identity():
-    request = _request()
+    collider = contracts.PreviewMesh(
+        ((-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0, 1, 2),))
+    second = contracts.PreviewCloth(
+        "cloth-2", _request().cloth, (), _request().material)
+    animation = contracts.ColliderAnimation(
+        0, tuple(collider.vertices for _ in range(10)))
+    request = _request(colliders=(collider,), additional_cloths=(second,),
+                       collider_animations=(animation,))
     decoded = contracts.PreviewCreateRequest.from_wire(request.to_wire())
     assert decoded == request
     assert decoded.identity() == request.identity()
+    assert decoded.total_cloth_vertices == 6
+
+
+def test_multi_cloth_and_collider_animation_validation_fails_closed():
+    mesh = _request().cloth
+    material = _request().material
+    with pytest.raises(ValueError, match="identifiers"):
+        _request(additional_cloths=(
+            contracts.PreviewCloth("same", mesh, (), material),
+            contracts.PreviewCloth("same", mesh, (), material))).validate()
+    collider = contracts.PreviewMesh(mesh.vertices, mesh.triangles)
+    with pytest.raises(ValueError, match="sample count"):
+        _request(colliders=(collider,), collider_animations=(
+            contracts.ColliderAnimation(0, (collider.vertices,)),)).validate()
+    changed_topology_sample = collider.vertices[:-1]
+    with pytest.raises(ValueError, match="topology"):
+        _request(colliders=(collider,), collider_animations=(
+            contracts.ColliderAnimation(
+                0, tuple(changed_topology_sample for _ in range(10))),)).validate()
+
+
+def test_result_vertex_count_includes_every_cloth():
+    request = _request(additional_cloths=(contracts.PreviewCloth(
+        "second", _request().cloth, (), _request().material),))
+    contracts.PreviewResult(
+        "session", "scene", 1, 6, "x", "0" * 64).validate_for(request)
+    with pytest.raises(ValueError, match="vertex count"):
+        contracts.PreviewResult(
+            "session", "scene", 1, 3, "x", "0" * 64).validate_for(request)
 
 
 @pytest.mark.parametrize("updates", [

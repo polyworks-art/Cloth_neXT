@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.2.10 — 2026-08-02 (Dev channel)
+
+### Added
+
+- Newton Live Preview and experimental Newton Bake now support multiple Cloth
+  objects in one shared simulation, with separate non-destructive preview and
+  PC2 playback outputs for every Cloth.
+- Newton now samples animated and deforming triangle Colliders across the Bake
+  range, interpolates their motion per solver substep, and refits collision
+  acceleration data without rebuilding the simulation model.
+
+### Safety and validation
+
+- Animated Collider topology is required to remain constant and fails closed
+  before worker startup when it changes.
+- Added real Newton/CUDA and Blender gates covering two Cloth objects,
+  deforming Collider samples, viewport result splitting, and source restoration.
+
 ## 2.2.9 — 2026-08-02 (Dev channel)
 
 ### Fixed
