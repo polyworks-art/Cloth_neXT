@@ -71,6 +71,8 @@ def _steps() -> list[tuple]:
     # last and detached first, and idempotent, so a reload cannot leave a
     # duplicate behind.
     steps.append((validation_state.register, validation_state.unregister))
+    steps.append((solver_test.install_recovery_ui_handler,
+                  solver_test.uninstall_recovery_ui_handler))
     steps.append((solver_test.install_validator,
                   lambda: validation_state.set_validator(None)))
     return steps

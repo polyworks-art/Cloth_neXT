@@ -6,8 +6,9 @@ import pytest
 
 from cloth_next.recovery import (
     ProjectState, RecoveryIdentity, apply_retention, clear_checkpoints,
-    compatibility, confirm_saved_states, create_project, load_project,
-    load_records, publish_checkpoint, recovery_root, transition,
+    compatibility, confirm_saved_states, create_project, evaluate_resumable,
+    load_project, load_records, publish_checkpoint, reconcile_resumable,
+    recovery_root, transition,
 )
 
 
@@ -133,3 +134,174 @@ def test_missing_project_is_not_reported_resumable(tmp_path):
     assert record is not None
     assert record.state is ProjectState.ABANDONED
     assert record.error == "Recovery project missing"
+
+
+def verified_project(tmp_path, *, state=ProjectState.CHECKPOINT_CONFIRMED,
+                     frames=(20,), current=None):
+    """Build a durable project whose checkpoints are authenticated on disk."""
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True, exist_ok=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    current = current or identity()
+    record = create_project(
+        metadata, project_id="project", identity=current,
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    for frame in frames:
+        (output / f"state_{frame}.bin.gz").write_bytes(
+            gzip.compress(f"state-{frame}".encode()))
+    record = confirm_saved_states(metadata, record, frames, keep=10)
+    if state is not ProjectState.CHECKPOINT_CONFIRMED:
+        if state is ProjectState.RESUMING:
+            record = transition(metadata, record, ProjectState.RESUMABLE)
+        record = transition(metadata, record, state)
+    return metadata, current
+
+
+def test_evaluate_resumable_reports_hard_aborted_running_project(tmp_path):
+    # A host kill leaves the metadata mid-run; with a verified checkpoint the
+    # evaluator must accept it even though no handler ever promoted the state.
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RUNNING, frames=(40, 60))
+    eligibility = evaluate_resumable(metadata, current)
+    assert eligibility.available
+    assert eligibility.resumable
+    assert eligibility.compatible
+    assert eligibility.state is ProjectState.RUNNING
+    assert eligibility.latest_checkpoint_frame == 60
+    assert eligibility.checkpoint_count == 2
+
+
+def test_evaluate_resumable_accepts_cooperative_checkpoint_states(tmp_path):
+    for state in (ProjectState.CHECKPOINT_REQUESTED,
+                  ProjectState.CHECKPOINT_CONFIRMED,
+                  ProjectState.SAVED, ProjectState.RESUMABLE,
+                  ProjectState.RESUMING, ProjectState.FAILED):
+        metadata, current = verified_project(tmp_path, state=state)
+        eligibility = evaluate_resumable(metadata, current)
+        assert eligibility.available, state
+        assert eligibility.resumable, state
+
+
+def test_reconcile_promotes_resuming_state(tmp_path):
+    # A hard abort during a *resume* leaves the durable state RESUMING; with a
+    # verified checkpoint it must still be recoverable afterwards.
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RESUMING, frames=(40,))
+    eligibility = evaluate_resumable(metadata, current)
+    assert eligibility.available
+    assert eligibility.resumable
+    eligibility, promoted = reconcile_resumable(metadata, current)
+    assert promoted
+    assert eligibility.state is ProjectState.RESUMABLE
+    record = load_project(metadata)
+    assert record is not None
+    assert record.state is ProjectState.RESUMABLE
+
+
+def test_evaluate_resumable_without_identity_is_provisional(tmp_path):
+    metadata, _current = verified_project(
+        tmp_path, state=ProjectState.RUNNING)
+    eligibility = evaluate_resumable(metadata)
+    assert eligibility.available
+    assert eligibility.compatible is None
+    # Provisional: compatibility is unknown, so resumable falls back to the
+    # durable on-disk truth. Callers must re-verify with an identity.
+    assert eligibility.resumable
+
+
+def test_evaluate_resumable_reports_incompatible_identity(tmp_path):
+    metadata, _current = verified_project(
+        tmp_path, state=ProjectState.RUNNING)
+    changed = replace(identity(), geometry_fingerprint="changed")
+    eligibility = evaluate_resumable(metadata, changed)
+    assert eligibility.available
+    assert not eligibility.compatible
+    assert not eligibility.resumable
+    assert "Geometry changed" in eligibility.reason
+
+
+def test_evaluate_resumable_requires_verified_checkpoint(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RUNNING, frames=())
+    eligibility = evaluate_resumable(metadata, current)
+    assert not eligibility.available
+    assert not eligibility.resumable
+    assert eligibility.latest_checkpoint_frame == 0
+
+
+def test_evaluate_resumable_rejects_new_and_finished(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.FINISHED, frames=(20,))
+    eligibility = evaluate_resumable(metadata, current)
+    assert not eligibility.available
+    assert not eligibility.resumable
+    # A freshly created project (NEW) is never resumable.
+    project_root = tmp_path / "fresh" / "project"
+    project_root.mkdir(parents=True)
+    fresh_metadata = tmp_path / "fresh" / "metadata.json"
+    fresh = create_project(
+        fresh_metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "fresh", project_root=project_root)
+    assert not evaluate_resumable(fresh_metadata, fresh.identity).available
+
+
+def test_evaluate_resumable_corrupt_checkpoint_fails_closed(tmp_path):
+    metadata, current = verified_project(tmp_path, state=ProjectState.RUNNING)
+    state_path = metadata.parent.parent / "server" / "project" \
+        / "session" / "output" / "state_20.bin.gz"
+    state_path.write_bytes(b"corrupt")
+    eligibility = evaluate_resumable(metadata, current)
+    assert not eligibility.available
+    assert not eligibility.resumable
+
+
+def test_evaluate_resumable_missing_metadata_fails_closed(tmp_path):
+    eligibility = evaluate_resumable(tmp_path / "missing" / "metadata.json")
+    assert not eligibility.available
+    assert not eligibility.resumable
+    assert eligibility.state is None
+    assert "missing or invalid" in eligibility.reason
+
+
+def test_reconcile_promotes_hard_aborted_state(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RUNNING, frames=(40,))
+    eligibility, promoted = reconcile_resumable(metadata, current)
+    assert promoted
+    assert eligibility.resumable
+    assert eligibility.state is ProjectState.RESUMABLE
+    record = load_project(metadata)
+    assert record is not None
+    assert record.state is ProjectState.RESUMABLE
+
+
+def test_reconcile_is_idempotent(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RUNNING, frames=(40,))
+    reconcile_resumable(metadata, current)
+    eligibility, promoted = reconcile_resumable(metadata, current)
+    assert not promoted
+    assert eligibility.state is ProjectState.RESUMABLE
+    assert eligibility.resumable
+
+
+def test_reconcile_refuses_corrupt_or_unavailable(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.RUNNING, frames=(40,))
+    state_path = metadata.parent.parent / "server" / "project" \
+        / "session" / "output" / "state_40.bin.gz"
+    state_path.write_bytes(b"corrupt")
+    eligibility, promoted = reconcile_resumable(metadata, current)
+    assert not promoted
+    assert not eligibility.resumable
+    assert load_project(metadata).state is ProjectState.RUNNING
+
+
+def test_reconcile_refuses_finished_project(tmp_path):
+    metadata, current = verified_project(
+        tmp_path, state=ProjectState.FINISHED, frames=(40,))
+    eligibility, promoted = reconcile_resumable(metadata, current)
+    assert not promoted
+    assert not eligibility.resumable

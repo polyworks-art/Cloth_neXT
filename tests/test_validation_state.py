@@ -251,7 +251,12 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    assert len(handlers.load_post) == 1
+    # Validation and the recovery snapshot each install one load_post callback.
+    assert len(handlers.load_post) == 2
+    assert len([f for f in handlers.load_post
+                if getattr(f, "_clothnext_validation_handler", False)]) == 1
+    assert len([f for f in handlers.load_post
+                if getattr(f, "_clothnext_recovery_handler", False)]) == 1
     assert len(handlers.undo_post) == 1
     assert len(handlers.redo_post) == 1
 

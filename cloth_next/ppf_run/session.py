@@ -598,11 +598,15 @@ class SolverSession:
         record = self._recovery_record
         if record is None:
             return exc
-        checkpoints = tuple(
-            item for item in record.checkpoints
-            if item.integrity == "VERIFIED")
+        options = self._recovery
+        assert options is not None
+        # The claim must match what the resume gate will accept: verify the
+        # durable metadata through the same evaluator used at resume time.
+        eligibility = recovery.evaluate_resumable(
+            options.metadata_path, options.identity)
         checkpoint_frame = (
-            max(item.frame for item in checkpoints) if checkpoints else None)
+            eligibility.latest_checkpoint_frame
+            if eligibility.latest_checkpoint_frame > 0 else None)
         partial_paths = tuple(
             path for _uuid, path in record.partial_pc2
             if Path(path).is_file())
@@ -621,6 +625,7 @@ class SolverSession:
                 f"{source.technical_message}; "
                 f"recovery_state={record.state.value}; "
                 f"recovery_checkpoint_frame={checkpoint_frame}; "
+                f"recovery_resumable={eligibility.resumable}; "
                 f"partial_cache_candidates={partial_paths}"),
             recommended_action=source.recommended_action,
             recoverable=source.recoverable,
@@ -1637,13 +1642,31 @@ class SolverSession:
         except ClothNextError as exc:
             if self._recovery_record is not None and self._recovery is not None:
                 try:
-                    state = (recovery.ProjectState.RESUMABLE
-                             if self._recovery_record.checkpoints
-                             else recovery.ProjectState.FAILED)
-                    self._recovery_record = recovery.transition(
-                        self._recovery.metadata_path, self._recovery_record,
-                        state, error=exc.record.technical_message)
-                    preserved = bool(self._recovery_record.checkpoints)
+                    options = self._recovery
+                    eligibility, _promoted = recovery.reconcile_resumable(
+                        options.metadata_path, options.identity)
+                    if eligibility.available:
+                        # Preserve whatever verified checkpoint survived, even
+                        # when the identity no longer matches, and refresh the
+                        # in-memory record so cleanup sees the durable state.
+                        self._recovery_record = recovery.load_project(
+                            options.metadata_path)
+                        if self._recovery_record is not None:
+                            # Keep the failure reason on the durable record so
+                            # a later panel or file load shows why the Bake
+                            # stopped instead of a bare "Recovery available".
+                            self._recovery_record = recovery.transition(
+                                options.metadata_path,
+                                self._recovery_record,
+                                self._recovery_record.state,
+                                error=exc.record.technical_message)
+                        preserved = True
+                    else:
+                        self._recovery_record = recovery.transition(
+                            options.metadata_path, self._recovery_record,
+                            recovery.ProjectState.FAILED,
+                            error=exc.record.technical_message)
+                        preserved = False
                 except (OSError, ValueError):
                     pass
             if owned and exc.record.category is ErrorCategory.SOLVER_CONNECTION:
@@ -1661,6 +1684,18 @@ class SolverSession:
             raise primary_error from exc
         except BaseException as exc:
             primary_error = exc
+            if self._recovery_record is not None and self._recovery is not None:
+                # A hard abort (host kill, keyboard interrupt) leaves the
+                # metadata mid-run. If a verified checkpoint already exists,
+                # keep the project resumable instead of deleting it.
+                try:
+                    options = self._recovery
+                    eligibility, _promoted = recovery.reconcile_resumable(
+                        options.metadata_path, options.identity)
+                    if eligibility.available:
+                        preserved = True
+                except (OSError, ValueError):
+                    pass
             raise
         finally:
             try:

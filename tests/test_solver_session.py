@@ -1135,6 +1135,155 @@ def test_import_result_playback_conversion():
     assert playback[1][1] == pytest.approx((1.0, 0.0, -0.5))
 
 
+def test_hard_interrupt_preserves_verified_checkpoint_as_resumable(
+        monkeypatch, tmp_path):
+    """A hard interrupt (KeyboardInterrupt) must not delete the project: the
+    durable checkpoint survives and is promoted to RESUMABLE so a later
+    Blender session can continue from it.  The resume start syncs the durable
+    state through CHECKPOINT_CONFIRMED before the interrupt fires; the raw
+    RUNNING/abort promotion is covered in tests/test_recovery.py."""
+    scripted = ScriptedWire(monkeypatch)
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    (output / "state_3.bin.gz").write_bytes(gzip.compress(b"confirmed-state"))
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    record = recovery.create_project(
+        metadata, project_id=_scene().project_name, identity=identity,
+        server_data_root=server_root, project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(metadata, record, (3,), keep=3)
+    recovery.transition(
+        metadata, record, recovery.ProjectState.RESUMABLE)
+
+    options = RecoveryOptions(
+        True, metadata, identity, server_root, resume=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        poll_interval=0.001, recovery_options=options)
+
+    original = scripted._send_tcmd
+
+    def recovery_wire(address, config, project, request=None, *, frame=None):
+        if request is None:
+            scripted.log.append(("tcmd", project, request))
+            return {**scripted.base, "status": "RESUMABLE", "frame": 3,
+                    "saved_states": [3]}
+        return original(address, config, project, request, frame=frame)
+
+    monkeypatch.setattr(wire, "send_tcmd", recovery_wire)
+
+    def boom(resume=False):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(session, "_simulate_and_fetch", boom)
+
+    with pytest.raises(KeyboardInterrupt):
+        session.run()
+
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.RESUMABLE
+    assert [item.frame for item in record.checkpoints] == [3]
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "delete" not in requests
+
+
+def test_hard_interrupt_without_checkpoint_keeps_project(monkeypatch, tmp_path):
+    """With no verified checkpoint there is nothing to resume; the project is
+    left untouched and nothing is deleted, matching the cooperative-cancel
+    guarantee that a hard abort never destroys durable work."""
+    scripted = ScriptedWire(monkeypatch)
+    server_root = tmp_path / "server"
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    options = RecoveryOptions(
+        True, metadata, identity, server_root, save_on_cancel=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        poll_interval=0.001, recovery_options=options)
+
+    def boom(resume=False):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(session, "_simulate_and_fetch", boom)
+
+    with pytest.raises(KeyboardInterrupt):
+        session.run()
+
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.checkpoints == ()
+    requests = [item[2] for item in scripted.log if item[0] == "tcmd"]
+    assert "delete" not in requests
+
+
+def test_failed_resume_persists_reason_on_preserved_checkpoint(
+        tmp_path, monkeypatch):
+    """A ClothNextError during a resume that keeps a verified checkpoint must
+    leave the failure reason on the durable record so a later panel or file
+    load can explain why the Bake stopped."""
+    scripted = ScriptedWire(monkeypatch)
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    (output / "state_3.bin.gz").write_bytes(gzip.compress(b"confirmed-state"))
+    metadata = tmp_path / "recovery" / "metadata.json"
+    identity = _recovery_identity()
+    record = recovery.create_project(
+        metadata, project_id=_scene().project_name, identity=identity,
+        server_data_root=server_root, project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    record = recovery.confirm_saved_states(metadata, record, (3,), keep=3)
+    recovery.transition(metadata, record, recovery.ProjectState.RESUMABLE)
+
+    options = RecoveryOptions(
+        True, metadata, identity, server_root, resume=True)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        poll_interval=0.001, recovery_options=options)
+
+    original = scripted._send_tcmd
+
+    def recovery_wire(address, config, project, request=None, *, frame=None):
+        if request is None:
+            scripted.log.append(("tcmd", project, request))
+            return {**scripted.base, "status": "RESUMABLE", "frame": 3,
+                    "saved_states": [3]}
+        return original(address, config, project, request, frame=frame)
+
+    monkeypatch.setattr(wire, "send_tcmd", recovery_wire)
+
+    def boom(resume=False):
+        raise ClothNextError(ErrorRecord.create(
+            category=ErrorCategory.SIMULATION,
+            user_message="The solver exited while simulating frame 5.",
+            technical_message="failure_kind=SOLVER_WORKER_ABNORMAL_EXIT",
+            recommended_action="Retry.", recoverable=True))
+
+    monkeypatch.setattr(session, "_simulate_and_fetch", boom)
+
+    with pytest.raises(ClothNextError):
+        session.run()
+
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.RESUMABLE
+    assert [item.frame for item in record.checkpoints] == [3]
+    assert record.error == "failure_kind=SOLVER_WORKER_ABNORMAL_EXIT"
+
+
 def test_import_result_rejects_incomplete_or_duplicate_frames():
     initial = ((0.0, 0.0, 0.0),)
     world = ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
@@ -1304,6 +1453,8 @@ def test_failure_diagnostics_include_verified_recovery_checkpoint(
         work_directory=tmp_path,
         external_address=wire.ServerAddress("127.0.0.1", 9))
     session._recovery_record = record
+    session._recovery = RecoveryOptions(
+        True, metadata, identity, tmp_path / "server")
     primary = ClothNextError(ErrorRecord.create(
         category=ErrorCategory.SIMULATION,
         user_message="The solver exited while simulating frame 5.",
@@ -1340,6 +1491,8 @@ def test_failure_diagnostics_do_not_claim_unverified_partial_is_resumable(
         work_directory=tmp_path,
         external_address=wire.ServerAddress("127.0.0.1", 9))
     session._recovery_record = record
+    session._recovery = RecoveryOptions(
+        True, tmp_path / "recovery.json", identity, tmp_path / "server")
     primary = ClothNextError(ErrorRecord.create(
         category=ErrorCategory.SIMULATION,
         user_message="The solver stopped.",

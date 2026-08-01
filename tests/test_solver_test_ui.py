@@ -3,12 +3,16 @@
 """Threading, cancellation, and cleanup contracts for the Blender bridge."""
 from __future__ import annotations
 
+import gzip
+import hashlib
+import json
 import threading
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
+from cloth_next import recovery
 from cloth_next.bake import cache_metadata, pc2
 from cloth_next.bake.status import BakeState
 from cloth_next.core.errors import ClothNextError, ErrorCategory, ErrorRecord
@@ -1456,3 +1460,247 @@ def test_recovery_resume_disabled_reason_never_reports_compatible(blender_env):
     assert operator._disabled_reason(SimpleNamespace(
         status_detail="Recovery project state is Checkpoint Confirmed")) == (
             "Recovery project state is Checkpoint Confirmed")
+
+
+def _recovery_settings(**changes):
+    values = dict(
+        enabled=True, resume_requested=False, keep_saved_states=3,
+        save_on_cancel=True, save_on_finish=False,
+        status="", status_detail="", compatible=False, resumable=False,
+        latest_checkpoint_frame=0, checkpoint_count=0,
+        older_checkpoint_preserved=False, recovery_directory="")
+    values.update(changes)
+    return SimpleNamespace(**values)
+
+
+def _topology_fingerprint():
+    return hashlib.sha256(json.dumps(
+        sorted([("target-a", "topology")]),
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _verified_recovery(tmp_path, *, geometry="geometry"):
+    """Durable RESUMABLE project whose checkpoint is authenticated on disk."""
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="param", export_uuids=("target-a",),
+        geometry_fingerprint=geometry,
+        topology_fingerprint=_topology_fingerprint(),
+        frame_start=1, frame_end=180, fps=24.0, collider_sampling=(),
+        solver_version="0.1.0", protocol_version="0.11",
+        solver_schema_version="1", solver_installation_id="unregistered")
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True, exist_ok=True)
+    metadata = recovery.metadata_path(tmp_path / "cache", "scene")
+    record = recovery.create_project(
+        metadata, project_id="project", identity=identity,
+        server_data_root=tmp_path / "server", project_root=project_root)
+    record = recovery.transition(
+        metadata, record, recovery.ProjectState.RUNNING)
+    (output / "state_20.bin.gz").write_bytes(gzip.compress(b"state-20"))
+    record = recovery.confirm_saved_states(metadata, record, (20,), keep=10)
+    recovery.transition(metadata, record, recovery.ProjectState.RESUMABLE)
+    return metadata, identity
+
+
+def _recovery_plan(tmp_path, *, geometry="geometry"):
+    from cloth_next.ppf_run.session import SessionScene
+    resolved = SimpleNamespace(
+        package_version="0.1.0", protocol_version="0.11",
+        schema_version="1", installation_id="unregistered",
+        installation=None)
+    scene = SessionScene(
+        project_name="project", cloth_name="cloth", cloth_uuid="target-a",
+        cloth_vertex_count=1, collider_name="", collider_uuid="",
+        frame_count=1, data_payload=b"", param_payload=b"",
+        data_hash="", param_hash="")
+    return dict(
+        scene=scene, resolved=resolved,
+        initial_local=((0.0, 0.0, 0.0),),
+        world_matrix=((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0),
+                      (0, 0, 0, 1)),
+        cloth_object_name="cloth", work_directory=tmp_path / "work",
+        pc2_path=tmp_path / "cache" / "cn_test_cloth.pc2",
+        frame_count=1, frame_start=1, frame_end=180, fps=24.0,
+        scene_cache_key="scene", param_cache_key="param",
+        geometry_fingerprint=geometry, topology_signature="topology")
+
+
+def test_load_post_refreshes_recovery_snapshot_from_disk(blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    settings = _recovery_settings(recovery_directory=str(metadata.parent))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+
+    module._refresh_recovery_ui_from_disk()
+
+    # No RunPlan or identity exists after a file load; the snapshot reports the
+    # on-disk truth provisionally and Bake start re-verifies compatibility.
+    assert settings.compatible is True
+    assert settings.resumable is True
+    assert settings.status == "Recovery available"
+    assert settings.status_detail == "Verified checkpoint · Resume available"
+    assert settings.latest_checkpoint_frame == 20
+    assert settings.checkpoint_count == 1
+
+
+def test_refresh_recovery_ui_from_disk_without_metadata_is_not_resumable(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    settings = _recovery_settings(
+        recovery_directory=str(tmp_path / "empty"))
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+
+    module._refresh_recovery_ui_from_disk()
+
+    assert settings.resumable is False
+    assert settings.compatible is False
+    assert settings.status == "No checkpoint"
+    assert settings.latest_checkpoint_frame == 0
+    assert settings.checkpoint_count == 0
+
+
+def test_refresh_recovery_ui_from_disk_without_directory_is_untouched(
+        blender_env):
+    module = blender_env.solver_test
+    settings = _recovery_settings()
+    blender_env.bpy.context.scene = SimpleNamespace(
+        cloth_next_recovery=settings)
+
+    module._refresh_recovery_ui_from_disk()
+
+    assert settings.resumable is False
+    assert settings.status == ""
+
+
+def test_load_post_recovery_handler_registered_exactly_once(blender_env):
+    module = blender_env.solver_test
+    container = blender_env.bpy.app.handlers.load_post
+
+    module.install_recovery_ui_handler()
+    module.install_recovery_ui_handler()
+
+    assert container.count(module._on_load_post_refresh_recovery) == 1
+
+
+def test_uninstall_removes_recovery_handler(blender_env):
+    module = blender_env.solver_test
+    container = blender_env.bpy.app.handlers.load_post
+    module.install_recovery_ui_handler()
+
+    module.uninstall_recovery_ui_handler()
+
+    assert module._on_load_post_refresh_recovery not in container
+
+
+def test_install_purges_stale_recovery_handlers(blender_env):
+    module = blender_env.solver_test
+    container = blender_env.bpy.app.handlers.load_post
+    stale = lambda *_args: None  # noqa: E731 - old module instance callback
+    stale._clothnext_recovery_handler = True
+    container.append(stale)
+
+    module.install_recovery_ui_handler()
+
+    assert stale not in container
+    assert module._on_load_post_refresh_recovery in container
+
+
+def test_recovery_resume_poll_requires_resumable_and_idle(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    operator = module.CLOTHNEXT_OT_recovery_resume_latest
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    settings = _recovery_settings(resumable=True, status_detail="Verified")
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+
+    monkeypatch.setattr(module, "run_active", lambda: False)
+    assert operator.poll(context) is True
+
+    settings.resumable = False
+    assert operator.poll(context) is False
+
+    settings.resumable = True
+    monkeypatch.setattr(module, "run_active", lambda: True)
+    assert operator.poll(context) is False
+
+    monkeypatch.setattr(module, "run_active", lambda: False)
+    monkeypatch.setattr(module.shared_controller, "snapshot",
+                        lambda: SimpleNamespace(active=True))
+    assert operator.poll(context) is False
+
+
+def test_configure_recovery_resumes_compatible_project(blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    plan = module.RunPlan(**_recovery_plan(tmp_path))
+    settings = _recovery_settings(
+        resume_requested=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+    snapshot = SimpleNamespace(collider_objs=())
+
+    result = module._configure_recovery(context, snapshot, plan)
+
+    assert result.recovery_options is not None
+    assert result.recovery_options.resume is True
+    assert result.recovery_options.metadata_path == metadata
+    assert settings.recovery_directory == str(metadata.parent)
+    assert settings.resumable is True
+    assert settings.compatible is True
+    assert settings.resume_requested is False
+    assert settings.status == "Recovery available"
+
+
+def test_configure_recovery_refuses_incompatible_resume(blender_env, tmp_path):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    plan = module.RunPlan(**{
+        **_recovery_plan(tmp_path), "geometry_fingerprint": "changed-geometry"})
+    settings = _recovery_settings(
+        resume_requested=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+    snapshot = SimpleNamespace(collider_objs=())
+
+    with pytest.raises(module.SceneValidationError) as caught:
+        module._configure_recovery(context, snapshot, plan)
+
+    assert "cannot be resumed" in str(caught.value)
+    assert "Geometry changed" in str(caught.value)
+    # The refusal is not self-perpetuating and the panel stops claiming a
+    # compatible resume is available.
+    assert settings.resume_requested is False
+    assert settings.resumable is False
+    assert settings.compatible is False
+    assert "Geometry changed" in settings.status_detail
+
+
+def test_configure_recovery_refuses_when_checkpoint_vanish_race(blender_env,
+                                                                tmp_path,
+                                                                monkeypatch):
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    plan = module.RunPlan(**_recovery_plan(tmp_path))
+    settings = _recovery_settings(
+        resume_requested=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+    snapshot = SimpleNamespace(collider_objs=())
+    denied = recovery.replace(
+        recovery.evaluate_resumable(metadata),
+        available=False, resumable=False,
+        reason="No verified resumable checkpoint is available")
+    monkeypatch.setattr(module.recovery, "reconcile_resumable",
+                        lambda *_args, **_kwargs: (denied, False))
+
+    with pytest.raises(module.SceneValidationError) as caught:
+        module._configure_recovery(context, snapshot, plan)
+
+    assert "can no longer be resumed" in str(caught.value)
+    assert settings.resume_requested is False
+    assert settings.resumable is False

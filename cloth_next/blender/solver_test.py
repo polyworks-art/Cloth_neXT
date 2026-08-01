@@ -4482,61 +4482,66 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
             _resolved_installation_id(plan.resolved) or "unregistered"),
         solver_release_tag=_resolved_release_tag(plan.resolved))
     resume_requested = bool(getattr(settings, "resume_requested", False))
-    existing = recovery.load_project(metadata)
+    # One authoritative eligibility decision for both the snapshot and the
+    # resume gate; no caller maintains its own copy of the state set.
+    eligibility = recovery.evaluate_resumable(metadata, identity)
+    if resume_requested and eligibility.available and not eligibility.resumable:
+        # A verified checkpoint survives but no longer matches this scene or
+        # solver. Refuse to silently start fresh and overwrite it. Leave the
+        # panel honest and the gate un-stuck: the failure is permanent until
+        # the user discards the checkpoint or fixes the mismatch.
+        settings.resume_requested = False
+        _apply_eligibility_to_settings(settings, eligibility)
+        raise SceneValidationError(
+            "The saved recovery checkpoint cannot be resumed: "
+            f"{eligibility.reason}. Start Fresh or Clear Checkpoints to "
+            "discard it, or fix the mismatch.")
     resume = False
     completed = ()
     server_root = root / "server-data"
     project_name = plan.scene.project_name
-    settings.status = "No checkpoint"
-    settings.status_detail = ""
-    settings.compatible = False
-    settings.resumable = False
-    if existing is not None and resume_requested:
-        match = recovery.compatibility(existing.identity, identity)
-        if (match.compatible and existing.state in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED}
-                and existing.checkpoints):
-            resume = True
-            server_root = Path(existing.server_data_root)
-            project_name = existing.project_id
-            counts = []
-            for target in targets:
-                partial_path = dict(existing.partial_pc2).get(target.uuid)
-                if not partial_path:
-                    counts = []
-                    break
-                try:
-                    counts.append(pc2.partial_frame_count(
-                        Path(partial_path), pc2.Pc2Header(
-                            len(target.initial_local),
-                            import_result.PC2_START_FRAME,
-                            import_result.PC2_SAMPLE_RATE,
-                            plan.frame_count)))
-                except (OSError, pc2.Pc2Error):
-                    counts = []
-                    break
-            if counts and len(set(counts)) == 1:
-                # PC2 frame zero is the initial pose; solver frames start at 1.
-                completed = tuple(range(1, max(1, counts[0])))
-            else:
-                # Without an authenticated partial, fetch every output frame
-                # again. The solver project is still safely reusable.
-                completed = ()
-    if existing is not None:
-        match = recovery.compatibility(existing.identity, identity)
-        settings.compatible = match.compatible
-        settings.resumable = bool(
-            match.compatible and existing.checkpoints
-            and existing.state in {
-                recovery.ProjectState.RESUMABLE,
-                recovery.ProjectState.FAILED})
-        settings.status = (
-            f"Frame {existing.last_frame} · Compatible"
-            if settings.resumable else existing.state.value.title())
-        settings.status_detail = (
-            "Checkpoint saved · Resume available"
-            if settings.resumable else match.reason)
+    record: recovery.ProjectRecord | None = None
+    if resume_requested and eligibility.resumable:
+        eligibility, _promoted = recovery.reconcile_resumable(metadata, identity)
+        record = recovery.load_project(metadata)
+        if not eligibility.resumable or record is None:
+            # The checkpoint vanished or became unreadable between the two
+            # evaluator passes (another process cleared it). Refuse the
+            # resume instead of falling back to a silent fresh start.
+            settings.resume_requested = False
+            _apply_eligibility_to_settings(settings, eligibility)
+            raise SceneValidationError(
+                "The saved recovery checkpoint can no longer be resumed. "
+                "Start Fresh or Clear Checkpoints to discard it, or run a "
+                "new Bake.")
+        resume = True
+        server_root = Path(record.server_data_root)
+        project_name = record.project_id
+        counts = []
+        for target in targets:
+            partial_path = dict(record.partial_pc2).get(target.uuid)
+            if not partial_path:
+                counts = []
+                break
+            try:
+                counts.append(pc2.partial_frame_count(
+                    Path(partial_path), pc2.Pc2Header(
+                        len(target.initial_local),
+                        import_result.PC2_START_FRAME,
+                        import_result.PC2_SAMPLE_RATE,
+                        plan.frame_count)))
+            except (OSError, pc2.Pc2Error):
+                counts = []
+                break
+        if counts and len(set(counts)) == 1:
+            # PC2 frame zero is the initial pose; solver frames start at 1.
+            completed = tuple(range(1, max(1, counts[0])))
+        else:
+            # Without an authenticated partial, fetch every output frame
+            # again. The solver project is still safely reusable.
+            completed = ()
+    settings.recovery_directory = str(root)
+    _apply_eligibility_to_settings(settings, eligibility)
     options = RecoveryOptions(
         enabled=True, metadata_path=metadata, identity=identity,
         server_data_root=server_root, resume=resume,
@@ -4544,13 +4549,36 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         save_on_cancel=bool(settings.save_on_cancel),
         keep_on_finish=bool(settings.save_on_finish),
         completed_solver_frames=completed, partial_pc2=partials)
-    settings.recovery_directory = str(root)
     settings.resume_requested = False
     if resume:
         return replace(
             plan, scene=replace(plan.scene, project_name=project_name),
             recovery_options=options)
     return replace(plan, recovery_options=options)
+
+
+def _apply_eligibility_to_settings(settings, eligibility) -> None:
+    """Cache one ResumeEligibility verdict on the artist-facing properties."""
+    settings.compatible = bool(eligibility.compatible)
+    settings.resumable = bool(eligibility.resumable)
+    settings.latest_checkpoint_frame = eligibility.latest_checkpoint_frame
+    settings.checkpoint_count = eligibility.checkpoint_count
+    settings.older_checkpoint_preserved = bool(
+        eligibility.resumable and eligibility.error)
+    state = eligibility.state
+    if state is None:
+        settings.status = "No checkpoint"
+        settings.status_detail = eligibility.reason
+    elif eligibility.resumable:
+        settings.status = "Recovery available"
+        settings.status_detail = (
+            eligibility.error or "Verified checkpoint · Resume available")
+    elif state is recovery.ProjectState.FAILED and eligibility.error:
+        settings.status = state.value.title()
+        settings.status_detail = eligibility.error
+    else:
+        settings.status = state.value.title()
+        settings.status_detail = eligibility.reason
 
 
 # ---------------------------------------------------------------------------
@@ -5642,39 +5670,94 @@ def _refresh_recovery_ui(plan: RunPlan) -> None:
         getattr(bpy.context, "scene", None), "cloth_next_recovery", None)
     if options is None or settings is None:
         return
-    record = recovery.load_project(options.metadata_path)
-    if record is None:
-        settings.status = "Checkpoint damaged"
-        settings.status_detail = "Recovery metadata is missing or invalid"
-        settings.compatible = False
-        settings.resumable = False
-        settings.latest_checkpoint_frame = 0
-        settings.checkpoint_count = 0
-        settings.older_checkpoint_preserved = False
+    eligibility = recovery.evaluate_resumable(
+        options.metadata_path, options.identity)
+    _apply_eligibility_to_settings(settings, eligibility)
+
+
+def _refresh_recovery_ui_from_disk() -> None:
+    """Reconstruct the cached snapshot from durable metadata after file load.
+
+    No RunPlan exists yet, so the current identity (and therefore exact
+    compatibility) cannot be recomputed without a full export.  The snapshot
+    reports the on-disk truth and the authoritative identity check happens at
+    Bake start, which refuses to overwrite a checkpoint that no longer
+    matches the scene.
+    """
+    try:
+        scene = bpy.context.scene
+    except (AttributeError, TypeError):
         return
-    match = recovery.compatibility(record.identity, options.identity)
-    settings.compatible = match.compatible
-    settings.resumable = bool(
-        match.compatible and record.checkpoints
-        and record.state in {
-            recovery.ProjectState.RESUMABLE,
-            recovery.ProjectState.FAILED})
-    settings.latest_checkpoint_frame = max(
-        (item.frame for item in record.checkpoints), default=0)
-    settings.checkpoint_count = len(record.checkpoints)
-    settings.older_checkpoint_preserved = bool(
-        settings.resumable and record.error)
-    settings.status = (
-        "Recovery available" if settings.resumable
-        else record.state.value.title())
-    if settings.resumable:
-        settings.status_detail = (
-            record.error if record.error else
-            "Verified checkpoint · Resume available")
-    elif record.state is recovery.ProjectState.FAILED and record.error:
-        settings.status_detail = record.error
-    else:
-        settings.status_detail = match.reason
+    settings = getattr(scene, "cloth_next_recovery", None)
+    if settings is None:
+        return
+    root = str(getattr(settings, "recovery_directory", "") or "").strip()
+    if not root:
+        return
+    metadata = Path(root) / recovery.METADATA_NAME
+    eligibility = recovery.evaluate_resumable(metadata)
+    if eligibility.available:
+        eligibility = replace(
+            eligibility, compatible=True, resumable=True, reason="Compatible")
+    _apply_eligibility_to_settings(settings, eligibility)
+
+
+def _on_load_post_refresh_recovery(*_args) -> None:
+    try:
+        _refresh_recovery_ui_from_disk()
+    except Exception:  # noqa: BLE001 -- never break Blender's file load
+        pass
+
+
+_on_load_post_refresh_recovery._clothnext_recovery_handler = True
+
+
+def _purge_stale_recovery_handlers(container) -> None:
+    """Remove callbacks left behind by a previous module instance (reload)."""
+    live = {_on_load_post_refresh_recovery}
+    for func in list(container):
+        if (getattr(func, "_clothnext_recovery_handler", False)
+                and func not in live):
+            container.remove(func)
+
+
+_RECOVERY_HANDLER_SLOTS = (("load_post", "_on_load_post_refresh_recovery"),)
+
+_recovery_ui_handler_registered = False
+
+
+def install_recovery_ui_handler() -> None:
+    """Attach the recovery snapshot refresh exactly once per module instance."""
+    global _recovery_ui_handler_registered
+    if _recovery_ui_handler_registered:
+        return
+    handlers = getattr(bpy.app, "handlers", None)
+    if handlers is None:  # pragma: no cover - defensive
+        return
+    for slot, attribute in _RECOVERY_HANDLER_SLOTS:
+        container = getattr(handlers, slot, None)
+        if container is None:
+            continue
+        _purge_stale_recovery_handlers(container)
+        callback = globals()[attribute]
+        if callback not in container:
+            container.append(callback)
+    _recovery_ui_handler_registered = True
+
+
+def uninstall_recovery_ui_handler() -> None:
+    global _recovery_ui_handler_registered
+    handlers = getattr(bpy.app, "handlers", None)
+    if handlers is not None:
+        for slot, attribute in _RECOVERY_HANDLER_SLOTS:
+            container = getattr(handlers, slot, None)
+            if container is None:
+                continue
+            callback = globals()[attribute]
+            while callback in container:
+                container.remove(callback)
+            _purge_stale_recovery_handlers(container)
+    _recovery_ui_handler_registered = False
 
 
 def _pump_once() -> float | None:
@@ -7048,8 +7131,10 @@ class CLOTHNEXT_OT_recovery_resume_latest(bpy.types.Operator):
         if settings is None:
             return False
         busy = run_active() or shared_controller.snapshot().active
-        allowed = bool(
-            settings.compatible and settings.resumable and not busy)
+        # resumable already encodes compatibility when it is known; the
+        # from-disk snapshot marks it provisionally until Bake start verifies
+        # the identity authoritatively.
+        allowed = bool(settings.resumable and not busy)
         if not allowed and hasattr(cls, "poll_message_set"):
             cls.poll_message_set(
                 "A solver or Bake operation is still running"

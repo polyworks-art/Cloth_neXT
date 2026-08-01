@@ -41,11 +41,11 @@ _TRANSITIONS = {
                        ProjectState.ABANDONED, ProjectState.DELETED},
     ProjectState.RUNNING: {
         ProjectState.CHECKPOINT_REQUESTED, ProjectState.CHECKPOINT_CONFIRMED,
-        ProjectState.SAVED, ProjectState.FINISHED, ProjectState.FAILED,
-        ProjectState.ABANDONED},
+        ProjectState.SAVED, ProjectState.RESUMABLE, ProjectState.FINISHED,
+        ProjectState.FAILED, ProjectState.ABANDONED},
     ProjectState.CHECKPOINT_REQUESTED: {
         ProjectState.CHECKPOINT_CONFIRMED, ProjectState.SAVED,
-        ProjectState.FAILED, ProjectState.ABANDONED},
+        ProjectState.RESUMABLE, ProjectState.FAILED, ProjectState.ABANDONED},
     ProjectState.CHECKPOINT_CONFIRMED: {
         ProjectState.RUNNING, ProjectState.CHECKPOINT_REQUESTED,
         ProjectState.SAVED, ProjectState.RESUMABLE, ProjectState.FINISHED,
@@ -57,7 +57,7 @@ _TRANSITIONS = {
     ProjectState.RESUMING: {
         ProjectState.RUNNING, ProjectState.CHECKPOINT_REQUESTED,
         ProjectState.CHECKPOINT_CONFIRMED, ProjectState.SAVED,
-        ProjectState.FINISHED, ProjectState.FAILED,
+        ProjectState.RESUMABLE, ProjectState.FINISHED, ProjectState.FAILED,
         ProjectState.ABANDONED},
     ProjectState.FINISHED: {ProjectState.DELETED},
     ProjectState.FAILED: {ProjectState.RESUMABLE, ProjectState.RESUMING,
@@ -119,6 +119,45 @@ class Compatibility:
     compatible: bool
     reason: str
     params_changed: bool = False
+
+
+# States in which a solver project may still own a resumable Saved State.
+# A hard abort (host kill, keyboard interrupt, watchdog) leaves the metadata
+# in RUNNING or RESUMING; cooperative saves land in CHECKPOINT_*/SAVED/
+# RESUMABLE; a failed run is only resumable when a verified checkpoint
+# survived.
+_RESUMABLE_STATES = frozenset({
+    ProjectState.RUNNING,
+    ProjectState.CHECKPOINT_REQUESTED,
+    ProjectState.CHECKPOINT_CONFIRMED,
+    ProjectState.SAVED,
+    ProjectState.RESUMABLE,
+    ProjectState.RESUMING,
+    ProjectState.FAILED,
+})
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeEligibility:
+    """One authoritative answer to "can this checkpoint be resumed?".
+
+    ``available`` reflects only the durable on-disk state; ``compatible``
+    additionally requires a matching identity.  When no identity is supplied
+    (Blender file load) compatibility is unknown and ``resumable`` falls back
+    to ``available``; the caller must re-verify with a real identity before
+    acting on it.
+    """
+
+    available: bool
+    resumable: bool
+    compatible: bool | None
+    state: ProjectState | None
+    project_id: str | None
+    latest_checkpoint_frame: int
+    checkpoint_count: int
+    generation: int
+    error: str
+    reason: str
 
 
 def recovery_root(cache_directory: Path, scene_key: str) -> Path:
@@ -443,6 +482,74 @@ def compatibility(saved: RecoveryIdentity, current: RecoveryIdentity, *,
             return Compatibility(True, "Parameters can be updated", True)
         return Compatibility(False, "Material or solver settings changed")
     return Compatibility(True, "Compatible")
+
+
+def evaluate_resumable(path: Path,
+                       current_identity: RecoveryIdentity | None = None, *,
+                       can_update_params: bool = False) -> ResumeEligibility:
+    """Single source of truth for resume eligibility.
+
+    Reads and strictly verifies the durable metadata; never trusts in-memory
+    flags or a state set duplicated by the caller.  Checkpoint integrity is
+    re-authenticated on every call, so a truncated or replaced state file
+    fails closed.
+    """
+    record = load_project(path)
+    if record is None:
+        return ResumeEligibility(
+            available=False, resumable=False, compatible=None,
+            state=None, project_id=None, latest_checkpoint_frame=0,
+            checkpoint_count=0, generation=0, error="",
+            reason="Recovery metadata is missing or invalid")
+    checkpoints = record.checkpoints  # load_project verified these
+    available = bool(record.state in _RESUMABLE_STATES and checkpoints)
+    match = None
+    compatible: bool | None = None
+    if current_identity is not None:
+        match = compatibility(
+            record.identity, current_identity,
+            can_update_params=can_update_params)
+        compatible = match.compatible
+    if not available:
+        reason = "No verified resumable checkpoint is available"
+    elif match is not None and not match.compatible:
+        reason = match.reason
+    else:
+        reason = "Compatible"
+    return ResumeEligibility(
+        available=available,
+        resumable=bool(available and (compatible is None or compatible)),
+        compatible=compatible, state=record.state,
+        project_id=record.project_id,
+        latest_checkpoint_frame=max(
+            (item.frame for item in checkpoints), default=0),
+        checkpoint_count=len(checkpoints), generation=record.generation,
+        error=record.error, reason=reason)
+
+
+def reconcile_resumable(path: Path,
+                        current_identity: RecoveryIdentity, *,
+                        can_update_params: bool = False) \
+        -> tuple[ResumeEligibility, bool]:
+    """Normalize an eligible project to RESUMABLE when it is safe to do so.
+
+    Used at the point where a resume is actually attempted (Bake start) and
+    by failure paths, never by panel draws or the read-only evaluator.
+    Returns ``(eligibility, promoted)``.
+    """
+    eligibility = evaluate_resumable(
+        path, current_identity, can_update_params=can_update_params)
+    if (not eligibility.resumable
+            or eligibility.state is ProjectState.RESUMABLE):
+        return eligibility, False
+    record = load_project(path)
+    if record is None:
+        return eligibility, False
+    published = transition(path, record, ProjectState.RESUMABLE,
+                           error=record.error)
+    return replace(
+        eligibility, state=ProjectState.RESUMABLE,
+        generation=published.generation), True
 
 
 def apply_retention(path: Path, keep: int) -> tuple[Path, ...]:
