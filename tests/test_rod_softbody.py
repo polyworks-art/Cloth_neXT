@@ -156,3 +156,45 @@ def test_nurbs_rod_has_actionable_conversion_error():
         SimpleNamespace(type="NURBS")]))
     with pytest.raises(CurveRodError, match="convert.*Bezier or Poly"):
         sample_curve(obj)
+
+
+def test_smoke_tool_threads_resolved_schema_version(monkeypatch, tmp_path):
+    from tools import run_ppf_rod_softbody as smoke
+
+    captured: dict[str, int] = {}
+
+    class _FakeResolver:
+        def __init__(self, _probe):
+            pass
+
+        def resolve(self, context):
+            return SimpleNamespace(schema_version="2")
+
+    def _fake_run(resolved, output, kind, *, schema_version):
+        captured[kind] = schema_version
+        return {"frames": 4, "vertices": 1}
+
+    monkeypatch.setattr(smoke, "SolverResolver", _FakeResolver)
+    monkeypatch.setattr(smoke, "_run", _fake_run)
+    report = smoke.run(Path("ignored-solver"), tmp_path)
+    assert report["result"] == "PASS"
+    assert captured == {"ROD": 2, "SOLID": 2, "PDRD": 2}
+
+
+def test_smoke_payloads_carry_resolved_schema_envelope():
+    from tools.run_ppf_rod_softbody import _encode_payloads
+
+    solid = SceneObject("soft", "solid-1",
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)), IDENTITY)
+    settings, data, _data_hash, params, _param_hash = _encode_payloads(
+        solid, COLLIDER, "SOLID", SoftBodyMaterialSettings(), schema_version=2)
+    assert settings.frame_count == 5
+    scene = envelope.loads_envelope(data, envelope.KIND_SCENE,
+                                    schema_version=2)
+    assert scene[0]["type"] == "SOLID"
+    param = envelope.loads_envelope(params, envelope.KIND_PARAM,
+                                    schema_version=2)
+    assert param["group"][0][0]["model"] == "arap"
+    with pytest.raises(envelope.EnvelopeError, match="schema version mismatch"):
+        envelope.loads_envelope(data, envelope.KIND_SCENE, schema_version=1)

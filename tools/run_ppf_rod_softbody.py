@@ -35,7 +35,19 @@ def _probe(executable: Path):
         ownership_mode=ConnectionOwnership.OWNED_PROCESS)).executable_version()
 
 
-def _run(resolved, output: Path, kind: str):
+def _encode_payloads(deformable: SceneObject, collider: SceneObject,
+                     kind: str, material, schema_version: int):
+    settings = SimulationSettings(5, 24, (0, 0, -9.81))
+    data, data_hash = encode_deformable_scene(
+        deformable, collider, group_type=kind, schema_version=schema_version)
+    params, param_hash = encode_deformable_param(
+        settings, deformable.name, deformable.uuid,
+        ((collider.name, collider.uuid, DEFAULT_STATIC_SETTINGS),),
+        group_type=kind, material=material, schema_version=schema_version)
+    return settings, data, data_hash, params, param_hash
+
+
+def _run(resolved, output: Path, kind: str, *, schema_version: int):
     uid = f"smoke-{kind.lower()}"
     if kind == "ROD":
         vertices = ((-0.8, 0, 1.1), (-0.4, 0.1, 1.0), (0, 0, 0.9),
@@ -63,15 +75,11 @@ def _run(resolved, output: Path, kind: str):
     collider = SceneObject("Floor", "smoke-floor",
         ((-2, -2, 0), (2, -2, 0), (2, 2, 0), (-2, 2, 0)),
         ((0, 1, 2), (0, 2, 3)), IDENTITY)
-    data, data_hash = encode_deformable_scene(
-        deformable, collider, group_type=kind)
-    settings = SimulationSettings(5, 24, (0, 0, -9.81))
-    params, param_hash = encode_deformable_param(
-        settings, deformable.name, uid,
-        ((collider.name, collider.uuid, DEFAULT_STATIC_SETTINGS),),
-        group_type=kind, material=material)
+    settings, data, data_hash, params, param_hash = _encode_payloads(
+        deformable, collider, kind, material, schema_version)
     scene = SessionScene(new_project_name(), deformable.name, uid, len(vertices),
-        collider.name, collider.uuid, 5, data, params, data_hash, param_hash,
+        collider.name, collider.uuid, settings.frame_count, data, params,
+        data_hash, param_hash,
         deformable_type=kind, deformable_world_matrix=IDENTITY)
     frames = []
     session = SolverSession(resolved=resolved, scene=scene,
@@ -103,7 +111,8 @@ def run(solver: Path, output: Path) -> dict[str, object]:
         raise RuntimeError("solver could not be resolved")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    report = {kind: _run(resolved, output, kind)
+    wire_schema = int(resolved.schema_version or "1")
+    report = {kind: _run(resolved, output, kind, schema_version=wire_schema)
               for kind in ("ROD", "SOLID", "PDRD")}
     return {"result": "PASS", **report}
 
