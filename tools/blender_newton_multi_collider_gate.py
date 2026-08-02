@@ -53,6 +53,11 @@ def main():
     bpy.ops.object.delete(use_global=False)
     cloths = (_cloth("Gate Cloth A", "gate-cloth-a", (-0.7, 0.0, 1.3)),
               _cloth("Gate Cloth B", "gate-cloth-b", (0.7, 0.0, 1.6)))
+    cloths[0].cloth_next.pin_mode = "FOLLOW_ANIMATION"
+    cloths[0].location.x = -0.7
+    cloths[0].keyframe_insert("location", frame=1)
+    cloths[0].location.x = -0.3
+    cloths[0].keyframe_insert("location", frame=4)
     bpy.ops.mesh.primitive_grid_add(
         x_subdivisions=4, y_subdivisions=4, size=4.0, location=(0, 0, 0))
     collider = bpy.context.object
@@ -91,6 +96,8 @@ def main():
                     return 0.05
                 if len(newton_preview._session.capture.cloths) != 2:
                     raise AssertionError("preview did not create two Cloth outputs")
+                if len(newton_preview._session.capture.request.pin_animations) != 1:
+                    raise AssertionError("Follow Animation Pin track was not captured")
                 scene.frame_set(4)
                 phase = "frame4"
                 return 0.05
@@ -99,11 +106,24 @@ def main():
                     return 0.05
                 vertex_counts = [len(item.preview.data.vertices)
                                  for item in newton_preview._session.capture.cloths]
+                request = newton_preview._session.capture.request
+                pin_track = request.pin_animations[0]
+                first_preview = newton_preview._session.capture.cloths[0].preview
+                pin_positions = tuple(
+                    tuple(float(value) for value in
+                          first_preview.data.vertices[index].co)
+                    for index in request.cloths[0].pin_indices)
+                if any(sum((actual[axis] - expected[axis]) ** 2
+                               for axis in range(3)) ** 0.5 > 1.0e-4
+                       for actual, expected in zip(
+                           pin_positions, pin_track.samples[-1])):
+                    raise AssertionError("Follow Animation Pins missed final targets")
                 settings.enabled = False
                 report = {
                     "result": "passed", "cloth_objects": len(vertex_counts),
                     "preview_vertex_counts": vertex_counts,
                     "animated_collider_samples": 4,
+                    "animated_pin_samples": len(pin_track.samples),
                     "frame": 4,
                     "sources_restored": all(not obj.hide_viewport for obj in cloths)}
                 args.report.parent.mkdir(parents=True, exist_ok=True)

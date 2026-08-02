@@ -42,7 +42,7 @@ def test_backend_capabilities_advertise_multi_cloth_and_animated_colliders():
     assert capabilities.hard_static_pins is True
     assert capabilities.animated_colliders is True
     assert capabilities.deforming_colliders is True
-    assert capabilities.follow_animation_pins is False
+    assert capabilities.follow_animation_pins is True
     assert capabilities.pressure is False
 
 
@@ -91,6 +91,16 @@ def test_multi_cloth_and_collider_animation_validation_fails_closed():
         _request(colliders=(collider,), collider_animations=(
             contracts.ColliderAnimation(
                 0, tuple(changed_topology_sample for _ in range(10))),)).validate()
+
+
+def test_animated_pin_round_trip_and_validation():
+    request = _request(pin_animations=(contracts.PinAnimation(
+        0, tuple((((float(frame), 0.0, 0.0),)) for frame in range(10))),))
+    decoded = contracts.PreviewCreateRequest.from_wire(request.to_wire())
+    assert decoded == request
+    with pytest.raises(ValueError, match="sample count"):
+        _request(pin_animations=(contracts.PinAnimation(
+            0, (((0.0, 0.0, 0.0),),)),)).validate()
 
 
 def test_result_vertex_count_includes_every_cloth():

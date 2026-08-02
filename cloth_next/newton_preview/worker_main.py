@@ -185,6 +185,9 @@ class WorkerSession:
             self._update_animated_colliders(
                 self.current_frame,
                 float(substep + 1) / self.request.quality.substeps, dt)
+            self._update_animated_pins(
+                self.current_frame,
+                float(substep + 1) / self.request.quality.substeps, dt)
             self.state_in.clear_forces()
             self.pipeline.collide(self.state_in, self.contacts)
             self.solver.step(self.state_in, self.state_out, self.control,
@@ -227,6 +230,42 @@ class WorkerSession:
             source.mesh.velocities.assign(velocities)
             source.mesh.refit()
         self.model.bvh_refit_shapes(self.state_in)
+
+    def _update_animated_pins(self, frame: int, alpha: float,
+                              dt: float) -> None:
+        if not self.request.pin_animations:
+            return
+        first = self.request.frame_start
+        source_index = max(0, min(frame - first,
+                                  self.request.frame_end - first))
+        target_index = min(source_index + 1,
+                           self.request.frame_end - first)
+        positions_in = self.state_in.particle_q.numpy()
+        velocities_in = self.state_in.particle_qd.numpy()
+        positions_out = self.state_out.particle_q.numpy()
+        velocities_out = self.state_out.particle_qd.numpy()
+        frame_dt = max(dt * self.request.quality.substeps, 1.0e-12)
+        for animation in self.request.pin_animations:
+            cloth = self.request.cloths[animation.cloth_index]
+            _identifier, cloth_start, _cloth_end = self.cloth_slices[
+                animation.cloth_index]
+            indices = self.np.asarray(
+                [cloth_start + index for index in cloth.pin_indices],
+                dtype=self.np.int64)
+            before = self.np.asarray(
+                animation.samples[source_index], dtype=self.np.float32)
+            after = self.np.asarray(
+                animation.samples[target_index], dtype=self.np.float32)
+            positions = before + (after - before) * float(alpha)
+            velocities = (after - before) / frame_dt
+            positions_in[indices] = positions
+            velocities_in[indices] = velocities
+            positions_out[indices] = positions
+            velocities_out[indices] = velocities
+        self.state_in.particle_q.assign(positions_in)
+        self.state_in.particle_qd.assign(velocities_in)
+        self.state_out.particle_q.assign(positions_out)
+        self.state_out.particle_qd.assign(velocities_out)
 
     def advance_to(self, frame: int) -> dict:
         frame = max(self.request.frame_start,

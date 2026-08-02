@@ -12,7 +12,7 @@ import pytest
 
 from cloth_next.newton_preview.client import NewtonWorkerClient
 from cloth_next.newton_preview.contracts import (
-    ColliderAnimation, PreviewCloth, PreviewCreateRequest, PreviewMaterial,
+    ColliderAnimation, PinAnimation, PreviewCloth, PreviewCreateRequest, PreviewMaterial,
     PreviewMesh, PreviewQuality)
 
 pytestmark = pytest.mark.integration
@@ -46,7 +46,7 @@ def _material(margin=0.005):
 
 def _run(tmp_path, cloth, *, colliders=(), pins=(), self_collision=False,
          target=12, fps=30.0, additional_cloths=(),
-         collider_animations=()):
+         collider_animations=(), pin_animations=()):
     root = Path(__file__).resolve().parents[2]
     client = NewtonWorkerClient(_python(), package_root=root, startup_timeout=60)
     session = uuid.uuid4().hex
@@ -55,7 +55,8 @@ def _run(tmp_path, cloth, *, colliders=(), pins=(), self_collision=False,
         PreviewQuality("TEST", 4, 8, 5, 8, self_collision),
         1, target, fps, 1.0, (0.0, 0.0, -9.81),
         str(tmp_path / session), additional_cloths=tuple(additional_cloths),
-        collider_animations=tuple(collider_animations))
+        collider_animations=tuple(collider_animations),
+        pin_animations=tuple(pin_animations))
     try:
         health = client.start()
         assert health["newton_version"] == "1.4.0"
@@ -145,3 +146,16 @@ def test_real_newton_multiple_cloths_and_deforming_collider(tmp_path):
         additional_cloths=(second,), collider_animations=(animation,))
     assert result.shape == (len(first.vertices) + len(second_mesh.vertices), 3)
     assert not np.allclose(result, initial)
+
+
+def test_real_newton_follow_animation_pins_reach_targets(tmp_path):
+    cloth = _grid(4, 4, z=1.0)
+    pins = (12, 15)
+    samples = tuple(tuple(
+        (cloth.vertices[index][0] + 0.1 * frame,
+         cloth.vertices[index][1], cloth.vertices[index][2])
+        for index in pins) for frame in range(5))
+    _initial, result = _run(
+        tmp_path, cloth, pins=pins, target=5,
+        pin_animations=(PinAnimation(0, samples),))
+    assert np.allclose(result[list(pins)], np.asarray(samples[-1]), atol=1.0e-5)

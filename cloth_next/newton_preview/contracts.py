@@ -9,7 +9,7 @@ import json
 import math
 from typing import Any
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 NEWTON_VERSION = "1.4.0"
 WARP_VERSION = "1.15.0"
 
@@ -23,7 +23,7 @@ class BackendCapabilities:
     self_collision: bool = True
     animated_colliders: bool = True
     deforming_colliders: bool = True
-    follow_animation_pins: bool = False
+    follow_animation_pins: bool = True
     pressure: bool = False
     sewing: bool = False
     rods: bool = False
@@ -133,6 +133,28 @@ class ColliderAnimation:
 
 
 @dataclass(frozen=True)
+class PinAnimation:
+    cloth_index: int
+    samples: tuple[tuple[tuple[float, float, float], ...], ...]
+
+    def validate(self, request: "PreviewCreateRequest") -> None:
+        if self.cloth_index < 0 or self.cloth_index >= len(request.cloths):
+            raise ValueError("Newton animated Pin Cloth index is outside the scene")
+        pins = request.cloths[self.cloth_index].pin_indices
+        if not pins:
+            raise ValueError("Newton animated Pin track requires pinned vertices")
+        expected_frames = request.frame_end - request.frame_start + 1
+        if len(self.samples) != expected_frames:
+            raise ValueError("Newton animated Pin sample count does not match the frame range")
+        for sample in self.samples:
+            if len(sample) != len(pins) or any(
+                    len(vertex) != 3
+                    or not all(math.isfinite(float(value)) for value in vertex)
+                    for vertex in sample):
+                raise ValueError("Newton animated Pin positions are invalid")
+
+
+@dataclass(frozen=True)
 class PreviewCreateRequest:
     session_id: str
     scene_identity: str
@@ -149,6 +171,7 @@ class PreviewCreateRequest:
     result_directory: str
     additional_cloths: tuple[PreviewCloth, ...] = ()
     collider_animations: tuple[ColliderAnimation, ...] = ()
+    pin_animations: tuple[PinAnimation, ...] = ()
     solver: str = "VBD"
     protocol_version: int = PROTOCOL_VERSION
     expected_newton_version: str = NEWTON_VERSION
@@ -191,6 +214,12 @@ class PreviewCreateRequest:
             animated_indices.append(animation.collider_index)
         if len(set(animated_indices)) != len(animated_indices):
             raise ValueError("Newton Collider animation tracks must be unique")
+        animated_pin_cloths = []
+        for animation in self.pin_animations:
+            animation.validate(self)
+            animated_pin_cloths.append(animation.cloth_index)
+        if len(set(animated_pin_cloths)) != len(animated_pin_cloths):
+            raise ValueError("Newton animated Pin tracks must be unique per Cloth")
 
     @property
     def cloths(self) -> tuple[PreviewCloth, ...]:
@@ -242,6 +271,13 @@ class PreviewCreateRequest:
                                         for vertex in sample)
                                   for sample in item.get("samples", ())))
                 for item in value.get("collider_animations", ())),
+            pin_animations=tuple(
+                PinAnimation(
+                    cloth_index=int(item["cloth_index"]),
+                    samples=tuple(tuple(tuple(map(float, vertex))
+                                        for vertex in sample)
+                                  for sample in item.get("samples", ())))
+                for item in value.get("pin_animations", ())),
             solver=str(value.get("solver", "VBD")),
             protocol_version=int(value.get("protocol_version", -1)),
             expected_newton_version=str(value.get("expected_newton_version", "")),

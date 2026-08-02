@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.13 — 2026-08-02 (Dev channel)
+
+### Added
+
+- Newton Live Preview and experimental Newton Bake now support `Follow
+  Animation` pins for every Cloth object in a shared solve.
+- Evaluated pin targets are captured per frame and interpolated per Newton
+  substep with matching kinematic velocity, while Static pins retain their
+  existing fixed behavior.
+
+### Safety and validation
+
+- Animated Pin tracks validate frame counts, target counts, finite positions,
+  Cloth ownership, and topology before worker startup.
+- Real Newton/CUDA and Blender gates verify multiple Cloth objects, a
+  deforming Collider, animated Pins, final target accuracy, and cleanup.
+
 ## 2.2.12 — 2026-08-02 (Dev channel)
 
 ### Fixed

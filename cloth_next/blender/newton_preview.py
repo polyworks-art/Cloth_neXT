@@ -20,7 +20,7 @@ import numpy as np
 from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
-from ..newton_preview.contracts import (ColliderAnimation, PreviewCloth,
+from ..newton_preview.contracts import (ColliderAnimation, PinAnimation, PreviewCloth,
                                         PreviewCreateRequest, PreviewMesh,
                                         PreviewQuality, PreviewResult)
 from ..newton_preview.coordinates import (transform_position,
@@ -131,6 +131,23 @@ def _animated_collider_samples(context, scene, collider, reference,
     return tuple(samples)
 
 
+def _animated_pin_samples(context, scene, cloth, reference, pin_indices,
+                          frame_start, frame_end):
+    samples = []
+    reference_topology = None
+    for frame in range(frame_start, frame_end + 1):
+        scene.frame_set(frame)
+        sample, topology = _evaluated_world_mesh_data(context, cloth)
+        if reference_topology is None:
+            reference_topology = topology
+        if (topology != reference_topology
+                or len(sample.vertices) != len(reference.vertices)):
+            raise ValueError(
+                f"{cloth.name}: animated Pin topology must remain constant")
+        samples.append(tuple(sample.vertices[index] for index in pin_indices))
+    return tuple(samples)
+
+
 def _mesh_capture_key(obj):
     digest = hashlib.sha256()
     for vertex in obj.data.vertices:
@@ -203,8 +220,8 @@ def _pin_indices(obj, vertex_count: int) -> tuple[int, ...]:
     settings = obj.cloth_next
     if not bool(settings.pinning_enabled):
         return ()
-    if str(settings.pin_mode) != "STATIC":
-        raise ValueError("Newton Live Preview supports Static pins only; change Pin Mode or disable Pinning")
+    if str(settings.pin_mode) not in {"STATIC", "FOLLOW_ANIMATION"}:
+        raise ValueError("Newton Live Preview Pin Mode is unsupported")
     name = str(settings.pin_group or "")
     group = obj.vertex_groups.get(name) if name else None
     if group is None:
@@ -292,7 +309,8 @@ def _validate_scope(scene):
 
 
 def _scene_identity(scene, cloths, colliders, cloth_meshes, collider_meshes,
-                    pin_sets, materials, quality, collider_animations=()) -> str:
+                    pin_sets, materials, quality, collider_animations=(),
+                    pin_animations=()) -> str:
     value = {
         "schema": 2, "scene": str(scene.name),
         "cloth_uuids": [str(cloth.cloth_next.persistent_export_id)
@@ -309,6 +327,8 @@ def _scene_identity(scene, cloths, colliders, cloth_meshes, collider_meshes,
         "materials": [material.__dict__ for material in materials],
         "collider_animations": [animation.__dict__
                                 for animation in collider_animations],
+        "pin_animations": [animation.__dict__
+                           for animation in pin_animations],
         "quality": quality.__dict__, "fps": float(scene.render.fps)
         / float(scene.render.fps_base),
     }
@@ -493,12 +513,17 @@ def _capture_steps(context):
         metrics_before = dict(_mesh_capture_metrics)
         cloth_meshes = tuple(_cached_triangulated_world_mesh(context, cloth)
                             for cloth in cloths)
+        pin_sets = tuple(_pin_indices(cloth, len(mesh.vertices))
+                         for cloth, mesh in zip(cloths, cloth_meshes))
         collider_meshes = tuple(_cached_triangulated_world_mesh(context, obj)
                                 for obj in colliders)
         collider_animations = []
+        pin_animations = []
         animated_total = sum(
             end - start + 1 for collider in colliders
-            if str(collider.cloth_next.collider_motion) == "ANIMATED")
+            if str(collider.cloth_next.collider_motion) == "ANIMATED") + sum(
+                end - start + 1 for cloth, pins in zip(cloths, pin_sets)
+                if pins and str(cloth.cloth_next.pin_mode) == "FOLLOW_ANIMATION")
         animated_current = 0
         for collider_index, collider in enumerate(colliders):
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
@@ -521,16 +546,36 @@ def _capture_steps(context):
                        str(collider.name), frame)
             collider_animations.append(ColliderAnimation(
                 collider_index, tuple(samples)))
+        for cloth_index, (cloth, reference, pins) in enumerate(
+                zip(cloths, cloth_meshes, pin_sets)):
+            if (not pins
+                    or str(cloth.cloth_next.pin_mode) != "FOLLOW_ANIMATION"):
+                continue
+            samples = []
+            reference_topology = None
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample, topology = _evaluated_world_mesh_data(context, cloth)
+                if reference_topology is None:
+                    reference_topology = topology
+                if (topology != reference_topology
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{cloth.name}: animated Pin topology must remain constant")
+                samples.append(tuple(sample.vertices[index] for index in pins))
+                animated_current += 1
+                yield (animated_current, animated_total,
+                       f"{cloth.name} Pins", frame)
+            pin_animations.append(PinAnimation(cloth_index, tuple(samples)))
     finally:
         scene.frame_set(original_frame)
-    pin_sets = tuple(_pin_indices(cloth, len(mesh.vertices))
-                     for cloth, mesh in zip(cloths, cloth_meshes))
     settings = scene.cloth_next_newton_preview
     quality = _quality(settings)
     materials = tuple(_material(cloth) for cloth in cloths)
     identity = _scene_identity(
         scene, cloths, colliders, cloth_meshes, collider_meshes,
-        pin_sets, materials, quality, tuple(collider_animations))
+        pin_sets, materials, quality, tuple(collider_animations),
+        tuple(pin_animations))
     session_id = uuid.uuid4().hex
     base = (Path(os.environ.get("LOCALAPPDATA", Path.home()))
             / "ClothNeXt/newton/sessions" / session_id)
@@ -548,7 +593,8 @@ def _capture_steps(context):
                          pins, material)
             for cloth, mesh, pins, material in zip(
                 cloths[1:], cloth_meshes[1:], pin_sets[1:], materials[1:])),
-        collider_animations=tuple(collider_animations))
+        collider_animations=tuple(collider_animations),
+        pin_animations=tuple(pin_animations))
     request.validate()
     captured_cloths = []
     try:

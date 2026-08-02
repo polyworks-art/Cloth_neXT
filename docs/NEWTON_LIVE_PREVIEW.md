@@ -88,11 +88,12 @@ a claim of equal physical output.
 Supported: multiple triangle Cloth objects with a common Bake range, gravity,
 Blender FPS and range, time scale, static and animated/deforming triangle
 colliders with stable topology, static hard pins, experimental material
-mapping, optional VBD self-contact, pause, forward play/scrub, bounded rewind,
+mapping, Follow Animation pins with substep-interpolated targets, optional VBD
+self-contact, pause, forward play/scrub, bounded rewind,
 worker crash recovery, and non-destructive per-Cloth viewport display.
 
 Rejected before worker startup: mismatched Cloth Bake ranges,
-topology-changing animated colliders, Follow Animation pins, pressure, sewing,
+topology-changing animated colliders or animated Pin meshes, pressure, sewing,
 Edit Mode, topology-changing Cloth modifiers, unsupported object roles and
 negative-scale transforms. Newton
 recovery checkpoints and preview persistence across Blender restarts are not

@@ -25,7 +25,7 @@ from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
 from ..newton_preview.contracts import (ColliderAnimation, NEWTON_VERSION,
-                                        PROTOCOL_VERSION, PreviewCloth,
+                                        PROTOCOL_VERSION, PinAnimation, PreviewCloth,
                                         PreviewCreateRequest, PreviewResult,
                                         WARP_VERSION)
 from . import newton_preview
@@ -82,6 +82,8 @@ def _capture(context) -> _BakeSession:
         scene.frame_set(start)
         cloth_meshes = tuple(newton_preview._cached_triangulated_world_mesh(
             context, cloth) for cloth in cloths)
+        pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
+                         for cloth, mesh in zip(cloths, cloth_meshes))
         collider_meshes = tuple(
             newton_preview._cached_triangulated_world_mesh(context, obj)
             for obj in colliders)
@@ -99,6 +101,7 @@ def _capture(context) -> _BakeSession:
                                     for row in local))
             inverse_arrays.append(inverse_array)
         collider_animations = []
+        pin_animations = []
         for collider_index, collider in enumerate(colliders):
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
                 continue
@@ -106,16 +109,22 @@ def _capture(context) -> _BakeSession:
             collider_animations.append(ColliderAnimation(
                 collider_index, newton_preview._animated_collider_samples(
                     context, scene, collider, reference, start, end)))
+        for cloth_index, (cloth, reference, pins) in enumerate(
+                zip(cloths, cloth_meshes, pin_sets)):
+            if (not pins
+                    or str(cloth.cloth_next.pin_mode) != "FOLLOW_ANIMATION"):
+                continue
+            pin_animations.append(PinAnimation(
+                cloth_index, newton_preview._animated_pin_samples(
+                    context, scene, cloth, reference, pins, start, end)))
     finally:
         scene.frame_set(original_frame)
-    pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
-                     for cloth, mesh in zip(cloths, cloth_meshes))
     settings = scene.cloth_next_newton_preview
     quality = newton_preview._quality(settings)
     materials = tuple(newton_preview._material(cloth) for cloth in cloths)
     identity = newton_preview._scene_identity(
         scene, cloths, colliders, cloth_meshes, collider_meshes, pin_sets,
-        materials, quality, tuple(collider_animations))
+        materials, quality, tuple(collider_animations), tuple(pin_animations))
     session_id = uuid.uuid4().hex
     app_data = Path(os.environ.get("LOCALAPPDATA", Path.home()))
     session_root = app_data / "ClothNeXt" / "newton" / "sessions" / session_id
@@ -134,7 +143,8 @@ def _capture(context) -> _BakeSession:
             str(cloth.cloth_next.persistent_export_id), mesh, pins, material)
             for cloth, mesh, pins, material in zip(
                 cloths[1:], cloth_meshes[1:], pin_sets[1:], materials[1:])),
-        collider_animations=tuple(collider_animations), solver="VBD")
+        collider_animations=tuple(collider_animations),
+        pin_animations=tuple(pin_animations), solver="VBD")
     request.validate()
     settings_value = {
         "backend": "NEWTON", "newton": NEWTON_VERSION, "warp": WARP_VERSION,
@@ -147,8 +157,10 @@ def _capture(context) -> _BakeSession:
     }
     frame_count = request.frame_end - request.frame_start + 1
     targets = []
-    for cloth, mesh, pins, local_vertices, inverse_array, directory in zip(
-            cloths, cloth_meshes, pin_sets, local_sets, inverse_arrays, configured):
+    for cloth_index, (cloth, mesh, pins, local_vertices, inverse_array,
+                      directory) in enumerate(zip(
+            cloths, cloth_meshes, pin_sets, local_sets, inverse_arrays,
+            configured)):
         geometry_value = {
             "backend_schema": 2,
             "object_uuid": str(cloth.cloth_next.persistent_export_id),
@@ -157,6 +169,8 @@ def _capture(context) -> _BakeSession:
             "colliders": [{"vertices": item.vertices, "triangles": item.triangles}
                           for item in collider_meshes],
             "collider_animations": [item.__dict__ for item in collider_animations],
+            "pin_animations": [item.__dict__ for item in pin_animations
+                               if item.cloth_index == cloth_index],
         }
         geometry_hash, settings_hash = _hash(geometry_value), _hash(settings_value)
         object_identity = {
