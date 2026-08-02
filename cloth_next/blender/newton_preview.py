@@ -399,6 +399,7 @@ class _Session:
     def __init__(self):
         self.state = PreviewState.DISABLED
         self.capture = None
+        self.capture_iterator = None
         self.client = None
         self.start_thread = None
         self.sender_thread = None
@@ -480,7 +481,8 @@ def _mark_owned_visibility_update(source):
             _owned_visibility_updates.get(dependency, 0) + 1)
 
 
-def _capture(context) -> _Captured:
+def _capture_steps(context):
+    """Capture Blender data incrementally, yielding after every sampled frame."""
     scene = context.scene
     cloths, colliders = _validate_scope(scene)
     original_frame = int(scene.frame_current)
@@ -494,13 +496,31 @@ def _capture(context) -> _Captured:
         collider_meshes = tuple(_cached_triangulated_world_mesh(context, obj)
                                 for obj in colliders)
         collider_animations = []
+        animated_total = sum(
+            end - start + 1 for collider in colliders
+            if str(collider.cloth_next.collider_motion) == "ANIMATED")
+        animated_current = 0
         for collider_index, collider in enumerate(colliders):
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
                 continue
             reference = collider_meshes[collider_index]
+            samples = []
+            reference_topology = None
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample, topology = _evaluated_world_mesh_data(context, collider)
+                if reference_topology is None:
+                    reference_topology = topology
+                if (topology != reference_topology
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{collider.name}: animated Collider topology must remain constant")
+                samples.append(sample.vertices)
+                animated_current += 1
+                yield (animated_current, animated_total,
+                       str(collider.name), frame)
             collider_animations.append(ColliderAnimation(
-                collider_index, _animated_collider_samples(
-                    context, scene, collider, reference, start, end)))
+                collider_index, tuple(samples)))
     finally:
         scene.frame_set(original_frame)
     pin_sets = tuple(_pin_indices(cloth, len(mesh.vertices))
@@ -563,6 +583,16 @@ def _capture(context) -> _Captured:
                      capture_metrics)
 
 
+def _capture(context) -> _Captured:
+    """Synchronous compatibility wrapper used by focused developer callers."""
+    iterator = _capture_steps(context)
+    while True:
+        try:
+            next(iterator)
+        except StopIteration as completed:
+            return completed.value
+
+
 def _start_worker(session, captured):
     try:
         root = Path(__file__).resolve().parents[2]
@@ -609,13 +639,7 @@ def start(context=None):
     _session = _Session()
     try:
         _session.set_state(PreviewState.CAPTURING_SCENE)
-        _session.capture = _capture(context)
-        _session.status_data.update(_session.capture.capture_metrics)
-        _session.set_state(PreviewState.STARTING_WORKER)
-        _session.start_thread = threading.Thread(
-            target=_start_worker, args=(_session, _session.capture), daemon=True,
-            name="clothnext-newton-start")
-        _session.start_thread.start()
+        _session.capture_iterator = _capture_steps(context)
         if not bpy.app.timers.is_registered(_poll_timer):
             bpy.app.timers.register(_poll_timer, first_interval=_TIMER_INTERVAL)
     except Exception as exc:
@@ -764,6 +788,25 @@ def _poll_timer():
     if _session.state is PreviewState.DISABLED:
         return None
     try:
+        if _session.state is PreviewState.CAPTURING_SCENE:
+            try:
+                current, total, collider, frame = next(
+                    _session.capture_iterator)
+                _session.error = (
+                    f"Capturing {collider} · Frame {frame} · {current}/{total}")
+                _sync_settings(_session)
+                return _TIMER_INTERVAL
+            except StopIteration as completed:
+                _session.capture_iterator = None
+                _session.capture = completed.value
+                _session.error = ""
+                _session.status_data.update(_session.capture.capture_metrics)
+                _session.set_state(PreviewState.STARTING_WORKER)
+                _session.start_thread = threading.Thread(
+                    target=_start_worker,
+                    args=(_session, _session.capture), daemon=True,
+                    name="clothnext-newton-start")
+                _session.start_thread.start()
         if (_session.capture is not None
                 and _session.state not in {PreviewState.STALE,
                                            PreviewState.STOPPING,
@@ -869,6 +912,9 @@ def stop(*, wait=False):
             old.state = PreviewState.STOPPING
             _sync_settings(old)
         old.stop_event.set()
+        if old.capture_iterator is not None:
+            old.capture_iterator.close()
+            old.capture_iterator = None
         _cleanup_preview()
     finally:
         _session = _Session()

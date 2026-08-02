@@ -240,6 +240,27 @@ def test_newton_registration_defers_orphan_cleanup_under_restrict_data(
         newton_preview._cleanup_orphaned_preview_objects)
 
 
+def test_live_preview_start_defers_scene_capture_to_main_thread_timer(
+        blender_env, monkeypatch):
+    from cloth_next.blender import newton_preview
+
+    advanced = []
+
+    def steps(_context):
+        advanced.append("advanced")
+        yield (1, 2, "Collider", 1)
+
+    monkeypatch.setattr(newton_preview, "_capture_steps", steps)
+    newton_preview.stop(wait=True)
+    newton_preview.start(SimpleNamespace())
+    try:
+        assert advanced == []
+        assert newton_preview._session.state is PreviewState.CAPTURING_SCENE
+        assert blender_env.bpy.app.timers.is_registered(newton_preview._poll_timer)
+    finally:
+        newton_preview.stop(wait=True)
+
+
 def test_newton_session_cleanup_is_strict_and_bounded(tmp_path):
     root = tmp_path / "newton" / "sessions"
     identifiers = [f"{index:032x}" for index in range(4)]

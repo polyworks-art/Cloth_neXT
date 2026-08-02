@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.12 — 2026-08-02 (Dev channel)
+
+### Fixed
+
+- Starting Newton Live Preview no longer evaluates every animated Collider
+  frame synchronously inside the UI property callback. Blender regains control
+  immediately and captures one evaluated frame per main-thread timer step.
+- Animated Collider capture now reports object, frame, and overall progress;
+  cancelling during capture closes the iterator and restores the original
+  timeline frame without starting a worker.
+
 ## 2.2.11 — 2026-08-02 (Dev channel)
 
 ### Fixed
