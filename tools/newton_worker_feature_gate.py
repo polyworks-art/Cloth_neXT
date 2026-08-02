@@ -16,6 +16,7 @@ from cloth_next.newton_preview.client import NewtonWorkerClient
 from cloth_next.newton_preview.contracts import (
     ColliderAnimation, PreviewCloth, PreviewCreateRequest, PreviewMaterial,
     PreviewMesh, PreviewQuality, PreviewResult)
+from cloth_next.newton_preview.request_artifact import write_request_artifact
 
 
 def _wait(client, event, timeout=180.0, predicate=lambda _message: True):
@@ -65,7 +66,10 @@ def main():
             args.python, package_root=args.repo.resolve(), startup_timeout=60.0)
         try:
             health = client.start()
-            client.send("create_preview", request=request.to_wire())
+            artifact = write_request_artifact(
+                request.result_directory, request.to_wire())
+            client.send("create_preview", request_artifact=artifact,
+                        result_directory=request.result_directory)
             _wait(client, "created")
             client.send("update_target_frame", frame=2)
             result_message = _wait(

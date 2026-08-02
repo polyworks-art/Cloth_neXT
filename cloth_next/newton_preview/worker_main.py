@@ -16,6 +16,7 @@ from .contracts import (BackendCapabilities, NEWTON_VERSION, PROTOCOL_VERSION,
                         PreviewCreateRequest, WARP_VERSION)
 from .protocol import decode_message, encode_message
 from .snapshots import SnapshotStore
+from .request_artifact import read_request_artifact
 
 _PROCESS_STARTED = time.perf_counter()
 _ENVIRONMENT_METRICS = {}
@@ -396,7 +397,13 @@ def run() -> int:
             elif command == "create_preview":
                 if session is not None:
                     raise RuntimeError("a Newton preview session is already active")
-                request = PreviewCreateRequest.from_wire(message["request"])
+                if "request_artifact" in message:
+                    wire = read_request_artifact(
+                        message["request_artifact"],
+                        message["result_directory"])
+                else:
+                    wire = message["request"]
+                request = PreviewCreateRequest.from_wire(wire)
                 session = WorkerSession(request)
                 _emit({**session.status(), "event": "created"})
                 _emit(session.initial_result)

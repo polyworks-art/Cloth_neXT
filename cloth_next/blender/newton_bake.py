@@ -24,6 +24,7 @@ from ..bake.status import BakeState
 from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
+from ..newton_preview.request_artifact import write_request_artifact
 from ..newton_preview.contracts import (ColliderAnimation, NEWTON_VERSION,
                                         PROTOCOL_VERSION, PinAnimation, PreviewCloth,
                                         PreviewCreateRequest, PreviewResult,
@@ -265,7 +266,10 @@ def _worker_main(session):
         health = client.start()
         session.messages.put(("status", BakeState.STARTING_SOLVER,
                               "Newton worker ready", health))
-        client.send("create_preview", request=session.request.to_wire())
+        artifact = write_request_artifact(
+            session.request.result_directory, session.request.to_wire())
+        client.send("create_preview", request_artifact=artifact,
+                    result_directory=session.request.result_directory)
         _wait(client, session, lambda item: item.get("event") == "created")
         frame_count = session.request.frame_end - session.request.frame_start + 1
         partials = []

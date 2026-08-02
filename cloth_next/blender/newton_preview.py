@@ -26,6 +26,7 @@ from ..newton_preview.contracts import (ColliderAnimation, PinAnimation, Preview
 from ..newton_preview.coordinates import (transform_position,
                                            validate_world_transform)
 from ..newton_preview.material import map_cloth_material
+from ..newton_preview.request_artifact import write_request_artifact
 from ..newton_preview.install import read_current
 from ..newton_preview.state import PreviewState, status_label, transition
 from .playback_cache import (has_cloth_next_playback_marker,
@@ -648,7 +649,10 @@ def _start_worker(session, captured):
         if session.stop_event.is_set():
             client.shutdown()
             return
-        client.send("create_preview", request=captured.request.to_wire())
+        artifact = write_request_artifact(
+            captured.request.result_directory, captured.request.to_wire())
+        client.send("create_preview", request_artifact=artifact,
+                    result_directory=captured.request.result_directory)
         session.start_result.put((client, health, None))
     except Exception as exc:
         session.start_result.put((None, None, exc))

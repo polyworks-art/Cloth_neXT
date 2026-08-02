@@ -14,6 +14,8 @@ from cloth_next.newton_preview.material import map_cloth_material
 from cloth_next.newton_preview.protocol import (command_message,
                                                 decode_message,
                                                 encode_message)
+from cloth_next.newton_preview.request_artifact import (
+    read_request_artifact, write_request_artifact)
 from cloth_next.newton_preview.snapshots import SnapshotStore
 from cloth_next.newton_preview.state import (PreviewState, status_label,
                                              transition)
@@ -173,6 +175,31 @@ def test_protocol_is_bounded_and_command_set_is_explicit():
         command_message("execute_arbitrary_command")
     with pytest.raises(ValueError):
         decode_message(b"[]\n")
+
+
+def test_large_scene_request_uses_small_verified_artifact_descriptor(tmp_path):
+    wire = _request().to_wire()
+    wire["large_diagnostic"] = "x" * (2 * 1024 * 1024)
+    metadata = write_request_artifact(tmp_path, wire)
+    message = encode_message(command_message(
+        "create_preview", request_artifact=metadata,
+        result_directory=str(tmp_path)))
+    assert len(message) < 4096
+    decoded_wire = read_request_artifact(metadata, tmp_path)
+    assert decoded_wire["large_diagnostic"] == wire["large_diagnostic"]
+    decoded_wire.pop("large_diagnostic")
+    assert contracts.PreviewCreateRequest.from_wire(decoded_wire) == _request()
+
+
+def test_scene_request_artifact_fails_closed_when_replaced_or_outside(tmp_path):
+    root = tmp_path / "session"
+    metadata = write_request_artifact(root, _request().to_wire())
+    Path(metadata["path"]).write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="size|checksum"):
+        read_request_artifact(metadata, root)
+    outside = write_request_artifact(tmp_path / "other", _request().to_wire())
+    with pytest.raises(ValueError, match="outside"):
+        read_request_artifact(outside, root)
 
 
 def test_preview_state_machine_and_catching_up_label():

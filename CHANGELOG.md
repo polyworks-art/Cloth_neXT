@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.2.14 — 2026-08-02 (Dev channel)
+
+### Fixed
+
+- Large Newton scenes no longer fail with `Newton worker message exceeded the
+  protocol limit`. Production preview and Bake requests are transferred as an
+  atomic local scene artifact while the bounded JSON protocol carries only a
+  compact descriptor.
+
+### Safety and validation
+
+- The worker accepts a scene artifact only from its declared owned session
+  directory and verifies its exact name, bounded size, and SHA-256 before
+  parsing it. Missing, replaced, truncated, oversized, or foreign artifacts
+  fail closed.
+- Real Newton/CUDA and Blender gates cover the artifact transport together
+  with Multi-Cloth, deforming Colliders, and animated Pins.
+
 ## 2.2.13 — 2026-08-02 (Dev channel)
 
 ### Added
