@@ -6,8 +6,8 @@
       "schema_version": "1.0.0",
       "id": "cloth_next",
       "name": "Cloth NeXt",
-      "tagline": "Cloth simulation through the external PPF Contact Solver",
-      "version": "2.2.14",
+      "tagline": "Cloth simulation with selectable PPF and Newton solvers",
+      "version": "2.2.15",
       "type": "add-on",
       "maintainer": "Tim Christmann",
       "license": [
@@ -19,7 +19,7 @@
         "2026 Tim Christmann and Cloth NeXt contributors"
       ],
       "permissions": {
-        "network": "Download the official PPF solver after explicit confirmation",
+        "network": "Download explicitly selected external PPF or Newton dependencies",
         "files": "Manage the separate solver installation outside the extension"
       },
       "tags": [
@@ -28,9 +28,9 @@
       "platforms": [
         "windows-x64"
       ],
-      "archive_url": "./cloth_next-2.2.14-windows-x64.zip",
-      "archive_size": 24941792,
-      "archive_hash": "sha256:68204940e30ba7a17dbd3b3fc0aad26952a5f0cee6662bd5c869285af8f45285"
+      "archive_url": "./cloth_next-2.2.15-windows-x64.zip",
+      "archive_size": 24967121,
+      "archive_hash": "sha256:f253b3a0be7e530b75852a43036dd21fca8318de8779328ee94dd5bb1345a916"
     }
   ]
 }
