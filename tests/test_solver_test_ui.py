@@ -1358,6 +1358,97 @@ def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
     assert "attach boom" in snapshot.error_details
 
 
+def test_cancel_clears_orphaned_active_controller_without_worker(
+        blender_env, monkeypatch):
+    from cloth_next.blender import solver_backends
+
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    module.shared_controller.transition(BakeState.PREPARING)
+    module.shared_controller.transition(BakeState.STARTING_COMPANION)
+    module._active_plan = None
+    module._worker = None
+    module._pending_job_id = ""
+    monkeypatch.setattr(
+        solver_backends, "request_cancel", lambda: False)
+    cancelled = []
+    monkeypatch.setattr(
+        module.companion_manager, "cancel_startup",
+        lambda job, reason="": cancelled.append((job, reason)))
+
+    module.request_cancel()
+
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.state is BakeState.CANCELLED
+    assert snapshot.active is False
+    assert cancelled and cancelled[0][0] == snapshot.job_id
+    module.shared_controller.reset()
+
+
+def test_stale_ppf_pin_capture_cannot_abort_new_newton_job(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    current_job = module.shared_controller.transition(
+        BakeState.PREPARING).job_id
+    restored = []
+    cleaned = []
+    state = {
+        "job_id": "old-ppf-job",
+        "context": SimpleNamespace(scene=SimpleNamespace()),
+        "collider_states": {"old": object()},
+    }
+    module._pin_capture = state
+    module._pending_job_id = "old-ppf-job"
+    monkeypatch.setattr(
+        module, "_restore_pin_capture_state",
+        lambda value: restored.append(value))
+    monkeypatch.setattr(
+        module, "_cleanup_collider_pump",
+        lambda value: cleaned.append(value))
+
+    assert module._pin_capture_pump() is None
+
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.job_id == current_job
+    assert snapshot.state is BakeState.PREPARING
+    assert module._pin_capture is None
+    assert module._pending_job_id == ""
+    assert restored == [state]
+    assert cleaned == [state["collider_states"]]
+    module.shared_controller.fail("test cleanup")
+    module.shared_controller.reset()
+
+
+def test_stale_ppf_startup_pump_cannot_fail_new_newton_job(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    current_job = module.shared_controller.transition(
+        BakeState.PREPARING).job_id
+    module.shared_controller.transition(BakeState.STARTING_COMPANION)
+    module.shared_controller.transition(BakeState.WAITING_FOR_COMPANION)
+    module._pending_plan = object()
+    module._pending_job_id = "old-ppf-job"
+    monkeypatch.setattr(
+        module.companion_manager, "startup_status",
+        lambda _job: (_ for _ in ()).throw(
+            AssertionError("stale PPF startup queried Companion state")))
+
+    assert module._startup_pump() is None
+
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.job_id == current_job
+    assert snapshot.state is BakeState.WAITING_FOR_COMPANION
+    assert module._pending_plan is None
+    assert module._pending_job_id == ""
+    module.shared_controller.fail("test cleanup")
+    module.shared_controller.reset()
+
+
 def test_periodic_recovery_event_refreshes_panel_from_durable_metadata(
         blender_env, monkeypatch):
     module = blender_env.solver_test

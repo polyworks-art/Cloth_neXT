@@ -1,7 +1,15 @@
-# Cloth NeXt 2.2.16 Dev
+# Cloth NeXt 2.2.17 Dev
 
-Cloth NeXt 2.2.16 fixes Newton Bake startup so the normal Bake window appears
-before scene preparation begins. Live Preview is not part of this release.
+Cloth NeXt 2.2.17 fixes a cross-backend startup race that could immediately
+abort Newton Bake with E110. Live Preview is not part of this release.
+
+## E110 startup race fix
+
+- Old PPF animated-Pin and Collider preparation timers cannot publish into a
+  newer Newton Bake job.
+- Every PPF preparation callback verifies its owning job before opening the
+  Bake window or changing the shared Bake controller.
+- Orphaned active Bake states can be cancelled without leaving Rebake locked.
 
 ## Newton Bake startup hotfix
 
@@ -39,4 +47,4 @@ Newton 1.4.0, Warp 1.15.0, and pytetwild 0.3.0 are installed only after explicit
 confirmation into an isolated CPython 3.11 environment outside Blender. They
 are not bundled in the extension archive. PPF remains external and unchanged.
 
-This is Dev version `2.2.16` and is eligible only for the Dev channel.
+This is Dev version `2.2.17` and is eligible only for the Dev channel.

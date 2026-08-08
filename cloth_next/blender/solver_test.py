@@ -6395,6 +6395,9 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
 
 def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     global _pending_plan,_pending_job_id,_ram_auto_cancel_enabled
+    owner = shared_controller.snapshot()
+    if owner.job_id != job_id or owner.state is not BakeState.PREPARING:
+        raise SessionCancelled()
     try:
         prefs = addon_preferences(context, __package__)
         auto_launch=bool(prefs.auto_launch_bake_window)
@@ -6659,6 +6662,26 @@ def _pin_capture_pump():
     state=_pin_capture
     if state is None:return None
     context=state["context"]; scene=context.scene
+    # Timers from an older Bake attempt can survive an error, cancellation or
+    # extension reload.  They must never publish into a newer backend's shared
+    # controller or open its Companion under their stale job id.
+    state_job = state.get("job_id", "")
+    owner = shared_controller.snapshot()
+    if state_job and (owner.job_id != state_job
+                      or owner.state is not BakeState.PREPARING):
+        try:
+            _cleanup_collider_pump(state.get("collider_states", {}))
+        except Exception:
+            pass
+        try:
+            _restore_pin_capture_state(state)
+        except Exception:
+            pass
+        stale_job = state_job
+        _pin_capture = None
+        if _pending_job_id == stale_job:
+            _pending_job_id = ""
+        return None
     try:
         if state.get("wait_for_companion"):
             status, message = companion_manager.preparation_status()
@@ -6754,6 +6777,12 @@ def _pin_capture_pump():
         # an expensive final evaluated-frame capture.
         if _cancel_event.is_set():
             raise SessionCancelled()
+        owner = shared_controller.snapshot()
+        if state_job and (owner.job_id != state_job
+                          or owner.state is not BakeState.PREPARING):
+            # Ownership may change while Blender evaluates an expensive frame.
+            # Let the next tick take the non-destructive stale cleanup path.
+            return .0
         _restore_pin_capture_state(state)
         _pin_capture=None
         # Reuses the Bake's single validation; no second topology hash or pin scan.
@@ -6800,6 +6829,16 @@ def _startup_pump() -> float | None:
     global _pending_plan, _pending_job_id
     plan, job_id = _pending_plan, _pending_job_id
     if plan is None or not job_id: return None
+    owner = shared_controller.snapshot()
+    if (owner.job_id != job_id
+            or owner.state is not BakeState.WAITING_FOR_COMPANION):
+        # This callback belongs to an older PPF attempt.  In particular, it
+        # must not fail a newer Newton controller merely because its own
+        # Companion request has already been superseded.
+        if _pending_job_id == job_id:
+            _pending_plan = None
+            _pending_job_id = ""
+        return None
     state, message = companion_manager.startup_status(job_id)
     if state == "WAITING":
         shared_controller.update(status_message=message); return .05
@@ -6841,6 +6880,20 @@ def request_cancel() -> None:
         return
     if _pending_job_id:
         cancel_pending_startup(); return
+    # A Companion can disappear after startup while no capture or worker owns
+    # the controller anymore.  In that state merely entering CANCELLING leaves
+    # the UI locked forever because no pump remains to publish CANCELLED.
+    if not run_active() and _active_plan is None:
+        snapshot = shared_controller.snapshot()
+        if snapshot.active:
+            companion_manager.cancel_startup(
+                snapshot.job_id, "Orphaned Bake state cancelled")
+            if snapshot.state is not BakeState.CANCELLING:
+                shared_controller.request_cancel()
+            shared_controller.transition(
+                BakeState.CANCELLED, status_message="Stale Bake state cleared")
+            modal_lock.release(snapshot.job_id)
+        return
     _cancel_event.set()
     snapshot = shared_controller.snapshot()
     if snapshot.active and snapshot.state is not BakeState.CANCELLING:

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.17 — 2026-08-08 (Dev channel)
+
+### Fixed
+
+- A stale PPF animated-Pin or Collider capture timer can no longer overwrite a
+  newer Newton Bake job, open the Bake window under the wrong job ID, or abort
+  Newton immediately with `CNX-E110`.
+- PPF preparation and startup callbacks now verify ownership of the shared
+  Bake controller before publishing status or continuing into solver startup.
+- Cancelling an orphaned active Bake state without a worker now reaches the
+  terminal Cancelled state and releases the Bake lock.
+
 ## 2.2.16 — 2026-08-08 (Dev channel)
 
 ### Fixed
