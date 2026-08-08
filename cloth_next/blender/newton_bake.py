@@ -497,6 +497,11 @@ def begin(context) -> tuple[str, bool]:
     job = shared_controller.transition(
         BakeState.PREPARING, status_message="Validating Newton Bake",
         frame_start=None, frame_end=None).job_id
+    if not modal_lock.reserve(job):
+        shared_controller.fail(
+            "Another Cloth NeXt Bake generation already owns startup.",
+            "Close the older Bake window or restart Blender, then retry.")
+        raise ValueError("Another Cloth NeXt Bake generation already owns startup.")
     try:
         start, end, active_name = _capture_header(context.scene)
         _capture_iterator = _capture_steps(context)
@@ -526,6 +531,7 @@ def begin(context) -> tuple[str, bool]:
     except Exception as exc:
         _capture_iterator = None
         _capture_cancel_event = None
+        modal_lock.release(job)
         shared_controller.fail("Newton Bake preparation failed.", str(exc))
         raise
 

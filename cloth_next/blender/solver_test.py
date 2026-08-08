@@ -6458,6 +6458,12 @@ def begin_production_bake(context) -> tuple[str, bool]:
     _cancel_event.clear()
     _ram_auto_cancel_triggered = False
     job_id = _begin_controller(BakeJobKind.BAKE)
+    if not modal_lock.reserve(job_id):
+        shared_controller.fail(
+            "Another Cloth NeXt Bake generation already owns startup.",
+            "Close the older Bake window or restart Blender, then retry.")
+        raise SceneValidationError(
+            "Another Cloth NeXt Bake generation already owns startup.")
     try:
         # One authoritative validation for the whole Bake start: it hashes the
         # topology once and scans the pin group once. Everything downstream
@@ -6550,11 +6556,13 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 return job_id,True
         plan=build_run_plan(context,snapshot=snapshot)
     except (SceneValidationError, ClothNextError) as exc:
+        modal_lock.release(job_id)
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
         shared_controller.fail(message)
         companion_manager.persist_bake_error(shared_controller.snapshot())
         raise
     except Exception as exc:  # noqa: BLE001 -- Blender API failures stay visible
+        modal_lock.release(job_id)
         details = traceback.format_exc()
         summary = "Preparing the Bake failed."
         code = classify_error("PREPARING", summary, details)

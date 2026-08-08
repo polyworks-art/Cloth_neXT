@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.18 - 2026-08-08 (Dev channel)
+
+### Fixed
+
+- Bake ownership is now reserved process-wide before either backend starts the
+  Companion. Duplicate loaded add-on generations can no longer race the same
+  Bake window or terminate a valid Newton job with `CNX-E110`.
+- A rejected stale PPF callback cannot release or modify the active Newton
+  reservation. The reservation is released on preparation errors and normal
+  terminal Bake states so Rebake remains available.
+
 ## 2.2.17 — 2026-08-08 (Dev channel)
 
 ### Fixed

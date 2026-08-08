@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib
+import builtins
 import sys
 from types import SimpleNamespace
 
@@ -25,6 +26,10 @@ def _pop_blender_modules():
 @pytest.fixture
 def blender_env():
     """Fresh fake ``bpy`` plus freshly imported cloth_next.blender modules."""
+    process_lock_key = "_clothnext_process_bake_lock_v1"
+    saved_process_lock = getattr(builtins, process_lock_key, None)
+    if hasattr(builtins, process_lock_key):
+        delattr(builtins, process_lock_key)
     saved = _pop_blender_modules()
     fake = fake_bpy.make_module()
     sys.modules["bpy"] = fake
@@ -45,3 +50,8 @@ def blender_env():
     finally:
         _pop_blender_modules()
         sys.modules.update(saved)
+        if saved_process_lock is None:
+            if hasattr(builtins, process_lock_key):
+                delattr(builtins, process_lock_key)
+        else:
+            setattr(builtins, process_lock_key, saved_process_lock)

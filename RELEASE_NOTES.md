@@ -1,7 +1,17 @@
-# Cloth NeXt 2.2.17 Dev
+# Cloth NeXt 2.2.18 Dev
 
-Cloth NeXt 2.2.17 fixes a cross-backend startup race that could immediately
-abort Newton Bake with E110. Live Preview is not part of this release.
+Cloth NeXt 2.2.18 closes the remaining duplicate-generation startup race that
+could immediately abort Newton Bake with E110. Live Preview is not part of
+this release.
+
+## Process-wide E110 fix
+
+- Bake ownership is reserved before Newton or PPF launches the Companion.
+- The reservation is shared by every loaded Cloth NeXt module generation in
+  the Blender process.
+- A stale PPF callback cannot take over, release, or modify Newton's Bake job.
+- Preparation failures release their own reservation so Rebake remains
+  available.
 
 ## E110 startup race fix
 
@@ -47,4 +57,4 @@ Newton 1.4.0, Warp 1.15.0, and pytetwild 0.3.0 are installed only after explicit
 confirmation into an isolated CPython 3.11 environment outside Blender. They
 are not bundled in the extension archive. PPF remains external and unchanged.
 
-This is Dev version `2.2.17` and is eligible only for the Dev channel.
+This is Dev version `2.2.18` and is eligible only for the Dev channel.
