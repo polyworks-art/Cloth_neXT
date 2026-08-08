@@ -110,9 +110,8 @@ def _create(args):
     scene = bpy.context.scene
     scene.frame_start = 1; scene.frame_end = 6
     scene.render.fps = 24; scene.render.fps_base = 1.0
-    scene.cloth_next_newton_preview.bake_backend = "NEWTON"
-    scene.cloth_next_newton_preview.quality = "FAST"
-    scene.cloth_next_newton_preview.enable_self_contact = False
+    scene.cloth_next_solver.backend = "NEWTON"
+    scene.cloth_next_solver.quality_preset = "LOW"
     source_digest = _digest_positions(cloth)
     operator_result = sorted(bpy.ops.clothnext.bake("EXEC_DEFAULT"))
     started = time.monotonic()
@@ -150,7 +149,7 @@ def _create(args):
             }
             if (operator_result != ["FINISHED"] or not inspection.usable
                     or header.frame_count != 6
-                    or report["backend_identity"] != "NEWTON_EXPERIMENTAL"
+                    or report["backend_identity"] != "NEWTON"
                     or report["source_digest_after"] != source_digest):
                 raise AssertionError(f"Newton Bake invariant failed: {report}")
             bpy.ops.wm.save_as_mainfile(filepath=str(args.blend))

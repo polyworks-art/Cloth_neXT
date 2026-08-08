@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.16 — 2026-08-08 (Dev channel)
+
+### Fixed
+
+- Newton scene preparation now starts only after the common Bake window is
+  visible and advances cooperatively through Blender timers. Animated and
+  deforming Collider sampling is shown in the Bake window instead of freezing
+  Blender before the window opens.
+- Newton uses Blender's scene gravity when no Cloth NeXt Gravity Force exists,
+  including disabled scene gravity.
+- Gravity-related Newton diagnostics without a Force object no longer get
+  misclassified as `CNX-E108`.
+
 ## 2.2.15 — 2026-08-08 (Dev channel)
 
 ### Added

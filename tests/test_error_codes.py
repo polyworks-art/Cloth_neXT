@@ -99,6 +99,15 @@ def test_recovery_traceback_function_name_is_not_misclassified_as_pin_error():
         details="Animated Pinning changed Cloth topology") == "CNX-E105"
 
 
+def test_gravity_diagnostics_without_a_force_are_not_misclassified_as_e108():
+    assert classify_error(
+        "PREPARING", details="Newton scene gravity contains a non-finite value"
+    ) == "CNX-E109"
+    assert classify_error(
+        "PREPARING", details="Gravity Force Empty has an invalid local Z axis"
+    ) == "CNX-E108"
+
+
 def test_controller_accepts_only_registered_explicit_codes():
     controller = BakeController()
     controller.transition(BakeState.PREPARING)

@@ -121,7 +121,14 @@ def test_newton_bake_waits_for_regular_bake_window_before_worker_start(
     monkeypatch.setattr(newton_bake.newton_preview,
                         "newton_installation_status",
                         lambda: (True, "Ready", Path("python")))
-    monkeypatch.setattr(newton_bake, "_capture", lambda _context: session)
+    monkeypatch.setattr(newton_bake, "_capture_header",
+                        lambda _scene: (3, 9, "Cloth"))
+
+    def capture_steps(_context):
+        yield ("animation", "Sampling Collider · Frame 3", 1, 7)
+        return session
+
+    monkeypatch.setattr(newton_bake, "_capture_steps", capture_steps)
     monkeypatch.setattr(
         newton_bake.companion_manager, "begin_bake_mode",
         lambda value: window_requests.append(value) or (True, "started"))
@@ -167,6 +174,11 @@ def test_newton_bake_waits_for_regular_bake_window_before_worker_start(
     monkeypatch.setattr(newton_bake.companion_manager, "consume_ready",
                         lambda _job: True)
     assert newton_bake._startup_pump() is None
+    assert session.worker is None
+    assert shared_controller.snapshot().state is BakeState.COMPANION_READY
+    assert newton_bake._capture_pump() == 0.01
+    assert "Sampling Collider" in shared_controller.snapshot().status_message
+    assert newton_bake._capture_pump() is None
     assert session.worker.started is True
     assert shared_controller.snapshot().state is BakeState.EXPORTING
     assert modal_handlers
@@ -177,6 +189,10 @@ def test_newton_bake_waits_for_regular_bake_window_before_worker_start(
         blender_env.bpy.app.timers.unregister(newton_bake._pump)
     if blender_env.bpy.app.timers.is_registered(newton_bake._startup_pump):
         blender_env.bpy.app.timers.unregister(newton_bake._startup_pump)
+    if blender_env.bpy.app.timers.is_registered(newton_bake._capture_pump):
+        blender_env.bpy.app.timers.unregister(newton_bake._capture_pump)
+    newton_bake._capture_iterator = None
+    newton_bake._capture_cancel_event = None
     newton_bake._session = None
     shared_controller.fail("test cleanup")
     shared_controller.reset()
@@ -646,3 +662,13 @@ def test_newton_contract_accepts_rigidbody_only_scene(tmp_path):
     request.validate()
     assert contracts.PreviewCreateRequest.from_wire(
         request.to_wire()).rigid_bodies == (rigid,)
+
+
+def test_newton_uses_scene_gravity_without_force_objects(blender_env):
+    from cloth_next.blender import newton_preview
+
+    scene = SimpleNamespace(
+        objects=(), use_gravity=True, gravity=(1.0, 2.0, -3.0))
+    assert newton_preview._gravity(scene) == (1.0, 2.0, -3.0)
+    scene.use_gravity = False
+    assert newton_preview._gravity(scene) == (0.0, 0.0, 0.0)

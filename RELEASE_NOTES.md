@@ -1,7 +1,16 @@
-# Cloth NeXt 2.2.15 Dev
+# Cloth NeXt 2.2.16 Dev
 
-Cloth NeXt 2.2.15 introduces Newton Physics as a selectable backend for the
-existing offline Bake workflow. Live Preview is not part of this release.
+Cloth NeXt 2.2.16 fixes Newton Bake startup so the normal Bake window appears
+before scene preparation begins. Live Preview is not part of this release.
+
+## Newton Bake startup hotfix
+
+- Animated and deforming Collider sampling advances cooperatively instead of
+  blocking Blender's UI before the Bake window opens.
+- Scene preparation progress is visible in the normal Bake window.
+- Newton uses Blender's scene gravity when no Cloth NeXt Gravity Force exists.
+- Gravity-related diagnostics are no longer incorrectly reported as E108 when
+  the scene contains no Force object.
 
 ## Newton Bake workflow
 
@@ -30,4 +39,4 @@ Newton 1.4.0, Warp 1.15.0, and pytetwild 0.3.0 are installed only after explicit
 confirmation into an isolated CPython 3.11 environment outside Blender. They
 are not bundled in the extension archive. PPF remains external and unchanged.
 
-This is Dev version `2.2.15` and is eligible only for the Dev channel.
+This is Dev version `2.2.16` and is eligible only for the Dev channel.

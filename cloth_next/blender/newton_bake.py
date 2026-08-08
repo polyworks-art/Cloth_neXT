@@ -59,6 +59,8 @@ class _BakeSession:
 
 
 _session: _BakeSession | None = None
+_capture_iterator = None
+_capture_cancel_event = None
 
 
 def active() -> bool:
@@ -88,7 +90,7 @@ def _hash(value) -> str:
         value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def _capture(context) -> _BakeSession:
+def _capture_steps(context):
     scene = context.scene
     enabled = newton_preview._enabled_objects(scene)
     cloths = tuple(sorted(
@@ -130,16 +132,26 @@ def _capture(context) -> _BakeSession:
     start, end = next(iter(ranges))
     try:
         scene.frame_set(start)
-        dynamic_meshes = tuple(newton_preview._cached_triangulated_world_mesh(
-            context, obj) for obj in dynamics)
+        dynamic_meshes_list = []
+        for index, obj in enumerate(dynamics):
+            dynamic_meshes_list.append(
+                newton_preview._cached_triangulated_world_mesh(context, obj))
+            yield ("progress", f"Preparing {obj.name}", index + 1,
+                   len(dynamics) + len(colliders))
+        dynamic_meshes = tuple(dynamic_meshes_list)
         cloth_meshes = dynamic_meshes[:len(cloths)]
         soft_meshes = dynamic_meshes[len(cloths):len(cloths) + len(soft_objects)]
         rigid_meshes = dynamic_meshes[len(cloths) + len(soft_objects):]
         pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
                          for cloth, mesh in zip(cloths, cloth_meshes))
-        collider_meshes = tuple(
-            newton_preview._cached_triangulated_world_mesh(context, obj)
-            for obj in colliders)
+        collider_meshes_list = []
+        for index, obj in enumerate(colliders):
+            collider_meshes_list.append(
+                newton_preview._cached_triangulated_world_mesh(context, obj))
+            yield ("progress", f"Preparing Collider {obj.name}",
+                   len(dynamics) + index + 1,
+                   len(dynamics) + len(colliders))
+        collider_meshes = tuple(collider_meshes_list)
         inverse_arrays, local_sets = [], []
         for obj, dynamic_mesh in zip(dynamics, dynamic_meshes):
             matrix = np.asarray(tuple(tuple(float(value) for value in row)
@@ -159,17 +171,44 @@ def _capture(context) -> _BakeSession:
             if str(collider.cloth_next.collider_motion) != "ANIMATED":
                 continue
             reference = collider_meshes[collider_index]
+            samples = []
+            reference_topology = None
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample, topology = newton_preview._evaluated_world_mesh_data(
+                    context, collider)
+                if reference_topology is None:
+                    reference_topology = topology
+                if (topology != reference_topology
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{collider.name}: animated Collider topology must remain constant")
+                samples.append(sample.vertices)
+                yield ("animation", f"Sampling {collider.name} · Frame {frame}",
+                       frame - start + 1, end - start + 1)
             collider_animations.append(ColliderAnimation(
-                collider_index, newton_preview._animated_collider_samples(
-                    context, scene, collider, reference, start, end)))
+                collider_index, tuple(samples)))
         for cloth_index, (cloth, reference, pins) in enumerate(
                 zip(cloths, cloth_meshes, pin_sets)):
             if (not pins
                     or str(cloth.cloth_next.pin_mode) != "FOLLOW_ANIMATION"):
                 continue
-            pin_animations.append(PinAnimation(
-                cloth_index, newton_preview._animated_pin_samples(
-                    context, scene, cloth, reference, pins, start, end)))
+            samples = []
+            reference_topology = None
+            for frame in range(start, end + 1):
+                scene.frame_set(frame)
+                sample, topology = newton_preview._evaluated_world_mesh_data(
+                    context, cloth)
+                if reference_topology is None:
+                    reference_topology = topology
+                if (topology != reference_topology
+                        or len(sample.vertices) != len(reference.vertices)):
+                    raise ValueError(
+                        f"{cloth.name}: animated Pin topology must remain constant")
+                samples.append(tuple(sample.vertices[index] for index in pins))
+                yield ("animation", f"Sampling Pins · {cloth.name} · Frame {frame}",
+                       frame - start + 1, end - start + 1)
+            pin_animations.append(PinAnimation(cloth_index, tuple(samples)))
     finally:
         scene.frame_set(original_frame)
     quality = _bake_quality(scene, dynamics)
@@ -301,6 +340,16 @@ def _capture(context) -> _BakeSession:
                         queue.Queue(maxsize=128))
 
 
+def _capture(context) -> _BakeSession:
+    """Synchronous test/helper facade; production advances one yielded step per timer."""
+    iterator = _capture_steps(context)
+    while True:
+        try:
+            next(iterator)
+        except StopIteration as finished:
+            return finished.value
+
+
 def _wait(client, session, predicate, timeout=300.0):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -421,9 +470,24 @@ def _worker_main(session):
                 pass
 
 
+def _capture_header(scene):
+    dynamics = tuple(obj for obj in newton_preview._enabled_objects(scene)
+                     if str(obj.cloth_next.role) in
+                     {"CLOTH", "SOFT_BODY", "RIGID_BODY"})
+    if not dynamics:
+        raise ValueError("Newton Bake requires Cloth, Soft Body, or Rigid Body objects.")
+    ranges = {(int(obj.cloth_next.bake_start), int(obj.cloth_next.bake_end))
+              for obj in dynamics}
+    if len(ranges) != 1:
+        raise ValueError("Use the same Bake range on all Newton dynamic objects.")
+    start, end = next(iter(ranges))
+    return start, end, str(dynamics[0].name)
+
+
 def begin(context) -> tuple[str, bool]:
-    global _session
-    if _session is not None or shared_controller.snapshot().active:
+    global _capture_iterator, _capture_cancel_event
+    if (_session is not None or _capture_iterator is not None
+            or shared_controller.snapshot().active):
         raise ValueError("A Cloth NeXt bake is already active.")
     installed, _label, _path = newton_preview.newton_installation_status()
     if not installed:
@@ -434,22 +498,21 @@ def begin(context) -> tuple[str, bool]:
         BakeState.PREPARING, status_message="Validating Newton Bake",
         frame_start=None, frame_end=None).job_id
     try:
-        session = _capture(context)
-        _session = session
+        start, end, active_name = _capture_header(context.scene)
+        _capture_iterator = _capture_steps(context)
+        _capture_cancel_event = threading.Event()
         shared_controller.update(
-            status_message="Newton scene ready",
-            active_object_name=session.targets[0].source_name,
-            frame_start=session.request.frame_start,
-            frame_end=session.request.frame_end,
+            status_message="Preparing Newton scene",
+            active_object_name=active_name,
+            frame_start=start, frame_end=end,
             progress_current=0,
-            progress_total=session.request.frame_end - session.request.frame_start + 1)
+            progress_total=end - start + 1)
         shared_controller.transition(
             BakeState.STARTING_COMPANION,
             status_message="Starting Bake window")
         request = EnterBakeMode(
             job_id=job, blender_process_id=os.getpid(),
-            frame_start=session.request.frame_start,
-            frame_end=session.request.frame_end,
+            frame_start=start, frame_end=end,
             preset_label="Newton")
         ok, message = companion_manager.begin_bake_mode(request)
         if not ok:
@@ -461,18 +524,18 @@ def begin(context) -> tuple[str, bool]:
             bpy.app.timers.register(_startup_pump, first_interval=_PUMP_INTERVAL)
         return job, True
     except Exception as exc:
-        _session = None
+        _capture_iterator = None
+        _capture_cancel_event = None
         shared_controller.fail("Newton Bake preparation failed.", str(exc))
         raise
 
 
 def _startup_pump():
-    """Start the Newton worker only after the regular Bake window is ready."""
-    session = _session
-    if session is None:
+    """Begin cooperative scene capture only after the Bake window is ready."""
+    if _capture_iterator is None:
         return None
     job = shared_controller.snapshot().job_id
-    if session.cancel_event.is_set():
+    if _capture_cancel_event is not None and _capture_cancel_event.is_set():
         companion_manager.cancel_startup(job, "Newton Bake startup cancelled")
         shared_controller.transition(BakeState.CANCELLED,
                                      status_message="Newton Bake cancelled")
@@ -489,14 +552,54 @@ def _startup_pump():
     if not companion_manager.consume_ready(job):
         return _PUMP_INTERVAL
     shared_controller.transition(BakeState.COMPANION_READY,
-                                 status_message="Bake window ready")
-    try:
-        bpy.ops.clothnext.newton_bake_modal("INVOKE_DEFAULT", job_id=job)
-    except (AttributeError, RuntimeError) as exc:
-        shared_controller.fail(
-            "The modal Newton Bake workflow could not start.", str(exc))
-        _clear_session()
+                                 status_message="Preparing Newton scene")
+    if not bpy.app.timers.is_registered(_capture_pump):
+        bpy.app.timers.register(_capture_pump, first_interval=0.0)
     return None
+
+
+def _capture_pump():
+    """Evaluate at most one Blender object or animation frame per timer tick."""
+    global _capture_iterator, _capture_cancel_event, _session
+    iterator = _capture_iterator
+    if iterator is None:
+        return None
+    if _capture_cancel_event is not None and _capture_cancel_event.is_set():
+        iterator.close()
+        _capture_iterator = None
+        _capture_cancel_event = None
+        shared_controller.transition(BakeState.CANCELLED,
+                                     status_message="Newton Bake cancelled")
+        return None
+    try:
+        phase, message, current, total = next(iterator)
+        shared_controller.update(
+            status_message=message, progress_current=current,
+            progress_total=max(1, total))
+        return 0.01 if phase == "animation" else _PUMP_INTERVAL
+    except StopIteration as finished:
+        _capture_iterator = None
+        _capture_cancel_event = None
+        _session = finished.value
+        job = shared_controller.snapshot().job_id
+        shared_controller.update(
+            status_message="Newton scene ready", progress_current=0,
+            progress_total=_session.request.frame_end - _session.request.frame_start + 1)
+        try:
+            bpy.ops.clothnext.newton_bake_modal("INVOKE_DEFAULT", job_id=job)
+        except (AttributeError, RuntimeError) as exc:
+            shared_controller.fail(
+                "The modal Newton Bake workflow could not start.", str(exc))
+            _clear_session()
+        return None
+    except Exception as exc:
+        try:
+            iterator.close()
+        finally:
+            _capture_iterator = None
+            _capture_cancel_event = None
+        shared_controller.fail("Newton scene preparation failed.", str(exc))
+        return None
 
 
 def _start_worker(session) -> None:
@@ -650,6 +753,13 @@ def _pump():
 
 
 def request_cancel() -> bool:
+    global _capture_cancel_event
+    if _capture_iterator is not None:
+        if _capture_cancel_event is not None:
+            _capture_cancel_event.set()
+        if shared_controller.snapshot().state is not BakeState.CANCELLING:
+            shared_controller.request_cancel()
+        return True
     if _session is None:
         return False
     _session.cancel_event.set()
@@ -664,19 +774,26 @@ def request_cancel() -> bool:
 
 
 def shutdown(timeout=5.0) -> None:
-    global _session
+    global _session, _capture_iterator, _capture_cancel_event
+    if _capture_iterator is not None:
+        try:
+            _capture_iterator.close()
+        finally:
+            _capture_iterator = None
+            _capture_cancel_event = None
     session = _session
-    if session is None:
-        return
-    request_cancel()
-    if session.worker is not None:
-        session.worker.join(timeout=max(0.0, float(timeout)))
-    if session.client is not None:
-        session.client.shutdown(grace=1.0)
+    if session is not None:
+        request_cancel()
+        if session.worker is not None:
+            session.worker.join(timeout=max(0.0, float(timeout)))
+        if session.client is not None:
+            session.client.shutdown(grace=1.0)
     if bpy.app.timers.is_registered(_pump):
         bpy.app.timers.unregister(_pump)
     if bpy.app.timers.is_registered(_startup_pump):
         bpy.app.timers.unregister(_startup_pump)
+    if bpy.app.timers.is_registered(_capture_pump):
+        bpy.app.timers.unregister(_capture_pump)
     modal_lock.release()
     _session = None
 

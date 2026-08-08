@@ -160,7 +160,9 @@ _RULES = tuple((re.compile(pattern, re.IGNORECASE), code) for pattern, code in (
     # or transport failure into an artist-facing Pin error.
     (r"\bpin(?:ning)?\b.*(?:topology|group|target|capture)|"
      r"\banimated pin(?:ning)?\b", "CNX-E105"),
-    (r"force.*(?:invalid|unsupported|empty)|wind|gravity", "CNX-E108"),
+    (r"force.*(?:invalid|unsupported|empty)|"
+     r"(?:wind|gravity) force.*(?:invalid|unsupported|empty)|"
+     r"unsupported force type", "CNX-E108"),
     (r"object .*no longer exists|object disappeared", "CNX-E107"),
     (r"multi.object playback cache|missing cache for|cache set", "CNX-E187"),
     (r"rod .*playback|original curve|curve topology", "CNX-E188"),

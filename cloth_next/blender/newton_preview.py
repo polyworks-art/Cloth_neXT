@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -251,7 +252,13 @@ def _gravity(scene) -> tuple[float, float, float]:
         strength = float(settings.force.strength)
         vectors.append(tuple(float(component) * strength for component in direction))
     if not vectors:
-        return (0.0, 0.0, -9.81)
+        if not bool(getattr(scene, "use_gravity", True)):
+            return (0.0, 0.0, 0.0)
+        scene_gravity = getattr(scene, "gravity", (0.0, 0.0, -9.81))
+        gravity = tuple(float(component) for component in scene_gravity)
+        if len(gravity) != 3 or not all(map(math.isfinite, gravity)):
+            raise ValueError("Newton scene gravity contains a non-finite value")
+        return gravity
     return tuple(sum(vector[index] for vector in vectors) for index in range(3))
 
 
