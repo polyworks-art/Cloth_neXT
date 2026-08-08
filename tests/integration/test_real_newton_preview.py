@@ -13,7 +13,7 @@ import pytest
 from cloth_next.newton_preview.client import NewtonWorkerClient
 from cloth_next.newton_preview.contracts import (
     ColliderAnimation, PinAnimation, PreviewCloth, PreviewCreateRequest, PreviewMaterial,
-    PreviewMesh, PreviewQuality)
+    PreviewMesh, PreviewQuality, PreviewRigidBody, PreviewSoftBody)
 
 pytestmark = pytest.mark.integration
 
@@ -46,24 +46,27 @@ def _material(margin=0.005):
 
 def _run(tmp_path, cloth, *, colliders=(), pins=(), self_collision=False,
          target=12, fps=30.0, additional_cloths=(),
-         collider_animations=(), pin_animations=()):
+         collider_animations=(), pin_animations=(), soft_bodies=(),
+         rigid_bodies=()):
     root = Path(__file__).resolve().parents[2]
     client = NewtonWorkerClient(_python(), package_root=root, startup_timeout=60)
     session = uuid.uuid4().hex
     request = PreviewCreateRequest(
-        session, session, cloth, tuple(colliders), tuple(pins), _material(),
+        session, session, cloth, tuple(colliders), tuple(pins),
+        _material() if cloth is not None else None,
         PreviewQuality("TEST", 4, 8, 5, 8, self_collision),
         1, target, fps, 1.0, (0.0, 0.0, -9.81),
         str(tmp_path / session), additional_cloths=tuple(additional_cloths),
         collider_animations=tuple(collider_animations),
-        pin_animations=tuple(pin_animations))
+        pin_animations=tuple(pin_animations), soft_bodies=tuple(soft_bodies),
+        rigid_bodies=tuple(rigid_bodies))
     try:
         health = client.start()
         assert health["newton_version"] == "1.4.0"
         assert health["warp_version"] == "1.15.0"
         assert health["cuda_device"]
         client.send("create_preview", request=request.to_wire())
-        deadline = time.monotonic() + 180.0
+        deadline = time.monotonic() + (600.0 if soft_bodies else 180.0)
         created = False
         initial = result = None
         while time.monotonic() < deadline and (not created or initial is None):
@@ -83,13 +86,25 @@ def _run(tmp_path, cloth, *, colliders=(), pins=(), self_collision=False,
                 result = np.load(message["artifact"], allow_pickle=False)
                 break
         assert result is not None
-        expected_vertices = len(cloth.vertices) + sum(
-            len(item.mesh.vertices) for item in additional_cloths)
+        expected_vertices = (len(cloth.vertices) if cloth is not None else 0) + sum(
+            len(item.mesh.vertices) for item in (*additional_cloths,
+                                                 *soft_bodies, *rigid_bodies))
         assert result.shape == initial.shape == (expected_vertices, 3)
         assert np.isfinite(result).all()
         return initial, result
     finally:
         client.shutdown()
+
+
+def _cube(z=1.0, size=0.3):
+    vertices = tuple((x * size, y * size, z + q * size)
+                     for x, y, q in ((0, 0, 0), (1, 0, 0), (1, 1, 0),
+                                     (0, 1, 0), (0, 0, 1), (1, 0, 1),
+                                     (1, 1, 1), (0, 1, 1)))
+    triangles = ((0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+                 (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5),
+                 (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7))
+    return PreviewMesh(vertices, triangles)
 
 
 def test_real_newton_hanging_cloth_pins_and_sags(tmp_path):
@@ -159,3 +174,35 @@ def test_real_newton_follow_animation_pins_reach_targets(tmp_path):
         tmp_path, cloth, pins=pins, target=5,
         pin_animations=(PinAnimation(0, samples),))
     assert np.allclose(result[list(pins)], np.asarray(samples[-1]), atol=1.0e-5)
+
+
+def test_real_newton_soft_and_rigid_bodies_share_the_vbd_scene(tmp_path):
+    cloth = _grid(3, 3, z=1.8)
+    soft_mesh = _cube(z=1.0)
+    rigid_mesh = _cube(z=1.5)
+    soft = PreviewSoftBody("soft", soft_mesh, 100.0, 500.0, 0.35,
+                           0.1, 0.4, 0.005, 0.005, 0.25)
+    rigid = PreviewRigidBody("rigid", rigid_mesh, 100.0, 0.4, 0.005)
+    initial, result = _run(tmp_path, cloth, target=4,
+                           soft_bodies=(soft,), rigid_bodies=(rigid,))
+    assert result.shape == initial.shape == (
+        len(cloth.vertices) + len(soft_mesh.vertices) + len(rigid_mesh.vertices), 3)
+    soft_start = len(cloth.vertices)
+    rigid_start = soft_start + len(soft_mesh.vertices)
+    assert np.allclose(initial[soft_start:rigid_start],
+                       np.asarray(soft_mesh.vertices), atol=1e-5)
+    assert np.allclose(initial[rigid_start:], np.asarray(rigid_mesh.vertices), atol=1e-5)
+    assert float(np.mean(result[:, 2])) < float(np.mean(initial[:, 2]))
+
+
+@pytest.mark.parametrize("role", ["soft", "rigid"])
+def test_real_newton_dynamic_roles_bake_without_cloth(tmp_path, role):
+    mesh = _cube(z=1.0)
+    kwargs = ({"soft_bodies": (PreviewSoftBody(
+        "soft", mesh, 100.0, 500.0, 0.35, 0.1, 0.4, 0.005, 0.005, 0.25),)}
+              if role == "soft" else
+              {"rigid_bodies": (PreviewRigidBody(
+                  "rigid", mesh, 100.0, 0.4, 0.005),)})
+    initial, result = _run(tmp_path, None, target=3, **kwargs)
+    assert initial.shape == result.shape == (len(mesh.vertices), 3)
+    assert float(np.mean(result[:, 2])) < float(np.mean(initial[:, 2]))

@@ -937,7 +937,7 @@ def test_advanced_panel_shows_exact_wire_names_and_friction_mode(blender_env):
 
 def test_no_fake_editable_controls_remain_in_ui_source():
     source = (BLENDER_PACKAGE / "physics_ui.py").read_text(encoding="utf-8")
-    for forbidden in ("substeps", "solver_iterations", "contact_iterations",
+    for forbidden in ("solver_iterations", "contact_iterations",
                       "thickness", "stretch_stiffness", "shear",
                       "self_collision", "rest_scale",
                       "volume_conservation", '"frame_start"',

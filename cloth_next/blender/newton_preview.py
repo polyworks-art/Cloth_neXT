@@ -27,7 +27,7 @@ from ..newton_preview.coordinates import (transform_position,
                                            validate_world_transform)
 from ..newton_preview.material import map_cloth_material
 from ..newton_preview.request_artifact import write_request_artifact
-from ..newton_preview.install import read_current
+from ..newton_preview.install import RELEASE_ID, read_current
 from ..newton_preview.state import PreviewState, status_label, transition
 from .playback_cache import (has_cloth_next_playback_marker,
                              without_owned_playback)
@@ -49,10 +49,10 @@ def _newton_python() -> Path:
         return managed
     if os.name == "nt":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
-        return (base / "ClothNeXt/newton/versions/1.4.0-warp-1.15.0/venv"
+        return (base / "ClothNeXt/newton/versions" / RELEASE_ID / "venv"
                 / "Scripts/python.exe")
     return (Path.home() / ".local/share/ClothNeXt/newton/versions"
-            / "1.4.0-warp-1.15.0/venv/bin/python")
+            / RELEASE_ID / "venv/bin/python")
 
 
 def newton_installation_status() -> tuple[bool, str, Path]:

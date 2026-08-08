@@ -18,6 +18,7 @@ def test_managed_install_publishes_pointer_only_after_version_cuda_probe(
         calls.append(tuple(map(str, arguments)))
         if "-c" in arguments:
             return json.dumps({"newton": "1.4.0", "warp": "1.15.0",
+                               "pytetwild": "0.3.0",
                                "cuda": "RTX Test"}) + "\n"
         return ""
 
@@ -27,10 +28,12 @@ def test_managed_install_publishes_pointer_only_after_version_cuda_probe(
     assert result == paths.python
     assert any("newton==1.4.0" in call for call in calls)
     assert any("warp-lang==1.15.0" in call for call in calls)
+    assert any("pytetwild==0.3.0" in call for call in calls)
     assert install.read_current(paths) == paths.python.resolve()
     metadata = json.loads(paths.current_json.read_text(encoding="utf-8"))
     assert metadata["codename"] == "Principia"
     assert metadata["cuda_device"] == "RTX Test"
+    assert metadata["pytetwild_version"] == "0.3.0"
 
 
 def test_failed_probe_never_publishes_current_environment(tmp_path, monkeypatch):

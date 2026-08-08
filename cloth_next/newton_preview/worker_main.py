@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ from pathlib import Path
 import sys
 import time
 import traceback
+import types
 
 from .contracts import (BackendCapabilities, NEWTON_VERSION, PROTOCOL_VERSION,
                         PreviewCreateRequest, WARP_VERSION)
@@ -20,6 +22,104 @@ from .request_artifact import read_request_artifact
 
 _PROCESS_STARTED = time.perf_counter()
 _ENVIRONMENT_METRICS = {}
+
+
+def _tetrahedralize(np, vertices, triangles, edge_length_factor):
+    """Run the array-only fTetWild API without pulling PyVista/VTK into Newton."""
+    if "pyvista" not in sys.modules:
+        sys.modules["pyvista"] = types.ModuleType("pyvista")
+    import pytetwild
+    points, tetrahedra = pytetwild.tetrahedralize(
+        np.asarray(vertices, dtype=np.float64),
+        np.asarray(triangles, dtype=np.int32),
+        edge_length_fac=float(edge_length_factor), optimize=False,
+        simplify=False, quiet=True)
+    points = np.asarray(points, dtype=np.float64)
+    tetrahedra = np.asarray(tetrahedra, dtype=np.int32)
+    if (points.ndim != 2 or points.shape[1] != 3 or tetrahedra.ndim != 2
+            or tetrahedra.shape[1] != 4 or not len(tetrahedra)
+            or not np.isfinite(points).all()):
+        raise RuntimeError("fTetWild did not produce a valid tetrahedral volume")
+    a, b, c, d = (points[tetrahedra[:, index]] for index in range(4))
+    signed_six_volume = np.einsum(
+        "ij,ij->i", np.cross(b - a, c - a), d - a)
+    inverted = signed_six_volume < 0.0
+    tetrahedra[inverted, 0], tetrahedra[inverted, 1] = (
+        tetrahedra[inverted, 1].copy(), tetrahedra[inverted, 0].copy())
+    if np.any(np.abs(signed_six_volume) <= 1.0e-15):
+        raise RuntimeError("fTetWild produced a degenerate tetrahedral element")
+    return points, tetrahedra
+
+
+@contextmanager
+def _silence_native_stdout():
+    """Keep native-library diagnostics out of the framed stdout protocol."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    try:
+        with open(os.devnull, "w", encoding="utf-8") as sink:
+            os.dup2(sink.fileno(), 1)
+            yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
+@contextmanager
+def _working_directory(path: Path):
+    """Contain fTetWild's diagnostic side files inside the owned session."""
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
+
+
+def _tet_barycentric_map(np, source_vertices, volume_vertices, tetrahedra):
+    """Map original surface points into nearby tetrahedra exactly at rest."""
+    source = np.asarray(source_vertices, dtype=np.float64)
+    volume = np.asarray(volume_vertices, dtype=np.float64)
+    tetrahedra = np.asarray(tetrahedra, dtype=np.int64)
+    centroids = volume[tetrahedra].mean(axis=1)
+    mapped_indices = np.empty((len(source), 4), dtype=np.int64)
+    mapped_weights = np.empty((len(source), 4), dtype=np.float64)
+    candidate_count = min(16, len(tetrahedra))
+    for point_index, point in enumerate(source):
+        distances = ((centroids - point) ** 2).sum(axis=1)
+        candidates = np.argpartition(distances, candidate_count - 1)[:candidate_count]
+        best = None
+        for tet_index in candidates:
+            indices = tetrahedra[tet_index]
+            tet = volume[indices]
+            matrix = (tet[1:] - tet[0]).T
+            try:
+                tail = np.linalg.solve(matrix, point - tet[0])
+            except np.linalg.LinAlgError:
+                continue
+            weights = np.asarray((1.0 - tail.sum(), *tail), dtype=np.float64)
+            score = float(np.maximum(-weights, 0.0).sum())
+            if best is None or score < best[0]:
+                best = (score, indices, weights)
+                if score <= 1.0e-8:
+                    break
+        if best is None:
+            raise RuntimeError("Could not map a Soft Body surface vertex into the Tet mesh")
+        mapped_indices[point_index] = best[1]
+        mapped_weights[point_index] = best[2]
+    return mapped_indices, mapped_weights
+
+
+def _transform_points(np, points, transform):
+    """Apply Newton's (translation xyz, quaternion xyzw) body transform."""
+    translation = np.asarray(transform[:3], dtype=np.float64)
+    quaternion = np.asarray(transform[3:7], dtype=np.float64)
+    vector = quaternion[:3]
+    scalar = quaternion[3]
+    rotated = (points + 2.0 * np.cross(
+        vector, np.cross(vector, points) + scalar * points))
+    return rotated + translation
 
 
 class WorkerSession:
@@ -63,6 +163,8 @@ class WorkerSession:
         if request.solver == "STYLE3D":
             newton.solvers.SolverStyle3D.register_custom_attributes(builder)
         self.cloth_slices = []
+        self.output_particle_maps = []
+        self.rigid_outputs = []
         particle_offset = 0
         for cloth_index, cloth in enumerate(request.cloths):
             material = cloth.material
@@ -106,11 +208,64 @@ class WorkerSession:
             count = len(cloth.mesh.vertices)
             self.cloth_slices.append((cloth.identifier, particle_offset,
                                       particle_offset + count))
+            self.output_particle_maps.append(
+                (np.arange(particle_offset, particle_offset + count,
+                           dtype=np.int64), None))
             particle_offset += count
 
+        tetra_started = time.perf_counter()
+        for soft_body in request.soft_bodies:
+            with _working_directory(self.result_dir):
+                tet_vertices, tet_indices = _tetrahedralize(
+                    np, soft_body.mesh.vertices, soft_body.mesh.triangles,
+                    soft_body.edge_length_factor)
+            surface_indices, surface_weights = _tet_barycentric_map(
+                np, soft_body.mesh.vertices, tet_vertices, tet_indices)
+            surface_indices += particle_offset
+            poisson = soft_body.poisson_ratio
+            shear = soft_body.young_modulus / (2.0 * (1.0 + poisson))
+            lame = (soft_body.young_modulus * poisson
+                    / ((1.0 + poisson) * (1.0 - 2.0 * poisson)))
+            builder.add_soft_mesh(
+                pos=wp.vec3(0.0, 0.0, 0.0), rot=wp.quat_identity(),
+                scale=1.0, vel=wp.vec3(0.0, 0.0, 0.0),
+                mesh=newton.TetMesh(tet_vertices, tet_indices),
+                density=soft_body.volume_density, k_mu=shear, k_lambda=lame,
+                k_damp=soft_body.damping,
+                particle_radius=soft_body.particle_radius,
+                validate_mesh=True,
+                label=f"Cloth NeXt Soft Body {soft_body.identifier}")
+            self.output_particle_maps.append((surface_indices, surface_weights))
+            particle_offset += len(tet_vertices)
+        self.newton_tetrahedralize_seconds = time.perf_counter() - tetra_started
+
+        for rigid_body in request.rigid_bodies:
+            cfg = newton.ModelBuilder.ShapeConfig()
+            cfg.density = rigid_body.volume_density
+            cfg.mu = rigid_body.friction
+            cfg.margin = rigid_body.collision_margin
+            body_index = builder.add_body(
+                xform=wp.transform_identity(),
+                label=f"Cloth NeXt Rigid Body {rigid_body.identifier}")
+            mesh = newton.Mesh(
+                rigid_body.mesh.vertices,
+                [index for tri in rigid_body.mesh.triangles for index in tri],
+                compute_inertia=True, is_solid=True)
+            builder.add_shape_mesh(body_index, mesh=mesh, cfg=cfg)
+            self.rigid_outputs.append((
+                body_index, np.asarray(rigid_body.mesh.vertices, dtype=np.float64)))
+
         materials = tuple(cloth.material for cloth in request.cloths)
+        frictions = ([material.friction for material in materials]
+                     + [item.friction for item in request.soft_bodies]
+                     + [item.friction for item in request.rigid_bodies])
+        radii = ([material.particle_radius for material in materials]
+                 + [item.particle_radius for item in request.soft_bodies])
+        margins = ([material.collision_margin for material in materials]
+                   + [item.collision_margin for item in request.soft_bodies]
+                   + [item.collision_margin for item in request.rigid_bodies])
         shape_cfg = newton.ModelBuilder.ShapeConfig()
-        shape_cfg.mu = max(material.friction for material in materials)
+        shape_cfg.mu = max(frictions, default=0.5)
         collider_started = time.perf_counter()
         self.collider_sources = []
         for collider in request.colliders:
@@ -127,9 +282,9 @@ class WorkerSession:
         build_started = time.perf_counter()
         self.model = builder.finalize(device=device)
         self.model.set_gravity(request.gravity)
-        self.model.soft_contact_mu = max(material.friction for material in materials)
-        self.model.soft_contact_radius = max(material.particle_radius for material in materials)
-        self.model.soft_contact_margin = max(material.collision_margin for material in materials)
+        self.model.soft_contact_mu = max(frictions, default=0.5)
+        self.model.soft_contact_radius = max(radii, default=0.01)
+        self.model.soft_contact_margin = max(margins, default=0.001)
 
         flags = self.model.particle_flags.numpy()
         for cloth, (_identifier, start, _end) in zip(
@@ -141,7 +296,7 @@ class WorkerSession:
 
         self.pipeline = newton.CollisionPipeline(
             self.model, soft_contact_margin=max(
-                material.collision_margin for material in materials))
+                margins, default=0.001))
         self.contacts = self.pipeline.contacts()
         if request.solver == "STYLE3D":
             self.solver = newton.solvers.SolverStyle3D(
@@ -152,9 +307,9 @@ class WorkerSession:
                 self.model, iterations=request.quality.iterations,
                 particle_enable_self_contact=request.quality.self_collision,
                 particle_self_contact_radius=max(
-                    material.particle_radius for material in materials),
+                    radii, default=0.01),
                 particle_self_contact_margin=max(
-                    material.collision_margin for material in materials),
+                    margins, default=0.001),
                 deterministic=wp.DeterministicMode.RUN_TO_RUN)
         self.state_in = self.model.state()
         self.state_out = self.model.state()
@@ -166,15 +321,27 @@ class WorkerSession:
         self.initial_result = self.publish_result(self.current_frame)
 
     def _snapshot(self):
-        return (self.state_in.particle_q.numpy().copy(),
-                self.state_in.particle_qd.numpy().copy())
+        particle_q = self.state_in.particle_q
+        particle_qd = self.state_in.particle_qd
+        body_q = self.state_in.body_q
+        body_qd = self.state_in.body_qd
+        return (particle_q.numpy().copy() if particle_q is not None else None,
+                particle_qd.numpy().copy() if particle_qd is not None else None,
+                body_q.numpy().copy() if body_q is not None else None,
+                body_qd.numpy().copy() if body_qd is not None else None)
 
     def _restore(self, snapshot) -> None:
-        positions, velocities = snapshot
-        self.state_in.particle_q.assign(positions)
-        self.state_in.particle_qd.assign(velocities)
-        self.state_out.particle_q.assign(positions)
-        self.state_out.particle_qd.assign(velocities)
+        positions, velocities, body_transforms, body_velocities = snapshot
+        if positions is not None:
+            self.state_in.particle_q.assign(positions)
+            self.state_in.particle_qd.assign(velocities)
+            self.state_out.particle_q.assign(positions)
+            self.state_out.particle_qd.assign(velocities)
+        if body_transforms is not None:
+            self.state_in.body_q.assign(body_transforms)
+            self.state_in.body_qd.assign(body_velocities)
+            self.state_out.body_q.assign(body_transforms)
+            self.state_out.body_qd.assign(body_velocities)
 
     def _simulate_frame(self) -> None:
         dt = (self.request.time_scale / self.request.fps
@@ -194,8 +361,9 @@ class WorkerSession:
             self.solver.step(self.state_in, self.state_out, self.control,
                              self.contacts, dt)
             self.state_in, self.state_out = self.state_out, self.state_in
-        positions = self.state_in.particle_q.numpy()
-        if not self.np.isfinite(positions).all():
+        positions = (self.state_in.particle_q.numpy()
+                     if self.state_in.particle_q is not None else None)
+        if positions is not None and not self.np.isfinite(positions).all():
             raise RuntimeError("Newton produced non-finite cloth positions")
         self.current_frame += 1
         elapsed = time.perf_counter() - started
@@ -285,7 +453,19 @@ class WorkerSession:
         return self.publish_result(self.current_frame)
 
     def publish_result(self, frame: int) -> dict:
-        positions = self.np.asarray(self.state_in.particle_q.numpy(), dtype="<f4")
+        particle_positions = (self.np.asarray(
+            self.state_in.particle_q.numpy(), dtype=self.np.float64)
+            if self.state_in.particle_q is not None else None)
+        outputs = ([(particle_positions[index_map] if weights is None else
+                     (particle_positions[index_map] * weights[:, :, None]).sum(axis=1))
+                    for index_map, weights in self.output_particle_maps]
+                   if particle_positions is not None else [])
+        body_q = (self.np.asarray(self.state_in.body_q.numpy(), dtype=self.np.float64)
+                  if self.state_in.body_q is not None else None)
+        for body_index, rest_vertices in self.rigid_outputs:
+            outputs.append(_transform_points(self.np, rest_vertices, body_q[body_index]))
+        positions = self.np.asarray(
+            self.np.concatenate(outputs, axis=0), dtype="<f4")
         temporary = self.result_dir / f"frame_{frame}.npy.tmp"
         artifact = self.result_dir / f"frame_{frame}.npy"
         with temporary.open("wb") as stream:
@@ -305,7 +485,9 @@ class WorkerSession:
     def status(self) -> dict:
         average = (sum(self.frame_times) / len(self.frame_times)
                    if self.frame_times else None)
-        snapshot_bytes = sum(q.nbytes + qd.nbytes for q, qd in self.snapshot_store._items.values())
+        snapshot_bytes = sum(sum(array.nbytes for array in snapshot
+                                 if array is not None)
+                             for snapshot in self.snapshot_store._items.values())
         return {
             "event": "status", "session_id": self.request.session_id,
             "scene_identity": self.request.scene_identity,
@@ -319,6 +501,7 @@ class WorkerSession:
             "newton_cuda_init_seconds": self.newton_cuda_init_seconds,
             "newton_model_build_seconds": self.model_build_seconds,
             "newton_collider_build_seconds": self.newton_collider_build_seconds,
+            "newton_tetrahedralize_seconds": self.newton_tetrahedralize_seconds,
             "newton_first_frame_seconds": self.first_frame_seconds,
             "newton_average_frame_seconds": average,
             "newton_last_frame_seconds": self.last_frame_seconds,
@@ -404,14 +587,17 @@ def run() -> int:
                 else:
                     wire = message["request"]
                 request = PreviewCreateRequest.from_wire(wire)
-                session = WorkerSession(request)
+                with _silence_native_stdout():
+                    session = WorkerSession(request)
                 _emit({**session.status(), "event": "created"})
                 _emit(session.initial_result)
             elif command == "update_target_frame":
                 if session is None:
                     raise RuntimeError("no Newton preview session exists")
                 session.paused = False
-                _emit(session.advance_to(int(message["frame"])))
+                with _silence_native_stdout():
+                    result = session.advance_to(int(message["frame"]))
+                _emit(result)
                 _emit(session.status())
             elif command == "pause":
                 if session is not None:

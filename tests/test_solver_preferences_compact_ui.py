@@ -268,7 +268,7 @@ def test_newton_principia_preferences_section_is_compact_and_installable(
     labels = [text for text, _icon in layout.labels]
     assert "Newton · Principia" in labels
     assert "Not Installed" in labels
-    assert "Experimental Live Preview · Newton 1.4.0 · Warp 1.15.0" in labels
+    assert "Bake Solver · Newton 1.4.0 · Warp 1.15.0" in labels
     assert any(idname == "clothnext.newton_install" and text == "Install Newton"
                for idname, text, _operator, enabled in layout.operators
                if enabled)

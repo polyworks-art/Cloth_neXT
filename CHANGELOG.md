@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.2.15 — 2026-08-08 (Dev channel)
+
+### Added
+
+- Newton is a first-class selectable backend in the normal offline Bake
+  workflow: select Solver, select Quality, Bake, follow the common Bake window,
+  and receive an attached PC2 cache.
+- Newton VBD now supports mixed Cloth, Soft Body, and Rigid Body scenes together
+  with static, animated, and deforming stable-topology Colliders.
+- Soft Body surfaces are tetrahedralized in the isolated Newton environment by
+  pinned `pytetwild`/fTetWild 0.3.0 and mapped back to the original Blender
+  surface for cache playback.
+
+### Changed
+
+- Low, Medium, High, Extreme, and Custom quality resolve to Newton-native VBD
+  substeps and iterations rather than reusing PPF parameters.
+- Live Preview is no longer exposed or registered; Newton uses only the normal
+  production Bake lifecycle.
+
+### Fixed and validated
+
+- Native Newton/fTetWild diagnostics are isolated from the framed worker
+  protocol, preventing Soft Body Bake startup from hanging.
+- fTetWild tetrahedron orientation is normalized for Newton before model build.
+- Real Newton 1.4.0 / Warp 1.15.0 CUDA tests cover Cloth pins and sag,
+  self-collision, static collision, deforming Collider sampling, animated pins,
+  and a coupled Cloth/Soft Body/Rigid Body scene.
+
 ## 2.2.14 — 2026-08-02 (Dev channel)
 
 ### Fixed

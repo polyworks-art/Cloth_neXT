@@ -12,9 +12,10 @@ import subprocess
 import threading
 import time
 
-from .contracts import NEWTON_VERSION, WARP_VERSION
+from .contracts import NEWTON_VERSION, PYTETWILD_VERSION, WARP_VERSION
 
-RELEASE_ID = f"newton-{NEWTON_VERSION}-warp-{WARP_VERSION}"
+RELEASE_ID = (f"newton-{NEWTON_VERSION}-warp-{WARP_VERSION}"
+              f"-pytetwild-{PYTETWILD_VERSION}")
 CODENAME = "Principia"
 
 
@@ -127,25 +128,30 @@ def install(*, cancel_event: threading.Event, process_callback=lambda _p: None,
     _run_owned([
         str(paths.python), "-m", "pip", "install",
         "--disable-pip-version-check", "--no-input",
-        f"newton=={NEWTON_VERSION}", f"warp-lang=={WARP_VERSION}"],
+        f"newton=={NEWTON_VERSION}", f"warp-lang=={WARP_VERSION}",
+        f"pytetwild=={PYTETWILD_VERSION}"],
         timeout=900.0, cancel_event=cancel_event,
         process_callback=process_callback)
     status_callback("Verifying Newton and CUDA")
     probe = (
-        "import json,newton,warp as wp; wp.config.log_level=wp.LOG_WARNING; wp.init(); "
+        "import json,sys,types; sys.modules['pyvista']=types.ModuleType('pyvista'); "
+        "import newton,pytetwild,warp as wp; wp.config.log_level=wp.LOG_WARNING; wp.init(); "
         "d=next((d for d in wp.get_devices() if d.is_cuda),None); "
         "print(json.dumps({'newton':newton.__version__,'warp':wp.__version__,"
-        "'cuda':d.name if d else None}))")
+        "'pytetwild':pytetwild.__version__,'cuda':d.name if d else None}))")
     output = _run_owned([str(paths.python), "-c", probe], timeout=120.0,
                         cancel_event=cancel_event,
                         process_callback=process_callback)
     value = json.loads(output.strip().splitlines()[-1])
     if (value.get("newton") != NEWTON_VERSION
-            or value.get("warp") != WARP_VERSION or not value.get("cuda")):
+            or value.get("warp") != WARP_VERSION
+            or value.get("pytetwild") != PYTETWILD_VERSION
+            or not value.get("cuda")):
         raise RuntimeError("Installed Newton environment failed version or CUDA verification")
     _atomic_json(paths.current_json, {
         "schema": 1, "release_id": RELEASE_ID, "codename": CODENAME,
         "newton_version": NEWTON_VERSION, "warp_version": WARP_VERSION,
+        "pytetwild_version": PYTETWILD_VERSION,
         "python": str(paths.python.resolve()), "cuda_device": value["cuda"],
     })
     status_callback("Ready")

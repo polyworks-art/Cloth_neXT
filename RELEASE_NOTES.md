@@ -1,53 +1,33 @@
-# Cloth NeXt 2.2.0 Beta
+# Cloth NeXt 2.2.15 Dev
 
-Cloth NeXt 2.2.0 brings the latest development line to the Beta channel with a
-major focus on animated-character workflows, preparation speed, recovery, pin
-control, and a cleaner artist-facing interface.
+Cloth NeXt 2.2.15 introduces Newton Physics as a selectable backend for the
+existing offline Bake workflow. Live Preview is not part of this release.
 
-## Animated character simulation
+## Newton Bake workflow
 
-- Corrected the Protocol 0.13 / Schema 2 animation timebase so dense animated
-  Collider samples improve motion fidelity without becoming additional logical
-  solver frames or stretching the simulation duration.
-- Added verified support for the current Protocol 0.13 solver alongside the
-  existing Protocol 0.11 release, including side-by-side managed and external
-  installations with an explicit active-solver selector.
-- Added animation-aware Character Collision Cage proxies for conservative
-  per-bone character collision setups.
-- Improved animated Collider and Pin preparation through reusable evaluated
-  data, cache identities, and reduced repeated Blender dependency-graph work.
+- Select **PPF** or **Newton** as the scene solver.
+- Select Low, Medium, High, Extreme, or Custom quality.
+- Start Bake through the usual action.
+- The normal Bake window reports startup, simulation, frame progress, cache
+  writing, and import.
+- Completed PC2 caches are attached to their original Blender objects.
 
-## Pins and materials
+## Supported Newton object types
 
-- Added configurable Hard and Soft Pin constraints, including yielding pin
-  behavior and animated targets synchronized with Collider sampling.
-- Expanded the bundled material library to 75 categorized presets, combining
-  scientific references with practical product-oriented starting points.
+- Cloth, including static and Follow Animation pins.
+- Soft Body, tetrahedralized through pinned pytetwild/fTetWild 0.3.0.
+- Rigid Body using Newton's native body and mesh-shape representation.
+- Static, animated, and deforming Colliders with stable topology.
+- Mixed Cloth, Soft Body, Rigid Body, and Collider scenes in one VBD solve.
 
-## Bake, recovery, and diagnostics
+Pressure, Sewing, Rods, non-gravity Force objects, Soft Body pinning, Soft Body
+rest-volume scaling, and Newton recovery checkpoints remain unavailable and
+fail closed instead of being silently ignored.
 
-- Recovery data is preserved after unexpected solver exits when a valid
-  authenticated checkpoint remains available.
-- Recovery identity now includes the exact selected solver installation and
-  official release, preventing incompatible checkpoint reuse.
-- Added an estimated fill indicator for the solver's current frame alongside
-  the existing progress and performance statistics.
-- Hardened solver ownership, shutdown, worker diagnostics, cache identity, and
-  scene lifecycle handling across Blender reload, cancellation, and failure
-  paths.
+## Runtime and distribution
 
-## Interface and workflow
+Newton 1.4.0, Warp 1.15.0, and pytetwild 0.3.0 are installed only after explicit
+confirmation into an isolated CPython 3.11 environment outside Blender. They
+are not bundled in the extension archive. PPF remains external and unchanged.
 
-- Reworked Physics Properties into role-specific workflows for Cloth, Cable /
-  Rope, Soft Body, Rigid Body, Collider, and Force objects.
-- Grouped controls into clearer Setup, Simulation, Material, Shape, Collision,
-  and Advanced sections with role-appropriate icons and descriptions.
-- Improved Collider proxy, update, solver-selection, validation, and recovery
-  feedback while keeping detailed Bake telemetry in the dedicated Bake window.
-
-## Distribution
-
-- Release tag: `2.2.0` — no leading `v`.
-- Channel: **Beta**; the verified package is published to Beta and Dev only.
-- The PPF Contact Solver remains separate and is downloaded only from its
-  manifest-pinned official upstream release after explicit confirmation.
+This is Dev version `2.2.15` and is eligible only for the Dev channel.

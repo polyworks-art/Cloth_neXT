@@ -722,10 +722,10 @@ _ACTION_OPERATORS = {
 
 
 class CLOTHNEXT_OT_newton_install(bpy.types.Operator):
-    """Install the pinned Newton environment outside Blender"""
+    """Install the pinned Newton Bake environment outside Blender"""
     bl_idname = "clothnext.newton_install"
     bl_label = "Install Newton · Principia"
-    bl_description = "Install the verified experimental Newton Live Preview backend"
+    bl_description = "Install the verified Newton Bake backend"
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -879,7 +879,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         title.label(text="Newton · Principia")
         title.label(text="Ready" if installed else "Not Installed",
                     icon="CHECKMARK" if installed else "INFO")
-        box.label(text="Experimental Live Preview · Newton 1.4.0 · Warp 1.15.0")
+        box.label(text="Bake Solver · Newton 1.4.0 · Warp 1.15.0")
         if installed:
             box.label(text=label)
         elif _newton_session.active:

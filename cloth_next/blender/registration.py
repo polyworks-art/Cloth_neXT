@@ -20,7 +20,7 @@ import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, hud, icon_registry,
-               newton_bake, newton_preview, object_properties, physics_operators, physics_ui,
+               newton_bake, object_properties, physics_operators, physics_ui,
                pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                validation_state)
@@ -36,6 +36,7 @@ _CLASSES = (
     + beta_tools.CLASSES
     + test_scene.CLASSES
     + solver_test.CLASSES
+    + newton_bake.CLASSES
     + physics_ui.CLASSES
     + pin_constraints.CLASSES
 )
@@ -56,7 +57,6 @@ def _steps() -> list[tuple]:
     )
     steps.append((object_properties.attach_to_object,
                   object_properties.detach_from_object))
-    steps.append((newton_preview.install, newton_preview.uninstall))
     steps.append((pin_constraints.install_runtime_hooks,
                   pin_constraints.uninstall_runtime_hooks))
     # Existing files can already contain an enabled PDRD object before 2.1.3 is
@@ -104,7 +104,6 @@ def unregister() -> None:
     # (never an external server), and joins the worker thread.
     solver_test.shutdown()
     newton_bake.shutdown()
-    newton_preview.stop(wait=True)
     preferences.shutdown()
     addon_update_operators.shutdown()
     bake_preview.stop()

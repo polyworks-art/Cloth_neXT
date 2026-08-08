@@ -275,6 +275,9 @@ class _ApplySolverQualityPresetMixin:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
         _write_solver_quality(context.scene, values)
+        solver = getattr(context.scene, "cloth_next_solver", None)
+        if solver is not None:
+            solver.quality_preset = identifier.upper()
         if has_pdrd:
             self.report(
                 {"INFO"},

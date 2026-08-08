@@ -48,17 +48,174 @@ def test_backend_capabilities_advertise_multi_cloth_and_animated_colliders():
     assert capabilities.pressure is False
 
 
-def test_solver_selector_uses_product_names_without_changing_saved_ids(
+def test_solver_selector_uses_backend_names_without_changing_saved_ids(
         blender_env):
     props = fake_bpy._resolved_props(
-        blender_env.object_properties.CLOTHNEXT_PG_newton_preview_settings)
-    selector = props["bake_backend"]
+        blender_env.object_properties.CLOTHNEXT_PG_solver_backend_settings)
+    selector = props["backend"]
     assert selector.keywords["name"] == "Solver"
     assert selector.keywords["default"] == "PPF"
     assert [(item[0], item[1]) for item in selector.keywords["items"]] == [
-        ("PPF", "Production (Lunelle)"),
-        ("NEWTON", "Preview (Principia)"),
+        ("PPF", "PPF"),
+        ("NEWTON", "Newton"),
     ]
+
+
+def _newton_quality(blender_env, preset="HIGH", **updates):
+    from cloth_next.blender import newton_bake
+    values = dict(time_step=0.001, min_newton_steps=1,
+                  cg_max_iter=10000, cg_tol=0.001)
+    values.update(updates)
+    scene = SimpleNamespace(
+        render=SimpleNamespace(fps=24, fps_base=1.0),
+        cloth_next_quality=SimpleNamespace(**values),
+        cloth_next_solver=SimpleNamespace(
+            quality_preset=preset,
+            newton_substeps=updates.get("newton_substeps", 7),
+            newton_iterations=updates.get("newton_iterations", 11)))
+    cloth = SimpleNamespace(cloth_next=SimpleNamespace(
+        collision=SimpleNamespace(enabled=True)))
+    return newton_bake._bake_quality(scene, (cloth,))
+
+
+def test_newton_quality_uses_backend_native_presets_not_ppf_raw_controls(
+        blender_env):
+    low = _newton_quality(blender_env, "LOW")
+    high = _newton_quality(blender_env, "HIGH")
+    extreme = _newton_quality(blender_env, "EXTREME")
+    changed_ppf = _newton_quality(
+        blender_env, "HIGH", time_step=0.0005, min_newton_steps=64,
+        cg_max_iter=100000, cg_tol=0.00001)
+    custom = _newton_quality(
+        blender_env, "CUSTOM", newton_substeps=7, newton_iterations=11)
+
+    assert (low.substeps, low.iterations) == (2, 4)
+    assert (high.substeps, high.iterations) == (8, 12)
+    assert (extreme.substeps, extreme.iterations) == (16, 20)
+    assert (changed_ppf.substeps, changed_ppf.iterations) == (8, 12)
+    assert (custom.substeps, custom.iterations) == (7, 11)
+
+
+def test_newton_quality_request_round_trip_keeps_native_values(blender_env):
+    quality = _newton_quality(
+        blender_env, "CUSTOM", newton_substeps=7, newton_iterations=11)
+    decoded = contracts.PreviewCreateRequest.from_wire(
+        _request(quality=quality).to_wire())
+    assert decoded.quality == quality
+
+
+def test_newton_bake_waits_for_regular_bake_window_before_worker_start(
+        blender_env, monkeypatch):
+    from cloth_next.bake.status import BakeState
+    from cloth_next.blender import newton_bake
+    shared_controller = newton_bake.shared_controller
+
+    shared_controller.reset()
+    request = SimpleNamespace(frame_start=3, frame_end=9)
+    session = newton_bake._BakeSession(
+        request=request,
+        targets=(SimpleNamespace(source_name="Cloth"),),
+        cancel_event=__import__("threading").Event(),
+        messages=__import__("queue").Queue())
+    window_requests = []
+    monkeypatch.setattr(newton_bake.newton_preview,
+                        "newton_installation_status",
+                        lambda: (True, "Ready", Path("python")))
+    monkeypatch.setattr(newton_bake, "_capture", lambda _context: session)
+    monkeypatch.setattr(
+        newton_bake.companion_manager, "begin_bake_mode",
+        lambda value: window_requests.append(value) or (True, "started"))
+
+    class Worker:
+        def __init__(self, **_kwargs):
+            self.started = False
+
+        def start(self):
+            self.started = True
+
+    monkeypatch.setattr(newton_bake.threading, "Thread", Worker)
+    modal_handlers = []
+    acquired_locks = []
+    monkeypatch.setattr(
+        newton_bake.modal_lock, "acquire",
+        lambda job_id, *, companion_ready_job_id:
+            acquired_locks.append((job_id, companion_ready_job_id)) or True)
+
+    def invoke_modal(_mode, *, job_id):
+        operator = newton_bake.CLOTHNEXT_OT_newton_bake_modal()
+        operator.job_id = job_id
+        manager = SimpleNamespace(
+            event_timer_add=lambda *_args, **_kwargs: object(),
+            modal_handler_add=lambda value: modal_handlers.append(value))
+        return operator.invoke(
+            SimpleNamespace(window_manager=manager, window=None), None)
+
+    monkeypatch.setattr(blender_env.bpy.ops.clothnext, "newton_bake_modal",
+                        invoke_modal, raising=False)
+    context = SimpleNamespace(scene=SimpleNamespace())
+    job, waiting = newton_bake.begin(context)
+
+    assert waiting is True
+    assert session.worker is None
+    assert shared_controller.snapshot().state is BakeState.WAITING_FOR_COMPANION
+    assert window_requests[0].job_id == job
+    assert (window_requests[0].frame_start,
+            window_requests[0].frame_end) == (3, 9)
+
+    monkeypatch.setattr(newton_bake.companion_manager, "startup_status",
+                        lambda _job: ("READY", "Bake window ready"))
+    monkeypatch.setattr(newton_bake.companion_manager, "consume_ready",
+                        lambda _job: True)
+    assert newton_bake._startup_pump() is None
+    assert session.worker.started is True
+    assert shared_controller.snapshot().state is BakeState.EXPORTING
+    assert modal_handlers
+    assert len(acquired_locks) == 1
+    assert acquired_locks[0][0] == acquired_locks[0][1]
+
+    if blender_env.bpy.app.timers.is_registered(newton_bake._pump):
+        blender_env.bpy.app.timers.unregister(newton_bake._pump)
+    if blender_env.bpy.app.timers.is_registered(newton_bake._startup_pump):
+        blender_env.bpy.app.timers.unregister(newton_bake._startup_pump)
+    newton_bake._session = None
+    shared_controller.fail("test cleanup")
+    shared_controller.reset()
+
+
+def test_newton_bake_publishes_progress_and_imports_cache(blender_env,
+                                                          monkeypatch):
+    from cloth_next.bake.status import BakeState
+    from cloth_next.blender import newton_bake, solver_test
+    shared_controller = newton_bake.shared_controller
+
+    shared_controller.reset()
+    shared_controller.transition(BakeState.PREPARING, job_id="newton-window")
+    shared_controller.transition(BakeState.STARTING_RUN)
+    shared_controller.transition(BakeState.EXPORTING)
+    request = SimpleNamespace(frame_start=3, frame_end=4)
+    target = SimpleNamespace(source_name="Cloth")
+    messages = __import__("queue").Queue()
+    messages.put(("status", BakeState.STARTING_SOLVER, "Starting Newton"))
+    messages.put(("progress", 1, 3, 2))
+    header = object()
+    messages.put(("finished", (header,)))
+    newton_bake._session = newton_bake._BakeSession(
+        request=request, targets=(target,),
+        cancel_event=__import__("threading").Event(), messages=messages)
+    attached = []
+    monkeypatch.setattr(newton_bake, "_playback_plan",
+                        lambda _session, _target: "plan")
+    monkeypatch.setattr(solver_test, "_attach_playback",
+                        lambda plan, result: attached.append((plan, result)))
+
+    assert newton_bake._pump() is None
+    snapshot = shared_controller.snapshot()
+    assert snapshot.state is BakeState.FINISHED
+    assert snapshot.progress_current == 2
+    assert snapshot.current_frame == 4
+    assert attached == [("plan", header)]
+    assert newton_bake._session is None
+    shared_controller.reset()
 
 
 def test_request_round_trip_has_stable_scene_identity():
@@ -459,3 +616,33 @@ def test_mesh_capture_key_invalidates_geometry_topology_uuid_and_armature_pose(
     bone.matrix = ((1, 0, 0, 0.25), (0, 1, 0, 0),
                    (0, 0, 1, 0), (0, 0, 0, 1))
     assert newton_preview._mesh_capture_key(obj) != baseline
+
+
+def test_newton_contract_accepts_softbody_only_scene(tmp_path):
+    mesh = contracts.PreviewMesh(
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 2, 1), (0, 1, 3), (1, 2, 3), (2, 0, 3)))
+    soft = contracts.PreviewSoftBody(
+        "soft", mesh, 100.0, 500.0, 0.35, 0.1, 0.5, 0.001, 0.001)
+    request = contracts.PreviewCreateRequest(
+        "session", "scene", None, (), (), None,
+        contracts.PreviewQuality(), 1, 2, 24.0, 1.0,
+        (0.0, 0.0, -9.81), str(tmp_path), soft_bodies=(soft,))
+    request.validate()
+    restored = contracts.PreviewCreateRequest.from_wire(request.to_wire())
+    assert restored.soft_bodies == (soft,)
+    assert restored.total_cloth_vertices == len(mesh.vertices)
+
+
+def test_newton_contract_accepts_rigidbody_only_scene(tmp_path):
+    mesh = contracts.PreviewMesh(
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 2, 1), (0, 1, 3), (1, 2, 3), (2, 0, 3)))
+    rigid = contracts.PreviewRigidBody("rigid", mesh, 100.0, 0.5, 0.001)
+    request = contracts.PreviewCreateRequest(
+        "session", "scene", None, (), (), None,
+        contracts.PreviewQuality(), 1, 2, 24.0, 1.0,
+        (0.0, 0.0, -9.81), str(tmp_path), rigid_bodies=(rigid,))
+    request.validate()
+    assert contracts.PreviewCreateRequest.from_wire(
+        request.to_wire()).rigid_bodies == (rigid,)

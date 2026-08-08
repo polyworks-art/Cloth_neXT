@@ -1,12 +1,12 @@
 # Audit limitations and unsupported claims
 
-- Newton Live Preview is experimental and supports multiple triangle Cloth
-  objects plus static or animated/deforming triangle colliders with stable
-  topology, static or Follow Animation hard pins and gravity. It rejects
-  mismatched Cloth Bake ranges, pressure, sewing, Edit Mode and topology-changing
-  modifiers. Its material translation
-  does not claim physical parity with PPF. Newton preview recovery and restart
-  persistence are not implemented. See `NEWTON_LIVE_PREVIEW.md`.
+- Newton has no Live Preview. Its normal offline Bake supports mixed Cloth,
+  fTetWild-tetrahedralized Soft Body and Rigid Body objects plus static or
+  animated/deforming triangle colliders with stable topology, static or Follow
+  Animation Cloth pins and gravity. It rejects mismatched Bake ranges, pressure,
+  sewing and topology-changing animation. Material translations do not claim
+  physical parity with PPF. Newton recovery and restart persistence are not
+  implemented. See `NEWTON_LIVE_PREVIEW.md`.
 
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 

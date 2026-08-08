@@ -517,39 +517,35 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         description="PPF isotropic-air-friction coefficient applied per vertex")
 
 
-def _on_newton_preview_toggle(self, context) -> None:
-    # Lazy import avoids coupling pure property registration to runtime/process
-    # code and keeps add-on registration side-effect free.
-    from . import newton_preview
-    newton_preview.request_toggle(context, bool(self.enabled))
-
-
 class CLOTHNEXT_PG_newton_preview_settings(bpy.types.PropertyGroup):
+    """Legacy backend storage retained solely for safe .blend migration."""
     bake_backend: bpy.props.EnumProperty(
-        name="Solver", default="PPF",
-        items=(("PPF", "Production (Lunelle)",
-                "Production solver with Recovery support"),
-               ("NEWTON", "Preview (Principia)",
-                "Experimental external Newton Bake; Recovery is not available")))
-    enabled: bpy.props.BoolProperty(
-        name="Live Preview", default=False, update=_on_newton_preview_toggle,
-        description="Run an experimental Newton cloth preview while playing or scrubbing")
-    status: bpy.props.StringProperty(default="Newton unavailable", options={"HIDDEN"})
-    status_detail: bpy.props.StringProperty(default="", options={"HIDDEN"})
-    session_id: bpy.props.StringProperty(default="", options={"HIDDEN"})
-    current_frame: bpy.props.IntProperty(default=0, options={"HIDDEN"})
-    target_frame: bpy.props.IntProperty(default=0, options={"HIDDEN"})
-    quality: bpy.props.EnumProperty(
-        name="Preview Quality", default="BALANCED",
-        items=(("FAST", "Fast", "Lowest latency with fewer solver steps"),
-               ("BALANCED", "Balanced", "Recommended interactive preview quality"),
-               ("HIGH", "High", "Higher stability with greater frame latency")))
-    enable_self_contact: bpy.props.BoolProperty(
-        name="Self Collision", default=True,
-        description="Enable experimental Newton cloth self-contact")
-    time_scale: bpy.props.FloatProperty(
-        name="Preview Time Scale", default=1.0, min=0.01, max=4.0,
-        description="Scale Newton preview simulation time without changing Blender FPS")
+        name="Legacy Solver", default="PPF", options={"HIDDEN"},
+        items=(("PPF", "PPF", "Bake with the PPF Contact Solver"),
+               ("NEWTON", "Newton", "Bake with Newton")))
+
+
+class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
+    """Persistent product-level solver selection; defaults old scenes to PPF."""
+    backend: bpy.props.EnumProperty(
+        name="Solver", default="PPF", update=_on_settings_update,
+        items=(("PPF", "PPF", "High-fidelity contact-focused solver"),
+               ("NEWTON", "Newton", "GPU cloth solver for offline baking")))
+    quality_preset: bpy.props.EnumProperty(
+        name="Quality", default="HIGH", update=_on_settings_update,
+        items=(("LOW", "Low", "Fast setup bake"),
+               ("MEDIUM", "Medium", "Balanced working quality"),
+               ("HIGH", "High", "Final-quality simulation"),
+               ("EXTREME", "Extreme", "Maximum solve effort"),
+               ("CUSTOM", "Custom", "Backend-specific custom quality")))
+    newton_substeps: bpy.props.IntProperty(
+        name="Substeps", default=8, min=1, max=128,
+        update=_on_settings_update,
+        description="Newton-only simulation substeps per Blender frame")
+    newton_iterations: bpy.props.IntProperty(
+        name="Solver Iterations", default=12, min=1, max=64,
+        update=_on_settings_update,
+        description="Newton-only VBD iterations per substep")
 
 
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
@@ -685,6 +681,9 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Baked Settings Fingerprint", default="", options={"HIDDEN"},
         description="Settings fingerprint of the last completed solver "
                     "result; a mismatch marks the cached result as stale")
+    baked_solver_backend: bpy.props.StringProperty(
+        name="Baked Solver Backend", default="", options={"HIDDEN"},
+        description="Solver backend that produced the attached cache")
     baked_geometry_fingerprint: bpy.props.StringProperty(
         name="Baked Geometry Fingerprint", default="", options={"HIDDEN"},
         description="Topology and pin-index fingerprint of the last completed "
@@ -826,9 +825,20 @@ def attach_to_object() -> None:
         type=CLOTHNEXT_PG_recovery_settings)
     bpy.types.Scene.cloth_next_newton_preview = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_newton_preview_settings)
+    bpy.types.Scene.cloth_next_solver = bpy.props.PointerProperty(
+        type=CLOTHNEXT_PG_solver_backend_settings)
+    for scene in getattr(getattr(bpy, "data", None), "scenes", ()):
+        current = getattr(scene, "cloth_next_solver", None)
+        legacy = getattr(scene, "cloth_next_newton_preview", None)
+        if (current is not None and legacy is not None
+                and str(getattr(current, "backend", "PPF")) == "PPF"
+                and str(getattr(legacy, "bake_backend", "PPF")) == "NEWTON"):
+            current.backend = "NEWTON"
 
 
 def detach_from_object() -> None:
+    if hasattr(bpy.types.Scene, "cloth_next_solver"):
+        del bpy.types.Scene.cloth_next_solver
     if hasattr(bpy.types.Scene, "cloth_next_newton_preview"):
         del bpy.types.Scene.cloth_next_newton_preview
     if hasattr(bpy.types.Scene, "cloth_next_recovery"):
@@ -848,4 +858,5 @@ CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_recovery_settings,
            CLOTHNEXT_PG_newton_preview_settings,
+           CLOTHNEXT_PG_solver_backend_settings,
            CLOTHNEXT_PG_object_settings)

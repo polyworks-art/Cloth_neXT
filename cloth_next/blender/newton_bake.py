@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Experimental Newton offline Bake using the existing PC2 playback path."""
+"""Newton offline Bake using the common Bake window and PC2 playback path."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from contextlib import ExitStack
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -21,6 +22,7 @@ from .. import manifest_version
 from ..bake import cache_metadata, pc2
 from ..bake.controller import shared_controller
 from ..bake.status import BakeState
+from ..bake.transport import EnterBakeMode
 from ..newton_preview.client import NewtonWorkerClient
 from ..newton_preview.artifacts import (prune_owned_sessions,
                                         remove_owned_session)
@@ -28,8 +30,9 @@ from ..newton_preview.request_artifact import write_request_artifact
 from ..newton_preview.contracts import (ColliderAnimation, NEWTON_VERSION,
                                         PROTOCOL_VERSION, PinAnimation, PreviewCloth,
                                         PreviewCreateRequest, PreviewResult,
+                                        PreviewRigidBody, PreviewSoftBody,
                                         WARP_VERSION)
-from . import newton_preview
+from . import companion_manager, modal_lock, newton_preview, object_properties
 
 _PUMP_INTERVAL = 0.05
 
@@ -42,6 +45,7 @@ class _BakeTarget:
     inverse_world: tuple
     pc2_path: Path
     metadata: dict
+    role: str
 
 
 @dataclass
@@ -58,8 +62,25 @@ _session: _BakeSession | None = None
 
 
 def active() -> bool:
-    return _session is not None and _session.worker is not None \
-        and _session.worker.is_alive()
+    return _session is not None
+
+
+def _bake_quality(scene, dynamics):
+    """Resolve product quality through Newton-native preset values."""
+    from ..newton_preview.contracts import PreviewQuality
+    settings = getattr(scene, "cloth_next_solver", None)
+    preset = str(getattr(settings, "quality_preset", "HIGH") or "HIGH")
+    presets = {"LOW": (2, 4), "MEDIUM": (4, 8),
+               "HIGH": (8, 12), "EXTREME": (16, 20)}
+    if preset == "CUSTOM":
+        substeps = int(getattr(settings, "newton_substeps", 8))
+        iterations = int(getattr(settings, "newton_iterations", 12))
+    else:
+        substeps, iterations = presets.get(preset, presets["HIGH"])
+    self_contact = all(bool(obj.cloth_next.collision.enabled)
+                       for obj in dynamics)
+    return PreviewQuality(
+        preset, substeps, iterations, 10, 12, self_contact)
 
 
 def _hash(value) -> str:
@@ -69,32 +90,63 @@ def _hash(value) -> str:
 
 def _capture(context) -> _BakeSession:
     scene = context.scene
-    cloths, colliders = newton_preview._validate_scope(scene)
-    configured = tuple(str(cloth.cloth_next.cache_directory or "").strip()
-                       for cloth in cloths)
-    for cloth, directory in zip(cloths, configured):
+    enabled = newton_preview._enabled_objects(scene)
+    cloths = tuple(sorted(
+        (obj for obj in enabled if str(obj.cloth_next.role) == "CLOTH"),
+        key=lambda obj: (str(obj.cloth_next.persistent_export_id), str(obj.name))))
+    soft_objects = tuple(sorted(
+        (obj for obj in enabled if str(obj.cloth_next.role) == "SOFT_BODY"),
+        key=lambda obj: (str(obj.cloth_next.persistent_export_id), str(obj.name))))
+    rigid_objects = tuple(sorted(
+        (obj for obj in enabled if str(obj.cloth_next.role) == "RIGID_BODY"),
+        key=lambda obj: (str(obj.cloth_next.persistent_export_id), str(obj.name))))
+    colliders = tuple(sorted(
+        (obj for obj in enabled if str(obj.cloth_next.role) == "COLLIDER"),
+        key=lambda obj: (str(obj.cloth_next.persistent_export_id), str(obj.name))))
+    unsupported = tuple(obj for obj in enabled if str(obj.cloth_next.role)
+                        not in {"CLOTH", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"})
+    dynamics = (*cloths, *soft_objects, *rigid_objects)
+    if not dynamics:
+        raise ValueError("Newton Bake requires Cloth, Soft Body, or Rigid Body objects.")
+    if unsupported:
+        raise ValueError("Newton Bake does not support: " + ", ".join(
+            str(obj.cloth_next.role) for obj in unsupported))
+    ranges = {(int(obj.cloth_next.bake_start), int(obj.cloth_next.bake_end))
+              for obj in dynamics}
+    if len(ranges) != 1:
+        raise ValueError("Use the same Bake range on all Newton dynamic objects.")
+    for cloth in cloths:
+        if bool(cloth.cloth_next.pressure.enable_inflate):
+            raise ValueError(f"{cloth.name}: Newton does not support Pressure")
+        if bool(cloth.cloth_next.pressure.sewing_enabled):
+            raise ValueError(f"{cloth.name}: Newton does not support Sewing")
+    configured = tuple(str(obj.cloth_next.cache_directory or "").strip()
+                       for obj in dynamics)
+    for obj, directory in zip(dynamics, configured):
         if not directory:
             raise ValueError(
-                f"Set a Cache Directory for {cloth.name} before baking with Newton.")
+                f"Set a Cache Directory for {obj.name} before baking with Newton.")
     original_frame = int(scene.frame_current)
-    start = int(cloths[0].cloth_next.bake_start)
-    end = int(cloths[0].cloth_next.bake_end)
+    start, end = next(iter(ranges))
     try:
         scene.frame_set(start)
-        cloth_meshes = tuple(newton_preview._cached_triangulated_world_mesh(
-            context, cloth) for cloth in cloths)
+        dynamic_meshes = tuple(newton_preview._cached_triangulated_world_mesh(
+            context, obj) for obj in dynamics)
+        cloth_meshes = dynamic_meshes[:len(cloths)]
+        soft_meshes = dynamic_meshes[len(cloths):len(cloths) + len(soft_objects)]
+        rigid_meshes = dynamic_meshes[len(cloths) + len(soft_objects):]
         pin_sets = tuple(newton_preview._pin_indices(cloth, len(mesh.vertices))
                          for cloth, mesh in zip(cloths, cloth_meshes))
         collider_meshes = tuple(
             newton_preview._cached_triangulated_world_mesh(context, obj)
             for obj in colliders)
         inverse_arrays, local_sets = [], []
-        for cloth, cloth_mesh in zip(cloths, cloth_meshes):
+        for obj, dynamic_mesh in zip(dynamics, dynamic_meshes):
             matrix = np.asarray(tuple(tuple(float(value) for value in row)
-                                      for row in cloth.matrix_world),
+                                      for row in obj.matrix_world),
                                 dtype=np.float64)
             inverse_array = np.linalg.inv(matrix)
-            world = np.asarray(cloth_mesh.vertices, dtype=np.float64)
+            world = np.asarray(dynamic_mesh.vertices, dtype=np.float64)
             homogeneous = np.concatenate(
                 (world, np.ones((len(world), 1), dtype=np.float64)), axis=1)
             local = homogeneous @ inverse_array.T
@@ -120,12 +172,30 @@ def _capture(context) -> _BakeSession:
                     context, scene, cloth, reference, pins, start, end)))
     finally:
         scene.frame_set(original_frame)
-    settings = scene.cloth_next_newton_preview
-    quality = newton_preview._quality(settings)
+    quality = _bake_quality(scene, dynamics)
     materials = tuple(newton_preview._material(cloth) for cloth in cloths)
-    identity = newton_preview._scene_identity(
-        scene, cloths, colliders, cloth_meshes, collider_meshes, pin_sets,
-        materials, quality, tuple(collider_animations), tuple(pin_animations))
+    soft_materials = tuple(object_properties.soft_body_settings_from(
+        obj.cloth_next) for obj in soft_objects)
+    rigid_materials = tuple(object_properties.rigid_body_settings_from(
+        obj.cloth_next) for obj in rigid_objects)
+    for obj, material in zip(soft_objects, soft_materials):
+        if material.tetrahedralizer != "ftetwild":
+            raise ValueError(
+                f"{obj.name}: Newton Soft Bodies require the fTetWild tetrahedralizer.")
+        if not math.isclose(material.volume_scale, 1.0, rel_tol=0.0, abs_tol=1e-6):
+            raise ValueError(
+                f"{obj.name}: Newton does not support Rest Volume Scale; use 1.0.")
+    identity = _hash({
+        "schema": 3, "scene": str(scene.name),
+        "dynamics": [(str(obj.cloth_next.persistent_export_id),
+                      str(obj.cloth_next.role), mesh.vertices, mesh.triangles)
+                     for obj, mesh in zip(dynamics, dynamic_meshes)],
+        "colliders": [(mesh.vertices, mesh.triangles) for mesh in collider_meshes],
+        "cloth_materials": [item.__dict__ for item in materials],
+        "soft_materials": [asdict(item) for item in soft_materials],
+        "rigid_materials": [asdict(item) for item in rigid_materials],
+        "quality": quality.__dict__,
+        "collider_animations": [item.__dict__ for item in collider_animations]})
     session_id = uuid.uuid4().hex
     app_data = Path(os.environ.get("LOCALAPPDATA", Path.home()))
     session_root = app_data / "ClothNeXt" / "newton" / "sessions" / session_id
@@ -134,23 +204,44 @@ def _capture(context) -> _BakeSession:
                              exclude=(session_id,))
     except OSError:
         pass  # a stale diagnostic directory must not block a new Bake
+    primary_mesh = cloth_meshes[0] if cloth_meshes else None
+    primary_pins = pin_sets[0] if pin_sets else ()
+    primary_material = materials[0] if materials else None
+    soft_bodies = tuple(PreviewSoftBody(
+        str(obj.cloth_next.persistent_export_id), mesh,
+        material.volume_density, max(1.0e-6, material.stretch_resistance),
+        material.poisson_ratio, material.shape_damping,
+        material.surface_grip,
+        material.collision_gap + material.surface_offset,
+        max(1.0e-5, material.collision_gap + material.surface_offset),
+        {"LOW": 0.2, "MEDIUM": 0.12, "HIGH": 0.08,
+         "EXTREME": 0.05}.get(quality.name, 0.08))
+        for obj, mesh, material in zip(soft_objects, soft_meshes, soft_materials))
+    rigid_bodies = tuple(PreviewRigidBody(
+        str(obj.cloth_next.persistent_export_id), mesh,
+        material.volume_density, material.surface_grip,
+        material.collision_gap + material.surface_offset)
+        for obj, mesh, material in zip(rigid_objects, rigid_meshes, rigid_materials))
     request = PreviewCreateRequest(
-        session_id, identity, cloth_meshes[0], collider_meshes, pin_sets[0],
-        materials[0], quality, start, end,
+        session_id, identity, primary_mesh, collider_meshes, primary_pins,
+        primary_material, quality, start, end,
         float(scene.render.fps) / float(scene.render.fps_base),
-        float(settings.time_scale), newton_preview._gravity(scene),
+        1.0, newton_preview._gravity(scene),
         str(session_root / "results"),
         additional_cloths=tuple(PreviewCloth(
             str(cloth.cloth_next.persistent_export_id), mesh, pins, material)
             for cloth, mesh, pins, material in zip(
                 cloths[1:], cloth_meshes[1:], pin_sets[1:], materials[1:])),
         collider_animations=tuple(collider_animations),
-        pin_animations=tuple(pin_animations), solver="VBD")
+        pin_animations=tuple(pin_animations), soft_bodies=soft_bodies,
+        rigid_bodies=rigid_bodies, solver="VBD")
     request.validate()
     settings_value = {
         "backend": "NEWTON", "newton": NEWTON_VERSION, "warp": WARP_VERSION,
         "protocol": PROTOCOL_VERSION, "solver": request.solver,
         "materials": [material.__dict__ for material in materials],
+        "soft_materials": [asdict(material) for material in soft_materials],
+        "rigid_materials": [asdict(material) for material in rigid_materials],
         "quality": quality.__dict__,
         "frame_start": request.frame_start, "frame_end": request.frame_end,
         "fps": request.fps, "time_scale": request.time_scale,
@@ -158,25 +249,26 @@ def _capture(context) -> _BakeSession:
     }
     frame_count = request.frame_end - request.frame_start + 1
     targets = []
-    for cloth_index, (cloth, mesh, pins, local_vertices, inverse_array,
-                      directory) in enumerate(zip(
-            cloths, cloth_meshes, pin_sets, local_sets, inverse_arrays,
-            configured)):
+    for dynamic_index, (obj, mesh, local_vertices, inverse_array,
+                        directory) in enumerate(zip(
+            dynamics, dynamic_meshes, local_sets, inverse_arrays, configured)):
+        role = str(obj.cloth_next.role)
+        pins = pin_sets[dynamic_index] if dynamic_index < len(pin_sets) else ()
         geometry_value = {
-            "backend_schema": 2,
-            "object_uuid": str(cloth.cloth_next.persistent_export_id),
-            "role": str(cloth.cloth_next.role), "vertices": mesh.vertices,
+            "backend_schema": 3,
+            "object_uuid": str(obj.cloth_next.persistent_export_id),
+            "role": role, "vertices": mesh.vertices,
             "triangles": mesh.triangles, "pins": pins,
             "colliders": [{"vertices": item.vertices, "triangles": item.triangles}
                           for item in collider_meshes],
             "collider_animations": [item.__dict__ for item in collider_animations],
             "pin_animations": [item.__dict__ for item in pin_animations
-                               if item.cloth_index == cloth_index],
+                               if item.cloth_index == dynamic_index],
         }
         geometry_hash, settings_hash = _hash(geometry_value), _hash(settings_value)
         object_identity = {
-            "persistent_uuid": str(cloth.cloth_next.persistent_export_id),
-            "role": str(cloth.cloth_next.role), "name": str(cloth.name)}
+            "persistent_uuid": str(obj.cloth_next.persistent_export_id),
+            "role": role, "name": str(obj.name)}
         fingerprints = {
             "settings": settings_hash, "geometry": geometry_hash,
             "combined": _hash({"settings": settings_hash, "geometry": geometry_hash}),
@@ -188,23 +280,23 @@ def _capture(context) -> _BakeSession:
                 "cloth_next_version": manifest_version(),
                 "blender_version": ".".join(map(str, bpy.app.version)),
                 "object": object_identity,
-                "solver": {"mode": "NEWTON_EXPERIMENTAL", "solver": request.solver,
+                "solver": {"mode": "NEWTON", "solver": request.solver,
                            "newton_version": NEWTON_VERSION,
                            "warp_version": WARP_VERSION,
                            "protocol_version": str(PROTOCOL_VERSION)}},
             "expected": {"vertex_count": len(local_vertices),
                          "frame_count": frame_count, "start_frame": 0.0,
                          "sample_rate": 1.0},
-            "details": {"backend": "NEWTON_EXPERIMENTAL",
+            "details": {"backend": "NEWTON",
                         "scene_identity": identity,
                         "blender_start_frame": start, "blender_end_frame": end}}
         cache_dir = Path(bpy.path.abspath(directory)).resolve()
         cache_path = cache_dir / f"cloth_next_newton_{session_id[:12]}.pc2"
         targets.append(_BakeTarget(
-            str(cloth.name), str(cloth.cloth_next.persistent_export_id),
+            str(obj.name), str(obj.cloth_next.persistent_export_id),
             local_vertices, tuple(tuple(float(value) for value in row)
                                   for row in inverse_array),
-            cache_path, metadata))
+            cache_path, metadata, role))
     return _BakeSession(request, tuple(targets), threading.Event(),
                         queue.Queue(maxsize=128))
 
@@ -333,8 +425,6 @@ def begin(context) -> tuple[str, bool]:
     global _session
     if _session is not None or shared_controller.snapshot().active:
         raise ValueError("A Cloth NeXt bake is already active.")
-    if bool(context.scene.cloth_next_newton_preview.enabled):
-        raise ValueError("Disable Live Preview before starting a Newton Bake.")
     installed, _label, _path = newton_preview.newton_installation_status()
     if not installed:
         raise ValueError("Install Newton · Principia in Cloth NeXt Preferences first.")
@@ -346,33 +436,149 @@ def begin(context) -> tuple[str, bool]:
     try:
         session = _capture(context)
         _session = session
-        shared_controller.transition(
-            BakeState.STARTING_RUN, status_message="Starting Newton Bake",
+        shared_controller.update(
+            status_message="Newton scene ready",
             active_object_name=session.targets[0].source_name,
             frame_start=session.request.frame_start,
             frame_end=session.request.frame_end,
             progress_current=0,
             progress_total=session.request.frame_end - session.request.frame_start + 1)
-        shared_controller.transition(BakeState.EXPORTING,
-                                     status_message="Exporting Newton scene")
-        session.worker = threading.Thread(
-            target=_worker_main, args=(session,), daemon=True,
-            name="clothnext-newton-bake")
-        session.worker.start()
-        if not bpy.app.timers.is_registered(_pump):
-            bpy.app.timers.register(_pump, first_interval=_PUMP_INTERVAL)
-        return job, False
+        shared_controller.transition(
+            BakeState.STARTING_COMPANION,
+            status_message="Starting Bake window")
+        request = EnterBakeMode(
+            job_id=job, blender_process_id=os.getpid(),
+            frame_start=session.request.frame_start,
+            frame_end=session.request.frame_end,
+            preset_label="Newton")
+        ok, message = companion_manager.begin_bake_mode(request)
+        if not ok:
+            raise ValueError(message)
+        shared_controller.transition(
+            BakeState.WAITING_FOR_COMPANION,
+            status_message="Opening Bake window…")
+        if not bpy.app.timers.is_registered(_startup_pump):
+            bpy.app.timers.register(_startup_pump, first_interval=_PUMP_INTERVAL)
+        return job, True
     except Exception as exc:
         _session = None
         shared_controller.fail("Newton Bake preparation failed.", str(exc))
         raise
 
 
+def _startup_pump():
+    """Start the Newton worker only after the regular Bake window is ready."""
+    session = _session
+    if session is None:
+        return None
+    job = shared_controller.snapshot().job_id
+    if session.cancel_event.is_set():
+        companion_manager.cancel_startup(job, "Newton Bake startup cancelled")
+        shared_controller.transition(BakeState.CANCELLED,
+                                     status_message="Newton Bake cancelled")
+        _clear_session()
+        return None
+    state, message = companion_manager.startup_status(job)
+    if state == "WAITING":
+        shared_controller.update(status_message=message)
+        return _PUMP_INTERVAL
+    if state != "READY":
+        shared_controller.fail(message)
+        _clear_session()
+        return None
+    if not companion_manager.consume_ready(job):
+        return _PUMP_INTERVAL
+    shared_controller.transition(BakeState.COMPANION_READY,
+                                 status_message="Bake window ready")
+    try:
+        bpy.ops.clothnext.newton_bake_modal("INVOKE_DEFAULT", job_id=job)
+    except (AttributeError, RuntimeError) as exc:
+        shared_controller.fail(
+            "The modal Newton Bake workflow could not start.", str(exc))
+        _clear_session()
+    return None
+
+
+def _start_worker(session) -> None:
+    shared_controller.transition(BakeState.STARTING_RUN,
+                                 status_message="Starting Newton Bake")
+    shared_controller.transition(BakeState.EXPORTING,
+                                 status_message="Exporting Newton scene")
+    session.worker = threading.Thread(
+        target=_worker_main, args=(session,), daemon=True,
+        name="clothnext-newton-bake")
+    session.worker.start()
+    if not bpy.app.timers.is_registered(_pump):
+        bpy.app.timers.register(_pump, first_interval=_PUMP_INTERVAL)
+
+
+class CLOTHNEXT_OT_newton_bake_modal(bpy.types.Operator):
+    """Global modal lifecycle entered only after Bake-window readiness."""
+
+    bl_idname = "clothnext.newton_bake_modal"
+    bl_label = "Cloth NeXt Newton Modal Bake"
+    bl_options = {"INTERNAL"}
+    job_id: bpy.props.StringProperty(options={"HIDDEN"})
+    _timer = None
+
+    def invoke(self, context, _event):
+        session = _session
+        manager = getattr(context, "window_manager", None)
+        if (session is None or self.job_id != shared_controller.snapshot().job_id
+                or shared_controller.snapshot().state is not BakeState.COMPANION_READY
+                or manager is None or not hasattr(manager, "event_timer_add")):
+            return {"CANCELLED"}
+        if not modal_lock.acquire(
+                self.job_id, companion_ready_job_id=self.job_id):
+            return {"CANCELLED"}
+        try:
+            _start_worker(session)
+        except Exception as exc:
+            modal_lock.release(self.job_id)
+            shared_controller.fail("Starting the Newton Bake failed.", str(exc))
+            _clear_session()
+            return {"CANCELLED"}
+        self._timer = manager.event_timer_add(
+            0.1, window=getattr(context, "window", None))
+        manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        return self.invoke(context, None)
+
+    def modal(self, context, event):
+        snapshot = shared_controller.snapshot()
+        if not modal_lock.active(self.job_id):
+            self._cleanup(context)
+            return {"FINISHED"}
+        if event.type == "ESC" and snapshot.can_cancel:
+            request_cancel()
+        if event.type == "TIMER":
+            for area in getattr(getattr(context, "screen", None), "areas", ()):
+                area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def cancel(self, context):
+        request_cancel()
+        self._cleanup(context)
+
+    def _cleanup(self, context):
+        if self._timer is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+        modal_lock.release(self.job_id)
+
+
+def _clear_session() -> None:
+    global _session
+    _session = None
+
+
 def _playback_plan(session, target):
     from ..ppf_run.session import SessionScene
     from .solver_test import RunPlan
     scene = SessionScene(
-        "newton-experimental", target.source_name, target.source_uuid,
+        "newton", target.source_name, target.source_uuid,
         len(target.source_local_vertices), "", "", session.request.frame_end -
         session.request.frame_start + 1, b"", b"", "newton", "newton")
     return RunPlan(
@@ -386,7 +592,7 @@ def _playback_plan(session, target):
         target.metadata["fingerprints"]["settings"],
         target.metadata["fingerprints"]["geometry"],
         target.metadata["fingerprints"]["topology"],
-        "Newton Experimental", target.metadata, "CLOTH")
+        "Newton", target.metadata, target.role, backend_id="NEWTON")
 
 
 def _pump():
@@ -403,7 +609,7 @@ def _pump():
             if message[0] == "status":
                 shared_controller.transition(
                     message[1], status_message=message[2],
-                    solver_mode="NEWTON_EXPERIMENTAL",
+                    solver_mode="NEWTON",
                     solver_version=NEWTON_VERSION)
                 shared_controller.transition(BakeState.SIMULATING,
                                              status_message="Simulating with Newton")
@@ -469,4 +675,10 @@ def shutdown(timeout=5.0) -> None:
         session.client.shutdown(grace=1.0)
     if bpy.app.timers.is_registered(_pump):
         bpy.app.timers.unregister(_pump)
+    if bpy.app.timers.is_registered(_startup_pump):
+        bpy.app.timers.unregister(_startup_pump)
+    modal_lock.release()
     _session = None
+
+
+CLASSES = (CLOTHNEXT_OT_newton_bake_modal,)

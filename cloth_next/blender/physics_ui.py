@@ -447,10 +447,15 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
 
 
 def _draw_quality_buttons(layout, context, bake_active: bool):
-    has_pdrd = physics_operators.scene_has_pdrd(context.scene)
-    current = matching_quality_preset(
-        object_properties.solver_quality_from(context.scene),
-        has_pdrd=has_pdrd)
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    newton = solver_backends.active_backend_id(context.scene) is BackendId.NEWTON
+    has_pdrd = physics_operators.scene_has_pdrd(context.scene) and not newton
+    current = (str(getattr(context.scene.cloth_next_solver,
+                           "quality_preset", "HIGH")) if newton else
+               matching_quality_preset(
+                   object_properties.solver_quality_from(context.scene),
+                   has_pdrd=has_pdrd))
     buttons = layout.row(align=True)
     buttons.enabled = not bake_active
     if has_pdrd:
@@ -468,7 +473,8 @@ def _draw_quality_buttons(layout, context, bake_active: bool):
         button.alert = preset.identifier == "EXTREME"
         button.operator(
             operator_ids[preset.identifier],
-            text=preset.label, depress=current is preset)
+            text=preset.label,
+            depress=(current == preset.identifier if newton else current is preset))
     return current
 
 
@@ -479,10 +485,19 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     section = layout.column(align=True)
     section.label(text="Solver Quality · Scene-wide")
     current = _draw_quality_buttons(section, context, bake_active)
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    newton = solver_backends.active_backend_id(context.scene) is BackendId.NEWTON
 
     if current is None:
         section.label(text="Custom")
         section.label(text="Manually adjusted solver settings.")
+    elif newton:
+        preset = next((item for item in QUALITY_PRESETS
+                       if item.identifier == current), None)
+        section.label(text=preset.label if preset else "Custom")
+        section.label(text=(preset.description if preset else
+                            "Custom Newton solver quality."))
     else:
         section.label(text=current.label)
         section.label(text=current.description)
@@ -498,10 +513,17 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
         advanced.enabled = not bake_active
         advanced.use_property_split = True
         advanced.use_property_decorate = False
-        advanced.prop(quality, "time_step")
-        advanced.prop(quality, "min_newton_steps")
-        advanced.prop(quality, "cg_max_iter")
-        advanced.prop(quality, "cg_tol")
+        if newton:
+            solver = context.scene.cloth_next_solver
+            advanced.label(text="Newton Advanced")
+            advanced.prop(solver, "newton_substeps")
+            advanced.prop(solver, "newton_iterations")
+        else:
+            advanced.label(text="PPF Advanced")
+            advanced.prop(quality, "time_step")
+            advanced.prop(quality, "min_newton_steps")
+            advanced.prop(quality, "cg_max_iter")
+            advanced.prop(quality, "cg_tol")
 
 
 @dataclass(frozen=True, slots=True)
@@ -603,6 +625,18 @@ def _solver_status(context) -> _SolverStatus:
     return _SolverStatus(False, "Not configured")
 
 
+def _active_backend_status(context) -> _SolverStatus:
+    """Cheap readiness for the selected backend, without cross-dependency."""
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    if solver_backends.active_backend_id(context.scene) is BackendId.PPF:
+        return _solver_status(context)
+    installed, label, _path = solver_backends.newton_installation_status()
+    return _SolverStatus(
+        installed, "Ready · Newton 1.4.0" if installed else "Newton not installed",
+        (label,) if label else ())
+
+
 def _cache_state(context) -> tuple[str, str]:
     """Cheap, honest cache view. Never hashes a mesh and never scans pins.
 
@@ -625,6 +659,10 @@ def _cache_state(context) -> tuple[str, str]:
     baked_settings = getattr(settings, "baked_settings_fingerprint", "")
     if (modifier is None and not rod_cache) or not baked_settings:
         return "EMPTY", "Cache empty"
+    from . import solver_backends
+    baked_backend = str(getattr(settings, "baked_solver_backend", "") or "PPF")
+    if baked_backend != solver_backends.active_backend_id(context.scene).value:
+        return "STALE", "Cache stale · solver changed"
 
     disk_condition = str(getattr(settings, "baked_cache_condition", "") or "")
     disk_message = str(getattr(settings, "baked_cache_message", "") or "")
@@ -709,10 +747,17 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
               "MATCHING": "BAKE AGAIN"}.get(cache_state, "BAKE")
     reason = ""
     if not status.ready:
-        reason = "PPF is not configured."
+        from ..simulation.backends import BackendId
+        from . import solver_backends
+        reason = ("PPF is not configured."
+                  if solver_backends.active_backend_id(context.scene)
+                  is BackendId.PPF else status.title)
     elif not cloths:
         reason = "At least one deformable object is required."
     else:
+        from . import solver_backends
+        reason = solver_backends.unsupported_reason(context.scene)
+    if not reason and cloths:
         try:
             from ..bake.frame_range import BakeFrameRange
             ranges = {(int(obj.cloth_next.bake_start),
@@ -930,14 +975,11 @@ def _draw_bake_action(layout, context, model, snapshot) -> None:
         cancel.operator("clothnext.bake_cancel", text="Cancel Bake",
                         **icon_registry.icon_kwargs("cancel", "CANCEL"))
         return
-    newton = getattr(context.scene, "cloth_next_newton_preview", None)
-    if newton is not None:
+    solver = getattr(context.scene, "cloth_next_solver", None)
+    if solver is not None:
         backend = layout.row(align=True)
         backend.enabled = not snapshot.active
-        backend.prop(newton, "bake_backend", text="Solver")
-        if str(getattr(newton, "bake_backend", "PPF")) == "NEWTON":
-            layout.label(text="Experimental · No Recovery checkpoints",
-                         icon="EXPERIMENTAL")
+        backend.prop(solver, "backend", text="Solver")
     action = layout.row(align=True)
     split = action.split(factor=0.86, align=True)
     bake_button = split.column(align=True)
@@ -997,32 +1039,6 @@ def _draw_recovery_banner(layout, context, snapshot) -> None:
                        text="Start Fresh", icon="FILE_REFRESH")
         return
     banner.label(text="No Recovery Checkpoint", icon="INFO")
-
-
-def _draw_newton_live_preview(layout, context, snapshot) -> None:
-    """The primary experimental Newton action, directly below Bake."""
-    settings = getattr(getattr(context, "scene", None),
-                       "cloth_next_newton_preview", None)
-    if (settings is None
-            or str(getattr(settings, "bake_backend", "PPF")) != "NEWTON"):
-        return
-    row = layout.row(align=True)
-    row.enabled = not snapshot.active
-    row.prop(settings, "enabled", text="",
-             toggle=True, icon="PAUSE" if settings.enabled else "PLAY")
-    status = str(getattr(settings, "status", "") or "")
-    if settings.enabled or status not in {"", "Newton unavailable"}:
-        icon = "ERROR" if status in {"Preview Error", "Worker Crashed",
-                                      "Scene Changed"} else "INFO"
-        layout.label(text=f"Status: {status}", icon=icon)
-    if settings.enabled:
-        controls = layout.column(align=True)
-        controls.prop(settings, "quality", text="Preview Quality")
-        controls.prop(settings, "enable_self_contact", text="Self Collision")
-        controls.prop(settings, "time_scale", text="Time Scale")
-    detail = str(getattr(settings, "status_detail", "") or "")
-    if detail:
-        layout.label(text=detail, icon="ERROR")
 
 
 def _draw_soft_body_material(layout, settings) -> None:
@@ -1146,9 +1162,8 @@ class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
         snapshot = shared_controller.snapshot()
         if context.object.cloth_next.role not in {"COLLIDER", "FORCE"}:
             _draw_quality_selector(layout, context, snapshot.active)
-        model = _bake_panel_model(context, _solver_status(context))
+        model = _bake_panel_model(context, _active_backend_status(context))
         _draw_bake_action(layout, context, model, snapshot)
-        _draw_newton_live_preview(layout, context, snapshot)
         _draw_recovery_banner(layout, context, snapshot)
         _draw_scene_statistics(layout, context)
 
@@ -1224,7 +1239,14 @@ class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
+        from ..simulation.backends import BackendId
+        from . import solver_backends
+        supported = solver_backends.active_backend_id(
+            getattr(context, "scene", None)) is BackendId.PPF
         self.layout.use_property_split = True
+        if not supported:
+            self.layout.label(text="Pressure is not used by Newton", icon="INFO")
+        self.layout.enabled = supported
         self.layout.prop(pressure, "enable_inflate")
         strength = self.layout.row()
         strength.enabled = pressure.enable_inflate
@@ -1241,7 +1263,14 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
+        from ..simulation.backends import BackendId
+        from . import solver_backends
+        supported = solver_backends.active_backend_id(
+            getattr(context, "scene", None)) is BackendId.PPF
         self.layout.use_property_split = True
+        if not supported:
+            self.layout.label(text="Sewing is not used by Newton", icon="INFO")
+        self.layout.enabled = supported
         self.layout.prop(pressure, "sewing_enabled", text="Enable Sewing")
         strength = self.layout.row()
         strength.enabled = pressure.sewing_enabled
@@ -1474,6 +1503,13 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
                         text="Volume Density")
             return
         material = settings.material
+        from ..simulation.backends import BackendId
+        from . import solver_backends
+        newton = solver_backends.active_backend_id(
+            getattr(context, "scene", None)) is BackendId.NEWTON
+        if newton:
+            layout.label(text="Newton uses an approximate material mapping",
+                         icon="INFO")
         error = material_presets.load_error()
         if error:
             layout.label(text="Bundled presets unavailable:", icon="ERROR")
@@ -1490,6 +1526,7 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         behavior.prop(material, "bend_resistance")
         protection = layout.column(align=True)
         protection.label(text="Stretch Protection")
+        protection.enabled = not newton
         protection.prop(material, "stretch_limit_enabled")
         row = protection.row()
         row.enabled = material.stretch_limit_enabled

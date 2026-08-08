@@ -294,6 +294,7 @@ class RunPlan:
     param_cache_key: str = ""
     recovery_options: RecoveryOptions | None = None
     solver_input: intersection_diagnostics.SolverInputSnapshot | None = None
+    backend_id: str = "PPF"
 
 
 def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
@@ -5459,6 +5460,7 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
         settings.baked_settings_fingerprint = plan.settings_fingerprint
         settings.baked_geometry_fingerprint = plan.geometry_fingerprint
         settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+        settings.baked_solver_backend = str(getattr(plan, "backend_id", "PPF"))
         validation_state.store_valid(
             obj, pin_count=0, pin_group="",
             topology_signature=plan.topology_signature,
@@ -5707,6 +5709,7 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
             settings.baked_settings_fingerprint = plan.settings_fingerprint
             settings.baked_geometry_fingerprint = plan.geometry_fingerprint
             settings.baked_fingerprint_version = BAKE_FINGERPRINT_VERSION
+            settings.baked_solver_backend = str(getattr(plan, "backend_id", "PPF"))
             if inspection is not None:
                 settings.baked_cache_condition = inspection.condition.value
                 settings.baked_cache_message = inspection.message
@@ -6833,8 +6836,8 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
-    from . import newton_bake
-    if newton_bake.request_cancel():
+    from . import solver_backends
+    if solver_backends.request_cancel():
         return
     if _pending_job_id:
         cancel_pending_startup(); return
@@ -7066,15 +7069,8 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            backend = str(getattr(
-                getattr(getattr(context, "scene", None),
-                        "cloth_next_newton_preview", None),
-                "bake_backend", "PPF"))
-            if backend == "NEWTON":
-                from . import newton_bake
-                _job_id, waiting = newton_bake.begin(context)
-            else:
-                _job_id, waiting = begin_production_bake(context)
+            from . import solver_backends
+            _job_id, waiting = solver_backends.begin_bake(context)
         except (SceneValidationError, ClothNextError, ValueError) as exc:
             message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
             snapshot = shared_controller.snapshot()
