@@ -362,11 +362,11 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         col.label(text=f"Bake: {snapshot.status_title}",
                   **icon_registry.icon_kwargs(state_icon,"INFO"))
         if snapshot.preview:
-            col.label(text="UI PREVIEW — no PPF simulation", icon="INFO")
+            col.label(text="UI PREVIEW — no PPF simulation", **icon_registry.icon_kwargs("info", "INFO"))
         if snapshot.error_summary:
-            col.label(text=snapshot.error_summary, icon="ERROR")
+            col.label(text=snapshot.error_summary, **icon_registry.icon_kwargs("error", "ERROR"))
         layout.operator(physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
-                        text="Remove Cloth NeXt", icon="X")
+                        text="Remove Cloth NeXt", **icon_registry.icon_kwargs("remove", "X"))
 
 
 class CLOTHNEXT_PT_empty_force(bpy.types.Panel):
@@ -392,35 +392,21 @@ class CLOTHNEXT_PT_empty_force(bpy.types.Panel):
         obj = context.object
         settings = getattr(obj, "cloth_next", None)
         if settings is None:
-            layout.label(text="Cloth NeXt is not registered", icon="ERROR")
+            layout.label(text="Cloth NeXt is not registered", **icon_registry.icon_kwargs("error", "ERROR"))
             return
         if not settings.enabled:
             layout.operator(
                 physics_operators.CLOTHNEXT_OT_add_physics.bl_idname,
-                text="Enable Cloth NeXt Force", icon="FORCE_FORCE")
+                text="Enable Cloth NeXt Force", **icon_registry.icon_kwargs("force", "FORCE_FORCE"))
             return
         layout.use_property_split = True
         layout.use_property_decorate = True
         _draw_object_type_selector(layout, settings)
-        force = settings.force
-        layout.prop(force, "force_type")
-        if force.force_type in {"GRAVITY", "WIND"}:
-            layout.prop(force, "strength")
-            direction = ("local -Z" if force.force_type == "GRAVITY"
-                         else "local +Z")
-            layout.label(text=f"Direction: Empty {direction}",
-                         icon="ORIENTATION_LOCAL")
-            layout.label(text="Rotate the Empty to aim the force")
-        elif force.force_type == "AIR_DENSITY":
-            layout.prop(force, "air_density")
-        elif force.force_type == "AIR_FRICTION":
-            layout.prop(force, "air_friction")
-        else:
-            layout.prop(force, "vertex_air_damp")
-        layout.label(text="Properties and rotation can be keyframed")
+        _draw_complete_force_controls(
+            layout, settings, direction_prefix="Empty ")
         layout.operator(
             physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
-            text="Remove Cloth NeXt", icon="X")
+            text="Remove Cloth NeXt", **icon_registry.icon_kwargs("remove", "X"))
 
 
 class _ClothNextSubpanel:
@@ -494,7 +480,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         set_dir.scale_y = 1.6
         set_dir.enabled = not snapshot.active
         set_dir.operator("clothnext.set_cache_directory", text="",
-                         icon="FILE_FOLDER")
+                         **icon_registry.icon_kwargs("folder", "FILE_FOLDER"))
         if not snapshot.active:
             warning = _animated_collider_capture_warning(context, solver_test)
             if warning is not None:
@@ -509,7 +495,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
             if contact_warning:
                 warning_row = layout.row()
                 warning_row.alert = True
-                warning_row.label(text=contact_warning, icon="ERROR")
+                warning_row.label(text=contact_warning, **icon_registry.icon_kwargs("error", "ERROR"))
                 layout.label(text="Bake allowed · Try Gap 0.001 and Friction 0.2–0.3")
         if snapshot.active:
             progress_text = _run_state_text(snapshot)
@@ -518,10 +504,10 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                 layout.operator("clothnext.bake_cancel", text="Cancel",
                                 **icon_registry.icon_kwargs("cancel", "CANCEL"))
         elif model.reason:
-            layout.label(text=model.reason, icon="ERROR")
+            layout.label(text=model.reason, **icon_registry.icon_kwargs("error", "ERROR"))
         if snapshot.state.value == "ERROR" and snapshot.error_summary:
             layout.operator("clothnext.companion_open_logs", text="Open Logs",
-                            icon="FILE_FOLDER")
+                            **icon_registry.icon_kwargs("folder", "FILE_FOLDER"))
         if not snapshot.active:
             validation = layout.row(align=True)
             validation.label(text=_validation_line(context))
@@ -581,7 +567,7 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
         section.label(text=current.label)
         section.label(text=current.description)
         if current.warning:
-            section.label(text=current.warning, icon="ERROR")
+            section.label(text=current.warning, **icon_registry.icon_kwargs("error", "ERROR"))
 
     foldout = section.row(align=True)
     foldout.prop(quality, "show_advanced", text="Advanced Settings",
@@ -949,21 +935,32 @@ def _draw_frame_range(layout, settings) -> None:
 
 
 def _draw_force_setup(layout, settings) -> None:
-    """Draw only the existing, fully encoded Force controls."""
+    """Draw the complete, fully encoded Force control set."""
+    _draw_complete_force_controls(layout, settings)
+
+
+def _draw_complete_force_controls(
+        layout, settings, *, direction_prefix: str = "") -> None:
+    """Keep every editable Force value visible regardless of active type."""
     force = settings.force
-    layout.prop(force, "force_type")
-    if force.force_type in {"GRAVITY", "WIND"}:
-        layout.prop(force, "strength")
-        direction = ("Local -Z" if force.force_type == "GRAVITY"
-                     else "Local +Z")
-        layout.label(text=f"Direction: {direction}",
-                     icon="ORIENTATION_LOCAL")
-    elif force.force_type == "AIR_DENSITY":
-        layout.prop(force, "air_density", text="Density")
-    elif force.force_type == "AIR_FRICTION":
-        layout.prop(force, "air_friction", text="Friction")
-    elif force.force_type == "VERTEX_AIR_DAMP":
-        layout.prop(force, "vertex_air_damp", text="Damping")
+    layout.prop(force, "force_type", text="Active Force")
+    vector = layout.column(align=True)
+    vector.label(text="Directional Force")
+    vector.prop(force, "strength", text="Strength")
+    vector.prop(force, "wind_variation", text="Wind Variation")
+    environment = layout.column(align=True)
+    environment.label(text="Aerodynamics")
+    environment.prop(force, "air_density", text="Air Density")
+    environment.prop(force, "air_friction", text="Air Friction")
+    environment.prop(force, "vertex_air_damp", text="Vertex Air Damping")
+    direction = ("local -Z" if force.force_type == "GRAVITY"
+                 else "local +Z" if force.force_type == "WIND" else None)
+    if direction is not None:
+        layout.label(
+            text=f"Direction: {direction_prefix}{direction}",
+            **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
+        layout.label(text="Rotate the Empty to aim the force")
+    layout.label(text="Properties and rotation can be keyframed")
 
 
 def _authoritative_frame_settings(context):
@@ -1626,24 +1623,9 @@ class CLOTHNEXT_PT_force(_ClothNextSubpanel, bpy.types.Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = True
-        force = context.object.cloth_next.force
-        layout.prop(force, "force_type")
-        info = layout.column(align=True)
-        if force.force_type in {"GRAVITY", "WIND"}:
-            layout.prop(force, "strength")
-            if force.force_type == "WIND":
-                layout.prop(force, "wind_variation")
-            direction = "local -Z" if force.force_type == "GRAVITY" else "local +Z"
-            info.label(text=f"Direction: Empty {direction}", icon="ORIENTATION_LOCAL")
-            info.label(text="Rotate the Empty to aim the force")
-        elif force.force_type == "AIR_DENSITY":
-            layout.prop(force, "air_density")
-        elif force.force_type == "AIR_FRICTION":
-            layout.prop(force, "air_friction")
-        else:
-            layout.prop(force, "vertex_air_damp")
-        info.label(text="Properties and rotation can be keyframed")
-        info.label(text="Forces of the same type are added together")
+        _draw_complete_force_controls(
+            layout, context.object.cloth_next, direction_prefix="Empty ")
+        layout.label(text="Forces of the same type are added together")
 
 
 class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
@@ -1913,10 +1895,10 @@ def _developer_tools_build_enabled() -> bool:
 def _draw_solver_test_controls(layout, context) -> None:
     """Draw real-solver developer controls into a supplied container."""
     from . import solver_test
-    layout.label(text="Real Solver Test", icon="EXPERIMENTAL")
+    layout.label(text="Real Solver Test", **icon_registry.icon_kwargs("advanced", "EXPERIMENTAL"))
     snapshot = shared_controller.snapshot()
     running = solver_test.run_active()
-    layout.operator("clothnext.create_test_scene", icon="MESH_GRID")
+    layout.operator("clothnext.create_test_scene", **icon_registry.icon_kwargs("shape", "MESH_GRID"))
     run_row = layout.row()
     run_row.enabled = not running and not snapshot.active
     run_row.operator("clothnext.solver_test_run",
@@ -1946,7 +1928,7 @@ def _draw_solver_test_controls(layout, context) -> None:
                               f"of {snapshot.frame_end}")
         column.label(text=f"Elapsed: {format_duration(snapshot.elapsed_seconds)}")
     if snapshot.error_summary:
-        column.label(text=snapshot.error_summary, icon="ERROR")
+        column.label(text=snapshot.error_summary, **icon_registry.icon_kwargs("error", "ERROR"))
         details = tuple(line.strip() for line in snapshot.error_details.splitlines()
                         if line.strip())
         for prefix in ("Stage:", "Blender frame:", "What to do:",
@@ -1999,7 +1981,7 @@ def _draw_solver_test_controls(layout, context) -> None:
                      **icon_registry.icon_kwargs("bake","WINDOW"))
     actions.operator("clothnext.solver_test_open_logs", text="Logs",
                      **icon_registry.icon_kwargs("folder","FILE_FOLDER"))
-    actions.operator("clothnext.solver_test_clear", text="Clear", icon="TRASH")
+    actions.operator("clothnext.solver_test_clear", text="Clear", **icon_registry.icon_kwargs("remove", "TRASH"))
 
 
 def _draw_ui_diagnostics_controls(layout, _context) -> None:
@@ -2091,7 +2073,7 @@ class CLOTHNEXT_PT_developer_tools(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         developer_box = self.layout.box()
         developer_box.alert = True
-        developer_box.label(text="Developer-only controls", icon="EXPERIMENTAL")
+        developer_box.label(text="Developer-only controls", **icon_registry.icon_kwargs("advanced", "EXPERIMENTAL"))
         developer_box.label(
             text="Internal testing tools. Do not use in production scenes.",
             icon="ERROR")
@@ -2124,7 +2106,7 @@ class CLOTHNEXT_PT_beta_readiness(_ClothNextSubpanel, bpy.types.Panel):
                 layout.label(text=check.action, icon="BLANK1")
         layout.separator()
         cache = layout.box()
-        cache.label(text="Cache Recovery", icon="FILE_CACHE")
+        cache.label(text="Cache Recovery", **icon_registry.icon_kwargs("cache", "FILE_CACHE"))
         cache.operator("clothnext.cache_scan", text="Scan Cache Directory",
                        icon="VIEWZOOM")
         if beta_tools._last_cache_root is not None:
@@ -2142,7 +2124,7 @@ class CLOTHNEXT_PT_beta_readiness(_ClothNextSubpanel, bpy.types.Panel):
                            text="Remove Invalid Caches", icon="TRASH")
         layout.separator()
         support = layout.box()
-        support.label(text="Support", icon="HELP")
+        support.label(text="Support", **icon_registry.icon_kwargs("question", "HELP"))
         support.operator("clothnext.export_support_report",
                          text="Export Privacy-Safe Report", icon="TEXT")
         if beta_tools._last_support_report is not None:
@@ -2174,7 +2156,7 @@ class CLOTHNEXT_PT_motion_overrides(_ClothNextSubpanel, bpy.types.Panel):
         settings = context.object.cloth_next
         header = layout.row(align=True)
         header.operator(CLOTHNEXT_OT_add_motion_override.bl_idname,
-                        text="Add Override", icon="ADD")
+                        text="Add Override", **icon_registry.icon_kwargs("add", "ADD"))
         for index, item in enumerate(settings.motion_overrides):
             box = layout.box()
             top = box.row(align=True)
@@ -2209,7 +2191,7 @@ class CLOTHNEXT_PT_advanced_contact_solver(
         layout.use_property_decorate = False
         warning = layout.box()
         warning.alert = True
-        warning.label(text="Expert settings", icon="ERROR")
+        warning.label(text="Expert settings", **icon_registry.icon_kwargs("error", "ERROR"))
         warning.label(text="Change only if you understand their solver impact")
         warning.label(text="Incorrect values can destabilize or stop a Bake")
         quality = context.scene.cloth_next_quality
@@ -2219,7 +2201,7 @@ class CLOTHNEXT_PT_advanced_contact_solver(
         layout.prop(quality, "friction_eps")
         layout.prop(quality, "csrmat_max_nnz")
         layout.prop(quality, "contact_barrier")
-        layout.label(text="These settings affect the entire scene", icon="INFO")
+        layout.label(text="These settings affect the entire scene", **icon_registry.icon_kwargs("info", "INFO"))
 
 
 class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
@@ -2268,13 +2250,13 @@ class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
         resume.enabled = (
             settings.resumable and not shared_controller.snapshot().active)
         resume.operator("clothnext.recovery_resume_latest",
-                        text="Resume Latest", icon="PLAY")
+                        text="Resume Latest", **icon_registry.icon_kwargs("play", "PLAY"))
         actions.operator("clothnext.recovery_start_fresh",
-                         text="Start Fresh", icon="FILE_REFRESH")
+                         text="Start Fresh", **icon_registry.icon_kwargs("update", "FILE_REFRESH"))
         actions.operator("clothnext.recovery_clear_checkpoints",
-                         text="Clear Checkpoints", icon="TRASH")
+                         text="Clear Checkpoints", **icon_registry.icon_kwargs("remove", "TRASH"))
         actions.operator("clothnext.recovery_open_folder",
-                         text="Open Recovery Folder", icon="FILE_FOLDER")
+                         text="Open Recovery Folder", **icon_registry.icon_kwargs("folder", "FILE_FOLDER"))
 
 
 class CLOTHNEXT_PT_solver_settings(_ClothNextSubpanel, bpy.types.Panel):
@@ -2377,7 +2359,7 @@ class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, _context):
         self.layout.operator(
             physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
-            text="Remove Cloth NeXt", icon="X")
+            text="Remove Cloth NeXt", **icon_registry.icon_kwargs("remove", "X"))
 
 
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):

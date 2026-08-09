@@ -860,7 +860,7 @@ def test_collider_workflow_visibility_and_compact_advanced(blender_env):
     env.registration.unregister()
 
 
-def test_force_setup_switches_only_between_mapped_controls(blender_env):
+def test_force_setup_shows_all_mapped_controls_together(blender_env):
     env = blender_env
     env.registration.register()
     obj = env.bpy.types.Object(name="Force", type="EMPTY")
@@ -868,29 +868,18 @@ def test_force_setup_switches_only_between_mapped_controls(blender_env):
     settings.enabled = True
     settings.role = "FORCE"
     panel = env.physics_ui.CLOTHNEXT_PT_setup()
-    expected = {
-        "GRAVITY": (
-            ["force_type", "strength"], ["Direction: Local -Z"], None),
-        "WIND": (
-            ["force_type", "strength"], ["Direction: Local +Z"], None),
-        "AIR_DENSITY": (
-            ["force_type", "air_density"], [], ("air_density", "Density")),
-        "AIR_FRICTION": (
-            ["force_type", "air_friction"], [], ("air_friction", "Friction")),
-        "VERTEX_AIR_DAMP": (
-            ["force_type", "vertex_air_damp"], [],
-            ("vertex_air_damp", "Damping")),
-    }
-    for force_type, (props, labels, renamed_prop) in expected.items():
+    expected_props = ["force_type", "strength", "wind_variation",
+                      "air_density", "air_friction", "vertex_air_damp"]
+    for force_type in ("GRAVITY", "WIND", "AIR_DENSITY",
+                       "AIR_FRICTION", "VERTEX_AIR_DAMP"):
         settings.force.force_type = force_type
         panel.layout = RecordingLayout()
         panel.draw(_context(obj))
-        assert panel.layout.props == props
-        assert panel.layout.labels == labels
+        assert panel.layout.props == expected_props
+        assert "Directional Force" in panel.layout.labels
+        assert "Aerodynamics" in panel.layout.labels
         assert panel.layout.operators == []
-        assert "wind_variation" not in panel.layout.props
-        if renamed_prop is not None:
-            assert renamed_prop in panel.layout.prop_texts
+        assert ("force_type", "Active Force") in panel.layout.prop_texts
     env.registration.unregister()
 
 

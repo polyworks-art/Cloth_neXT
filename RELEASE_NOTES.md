@@ -1,29 +1,29 @@
-# Cloth NeXt 2.2.19 Dev
+# Cloth NeXt 2.2.20 Dev
 
-Cloth NeXt 2.2.19 returns to the established PPF-only Bake workflow and adds
-the remaining advanced PPF deformation, Pin, collision, and motion controls.
+Cloth NeXt 2.2.20 improves the everyday Blender workflow, viewport feedback,
+contact tuning, live Bake playback, and the Bake Companion details view.
 
-## PPF-only workflow
+## Blender workflow and viewport
 
-- Choose quality, start Bake, follow progress in the Bake window, and receive
-  the imported cache.
-- Newton, Live Preview, the solver selector, and Newton downloads are removed.
-- Existing PPF cache recovery and compatible export reuse remain available.
+- Cloth NeXt roles are color-coded in the viewport: Cloth is blue, Colliders
+  red, Rods orange, Soft Bodies green, Rigid Bodies purple, and Forces yellow.
+- Force objects expose all available controls together instead of requiring a
+  separate Force Type to be added first.
+- Cloth NeXt UI actions consistently use the bundled Cloth NeXt icon set.
 
-## Deformation and Pins
+## Simulation and live Bake feedback
 
-- Permanent deformation is available for Cloth, Cable / Rope, and Soft Body.
-- Advanced Pin Motion supports multiple Pin Groups following different animated
-  targets with individual strengths.
-- Soft Constraints remain a separate table with Target, transform channel, and
-  Strength columns.
-- Hard Pins stay excluded from Motion Overrides.
+- Artist-facing friction values keep the same UI while mapping to a gentler
+  solver range; a UI value of 0.5 now sends 0.25 to the solver.
+- Completed Bake frames advance Blender's timeline automatically to the newest
+  available frame, with the complete baked range exposed after finalization.
+- Bake recovery avoids appending duplicate PC2 samples after interruptions.
 
-## Collision and motion controls
+## Bake Companion
 
-- Collision Timing and Advanced Contact Distance expose audited PPF controls.
-- Advanced Contact Solver provides contact iteration, correction, stability,
-  GPU capacity, and response-model controls behind an expert warning.
-- Motion Overrides apply a world-space Move or Spin velocity at a chosen frame.
+- The collapsible Details area now uses a compact Houdini-inspired grouped
+  layout for run and solver statistics.
+- The old performance graph is replaced by Frame, Progress, Elapsed, Solver,
+  Contacts, Newton, Linear Iterations, and Activity values while ETA remains.
 
-This is Dev version `2.2.19` and is eligible only for the Dev channel.
+This is Dev version `2.2.20` and is eligible only for the Dev channel.

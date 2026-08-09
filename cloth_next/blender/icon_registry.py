@@ -12,7 +12,9 @@ _NAMES = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "solve
           "info", "folder", "timer", "setup", "shape", "rest_shape",
           "sewing", "friction_regions", "simulation_proxy",
           "solver_settings", "engine", "result", "diagnostics",
-          "maintenance")
+          "maintenance", "add", "download", "gpu", "health", "link",
+          "monitor", "question", "remove", "settings", "update", "upload",
+          "validate")
 
 
 def register():

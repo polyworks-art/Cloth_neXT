@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.2.20 - 2026-08-09 (Dev channel)
+
+### Added
+
+- Viewport role colors distinguish Cloth, Colliders, Rods, Soft Bodies, Rigid
+  Bodies, and Forces while preserving each object's previous display color.
+- Live Bake progress advances Blender's timeline to the newest completed frame.
+
+### Changed
+
+- Force objects expose all configurable values in one unified panel.
+- Friction retains its existing artist-facing UI but maps to half the solver
+  value for more controllable object contact.
+- The collapsible Bake Companion Details area uses grouped run and solver stats
+  in place of the performance graph, while retaining ETA.
+- Cloth NeXt UI actions use the bundled Cloth NeXt icon set consistently.
+
+### Fixed
+
+- Interrupted Bake recovery no longer appends duplicate PC2 samples.
+
 ## 2.2.19 - 2026-08-09 (Dev channel)
 
 ### Added

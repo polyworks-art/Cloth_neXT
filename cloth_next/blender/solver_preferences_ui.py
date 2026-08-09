@@ -14,7 +14,7 @@ from __future__ import annotations
 import bpy
 
 from ..updater.states import InstallerState
-from . import preferences as _preferences
+from . import icon_registry, preferences as _preferences
 
 
 def _status(installation) -> tuple[str, str]:
@@ -57,9 +57,9 @@ def _selected_installation(preferences, registry):
 
 def _draw_worker_state(layout) -> None:
     if _preferences._session.worker_status:
-        layout.label(text=_preferences._session.worker_status, icon="TIME")
+        layout.label(text=_preferences._session.worker_status, **icon_registry.icon_kwargs("timer", "TIME"))
     if _preferences._session.worker_error:
-        layout.label(text=_preferences._session.worker_error, icon="ERROR")
+        layout.label(text=_preferences._session.worker_error, **icon_registry.icon_kwargs("error", "ERROR"))
 
     installer = _preferences._session.installer
     if installer is None:
@@ -68,7 +68,7 @@ def _draw_worker_state(layout) -> None:
         done, total = installer.download_progress
         layout.label(
             text=_preferences.view_model.format_download_progress(done, total),
-            icon="IMPORT",
+            **icon_registry.icon_kwargs("download", "IMPORT"),
         )
         if (
             _preferences._session.worker is not None
@@ -76,7 +76,7 @@ def _draw_worker_state(layout) -> None:
         ):
             layout.operator("clothnext.solver_cancel", text="Cancel Download")
     if installer.error is not None:
-        layout.label(text=installer.error.user_message, icon="ERROR")
+        layout.label(text=installer.error.user_message, **icon_registry.icon_kwargs("error", "ERROR"))
 
 
 def draw_solver_section(self, layout) -> None:
@@ -91,7 +91,7 @@ def draw_solver_section(self, layout) -> None:
     busy = session_active or _worker_active()
 
     if registry_error:
-        box.label(text=registry_error, icon="ERROR")
+        box.label(text=registry_error, **icon_registry.icon_kwargs("error", "ERROR"))
 
     if active is None:
         title = (
@@ -99,7 +99,7 @@ def draw_solver_section(self, layout) -> None:
             if not registry.installations
             else "No Solver Selected"
         )
-        box.label(text=title, icon="ERROR")
+        box.label(text=title, **icon_registry.icon_kwargs("error", "ERROR"))
         if selected_id:
             box.label(text="The selected solver installation is missing.")
 
@@ -140,7 +140,7 @@ def draw_solver_section(self, layout) -> None:
         selector.prop(self, "selected_solver_installation_id", text="Release")
 
     if active.error:
-        box.label(text=active.error, icon="ERROR")
+        box.label(text=active.error, **icon_registry.icon_kwargs("error", "ERROR"))
     if session_active:
         box.label(
             text="Solver selection is locked while a Bake is active.",

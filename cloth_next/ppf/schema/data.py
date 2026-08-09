@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Sequence
 
 from ..coordinates import Mat4
+from ...materials.friction import (PPF_FRICTION_SCALE,
+                                   artist_friction_to_ppf)
 from . import envelope
 
 GROUP_SHELL = "SHELL"
@@ -227,8 +229,9 @@ class SceneObject:
             is_numpy = (type(self.face_friction).__module__.split(".", 1)[0]
                         == "numpy")
             info["face_friction"] = (
-                self.face_friction if is_numpy else
-                [_float32(value) for value in self.face_friction])
+                self.face_friction * PPF_FRICTION_SCALE if is_numpy else
+                [_float32(artist_friction_to_ppf(value))
+                 for value in self.face_friction])
         if len(self.edges):
             is_numpy = (type(self.edges).__module__.split(".", 1)[0]
                         == "numpy")

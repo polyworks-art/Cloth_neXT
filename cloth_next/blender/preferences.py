@@ -25,7 +25,7 @@ from ..ppf.compatibility import parse_executable_version
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
-from . import addon_update_operators
+from . import addon_update_operators, icon_registry
 from .addon_identity import addon_preferences, package_addon_id
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
@@ -744,7 +744,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "auto_launch_bake_window")
         hud_box=layout.box(); hud_box.label(text="Bake Resource Monitor")
         for name in ("show_bake_hud","bake_hud_anchor","bake_hud_scale","telemetry_refresh_seconds"): hud_box.prop(self,name)
-        safety=hud_box.box(); safety.label(text="Memory Safety", icon="MEMORY")
+        safety=hud_box.box(); safety.label(text="Memory Safety", **icon_registry.icon_kwargs("monitor", "MEMORY"))
         safety.prop(self,"auto_cancel_high_ram")
         threshold=safety.row(); threshold.enabled=getattr(
             self,"auto_cancel_high_ram",True)
@@ -767,7 +767,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.operator("clothnext.addon_update_repo_setup",
                          text="Register Update Channel")
         if self.update_channel == "DEV":
-            warning=box.box(); warning.label(text="Development Channel", icon="ERROR")
+            warning=box.box(); warning.label(text="Development Channel", **icon_registry.icon_kwargs("error", "ERROR"))
             warning.label(text="Experimental public builds; reduced validation.")
             warning.label(text="Back up your files before updating.")
             warning.label(text=addon_updates.UpdateChannel.DEV.index_url)
@@ -800,7 +800,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         selector.enabled = not session_active and bool(registry.installations)
         selector.prop(self, "selected_solver_installation_id")
         if active is None:
-            box.label(text="No Solver Selected", icon="ERROR")
+            box.label(text="No Solver Selected", **icon_registry.icon_kwargs("error", "ERROR"))
             if selected_id:
                 box.label(text="The selected installation is missing.")
         else:
@@ -812,7 +812,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                 text="Solver selection is locked while a Bake is active.",
                 icon="LOCKED")
         if registry_error:
-            box.label(text=registry_error, icon="ERROR")
+            box.label(text=registry_error, **icon_registry.icon_kwargs("error", "ERROR"))
 
         installed_box = box.box()
         installed_box.label(text="Installed")
@@ -866,7 +866,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                 f"Protocol {entry.protocol_version} · Schema "
                 f"{entry.schema_version} · {entry.channel.title()}"))
             if entry.official_release_tag in installed_tags:
-                row_box.label(text="Installed", icon="CHECKMARK")
+                row_box.label(text="Installed", **icon_registry.icon_kwargs("success", "CHECKMARK"))
                 reinstall_row = row_box.row()
                 reinstall_row.enabled = not session_active
                 reinstall = reinstall_row.operator(
@@ -886,9 +886,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                 download_use.activate_after_install = True
         installer = _session.installer
         if _session.worker_status:
-            box.label(text=_session.worker_status, icon="TIME")
+            box.label(text=_session.worker_status, **icon_registry.icon_kwargs("timer", "TIME"))
         if _session.worker_error:
-            box.label(text=_session.worker_error, icon="ERROR")
+            box.label(text=_session.worker_error, **icon_registry.icon_kwargs("error", "ERROR"))
         if installer is not None:
             box.label(text=(
                 "Installation stage: "

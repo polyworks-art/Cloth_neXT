@@ -55,7 +55,7 @@ from ..solver_quality import (
 from ..materials.deformables import (RodMaterialSettings,
                                      SoftBodyMaterialSettings,
                                      RigidBodyMaterialSettings)
-from . import icon_registry, validation_state
+from . import icon_registry, validation_state, viewport_colors
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
@@ -149,6 +149,9 @@ def _mark_dirty(property_group) -> None:
 def _on_settings_update(self, _context) -> None:
     """Solver-visible value changed: record DIRTY, compute nothing."""
     _mark_dirty(self)
+    owner = getattr(self, "id_data", None)
+    if getattr(owner, "cloth_next", None) is self:
+        viewport_colors.apply_object(owner)
 
 
 def _on_collider_proxy_type_update(self, _context) -> None:

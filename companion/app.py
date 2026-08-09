@@ -22,7 +22,6 @@ from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from companion.particle_motion import advance_particle, smooth_rate
-from companion.performance_graph import FramePerformanceHistory
 from companion.frame_progress import CurrentFrameProgressEstimator
 from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
 
@@ -43,11 +42,12 @@ def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
 
 BG="#303030"; PANEL="#252525"; BORDER="#555555"; TEXT="#f0f0f0"
 MUTED="#b8b8b8"; AMBER="#d99a32"; BUTTON="#444444"
+SECTION_HEADER="#353535"; SECTION_BODY="#2d2d2d"; VALUE_BG="#242424"
 GRAPH=AMBER; GRAPH_FILL="#4b3b25"; GRID="#3b3b3b"; ERROR="#ff5964"
 FRAME_FILL="#4b3b25"
 ABOUT_TOOLTIP="SideFX, please don’t sue me."
 ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
-COMPACT_HEIGHT=118; DETAILS_HEIGHT=232
+COMPACT_HEIGHT=118; DETAILS_HEIGHT=350
 
 def _logger():
     root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
@@ -139,6 +139,31 @@ def details_status(snapshot: BakeSnapshot) -> str:
     if snapshot.state is BakeState.SIMULATING:
         return ""
     return snapshot.status_message or "No PPF simulation is running."
+
+
+def run_stats(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
+    """Stable Houdini-style facts for the current run, never historical graphs."""
+    frame = (str(snapshot.current_frame) if snapshot.current_frame is not None
+             else "—")
+    total = str(snapshot.progress_total) if snapshot.progress_total else "—"
+    progress = (f"{snapshot.progress_fraction:.0%}"
+                if snapshot.progress_total else "—")
+    activity = snapshot.activity_label or ACTIVITY_LABELS.get(
+        snapshot.activity_code, "—")
+    solver_values = dict(BakeWindow._solver_status_values(None, activity))
+    solver = " · ".join(value for value in (
+        snapshot.solver_mode.replace("_", " ").title(),
+        snapshot.solver_version) if value) or "—"
+    return (
+        ("FRAME", f"{frame} / {total}"),
+        ("PROGRESS", progress),
+        ("ELAPSED", format_duration(snapshot.elapsed_seconds)),
+        ("SOLVER", solver),
+        ("CONTACTS", solver_values.get("contacts", "—")),
+        ("NEWTON", solver_values.get("newton", "—")),
+        ("LINEAR ITERS", solver_values.get("iterations", "—")),
+        ("ACTIVITY", activity[:34] or "—"),
+    )
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -244,7 +269,6 @@ class BakeWindow:
         self._activity_pending=None; self._activity_after=None; self._closed=False
         self._blink_after=None; self._blink_phase=False
         self._progress_fraction=0.0
-        self._performance=FramePerformanceHistory()
         self._frame_progress=CurrentFrameProgressEstimator()
         self._frame_progress_state=self._frame_progress.tick()
         self._status_fill_after=None
@@ -375,17 +399,39 @@ class BakeWindow:
         self.error_docs_link.bind("<Return>",self._open_error_docs)
         self.error_docs_link.bind("<space>",self._open_error_docs)
         self._error_docs_url=""
-        self.performance_section=tk.Frame(self.details_panel,bg=PANEL)
-        self.performance_section.pack(fill="both",expand=True)
-        self.performance=tk.Canvas(
-            self.performance_section,height=92,bg=PANEL,
-            highlightbackground=BORDER,highlightthickness=1,borderwidth=0)
-        self.performance.pack(fill="x")
-        self.performance.bind("<Configure>",self._draw_performance)
-        self.performance_eta=tk.Label(
-            self.performance_section,textvariable=self.remaining_text,
-            bg=PANEL,fg=TEXT,font=("Segoe UI Semibold",8),anchor="center")
-        self.performance_eta.pack(fill="x",pady=(4,0))
+        self.run_stats_section=tk.Frame(self.details_panel,bg=PANEL)
+        self.run_stats_section.pack(fill="both",expand=True)
+        self.run_stat_vars={}
+
+        def stat_group(title,rows):
+            group=tk.Frame(self.run_stats_section,bg=SECTION_BODY,
+                           highlightbackground="#202020",highlightthickness=1)
+            group.pack(fill="x",pady=(0,5))
+            tk.Label(group,text=f"⌄  {title}",bg=SECTION_HEADER,fg=MUTED,
+                     font=("Segoe UI",8),anchor="w",padx=8,pady=4).pack(fill="x")
+            body=tk.Frame(group,bg=SECTION_BODY,padx=9,pady=5)
+            body.pack(fill="x")
+            body.columnconfigure(1,weight=1)
+            for row,(key,label) in enumerate(rows):
+                tk.Label(body,text=label,bg=SECTION_BODY,fg=MUTED,
+                         font=("Segoe UI",8),anchor="e",width=13).grid(
+                             row=row,column=0,sticky="e",padx=(0,8),pady=2)
+                value=tk.StringVar(value="—"); self.run_stat_vars[key]=value
+                tk.Label(body,textvariable=value,bg=VALUE_BG,fg=TEXT,
+                         font=("Consolas",8),anchor="w",padx=6,pady=2).grid(
+                             row=row,column=1,sticky="ew",pady=2)
+            return group
+
+        stat_group("Run",(("FRAME","Frame"),("PROGRESS","Progress"),
+                          ("ELAPSED","Elapsed"),("ACTIVITY","Activity")))
+        stat_group("Solver",(("SOLVER","Backend"),("CONTACTS","Contacts"),
+                             ("NEWTON","Newton Steps"),
+                             ("LINEAR ITERS","Linear Iterations")))
+        self.run_eta=tk.Label(
+            self.run_stats_section,textvariable=self.remaining_text,
+            bg=SECTION_HEADER,fg="#9bc46a",font=("Segoe UI Semibold",8),
+            anchor="center",pady=4)
+        self.run_eta.pack(fill="x",pady=(6,0))
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
             style="CN.TButton",command=self._toggle_details)
@@ -513,14 +559,14 @@ class BakeWindow:
         canvas.create_text(width-7,6,text=average_text,
                            fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
 
-    def _show_performance_details(self,snapshot):
+    def _show_run_details(self,snapshot):
         if snapshot.state is BakeState.ERROR:
-            self.performance_section.pack_forget()
+            self.run_stats_section.pack_forget()
             if not self.diagnostics_section.winfo_manager():
                 self.diagnostics_section.pack(fill="both",expand=True)
-        elif not self.performance_section.winfo_manager():
+        elif not self.run_stats_section.winfo_manager():
             self.diagnostics_section.pack_forget()
-            self.performance_section.pack(fill="both",expand=True)
+            self.run_stats_section.pack(fill="both",expand=True)
 
     def _fit_window_to_content(self):
         """Keep content from displacing the fixed bottom controls."""
@@ -619,7 +665,6 @@ class BakeWindow:
 
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
-        performance_changed=self._performance.observe(snapshot)
         self._frame_progress_state=self._frame_progress.observe(snapshot)
         self.root.update_idletasks()
         width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
@@ -656,9 +701,9 @@ class BakeWindow:
         if snapshot.state is BakeState.ERROR:
             label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
-        self._show_performance_details(snapshot)
-        if performance_changed or snapshot.state is not BakeState.ERROR:
-            self._draw_performance()
+        for label,value in run_stats(snapshot):
+            self.run_stat_vars[label].set(value)
+        self._show_run_details(snapshot)
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)

@@ -79,21 +79,35 @@ def test_details_height_uses_requested_content_height():
     assert "max(DETAILS_HEIGHT,requested)" in source
 
 
-def test_details_graph_owns_normal_panel_and_eta_sits_below_it():
+def test_details_stats_own_normal_panel_and_eta_sits_below_it():
     source=inspect.getsource(app.BakeWindow._build)
-    states=inspect.getsource(app.BakeWindow._show_performance_details)
-    assert 'self.performance_section.pack(fill="both",expand=True)' in source
-    assert 'height=92' in source
-    assert 'self.performance_eta.pack(fill="x",pady=(4,0))' in source
+    states=inspect.getsource(app.BakeWindow._show_run_details)
+    assert 'self.run_stats_section.pack(fill="both",expand=True)' in source
+    assert "self.run_stat_vars" in source
+    assert 'self.run_eta.pack(fill="x",pady=(6,0))' in source
     assert "self.diagnostics_section.pack_forget()" in states
 
 
-def test_error_details_replace_graph_and_window_refits_after_updates():
-    states=inspect.getsource(app.BakeWindow._show_performance_details)
+def test_error_details_replace_stats_and_window_refits_after_updates():
+    states=inspect.getsource(app.BakeWindow._show_run_details)
     show=inspect.getsource(app.BakeWindow.show)
-    assert "self.performance_section.pack_forget()" in states
+    assert "self.run_stats_section.pack_forget()" in states
     assert 'self.diagnostics_section.pack(fill="both",expand=True)' in states
     assert "self._fit_window_to_content()" in show
+
+
+def test_run_stats_replace_history_graph_with_current_run_facts():
+    snapshot=BakeSnapshot(state=BakeState.SIMULATING,current_frame=12,
+        progress_current=12,progress_total=40,elapsed_seconds=9,
+        solver_mode="MANAGED",solver_version="2.2",
+        activity_label="Solver · 408 contacts · Newton 2 · 187 linear iterations")
+    values=dict(app.run_stats(snapshot))
+    assert values["FRAME"] == "12 / 40"
+    assert values["PROGRESS"] == "30%"
+    assert values["CONTACTS"] == "408"
+    assert values["NEWTON"] == "2"
+    assert values["LINEAR ITERS"] == "187"
+    assert "FramePerformanceHistory" not in inspect.getsource(app)
 
 
 def test_details_replaces_nonfunctional_pause_control():

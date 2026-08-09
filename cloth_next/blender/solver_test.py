@@ -6047,6 +6047,41 @@ def _safe_transition(state: BakeState, **changes) -> None:
         pass  # e.g. events arriving after a cancel request
 
 
+def _show_baked_timeline(plan: RunPlan) -> None:
+    """Expose the freshly attached cache immediately in viewport/timeline."""
+    scene = getattr(getattr(bpy, "context", None), "scene", None)
+    if scene is None:
+        return
+    try:
+        scene.use_preview_range = True
+        scene.frame_preview_start = int(plan.frame_start)
+        scene.frame_preview_end = int(plan.frame_end)
+        scene.frame_set(int(plan.frame_start))
+        for window in getattr(bpy.context.window_manager, "windows", ()):
+            for area in getattr(window.screen, "areas", ()):
+                if area.type in {"VIEW_3D", "TIMELINE", "DOPESHEET_EDITOR"}:
+                    area.tag_redraw()
+    except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+        pass
+
+
+def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
+    """Move Blender's blocked UI to the newest solver frame on main thread."""
+    scene = getattr(getattr(bpy, "context", None), "scene", None)
+    if scene is None:
+        return
+    frame = min(int(plan.frame_end), max(int(plan.frame_start),
+                                        int(blender_frame)))
+    try:
+        scene.use_preview_range = True
+        scene.frame_preview_start = int(plan.frame_start)
+        scene.frame_preview_end = frame
+        if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
+            scene.frame_set(frame)
+    except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+        pass
+
+
 def _refresh_recovery_ui(plan: RunPlan) -> None:
     """Verify metadata on the main thread and cache artist-facing UI fields."""
     options = getattr(plan, "recovery_options", None)
@@ -6463,6 +6498,8 @@ def _pump_once() -> float | None:
                     solver_step = min(plan.frame_count - 1, int(current))
                     current = plan.frame_start + solver_step
                     total = plan.frame_count
+                    if event.phase == "TRANSFORMING_FRAME":
+                        _advance_bake_timeline(plan, current)
                 activity_code = None
                 if getattr(event, "activity_code", ""):
                     try:
@@ -6487,6 +6524,7 @@ def _pump_once() -> float | None:
                                  status_message="Creating Blender playback cache")
                 attach_step = _time.monotonic()
                 _attach_playback(plan, header)
+                _show_baked_timeline(plan)
                 diagnostics.timings["modifier_attach"] = (
                     _time.monotonic() - attach_step)
                 shared_controller.transition(

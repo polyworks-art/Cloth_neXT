@@ -17,7 +17,9 @@ REQUIRED = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "sol
             "info", "folder", "timer", "setup", "shape", "rest_shape",
             "sewing", "friction_regions", "simulation_proxy",
             "solver_settings", "engine", "result", "diagnostics",
-            "maintenance")
+            "maintenance", "add", "download", "gpu", "health", "link",
+            "monitor", "question", "remove", "settings", "update", "upload",
+            "validate")
 SIZE = (64, 64)
 
 def _render(source: Path) -> bytes:

@@ -18,6 +18,7 @@ import bpy
 
 from ..bake.controller import shared_controller
 from ..pinning import PinConstraintType, set_pin_constraint_resolver
+from . import icon_registry
 from . import object_properties, validation_state
 
 _DEFAULT_PULL_STRENGTH = 1.0
@@ -227,15 +228,15 @@ class CLOTHNEXT_PT_pin_constraint(bpy.types.Panel):
 
         if target_mode:
             layout.label(text="Target Object always uses collision-safe Soft Pins",
-                         icon="CHECKMARK")
+                         **icon_registry.icon_kwargs("success", "CHECKMARK"))
         elif settings.pin_constraint_type == "SOFT":
             layout.label(text="Recommended for clothing and animated rigs",
-                         icon="CHECKMARK")
+                         **icon_registry.icon_kwargs("success", "CHECKMARK"))
             layout.label(text="Can yield when the target meets a Collider")
         else:
             warning = layout.box()
             warning.alert = True
-            warning.label(text="Exact, non-yielding constraint", icon="ERROR")
+            warning.label(text="Exact, non-yielding constraint", **icon_registry.icon_kwargs("error", "ERROR"))
             warning.label(text="A target crossing a Collider can make")
             warning.label(text="the solve infeasible")
 

@@ -126,7 +126,7 @@ def test_scene_payload_encodes_per_face_friction():
 
     info = build_scene_payload(mapped, collider)[0]["object"][0]
 
-    assert info["face_friction"] == pytest.approx((0.2, 0.8))
+    assert info["face_friction"] == pytest.approx((0.1, 0.4))
 
 
 def test_scene_object_rejects_invalid_per_face_friction():
@@ -477,7 +477,7 @@ def test_all_ppf_force_fields_and_native_animation_tracks_are_encoded():
     assert payload["dyn_param"]["air-density"][1][1][0] == pytest.approx(0.8)
 
 
-def test_param_payload_extends_legacy_golden_only_with_audited_shrink_keys():
+def test_param_payload_extends_legacy_golden_with_audited_mappings():
     blob, digest = encode_param(_micro_settings(), "MicroCloth",
                                 "cn-cloth-0001", "MicroCollider",
                                 "cn-collider-0001",
@@ -487,6 +487,13 @@ def test_param_payload_extends_legacy_golden_only_with_audited_shrink_keys():
     current = envelope.loads_envelope(blob, envelope.KIND_PARAM)
     legacy = envelope.loads_envelope(golden, envelope.KIND_PARAM)
     current_shell = current["group"][0][0]
+    legacy_shell = legacy["group"][0][0]
+    assert current_shell.pop("friction") == float32_wire(
+        legacy_shell.pop("friction") * 0.5)
+    current_static = current["group"][1][0]
+    legacy_static = legacy["group"][1][0]
+    assert current_static.pop("friction") == float32_wire(
+        legacy_static.pop("friction") * 0.5)
     assert current_shell.pop("shrink-x") == float32_wire(1.0)
     assert current_shell.pop("shrink-y") == float32_wire(1.0)
     assert current_shell.pop("stitch-stiffness") == float32_wire(1.0)
@@ -530,7 +537,7 @@ def test_shell_artist_names_map_to_exact_wire_keys():
     assert wire["bend"] == float32_wire(4.3)             # Bend Resistance
     assert wire["deformation-damping"] == float32_wire(0.01)  # Shape Damping
     assert wire["bending-damping"] == float32_wire(0.002)     # Fold Damping
-    assert wire["friction"] == float32_wire(0.35)        # Friction
+    assert wire["friction"] == float32_wire(0.175)       # Friction
     assert wire["contact-gap"] == float32_wire(0.004)    # Collision Gap
     assert wire["contact-offset"] == float32_wire(0.002)  # Surface Offset
     assert wire["strain-limit"] == float32_wire(0.05)    # 5% -> 0.05
@@ -621,8 +628,8 @@ def test_collider_grip_gap_offset_map_independently_of_cloth():
     payload = _micro_payload(shell=shell, static=static)
     shell_wire = payload["group"][0][0]
     static_wire = payload["group"][1][0]
-    assert shell_wire["friction"] == float32_wire(0.1)
-    assert static_wire["friction"] == float32_wire(0.9)
+    assert shell_wire["friction"] == float32_wire(0.05)
+    assert static_wire["friction"] == float32_wire(0.45)
     assert shell_wire["contact-gap"] == float32_wire(0.002)
     assert static_wire["contact-gap"] == float32_wire(0.005)
     assert shell_wire["contact-offset"] == float32_wire(0.001)

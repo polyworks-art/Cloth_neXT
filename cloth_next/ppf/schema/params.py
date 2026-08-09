@@ -52,6 +52,7 @@ from ...materials.validation import validate_shell_values, validate_static_value
 from ...materials.deformables import (RodMaterialSettings,
                                       SoftBodyMaterialSettings,
                                       RigidBodyMaterialSettings)
+from ...materials.friction import artist_friction_to_ppf
 from ...pinning import StaticPinConfig
 from ...solver_quality import DEFAULT_SOLVER_QUALITY, SolverQualitySettings
 from ..coordinates import blender_vector_to_ppf
@@ -121,7 +122,8 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
             1.0 if shell.bend_rest_from_geometry else 0.0),
         "deformation-damping": float32_wire(shell.shape_damping),
         "bending-damping": float32_wire(shell.fold_damping),
-        "friction": float32_wire(shell.surface_grip),
+        "friction": float32_wire(artist_friction_to_ppf(
+            shell.surface_grip)),
         "contact-gap": float32_wire(shell.collision_gap),
         "contact-offset": float32_wire(shell.surface_offset),
         "strain-limit": float32_wire(strain_limit),
@@ -138,7 +140,8 @@ def static_wire_params(static: StaticMaterialSettings) -> dict[str, object]:
     emits for STATIC groups)."""
     validate_static_values(static)
     return {
-        "friction": float32_wire(static.surface_grip),
+        "friction": float32_wire(artist_friction_to_ppf(
+            static.surface_grip)),
         "contact-gap": float32_wire(static.collision_gap),
         "contact-offset": float32_wire(static.surface_offset),
     }
@@ -148,7 +151,7 @@ def rod_wire_params(rod: RodMaterialSettings) -> dict[str, object]:
     return {
         "model": "arap", "density": float32_wire(rod.linear_density),
         "young-mod": float32_wire(rod.stretch_resistance),
-        "friction": float32_wire(rod.surface_grip),
+        "friction": float32_wire(artist_friction_to_ppf(rod.surface_grip)),
         "deformation-damping": float32_wire(rod.shape_damping),
         "bending-damping": float32_wire(rod.bend_damping),
         "contact-gap": float32_wire(rod.collision_gap),
@@ -171,7 +174,7 @@ def soft_body_wire_params(soft: SoftBodyMaterialSettings, uuid: str) -> dict[str
         "young-mod": float32_wire(soft.stretch_resistance),
         "poiss-rat": float32_wire(soft.poisson_ratio),
         "shrink": float32_wire(soft.volume_scale),
-        "friction": float32_wire(soft.surface_grip),
+        "friction": float32_wire(artist_friction_to_ppf(soft.surface_grip)),
         "deformation-damping": float32_wire(soft.shape_damping),
         "contact-gap": float32_wire(soft.collision_gap),
         "contact-offset": float32_wire(soft.surface_offset),
@@ -187,7 +190,7 @@ def rigid_body_wire_params(rigid: RigidBodyMaterialSettings) -> dict[str, object
     return {
         "model": "pdrd",
         "density": float32_wire(rigid.volume_density),
-        "friction": float32_wire(rigid.surface_grip),
+        "friction": float32_wire(artist_friction_to_ppf(rigid.surface_grip)),
         "contact-gap": float32_wire(rigid.collision_gap),
         "contact-offset": float32_wire(rigid.surface_offset),
     }

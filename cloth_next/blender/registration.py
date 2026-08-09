@@ -23,7 +23,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                object_properties, physics_operators, physics_ui,
                pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
-               validation_state)
+               validation_state, viewport_colors)
 
 _CLASSES = (
     preferences.CLASSES
@@ -66,6 +66,7 @@ def _steps() -> list[tuple]:
     steps.append((physics_ui.append_add_physics_entry,
                   physics_ui.remove_add_physics_entry))
     steps.append((icon_registry.register, icon_registry.unregister))
+    steps.append((viewport_colors.register, viewport_colors.unregister))
     steps.append((hud.register, hud.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
     # last and detached first, and idempotent, so a reload cannot leave a

@@ -1001,6 +1001,46 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.up_axis == "POS_Z"
 
 
+def test_finished_cache_is_exposed_as_timeline_preview(blender_env):
+    module = blender_env.solver_test
+
+    class Scene:
+        def frame_set(self, frame):
+            self.frame_current = frame
+
+    scene = Scene()
+    blender_env.bpy.context.scene = scene
+    plan = SimpleNamespace(frame_start=12, frame_end=48)
+
+    module._show_baked_timeline(plan)
+
+    assert scene.use_preview_range
+    assert (scene.frame_preview_start, scene.frame_preview_end) == (12, 48)
+    assert scene.frame_current == 12
+
+
+def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env):
+    module = blender_env.solver_test
+
+    class Scene:
+        frame_current = 10
+
+        def frame_set(self, frame):
+            self.frame_current = frame
+
+    scene = Scene()
+    blender_env.bpy.context.scene = scene
+    plan = SimpleNamespace(frame_start=10, frame_end=50)
+
+    module._advance_bake_timeline(plan, 23)
+    assert scene.frame_current == 23
+    assert (scene.frame_preview_start, scene.frame_preview_end) == (10, 23)
+
+    module._advance_bake_timeline(plan, 999)
+    assert scene.frame_current == 50
+    assert scene.frame_preview_end == 50
+
+
 def test_single_deformable_tuple_accepts_single_worker_header(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

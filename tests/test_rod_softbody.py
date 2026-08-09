@@ -100,7 +100,7 @@ def test_rigid_body_uses_pdrd_with_only_mass_and_contact_controls():
         SETTINGS, "box", "rigid-1", STATIC_SPEC, group_type=GROUP_PDRD,
         material=RigidBodyMaterialSettings(volume_density=250.0))
     wire = params["group"][0][0]
-    assert wire == {"model": "pdrd", "density": 250.0, "friction": 0.5,
+    assert wire == {"model": "pdrd", "density": 250.0, "friction": 0.25,
                     "contact-gap": pytest.approx(0.001),
                     "contact-offset": 0.0}
     with pytest.raises(DeformableMaterialError):
