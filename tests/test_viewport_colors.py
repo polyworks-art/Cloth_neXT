@@ -34,3 +34,19 @@ def test_apply_and_restore_preserve_artist_color(monkeypatch):
     viewport_colors.apply_object(obj)
     assert obj.color == (0.2, 0.3, 0.4, 0.5)
     assert viewport_colors._ORIGINAL_COLOR not in obj
+
+
+def test_refresh_forces_solid_viewport_to_object_color(monkeypatch):
+    viewport_colors = _module(monkeypatch)
+    redraws = []
+    shading = SimpleNamespace(type="SOLID", color_type="MATERIAL")
+    space = SimpleNamespace(shading=shading)
+    area = SimpleNamespace(tag_redraw=lambda: redraws.append(1))
+    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
+                        lambda: iter(((area, space),)))
+
+    viewport_colors.refresh_viewports()
+
+    assert shading.color_type == "OBJECT"
+    assert redraws == [1]
+    assert viewport_colors._shading_states == [(shading, "MATERIAL")]

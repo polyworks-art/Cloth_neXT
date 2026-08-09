@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.2.21 - 2026-08-09 (Dev channel)
+
+### Changed
+
+- Force controls are presented as one permanent list without an active Force
+  Type dropdown; Gravity and Wind now have independent strengths and can act
+  simultaneously alongside all aerodynamic controls.
+- New Force objects default Wind and Wind Variation to zero so their initial
+  state cannot create an unintended gust.
+- Object Type menu entries use distinct semantic icons and role-specific hover
+  descriptions.
+- Nested Pin, Constraint, Collision Timing, Contact, and Motion panels use
+  semantic header icons instead of the generic Cloth NeXt mark.
+
+### Release preparation
+
+- Version and solver compatibility metadata advance together to 2.2.21.
+- This Dev release establishes the UI-consistency baseline for the upcoming
+  2.3.0 Beta milestone.
+
 ## 2.2.20 - 2026-08-09 (Dev channel)
 
 ### Added

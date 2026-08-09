@@ -116,8 +116,11 @@ def test_force_settings_expose_every_dynamic_ppf_environment_parameter(blender_e
     assert props["air_density"].keywords["default"] == 0.001
     assert props["air_friction"].keywords["default"] == 0.2
     assert props["vertex_air_damp"].keywords["default"] == 0.0
-    assert props["wind_variation"].keywords["default"] == 0.25
-    for name in ("strength", "air_density", "air_friction",
+    assert props["wind_variation"].keywords["default"] == 0.0
+    assert props["gravity_strength"].keywords["default"] == 9.81
+    assert props["wind_strength"].keywords["default"] == 0.0
+    for name in ("strength", "gravity_strength", "wind_strength",
+                 "air_density", "air_friction",
                  "vertex_air_damp", "wind_variation"):
         assert "SKIP_SAVE" not in props[name].keywords.get("options", set())
 
@@ -230,6 +233,26 @@ def test_object_type_menu_uses_distinct_role_icons(blender_env):
         "FORCE_FORCE"]
     assert [item.kwargs["depress"] for item in active] == [
         False, True, False, False, False, False]
+
+
+def test_object_type_menu_uses_unique_semantic_custom_icons(blender_env):
+    icons = blender_env.object_properties.ROLE_ICONS
+    custom_names = [icons[identifier][0]
+                    for identifier, _label, _description
+                    in blender_env.object_properties.ROLE_ITEMS]
+    assert len(custom_names) == len(set(custom_names))
+    assert set(custom_names) <= set(blender_env.physics_ui.icon_registry._NAMES)
+
+
+def test_object_type_menu_entries_have_role_specific_tooltips(blender_env):
+    operator = blender_env.physics_operators.CLOTHNEXT_OT_set_object_type
+    descriptions = []
+    for identifier, _label, expected in blender_env.object_properties.ROLE_ITEMS:
+        actual = operator.description(None, SimpleNamespace(role=identifier))
+        descriptions.append(actual)
+        assert actual == expected
+        assert len(actual.split()) >= 5
+    assert len(descriptions) == len(set(descriptions))
 
 
 # --- 3+4: add operator ------------------------------------------------------------

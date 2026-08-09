@@ -113,6 +113,25 @@ def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
     assert module.SCENE_EXPORT_CACHE_SCHEMA == 4
 
 
+def test_static_collider_animation_detection_and_bake_guard(blender_env):
+    module = blender_env.solver_test
+    curve = SimpleNamespace(keyframe_points=(SimpleNamespace(),))
+    action = SimpleNamespace(fcurves=(curve,))
+    collider = SimpleNamespace(
+        name="Moving Collider",
+        animation_data=SimpleNamespace(action=action, drivers=()),
+        constraints=(), data=SimpleNamespace(animation_data=None, shape_keys=None),
+        parent=None, modifiers=(),
+        cloth_next=SimpleNamespace(collider_motion="STATIC"))
+
+    assert module.static_collider_has_animation(collider)
+    with pytest.raises(module.SceneValidationError, match="Motion.*Static"):
+        module._reject_animated_static_colliders((collider,))
+
+    collider.cloth_next.collider_motion = "ANIMATED"
+    module._reject_animated_static_colliders((collider,))
+
+
 def test_shell_uv_export_preserves_authored_uvs_and_generates_fallback(
         blender_env):
     module = blender_env.solver_test
@@ -828,6 +847,31 @@ def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):
     assert wind == (0.0, 0.0, 2.5)
 
 
+def test_unified_force_values_are_applied_together(blender_env):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    settings = SimpleNamespace(
+        force_type="GRAVITY", strength=9.81,
+        gravity_strength=4.0, wind_strength=2.5, wind_variation=0.0,
+        air_density=0.8, air_friction=0.3, vertex_air_damp=0.15)
+    force = SimpleNamespace(
+        name="Environment", name_full="Environment", type="EMPTY",
+        matrix_world=identity,
+        cloth_next=SimpleNamespace(enabled=True, role="FORCE", force=settings))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        objects=(force,), gravity=(0.0, 0.0, -9.81), use_gravity=True))
+
+    state, active = module._force_state(context)
+
+    assert state.gravity == (0.0, 0.0, -4.0)
+    assert state.wind == (0.0, 0.0, 2.5)
+    assert state.air_density == pytest.approx(0.8)
+    assert state.air_friction == pytest.approx(0.3)
+    assert state.vertex_air_damp == pytest.approx(0.15)
+    assert active == {"AIR_DENSITY", "AIR_FRICTION", "VERTEX_AIR_DAMP"}
+
+
 def test_scalar_ppf_force_empties_are_aggregated(blender_env):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
@@ -1001,7 +1045,7 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.up_axis == "POS_Z"
 
 
-def test_finished_cache_is_exposed_as_timeline_preview(blender_env):
+def test_finished_cache_is_exposed_as_timeline_strip(blender_env):
     module = blender_env.solver_test
 
     class Scene:
@@ -1014,8 +1058,9 @@ def test_finished_cache_is_exposed_as_timeline_preview(blender_env):
 
     module._show_baked_timeline(plan)
 
-    assert scene.use_preview_range
-    assert (scene.frame_preview_start, scene.frame_preview_end) == (12, 48)
+    from cloth_next.blender import timeline_overlay
+    assert not scene.use_preview_range
+    assert timeline_overlay.baked_range() == (12, 48, 48)
     assert scene.frame_current == 12
 
 
@@ -1033,12 +1078,14 @@ def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env)
     plan = SimpleNamespace(frame_start=10, frame_end=50)
 
     module._advance_bake_timeline(plan, 23)
+    from cloth_next.blender import timeline_overlay
     assert scene.frame_current == 23
-    assert (scene.frame_preview_start, scene.frame_preview_end) == (10, 23)
+    assert not scene.use_preview_range
+    assert timeline_overlay.baked_range() == (10, 23, 50)
 
     module._advance_bake_timeline(plan, 999)
     assert scene.frame_current == 50
-    assert scene.frame_preview_end == 50
+    assert timeline_overlay.baked_range() == (10, 50, 50)
 
 
 def test_single_deformable_tuple_accepts_single_worker_header(

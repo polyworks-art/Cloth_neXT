@@ -17,6 +17,7 @@ ROLE_COLORS = {
 
 _ORIGINAL_COLOR = "_cloth_next_original_viewport_color"
 _shading_states: list[tuple[object, str]] = []
+_REFRESH_INTERVAL_SECONDS = 1.0
 
 
 def role_color(role: str) -> tuple[float, float, float, float]:
@@ -47,6 +48,7 @@ def apply_object(obj) -> None:
         obj.color = role_color(getattr(settings, "role", ""))
     except (AttributeError, TypeError, RuntimeError):
         pass
+    refresh_viewports()
 
 
 def restore_object(obj) -> None:
@@ -69,22 +71,59 @@ def _view3d_spaces():
                 continue
             for space in getattr(area, "spaces", ()):
                 if getattr(space, "type", "") == "VIEW_3D":
-                    yield space
+                    yield area, space
+
+
+def refresh_viewports() -> None:
+    """Keep every live Solid viewport in Object Color mode and redraw it.
+
+    Blender can create new VIEW_3D spaces after add-on registration (workspace
+    changes and file loads are common examples), so doing this only once during
+    ``register`` is not sufficient.
+    """
+    known = {id(shading) for shading, _color_type in _shading_states}
+    for area, space in _view3d_spaces():
+        shading = getattr(space, "shading", None)
+        if shading is None or getattr(shading, "type", "") != "SOLID":
+            continue
+        if getattr(shading, "color_type", "") != "OBJECT":
+            if id(shading) not in known:
+                _shading_states.append((shading, shading.color_type))
+                known.add(id(shading))
+            try:
+                shading.color_type = "OBJECT"
+            except (AttributeError, ReferenceError, RuntimeError):
+                continue
+        try:
+            area.tag_redraw()
+        except (AttributeError, ReferenceError, RuntimeError):
+            pass
+
+
+def _refresh_timer():
+    refresh_viewports()
+    return _REFRESH_INTERVAL_SECONDS
 
 
 def register() -> None:
     _shading_states.clear()
-    for space in _view3d_spaces():
-        shading = getattr(space, "shading", None)
-        if (shading is not None and getattr(shading, "type", "") == "SOLID"
-                and getattr(shading, "color_type", "") != "OBJECT"):
-            _shading_states.append((shading, shading.color_type))
-            shading.color_type = "OBJECT"
+    refresh_viewports()
     for obj in getattr(getattr(bpy, "data", None), "objects", ()):
         apply_object(obj)
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and not timers.is_registered(_refresh_timer):
+        try:
+            timers.register(_refresh_timer, first_interval=0.1, persistent=True)
+        except TypeError:
+            # Minimal Blender API stubs used by tests and older compatible API
+            # surfaces may not expose the optional persistent keyword.
+            timers.register(_refresh_timer, first_interval=0.1)
 
 
 def unregister() -> None:
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and timers.is_registered(_refresh_timer):
+        timers.unregister(_refresh_timer)
     for obj in getattr(getattr(bpy, "data", None), "objects", ()):
         restore_object(obj)
     for shading, color_type in reversed(_shading_states):

@@ -562,8 +562,11 @@ def _force_state(context, *, wind_frame: int | None = None) \
         -> tuple[ForceState, frozenset[str]]:
     """Resolve every PPF force/environment parameter in Blender space."""
     forces = _enabled_force_objects(context)
+    unified_forces = [obj for obj in forces
+                      if hasattr(obj.cloth_next.force, "gravity_strength")]
     gravity_forces = [obj for obj in forces
-                      if obj.cloth_next.force.force_type == "GRAVITY"]
+                      if (obj in unified_forces or
+                          obj.cloth_next.force.force_type == "GRAVITY")]
     gravity = ([0.0, 0.0, 0.0] if gravity_forces else
                list(context.scene.gravity) if context.scene.use_gravity else
                [0.0, 0.0, 0.0])
@@ -573,6 +576,39 @@ def _force_state(context, *, wind_frame: int | None = None) \
     active_scalars = set()
     for obj in forces:
         force = obj.cloth_next.force
+        if hasattr(force, "gravity_strength"):
+            matrix = obj.matrix_world
+            axis = [float(matrix[row][2]) for row in range(3)]
+            length = math.sqrt(sum(value * value for value in axis))
+            if not math.isfinite(length) or length <= 1e-12:
+                raise SceneValidationError(
+                    f"{obj.name}: Force Empty has an invalid local Z axis.")
+            axis = [value / length for value in axis]
+            gravity_strength = float(force.gravity_strength)
+            wind_strength = float(force.wind_strength)
+            variation = float(force.wind_variation)
+            values = (gravity_strength, wind_strength, variation)
+            if any(not math.isfinite(value) or value < 0.0
+                   for value in values):
+                raise SceneValidationError(
+                    f"{obj.name}: directional Force value is invalid.")
+            if wind_frame is not None and variation:
+                wind_strength = max(
+                    0.0, wind_strength + variation * _wind_oscillation(
+                        obj, wind_frame, _scene_fps(context)))
+            for index in range(3):
+                gravity[index] -= gravity_strength * axis[index]
+                wind[index] += wind_strength * axis[index]
+            for scalar_type, (field, _default) in _SCALAR_FORCE_FIELDS.items():
+                value = float(getattr(force, field))
+                if not math.isfinite(value) or value < 0.0:
+                    raise SceneValidationError(
+                        f"{obj.name}: {field.replace('_', ' ')} is invalid.")
+                if scalar_type not in active_scalars:
+                    scalars[scalar_type] = 0.0
+                    active_scalars.add(scalar_type)
+                scalars[scalar_type] += value
+            continue
         force_type = str(force.force_type)
         if force_type in _SCALAR_FORCE_FIELDS:
             field, _default = _SCALAR_FORCE_FIELDS[force_type]
@@ -1280,6 +1316,11 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         "object_key": validation_state.object_key(obj),
         "type": str(obj.cloth_next.force.force_type),
         "strength": float(obj.cloth_next.force.strength),
+        "gravity_strength": float(getattr(
+            obj.cloth_next.force, "gravity_strength",
+            obj.cloth_next.force.strength)),
+        "wind_strength": float(getattr(
+            obj.cloth_next.force, "wind_strength", 0.0)),
         "wind_variation": float(getattr(obj.cloth_next.force,
                                          "wind_variation", 0.0)),
         "air_density": float(getattr(obj.cloth_next.force,
@@ -1368,6 +1409,56 @@ def _animation_signature(obj) -> str:
         "fcurves": sorted(records, key=lambda item: (
             item["data_path"], item["array_index"])),
     })
+
+
+def static_collider_has_animation(obj, _visited=None) -> bool:
+    """Return whether a Static Collider has a source that can move/deform it."""
+    if obj is None:
+        return False
+    visited = set() if _visited is None else _visited
+    marker = id(obj)
+    if marker in visited:
+        return False
+    visited.add(marker)
+
+    def animated(owner) -> bool:
+        animation = getattr(owner, "animation_data", None)
+        action = getattr(animation, "action", None)
+        return bool(getattr(action, "fcurves", ())) or bool(
+            getattr(animation, "drivers", ()))
+
+    if animated(obj) or bool(getattr(obj, "constraints", ())):
+        return True
+    data = getattr(obj, "data", None)
+    shape_keys = getattr(data, "shape_keys", None)
+    if animated(data) or animated(shape_keys):
+        return True
+    parent = getattr(obj, "parent", None)
+    if parent is not None and static_collider_has_animation(parent, visited):
+        return True
+    for modifier in getattr(obj, "modifiers", ()):
+        if not bool(getattr(modifier, "show_viewport", True)):
+            continue
+        if str(getattr(modifier, "type", "")) not in {
+                "ARMATURE", "LATTICE", "CURVE", "MESH_DEFORM", "SURFACE_DEFORM"}:
+            continue
+        target = getattr(modifier, "object", None) or getattr(
+            modifier, "target", None)
+        if target is None or static_collider_has_animation(target, visited):
+            return True
+    return False
+
+
+def _reject_animated_static_colliders(collider_objs) -> None:
+    offenders = [str(getattr(obj, "name", "Collider")) for obj in collider_objs
+                 if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
+                 == "STATIC" and static_collider_has_animation(obj)]
+    if offenders:
+        names = ", ".join(offenders)
+        raise SceneValidationError(
+            f"{names}: Collider Motion is Static, but animation or a deforming "
+            "dependency can move this Collider. Set Collider Motion to Animated "
+            "before baking; Static exports only the starting pose.")
 
 
 def _record_cache_inspection(obj, inspection) -> None:
@@ -1461,6 +1552,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
     scanning anything a second time.
     """
     cloth_obj, collider_objs = _enabled_objects_for_bake(context)
+    _reject_animated_static_colliders(collider_objs)
     collider_obj = collider_objs[0] if collider_objs else None
     validation_state.mark_validating(cloth_obj)
     try:
@@ -1561,6 +1653,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
     _sync_enabled_proxy_settings(context)
     deformable_objs, collider_objs = _enabled_objects_for_solve(context)
+    _reject_animated_static_colliders(collider_objs)
     export_identity.ensure_unique_persistent_ids(
         (*deformable_objs, *collider_objs,
          *_enabled_force_objects(context)))
@@ -6049,13 +6142,16 @@ def _safe_transition(state: BakeState, **changes) -> None:
 
 def _show_baked_timeline(plan: RunPlan) -> None:
     """Expose the freshly attached cache immediately in viewport/timeline."""
+    from . import timeline_overlay
+    timeline_overlay.set_baked_range(
+        int(plan.frame_start), int(plan.frame_end), int(plan.frame_end))
     scene = getattr(getattr(bpy, "context", None), "scene", None)
     if scene is None:
         return
     try:
-        scene.use_preview_range = True
-        scene.frame_preview_start = int(plan.frame_start)
-        scene.frame_preview_end = int(plan.frame_end)
+        # Live Bake used to drive Blender's Preview Range, which tinted every
+        # unbaked frame orange. The dedicated strip now owns this presentation.
+        scene.use_preview_range = False
         scene.frame_set(int(plan.frame_start))
         for window in getattr(bpy.context.window_manager, "windows", ()):
             for area in getattr(window.screen, "areas", ()):
@@ -6072,10 +6168,11 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
         return
     frame = min(int(plan.frame_end), max(int(plan.frame_start),
                                         int(blender_frame)))
+    from . import timeline_overlay
+    timeline_overlay.set_baked_range(
+        int(plan.frame_start), frame, int(plan.frame_end))
     try:
-        scene.use_preview_range = True
-        scene.frame_preview_start = int(plan.frame_start)
-        scene.frame_preview_end = frame
+        scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
             scene.frame_set(frame)
     except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):

@@ -101,6 +101,7 @@ class CLOTHNEXT_MT_object_type(bpy.types.Menu):
 
 
 class CLOTHNEXT_OT_add_friction_region(bpy.types.Operator):
+    """Add a vertex-group row with its own collision-friction value."""
     bl_idname = "clothnext.add_friction_region"
     bl_label = "Add Friction Vertex Group"
     bl_options = {"INTERNAL", "UNDO"}
@@ -115,6 +116,7 @@ class CLOTHNEXT_OT_add_friction_region(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_remove_friction_region(bpy.types.Operator):
+    """Remove this friction-region row from the active Cloth object."""
     bl_idname = "clothnext.remove_friction_region"
     bl_label = "Remove Friction Vertex Group"
     bl_options = {"INTERNAL", "UNDO"}
@@ -134,6 +136,7 @@ class CLOTHNEXT_OT_remove_friction_region(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_add_soft_constraint(bpy.types.Operator):
+    """Add a soft transform constraint targeting another object."""
     bl_idname = "clothnext.add_soft_constraint"
     bl_label = "Add Soft Constraint"
     bl_options = {"INTERNAL", "UNDO"}
@@ -147,6 +150,7 @@ class CLOTHNEXT_OT_add_soft_constraint(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_remove_soft_constraint(bpy.types.Operator):
+    """Remove this soft transform constraint from the active Cloth object."""
     bl_idname = "clothnext.remove_soft_constraint"
     bl_label = "Remove Soft Constraint"
     bl_options = {"INTERNAL", "UNDO"}
@@ -166,6 +170,7 @@ class CLOTHNEXT_OT_remove_soft_constraint(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_add_advanced_pin_target(bpy.types.Operator):
+    """Add an independently configurable Pin Group and target object."""
     bl_idname = "clothnext.add_advanced_pin_target"
     bl_label = "Add Advanced Pin Target"
     bl_options = {"INTERNAL", "UNDO"}
@@ -180,6 +185,7 @@ class CLOTHNEXT_OT_add_advanced_pin_target(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_remove_advanced_pin_target(bpy.types.Operator):
+    """Remove this advanced Pin Group target from the active Cloth object."""
     bl_idname = "clothnext.remove_advanced_pin_target"
     bl_label = "Remove Advanced Pin Target"
     bl_options = {"INTERNAL", "UNDO"}
@@ -199,6 +205,7 @@ class CLOTHNEXT_OT_remove_advanced_pin_target(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_add_motion_override(bpy.types.Operator):
+    """Add a motion override at the current Blender timeline frame."""
     bl_idname = "clothnext.add_motion_override"
     bl_label = "Add Motion Override"
     bl_options = {"UNDO"}
@@ -212,6 +219,7 @@ class CLOTHNEXT_OT_add_motion_override(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_remove_motion_override(bpy.types.Operator):
+    """Remove this frame-specific motion override."""
     bl_idname = "clothnext.remove_motion_override"
     bl_label = "Remove Motion Override"
     bl_options = {"UNDO"}
@@ -233,7 +241,8 @@ def _draw_object_type_selector(layout, settings) -> None:
     row = layout.row(align=True)
     row.label(text="Object Type")
     row.menu(CLOTHNEXT_MT_object_type.bl_idname,
-             text=labels.get(settings.role, settings.role.title()))
+             text=labels.get(settings.role, settings.role.title()),
+             **object_properties.role_icon_kwargs(settings.role))
 
 
 def _draw_add_physics_entry(panel, context) -> None:
@@ -941,25 +950,22 @@ def _draw_force_setup(layout, settings) -> None:
 
 def _draw_complete_force_controls(
         layout, settings, *, direction_prefix: str = "") -> None:
-    """Keep every editable Force value visible regardless of active type."""
+    """Draw every Force type directly, without an active-type selector."""
     force = settings.force
-    layout.prop(force, "force_type", text="Active Force")
     vector = layout.column(align=True)
-    vector.label(text="Directional Force")
-    vector.prop(force, "strength", text="Strength")
+    vector.label(text="Forces")
+    vector.prop(force, "gravity_strength", text="Gravity")
+    vector.prop(force, "wind_strength", text="Wind")
     vector.prop(force, "wind_variation", text="Wind Variation")
     environment = layout.column(align=True)
-    environment.label(text="Aerodynamics")
+    environment.label(text="Aerodynamic Forces")
     environment.prop(force, "air_density", text="Air Density")
     environment.prop(force, "air_friction", text="Air Friction")
     environment.prop(force, "vertex_air_damp", text="Vertex Air Damping")
-    direction = ("local -Z" if force.force_type == "GRAVITY"
-                 else "local +Z" if force.force_type == "WIND" else None)
-    if direction is not None:
-        layout.label(
-            text=f"Direction: {direction_prefix}{direction}",
-            **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
-        layout.label(text="Rotate the Empty to aim the force")
+    layout.label(
+        text=f"Gravity: {direction_prefix}local -Z · Wind: {direction_prefix}local +Z",
+        **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
+    layout.label(text="Rotate the Empty to aim directional forces")
     layout.label(text="Properties and rotation can be keyframed")
 
 
@@ -1150,6 +1156,14 @@ def _draw_collider_collision(layout, settings) -> None:
     layout.use_property_split = True
     layout.use_property_decorate = False
     layout.prop(settings, "collider_motion")
+    if settings.collider_motion == "STATIC":
+        from . import solver_test
+        obj = getattr(settings, "id_data", None)
+        if solver_test.static_collider_has_animation(obj):
+            warning = layout.box()
+            warning.alert = True
+            warning.label(text="Animated Collider is set to Static", icon="ERROR")
+            warning.label(text="Set Collider Motion to Animated before Bake")
     if settings.collider_motion == "ANIMATED":
         layout.prop(settings, "collider_capture_mode")
         layout.prop(settings, "collider_samples_per_frame",
@@ -1259,6 +1273,7 @@ class CLOTHNEXT_PT_advanced_pin_motion(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "pinning"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1293,6 +1308,7 @@ class CLOTHNEXT_PT_soft_constraints(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
+    header_icon = "pinning"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1429,6 +1445,7 @@ class CLOTHNEXT_PT_collision_timing(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_collision"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+    header_icon = "timer"
 
     def draw(self, context):
         layout = self.layout
@@ -1447,6 +1464,7 @@ class CLOTHNEXT_PT_advanced_contact_distance(
     bl_parent_id = "CLOTHNEXT_PT_collision"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+    header_icon = "collision"
 
     def draw(self, context):
         layout = self.layout
@@ -1776,6 +1794,15 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         collision = settings.collision
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
+            if settings.collider_motion == "STATIC":
+                from . import solver_test
+                if solver_test.static_collider_has_animation(context.object):
+                    warning = layout.box()
+                    warning.alert = True
+                    warning.label(
+                        text="Animated Collider is set to Static", icon="ERROR")
+                    warning.label(
+                        text="Set Collider Motion to Animated before Bake")
             if settings.collider_motion == "ANIMATED":
                 layout.prop(settings, "collider_capture_mode")
                 layout.prop(settings, "collider_samples_per_frame")
@@ -2150,6 +2177,7 @@ class CLOTHNEXT_PT_motion_overrides(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+    header_icon = "timer"
 
     def draw(self, context):
         layout = self.layout
@@ -2184,6 +2212,7 @@ class CLOTHNEXT_PT_advanced_contact_solver(
     bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER"}
+    header_icon = "solver_settings"
 
     def draw(self, context):
         layout = self.layout

@@ -64,14 +64,15 @@ ROLE_ITEMS = (
     ("SOFT_BODY", "Soft Body", "Simulate this closed mesh as a tetrahedral solid"),
     ("RIGID_BODY", "Rigid Body", "Simulate this closed mesh as a solid moving object"),
     ("COLLIDER", "Collider", "Use this object as a collision obstacle"),
-    ("FORCE", "Force", "Add scene-wide gravity or wind from an Empty"),
+    ("FORCE", "Force",
+     "Configure scene-wide gravity, wind, and aerodynamic forces from an Empty"),
 )
 
 ROLE_ICONS = {
     "CLOTH": ("cloth", "MOD_CLOTH"),
     "ROD": ("rod", "CURVE_DATA"),
     "SOFT_BODY": ("soft_body", "MOD_SOFT"),
-    "RIGID_BODY": ("rigid_body", "MESH_CUBE"),
+    "RIGID_BODY": ("physical", "MESH_CUBE"),
     "COLLIDER": ("collider", "MESH_CUBE"),
     "FORCE": ("force", "FORCE_FORCE"),
 }
@@ -150,7 +151,12 @@ def _on_settings_update(self, _context) -> None:
     """Solver-visible value changed: record DIRTY, compute nothing."""
     _mark_dirty(self)
     owner = getattr(self, "id_data", None)
-    if getattr(owner, "cloth_next", None) is self:
+    settings = getattr(owner, "cloth_next", None)
+    # Blender may return a fresh Python wrapper for the same RNA PropertyGroup,
+    # so object identity with ``self`` is not stable. Scene settings do not
+    # expose the object-level enabled/role pair and are intentionally skipped.
+    if (settings is not None and hasattr(settings, "enabled")
+            and hasattr(settings, "role")):
         viewport_colors.apply_object(owner)
 
 
@@ -685,6 +691,8 @@ class CLOTHNEXT_PG_rigid_body_settings(bpy.types.PropertyGroup):
 
 
 class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
+    # Kept for loading older files. The unified Force panel no longer exposes
+    # or uses a single active type.
     force_type: bpy.props.EnumProperty(
         name="Force Type", default="GRAVITY", update=_on_settings_update,
         items=(("GRAVITY", "Gravity", "Acceleration along the Empty's local -Z axis"),
@@ -696,10 +704,18 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         name="Strength", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
         description="PPF vector magnitude in Blender-space units; rotate the Empty to set direction")
-    wind_variation: bpy.props.FloatProperty(
-        name="Strength Variation", default=0.25, min=0.0, soft_max=10.0,
+    gravity_strength: bpy.props.FloatProperty(
+        name="Gravity", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="Maximum randomized Wind strength variation above or below Strength; zero disables gusts")
+        description="Gravity magnitude along the Empty's local -Z axis")
+    wind_strength: bpy.props.FloatProperty(
+        name="Wind", default=0.0, min=0.0, soft_max=50.0,
+        precision=3, update=_on_settings_update,
+        description="Wind magnitude along the Empty's local +Z axis")
+    wind_variation: bpy.props.FloatProperty(
+        name="Strength Variation", default=0.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_settings_update,
+        description="Maximum animated Wind strength variation above or below Wind; zero disables gusts")
     air_density: bpy.props.FloatProperty(
         name="Air Density", default=0.001, min=0.0, soft_max=2.0,
         precision=4, update=_on_settings_update,

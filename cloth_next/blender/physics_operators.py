@@ -122,6 +122,14 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
     role: bpy.props.StringProperty(options={"HIDDEN"})
 
     @classmethod
+    def description(cls, _context, properties):
+        descriptions = {identifier: description
+                        for identifier, _label, description
+                        in object_properties.ROLE_ITEMS}
+        return descriptions.get(
+            getattr(properties, "role", ""), cls.__doc__ or cls.bl_label)
+
+    @classmethod
     def poll(cls, context):
         obj = _active_mesh(context)
         settings = getattr(obj, "cloth_next", None) if obj else None

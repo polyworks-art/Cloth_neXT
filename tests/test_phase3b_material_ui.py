@@ -868,18 +868,15 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     settings.enabled = True
     settings.role = "FORCE"
     panel = env.physics_ui.CLOTHNEXT_PT_setup()
-    expected_props = ["force_type", "strength", "wind_variation",
+    expected_props = ["gravity_strength", "wind_strength", "wind_variation",
                       "air_density", "air_friction", "vertex_air_damp"]
-    for force_type in ("GRAVITY", "WIND", "AIR_DENSITY",
-                       "AIR_FRICTION", "VERTEX_AIR_DAMP"):
-        settings.force.force_type = force_type
-        panel.layout = RecordingLayout()
-        panel.draw(_context(obj))
-        assert panel.layout.props == expected_props
-        assert "Directional Force" in panel.layout.labels
-        assert "Aerodynamics" in panel.layout.labels
-        assert panel.layout.operators == []
-        assert ("force_type", "Active Force") in panel.layout.prop_texts
+    panel.layout = RecordingLayout()
+    panel.draw(_context(obj))
+    assert panel.layout.props == expected_props
+    assert "Forces" in panel.layout.labels
+    assert "Aerodynamic Forces" in panel.layout.labels
+    assert panel.layout.operators == []
+    assert all(name != "force_type" for name, _text in panel.layout.prop_texts)
     env.registration.unregister()
 
 
@@ -982,16 +979,22 @@ def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
         env.physics_ui.CLOTHNEXT_PT_simulation: "solver",
         env.physics_ui.CLOTHNEXT_PT_material: "physical",
         env.physics_ui.CLOTHNEXT_PT_shape: "shape",
+        env.physics_ui.CLOTHNEXT_PT_advanced_pin_motion: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_soft_constraints: "pinning",
         env.physics_ui.CLOTHNEXT_PT_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_pressure: "pressure",
         env.physics_ui.CLOTHNEXT_PT_sewing: "sewing",
         env.physics_ui.CLOTHNEXT_PT_collision: "collision",
+        env.physics_ui.CLOTHNEXT_PT_collision_timing: "timer",
+        env.physics_ui.CLOTHNEXT_PT_advanced_contact_distance: "collision",
         env.physics_ui.CLOTHNEXT_PT_friction_regions: "friction_regions",
         env.physics_ui.CLOTHNEXT_PT_collider_collision: "collision",
         env.physics_ui.CLOTHNEXT_PT_simulation_proxy: "simulation_proxy",
         env.physics_ui.CLOTHNEXT_PT_cloth_advanced: "advanced",
+        env.physics_ui.CLOTHNEXT_PT_motion_overrides: "timer",
+        env.physics_ui.CLOTHNEXT_PT_advanced_contact_solver: "solver_settings",
         env.physics_ui.CLOTHNEXT_PT_solver_settings: "solver_settings",
         env.physics_ui.CLOTHNEXT_PT_simulation_engine: "engine",
         env.physics_ui.CLOTHNEXT_PT_result: "result",

@@ -1,15 +1,20 @@
-# Cloth NeXt 2.2.20 Dev
+# Cloth NeXt 2.2.21 Dev
 
-Cloth NeXt 2.2.20 improves the everyday Blender workflow, viewport feedback,
-contact tuning, live Bake playback, and the Bake Companion details view.
+Cloth NeXt 2.2.21 completes a UI consistency pass in preparation for the 2.3.0
+Beta milestone.
 
 ## Blender workflow and viewport
 
 - Cloth NeXt roles are color-coded in the viewport: Cloth is blue, Colliders
   red, Rods orange, Soft Bodies green, Rigid Bodies purple, and Forces yellow.
-- Force objects expose all available controls together instead of requiring a
-  separate Force Type to be added first.
-- Cloth NeXt UI actions consistently use the bundled Cloth NeXt icon set.
+- Force objects expose Gravity, Wind, Wind Variation, Air Density, Air
+  Friction, and Vertex Air Damping together without a Force Type dropdown.
+- Gravity and Wind have independent strengths and can act simultaneously.
+- Wind and Wind Variation default to zero, avoiding unintended gusts on a new
+  Force object.
+- Every Object Type menu entry uses a distinct semantic icon and a
+  role-specific hover explanation.
+- Nested workflow panels use semantic icons instead of generic placeholders.
 
 ## Simulation and live Bake feedback
 
@@ -26,4 +31,5 @@ contact tuning, live Bake playback, and the Bake Companion details view.
 - The old performance graph is replaced by Frame, Progress, Elapsed, Solver,
   Contacts, Newton, Linear Iterations, and Activity values while ETA remains.
 
-This is Dev version `2.2.20` and is eligible only for the Dev channel.
+This is Dev version `2.2.21`, is eligible only for the Dev channel, and prepares
+the UI and workflow baseline for `2.3.0` Beta validation.
