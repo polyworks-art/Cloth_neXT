@@ -225,6 +225,12 @@
       "action": "Repair or update the solver to the supported protocol version."
     },
     {
+      "code": "CNX-E146",
+      "stage": "Solver connection",
+      "cause": "PPF control server exited while an owned solver descendant remained active",
+      "action": "Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup."
+    },
+    {
       "code": "CNX-E150",
       "stage": "Project build",
       "cause": "Unclassified solver project build failure",
