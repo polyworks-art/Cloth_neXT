@@ -80,7 +80,10 @@ class BakeController:
             old = self._snapshot
             if state != old.state and state not in _NEXT[old.state]:
                 raise InvalidTransition(f"{old.state.value} -> {state.value}")
-            if state is BakeState.PREPARING:
+            # Create/reset attempt identity only when entering PREPARING.
+            # Status/progress updates use the same state; regenerating the id
+            # there makes the scheduled Collider capture look stale.
+            if state is BakeState.PREPARING and old.state is not BakeState.PREPARING:
                 changes.setdefault("job_id", uuid.uuid4().hex)
                 changes.setdefault("elapsed_seconds", 0.0)
                 changes.setdefault("estimated_remaining_seconds", None)

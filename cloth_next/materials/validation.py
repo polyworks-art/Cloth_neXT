@@ -85,6 +85,14 @@ SHELL_RULES: dict[str, NumericRule] = {
     "sideways_response": NumericRule(0.0, False, 0.4999, "",
                                      _MATERIAL_PANEL),
     "bend_resistance": NumericRule(0.0, False, None, "", _MATERIAL_PANEL),
+    "stretch_plasticity_rate": NumericRule(0.0, False, None, "1/s",
+                                             _MATERIAL_PANEL),
+    "stretch_plasticity_threshold_percent": NumericRule(
+        0.0, False, None, "%", _MATERIAL_PANEL),
+    "bend_plasticity_rate": NumericRule(0.0, False, None, "1/s",
+                                          _MATERIAL_PANEL),
+    "bend_plasticity_threshold_degrees": NumericRule(
+        0.0, False, 180.0, "degrees", _MATERIAL_PANEL),
     "shape_damping": NumericRule(0.0, False, None, "s",
                                        _DAMPING_PANEL),
     "fold_damping": NumericRule(0.0, False, None, "s", _DAMPING_PANEL),
@@ -123,6 +131,10 @@ def validate_shell_values(values) -> None:
         raise MaterialValidationError(
             "stretch_limit_enabled", values.stretch_limit_enabled,
             "True or False", _MATERIAL_PANEL)
+    for name in ("stretch_plasticity_enabled", "bend_plasticity_enabled"):
+        if not isinstance(getattr(values, name), bool):
+            raise MaterialValidationError(
+                name, getattr(values, name), "True or False", _MATERIAL_PANEL)
     if not isinstance(values.enable_inflate, bool):
         raise MaterialValidationError(
             "enable_inflate", values.enable_inflate, "True or False",

@@ -100,6 +100,12 @@ def test_quality_defaults_and_wire_mapping_are_central_and_exact():
     assert scene["min-newton-steps"] == DEFAULT_MIN_NEWTON_STEPS
     assert scene["cg-max-iter"] == DEFAULT_CG_MAX_ITER
     assert scene["cg-tol"] == float32_wire(DEFAULT_CG_TOL)
+    assert scene["target-toi"] == float32_wire(0.25)
+    assert scene["line-search-max-t"] == float32_wire(1.25)
+    assert scene["constraint-ghat"] == float32_wire(0.001)
+    assert scene["constraint-tol"] == float32_wire(0.01)
+    assert scene["ccd-reduction"] == float32_wire(0.01)
+    assert scene["ccd-max-iter"] == 4096
     assert "substeps" not in scene
 
 
@@ -108,6 +114,11 @@ def test_quality_defaults_and_wire_mapping_are_central_and_exact():
     {"min_newton_steps": 0}, {"min_newton_steps": 65},
     {"cg_max_iter": 99}, {"cg_max_iter": 100001},
     {"cg_tol": 0.000001}, {"cg_tol": 0.11},
+    {"target_toi": 0.0}, {"target_toi": 1.01},
+    {"line_search_max_t": 0.99}, {"line_search_max_t": 10.01},
+    {"constraint_ghat": 0.0}, {"constraint_tol": 0.0},
+    {"ccd_reduction": 0.0}, {"ccd_max_iter": 0},
+    {"ccd_max_iter": 100001},
 ])
 def test_quality_validation_ranges(kwargs):
     with pytest.raises(SolverQualityValidationError):
@@ -127,6 +138,12 @@ def test_pressure_and_numeric_quality_values_invalidate_fingerprint():
         replace(DEFAULT_SOLVER_QUALITY, min_newton_steps=2),
         replace(DEFAULT_SOLVER_QUALITY, cg_max_iter=10001),
         replace(DEFAULT_SOLVER_QUALITY, cg_tol=0.002),
+        replace(DEFAULT_SOLVER_QUALITY, target_toi=0.3),
+        replace(DEFAULT_SOLVER_QUALITY, line_search_max_t=1.5),
+        replace(DEFAULT_SOLVER_QUALITY, constraint_ghat=0.002),
+        replace(DEFAULT_SOLVER_QUALITY, constraint_tol=0.02),
+        replace(DEFAULT_SOLVER_QUALITY, ccd_reduction=0.02),
+        replace(DEFAULT_SOLVER_QUALITY, ccd_max_iter=5000),
     ):
         assert settings_fingerprint(DEFAULT_SHELL_SETTINGS,
                                     DEFAULT_STATIC_SETTINGS, True, "DEFAULT",

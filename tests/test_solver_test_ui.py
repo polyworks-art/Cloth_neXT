@@ -1360,8 +1360,6 @@ def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
 
 def test_cancel_clears_orphaned_active_controller_without_worker(
         blender_env, monkeypatch):
-    from cloth_next.blender import solver_backends
-
     module = blender_env.solver_test
     if module.shared_controller.snapshot().state is not BakeState.IDLE:
         module.shared_controller.reset()
@@ -1370,8 +1368,6 @@ def test_cancel_clears_orphaned_active_controller_without_worker(
     module._active_plan = None
     module._worker = None
     module._pending_job_id = ""
-    monkeypatch.setattr(
-        solver_backends, "request_cancel", lambda: False)
     cancelled = []
     monkeypatch.setattr(
         module.companion_manager, "cancel_startup",
@@ -1386,7 +1382,7 @@ def test_cancel_clears_orphaned_active_controller_without_worker(
     module.shared_controller.reset()
 
 
-def test_stale_ppf_pin_capture_cannot_abort_new_newton_job(
+def test_stale_ppf_pin_capture_cannot_abort_new_bake_job(
         blender_env, monkeypatch):
     module = blender_env.solver_test
     if module.shared_controller.snapshot().state is not BakeState.IDLE:
@@ -1422,7 +1418,7 @@ def test_stale_ppf_pin_capture_cannot_abort_new_newton_job(
     module.shared_controller.reset()
 
 
-def test_stale_ppf_startup_pump_cannot_fail_new_newton_job(
+def test_stale_ppf_startup_pump_cannot_fail_new_bake_job(
         blender_env, monkeypatch):
     module = blender_env.solver_test
     if module.shared_controller.snapshot().state is not BakeState.IDLE:

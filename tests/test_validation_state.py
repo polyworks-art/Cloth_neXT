@@ -103,7 +103,12 @@ def test_every_solver_quality_property_marks_dirty(env):
     from tests.fake_bpy import _resolved_props
     props = _resolved_props(quality_cls)
     assert set(props) == {"show_advanced", "time_step", "min_newton_steps",
-                          "cg_max_iter", "cg_tol"}
+                          "cg_max_iter", "cg_tol", "target_toi",
+                          "line_search_max_t", "ccd_max_iter",
+                          "constraint_ghat", "constraint_tol",
+                          "ccd_reduction", "max_newton_steps", "max_dx",
+                          "eigenanalysis_eps", "friction_eps",
+                          "csrmat_max_nnz", "contact_barrier"}
     assert props["show_advanced"].keywords.get("update") is None
     for name, prop in props.items():
         if name == "show_advanced":

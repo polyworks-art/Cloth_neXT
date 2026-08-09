@@ -2,6 +2,18 @@
 
 ## Static vertex-group Pinning (Phase 3C.1)
 
+Advanced Pin Motion contains any number of rows with Pin Group, Target Object,
+and Strength. Every group captures its Target's full transform on the same
+sub-frame timeline as animated Colliders, keeps its own Bake-Start offsets,
+and receives its own per-vertex soft Pull strength. Groups must not overlap;
+contact may keep vertices away from their requested target paths.
+
+Soft Constraints are active when their table contains rows. Each row selects
+a Target Object, Location/Rotation/Scale, and a non-negative Strength. The
+row transforms are sampled on the Collider timeline, blended by Strength, and
+their summed Strength becomes the PPF Pull strength. Removing every row
+disables Soft Constraints.
+
 Phase 3C.2 adds Follow Animation using the pinned PPF 0.11 contract at upstream revision `7193f158e3843597070f66cb29af19efd9bdcff7`. Each pinned vertex receives its own `pin_anim` track containing continuous solver-world positions and times `(BlenderFrame - BakeStart) / FPS`. The PPF frontend converts consecutive samples into per-vertex `MoveByOperation` segments. Cloth NeXt emits no Pull, release, Torque, Spin, Scale, or explicit operation entry.
 
 Audited against official PPF commit
@@ -65,6 +77,13 @@ NeXt's *Stretch Resistance* stores this direct wire value:
 | Stretch Resistance | `material.stretch_resistance` | `stretch_resistance` | `young-mod` | density-normalized (soft max 100000) | 0 … 1e9 | direct float32, **no density division** | 1000.0 | yes |
 | Sideways Response | `material.sideways_response` | `sideways_response` | `poiss-rat` | — | 0 … 0.4999 | direct float32 | 0.35 | yes |
 | Bend Resistance | `material.bend_resistance` | `bend_resistance` | `bend` | — (soft max 100) | ≥ 0 | direct float32 | 10.0 | yes |
+| Permanent Stretch | `material.stretch_plasticity_enabled` | `stretch_plasticity_enabled` | `plasticity` enable | bool | — | disabled ⇒ rate `0.0` | off | no |
+| Stretch Creep Rate | `material.stretch_plasticity_rate` | `stretch_plasticity_rate` | `plasticity` | 1/s | ≥ 0 | direct float32 when enabled | 1.0 | no |
+| Stretch Threshold | `material.stretch_plasticity_threshold_percent` | `stretch_plasticity_threshold_percent` | `plasticity-threshold` | % | ≥ 0 | percent / 100 | 5.0 % | no |
+| Permanent Bends | `material.bend_plasticity_enabled` | `bend_plasticity_enabled` | `bend-plasticity` enable | bool | — | disabled ⇒ rate `0.0` | off | no |
+| Bend Creep Rate | `material.bend_plasticity_rate` | `bend_plasticity_rate` | `bend-plasticity` | 1/s | ≥ 0 | direct float32 when enabled | 1.0 | no |
+| Bend Threshold | `material.bend_plasticity_threshold_degrees` | `bend_plasticity_threshold_degrees` | `bend-plasticity-threshold` | degrees | 0 … 180 | degrees to radians | 10° | no |
+| Use Initial Bend Shape | `material.bend_rest_from_geometry` | `bend_rest_from_geometry` | `bend-rest-from-geometry` | bool | — | true ⇒ `1.0`, false ⇒ `0.0` | on | no |
 | Stretch Limit | `material.stretch_limit_enabled` | `stretch_limit_enabled` | `strain-limit` enable | bool | — | disabled ⇒ wire value 0.0 | off | yes |
 | Maximum Stretch | `material.maximum_stretch_percent` | `maximum_stretch_percent` | `strain-limit` | % (soft max 20) | > 0 … 100 | percent / 100 when enabled | 5.0 % | yes |
 | Shape Damping | `damping.shape_damping` | `shape_damping` | `deformation-damping` | seconds (soft max 0.1) | ≥ 0 | direct float32 | 0.0 | yes |
@@ -99,6 +118,18 @@ each carry their own friction/gap/offset.
 | Minimum Newton Steps | Scene `cloth_next_quality.min_newton_steps` | `min-newton-steps` | int; default `1`, range `1..64` |
 | PCG Max Iterations | Scene `cloth_next_quality.cg_max_iter` | `cg-max-iter` | int; default `10000`, range `100..100000` |
 | PCG Tolerance | Scene `cloth_next_quality.cg_tol` | `cg-tol` | float32; default `0.001`, range `0.00001..0.1` |
+| Contact Completion | Scene `cloth_next_quality.target_toi` | `target-toi` | float32; default `0.25` |
+| Motion Safety Margin | Scene `cloth_next_quality.line_search_max_t` | `line-search-max-t` | float32; default `1.25` |
+| Collision Search Limit | Scene `cloth_next_quality.ccd_max_iter` | `ccd-max-iter` | int; default `4096` |
+| Constraint Contact Distance | Scene `cloth_next_quality.constraint_ghat` | `constraint-ghat` | float32; default `0.001` |
+| Moving Constraint Precision | Scene `cloth_next_quality.constraint_tol` | `constraint-tol` | float32 fraction; default `0.01` |
+| Collision Detection Threshold | Scene `cloth_next_quality.ccd_reduction` | `ccd-reduction` | float32 fraction; default `0.01` |
+| Contact Iteration Limit | Scene `cloth_next_quality.max_newton_steps` | `max-newton-steps` | Maximum nonlinear contact passes; default `2048` |
+| Maximum Contact Correction | Scene `cloth_next_quality.max_dx` | `max-dx` | Maximum search-direction magnitude; default `1.0` |
+| Contact Stability Threshold | Scene `cloth_next_quality.eigenanalysis_eps` | `eiganalysis-eps` | Solver's published wire spelling; default `0.01` |
+| Friction Stability Threshold | Scene `cloth_next_quality.friction_eps` | `friction-eps` | Low-speed numerical threshold; default `0.00001` |
+| Contact Capacity | Scene `cloth_next_quality.csrmat_max_nnz` | `csrmat-max-nnz` | Preallocated GPU contact entries; default `10000000` |
+| Contact Response Model | Scene `cloth_next_quality.contact_barrier` | `barrier` | Artist choices Smooth / Firm / Sharp map to `cubic` / `quad` / `log` |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Shrink | Object `pressure.shrink_percent` | `shrink-x`, `shrink-y` (SHELL only) | Uniform rest-shape contraction; `5%` encodes both axes as `0.95`. Non-zero Shrink disables `strain-limit`, as required by PPF. |
 | Sewing | Object `pressure.sewing_enabled` | Scene-object `stitch` (SHELL only) | When enabled, every mesh edge unused by a face becomes one canonical PPF stitch pair. |
@@ -109,6 +140,8 @@ each carry their own friction/gap/offset.
 | Air Friction Force Empty | `air-friction` | Sum of enabled Air Friction Empty values | tangential drag/lift ratio |
 | Vertex Air Damping Force Empty | `isotropic-air-friction` | Sum of enabled Vertex Air Damping Empty values | isotropic per-vertex damping |
 | Animated Forces | `dyn_param` | Native Blender keyframes sampled once per output frame | PPF linearly interpolates the samples during solver substeps |
+| Motion Overrides: Move | `dyn_param.velocity:<dmap>` | Per-object Blender frame and world-space velocity | Replaces velocity for the object's dynamic, non-hard-pinned vertices when the solver step crosses that frame |
+| Motion Overrides: Spin | `dyn_param.angular_velocity_world:<dmap>` | Per-object Blender frame and world-space spin vector | Axis-swapped to solver Y-up; components are radians per second |
 | Frame count | `frames` | Blender frames `N-1` | Blender 1..N → solver 0..N-1; development slice N=8 |
 | FPS | `fps` | Blender effective scene FPS (`render.fps / render.fps_base`) | shared frame→time conversion for solver output, Pins, Colliders, and Forces |
 | Friction mode | `friction-mode` | fixed `"min"` | Minimum combination: both touching surfaces need high grip; shown read-only in Advanced PPF |
@@ -163,7 +196,7 @@ metadata system remains Phase-4 work.
 
 ## Not mapped (hidden, not editable)
 
-Target volume/compressibility/gas pressure, animated shrink, plasticity,
+Target volume/compressibility/gas pressure, animated shrink,
 dynamic material-parameter animation, collision windows, sand, PDRD,
 arbitrary frame ranges, tearing, and live preview. No stored or wire-level
 `substeps` value exists: `dt` is the sole

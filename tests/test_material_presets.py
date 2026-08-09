@@ -51,7 +51,12 @@ def test_pure_material_models_use_artist_facing_field_contract():
     from cloth_next.materials import StaticMaterialSettings
     assert [field.name for field in fields(ShellMaterialSettings)] == [
         "model", "surface_weight", "stretch_resistance",
-        "sideways_response", "bend_resistance", "shape_damping",
+        "sideways_response", "bend_resistance",
+        "stretch_plasticity_enabled", "stretch_plasticity_rate",
+        "stretch_plasticity_threshold_percent",
+        "bend_plasticity_enabled", "bend_plasticity_rate",
+        "bend_plasticity_threshold_degrees", "bend_rest_from_geometry",
+        "shape_damping",
         "fold_damping", "surface_grip", "collision_gap",
         "surface_offset", "stretch_limit_enabled",
         "maximum_stretch_percent", "enable_inflate", "inflate_pressure",

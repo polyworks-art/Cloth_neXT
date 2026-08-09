@@ -20,7 +20,7 @@ import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, hud, icon_registry,
-               newton_bake, object_properties, physics_operators, physics_ui,
+               object_properties, physics_operators, physics_ui,
                pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                validation_state)
@@ -36,7 +36,6 @@ _CLASSES = (
     + beta_tools.CLASSES
     + test_scene.CLASSES
     + solver_test.CLASSES
-    + newton_bake.CLASSES
     + physics_ui.CLASSES
     + pin_constraints.CLASSES
 )
@@ -103,7 +102,6 @@ def unregister() -> None:
     # test shutdown cancels the run, stops the exact owned solver process
     # (never an external server), and joins the worker thread.
     solver_test.shutdown()
-    newton_bake.shutdown()
     preferences.shutdown()
     addon_update_operators.shutdown()
     bake_preview.stop()

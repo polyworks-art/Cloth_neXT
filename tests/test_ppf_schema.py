@@ -41,6 +41,9 @@ from cloth_next.ppf.schema.params import (
 FIXTURES = Path(__file__).parent / "fixtures" / "ppf_0_11"
 
 SHELL_KEYS = ["model", "density", "young-mod", "poiss-rat", "bend",
+              "plasticity", "plasticity-threshold", "bend-plasticity",
+              "bend-plasticity-threshold",
+              "bend-rest-from-geometry",
               "deformation-damping", "bending-damping", "friction",
               "contact-gap", "contact-offset", "strain-limit", "shrink-x",
               "shrink-y", "pressure", "stitch-stiffness"]
@@ -487,6 +490,25 @@ def test_param_payload_extends_legacy_golden_only_with_audited_shrink_keys():
     assert current_shell.pop("shrink-x") == float32_wire(1.0)
     assert current_shell.pop("shrink-y") == float32_wire(1.0)
     assert current_shell.pop("stitch-stiffness") == float32_wire(1.0)
+    assert current_shell.pop("plasticity") == float32_wire(0.0)
+    assert current_shell.pop("plasticity-threshold") == float32_wire(0.05)
+    assert current_shell.pop("bend-plasticity") == float32_wire(0.0)
+    assert current_shell.pop("bend-plasticity-threshold") == float32_wire(
+        np.deg2rad(10.0))
+    assert current_shell.pop("bend-rest-from-geometry") == float32_wire(1.0)
+    current_scene = current["scene"]
+    assert current_scene.pop("target-toi") == float32_wire(0.25)
+    assert current_scene.pop("line-search-max-t") == float32_wire(1.25)
+    assert current_scene.pop("constraint-ghat") == float32_wire(0.001)
+    assert current_scene.pop("constraint-tol") == float32_wire(0.01)
+    assert current_scene.pop("ccd-reduction") == float32_wire(0.01)
+    assert current_scene.pop("ccd-max-iter") == 4096
+    assert current_scene.pop("max-newton-steps") == 2048
+    assert current_scene.pop("max-dx") == float32_wire(1.0)
+    assert current_scene.pop("eiganalysis-eps") == float32_wire(0.01)
+    assert current_scene.pop("friction-eps") == float32_wire(0.00001)
+    assert current_scene.pop("csrmat-max-nnz") == 10_000_000
+    assert current_scene.pop("barrier") == "cubic"
     assert current == legacy
     assert digest == hashlib.sha256(blob).hexdigest()
 
@@ -562,6 +584,35 @@ def test_legacy_cloth_shrink_is_ignored_and_keeps_strain_limit():
     assert wire["strain-limit"] == float32_wire(0.05)
 
 
+def test_permanent_deformation_maps_rates_and_artist_threshold_units():
+    shell = ShellMaterialSettings(
+        stretch_plasticity_enabled=True, stretch_plasticity_rate=2.5,
+        stretch_plasticity_threshold_percent=7.5,
+        bend_plasticity_enabled=True, bend_plasticity_rate=1.25,
+        bend_plasticity_threshold_degrees=30.0)
+
+    wire = shell_wire_params(shell)
+
+    assert wire["plasticity"] == float32_wire(2.5)
+    assert wire["plasticity-threshold"] == float32_wire(0.075)
+    assert wire["bend-plasticity"] == float32_wire(1.25)
+    assert wire["bend-plasticity-threshold"] == float32_wire(np.pi / 6.0)
+    assert wire["bend-rest-from-geometry"] == float32_wire(1.0)
+
+
+def test_initial_bend_shape_can_be_disabled():
+    wire = shell_wire_params(ShellMaterialSettings(
+        bend_rest_from_geometry=False))
+    assert wire["bend-rest-from-geometry"] == float32_wire(0.0)
+
+
+def test_disabled_permanent_deformation_sends_zero_rates():
+    wire = shell_wire_params(ShellMaterialSettings(
+        stretch_plasticity_rate=9.0, bend_plasticity_rate=7.0))
+    assert wire["plasticity"] == 0.0
+    assert wire["bend-plasticity"] == 0.0
+
+
 def test_collider_grip_gap_offset_map_independently_of_cloth():
     shell = ShellMaterialSettings(surface_grip=0.1, collision_gap=0.002,
                                   surface_offset=0.001)
@@ -591,7 +642,7 @@ def test_no_unsupported_ui_property_enters_the_payload():
     assert list(payload["group"][1][0]) == STATIC_KEYS
     for forbidden in ("stretch", "shear", "thickness",
                       "velocity", "self-collision",
-                      "shrink", "plasticity"):
+                      "shrink"):
         assert forbidden not in payload["group"][0][0]
         assert forbidden not in payload["group"][1][0]
 

@@ -83,13 +83,24 @@ def _resolve_pin_constraint(source_object_id: str, _group_name: str):
     settings = getattr(obj, "cloth_next", None) if obj is not None else None
     if settings is None:
         return None
-    try:
-        constraint_type = PinConstraintType(
-            str(getattr(settings, "pin_constraint_type", "SOFT")))
-    except ValueError:
+    if (bool(getattr(settings, "advanced_pin_targets", ()))
+            or bool(getattr(settings, "advanced_pin_motion_enabled", False))
+            or bool(getattr(settings, "soft_constraints", ()) )):
         constraint_type = PinConstraintType.SOFT
+    else:
+        try:
+            constraint_type = PinConstraintType(
+                str(getattr(settings, "pin_constraint_type", "SOFT")))
+        except ValueError:
+            constraint_type = PinConstraintType.SOFT
     strength = float(getattr(
         settings, "pin_pull_strength", _DEFAULT_PULL_STRENGTH))
+    rows = tuple(getattr(settings, "soft_constraints", ()))
+    if rows:
+        strength = sum(max(0.0, float(getattr(row, "strength", 0.0)))
+                       for row in rows)
+        if strength <= 0.0:
+            strength = _DEFAULT_PULL_STRENGTH
     if not math.isfinite(strength) or strength <= 0.0:
         strength = _DEFAULT_PULL_STRENGTH
     if constraint_type is PinConstraintType.HARD:
@@ -204,12 +215,20 @@ class CLOTHNEXT_PT_pin_constraint(bpy.types.Panel):
 
         controls = layout.column(align=True)
         controls.enabled = not shared_controller.snapshot().active
-        controls.prop(settings, "pin_constraint_type", text="Type")
+        target_mode = (bool(settings.advanced_pin_targets)
+                       or bool(settings.advanced_pin_motion_enabled)
+                       or bool(settings.soft_constraints))
+        kind = controls.row()
+        kind.enabled = not target_mode
+        kind.prop(settings, "pin_constraint_type", text="Type")
         strength = controls.row()
-        strength.enabled = settings.pin_constraint_type == "SOFT"
+        strength.enabled = target_mode or settings.pin_constraint_type == "SOFT"
         strength.prop(settings, "pin_pull_strength", text="Strength")
 
-        if settings.pin_constraint_type == "SOFT":
+        if target_mode:
+            layout.label(text="Target Object always uses collision-safe Soft Pins",
+                         icon="CHECKMARK")
+        elif settings.pin_constraint_type == "SOFT":
             layout.label(text="Recommended for clothing and animated rigs",
                          icon="CHECKMARK")
             layout.label(text="Can yield when the target meets a Collider")

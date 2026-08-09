@@ -48,6 +48,13 @@ class ShellMaterialSettings:
     stretch_resistance: float = 1000.0    # direct PPF young-mod (Pa/rho)
     sideways_response: float = 0.35       # -> PPF poiss-rat
     bend_resistance: float = 10.0         # -> PPF bend
+    stretch_plasticity_enabled: bool = False
+    stretch_plasticity_rate: float = 1.0  # 1/s -> PPF plasticity
+    stretch_plasticity_threshold_percent: float = 5.0
+    bend_plasticity_enabled: bool = False
+    bend_plasticity_rate: float = 1.0     # 1/s -> PPF bend-plasticity
+    bend_plasticity_threshold_degrees: float = 10.0
+    bend_rest_from_geometry: bool = True  # initial pose -> bend rest shape
     shape_damping: float = 0.0            # s -> PPF deformation-damping
     fold_damping: float = 0.0             # s -> PPF bending-damping
     surface_grip: float = 0.5             # -> PPF friction

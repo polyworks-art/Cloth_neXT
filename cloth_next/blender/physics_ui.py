@@ -133,6 +133,100 @@ class CLOTHNEXT_OT_remove_friction_region(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_add_soft_constraint(bpy.types.Operator):
+    bl_idname = "clothnext.add_soft_constraint"
+    bl_label = "Add Soft Constraint"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        settings.soft_constraints.add()
+        settings.soft_constraint_index = len(settings.soft_constraints) - 1
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_remove_soft_constraint(bpy.types.Operator):
+    bl_idname = "clothnext.remove_soft_constraint"
+    bl_label = "Remove Soft Constraint"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    index: bpy.props.IntProperty(default=-1, options={"HIDDEN"})
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        index = int(self.index)
+        if not 0 <= index < len(settings.soft_constraints):
+            return {"CANCELLED"}
+        settings.soft_constraints.remove(index)
+        settings.soft_constraint_index = max(
+            0, min(index, len(settings.soft_constraints) - 1))
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_add_advanced_pin_target(bpy.types.Operator):
+    bl_idname = "clothnext.add_advanced_pin_target"
+    bl_label = "Add Advanced Pin Target"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        settings.advanced_pin_targets.add()
+        settings.advanced_pin_target_index = \
+            len(settings.advanced_pin_targets) - 1
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_remove_advanced_pin_target(bpy.types.Operator):
+    bl_idname = "clothnext.remove_advanced_pin_target"
+    bl_label = "Remove Advanced Pin Target"
+    bl_options = {"INTERNAL", "UNDO"}
+
+    index: bpy.props.IntProperty(default=-1, options={"HIDDEN"})
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        index = int(self.index)
+        if not 0 <= index < len(settings.advanced_pin_targets):
+            return {"CANCELLED"}
+        settings.advanced_pin_targets.remove(index)
+        settings.advanced_pin_target_index = max(
+            0, min(index, len(settings.advanced_pin_targets) - 1))
+        validation_state.mark_settings_dirty(context.object)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_add_motion_override(bpy.types.Operator):
+    bl_idname = "clothnext.add_motion_override"
+    bl_label = "Add Motion Override"
+    bl_options = {"UNDO"}
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        item = settings.motion_overrides.add()
+        item.frame = int(context.scene.frame_current)
+        settings.motion_override_index = len(settings.motion_overrides) - 1
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_remove_motion_override(bpy.types.Operator):
+    bl_idname = "clothnext.remove_motion_override"
+    bl_label = "Remove Motion Override"
+    bl_options = {"UNDO"}
+    index: bpy.props.IntProperty(default=-1)
+
+    def execute(self, context):
+        settings = context.object.cloth_next
+        if not 0 <= self.index < len(settings.motion_overrides):
+            return {"CANCELLED"}
+        settings.motion_overrides.remove(self.index)
+        settings.motion_override_index = max(
+            0, min(self.index, len(settings.motion_overrides) - 1))
+        return {"FINISHED"}
+
+
 def _draw_object_type_selector(layout, settings) -> None:
     """Draw a compact menu without introducing any duplicate state."""
     labels = {identifier: label for identifier, label, _ in object_properties.ROLE_ITEMS}
@@ -447,15 +541,10 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
 
 
 def _draw_quality_buttons(layout, context, bake_active: bool):
-    from ..simulation.backends import BackendId
-    from . import solver_backends
-    newton = solver_backends.active_backend_id(context.scene) is BackendId.NEWTON
-    has_pdrd = physics_operators.scene_has_pdrd(context.scene) and not newton
-    current = (str(getattr(context.scene.cloth_next_solver,
-                           "quality_preset", "HIGH")) if newton else
-               matching_quality_preset(
-                   object_properties.solver_quality_from(context.scene),
-                   has_pdrd=has_pdrd))
+    has_pdrd = physics_operators.scene_has_pdrd(context.scene)
+    current = matching_quality_preset(
+        object_properties.solver_quality_from(context.scene),
+        has_pdrd=has_pdrd)
     buttons = layout.row(align=True)
     buttons.enabled = not bake_active
     if has_pdrd:
@@ -474,7 +563,7 @@ def _draw_quality_buttons(layout, context, bake_active: bool):
         button.operator(
             operator_ids[preset.identifier],
             text=preset.label,
-            depress=(current == preset.identifier if newton else current is preset))
+            depress=current is preset)
     return current
 
 
@@ -485,19 +574,9 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
     section = layout.column(align=True)
     section.label(text="Solver Quality · Scene-wide")
     current = _draw_quality_buttons(section, context, bake_active)
-    from ..simulation.backends import BackendId
-    from . import solver_backends
-    newton = solver_backends.active_backend_id(context.scene) is BackendId.NEWTON
-
     if current is None:
         section.label(text="Custom")
         section.label(text="Manually adjusted solver settings.")
-    elif newton:
-        preset = next((item for item in QUALITY_PRESETS
-                       if item.identifier == current), None)
-        section.label(text=preset.label if preset else "Custom")
-        section.label(text=(preset.description if preset else
-                            "Custom Newton solver quality."))
     else:
         section.label(text=current.label)
         section.label(text=current.description)
@@ -513,17 +592,11 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
         advanced.enabled = not bake_active
         advanced.use_property_split = True
         advanced.use_property_decorate = False
-        if newton:
-            solver = context.scene.cloth_next_solver
-            advanced.label(text="Newton Advanced")
-            advanced.prop(solver, "newton_substeps")
-            advanced.prop(solver, "newton_iterations")
-        else:
-            advanced.label(text="PPF Advanced")
-            advanced.prop(quality, "time_step")
-            advanced.prop(quality, "min_newton_steps")
-            advanced.prop(quality, "cg_max_iter")
-            advanced.prop(quality, "cg_tol")
+        advanced.label(text="PPF Advanced")
+        advanced.prop(quality, "time_step")
+        advanced.prop(quality, "min_newton_steps")
+        advanced.prop(quality, "cg_max_iter")
+        advanced.prop(quality, "cg_tol")
 
 
 @dataclass(frozen=True, slots=True)
@@ -626,15 +699,8 @@ def _solver_status(context) -> _SolverStatus:
 
 
 def _active_backend_status(context) -> _SolverStatus:
-    """Cheap readiness for the selected backend, without cross-dependency."""
-    from ..simulation.backends import BackendId
-    from . import solver_backends
-    if solver_backends.active_backend_id(context.scene) is BackendId.PPF:
-        return _solver_status(context)
-    installed, label, _path = solver_backends.newton_installation_status()
-    return _SolverStatus(
-        installed, "Ready · Newton 1.4.0" if installed else "Newton not installed",
-        (label,) if label else ())
+    """Cheap PPF readiness without solver discovery side effects."""
+    return _solver_status(context)
 
 
 def _cache_state(context) -> tuple[str, str]:
@@ -975,11 +1041,6 @@ def _draw_bake_action(layout, context, model, snapshot) -> None:
         cancel.operator("clothnext.bake_cancel", text="Cancel Bake",
                         **icon_registry.icon_kwargs("cancel", "CANCEL"))
         return
-    solver = getattr(context.scene, "cloth_next_solver", None)
-    if solver is not None:
-        backend = layout.row(align=True)
-        backend.enabled = not snapshot.active
-        backend.prop(solver, "backend", text="Solver")
     action = layout.row(align=True)
     split = action.split(factor=0.86, align=True)
     bake_button = split.column(align=True)
@@ -1055,7 +1116,13 @@ def _draw_soft_body_material(layout, settings) -> None:
     damping = layout.column(align=True)
     damping.label(text="Damping")
     damping.prop(settings.damping, "shape_damping")
-    _draw_concept_row(layout, "Permanent Deformation")
+    permanent = layout.column(align=True)
+    permanent.label(text="Permanent Deformation")
+    permanent.prop(soft, "stretch_plasticity_enabled")
+    controls = permanent.column(align=True)
+    controls.enabled = soft.stretch_plasticity_enabled
+    controls.prop(soft, "stretch_plasticity_rate")
+    controls.prop(soft, "stretch_plasticity_threshold_percent")
 
 
 def _draw_cable_rope_material(layout, settings) -> None:
@@ -1071,6 +1138,14 @@ def _draw_cable_rope_material(layout, settings) -> None:
     damping.label(text="Damping")
     damping.prop(settings.damping, "shape_damping")
     damping.prop(settings.damping, "fold_damping", text="Bend Damping")
+    permanent = layout.column(align=True)
+    permanent.label(text="Permanent Deformation")
+    permanent.prop(cable, "bend_plasticity_enabled")
+    controls = permanent.column(align=True)
+    controls.enabled = cable.bend_plasticity_enabled
+    controls.prop(cable, "bend_plasticity_rate")
+    controls.prop(cable, "bend_plasticity_threshold_degrees")
+    controls.prop(cable, "bend_rest_from_geometry")
 
 
 def _draw_collider_collision(layout, settings) -> None:
@@ -1179,10 +1254,72 @@ class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
         role = context.object.cloth_next.role
         if role == "ROD":
             _draw_concept_row(self.layout, "Pinning")
-            _draw_concept_row(self.layout, "Advanced Pin Motion")
-        elif role == "CLOTH":
-            _draw_concept_row(self.layout, "Advanced Pin Motion")
-        _draw_concept_row(self.layout, "Soft Constraints")
+
+
+class CLOTHNEXT_PT_advanced_pin_motion(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Advanced Pin Motion"
+    bl_idname = "CLOTHNEXT_PT_advanced_pin_motion"
+    bl_parent_id = "CLOTHNEXT_PT_shape"
+    bl_options = {"DEFAULT_CLOSED"}
+    cloth_only = True
+
+    def draw(self, context):
+        settings = context.object.cloth_next
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        table = layout.box()
+        header = table.row(align=True)
+        header.label(text="Pin Group")
+        header.label(text="Target Object")
+        header.label(text="Strength")
+        header.operator(CLOTHNEXT_OT_add_advanced_pin_target.bl_idname,
+                        text="", icon="ADD")
+        for index, item in enumerate(settings.advanced_pin_targets):
+            row = table.row(align=True)
+            row.prop_search(item, "vertex_group", context.object,
+                            "vertex_groups", text="")
+            row.prop(item, "target", text="")
+            row.prop(item, "strength", text="")
+            remove = row.operator(
+                CLOTHNEXT_OT_remove_advanced_pin_target.bl_idname,
+                text="", icon="REMOVE")
+            remove.index = index
+        if not settings.advanced_pin_targets:
+            table.label(text="Add a Pin Group and Target Object", icon="INFO")
+        layout.label(text="Each group preserves its Bake Start offsets")
+
+
+class CLOTHNEXT_PT_soft_constraints(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Soft Constraints"
+    bl_idname = "CLOTHNEXT_PT_soft_constraints"
+    bl_parent_id = "CLOTHNEXT_PT_shape"
+    bl_options = {"DEFAULT_CLOSED"}
+    cloth_only = True
+
+    def draw(self, context):
+        settings = context.object.cloth_next
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        table = layout.box()
+        header = table.row(align=True)
+        header.label(text="Target Object")
+        header.label(text="Constraint")
+        header.label(text="Strength")
+        header.operator(CLOTHNEXT_OT_add_soft_constraint.bl_idname,
+                        text="", icon="ADD")
+        for index, constraint in enumerate(settings.soft_constraints):
+            row = table.row(align=True)
+            row.prop(constraint, "target", text="")
+            row.prop(constraint, "constraint_type", text="")
+            row.prop(constraint, "strength", text="")
+            remove = row.operator(
+                CLOTHNEXT_OT_remove_soft_constraint.bl_idname,
+                text="", icon="REMOVE")
+            remove.index = index
+        if not settings.soft_constraints:
+            table.label(text="Add a Target Object constraint", icon="INFO")
 
 
 class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
@@ -1239,14 +1376,7 @@ class CLOTHNEXT_PT_pressure(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
-        from ..simulation.backends import BackendId
-        from . import solver_backends
-        supported = solver_backends.active_backend_id(
-            getattr(context, "scene", None)) is BackendId.PPF
         self.layout.use_property_split = True
-        if not supported:
-            self.layout.label(text="Pressure is not used by Newton", icon="INFO")
-        self.layout.enabled = supported
         self.layout.prop(pressure, "enable_inflate")
         strength = self.layout.row()
         strength.enabled = pressure.enable_inflate
@@ -1263,14 +1393,7 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         pressure = context.object.cloth_next.pressure
-        from ..simulation.backends import BackendId
-        from . import solver_backends
-        supported = solver_backends.active_backend_id(
-            getattr(context, "scene", None)) is BackendId.PPF
         self.layout.use_property_split = True
-        if not supported:
-            self.layout.label(text="Sewing is not used by Newton", icon="INFO")
-        self.layout.enabled = supported
         self.layout.prop(pressure, "sewing_enabled", text="Enable Sewing")
         strength = self.layout.row()
         strength.enabled = pressure.sewing_enabled
@@ -1301,8 +1424,48 @@ class CLOTHNEXT_PT_collision(_ClothNextSubpanel, bpy.types.Panel):
         else:
             controls.prop(collision, "collision_gap")
             controls.prop(collision, "surface_offset")
-        _draw_concept_row(layout, "Collision Timing")
-        _draw_concept_row(layout, "Advanced Contact Distance")
+
+
+class CLOTHNEXT_PT_collision_timing(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Collision Timing"
+    bl_idname = "CLOTHNEXT_PT_collision_timing"
+    bl_parent_id = "CLOTHNEXT_PT_collision"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        quality = context.scene.cloth_next_quality
+        layout.prop(quality, "target_toi")
+        layout.prop(quality, "line_search_max_t")
+        layout.prop(quality, "ccd_max_iter")
+
+
+class CLOTHNEXT_PT_advanced_contact_distance(
+        _ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Advanced Contact Distance"
+    bl_idname = "CLOTHNEXT_PT_advanced_contact_distance"
+    bl_parent_id = "CLOTHNEXT_PT_collision"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        warning = layout.box()
+        warning.alert = True
+        warning.label(text="Expert settings", icon="ERROR")
+        warning.label(text="Change only if you understand their solver impact")
+        warning.label(text="Incorrect values can destabilize or stop a Bake")
+        quality = context.scene.cloth_next_quality
+        layout.prop(quality, "constraint_ghat")
+        layout.prop(quality, "constraint_tol")
+        layout.prop(quality, "ccd_reduction")
+        layout.label(text="Scene-wide settings for moving Pins and contact",
+                     icon="INFO")
 
 
 class CLOTHNEXT_PT_friction_regions(_ClothNextSubpanel, bpy.types.Panel):
@@ -1503,13 +1666,6 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
                         text="Volume Density")
             return
         material = settings.material
-        from ..simulation.backends import BackendId
-        from . import solver_backends
-        newton = solver_backends.active_backend_id(
-            getattr(context, "scene", None)) is BackendId.NEWTON
-        if newton:
-            layout.label(text="Newton uses an approximate material mapping",
-                         icon="INFO")
         error = material_presets.load_error()
         if error:
             layout.label(text="Bundled presets unavailable:", icon="ERROR")
@@ -1526,7 +1682,6 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         behavior.prop(material, "bend_resistance")
         protection = layout.column(align=True)
         protection.label(text="Stretch Protection")
-        protection.enabled = not newton
         protection.prop(material, "stretch_limit_enabled")
         row = protection.row()
         row.enabled = material.stretch_limit_enabled
@@ -1535,7 +1690,19 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         damping.label(text="Damping")
         damping.prop(settings.damping, "shape_damping")
         damping.prop(settings.damping, "fold_damping")
-        _draw_concept_row(layout, "Permanent Deformation")
+        permanent = layout.column(align=True)
+        permanent.label(text="Permanent Deformation")
+        permanent.prop(material, "stretch_plasticity_enabled")
+        stretch = permanent.column(align=True)
+        stretch.enabled = material.stretch_plasticity_enabled
+        stretch.prop(material, "stretch_plasticity_rate")
+        stretch.prop(material, "stretch_plasticity_threshold_percent")
+        permanent.prop(material, "bend_plasticity_enabled")
+        bend = permanent.column(align=True)
+        bend.enabled = material.bend_plasticity_enabled
+        bend.prop(material, "bend_plasticity_rate")
+        bend.prop(material, "bend_plasticity_threshold_degrees")
+        bend.prop(material, "bend_rest_from_geometry")
 
 
 class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
@@ -1557,6 +1724,13 @@ class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):
                               "vertex_groups", text="Vertex Group")
         mode_row=controls.row(); mode_row.enabled=bool(settings.pinning_enabled)
         mode_row.prop(settings,"pin_mode",text="Mode")
+        if settings.pin_mode == "TARGET_OBJECT":
+            target_row = controls.row()
+            target_row.enabled = bool(settings.pinning_enabled)
+            target_row.prop(settings, "pin_target", text="Target")
+            info = layout.box()
+            info.label(text="Soft Pins preserve their starting offsets")
+            info.label(text="Collider contact takes priority over the target")
         # The pin count comes from the last full validation. Scanning the
         # vertex group here would cost one pass over every vertex on every
         # single redraw — that is what made large meshes unusable.
@@ -1985,11 +2159,67 @@ class CLOTHNEXT_PT_cloth_advanced(_ClothNextSubpanel, bpy.types.Panel):
     header_icon = "advanced"
 
     def draw(self, context):
-        role = context.object.cloth_next.role
-        if role not in {"COLLIDER", "FORCE"}:
-            _draw_concept_row(self.layout, "Motion Overrides")
-        if role != "FORCE":
-            _draw_concept_row(self.layout, "Advanced Contact Solver")
+        pass
+
+
+class CLOTHNEXT_PT_motion_overrides(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Motion Overrides"
+    bl_idname = "CLOTHNEXT_PT_motion_overrides"
+    bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.object.cloth_next
+        header = layout.row(align=True)
+        header.operator(CLOTHNEXT_OT_add_motion_override.bl_idname,
+                        text="Add Override", icon="ADD")
+        for index, item in enumerate(settings.motion_overrides):
+            box = layout.box()
+            top = box.row(align=True)
+            top.prop(item, "frame")
+            top.prop(item, "motion_type", text="")
+            remove = top.operator(
+                CLOTHNEXT_OT_remove_motion_override.bl_idname,
+                text="", icon="REMOVE")
+            remove.index = index
+            if item.motion_type == "ANGULAR":
+                box.prop(item, "angular_velocity", text="Spin")
+            else:
+                box.prop(item, "velocity", text="Velocity")
+        if not settings.motion_overrides:
+            layout.label(text="Add an override to change motion at a frame",
+                         icon="INFO")
+        layout.label(text="Hard-pinned vertices keep following their Pins",
+                     icon="PINNED")
+
+
+class CLOTHNEXT_PT_advanced_contact_solver(
+        _ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Advanced Contact Solver"
+    bl_idname = "CLOTHNEXT_PT_advanced_contact_solver"
+    bl_parent_id = "CLOTHNEXT_PT_cloth_advanced"
+    bl_options = {"DEFAULT_CLOSED"}
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        warning = layout.box()
+        warning.alert = True
+        warning.label(text="Expert settings", icon="ERROR")
+        warning.label(text="Change only if you understand their solver impact")
+        warning.label(text="Incorrect values can destabilize or stop a Bake")
+        quality = context.scene.cloth_next_quality
+        layout.prop(quality, "max_newton_steps")
+        layout.prop(quality, "max_dx")
+        layout.prop(quality, "eigenanalysis_eps")
+        layout.prop(quality, "friction_eps")
+        layout.prop(quality, "csrmat_max_nnz")
+        layout.prop(quality, "contact_barrier")
+        layout.label(text="These settings affect the entire scene", icon="INFO")
 
 
 class CLOTHNEXT_PT_recovery(_ClothNextSubpanel, bpy.types.Panel):
@@ -2198,23 +2428,35 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
 CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_OT_add_friction_region,
            CLOTHNEXT_OT_remove_friction_region,
+           CLOTHNEXT_OT_add_soft_constraint,
+           CLOTHNEXT_OT_remove_soft_constraint,
+           CLOTHNEXT_OT_add_advanced_pin_target,
+           CLOTHNEXT_OT_remove_advanced_pin_target,
+           CLOTHNEXT_OT_add_motion_override,
+           CLOTHNEXT_OT_remove_motion_override,
            *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
            CLOTHNEXT_PT_setup, CLOTHNEXT_PT_simulation,
            CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material,
            CLOTHNEXT_PT_shape, CLOTHNEXT_PT_pinning,
+           CLOTHNEXT_PT_advanced_pin_motion,
+           CLOTHNEXT_PT_soft_constraints,
            CLOTHNEXT_PT_rest_shape, CLOTHNEXT_PT_soft_body_rest_shape,
            CLOTHNEXT_PT_cable_rope_rest_shape,
            CLOTHNEXT_PT_pressure,
            CLOTHNEXT_PT_sewing,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collision, CLOTHNEXT_PT_friction_regions,
+           CLOTHNEXT_PT_collision_timing,
+           CLOTHNEXT_PT_advanced_contact_distance,
            CLOTHNEXT_PT_collider_collision, CLOTHNEXT_PT_simulation_proxy,
            CLOTHNEXT_PT_collisions, CLOTHNEXT_PT_cache,
            CLOTHNEXT_PT_beta_readiness,
            CLOTHNEXT_PT_developer_tools,
            CLOTHNEXT_PT_cloth_advanced,
+           CLOTHNEXT_PT_motion_overrides,
+           CLOTHNEXT_PT_advanced_contact_solver,
            CLOTHNEXT_PT_recovery,
            CLOTHNEXT_PT_solver_settings,
            CLOTHNEXT_PT_simulation_engine, CLOTHNEXT_PT_result,

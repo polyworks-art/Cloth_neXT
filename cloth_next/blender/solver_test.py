@@ -1105,6 +1105,48 @@ def _snapshot_static_pin(cloth_obj, *,
                             getattr(cloth_obj, "name", "")))
     if topology_signature is None:
         topology_signature = mesh_topology_signature(mesh)
+    advanced_rows = tuple(getattr(settings, "advanced_pin_targets", ()))
+    if advanced_rows:
+        groups = getattr(cloth_obj, "vertex_groups", None)
+        owners: dict[int, tuple[str, float]] = {}
+        for row in advanced_rows:
+            row_group = str(getattr(row, "vertex_group", "") or "")
+            target = getattr(row, "target", None)
+            strength = float(getattr(row, "strength", 1.0))
+            if not row_group:
+                raise SceneValidationError(
+                    "Advanced Pin Motion: Select a Pin Group in every row.")
+            if target is None:
+                raise SceneValidationError(
+                    f"Advanced Pin Motion: Select a Target for {row_group}.")
+            if target is cloth_obj:
+                raise SceneValidationError(
+                    f"Advanced Pin Motion: {row_group} cannot target the Cloth itself.")
+            if not math.isfinite(strength) or strength <= 0.0:
+                raise SceneValidationError(
+                    f"Advanced Pin Motion: {row_group} needs positive Strength.")
+            group = groups.get(row_group) if groups is not None else None
+            if group is None:
+                raise SceneValidationError(
+                    f"Advanced Pin Group {row_group!r} no longer exists.")
+            indices = _scan_pin_indices(cloth_obj, int(group.index))
+            if not indices:
+                raise SceneValidationError(
+                    f"Advanced Pin Group {row_group!r} contains no vertices.")
+            for index in indices:
+                previous = owners.get(index)
+                if previous is not None:
+                    raise SceneValidationError(
+                        f"Advanced Pin Groups {previous[0]!r} and "
+                        f"{row_group!r} overlap at vertex {index}. Use "
+                        "disjoint groups for different Targets.")
+                owners[index] = (row_group, strength)
+        union = tuple(sorted(owners))
+        weights = tuple(owners[index][1] for index in union)
+        return StaticPinSnapshot(
+            True, "Advanced Pin Motion", object_id, vertex_count, union,
+            source_topology_signature=topology_signature,
+            pull_weights=weights)
     if not enabled:
         return StaticPinSnapshot(False, group_name, object_id, vertex_count, (),
                                  source_topology_signature=topology_signature)
@@ -1147,6 +1189,26 @@ def _cheap_pinning_fingerprint(cloth_obj) -> str:
         "1" if getattr(settings, "pinning_enabled", False) else "0",
         str(getattr(settings, "pin_group", "") or ""),
         str(getattr(settings, "pin_mode", "STATIC")),
+        "1" if getattr(settings, "advanced_pin_motion_enabled", False) else "0",
+        str(getattr(getattr(settings, "pin_target", None), "name_full", "")),
+        repr(tuple((str(getattr(row, "vertex_group", "")),
+                    str(getattr(getattr(row, "target", None),
+                                "name_full", "")),
+                    float(getattr(row, "strength", 1.0)))
+                   for row in getattr(settings,
+                                      "advanced_pin_targets", ()))),
+        repr(tuple((str(getattr(getattr(row, "target", None),
+                               "name_full", "")),
+                    str(getattr(row, "constraint_type", "LOCATION")),
+                    float(getattr(row, "strength", 1.0)))
+                   for row in getattr(settings, "soft_constraints", ()))),
+        repr(tuple((int(getattr(row, "frame", 1)),
+                    str(getattr(row, "motion_type", "LINEAR")),
+                    tuple(float(value) for value in getattr(
+                        row, "velocity", (0.0, 0.0, 0.0))),
+                    tuple(float(value) for value in getattr(
+                        row, "angular_velocity", (0.0, 0.0, 0.0))))
+                   for row in getattr(settings, "motion_overrides", ()))),
     ))
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
 
@@ -1904,11 +1966,40 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
             "animation": _animation_signature(obj),
         }
         if role != "COLLIDER":
+            pin_target = getattr(obj.cloth_next, "pin_target", None)
             row.update({
                 "topology": entry.topology_signature,
                 "shape": entry.shape_signature,
                 "pins": list(entry.pin_membership.vertex_indices),
                 "pin_mode": str(getattr(obj.cloth_next, "pin_mode", "")),
+                "advanced_pin_motion": bool(getattr(
+                    obj.cloth_next, "advanced_pin_motion_enabled", False))
+                    or bool(getattr(
+                        obj.cloth_next, "advanced_pin_targets", ())),
+                "advanced_pin_targets": [
+                    {"group": str(getattr(item, "vertex_group", "")),
+                     "target": str(getattr(
+                         getattr(item, "target", None), "name_full", "")),
+                     "strength": float(getattr(item, "strength", 1.0)),
+                     "animation": _animation_signature(item.target)
+                     if getattr(item, "target", None) is not None else None}
+                    for item in getattr(
+                        obj.cloth_next, "advanced_pin_targets", ())],
+                "pin_target": (
+                    {"name": str(getattr(pin_target, "name_full", "") or
+                                 getattr(pin_target, "name", "")),
+                     "animation": _animation_signature(pin_target)}
+                    if pin_target is not None else None),
+                "soft_constraints": [
+                    {"target": str(getattr(
+                        getattr(item, "target", None), "name_full", "")),
+                     "type": str(getattr(
+                         item, "constraint_type", "LOCATION")),
+                     "strength": float(getattr(item, "strength", 1.0)),
+                     "animation": _animation_signature(item.target)
+                     if getattr(item, "target", None) is not None else None}
+                    for item in getattr(
+                        obj.cloth_next, "soft_constraints", ())],
                 "sewing": bool(getattr(
                     entry.material, "sewing_enabled", False)),
                 "uv": (_mesh_uv_signature(obj.data)
@@ -2188,10 +2279,17 @@ def _solver_position(matrix,position):
 
 def _capture_animated_pin(context,cloth_obj,bake_range,membership,
                           precomputed=None):
-    mode=PinMode(str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC")))
+    advanced_rows = tuple(getattr(
+        cloth_obj.cloth_next, "advanced_pin_targets", ()))
+    advanced = bool(advanced_rows) or bool(getattr(
+        cloth_obj.cloth_next, "advanced_pin_motion_enabled", False))
+    constraints = tuple(getattr(cloth_obj.cloth_next, "soft_constraints", ()))
+    mode=(PinMode.TARGET_OBJECT if advanced or constraints else
+          PinMode(str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))))
     common=dict(source_topology_signature=membership.source_topology_signature,
                 mode=mode,bake_start=bake_range.start,bake_end=bake_range.end,
-                fps=_scene_fps(context))
+                fps=_scene_fps(context),
+                pull_weights=membership.pull_weights)
     if not membership.enabled or mode is PinMode.STATIC:
         return StaticPinSnapshot(membership.enabled,membership.group_name,
             membership.source_object_id,membership.source_vertex_count,
@@ -2201,6 +2299,11 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
             membership.source_vertex_count,membership.vertex_indices,
             samples=tuple(precomputed),**common)
     scene=context.scene; original=int(scene.frame_current); samples=[]
+    target_initial = None
+    constraint_initial = {}
+    base_positions = None
+    advanced_offsets = (_advanced_pin_offsets(cloth_obj, membership)
+                        if advanced_rows else ())
     try:
         points = build_sample_plan(
             bake_range.start, bake_range.end,
@@ -2219,6 +2322,35 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
                 matrix=solver_world_matrix(tuple(tuple(row) for row in evaluated.matrix_world))
                 positions=tuple(_solver_position(matrix,tuple(mesh.vertices[index].co))
                                 for index in membership.vertex_indices)
+                if advanced_rows:
+                    if base_positions is None:
+                        base_positions = positions
+                    positions = _advanced_pin_positions(
+                        base_positions, advanced_offsets,
+                        context.evaluated_depsgraph_get(),
+                        constraint_initial, cloth_obj.name)
+                elif advanced:
+                    target = getattr(cloth_obj.cloth_next, "pin_target", None)
+                    if target is None:
+                        raise SceneValidationError(
+                            f"{cloth_obj.name}: Select a Target for Target Object Pinning.")
+                    target_eval = target.evaluated_get(
+                        context.evaluated_depsgraph_get())
+                    target_matrix = np.asarray(solver_world_matrix(
+                        tuple(tuple(row) for row in target_eval.matrix_world)),
+                        dtype=np.float64)
+                    if target_initial is None:
+                        target_initial = target_matrix
+                        base_positions = positions
+                    positions = _transform_pin_positions(
+                        base_positions, target_initial, target_matrix)
+                if constraints:
+                    if base_positions is None:
+                        base_positions = positions
+                    positions = _soft_constraint_positions(
+                        base_positions, constraints,
+                        context.evaluated_depsgraph_get(),
+                        constraint_initial, cloth_obj.name)
                 samples.append(AnimatedPinTargetSample(
                     float(point.position), positions))
             finally:evaluated.to_mesh_clear()
@@ -2227,6 +2359,111 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
     return StaticPinSnapshot(True,membership.group_name,membership.source_object_id,
         membership.source_vertex_count,membership.vertex_indices,
         samples=tuple(samples),**common)
+
+
+def _transform_pin_positions(base_positions, initial_matrix, current_matrix):
+    """Drive a Pin group by a target transform while preserving offsets."""
+    initial4 = np.eye(4, dtype=np.float64)
+    current4 = np.eye(4, dtype=np.float64)
+    initial4[:3, :4] = np.asarray(initial_matrix, dtype=np.float64)[:3, :4]
+    current4[:3, :4] = np.asarray(current_matrix, dtype=np.float64)[:3, :4]
+    try:
+        delta = current4 @ np.linalg.inv(initial4)
+    except np.linalg.LinAlgError as exc:
+        raise SceneValidationError(
+            "The Pin Target has a non-invertible transform.") from exc
+    points = np.asarray(base_positions, dtype=np.float64)
+    homogeneous = np.concatenate(
+        (points, np.ones((len(points), 1), dtype=np.float64)), axis=1)
+    transformed = homogeneous @ delta[:3, :4].T
+    return tuple(tuple(float(value) for value in row) for row in transformed)
+
+
+def _advanced_pin_offsets(cloth_obj, membership):
+    """Resolve validated Advanced Pin groups to offsets in the union track."""
+    lookup = {vertex: offset
+              for offset, vertex in enumerate(membership.vertex_indices)}
+    resolved = []
+    for row_index, row in enumerate(getattr(
+            cloth_obj.cloth_next, "advanced_pin_targets", ())):
+        group = cloth_obj.vertex_groups.get(str(row.vertex_group))
+        if group is None:
+            raise SceneValidationError(
+                f"Advanced Pin Group {row.vertex_group!r} no longer exists.")
+        indices = _scan_pin_indices(cloth_obj, int(group.index))
+        resolved.append((row_index, row,
+                         tuple(lookup[index] for index in indices)))
+    return tuple(resolved)
+
+
+def _advanced_pin_positions(base_positions, resolved_rows, depsgraph,
+                            initial_matrices, key_prefix):
+    result = [tuple(point) for point in base_positions]
+    for row_index, row, offsets in resolved_rows:
+        target = getattr(row, "target", None)
+        if target is None:
+            raise SceneValidationError(
+                f"Advanced Pin Motion: Select a Target for {row.vertex_group}.")
+        evaluated = target.evaluated_get(depsgraph)
+        current = np.asarray(solver_world_matrix(
+            tuple(tuple(value) for value in evaluated.matrix_world)),
+            dtype=np.float64)
+        key = (key_prefix, "advanced", row_index)
+        initial = initial_matrices.setdefault(key, current.copy())
+        subgroup = tuple(base_positions[offset] for offset in offsets)
+        transformed = _transform_pin_positions(subgroup, initial, current)
+        for offset, point in zip(offsets, transformed):
+            result[offset] = point
+    return tuple(result)
+
+
+def _soft_constraint_positions(base_positions, constraints, depsgraph,
+                               initial_matrices, key_prefix):
+    """Blend Target constraint candidates by their physical pull strengths."""
+    from mathutils import Matrix, Vector
+
+    base = tuple(tuple(float(value) for value in point)
+                 for point in base_positions)
+    weighted = np.zeros((len(base), 3), dtype=np.float64)
+    total = 0.0
+    for index, row in enumerate(constraints):
+        target = getattr(row, "target", None)
+        strength = float(getattr(row, "strength", 1.0))
+        if target is None:
+            raise SceneValidationError(
+                "Soft Constraint: Select a Target Object in every row.")
+        if not math.isfinite(strength) or strength <= 0.0:
+            continue
+        evaluated = target.evaluated_get(depsgraph)
+        current = Matrix(solver_world_matrix(
+            tuple(tuple(value) for value in evaluated.matrix_world))).to_4x4()
+        key = (key_prefix, index)
+        initial = initial_matrices.setdefault(key, current.copy())
+        loc0, rot0, scale0 = initial.decompose()
+        loc1, rot1, scale1 = current.decompose()
+        kind = str(getattr(row, "constraint_type", "LOCATION"))
+        candidate = []
+        for point in base:
+            value = Vector(point)
+            if kind == "LOCATION":
+                value = value + (loc1 - loc0)
+            elif kind == "ROTATION":
+                value = loc0 + (rot1 @ rot0.inverted()) @ (value - loc0)
+            elif kind == "SCALE":
+                local = rot0.inverted() @ (value - loc0)
+                ratios = Vector(tuple(
+                    scale1[i] / scale0[i] if abs(scale0[i]) > 1e-12 else 1.0
+                    for i in range(3)))
+                value = loc0 + rot0 @ Vector(tuple(
+                    local[i] * ratios[i] for i in range(3)))
+            candidate.append(tuple(float(component) for component in value))
+        weighted += np.asarray(candidate, dtype=np.float64) * strength
+        total += strength
+    if total <= 0.0:
+        raise SceneValidationError(
+            "Soft Constraints need at least one row with Strength above zero.")
+    return tuple(tuple(float(value) for value in point)
+                 for point in weighted / total)
 
 
 def _matrix_trs(matrix):
@@ -3206,6 +3443,8 @@ def _cache_plan_record(plan: RunPlan) -> tuple[dict, dict[str, memoryview]]:
                 "unpin_time": pin.unpin_time,
                 "transition": pin.transition,
                 "pull_strength": pin.pull_strength,
+                "pull_weights": (list(pin.pull_weights)
+                                 if pin.pull_weights is not None else None),
                 "pin_stiffness": pin.pin_stiffness,
                 "pin_group_id": pin.pin_group_id,
                 "rest_shape_track": pin.rest_shape_track,
@@ -3291,7 +3530,9 @@ def _load_pin_config(record, artifacts):
         float(record.get("pull_strength", 0.0)),
         float(record.get("pin_stiffness", 1.0)),
         str(record.get("pin_group_id", "")),
-        None, bool(record.get("rest_shape_track", False)),
+        (tuple(float(value) for value in record["pull_weights"])
+         if record.get("pull_weights") is not None else None),
+        bool(record.get("rest_shape_track", False)),
         tuple(float(value) for value in record.get("times", ())),
         positions)
 
@@ -3356,6 +3597,47 @@ def _recovery_param_kwargs(scene) -> dict:
     }
 
 
+def _motion_override_dynamic(snapshot, fps: float):
+    """Encode per-object Blender-frame velocity replacements for PPF."""
+    role_order = ("CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY")
+    ordered = [entry for role in role_order
+               for entry in snapshot.deformables if entry.role == role]
+    tracks = []
+    for dmap_index, entry in enumerate(ordered):
+        grouped = {"LINEAR": [], "ANGULAR": []}
+        seen = set()
+        for row in getattr(entry.obj.cloth_next, "motion_overrides", ()):
+            frame = int(row.frame)
+            kind = str(row.motion_type)
+            if frame < snapshot.bake_range.start or frame > snapshot.bake_range.end:
+                raise SceneValidationError(
+                    f"{entry.obj.name}: Motion Override frame {frame} is outside "
+                    f"the Bake range {snapshot.bake_range.start}–{snapshot.bake_range.end}.")
+            identity = (kind, frame)
+            if identity in seen:
+                raise SceneValidationError(
+                    f"{entry.obj.name}: only one {kind.title()} Motion Override "
+                    f"is allowed on frame {frame}.")
+            seen.add(identity)
+            vector = (tuple(float(value) for value in row.angular_velocity)
+                      if kind == "ANGULAR" else
+                      tuple(float(value) for value in row.velocity))
+            time_seconds = ((frame - snapshot.bake_range.start) / float(fps))
+            grouped[kind].append((time_seconds, vector, True))
+        if grouped["LINEAR"]:
+            tracks.append((f"velocity:{dmap_index}",
+                           tuple(sorted(grouped["LINEAR"]))))
+        if grouped["ANGULAR"]:
+            tracks.append((f"angular_velocity_world:{dmap_index}",
+                           tuple(sorted(grouped["ANGULAR"]))))
+    return tuple(tracks)
+
+
+def _all_dynamic_parameters(snapshot, force_capture, fps: float):
+    return (tuple(force_capture.dynamic_parameters)
+            + _motion_override_dynamic(snapshot, fps))
+
+
 def _encode_cached_param(context, snapshot, force_capture, pin_configs,
                          cache, target_uuids, *, schema_version: int = 1):
     entries = snapshot.deformables
@@ -3373,7 +3655,8 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
             force_capture.initial.vertex_air_damp
             if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types
             else None),
-        dynamic_parameters=force_capture.dynamic_parameters,
+        dynamic_parameters=_all_dynamic_parameters(
+            snapshot, force_capture, _scene_fps(context)),
         **_recovery_param_kwargs(context.scene))
     group_for_role = {
         "CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
@@ -3405,11 +3688,15 @@ def _pin_configs_cache_identity(pin_configs):
             identities.append(None)
             continue
         digest = hashlib.sha256()
-        digest.update(b"cloth-next-pin-track-v2\0")
+        digest.update(b"cloth-next-pin-track-v3\0")
         digest.update(str(config.pin_group_id).encode("utf-8"))
         digest.update(np.asarray(config.indices, dtype="<i8").tobytes())
         digest.update(np.asarray(config.times, dtype="<f8").tobytes())
         digest.update(np.asarray(config.positions, dtype="<f4").tobytes())
+        digest.update(np.asarray(
+            config.pull_weights or (), dtype="<f4").tobytes())
+        digest.update(np.asarray(
+            (config.pull_strength,), dtype="<f4").tobytes())
         identities.append({
             "indices": len(config.indices),
             "samples": len(config.times),
@@ -3894,7 +4181,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                       if "AIR_FRICTION" in force_capture.active_scalar_types else None),
         vertex_air_damp=(force_capture.initial.vertex_air_damp
                          if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
-        dynamic_parameters=force_capture.dynamic_parameters,
+        dynamic_parameters=_all_dynamic_parameters(
+            snapshot, force_capture, _scene_fps(context)),
         **_recovery_param_kwargs(scene))
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
@@ -4305,7 +4593,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                       if "AIR_FRICTION" in force_capture.active_scalar_types else None),
         vertex_air_damp=(force_capture.initial.vertex_air_damp
                          if "VERTEX_AIR_DAMP" in force_capture.active_scalar_types else None),
-        dynamic_parameters=force_capture.dynamic_parameters,
+        dynamic_parameters=_all_dynamic_parameters(
+            snapshot, force_capture, _scene_fps(context)),
         **_recovery_param_kwargs(scene))
     def encode_param_payload():
       if deformable_role == "CLOTH":
@@ -4387,6 +4676,18 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             "min-newton-steps": settings.quality.min_newton_steps,
             "cg-max-iter": settings.quality.cg_max_iter,
             "cg-tol": settings.quality.cg_tol,
+            "target-toi": settings.quality.target_toi,
+            "line-search-max-t": settings.quality.line_search_max_t,
+            "constraint-ghat": settings.quality.constraint_ghat,
+            "constraint-tol": settings.quality.constraint_tol,
+            "ccd-reduction": settings.quality.ccd_reduction,
+            "ccd-max-iter": settings.quality.ccd_max_iter,
+            "max-newton-steps": settings.quality.max_newton_steps,
+            "max-dx": settings.quality.max_dx,
+            "eiganalysis-eps": settings.quality.eigenanalysis_eps,
+            "friction-eps": settings.quality.friction_eps,
+            "csrmat-max-nnz": settings.quality.csrmat_max_nnz,
+            "barrier": settings.quality.contact_barrier,
         },
         "blender_start_frame": bake_range.start,
         "blender_end_frame": bake_range.end,
@@ -6482,9 +6783,15 @@ def begin_production_bake(context) -> tuple[str, bool]:
             animated_targets = tuple(
                 (entry.obj.name, entry.pin_membership)
                 for entry in (snapshot.deformables or ())
-                if (entry.pin_membership.enabled and str(getattr(
-                    entry.obj.cloth_next, "pin_mode", "STATIC")) ==
-                    "FOLLOW_ANIMATION"))
+                if (entry.pin_membership.enabled and (
+                    str(getattr(entry.obj.cloth_next, "pin_mode", "STATIC")) ==
+                    "FOLLOW_ANIMATION" or bool(getattr(
+                        entry.obj.cloth_next,
+                        "advanced_pin_motion_enabled", False)) or bool(getattr(
+                            entry.obj.cloth_next,
+                            "advanced_pin_targets", ())) or bool(getattr(
+                            entry.obj.cloth_next,
+                            "soft_constraints", ())))))
             animated_colliders = tuple(
                 obj for obj in snapshot.collider_objs
                 if
@@ -6530,6 +6837,13 @@ def begin_production_bake(context) -> tuple[str, bool]:
                         name: np.asarray(membership.vertex_indices,
                                          dtype=np.intp)
                         for name, membership in animated_targets},
+                    "advanced_offsets": {
+                        name: _advanced_pin_offsets(
+                            bpy.data.objects.get(name), membership)
+                        for name, membership in animated_targets
+                        if bpy.data.objects.get(name) is not None},
+                    "pin_target_initial": {},
+                    "pin_base_positions": {},
                     "original":int(context.scene.frame_current),
                     "original_subframe":float(getattr(
                         context.scene, "frame_subframe", 0.0)),
@@ -6551,8 +6865,13 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 shared_controller.update(status_message=message,
                     activity_code=activity,
                     progress_current=0,progress_total=len(points))
-                if not bpy.app.timers.is_registered(_pin_capture_pump):
-                    bpy.app.timers.register(_pin_capture_pump,first_interval=.05)
+                # Re-arm the preparation timer for every Bake attempt. Blender
+                # can retain a registered callback after an interrupted add-on
+                # reload/cancel even though it is no longer scheduled to run;
+                # the old guard then leaves the Bake window at 0 forever.
+                if bpy.app.timers.is_registered(_pin_capture_pump):
+                    bpy.app.timers.unregister(_pin_capture_pump)
+                bpy.app.timers.register(_pin_capture_pump, first_interval=.05)
                 return job_id,True
         plan=build_run_plan(context,snapshot=snapshot)
     except (SceneValidationError, ClothNextError) as exc:
@@ -6708,6 +7027,26 @@ def _pin_capture_pump():
         point_index = state["point_index"]
         point = state["points"][point_index]
         frame = point.frame
+        has_colliders = bool(state["collider_states"])
+        has_pins = bool(state["targets"])
+        if has_colliders and has_pins:
+            capture_label = "Capturing animated Pins and Colliders"
+        elif has_colliders:
+            capture_label = "Exporting animated Collider"
+        else:
+            capture_label = "Capturing animated Pin targets"
+        # Publish the exact sub-frame sample before Blender evaluates it.
+        # Expensive modifiers can otherwise leave the previous whole-frame
+        # label visible long enough to make 8 samples/frame look stalled.
+        shared_controller.update(
+            status_message=(f"{capture_label} - sample {point_index + 1} / "
+                            f"{len(state['points'])} - frame "
+                            f"{float(point.position):g}"),
+            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
+                           if has_colliders
+                           else BakeActivity.CAPTURING_PIN_TARGETS),
+            progress_current=point_index,
+            progress_total=len(state["points"]))
         scene.frame_set(frame, subframe=point.subframe)
         depsgraph = context.evaluated_depsgraph_get()
         timings = state["snapshot"].timings
@@ -6724,6 +7063,43 @@ def _pin_capture_pump():
                 positions = _sample_evaluated_pin_positions(
                     context, obj, membership, depsgraph=depsgraph,
                     index_array=state["index_arrays"][object_name])
+                object_settings = getattr(obj, "cloth_next", None)
+                advanced_rows = state.get("advanced_offsets", {}).get(
+                    object_name, ())
+                if advanced_rows:
+                    base = state["pin_base_positions"].setdefault(
+                        object_name, positions)
+                    positions = _advanced_pin_positions(
+                        base, advanced_rows, depsgraph,
+                        state["pin_target_initial"], object_name)
+                elif bool(getattr(
+                        object_settings, "advanced_pin_motion_enabled", False)):
+                    target = getattr(object_settings, "pin_target", None)
+                    if target is None:
+                        raise SceneValidationError(
+                            f"{obj.name}: Select a Target for Target Object Pinning.")
+                    if target is obj:
+                        raise SceneValidationError(
+                            f"{obj.name}: The Cloth object cannot be its own Pin Target.")
+                    target_eval = target.evaluated_get(depsgraph)
+                    target_matrix = np.asarray(solver_world_matrix(
+                        tuple(tuple(row) for row in target_eval.matrix_world)),
+                        dtype=np.float64)
+                    if object_name not in state["pin_target_initial"]:
+                        state["pin_target_initial"][object_name] = target_matrix
+                        state["pin_base_positions"][object_name] = positions
+                    positions = _transform_pin_positions(
+                        state["pin_base_positions"][object_name],
+                        state["pin_target_initial"][object_name],
+                        target_matrix)
+                constraints = tuple(getattr(
+                    object_settings, "soft_constraints", ()))
+                if constraints:
+                    base = state["pin_base_positions"].setdefault(
+                        object_name, positions)
+                    positions = _soft_constraint_positions(
+                        base, constraints, depsgraph,
+                        state["pin_target_initial"], object_name)
                 state["samples"][object_name].append(
                     AnimatedPinTargetSample(
                         float(point.position), positions))
@@ -6748,7 +7124,10 @@ def _pin_capture_pump():
             "evaluated_get_count", 0.0) + evaluated_count
         timings["to_mesh_count"] = timings.get(
             "to_mesh_count", 0.0) + mesh_count
-        shared_controller.update(status_message=f"Capturing animated Pin targets · frame {frame} / {state['range'].end}",
+        shared_controller.update(
+            status_message=(f"{capture_label} - sample {point_index + 1} / "
+                            f"{len(state['points'])} - frame "
+                            f"{float(point.position):g}"),
             activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
                            if state["collider_states"]
                            else BakeActivity.CAPTURING_PIN_TARGETS),
@@ -6840,9 +7219,8 @@ def _startup_pump() -> float | None:
     owner = shared_controller.snapshot()
     if (owner.job_id != job_id
             or owner.state is not BakeState.WAITING_FOR_COMPANION):
-        # This callback belongs to an older PPF attempt.  In particular, it
-        # must not fail a newer Newton controller merely because its own
-        # Companion request has already been superseded.
+        # This callback belongs to an older PPF attempt and must not affect
+        # the controller for a newer Bake attempt.
         if _pending_job_id == job_id:
             _pending_plan = None
             _pending_job_id = ""
@@ -6883,9 +7261,6 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
-    from . import solver_backends
-    if solver_backends.request_cancel():
-        return
     if _pending_job_id:
         cancel_pending_startup(); return
     # A Companion can disappear after startup while no capture or worker owns
@@ -7035,8 +7410,12 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
                  f"friction-mode: {wire_scene['friction-mode']}, "
                  f"disable-contact: {wire_scene['disable-contact']}")
     if pin_snapshot.enabled:
-        mode=str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC"))
-        lines.extend((f"Pinning: {'Follow Animation' if mode=='FOLLOW_ANIMATION' else 'Static'}", f"Group: {pin_snapshot.group_name}",
+        mode=("TARGET_OBJECT" if bool(getattr(
+            cloth_obj.cloth_next, "advanced_pin_motion_enabled", False)) else
+            str(getattr(cloth_obj.cloth_next,"pin_mode","STATIC")))
+        mode_label = ({"FOLLOW_ANIMATION": "Follow Animation",
+                       "TARGET_OBJECT": "Target Object"}.get(mode, "Static"))
+        lines.extend((f"Pinning: {mode_label}", f"Group: {pin_snapshot.group_name}",
                       f"Pinned vertices: {len(pin_snapshot.vertex_indices)}",
                       f"Index range: {pin_snapshot.vertex_indices[0]}–{pin_snapshot.vertex_indices[-1]}",
                       "Operations: 0", "Pull: Disabled", "Release: Never"))

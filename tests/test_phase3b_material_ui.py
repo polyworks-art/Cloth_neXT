@@ -349,7 +349,14 @@ def test_material_panel_displays_artist_facing_names(blender_env):
                                   "bend_resistance",
                                   "stretch_limit_enabled",
                                   "maximum_stretch_percent",
-                                  "shape_damping", "fold_damping"]
+                                  "shape_damping", "fold_damping",
+                                  "stretch_plasticity_enabled",
+                                  "stretch_plasticity_rate",
+                                  "stretch_plasticity_threshold_percent",
+                                  "bend_plasticity_enabled",
+                                  "bend_plasticity_rate",
+                                  "bend_plasticity_threshold_degrees",
+                                  "bend_rest_from_geometry"]
     assert "Stretch Protection" in panel.layout.labels
     assert "Damping" in panel.layout.labels
     assert "Permanent Deformation" in panel.layout.labels
@@ -378,6 +385,7 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
     obj, settings = _settings(env)
     settings.enabled = True
     context = _context(obj)
+    context.scene = env.bpy.types.Scene()
     expected = {
         env.physics_ui.CLOTHNEXT_PT_pinning:
             ["pinning_enabled", "pin_group", "pin_mode"],
@@ -395,10 +403,29 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
     shape = env.physics_ui.CLOTHNEXT_PT_shape()
     shape.layout = RecordingLayout()
     shape.draw(context)
-    assert shape.layout.labels == [
-        "Advanced Pin Motion", "◇", "Soft Constraints", "◇"]
+    assert shape.layout.labels == []
     assert shape.layout.props == []
     assert shape.layout.operators == []
+
+    advanced = env.physics_ui.CLOTHNEXT_PT_advanced_pin_motion()
+    advanced_item = settings.advanced_pin_targets.add()
+    advanced_item.vertex_group = "Pins"
+    advanced_item.strength = 2.0
+    advanced.layout = RecordingLayout()
+    advanced.draw(context)
+    assert advanced.layout.props == [
+        "vertex_group", "target", "strength"]
+
+    constraint = settings.soft_constraints.add()
+    constraint.constraint_type = "ROTATION"
+    constraint.strength = 3.5
+    soft = env.physics_ui.CLOTHNEXT_PT_soft_constraints()
+    soft.layout = RecordingLayout()
+    soft.draw(context)
+    assert soft.layout.props == ["target", "constraint_type", "strength"]
+    assert "Target Object" in soft.layout.labels
+    assert "Constraint" in soft.layout.labels
+    assert "Strength" in soft.layout.labels
     env.registration.unregister()
 
 
@@ -430,16 +457,17 @@ def test_soft_body_uses_role_specific_material_shape_and_collision(
     material.draw(context)
     assert material.layout.props == [
         "volume_density", "stretch_resistance", "poisson_ratio",
-        "volume_scale", "tetrahedralizer", "shape_damping"]
+        "volume_scale", "tetrahedralizer", "shape_damping",
+        "stretch_plasticity_enabled", "stretch_plasticity_rate",
+        "stretch_plasticity_threshold_percent"]
     assert ("poisson_ratio", "Sideways Response") in material.layout.prop_texts
     assert material.layout.labels == [
-        "Solver Model", "ARAP", "Damping",
-        "Permanent Deformation", "◇"]
+        "Solver Model", "ARAP", "Damping", "Permanent Deformation"]
 
     shape = env.physics_ui.CLOTHNEXT_PT_shape()
     shape.layout = RecordingLayout()
     shape.draw(context)
-    assert shape.layout.labels == ["Soft Constraints", "◇"]
+    assert shape.layout.labels == []
     assert shape.layout.props == []
     assert shape.layout.operators == []
 
@@ -454,9 +482,7 @@ def test_soft_body_uses_role_specific_material_shape_and_collision(
     collision.draw(context)
     assert collision.layout.props == [
         "enabled", "surface_grip", "collision_gap", "surface_offset"]
-    assert collision.layout.labels == [
-        "Collision Timing", "◇",
-        "Advanced Contact Distance", "◇"]
+    assert collision.layout.labels == []
     env.registration.unregister()
 
 
@@ -510,6 +536,7 @@ def test_rigid_body_uses_only_mapped_material_and_shared_collision(
     settings.enabled = True
     settings.role = "RIGID_BODY"
     context = _context(obj)
+    context.scene = env.bpy.types.Scene()
 
     material = env.physics_ui.CLOTHNEXT_PT_material()
     material.layout = RecordingLayout()
@@ -525,17 +552,32 @@ def test_rigid_body_uses_only_mapped_material_and_shared_collision(
     collision.draw(context)
     assert collision.layout.props == [
         "enabled", "surface_grip", "collision_gap", "surface_offset"]
-    assert collision.layout.labels == [
-        "Collision Timing", "◇",
-        "Advanced Contact Distance", "◇"]
+    assert collision.layout.labels == []
     assert collision.layout.operators == []
+
+    timing = env.physics_ui.CLOTHNEXT_PT_collision_timing()
+    timing.layout = RecordingLayout()
+    timing.draw(context)
+    assert timing.layout.props == [
+        "target_toi", "line_search_max_t", "ccd_max_iter"]
+
+    distance = env.physics_ui.CLOTHNEXT_PT_advanced_contact_distance()
+    distance.layout = RecordingLayout()
+    distance.draw(context)
+    assert distance.layout.props == [
+        "constraint_ghat", "constraint_tol", "ccd_reduction"]
+    assert "Expert settings" in distance.layout.labels
+    assert "Change only if you understand their solver impact" in \
+        distance.layout.labels
+    assert "Incorrect values can destabilize or stop a Bake" in \
+        distance.layout.labels
 
     advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
     advanced.layout = RecordingLayout()
     advanced.draw(context)
-    assert advanced.layout.labels == [
-        "Motion Overrides", "◇",
-        "Advanced Contact Solver", "◇"]
+    assert advanced.layout.labels == []
+    assert env.physics_ui.CLOTHNEXT_PT_motion_overrides.poll(context)
+    assert env.physics_ui.CLOTHNEXT_PT_advanced_contact_solver.poll(context)
     assert advanced.layout.props == []
     assert advanced.layout.operators == []
     env.registration.unregister()
@@ -617,19 +659,19 @@ def test_cable_rope_uses_only_mapped_material_shape_and_collision(
     material.draw(context)
     assert material.layout.props == [
         "linear_density", "stretch_resistance", "bend_resistance",
-        "stretch_limit_percent", "shape_damping", "fold_damping"]
+        "stretch_limit_percent", "shape_damping", "fold_damping",
+        "bend_plasticity_enabled", "bend_plasticity_rate",
+        "bend_plasticity_threshold_degrees", "bend_rest_from_geometry"]
     assert ("stretch_limit_percent", "Maximum Stretch") in \
         material.layout.prop_texts
     assert ("fold_damping", "Bend Damping") in material.layout.prop_texts
-    assert material.layout.labels == ["Stretch Protection", "Damping"]
+    assert material.layout.labels == [
+        "Stretch Protection", "Damping", "Permanent Deformation"]
 
     shape = env.physics_ui.CLOTHNEXT_PT_shape()
     shape.layout = RecordingLayout()
     shape.draw(context)
-    assert shape.layout.labels == [
-        "Pinning", "◇",
-        "Advanced Pin Motion", "◇",
-        "Soft Constraints", "◇"]
+    assert shape.layout.labels == ["Pinning", "◇"]
     assert shape.layout.props == []
     assert shape.layout.operators == []
 
@@ -646,9 +688,7 @@ def test_cable_rope_uses_only_mapped_material_shape_and_collision(
         "enabled", "surface_grip", "surface_offset", "collision_gap"]
     assert ("surface_offset", "Collision Radius") in \
         collision.layout.prop_texts
-    assert collision.layout.labels == [
-        "Collision Timing", "◇",
-        "Advanced Contact Distance", "◇"]
+    assert collision.layout.labels == []
     assert collision.layout.operators == []
     env.registration.unregister()
 
@@ -806,8 +846,9 @@ def test_collider_workflow_visibility_and_compact_advanced(blender_env):
     advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
     advanced.layout = RecordingLayout()
     advanced.draw(context)
-    assert advanced.layout.labels == [
-        "Advanced Contact Solver", "◇"]
+    assert advanced.layout.labels == []
+    assert not env.physics_ui.CLOTHNEXT_PT_motion_overrides.poll(context)
+    assert env.physics_ui.CLOTHNEXT_PT_advanced_contact_solver.poll(context)
     assert advanced.layout.props == []
     assert advanced.layout.operators == []
     diagnostics = env.physics_ui.CLOTHNEXT_PT_diagnostics()

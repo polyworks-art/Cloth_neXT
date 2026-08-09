@@ -252,28 +252,3 @@ def test_registration_installs_and_restores_compact_renderer(blender_env):
 
     blender_env.registration.unregister()
     assert preferences.CLOTHNEXT_AddonPreferences._draw_solver_section is original
-
-
-def test_newton_principia_preferences_section_is_compact_and_installable(
-        blender_env, monkeypatch):
-    import cloth_next.blender.preferences as preferences
-
-    monkeypatch.setattr(
-        preferences.blender_newton_preview, "newton_installation_status",
-        lambda: (False, "Newton unavailable", tmp_path_placeholder()))
-    prefs = preferences.CLOTHNEXT_AddonPreferences()
-    layout = RecordingLayout()
-    prefs._draw_newton_section(layout)
-
-    labels = [text for text, _icon in layout.labels]
-    assert "Newton · Principia" in labels
-    assert "Not Installed" in labels
-    assert "Bake Solver · Newton 1.4.0 · Warp 1.15.0" in labels
-    assert any(idname == "clothnext.newton_install" and text == "Install Newton"
-               for idname, text, _operator, enabled in layout.operators
-               if enabled)
-
-
-def tmp_path_placeholder():
-    from pathlib import Path
-    return Path("missing-newton-python")

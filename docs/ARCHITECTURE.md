@@ -71,12 +71,6 @@ cloth_next/ppf (the only protocol-aware package)
 external ppf-cts-server / PPF solver
 ```
 
-An optional experimental Newton Live Preview is a sibling external boundary,
-not a dependency of `cloth_next.ppf`. Blender communicates with one persistent
-owned Python 3.11 worker through a versioned bounded protocol; Newton, Warp and
-CUDA objects never enter Blender UI modules. See
-[NEWTON_LIVE_PREVIEW.md](NEWTON_LIVE_PREVIEW.md).
-
 The proposed package layout is the layout requested in the product brief. Create it
 only in the Ground Structure phase:
 

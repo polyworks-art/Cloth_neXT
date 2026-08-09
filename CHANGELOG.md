@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.2.19 - 2026-08-09 (Dev channel)
+
+### Added
+
+- Permanent deformation controls for Cloth, Cable / Rope, and Soft Body are
+  translated to their native PPF plasticity parameters.
+- Advanced Pin Motion supports multiple independent Pin Groups, animated
+  targets, and per-group pull strength while preserving Collider contact.
+- Soft Constraints provide separate Target, transform channel, and Strength
+  rows without a redundant enable switch.
+- Collision Timing, Advanced Contact Distance, and Advanced Contact Solver
+  expose audited PPF controls with artist-facing names and expert warnings.
+- Motion Overrides can replace an object's world-space Move or Spin velocity
+  on a selected Blender frame.
+
+### Changed
+
+- Newton and its Live Preview, solver selector, Preferences download flow, and
+  isolated runtime have been removed. Cloth NeXt again uses the established
+  PPF-only Bake workflow.
+- Animated and deforming Collider export remains responsive in the Bake window,
+  and cache recovery can reuse a compatible export.
+
+### Fixed
+
+- Changing a Pin constraint between Soft and Hard invalidates the exported mesh
+  so the next Bake cannot reuse incompatible Pin data.
+- PPF Pin groups, soft pulls, Collider timing, and cache fingerprints now retain
+  every solver-visible setting across Rebake and Recovery.
+
 ## 2.2.18 - 2026-08-08 (Dev channel)
 
 ### Fixed

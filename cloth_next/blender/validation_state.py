@@ -82,11 +82,6 @@ _depsgraph_observers: list = []
 
 def add_depsgraph_observer(callback) -> None:
     """Share the one Cloth NeXt depsgraph hook with bounded feature observers."""
-    marker = bool(getattr(callback, "_clothnext_newton_preview_observer", False))
-    if marker:
-        _depsgraph_observers[:] = [
-            item for item in _depsgraph_observers
-            if not getattr(item, "_clothnext_newton_preview_observer", False)]
     if callback not in _depsgraph_observers:
         _depsgraph_observers.append(callback)
 
@@ -94,9 +89,7 @@ def add_depsgraph_observer(callback) -> None:
 def remove_depsgraph_observer(callback) -> None:
     _depsgraph_observers[:] = [
         item for item in _depsgraph_observers
-        if item is not callback and not (
-            getattr(callback, "_clothnext_newton_preview_observer", False)
-            and getattr(item, "_clothnext_newton_preview_observer", False))]
+        if item is not callback]
 
 
 # ---------------------------------------------------------------------------

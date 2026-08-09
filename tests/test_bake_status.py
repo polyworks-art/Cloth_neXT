@@ -30,6 +30,18 @@ def test_invalid_transition_rejected_without_mutation():
     assert c.snapshot() is before
 
 
+def test_preparing_status_updates_preserve_bake_attempt_identity():
+    c = BakeController()
+    started = c.transition(BakeState.PREPARING)
+
+    updated = c.update(status_message="Exporting animated Collider",
+                       progress_current=0, progress_total=8)
+
+    assert updated.job_id == started.job_id
+    assert updated.status_message == "Exporting animated Collider"
+    assert updated.progress_total == 8
+
+
 def test_progress_unknown_zero_and_clamped():
     assert BakeSnapshot(progress_current=8).progress_fraction == 0
     assert BakeSnapshot(progress_current=8, progress_total=0).progress_fraction == 0

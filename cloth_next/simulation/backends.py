@@ -9,7 +9,6 @@ from enum import Enum
 
 class BackendId(str, Enum):
     PPF = "PPF"
-    NEWTON = "NEWTON"
 
 
 class MappingKind(str, Enum):
@@ -60,10 +59,6 @@ class SolverBackendSpec:
 
 _EXACT_PPF = FieldMapping(
     MappingKind.EXACT, "Mapped directly to the verified PPF parameter.")
-_NEWTON_APPROX = FieldMapping(
-    MappingKind.APPROXIMATE,
-    "Translated to Newton VBD while preserving artist intent; physical parity is not claimed.")
-
 _CANONICAL_FIELDS = (
     "surface_weight", "stretch_resistance", "sideways_response",
     "bend_resistance", "stretch_limit", "shape_damping", "fold_damping",
@@ -78,20 +73,7 @@ PPF_BACKEND = SolverBackendSpec(
         follow_animation_pins=True, wind=True),
     tuple((field, _EXACT_PPF) for field in _CANONICAL_FIELDS))
 
-NEWTON_BACKEND = SolverBackendSpec(
-    BackendId.NEWTON, "Newton", "GPU multiphysics solver for offline baking",
-    SolverCapabilities(
-        live_preview=False, cloth=True, self_collision=True,
-        soft_bodies=True, rigid_bodies=True, mixed_simulation=True,
-        animated_colliders=True, follow_animation_pins=True),
-    tuple((field, (
-        FieldMapping(
-            MappingKind.UNSUPPORTED,
-            "Stored by Cloth NeXt but not used by the verified Newton cloth mapping.")
-        if field == "stretch_limit" else _NEWTON_APPROX))
-          for field in _CANONICAL_FIELDS))
-
-_BACKENDS = {item.identifier: item for item in (PPF_BACKEND, NEWTON_BACKEND)}
+_BACKENDS = {PPF_BACKEND.identifier: PPF_BACKEND}
 
 
 def backend_spec(identifier: BackendId | str) -> SolverBackendSpec:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 
 from .models import (ShellMaterialSettings, StaticMaterialSettings,
@@ -34,6 +35,14 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
               "density-normalized"),
     FieldInfo("sideways_response", "Sideways Response", "poiss-rat", ""),
     FieldInfo("bend_resistance", "Bend Resistance", "bend", ""),
+    FieldInfo("stretch_plasticity_rate", "Stretch Creep Rate",
+              "plasticity", "1/s"),
+    FieldInfo("stretch_plasticity_threshold_percent", "Stretch Threshold",
+              "plasticity-threshold", "%"),
+    FieldInfo("bend_plasticity_rate", "Bend Creep Rate",
+              "bend-plasticity", "1/s"),
+    FieldInfo("bend_plasticity_threshold_degrees", "Bend Threshold",
+              "bend-plasticity-threshold", "degrees"),
     FieldInfo("shape_damping", "Shape Damping",
               "deformation-damping", "s"),
     FieldInfo("fold_damping", "Fold Damping", "bending-damping", "s"),
@@ -71,6 +80,16 @@ def shell_wire_rows(shell: ShellMaterialSettings) \
         value = getattr(shell, info.field)
         if info.field == "inflate_pressure" and not shell.enable_inflate:
             value = 0.0
+        elif info.field == "stretch_plasticity_rate" \
+                and not shell.stretch_plasticity_enabled:
+            value = 0.0
+        elif info.field == "bend_plasticity_rate" \
+                and not shell.bend_plasticity_enabled:
+            value = 0.0
+        elif info.field == "stretch_plasticity_threshold_percent":
+            value = float(value) / 100.0
+        elif info.field == "bend_plasticity_threshold_degrees":
+            value = math.radians(float(value))
         if info.field == "model":
             display = WIRE_MODEL_NAMES[shell.model]
         else:
@@ -111,6 +130,9 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "shell": {info.field: getattr(shell, info.field)
                   for info in SHELL_FIELD_INFO},
         "shell_stretch_limit_enabled": shell.stretch_limit_enabled,
+        "shell_stretch_plasticity_enabled": shell.stretch_plasticity_enabled,
+        "shell_bend_plasticity_enabled": shell.bend_plasticity_enabled,
+        "shell_bend_rest_from_geometry": shell.bend_rest_from_geometry,
         "shell_maximum_stretch_percent": shell.maximum_stretch_percent,
         "shell_enable_inflate": shell.enable_inflate,
         "shell_sewing_enabled": shell.sewing_enabled,
@@ -126,6 +148,18 @@ def settings_fingerprint(shell: ShellMaterialSettings,
             "min-newton-steps": quality.min_newton_steps,
             "cg-max-iter": quality.cg_max_iter,
             "cg-tol": quality.cg_tol,
+            "target-toi": quality.target_toi,
+            "line-search-max-t": quality.line_search_max_t,
+            "constraint-ghat": quality.constraint_ghat,
+            "max-newton-steps": quality.max_newton_steps,
+            "max-dx": quality.max_dx,
+            "eiganalysis-eps": quality.eigenanalysis_eps,
+            "friction-eps": quality.friction_eps,
+            "csrmat-max-nnz": quality.csrmat_max_nnz,
+            "barrier": quality.contact_barrier,
+            "constraint-tol": quality.constraint_tol,
+            "ccd-reduction": quality.ccd_reduction,
+            "ccd-max-iter": quality.ccd_max_iter,
         } if quality is not None else None),
     }
     canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))

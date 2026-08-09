@@ -143,6 +143,27 @@ def test_ppf_hard_pin_omits_soft_pull_strength():
                for value in payload["pin_config"]["cloth-id"].values())
 
 
+def test_per_vertex_pull_strengths_support_multiple_advanced_pin_groups():
+    snap = StaticPinSnapshot(
+        True, "Advanced Pin Motion", "cloth-id", 5, (0, 3),
+        pull_weights=(2.0, 7.5))
+    cfg = static_pin_config(snap)
+    payload = build_param_payload(
+        SimulationSettings(2, 24, (0., 0., -9.81)), "Cloth", "cloth-id",
+        "Floor", "floor-id", shell=DEFAULT_SHELL_SETTINGS,
+        static=DEFAULT_STATIC_SETTINGS, static_pin=cfg)
+    pins = payload["pin_config"]["cloth-id"]
+    assert pins[0]["pull_strength"] == pytest.approx(2.0)
+    assert pins[3]["pull_strength"] == pytest.approx(7.5)
+
+
+def test_per_vertex_pull_strength_count_must_match_union_membership():
+    with pytest.raises(StaticPinError, match="match the pinned vertex count"):
+        StaticPinSnapshot(
+            True, "Advanced Pin Motion", "cloth-id", 5, (0, 3),
+            pull_weights=(2.0,))
+
+
 def test_disabled_scene_emits_no_stale_pin_fields():
     ident = solver_world_matrix(((1, 0, 0, 0), (0, 1, 0, 0),
                                  (0, 0, 1, 0), (0, 0, 0, 1)))

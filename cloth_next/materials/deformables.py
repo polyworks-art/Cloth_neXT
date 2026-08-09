@@ -30,6 +30,9 @@ class RodMaterialSettings:
     collision_gap: float = 0.001
     surface_offset: float = 0.0
     stretch_limit: float = 0.0
+    bend_plasticity_rate: float = 0.0
+    bend_plasticity_threshold_degrees: float = 10.0
+    bend_rest_from_geometry: bool = True
 
     def __post_init__(self) -> None:
         _number("Linear Density", self.linear_density, 0.01, 10000.0)
@@ -42,6 +45,9 @@ class RodMaterialSettings:
         _number("Collision Gap", self.collision_gap, 0.0, 1e6)
         _number("Surface Offset", self.surface_offset, 0.0, 1e6)
         _number("Stretch Limit", self.stretch_limit, 0.0, 1.0)
+        _number("Bend Plasticity Rate", self.bend_plasticity_rate, 0.0, 1e9)
+        _number("Bend Plasticity Threshold",
+                self.bend_plasticity_threshold_degrees, 0.0, 180.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +61,8 @@ class SoftBodyMaterialSettings:
     collision_gap: float = 0.001
     surface_offset: float = 0.0
     tetrahedralizer: str = "ftetwild"
+    stretch_plasticity_rate: float = 0.0
+    stretch_plasticity_threshold_percent: float = 5.0
 
     def __post_init__(self) -> None:
         _number("Volume Density", self.volume_density, 0.01, 10000.0)
@@ -65,6 +73,10 @@ class SoftBodyMaterialSettings:
         _number("Friction", self.surface_grip, 0.0, 1.0)
         _number("Collision Gap", self.collision_gap, 0.0, 1e6)
         _number("Surface Offset", self.surface_offset, 0.0, 1e6)
+        _number("Stretch Plasticity Rate", self.stretch_plasticity_rate,
+                0.0, 1e9)
+        _number("Stretch Plasticity Threshold",
+                self.stretch_plasticity_threshold_percent, 0.0, 1e9)
         if self.tetrahedralizer not in {"ftetwild", "tetgen"}:
             raise DeformableMaterialError(
                 f"Unknown tetrahedralizer: {self.tetrahedralizer!r}")

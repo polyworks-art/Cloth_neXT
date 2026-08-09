@@ -69,6 +69,15 @@ class ParamEncodeError(ValueError):
     pass
 
 
+def _dynamic_value_size(key: str) -> int | None:
+    if (key in _DYNAMIC_VECTOR_KEYS or key.startswith("velocity:")
+            or key.startswith("angular_velocity_world:")):
+        return 3
+    if key in _DYNAMIC_SCALAR_KEYS:
+        return 1
+    return None
+
+
 def float32_wire(value: float) -> float:
     """Round to the exact float32 the solver's parameter table stores.
 
@@ -98,6 +107,18 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
         "young-mod": float32_wire(shell.stretch_resistance),
         "poiss-rat": float32_wire(shell.sideways_response),
         "bend": float32_wire(shell.bend_resistance),
+        "plasticity": float32_wire(
+            shell.stretch_plasticity_rate
+            if shell.stretch_plasticity_enabled else 0.0),
+        "plasticity-threshold": float32_wire(
+            shell.stretch_plasticity_threshold_percent / 100.0),
+        "bend-plasticity": float32_wire(
+            shell.bend_plasticity_rate
+            if shell.bend_plasticity_enabled else 0.0),
+        "bend-plasticity-threshold": float32_wire(math.radians(
+            shell.bend_plasticity_threshold_degrees)),
+        "bend-rest-from-geometry": float32_wire(
+            1.0 if shell.bend_rest_from_geometry else 0.0),
         "deformation-damping": float32_wire(shell.shape_damping),
         "bending-damping": float32_wire(shell.fold_damping),
         "friction": float32_wire(shell.surface_grip),
@@ -135,6 +156,11 @@ def rod_wire_params(rod: RodMaterialSettings) -> dict[str, object]:
         "bend": float32_wire(rod.bend_resistance),
         "strain-limit": float32_wire(rod.stretch_limit),
         "length-factor": float32_wire(rod.length_factor),
+        "bend-plasticity": float32_wire(rod.bend_plasticity_rate),
+        "bend-plasticity-threshold": float32_wire(math.radians(
+            rod.bend_plasticity_threshold_degrees)),
+        "bend-rest-from-geometry": float32_wire(
+            1.0 if rod.bend_rest_from_geometry else 0.0),
     }
 
 
@@ -150,6 +176,9 @@ def soft_body_wire_params(soft: SoftBodyMaterialSettings, uuid: str) -> dict[str
         "contact-gap": float32_wire(soft.collision_gap),
         "contact-offset": float32_wire(soft.surface_offset),
         "ftetwild": tet,
+        "plasticity": float32_wire(soft.stretch_plasticity_rate),
+        "plasticity-threshold": float32_wire(
+            soft.stretch_plasticity_threshold_percent / 100.0),
     }
 
 
@@ -208,16 +237,18 @@ class SimulationSettings:
                 raise ParamEncodeError(f"{name} must be finite and non-negative")
         seen = set()
         for key, entries in self.dynamic_parameters:
-            if key not in _DYNAMIC_VECTOR_KEYS | _DYNAMIC_SCALAR_KEYS:
+            expected = _dynamic_value_size(key)
+            if expected is None:
                 raise ParamEncodeError(f"unsupported dynamic parameter {key!r}")
             if key in seen:
                 raise ParamEncodeError(f"duplicate dynamic parameter {key!r}")
             seen.add(key)
-            if len(entries) < 2:
+            if len(entries) < 1 or (not key.startswith((
+                    "velocity:", "angular_velocity_world:"))
+                    and len(entries) < 2):
                 raise ParamEncodeError(
                     f"dynamic parameter {key!r} needs at least two samples")
             previous = -1.0
-            expected = 3 if key in _DYNAMIC_VECTOR_KEYS else 1
             for time_seconds, value, _hold in entries:
                 if (not math.isfinite(time_seconds) or time_seconds < 0.0
                         or time_seconds <= previous):
@@ -225,7 +256,7 @@ class SimulationSettings:
                         f"dynamic parameter {key!r} times must increase")
                 if (len(value) != expected
                         or any(not math.isfinite(component) for component in value)
-                        or (key in _DYNAMIC_SCALAR_KEYS
+                        or (expected == 1
                             and any(component < 0.0 for component in value))):
                     raise ParamEncodeError(
                         f"dynamic parameter {key!r} has an invalid value")
@@ -240,6 +271,20 @@ def _scene_wire_params(settings: SimulationSettings,
         "min-newton-steps": int(settings.quality.min_newton_steps),
         "cg-max-iter": int(settings.quality.cg_max_iter),
         "cg-tol": float32_wire(settings.quality.cg_tol),
+        "target-toi": float32_wire(settings.quality.target_toi),
+        "line-search-max-t": float32_wire(
+            settings.quality.line_search_max_t),
+        "constraint-ghat": float32_wire(
+            settings.quality.constraint_ghat),
+        "constraint-tol": float32_wire(settings.quality.constraint_tol),
+        "ccd-reduction": float32_wire(settings.quality.ccd_reduction),
+        "ccd-max-iter": int(settings.quality.ccd_max_iter),
+        "max-newton-steps": int(settings.quality.max_newton_steps),
+        "max-dx": float32_wire(settings.quality.max_dx),
+        "eiganalysis-eps": float32_wire(settings.quality.eigenanalysis_eps),
+        "friction-eps": float32_wire(settings.quality.friction_eps),
+        "csrmat-max-nnz": int(settings.quality.csrmat_max_nnz),
+        "barrier": settings.quality.contact_barrier,
         "gravity": list(blender_vector_to_ppf(settings.gravity_blender)),
         "wind": [0.0 if value == 0.0 else value
                  for value in blender_vector_to_ppf(settings.wind_blender)],
@@ -274,7 +319,7 @@ def _attach_dynamic_params(payload: dict, settings: SimulationSettings) -> dict:
         encoded = []
         for time_seconds, value, hold in entries:
             wire_value = (list(blender_vector_to_ppf(value))
-                          if key in _DYNAMIC_VECTOR_KEYS
+                          if _dynamic_value_size(key) == 3
                           else [float32_wire(value[0])])
             encoded.append((float(time_seconds), wire_value, bool(hold)))
         dynamic[key] = encoded
@@ -285,6 +330,8 @@ def _attach_dynamic_params(payload: dict, settings: SimulationSettings) -> dict:
 def _pin_wire_config(static_pin: StaticPinConfig, index: int, offset: int) -> dict:
     """Encode one hard-fix or soft-pull Pin config entry."""
     strength = float(static_pin.pull_strength)
+    if static_pin.pull_weights is not None:
+        strength = float(static_pin.pull_weights[offset])
     if not math.isfinite(strength) or strength < 0.0:
         raise ParamEncodeError(
             "pin pull strength must be finite and non-negative")

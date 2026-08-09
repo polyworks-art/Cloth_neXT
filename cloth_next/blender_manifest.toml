@@ -1,8 +1,8 @@
 schema_version = "1.0.0"
 id = "cloth_next"
-version = "2.2.18"
+version = "2.2.19"
 name = "Cloth NeXt"
-tagline = "Cloth simulation with selectable PPF and Newton solvers"
+tagline = "High-fidelity cloth simulation with the PPF solver"
 maintainer = "Tim Christmann"
 type = "add-on"
 website = "https://github.com/polyworks-art/Cloth_neXT"
@@ -13,5 +13,5 @@ copyright = ["2026 Tim Christmann and Cloth NeXt contributors"]
 platforms = ["windows-x64"]
 
 [permissions]
-network = "Download explicitly selected external PPF or Newton dependencies"
+network = "Download explicitly selected external PPF dependencies"
 files = "Manage the separate solver installation outside the extension"

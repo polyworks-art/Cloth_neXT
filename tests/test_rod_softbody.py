@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from dataclasses import replace
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -58,17 +59,23 @@ def test_soft_body_scene_and_parameters_request_tetrahedralization():
     scene = build_deformable_scene_payload(solid, COLLIDER,
                                            group_type=GROUP_SOLID)
     assert scene[0]["type"] == "SOLID" and "face" in scene[0]["object"][0]
-    material = SoftBodyMaterialSettings(tetrahedralizer="tetgen")
+    material = SoftBodyMaterialSettings(
+        tetrahedralizer="tetgen", stretch_plasticity_rate=2.0,
+        stretch_plasticity_threshold_percent=4.0)
     params = build_deformable_param_payload(
         SETTINGS, "soft", "solid-1", STATIC_SPEC, group_type="SOLID",
         material=material)
     assert params["group"][0][0]["model"] == "arap"
     assert params["group"][0][0]["ftetwild"] == {
         "solid-1": {"backend": "tetgen"}}
+    assert params["group"][0][0]["plasticity"] == pytest.approx(2.0)
+    assert params["group"][0][0]["plasticity-threshold"] == pytest.approx(0.04)
 
 
 def test_rod_parameters_and_material_validation():
-    rod = RodMaterialSettings(length_factor=0.8, stretch_limit=0.05)
+    rod = RodMaterialSettings(
+        length_factor=0.8, stretch_limit=0.05,
+        bend_plasticity_rate=1.5, bend_plasticity_threshold_degrees=45.0)
     params = build_deformable_param_payload(
         SETTINGS, "cable", "rod-1", STATIC_SPEC, group_type="ROD",
         material=rod)
@@ -76,6 +83,8 @@ def test_rod_parameters_and_material_validation():
     assert wire["model"] == "arap"
     assert wire["length-factor"] == pytest.approx(0.8)
     assert wire["strain-limit"] == pytest.approx(0.05)
+    assert wire["bend-plasticity"] == pytest.approx(1.5)
+    assert wire["bend-plasticity-threshold"] == pytest.approx(math.pi / 4.0)
     with pytest.raises(DeformableMaterialError):
         replace(rod, linear_density=0.0)
 

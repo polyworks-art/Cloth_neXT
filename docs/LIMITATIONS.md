@@ -1,13 +1,5 @@
 # Audit limitations and unsupported claims
 
-- Newton has no Live Preview. Its normal offline Bake supports mixed Cloth,
-  fTetWild-tetrahedralized Soft Body and Rigid Body objects plus static or
-  animated/deforming triangle colliders with stable topology, static or Follow
-  Animation Cloth pins and gravity. It rejects mismatched Bake ranges, pressure,
-  sewing and topology-changing animation. Material translations do not claim
-  physical parity with PPF. Newton recovery and restart persistence are not
-  implemented. See `NEWTON_LIVE_PREVIEW.md`.
-
 - Pin Mode supports Static and Follow Animation for evaluated topology-preserving deformation such as Armature, Shape Keys, Lattice, Mesh Deform, Surface Deform, Hook, drivers, and object transforms. Any evaluated vertex-count change is rejected. Soft Pull, timed release, and operation stacks are not exposed.
 
 Current production scope is multiple Cloth, Rod, and Soft Body deformables in
@@ -164,7 +156,7 @@ Dev is never automatic; keep backups. Mandatory safety checks still apply.
   group, uniform object-local pressure, uniform physical Cloth Shrink, and
   Blender-style Sewing through face-less mesh edges are supported.
   Soft Pull, timed pin release, animated shrink,
-  plasticity, tearing, sand, PDRD,
+  tearing, sand, PDRD,
   dynamic material/pressure animation, and a separate
   substeps control are unsupported. Time Step/Newton/PCG Quality use verified PPF
   keys; unsupported controls remain hidden rather than shown as fake settings.

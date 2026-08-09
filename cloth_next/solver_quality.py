@@ -10,6 +10,18 @@ DEFAULT_TIME_STEP = 0.001
 DEFAULT_MIN_NEWTON_STEPS = 1
 DEFAULT_CG_MAX_ITER = 10000
 DEFAULT_CG_TOL = 0.001
+DEFAULT_TARGET_TOI = 0.25
+DEFAULT_LINE_SEARCH_MAX_T = 1.25
+DEFAULT_CONSTRAINT_GHAT = 0.001
+DEFAULT_CONSTRAINT_TOL = 0.01
+DEFAULT_CCD_REDUCTION = 0.01
+DEFAULT_CCD_MAX_ITER = 4096
+DEFAULT_MAX_NEWTON_STEPS = 2048
+DEFAULT_MAX_DX = 1.0
+DEFAULT_EIGENANALYSIS_EPS = 0.01
+DEFAULT_FRICTION_EPS = 0.00001
+DEFAULT_CSRMAT_MAX_NNZ = 10_000_000
+DEFAULT_CONTACT_BARRIER = "cubic"
 
 # PPF accepts and tests 5e-4. Keep the established 1e-3 default, while
 # exposing a stability step for dense or fast-moving contact scenes.
@@ -38,6 +50,18 @@ class SolverQualitySettings:
     min_newton_steps: int = DEFAULT_MIN_NEWTON_STEPS
     cg_max_iter: int = DEFAULT_CG_MAX_ITER
     cg_tol: float = DEFAULT_CG_TOL
+    target_toi: float = DEFAULT_TARGET_TOI
+    line_search_max_t: float = DEFAULT_LINE_SEARCH_MAX_T
+    constraint_ghat: float = DEFAULT_CONSTRAINT_GHAT
+    constraint_tol: float = DEFAULT_CONSTRAINT_TOL
+    ccd_reduction: float = DEFAULT_CCD_REDUCTION
+    ccd_max_iter: int = DEFAULT_CCD_MAX_ITER
+    max_newton_steps: int = DEFAULT_MAX_NEWTON_STEPS
+    max_dx: float = DEFAULT_MAX_DX
+    eigenanalysis_eps: float = DEFAULT_EIGENANALYSIS_EPS
+    friction_eps: float = DEFAULT_FRICTION_EPS
+    csrmat_max_nnz: int = DEFAULT_CSRMAT_MAX_NNZ
+    contact_barrier: str = DEFAULT_CONTACT_BARRIER
 
     def __post_init__(self) -> None:
         _finite_range("Time Step", self.time_step, MIN_TIME_STEP, MAX_TIME_STEP)
@@ -54,6 +78,35 @@ class SolverQualitySettings:
                 f"(accepted: {MIN_CG_MAX_ITER} to {MAX_CG_MAX_ITER}). Adjust "
                 "it in Solver > Solver Quality.")
         _finite_range("PCG Tolerance", self.cg_tol, MIN_CG_TOL, MAX_CG_TOL)
+        _finite_range("Target TOI", self.target_toi, 1e-6, 1.0)
+        _finite_range("Line Search Extension", self.line_search_max_t,
+                      1.0, 10.0)
+        _finite_range("Constraint Barrier Distance", self.constraint_ghat,
+                      1e-8, 1.0)
+        _finite_range("Moving Constraint Tolerance", self.constraint_tol,
+                      1e-6, 1.0)
+        _finite_range("CCD Reduction", self.ccd_reduction, 1e-6, 1.0)
+        if isinstance(self.ccd_max_iter, bool) or not (
+                1 <= self.ccd_max_iter <= 100000):
+            raise SolverQualityValidationError(
+                f"Maximum CCD Iterations = {self.ccd_max_iter!r} is invalid "
+                "(accepted: 1 to 100000).")
+        if isinstance(self.max_newton_steps, bool) or not (
+                1 <= self.max_newton_steps <= 100000):
+            raise SolverQualityValidationError(
+                "Contact Iteration Limit must be between 1 and 100000.")
+        _finite_range("Maximum Contact Correction", self.max_dx, 1e-6, 1000.0)
+        _finite_range("Contact Stability Threshold", self.eigenanalysis_eps,
+                      1e-10, 1.0)
+        _finite_range("Friction Stability Threshold", self.friction_eps,
+                      1e-10, 1.0)
+        if isinstance(self.csrmat_max_nnz, bool) or not (
+                1000 <= self.csrmat_max_nnz <= 1_000_000_000):
+            raise SolverQualityValidationError(
+                "Contact Capacity must be between 1000 and 1000000000.")
+        if self.contact_barrier not in {"cubic", "quad", "log"}:
+            raise SolverQualityValidationError(
+                f"Unknown Contact Barrier Model: {self.contact_barrier!r}.")
 
 
 DEFAULT_SOLVER_QUALITY = SolverQualitySettings()

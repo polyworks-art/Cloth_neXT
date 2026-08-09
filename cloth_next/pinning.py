@@ -13,11 +13,12 @@ from enum import Enum
 from typing import Callable
 
 STATIC_PIN_WEIGHT_THRESHOLD = 1e-6
-PIN_SCHEMA_VERSION = 3
+PIN_SCHEMA_VERSION = 4
 
 class PinMode(str, Enum):
     STATIC = "STATIC"
     FOLLOW_ANIMATION = "FOLLOW_ANIMATION"
+    TARGET_OBJECT = "TARGET_OBJECT"
 
 
 class PinConstraintType(str, Enum):
@@ -77,6 +78,7 @@ class StaticPinSnapshot:
     time_scale: float = 1.0
     constraint_type: PinConstraintType = PinConstraintType.SOFT
     pull_strength: float = 1.0
+    pull_weights: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         indices = tuple(sorted(set(int(i) for i in self.vertex_indices)))
@@ -115,7 +117,8 @@ class StaticPinSnapshot:
         samples=tuple(self.samples)
         if mode is PinMode.STATIC and samples:
             raise StaticPinError("Static Pinning must not contain target samples.")
-        if self.enabled and mode is PinMode.FOLLOW_ANIMATION:
+        if self.enabled and mode in {PinMode.FOLLOW_ANIMATION,
+                                     PinMode.TARGET_OBJECT}:
             expected=self.bake_end-self.bake_start+1
             if expected<1 or len(samples)<expected:
                 raise StaticPinError(
@@ -139,6 +142,13 @@ class StaticPinSnapshot:
                     "Animated Pin targets must include every Blender frame.")
             if any(len(sample.positions)!=len(indices) for sample in samples):
                 raise StaticPinError("Every animated Pin sample must contain one position per pinned vertex.")
+        pull_weights = tuple(float(value) for value in self.pull_weights)
+        if pull_weights and len(pull_weights) != len(indices):
+            raise StaticPinError(
+                "Pin pull weights must match the pinned vertex count.")
+        if any(not math.isfinite(value) or value < 0.0
+               for value in pull_weights):
+            raise StaticPinError("Pin pull weights must be finite and non-negative.")
         fps = float(self.fps)
         if not math.isfinite(fps) or fps <= 0.0:
             raise StaticPinError("Bake FPS must be finite and greater than zero.")
@@ -150,6 +160,7 @@ class StaticPinSnapshot:
         object.__setattr__(self,"mode",mode); object.__setattr__(self,"samples",samples)
         object.__setattr__(self, "constraint_type", constraint_type)
         object.__setattr__(self, "pull_strength", pull_strength)
+        object.__setattr__(self, "pull_weights", pull_weights)
         record = {
             "version": PIN_SCHEMA_VERSION,
             "enabled": bool(self.enabled),
@@ -161,6 +172,7 @@ class StaticPinSnapshot:
             "topology": self.source_topology_signature,
             "mode": mode.value, "constraint_type": constraint_type.value,
             "pull_strength": pull_strength, "bake_start":self.bake_start,
+            "pull_weights": pull_weights,
             "bake_end":self.bake_end, "fps":fps,
             "time_scale": time_scale,
             "samples":[{"frame":s.blender_frame,"positions":s.positions}
@@ -204,4 +216,5 @@ def static_pin_config(
     positions=tuple(sample.positions for sample in snapshot.samples)
     return StaticPinConfig(snapshot.vertex_indices, pin_group_id=group_id,
                            pull_strength=snapshot.pull_strength,
+                           pull_weights=(snapshot.pull_weights or None),
                            times=times,positions=positions)

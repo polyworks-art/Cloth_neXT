@@ -32,8 +32,16 @@ from ..materials import presets as material_presets
 from ..solver_quality import (
     DEFAULT_CG_MAX_ITER,
     DEFAULT_CG_TOL,
+    DEFAULT_CCD_MAX_ITER,
+    DEFAULT_CCD_REDUCTION,
+    DEFAULT_MAX_NEWTON_STEPS, DEFAULT_MAX_DX, DEFAULT_EIGENANALYSIS_EPS,
+    DEFAULT_FRICTION_EPS, DEFAULT_CSRMAT_MAX_NNZ, DEFAULT_CONTACT_BARRIER,
+    DEFAULT_CONSTRAINT_GHAT,
+    DEFAULT_CONSTRAINT_TOL,
+    DEFAULT_LINE_SEARCH_MAX_T,
     DEFAULT_MIN_NEWTON_STEPS,
     DEFAULT_TIME_STEP,
+    DEFAULT_TARGET_TOI,
     MAX_CG_MAX_ITER,
     MAX_CG_TOL,
     MAX_NEWTON_STEPS,
@@ -168,6 +176,15 @@ def apply_preset(settings, identifier: str) -> bool:
         material.stretch_resistance = shell.stretch_resistance
         material.sideways_response = shell.sideways_response
         material.bend_resistance = shell.bend_resistance
+        material.stretch_plasticity_enabled = shell.stretch_plasticity_enabled
+        material.stretch_plasticity_rate = shell.stretch_plasticity_rate
+        material.stretch_plasticity_threshold_percent = \
+            shell.stretch_plasticity_threshold_percent
+        material.bend_plasticity_enabled = shell.bend_plasticity_enabled
+        material.bend_plasticity_rate = shell.bend_plasticity_rate
+        material.bend_plasticity_threshold_degrees = \
+            shell.bend_plasticity_threshold_degrees
+        material.bend_rest_from_geometry = shell.bend_rest_from_geometry
         material.stretch_limit_enabled = shell.stretch_limit_enabled
         material.maximum_stretch_percent = shell.maximum_stretch_percent
         settings.damping.shape_damping = shell.shape_damping
@@ -268,6 +285,44 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
                     "Lower values create soft, flowing folds. Higher "
                     "values create broader, stiffer folds and stronger shape retention. "
                     "Technical PPF parameter: bend")
+    stretch_plasticity_enabled: bpy.props.BoolProperty(
+        name="Permanent Stretch", default=False,
+        update=_on_material_value_update,
+        description="Allow sustained stretching or compression to permanently "
+                    "change the Cloth rest shape")
+    stretch_plasticity_rate: bpy.props.FloatProperty(
+        name="Stretch Creep Rate", default=1.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_material_value_update,
+        description="Speed per second at which overstretched Cloth adopts its "
+                    "current shape. Technical PPF parameter: plasticity")
+    stretch_plasticity_threshold_percent: bpy.props.FloatProperty(
+        name="Stretch Threshold", default=5.0, min=0.0, soft_max=25.0,
+        precision=2, subtype="PERCENTAGE", update=_on_material_value_update,
+        description="Stretch or compression required before permanent "
+                    "deformation begins. Technical PPF parameter: "
+                    "plasticity-threshold")
+    bend_plasticity_enabled: bpy.props.BoolProperty(
+        name="Permanent Bends", default=False,
+        update=_on_material_value_update,
+        description="Allow folds held under load to become part of the Cloth "
+                    "rest shape")
+    bend_plasticity_rate: bpy.props.FloatProperty(
+        name="Bend Creep Rate", default=1.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_material_value_update,
+        description="Speed per second at which folds become permanent. "
+                    "Technical PPF parameter: bend-plasticity")
+    bend_plasticity_threshold_degrees: bpy.props.FloatProperty(
+        name="Bend Threshold", default=10.0, min=0.0, max=180.0,
+        soft_max=90.0, precision=2,
+        update=_on_material_value_update,
+        description="Angular deviation required before a fold becomes "
+                    "permanent. Technical PPF parameter: "
+                    "bend-plasticity-threshold")
+    bend_rest_from_geometry: bpy.props.BoolProperty(
+        name="Use Initial Bend Shape", default=True,
+        update=_on_material_value_update,
+        description="Use the mesh's starting folds as its bend rest shape. "
+                    "Disable for an initially flat rest shape")
     stretch_limit_enabled: bpy.props.BoolProperty(
         name="Stretch Limit", default=False,
         update=_on_material_value_update,
@@ -357,6 +412,68 @@ class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
         update=_on_settings_update,
         description="Linear-solver accuracy target. Lower values are stricter and "
                     "may increase bake time")
+    target_toi: bpy.props.FloatProperty(
+        name="Contact Completion", default=DEFAULT_TARGET_TOI,
+        min=1e-6, max=1.0, precision=4, update=_on_settings_update,
+        description="How much safe collision progress is required before a "
+                    "contact step may finish. Lower is more conservative. "
+                    "Technical PPF parameter: target-toi")
+    line_search_max_t: bpy.props.FloatProperty(
+        name="Motion Safety Margin", default=DEFAULT_LINE_SEARCH_MAX_T,
+        min=1.0, max=10.0, precision=3, update=_on_settings_update,
+        description="Extra motion range checked to keep fast contact stable. "
+                    "Technical PPF parameter: line-search-max-t")
+    ccd_max_iter: bpy.props.IntProperty(
+        name="Collision Search Limit", default=DEFAULT_CCD_MAX_ITER,
+        min=1, max=100000, update=_on_settings_update,
+        description="Maximum collision-search effort for difficult or fast "
+                    "contact. Technical PPF parameter: ccd-max-iter")
+    constraint_ghat: bpy.props.FloatProperty(
+        name="Constraint Contact Distance", default=DEFAULT_CONSTRAINT_GHAT,
+        min=1e-8, soft_max=0.01, max=1.0, precision=6,
+        update=_on_settings_update,
+        description="Distance at which animated Pins and other moving "
+                    "constraints begin avoiding contact. Technical PPF "
+                    "parameter: constraint-ghat")
+    constraint_tol: bpy.props.FloatProperty(
+        name="Moving Constraint Precision", default=DEFAULT_CONSTRAINT_TOL,
+        min=1e-6, max=1.0, precision=5, update=_on_settings_update,
+        description="Collision precision for moving constraints as a fraction "
+                    "of Constraint Contact Distance. Lower is stricter. "
+                    "Technical PPF parameter: constraint-tol")
+    ccd_reduction: bpy.props.FloatProperty(
+        name="Collision Detection Threshold", default=DEFAULT_CCD_REDUCTION,
+        min=1e-6, max=1.0, precision=5, update=_on_settings_update,
+        description="Fraction of the initial surface gap used to detect an "
+                    "approaching collision. Lower is more conservative. "
+                    "Technical PPF parameter: ccd-reduction")
+    max_newton_steps: bpy.props.IntProperty(
+        name="Contact Iteration Limit", default=DEFAULT_MAX_NEWTON_STEPS,
+        min=1, max=100000, update=_on_settings_update,
+        description="Maximum nonlinear correction passes before a difficult contact is reported as failed. Technical PPF parameter: max-newton-steps")
+    max_dx: bpy.props.FloatProperty(
+        name="Maximum Contact Correction", default=DEFAULT_MAX_DX,
+        min=1e-6, max=1000.0, precision=5, update=_on_settings_update,
+        description="Largest correction distance allowed during one contact solve. Technical PPF parameter: max-dx")
+    eigenanalysis_eps: bpy.props.FloatProperty(
+        name="Contact Stability Threshold", default=DEFAULT_EIGENANALYSIS_EPS,
+        min=1e-10, max=1.0, precision=7, update=_on_settings_update,
+        description="Numerical threshold used to stabilize nearly singular contact directions. Technical PPF parameter: eiganalysis-eps")
+    friction_eps: bpy.props.FloatProperty(
+        name="Friction Stability Threshold", default=DEFAULT_FRICTION_EPS,
+        min=1e-10, max=1.0, precision=8, update=_on_settings_update,
+        description="Numerical threshold that stabilizes very slow friction motion. Technical PPF parameter: friction-eps")
+    csrmat_max_nnz: bpy.props.IntProperty(
+        name="Contact Capacity", default=DEFAULT_CSRMAT_MAX_NNZ,
+        min=1000, max=1_000_000_000, update=_on_settings_update,
+        description="Preallocated GPU contact entries. Too low can stop dense contact; too high consumes GPU memory. Technical PPF parameter: csrmat-max-nnz")
+    contact_barrier: bpy.props.EnumProperty(
+        name="Contact Response Model", default=DEFAULT_CONTACT_BARRIER,
+        update=_on_settings_update,
+        items=(("cubic", "Smooth", "Cubic contact barrier; recommended default"),
+               ("quad", "Firm", "Quadratic contact barrier"),
+               ("log", "Sharp", "Logarithmic contact barrier")),
+        description="Mathematical response used as surfaces approach contact. Technical PPF parameter: barrier")
 
 
 class CLOTHNEXT_PG_recovery_settings(bpy.types.PropertyGroup):
@@ -437,6 +554,53 @@ class CLOTHNEXT_PG_friction_region(bpy.types.PropertyGroup):
         description="Target friction at full weight in this Vertex Group")
 
 
+class CLOTHNEXT_PG_soft_constraint(bpy.types.PropertyGroup):
+    target: bpy.props.PointerProperty(
+        name="Target", type=bpy.types.Object, update=_on_settings_update,
+        description="Animated object that drives this Pin motion constraint")
+    constraint_type: bpy.props.EnumProperty(
+        name="Constraint", default="LOCATION", update=_on_settings_update,
+        items=(("LOCATION", "Location", "Follow the Target translation"),
+               ("ROTATION", "Rotation", "Follow the Target rotation"),
+               ("SCALE", "Scale", "Follow the Target scale")))
+    strength: bpy.props.FloatProperty(
+        name="Strength", default=1.0, min=0.0, soft_max=1000.0,
+        precision=3, update=_on_settings_update,
+        description="How strongly this constraint pulls toward its Target")
+
+
+class CLOTHNEXT_PG_advanced_pin_target(bpy.types.PropertyGroup):
+    vertex_group: bpy.props.StringProperty(
+        name="Pin Group", default="", update=_on_settings_update,
+        description="Vertex Group whose vertices follow this Target")
+    target: bpy.props.PointerProperty(
+        name="Target", type=bpy.types.Object, update=_on_settings_update,
+        description="Animated Empty or object followed by this Pin Group")
+    strength: bpy.props.FloatProperty(
+        name="Strength", default=1.0, min=1e-6, soft_max=1000.0,
+        precision=3, update=_on_settings_update,
+        description="Soft Pull strength for this Pin Group")
+
+
+class CLOTHNEXT_PG_motion_override(bpy.types.PropertyGroup):
+    frame: bpy.props.IntProperty(
+        name="Frame", default=1, min=-1048574, max=1048574,
+        update=_on_settings_update,
+        description="Blender frame at which this motion replaces the current velocity")
+    motion_type: bpy.props.EnumProperty(
+        name="Motion", default="LINEAR", update=_on_settings_update,
+        items=(("LINEAR", "Move", "Set a world-space linear velocity"),
+               ("ANGULAR", "Spin", "Set a world-space angular velocity")))
+    velocity: bpy.props.FloatVectorProperty(
+        name="Velocity", size=3, default=(0.0, 0.0, 0.0),
+        subtype="VELOCITY", update=_on_settings_update,
+        description="World-space speed in Blender units per second")
+    angular_velocity: bpy.props.FloatVectorProperty(
+        name="Spin", size=3, default=(0.0, 0.0, 0.0),
+        subtype="EULER", unit="ROTATION", update=_on_settings_update,
+        description="World-space spin vector in radians per second")
+
+
 class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
     linear_density: bpy.props.FloatProperty(name="Linear Density", default=1.0,
         min=0.01, max=10000.0, update=_on_settings_update,
@@ -455,6 +619,23 @@ class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
         default=0.0, min=0.0, max=100.0, subtype="PERCENTAGE",
         update=_on_settings_update,
         description="Maximum lengthwise stretch. Set to 0% to disable the limit")
+    bend_plasticity_enabled: bpy.props.BoolProperty(
+        name="Permanent Bends", default=False, update=_on_settings_update,
+        description="Allow bends held under load to become the cable's rest shape")
+    bend_plasticity_rate: bpy.props.FloatProperty(
+        name="Bend Creep Rate", default=1.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_settings_update,
+        description="Speed per second at which cable bends become permanent")
+    bend_plasticity_threshold_degrees: bpy.props.FloatProperty(
+        name="Bend Threshold", default=10.0, min=0.0, max=180.0,
+        soft_max=90.0, precision=2,
+        update=_on_settings_update,
+        description="Angular deviation required before a bend becomes permanent")
+    bend_rest_from_geometry: bpy.props.BoolProperty(
+        name="Use Initial Bend Shape", default=True,
+        update=_on_settings_update,
+        description="Use the cable's starting bends as its rest shape. "
+                    "Disable for an initially straight rest shape")
 
 
 class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
@@ -477,6 +658,19 @@ class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
         items=(("FTETWILD", "fTetWild", "Robust automatic tetrahedralization"),
                ("TETGEN", "TetGen", "TetGen automatic tetrahedralization")),
         default="FTETWILD", update=_on_settings_update)
+    stretch_plasticity_enabled: bpy.props.BoolProperty(
+        name="Permanent Deformation", default=False,
+        update=_on_settings_update,
+        description="Allow sustained deformation to change the solid rest shape")
+    stretch_plasticity_rate: bpy.props.FloatProperty(
+        name="Creep Rate", default=1.0, min=0.0, soft_max=10.0,
+        precision=3, update=_on_settings_update,
+        description="Speed per second at which the solid adopts its deformed shape")
+    stretch_plasticity_threshold_percent: bpy.props.FloatProperty(
+        name="Deformation Threshold", default=5.0, min=0.0,
+        soft_max=25.0, precision=2, subtype="PERCENTAGE",
+        update=_on_settings_update,
+        description="Deformation required before the rest shape starts changing")
 
 
 class CLOTHNEXT_PG_rigid_body_settings(bpy.types.PropertyGroup):
@@ -517,20 +711,8 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         description="PPF isotropic-air-friction coefficient applied per vertex")
 
 
-class CLOTHNEXT_PG_newton_preview_settings(bpy.types.PropertyGroup):
-    """Legacy backend storage retained solely for safe .blend migration."""
-    bake_backend: bpy.props.EnumProperty(
-        name="Legacy Solver", default="PPF", options={"HIDDEN"},
-        items=(("PPF", "PPF", "Bake with the PPF Contact Solver"),
-               ("NEWTON", "Newton", "Bake with Newton")))
-
-
 class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
-    """Persistent product-level solver selection; defaults old scenes to PPF."""
-    backend: bpy.props.EnumProperty(
-        name="Solver", default="PPF", update=_on_settings_update,
-        items=(("PPF", "PPF", "High-fidelity contact-focused solver"),
-               ("NEWTON", "Newton", "GPU cloth solver for offline baking")))
+    """Persistent scene-wide PPF quality selection."""
     quality_preset: bpy.props.EnumProperty(
         name="Quality", default="HIGH", update=_on_settings_update,
         items=(("LOW", "Low", "Fast setup bake"),
@@ -538,14 +720,6 @@ class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
                ("HIGH", "High", "Final-quality simulation"),
                ("EXTREME", "Extreme", "Maximum solve effort"),
                ("CUSTOM", "Custom", "Backend-specific custom quality")))
-    newton_substeps: bpy.props.IntProperty(
-        name="Substeps", default=8, min=1, max=128,
-        update=_on_settings_update,
-        description="Newton-only simulation substeps per Blender frame")
-    newton_iterations: bpy.props.IntProperty(
-        name="Solver Iterations", default=12, min=1, max=64,
-        update=_on_settings_update,
-        description="Newton-only VBD iterations per substep")
 
 
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
@@ -645,6 +819,18 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         type=CLOTHNEXT_PG_friction_region)
     friction_region_index: bpy.props.IntProperty(
         default=0, min=0, options={"HIDDEN"})
+    soft_constraints: bpy.props.CollectionProperty(
+        type=CLOTHNEXT_PG_soft_constraint)
+    soft_constraint_index: bpy.props.IntProperty(
+        default=0, min=0, options={"HIDDEN"})
+    advanced_pin_targets: bpy.props.CollectionProperty(
+        type=CLOTHNEXT_PG_advanced_pin_target)
+    advanced_pin_target_index: bpy.props.IntProperty(
+        default=0, min=0, options={"HIDDEN"})
+    motion_overrides: bpy.props.CollectionProperty(
+        type=CLOTHNEXT_PG_motion_override)
+    motion_override_index: bpy.props.IntProperty(
+        default=0, min=0, options={"HIDDEN"})
     rod: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rod_settings)
     soft_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_soft_body_settings)
     rigid_body: bpy.props.PointerProperty(type=CLOTHNEXT_PG_rigid_body_settings)
@@ -660,6 +846,14 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Pin Mode", default="STATIC", update=_on_settings_update,
         items=(("STATIC","Static","Keep pinned vertices fixed at their evaluated positions on Bake Start."),
                ("FOLLOW_ANIMATION","Follow Animation","Make pinned vertices follow their evaluated Blender positions throughout the Bake range.")))
+    advanced_pin_motion_enabled: bpy.props.BoolProperty(
+        name="Enable Advanced Pin Motion", default=False,
+        update=_on_settings_update,
+        description="Drive the Pin group with an animated Target while "
+                    "preserving offsets and yielding to Collider contact")
+    pin_target: bpy.props.PointerProperty(
+        name="Target", type=bpy.types.Object, update=_on_settings_update,
+        description="Animated Empty or object whose transform drives the Pin group")
     bake_start: bpy.props.IntProperty(
         name="Bake Start", default=1, min=-1048574, max=1048574,
         update=_on_settings_update,
@@ -719,6 +913,16 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
         stretch_resistance=float(material.stretch_resistance),
         sideways_response=float(material.sideways_response),
         bend_resistance=float(material.bend_resistance),
+        stretch_plasticity_enabled=bool(
+            material.stretch_plasticity_enabled),
+        stretch_plasticity_rate=float(material.stretch_plasticity_rate),
+        stretch_plasticity_threshold_percent=float(
+            material.stretch_plasticity_threshold_percent),
+        bend_plasticity_enabled=bool(material.bend_plasticity_enabled),
+        bend_plasticity_rate=float(material.bend_plasticity_rate),
+        bend_plasticity_threshold_degrees=float(
+            material.bend_plasticity_threshold_degrees),
+        bend_rest_from_geometry=bool(material.bend_rest_from_geometry),
         shape_damping=float(damping.shape_damping),
         fold_damping=float(damping.fold_damping),
         surface_grip=float(collision.surface_grip),
@@ -741,7 +945,24 @@ def solver_quality_from(scene) -> SolverQualitySettings:
         time_step=float(quality.time_step),
         min_newton_steps=int(quality.min_newton_steps),
         cg_max_iter=int(quality.cg_max_iter),
-        cg_tol=float(quality.cg_tol))
+        cg_tol=float(quality.cg_tol),
+        target_toi=float(getattr(quality, "target_toi", DEFAULT_TARGET_TOI)),
+        line_search_max_t=float(getattr(
+            quality, "line_search_max_t", DEFAULT_LINE_SEARCH_MAX_T)),
+        constraint_ghat=float(getattr(
+            quality, "constraint_ghat", DEFAULT_CONSTRAINT_GHAT)),
+        constraint_tol=float(getattr(
+            quality, "constraint_tol", DEFAULT_CONSTRAINT_TOL)),
+        ccd_reduction=float(getattr(
+            quality, "ccd_reduction", DEFAULT_CCD_REDUCTION)),
+        max_newton_steps=int(getattr(quality, "max_newton_steps", DEFAULT_MAX_NEWTON_STEPS)),
+        max_dx=float(getattr(quality, "max_dx", DEFAULT_MAX_DX)),
+        eigenanalysis_eps=float(getattr(quality, "eigenanalysis_eps", DEFAULT_EIGENANALYSIS_EPS)),
+        friction_eps=float(getattr(quality, "friction_eps", DEFAULT_FRICTION_EPS)),
+        csrmat_max_nnz=int(getattr(quality, "csrmat_max_nnz", DEFAULT_CSRMAT_MAX_NNZ)),
+        contact_barrier=str(getattr(quality, "contact_barrier", DEFAULT_CONTACT_BARRIER)),
+        ccd_max_iter=int(getattr(
+            quality, "ccd_max_iter", DEFAULT_CCD_MAX_ITER)))
 
 
 def static_settings_from(settings) -> StaticMaterialSettings:
@@ -765,7 +986,12 @@ def rod_settings_from(settings) -> RodMaterialSettings:
         surface_grip=float(collision.surface_grip),
         collision_gap=float(collision.collision_gap),
         surface_offset=float(collision.surface_offset),
-        stretch_limit=float(rod.stretch_limit_percent) / 100.0)
+        stretch_limit=float(rod.stretch_limit_percent) / 100.0,
+        bend_plasticity_rate=(float(rod.bend_plasticity_rate)
+                              if rod.bend_plasticity_enabled else 0.0),
+        bend_plasticity_threshold_degrees=float(
+            rod.bend_plasticity_threshold_degrees),
+        bend_rest_from_geometry=bool(rod.bend_rest_from_geometry))
 
 
 def soft_body_settings_from(settings) -> SoftBodyMaterialSettings:
@@ -780,7 +1006,11 @@ def soft_body_settings_from(settings) -> SoftBodyMaterialSettings:
         surface_grip=float(collision.surface_grip),
         collision_gap=float(collision.collision_gap),
         surface_offset=float(collision.surface_offset),
-        tetrahedralizer=str(soft.tetrahedralizer).lower())
+        tetrahedralizer=str(soft.tetrahedralizer).lower(),
+        stretch_plasticity_rate=(float(soft.stretch_plasticity_rate)
+                                 if soft.stretch_plasticity_enabled else 0.0),
+        stretch_plasticity_threshold_percent=float(
+            soft.stretch_plasticity_threshold_percent))
 
 
 def rigid_body_settings_from(settings) -> RigidBodyMaterialSettings:
@@ -823,24 +1053,13 @@ def attach_to_object() -> None:
         type=CLOTHNEXT_PG_solver_quality_settings)
     bpy.types.Scene.cloth_next_recovery = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_recovery_settings)
-    bpy.types.Scene.cloth_next_newton_preview = bpy.props.PointerProperty(
-        type=CLOTHNEXT_PG_newton_preview_settings)
     bpy.types.Scene.cloth_next_solver = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_solver_backend_settings)
-    for scene in getattr(getattr(bpy, "data", None), "scenes", ()):
-        current = getattr(scene, "cloth_next_solver", None)
-        legacy = getattr(scene, "cloth_next_newton_preview", None)
-        if (current is not None and legacy is not None
-                and str(getattr(current, "backend", "PPF")) == "PPF"
-                and str(getattr(legacy, "bake_backend", "PPF")) == "NEWTON"):
-            current.backend = "NEWTON"
 
 
 def detach_from_object() -> None:
     if hasattr(bpy.types.Scene, "cloth_next_solver"):
         del bpy.types.Scene.cloth_next_solver
-    if hasattr(bpy.types.Scene, "cloth_next_newton_preview"):
-        del bpy.types.Scene.cloth_next_newton_preview
     if hasattr(bpy.types.Scene, "cloth_next_recovery"):
         del bpy.types.Scene.cloth_next_recovery
     if hasattr(bpy.types.Scene, "cloth_next_quality"):
@@ -852,11 +1071,13 @@ def detach_from_object() -> None:
 CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
            CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
+           CLOTHNEXT_PG_soft_constraint,
+           CLOTHNEXT_PG_advanced_pin_target,
+           CLOTHNEXT_PG_motion_override,
            CLOTHNEXT_PG_rod_settings, CLOTHNEXT_PG_soft_body_settings,
            CLOTHNEXT_PG_rigid_body_settings,
            CLOTHNEXT_PG_force_settings,
            CLOTHNEXT_PG_solver_quality_settings,
            CLOTHNEXT_PG_recovery_settings,
-           CLOTHNEXT_PG_newton_preview_settings,
            CLOTHNEXT_PG_solver_backend_settings,
            CLOTHNEXT_PG_object_settings)
