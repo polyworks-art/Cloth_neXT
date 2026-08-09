@@ -544,6 +544,12 @@ _SCALAR_FORCE_FIELDS = {
     "VERTEX_AIR_DAMP": ("vertex_air_damp", 0.0),
 }
 
+_GRAVITY_AXES = {
+    "X_POS": (1.0, 0.0, 0.0), "X_NEG": (-1.0, 0.0, 0.0),
+    "Y_POS": (0.0, 1.0, 0.0), "Y_NEG": (0.0, -1.0, 0.0),
+    "Z_POS": (0.0, 0.0, 1.0), "Z_NEG": (0.0, 0.0, -1.0),
+}
+
 
 def _wind_oscillation(obj, frame: int, fps: float) -> float:
     """Stable smooth pseudo-random gust value in the closed range [-1, 1]."""
@@ -577,13 +583,6 @@ def _force_state(context, *, wind_frame: int | None = None) \
     for obj in forces:
         force = obj.cloth_next.force
         if hasattr(force, "gravity_strength"):
-            matrix = obj.matrix_world
-            axis = [float(matrix[row][2]) for row in range(3)]
-            length = math.sqrt(sum(value * value for value in axis))
-            if not math.isfinite(length) or length <= 1e-12:
-                raise SceneValidationError(
-                    f"{obj.name}: Force Empty has an invalid local Z axis.")
-            axis = [value / length for value in axis]
             gravity_strength = float(force.gravity_strength)
             wind_strength = float(force.wind_strength)
             variation = float(force.wind_variation)
@@ -596,8 +595,22 @@ def _force_state(context, *, wind_frame: int | None = None) \
                 wind_strength = max(
                     0.0, wind_strength + variation * _wind_oscillation(
                         obj, wind_frame, _scene_fps(context)))
+            axis = (0.0, 0.0, 0.0)
+            if wind_strength:
+                matrix = obj.matrix_world
+                axis = [float(matrix[row][2]) for row in range(3)]
+                length = math.sqrt(sum(value * value for value in axis))
+                if not math.isfinite(length) or length <= 1e-12:
+                    raise SceneValidationError(
+                        f"{obj.name}: Wind has an invalid local Z axis.")
+                axis = [value / length for value in axis]
+            gravity_axis = _GRAVITY_AXES.get(
+                str(getattr(force, "gravity_axis", "Z_NEG")))
+            if gravity_axis is None:
+                raise SceneValidationError(
+                    f"{obj.name}: Gravity axis is invalid.")
             for index in range(3):
-                gravity[index] -= gravity_strength * axis[index]
+                gravity[index] += gravity_strength * gravity_axis[index]
                 wind[index] += wind_strength * axis[index]
             for scalar_type, (field, _default) in _SCALAR_FORCE_FIELDS.items():
                 value = float(getattr(force, field))
@@ -1319,6 +1332,8 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         "gravity_strength": float(getattr(
             obj.cloth_next.force, "gravity_strength",
             obj.cloth_next.force.strength)),
+        "gravity_axis": str(getattr(
+            obj.cloth_next.force, "gravity_axis", "Z_NEG")),
         "wind_strength": float(getattr(
             obj.cloth_next.force, "wind_strength", 0.0)),
         "wind_variation": float(getattr(obj.cloth_next.force,
@@ -6161,6 +6176,39 @@ def _show_baked_timeline(plan: RunPlan) -> None:
         pass
 
 
+def _attach_live_playback(plan: RunPlan) -> None:
+    """Point mesh deformables at the growing PC2 before advancing Timeline.
+
+    The worker writes complete transformed frames sequentially. This main-thread
+    handoff deliberately skips final cache/metadata validation; ``_attach_playback``
+    performs that authoritative commit after the writer has finalized the file.
+    """
+    if not hasattr(plan, "pc2_path") and not getattr(plan, "deformables", ()):
+        return
+    for target in _plan_deformables(plan):
+        if not hasattr(target, "pc2_path") or not hasattr(target, "object_name"):
+            continue
+        target_plan = _plan_for_target(plan, target)
+        obj = bpy.data.objects.get(target.object_name)
+        if obj is None or getattr(obj, "type", "") == "CURVE":
+            continue
+        path = Path(target.pc2_path)
+        if not path.is_file():
+            continue
+        modifiers = [mod for mod in obj.modifiers
+                     if has_cloth_next_playback_marker(obj, mod)]
+        modifier = modifiers[0] if modifiers else getattr(
+            obj.modifiers, "new")(
+                name=import_result.MODIFIER_NAME, type="MESH_CACHE")
+        _configure_playback_modifier(modifier, target_plan.frame_start)
+        current_index = _modifier_index(obj, modifier)
+        target_index = _playback_stack_index(obj, modifier)
+        if current_index >= 0 and current_index != target_index:
+            obj.modifiers.move(current_index, target_index)
+        modifier.filepath = str(path)
+        mark_owned_playback(obj, modifier, str(path))
+
+
 def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
     """Move Blender's blocked UI to the newest solver frame on main thread."""
     scene = getattr(getattr(bpy, "context", None), "scene", None)
@@ -6172,6 +6220,7 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
     timeline_overlay.set_baked_range(
         int(plan.frame_start), frame, int(plan.frame_end))
     try:
+        _attach_live_playback(plan)
         scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
             scene.frame_set(frame)

@@ -868,7 +868,7 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     settings.enabled = True
     settings.role = "FORCE"
     panel = env.physics_ui.CLOTHNEXT_PT_setup()
-    expected_props = ["gravity_strength", "wind_strength", "wind_variation",
+    expected_props = ["gravity_strength", "gravity_axis", "wind_strength", "wind_variation",
                       "air_density", "air_friction", "vertex_air_damp"]
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
@@ -877,6 +877,23 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     assert "Aerodynamic Forces" in panel.layout.labels
     assert panel.layout.operators == []
     assert all(name != "force_type" for name, _text in panel.layout.prop_texts)
+    env.registration.unregister()
+
+
+def test_force_setup_warns_when_wind_has_effectively_no_air(blender_env):
+    env = blender_env
+    env.registration.register()
+    obj = env.bpy.types.Object(name="Force", type="EMPTY")
+    obj.cloth_next.enabled = True
+    obj.cloth_next.role = "FORCE"
+    obj.cloth_next.force.wind_strength = 20.0
+    obj.cloth_next.force.air_density = 0.001
+    panel = env.physics_ui.CLOTHNEXT_PT_setup()
+    panel.layout = RecordingLayout()
+
+    panel.draw(_context(obj))
+
+    assert "Wind needs a higher Air Density" in panel.layout.labels
     env.registration.unregister()
 
 

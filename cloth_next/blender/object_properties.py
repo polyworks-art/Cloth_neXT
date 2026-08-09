@@ -707,19 +707,28 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     gravity_strength: bpy.props.FloatProperty(
         name="Gravity", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="Gravity magnitude along the Empty's local -Z axis")
+        description="Gravity acceleration along the independently selected world axis")
+    gravity_axis: bpy.props.EnumProperty(
+        name="Gravity Axis", default="Z_NEG", update=_on_settings_update,
+        items=(("X_POS", "X+", "Apply Gravity along positive world X"),
+               ("X_NEG", "X-", "Apply Gravity along negative world X"),
+               ("Y_POS", "Y+", "Apply Gravity along positive world Y"),
+               ("Y_NEG", "Y-", "Apply Gravity along negative world Y"),
+               ("Z_POS", "Z+", "Apply Gravity along positive world Z"),
+               ("Z_NEG", "Z-", "Apply Gravity along negative world Z")),
+        description="World-space direction of Gravity, independent of the Force Empty rotation")
     wind_strength: bpy.props.FloatProperty(
         name="Wind", default=0.0, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="Wind magnitude along the Empty's local +Z axis")
+        description="Wind speed along the Empty's local +Z axis; aerodynamic force also depends on Air Density")
     wind_variation: bpy.props.FloatProperty(
         name="Strength Variation", default=0.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_settings_update,
         description="Maximum animated Wind strength variation above or below Wind; zero disables gusts")
     air_density: bpy.props.FloatProperty(
-        name="Air Density", default=0.001, min=0.0, soft_max=2.0,
+        name="Air Density", default=0.01, min=0.0, soft_max=0.01,
         precision=4, update=_on_settings_update,
-        description="PPF air-density coefficient for drag and lift")
+        description="Air density used to turn Wind speed into aerodynamic drag and lift; zero disables Wind force")
     air_friction: bpy.props.FloatProperty(
         name="Air Friction", default=0.2, min=0.0, soft_max=2.0,
         precision=4, update=_on_settings_update,

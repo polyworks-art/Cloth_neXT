@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.2.22 - 2026-08-09 (Dev channel)
+
+### Added
+
+- Gravity direction can be selected explicitly from the six world axes and is
+  independent of the Force Empty rotation.
+
+### Changed
+
+- Wind remains aligned to the Force Empty's local positive Z axis.
+- New Force objects use the solver-recommended Air Density of `0.01`; the UI
+  warns when active Wind is paired with an effectively invisible density.
+
+### Fixed
+
+- Live Bake now attaches each growing PC2 cache before advancing the timeline,
+  so newly baked deformation is visible immediately, including on a first run.
+
 ## 2.2.21 - 2026-08-09 (Dev channel)
 
 ### Changed

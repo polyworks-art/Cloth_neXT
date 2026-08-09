@@ -955,6 +955,7 @@ def _draw_complete_force_controls(
     vector = layout.column(align=True)
     vector.label(text="Forces")
     vector.prop(force, "gravity_strength", text="Gravity")
+    vector.prop(force, "gravity_axis", text="Gravity Axis")
     vector.prop(force, "wind_strength", text="Wind")
     vector.prop(force, "wind_variation", text="Wind Variation")
     environment = layout.column(align=True)
@@ -962,10 +963,15 @@ def _draw_complete_force_controls(
     environment.prop(force, "air_density", text="Air Density")
     environment.prop(force, "air_friction", text="Air Friction")
     environment.prop(force, "vertex_air_damp", text="Vertex Air Damping")
+    if force.wind_strength > 0.0 and force.air_density <= 0.001:
+        warning = layout.box()
+        warning.alert = True
+        warning.label(text="Wind needs a higher Air Density", icon="ERROR")
+        warning.label(text="Use 0.01 for visible aerodynamic force")
     layout.label(
-        text=f"Gravity: {direction_prefix}local -Z · Wind: {direction_prefix}local +Z",
+        text=f"Gravity: world axis · Wind: {direction_prefix}local +Z",
         **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
-    layout.label(text="Rotate the Empty to aim directional forces")
+    layout.label(text="Rotate the Empty to aim Wind only")
     layout.label(text="Properties and rotation can be keyframed")
 
 

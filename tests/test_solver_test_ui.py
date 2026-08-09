@@ -872,6 +872,28 @@ def test_unified_force_values_are_applied_together(blender_env):
     assert active == {"AIR_DENSITY", "AIR_FRICTION", "VERTEX_AIR_DAMP"}
 
 
+def test_unified_gravity_axis_is_independent_of_empty_rotation(blender_env):
+    module = blender_env.solver_test
+    settings = SimpleNamespace(
+        force_type="GRAVITY", strength=9.81, gravity_strength=6.0,
+        gravity_axis="X_POS", wind_strength=0.0, wind_variation=0.0,
+        air_density=0.01, air_friction=0.2, vertex_air_damp=0.0)
+    # A degenerate local Z is valid when Wind is disabled: Gravity no longer
+    # derives its direction from the Empty transform.
+    force = SimpleNamespace(
+        name="Gravity", name_full="Gravity", type="EMPTY",
+        matrix_world=((1, 0, 0, 0), (0, 1, 0, 0),
+                      (0, 0, 0, 0), (0, 0, 0, 1)),
+        cloth_next=SimpleNamespace(enabled=True, role="FORCE", force=settings))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        objects=(force,), gravity=(0.0, 0.0, -9.81), use_gravity=True))
+
+    state, _active = module._force_state(context)
+
+    assert state.gravity == (6.0, 0.0, 0.0)
+    assert state.wind == (0.0, 0.0, 0.0)
+
+
 def test_scalar_ppf_force_empties_are_aggregated(blender_env):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),

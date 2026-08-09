@@ -113,13 +113,14 @@ def test_force_settings_expose_every_dynamic_ppf_environment_parameter(blender_e
     assert [item[0] for item in props["force_type"].keywords["items"]] == [
         "GRAVITY", "WIND", "AIR_DENSITY", "AIR_FRICTION",
         "VERTEX_AIR_DAMP"]
-    assert props["air_density"].keywords["default"] == 0.001
+    assert props["air_density"].keywords["default"] == 0.01
     assert props["air_friction"].keywords["default"] == 0.2
     assert props["vertex_air_damp"].keywords["default"] == 0.0
     assert props["wind_variation"].keywords["default"] == 0.0
     assert props["gravity_strength"].keywords["default"] == 9.81
+    assert props["gravity_axis"].keywords["default"] == "Z_NEG"
     assert props["wind_strength"].keywords["default"] == 0.0
-    for name in ("strength", "gravity_strength", "wind_strength",
+    for name in ("strength", "gravity_strength", "gravity_axis", "wind_strength",
                  "air_density", "air_friction",
                  "vertex_air_damp", "wind_variation"):
         assert "SKIP_SAVE" not in props[name].keywords.get("options", set())
