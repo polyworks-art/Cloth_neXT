@@ -35,7 +35,7 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 .eyebrow,.label{color:var(--accent)}
 .page{width:min(100%,var(--max));margin:0 auto;overflow:hidden}
 .product-bar{min-height:72px;padding:1rem clamp(1rem,4vw,2rem);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:rgba(8,10,9,.96);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:.75rem}.brand img{width:42px;height:33px;object-fit:contain}.brand strong{display:block;font-size:.93rem;letter-spacing:-.02em}.brand small{display:block;margin-top:.08rem;color:var(--quiet);font-size:.58rem;font-weight:760;letter-spacing:.12em}.status{display:inline-flex;align-items:center;gap:.45rem;color:#dce4e0}.status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px rgba(101,245,201,.7)}
+.brand{display:flex;align-items:center;gap:.75rem}.brand img{width:42px;height:33px;object-fit:contain}.brand strong{display:block;font-size:.93rem;letter-spacing:-.02em}.brand small{display:block;margin-top:.08rem;color:var(--quiet);font-size:.58rem;font-weight:760;letter-spacing:.12em}.status{display:inline-flex;align-items:center;color:#dce4e0}
 .hero{position:relative;min-height:720px;display:flex;align-items:flex-end;overflow:hidden;background:#07100e}.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:63% center}.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,7,6,.98) 0%,rgba(4,7,6,.85) 43%,rgba(4,7,6,.12) 80%),linear-gradient(0deg,rgba(4,7,6,.9) 0%,transparent 46%)}.hero-copy{position:relative;z-index:1;width:100%;padding:clamp(5rem,11vw,7rem) clamp(1.2rem,6vw,4rem) 4.5rem}.hero-copy p{max-width:610px;margin-bottom:0;color:#c3cbc7;font-size:1.04rem;line-height:1.72}.hero-facts{display:flex;flex-wrap:wrap;gap:.72rem 1.3rem;margin-top:1.9rem;color:#939d98;font-size:.64rem;font-weight:760;letter-spacing:.1em;text-transform:uppercase}.hero-facts span{display:flex;align-items:center;gap:.48rem}.hero-facts span::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--accent)}
 .compat{padding:1.35rem clamp(1.2rem,6vw,4rem);display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:center;background:var(--accent);color:var(--ink)}.compat strong{font-size:.88rem}.compat p{margin:.2rem 0 0;color:rgba(6,16,12,.7);font-size:.75rem}.compat .stack{font-size:.64rem;font-weight:820;letter-spacing:.1em;text-transform:uppercase;text-align:right}
 .section{padding:clamp(5.2rem,9vw,7.5rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid var(--line)}.section-copy{max-width:690px;margin-bottom:2.6rem}.section-copy p,.split-copy p{color:var(--muted)}
@@ -56,7 +56,7 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 <main class="page">
 <header class="product-bar">
   <div class="brand"><img src="../assets/cloth-next-white.svg" alt="" width="42" height="33"><span><strong>Cloth NeXt</strong><small>SIMULATION FOR BLENDER</small></span></div>
-  <span class="status">Current Release: Cloth NeXt 2.2</span>
+  <span class="status">Current Release: <span data-release-version></span></span>
 </header>
 
 <section class="hero">
@@ -186,5 +186,27 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 
 <div class="truth-note">Every simulation and result shown on this page was produced with Cloth NeXt.</div>
 </main>
+<script>
+(() => {
+  const versionTarget = document.querySelector('[data-release-version]');
+  if (!versionTarget) return;
+
+  fetch('../index.html', { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error('release source unavailable');
+      return response.text();
+    })
+    .then(html => {
+      const source = new DOMParser().parseFromString(html, 'text/html');
+      const releaseLabel = source.querySelector('.release-label')?.textContent || '';
+      const match = releaseLabel.match(/\b(\d+)\.(\d+)(?:\.(\d+))?\b/);
+      if (!match) throw new Error('release version missing');
+      versionTarget.textContent = `${match[1]}.${match[2]}.${match[3] ?? '0'}`;
+    })
+    .catch(() => {
+      versionTarget.textContent = 'Unavailable';
+    });
+})();
+</script>
 </body>
 </html>
