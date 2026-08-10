@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.24 - 2026-08-10 (Dev channel)
+
+### Changed
+
+- Wind Variation now combines deterministic slow pressure drift with shorter
+  smooth gusts instead of repeating two uniform sine rhythms.
+- Gusts remain reproducible per Force object and bounded by the configured
+  Wind Variation value.
+
 ## 2.2.23 - 2026-08-10 (Dev channel)
 
 ### Fixed

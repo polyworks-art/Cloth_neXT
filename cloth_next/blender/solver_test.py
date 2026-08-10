@@ -551,17 +551,32 @@ _GRAVITY_AXES = {
 }
 
 
+def _wind_noise_sample(seed: bytes, lattice: int, octave: int) -> float:
+    """Return one stable signed value-noise lattice sample."""
+    payload = (seed + int(lattice).to_bytes(8, "big", signed=True)
+               + bytes((octave,)))
+    value = int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
+    return value / (2**64 - 1) * 2.0 - 1.0
+
+
 def _wind_oscillation(obj, frame: int, fps: float) -> float:
-    """Stable smooth pseudo-random gust value in the closed range [-1, 1]."""
+    """Stable multi-scale gust noise in the closed range [-1, 1]."""
     identity = str(getattr(obj, "name_full", getattr(obj, "name", "Wind")))
-    digest = hashlib.sha256(identity.encode("utf-8")).digest()
-    phase_a = int.from_bytes(digest[:4], "big") / 2**32 * math.tau
-    phase_b = int.from_bytes(digest[4:8], "big") / 2**32 * math.tau
-    rate_a = 0.31 + digest[8] / 255.0 * 0.23
-    rate_b = 0.73 + digest[9] / 255.0 * 0.41
+    seed = hashlib.sha256(identity.encode("utf-8")).digest()
     seconds = float(frame) / max(1, int(fps))
-    return (math.sin(math.tau * rate_a * seconds + phase_a)
-            + 0.5 * math.sin(math.tau * rate_b * seconds + phase_b)) / 1.5
+    total = 0.0
+    # A broad pressure drift carries smaller, less predictable gusts. Cubic
+    # interpolation keeps acceleration continuous enough for cloth playback.
+    for octave, (frequency, weight) in enumerate(
+            ((0.13, 0.55), (0.41, 0.30), (1.17, 0.15))):
+        position = seconds * frequency
+        lattice = math.floor(position)
+        fraction = position - lattice
+        smooth = fraction * fraction * (3.0 - 2.0 * fraction)
+        left = _wind_noise_sample(seed, lattice, octave)
+        right = _wind_noise_sample(seed, lattice + 1, octave)
+        total += weight * (left + (right - left) * smooth)
+    return max(-1.0, min(1.0, total))
 
 
 def _force_state(context, *, wind_frame: int | None = None) \

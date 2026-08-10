@@ -1,15 +1,18 @@
-# Cloth NeXt 2.2.23 Dev
+# Cloth NeXt 2.2.24 Dev
 
-Cloth NeXt 2.2.23 repairs the live deformation feedback introduced in 2.2.22.
+Cloth NeXt 2.2.24 makes animated Wind Variation feel less uniform.
 
-## Live Bake cache playback
+## Natural gust timing
 
-- Completed PC2 frames are flushed to the private growing cache before the
-  Blender main thread receives the progress event.
-- Blender's Mesh Cache modifier is pointed at that growing file during Bake,
-  rather than at the final path that does not exist until publication.
-- The timeline advances only after the matching deformation frame is readable.
-- Single- and multi-object bakes use the same live-path handoff while final
-  cache validation and atomic publication remain unchanged.
+- Wind Variation now uses deterministic multi-scale smooth noise.
+- Slow atmospheric pressure changes are layered with shorter gusts instead of
+  two continuously repeating sine waves.
+- Every Force object retains a stable, reproducible pattern.
+- The resulting strength remains strictly bounded by the configured Wind
+  Variation value.
 
-This is Dev version `2.2.23` and is eligible only for the Dev channel.
+The current PPF interface exposes one scene-wide wind vector, so this release
+improves temporal variation; spatial turbulence across a cloth surface remains
+outside the solver contract.
+
+This is Dev version `2.2.24` and is eligible only for the Dev channel.

@@ -1022,6 +1022,25 @@ def test_wind_strength_has_bounded_reproducible_randomized_gusts(blender_env):
     assert min(values) >= 1.5
     assert max(values) <= 2.5
 
+
+def test_wind_gusts_are_aperiodic_across_short_and_long_time_scales(
+        blender_env):
+    module = blender_env.solver_test
+    wind = SimpleNamespace(name="Natural Wind", name_full="Natural Wind")
+    values = [module._wind_oscillation(wind, frame, 24.0)
+              for frame in range(1, 24 * 30 + 1)]
+
+    assert all(-1.0 <= value <= 1.0 for value in values)
+    assert values == [module._wind_oscillation(wind, frame, 24.0)
+                      for frame in range(1, 24 * 30 + 1)]
+    # The old two-sine implementation repeated a conspicuous smooth rhythm.
+    # Multi-scale value noise must vary both over adjacent seconds and over
+    # wider ten-second windows.
+    one_second = [values[index] for index in range(0, len(values), 24)]
+    ten_second = [values[index] for index in range(0, len(values), 240)]
+    assert len({round(value, 4) for value in one_second}) > 20
+    assert len({round(value, 4) for value in ten_second}) == len(ten_second)
+
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test
     module._cancel_event.clear()
