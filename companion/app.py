@@ -366,11 +366,11 @@ class BakeWindow:
         try:
             self._solver_stat_icons={
                 "contacts":tk.PhotoImage(
-                    file=str(_asset("particle_collision_16.png"))),
+                    file=str(_asset("status_contacts_16.png"))),
                 "newton":tk.PhotoImage(
-                    file=str(_asset("particle_quality_12.png"))),
+                    file=str(_asset("status_newton_16.png"))),
                 "iterations":tk.PhotoImage(
-                    file=str(_asset("particle_solver_16.png")))}
+                    file=str(_asset("status_iterations_16.png")))}
         except tk.TclError:
             self._solver_stat_icons={}
         self._status_font=tkfont.Font(family="Segoe UI",size=8)

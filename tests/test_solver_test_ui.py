@@ -1021,6 +1021,7 @@ def test_wind_strength_has_bounded_reproducible_randomized_gusts(blender_env):
     assert len(set(values)) > 10
     assert min(values) >= 1.5
     assert max(values) <= 2.5
+    assert min(values) >= 2.0
 
 
 def test_wind_gusts_are_aperiodic_across_short_and_long_time_scales(
@@ -1038,7 +1039,7 @@ def test_wind_gusts_are_aperiodic_across_short_and_long_time_scales(
     # wider ten-second windows.
     one_second = [values[index] for index in range(0, len(values), 24)]
     ten_second = [values[index] for index in range(0, len(values), 240)]
-    assert len({round(value, 4) for value in one_second}) > 20
+    assert len({round(value, 4) for value in one_second}) > 10
     assert len({round(value, 4) for value in ten_second}) == len(ten_second)
 
 
@@ -1050,6 +1051,17 @@ def test_wind_noise_scale_slows_gust_evolution(blender_env):
     slower = module._wind_oscillation(wind, 144, 24.0, 3.0)
 
     assert slower == pytest.approx(normal)
+
+
+def test_wind_variation_produces_separated_positive_gusts(blender_env):
+    module = blender_env.solver_test
+    wind = SimpleNamespace(name="Gust Wind", name_full="Gust Wind")
+    values = [module._wind_oscillation(wind, frame, 24.0, 3.0)
+              for frame in range(1, 24 * 120 + 1)]
+
+    assert min(values) == 0.0
+    assert max(values) > 0.5
+    assert sum(value == 0.0 for value in values) > len(values) * 0.2
 
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test

@@ -126,11 +126,11 @@ def test_solver_statistics_row_owns_estimated_fill_without_new_row():
     assert "CurrentFrameProgressEstimator" in inspect.getsource(app)
 
 
-def test_solver_statistics_use_existing_semantic_icons():
+def test_solver_statistics_use_dedicated_semantic_icons():
     source=inspect.getsource(app.BakeWindow._build)
-    assert 'particle_collision_16.png' in source
-    assert 'particle_quality_12.png' in source
-    assert 'particle_solver_16.png' in source
+    assert 'status_contacts_16.png' in source
+    assert 'status_newton_16.png' in source
+    assert 'status_iterations_16.png' in source
     parser=inspect.getsource(app.BakeWindow._solver_status_values)
     assert "contacts" in parser
     assert "Newton" in parser

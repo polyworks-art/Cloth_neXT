@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.26 - 2026-08-10 (Dev channel)
+
+### Changed
+
+- The Bake Window uses the dedicated Contacts, Newton Steps, and Linear
+  Iterations artwork in opaque white at 16 px, without changing the status-bar
+  dimensions or layout.
+- Wind Variation now produces separated positive gusts above a stable base
+  wind instead of repeatedly weakening the flow below its configured value.
+  This reduces continuous cloth flutter at high Wind, Variation, and Noise
+  Scale settings.
+
 ## 2.2.25 - 2026-08-10 (Dev channel)
 
 ### Added

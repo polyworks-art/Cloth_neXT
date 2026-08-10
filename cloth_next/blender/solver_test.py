@@ -577,7 +577,11 @@ def _wind_oscillation(obj, frame: int, fps: float,
         left = _wind_noise_sample(seed, lattice, octave)
         right = _wind_noise_sample(seed, lattice + 1, octave)
         total += weight * (left + (right - left) * smooth)
-    return max(-1.0, min(1.0, total))
+    # Convert the continuous atmosphere signal into separated positive gusts.
+    # Keeping the configured Wind as a stable floor avoids repeatedly removing
+    # and restoring the load, which reads as cloth flutter rather than wind.
+    gust = max(0.0, min(1.0, (total + 0.10) / 0.75))
+    return gust * gust * (3.0 - 2.0 * gust)
 
 
 def _force_state(context, *, wind_frame: int | None = None) \

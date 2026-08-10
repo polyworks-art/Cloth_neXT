@@ -724,7 +724,7 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_variation: bpy.props.FloatProperty(
         name="Strength Variation", default=0.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_settings_update,
-        description="Maximum animated Wind strength variation above or below Wind; zero disables gusts")
+        description="Maximum additional Wind strength during intermittent gusts; zero disables gusts")
     wind_noise_scale: bpy.props.FloatProperty(
         name="Noise Scale", default=3.0, min=0.1, soft_max=20.0,
         precision=2, subtype="TIME", unit="TIME", update=_on_settings_update,

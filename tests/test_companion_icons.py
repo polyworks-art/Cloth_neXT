@@ -3,7 +3,7 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
-from companion.build_assets import PARTICLE_ASSETS
+from companion.build_assets import PARTICLE_ASSETS, STATUS_ASSETS, STATUS_SIZE
 from companion.app import error_activity_label
 from cloth_next.bake.status import BakeSnapshot,BakeState
 
@@ -40,6 +40,19 @@ def test_particle_assets_are_deterministic_translucent_icons():
             assert image.mode=="RGBA" and image.size==size
             visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
             assert visible and max(pixel[3] for pixel in visible) <= 184
+
+
+def test_solver_status_assets_are_deterministic_opaque_white_icons():
+    build(); target=ROOT/"companion"/"assets"
+    before={name:(target/name).read_bytes() for name in STATUS_ASSETS}; build()
+    assert before == {name:(target/name).read_bytes() for name in STATUS_ASSETS}
+    for name in STATUS_ASSETS:
+        with Image.open(target/name) as image:
+            rgba=image.convert("RGBA")
+            visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
+            assert image.size == STATUS_SIZE
+            assert visible
+            assert all(pixel[:3] == (255,255,255) for pixel in visible)
 
 
 def test_blender_runtime_icons_are_white_for_dark_theme():

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Create deterministic companion icon derivatives from approved project icons."""
 from __future__ import annotations
+from io import BytesIO
 from pathlib import Path
 import shutil
 import sys
@@ -9,6 +10,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "cloth_next" / "assets" / "icons"
+STATUS_SOURCE = ROOT / "assets" / "solver_status_icons"
 TARGET = ROOT / "companion" / "assets"
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
              (128, 128), (256, 256))
@@ -17,6 +19,37 @@ PARTICLE_SOURCES={"bake":(12,-18),"cloth":(16,12),"collider":(12,-11),
                   "quality":(12,-14),"timer":(12,23)}
 PARTICLE_ASSETS={f"particle_{name}_{size}.png":(size,size)
                  for name,(size,_angle) in PARTICLE_SOURCES.items()}
+STATUS_ASSETS={
+    "status_contacts_16.png":"contacts.svg",
+    "status_newton_16.png":"newton.svg",
+    "status_iterations_16.png":"linear_iterations.svg",
+}
+STATUS_SIZE=(16,16)
+
+def _build_status_icon(source: Path) -> Image.Image:
+    try:
+        import resvg_py
+    except ImportError as exc:
+        raise RuntimeError("resvg-py is required for companion icon builds") from exc
+    rendered=resvg_py.svg_to_bytes(
+        svg_path=str(source),width=256,height=256,skip_system_fonts=True)
+    with Image.open(BytesIO(rendered)) as image:
+        alpha=image.convert("RGBA").getchannel("A")
+    bounds=alpha.getbbox()
+    if bounds is None:
+        raise ValueError(f"empty solver status icon: {source}")
+    alpha=alpha.crop(bounds)
+    available=(STATUS_SIZE[0]-2,STATUS_SIZE[1]-2)
+    scale=min(available[0]/alpha.width,available[1]/alpha.height)
+    fitted=alpha.resize(
+        (max(1,round(alpha.width*scale)),max(1,round(alpha.height*scale))),
+        Image.Resampling.LANCZOS)
+    canvas=Image.new("L",STATUS_SIZE,0)
+    canvas.paste(fitted,((STATUS_SIZE[0]-fitted.width)//2,
+                         (STATUS_SIZE[1]-fitted.height)//2))
+    icon=Image.new("RGBA",STATUS_SIZE,(255,255,255,0))
+    icon.putalpha(canvas)
+    return icon
 
 def build() -> None:
     app_source, bake_source = SOURCE / "cloth_next.png", SOURCE / "bake.png"
@@ -45,12 +78,19 @@ def build() -> None:
             icon.putalpha(alpha)
             icon.save(TARGET/f"particle_{name}_{size}.png",format="PNG",
                       optimize=False,compress_level=9)
+    for target_name,source_name in STATUS_ASSETS.items():
+        source=STATUS_SOURCE/source_name
+        if not source.is_file():
+            raise FileNotFoundError(f"missing solver status icon source: {source}")
+        _build_status_icon(source).save(
+            TARGET/target_name,format="PNG",optimize=False,compress_level=9)
     for stale in TARGET.glob("mist_*.png"):
         stale.unlink()
     validate()
 
 def validate() -> None:
-    for name in ("cloth_next.png", "bake.png", "cloth_next.ico", *PARTICLE_ASSETS):
+    for name in ("cloth_next.png", "bake.png", "cloth_next.ico",
+                 *PARTICLE_ASSETS,*STATUS_ASSETS):
         path = TARGET / name
         if not path.is_file():
             raise FileNotFoundError(f"missing companion icon asset: {path}")
@@ -62,6 +102,12 @@ def validate() -> None:
             with Image.open(path) as image:
                 if image.mode!="RGBA" or image.size!=PARTICLE_ASSETS[name]: raise ValueError(f"invalid particle asset: {name}")
                 if path.stat().st_size>16*1024: raise ValueError(f"oversized particle asset: {name}")
+        if name in STATUS_ASSETS:
+            with Image.open(path) as image:
+                rgba=image.convert("RGBA")
+                visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
+                if image.size!=STATUS_SIZE or not visible: raise ValueError(f"invalid status asset: {name}")
+                if any(pixel[:3]!=(255,255,255) for pixel in visible): raise ValueError(f"status icon is not white: {name}")
 
 if __name__ == "__main__":
     try:
