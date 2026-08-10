@@ -56,7 +56,7 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 <main class="page">
 <header class="product-bar">
   <div class="brand"><img src="../assets/cloth-next-white.svg" alt="" width="42" height="33"><span><strong>Cloth NeXt</strong><small>SIMULATION FOR BLENDER</small></span></div>
-  <span class="status">Beta 2.2.0</span>
+  <span class="status">Current Release: Cloth NeXt 2.2</span>
 </header>
 
 <section class="hero">
@@ -64,13 +64,13 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
   <div class="hero-copy">
     <span class="eyebrow">SERIOUS CLOTH SIMULATION · BUILT FOR BLENDER</span>
     <h1>The cloth add-on Blender has been missing.</h1>
-    <p>Create the clothing you actually want instead of designing around your cloth solver. Cloth NeXt brings robust GPU contact simulation, guided setup and production baking into the Blender workflow you already know.</p>
+    <p>Create the clothing you actually want without designing shots around simulation limitations. Cloth NeXt brings reliable layered cloth, guided setup and production baking into the Blender workflow you already know.</p>
     <div class="hero-facts"><span>Layered cloth contact</span><span>75 material presets</span><span>Verified recovery</span></div>
   </div>
 </section>
 
 <section class="compat">
-  <div><strong>Ready in a few clicks.</strong><p>Install the simulation engine from the add-on preferences and let Cloth NeXt verify the setup for you.</p></div>
+  <div><strong>Ready in a few clicks.</strong><p>Run the guided setup once and Cloth NeXt checks that everything is ready before your first bake.</p></div>
   <div class="stack">Blender 5.0+ · Windows x64 · NVIDIA GPU</div>
 </section>
 
@@ -92,26 +92,26 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
     <div class="metric"><strong>~25 min</strong><span>simulation time</span></div>
   </div>
   <p class="metric-note">Measured from the Cloth NeXt character demo shown above. Values are approximate. No collision proxy was used.</p>
-  <div class="proof-note"><strong>Built with serious headroom.</strong> The simulation engine used by Cloth NeXt has been stress-tested beyond 180 million contacts, leaving demanding layered scenes room to go far beyond ordinary character cloth.</div>
+  <div class="proof-note"><strong>Production scale, shown for real.</strong> Dense animated characters, detailed garments and heavy contact can stay part of the shot instead of being stripped away before you simulate.</div>
 </section>
 
 <section class="pain">
   <span class="eyebrow">THE PART YOU ALREADY KNOW</span>
-  <h2>Your shots should not be designed around your cloth solver.</h2>
-  <div class="pain-list"><span>Intersections</span><span>Exploding layers</span><span>Collision proxies</span><span>Endless rebakes</span><span>Manual cleanup</span><span>Shots simplified for the solver</span></div>
-  <p class="pain-end"><strong>Those are solver limitations.</strong> They do not have to become creative limitations.</p>
+  <h2>Your shots should not be designed around cloth limitations.</h2>
+  <div class="pain-list"><span>Intersections</span><span>Exploding layers</span><span>Collision proxies</span><span>Endless rebakes</span><span>Manual cleanup</span><span>Shots simplified for simulation</span></div>
+  <p class="pain-end"><strong>Those are technical limitations.</strong> They do not have to become creative limitations.</p>
 </section>
 
 <section class="section">
   <div class="section-copy">
     <span class="eyebrow">WHY ARTISTS BUY CLOTH NEXT</span>
-    <h2>Less solver management. More finished shots.</h2>
+    <h2>Less troubleshooting. More finished shots.</h2>
     <p>Cloth NeXt is built around the outcomes artists actually care about: reliable contact, a short path from setup to bake and a workflow that protects long simulations when something goes wrong.</p>
   </div>
   <div class="feature-grid">
     <article class="feature-card"><img src="../assets/cloth.svg" alt=""><span class="label">LAYER WHAT YOU WANT</span><h3>Stop treating intersections as part of the workflow.</h3><p>Use self-contact and object-to-object contact across cloth, cables, soft bodies and animated colliders.</p></article>
     <article class="feature-card"><img src="../assets/physical.svg" alt=""><span class="label">SIMULATE, DON'T CONFIGURE</span><h3>Go from object to bake without learning another application.</h3><p>Assign roles, choose a material starting point and validate the complete scene directly from Blender.</p></article>
-    <article class="feature-card"><img src="../assets/diagnostics.svg" alt=""><span class="label">KEEP YOUR PROGRESS</span><h3>A failed session should not erase your evening.</h3><p>Catch setup errors early, track the solve and resume from verified recovery points after unexpected exits.</p></article>
+    <article class="feature-card"><img src="../assets/diagnostics.svg" alt=""><span class="label">KEEP YOUR PROGRESS</span><h3>A failed session should not erase your evening.</h3><p>Catch setup errors early, track the bake and resume from verified recovery points after unexpected exits.</p></article>
   </div>
 </section>
 
@@ -125,7 +125,7 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
     <div><strong>01 · Assign</strong><span>Choose the cloth object.</span></div>
     <div><strong>02 · Pick</strong><span>Select a material preset.</span></div>
     <div><strong>03 · Validate</strong><span>Catch scene issues early.</span></div>
-    <div><strong>04 · Bake</strong><span>Send the scene to the GPU solver.</span></div>
+    <div><strong>04 · Bake</strong><span>Start the simulation.</span></div>
   </div>
 </section>
 
@@ -149,14 +149,14 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 
 <section class="section split reverse">
   <figure class="video-shell softbody-video"><video autoplay muted loop playsinline preload="metadata" aria-label="Cloth NeXt soft-body simulation"><source src="../Softbody.mp4" type="video/mp4"></video><figcaption>SOFT BODY SIMULATION</figcaption></figure>
-  <div class="split-copy"><span class="eyebrow">AND CLOTH ISN'T WHERE IT STOPS</span><h2>Push the same workflow into cables and soft bodies.</h2><p>Once Cloth NeXt has earned its place in the cloth workflow, the same contact pipeline can keep going across cables, closed soft bodies, rigid bodies, colliders and forces.</p><ul><li>Automatic internal tetrahedral volume</li><li>Shared object-to-object contact</li><li>Cached playback inside Blender</li></ul></div>
+  <div class="split-copy"><span class="eyebrow">AND CLOTH ISN'T WHERE IT STOPS</span><h2>Push the same workflow into cables and soft bodies.</h2><p>The same Cloth NeXt workflow keeps going across cables, closed soft bodies, rigid bodies, colliders and forces.</p><ul><li>Automatic internal tetrahedral volume</li><li>Shared object-to-object contact</li><li>Cached playback inside Blender</li></ul></div>
 </section>
 
 <section class="value-section">
   <div class="section-copy">
     <span class="eyebrow">ONE WORKFLOW</span>
     <h2>All of this is Cloth NeXt.</h2>
-    <p>Not a collection of disconnected utilities. One Blender workflow for setting up, validating, baking, monitoring, recovering and playing back demanding contact simulations.</p>
+    <p>Not a collection of disconnected utilities. One Blender workflow for setting up, validating, baking, monitoring, recovering and playing back demanding simulations.</p>
   </div>
   <div class="value-grid">
     <div><strong>GPU Cloth Simulation</strong></div><div><strong>Layered Contact</strong></div><div><strong>75 Material Presets</strong></div>
@@ -167,21 +167,21 @@ h3{margin-bottom:.6rem;font-size:clamp(1.22rem,3.3vw,1.7rem);line-height:1.08;le
 </section>
 
 <section class="section">
-  <div class="section-copy"><span class="eyebrow">KNOW BEFORE YOU BUY</span><h2>Built for a clear production target.</h2><p>Cloth NeXt focuses on high-quality offline simulation on modern NVIDIA hardware. Installation guidance, compatibility checks and documentation are part of the workflow.</p></div>
+  <div class="section-copy"><span class="eyebrow">KNOW BEFORE YOU BUY</span><h2>Built for a clear production target.</h2><p>Cloth NeXt focuses on high-quality offline simulation on modern NVIDIA hardware. Guided setup, compatibility checks and documentation are part of the workflow.</p></div>
   <div class="scope-grid">
     <article><strong>Compatibility</strong><p>Blender 5.0 or newer, Windows x64 and a compatible NVIDIA GPU.</p></article>
-    <article><strong>Guided setup</strong><p>Install the simulation engine from Cloth NeXt preferences and let the add-on verify the configured release before you bake.</p></article>
+    <article><strong>Guided setup</strong><p>Cloth NeXt walks you through the required setup and verifies compatibility before you bake.</p></article>
     <article><strong>Production workflow</strong><p>Scene roles, validation, baking, diagnostics, cache playback and recovery stay organized from inside Blender.</p></article>
     <article><strong>Designed for offline quality</strong><p>Cloth NeXt is built for demanding simulation work, not disposable real-time approximations.</p></article>
   </div>
-  <div class="solver-note"><img src="../assets/solver.svg" alt=""><div><strong>Setup that handles itself.</strong><p>The simulation engine is not included in the add-on ZIP, but can be installed directly from the add-on preferences. Cloth NeXt handles installation guidance and compatibility checks.</p></div></div>
+  <div class="solver-note"><img src="../assets/solver.svg" alt=""><div><strong>One small setup detail.</strong><p>The required simulation engine is installed separately through the Cloth NeXt preferences. The add-on guides installation and verifies compatibility for you.</p></div></div>
 </section>
 
 <section class="closing">
   <img src="../assets/cloth-next-white.svg" alt="" width="78" height="60">
   <span class="eyebrow">YOUR CLOTH WORKFLOW, UPGRADED</span>
   <h2>Stop settling for cloth that almost works.</h2>
-  <p>You can keep designing around solver limitations. Or you can start expecting your cloth workflow to keep up with the shot.</p>
+  <p>Stop shaping your shots around simulation problems. Build the clothing you wanted in the first place.</p>
   <div class="closing-price"><strong>From $20</strong><span>Personal · Commercial licensing on Superhive</span></div>
 </section>
 
