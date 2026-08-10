@@ -868,7 +868,7 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     settings.enabled = True
     settings.role = "FORCE"
     panel = env.physics_ui.CLOTHNEXT_PT_setup()
-    expected_props = ["gravity_strength", "gravity_axis", "wind_strength", "wind_variation",
+    expected_props = ["gravity_strength", "gravity_axis", "wind_strength", "wind_variation", "wind_noise_scale",
                       "air_density", "air_friction", "vertex_air_damp"]
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))

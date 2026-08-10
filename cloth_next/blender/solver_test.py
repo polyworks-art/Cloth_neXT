@@ -559,11 +559,12 @@ def _wind_noise_sample(seed: bytes, lattice: int, octave: int) -> float:
     return value / (2**64 - 1) * 2.0 - 1.0
 
 
-def _wind_oscillation(obj, frame: int, fps: float) -> float:
+def _wind_oscillation(obj, frame: int, fps: float,
+                      noise_scale: float = 1.0) -> float:
     """Stable multi-scale gust noise in the closed range [-1, 1]."""
     identity = str(getattr(obj, "name_full", getattr(obj, "name", "Wind")))
     seed = hashlib.sha256(identity.encode("utf-8")).digest()
-    seconds = float(frame) / max(1, int(fps))
+    seconds = float(frame) / max(1, int(fps)) / max(0.1, noise_scale)
     total = 0.0
     # A broad pressure drift carries smaller, less predictable gusts. Cubic
     # interpolation keeps acceleration continuous enough for cloth playback.
@@ -601,7 +602,8 @@ def _force_state(context, *, wind_frame: int | None = None) \
             gravity_strength = float(force.gravity_strength)
             wind_strength = float(force.wind_strength)
             variation = float(force.wind_variation)
-            values = (gravity_strength, wind_strength, variation)
+            noise_scale = float(getattr(force, "wind_noise_scale", 3.0))
+            values = (gravity_strength, wind_strength, variation, noise_scale)
             if any(not math.isfinite(value) or value < 0.0
                    for value in values):
                 raise SceneValidationError(
@@ -609,7 +611,7 @@ def _force_state(context, *, wind_frame: int | None = None) \
             if wind_frame is not None and variation:
                 wind_strength = max(
                     0.0, wind_strength + variation * _wind_oscillation(
-                        obj, wind_frame, _scene_fps(context)))
+                        obj, wind_frame, _scene_fps(context), noise_scale))
             axis = (0.0, 0.0, 0.0)
             if wind_strength:
                 matrix = obj.matrix_world
@@ -664,12 +666,16 @@ def _force_state(context, *, wind_frame: int | None = None) \
             raise SceneValidationError(f"{obj.name}: Force strength is invalid.")
         if force_type == "WIND":
             variation = float(getattr(force, "wind_variation", 0.0))
+            noise_scale = float(getattr(force, "wind_noise_scale", 3.0))
             if not math.isfinite(variation) or variation < 0.0:
                 raise SceneValidationError(
                     f"{obj.name}: Wind strength variation is invalid.")
+            if not math.isfinite(noise_scale) or noise_scale < 0.1:
+                raise SceneValidationError(
+                    f"{obj.name}: Wind noise scale is invalid.")
             if wind_frame is not None and variation:
                 strength = max(0.0, strength + variation * _wind_oscillation(
-                    obj, wind_frame, _scene_fps(context)))
+                    obj, wind_frame, _scene_fps(context), noise_scale))
         target = gravity if force_type == "GRAVITY" else wind
         sign = -1.0 if force_type == "GRAVITY" else 1.0
         for index in range(3):
@@ -1353,6 +1359,8 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             obj.cloth_next.force, "wind_strength", 0.0)),
         "wind_variation": float(getattr(obj.cloth_next.force,
                                          "wind_variation", 0.0)),
+        "wind_noise_scale": float(getattr(obj.cloth_next.force,
+                                           "wind_noise_scale", 3.0)),
         "air_density": float(getattr(obj.cloth_next.force,
                                      "air_density", 0.001)),
         "air_friction": float(getattr(obj.cloth_next.force,

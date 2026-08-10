@@ -958,6 +958,7 @@ def _draw_complete_force_controls(
     vector.prop(force, "gravity_axis", text="Gravity Axis")
     vector.prop(force, "wind_strength", text="Wind")
     vector.prop(force, "wind_variation", text="Wind Variation")
+    vector.prop(force, "wind_noise_scale", text="Noise Scale")
     environment = layout.column(align=True)
     environment.label(text="Aerodynamic Forces")
     environment.prop(force, "air_density", text="Air Density")

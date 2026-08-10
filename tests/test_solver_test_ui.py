@@ -1041,6 +1041,16 @@ def test_wind_gusts_are_aperiodic_across_short_and_long_time_scales(
     assert len({round(value, 4) for value in one_second}) > 20
     assert len({round(value, 4) for value in ten_second}) == len(ten_second)
 
+
+def test_wind_noise_scale_slows_gust_evolution(blender_env):
+    module = blender_env.solver_test
+    wind = SimpleNamespace(name="Scaled Wind", name_full="Scaled Wind")
+
+    normal = module._wind_oscillation(wind, 48, 24.0, 1.0)
+    slower = module._wind_oscillation(wind, 144, 24.0, 3.0)
+
+    assert slower == pytest.approx(normal)
+
 def test_companion_cancelling_snapshot_sets_worker_event(blender_env):
     module = blender_env.solver_test
     module._cancel_event.clear()

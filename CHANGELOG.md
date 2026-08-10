@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.25 - 2026-08-10 (Dev channel)
+
+### Added
+
+- Wind Variation now has a Noise Scale control directly below it. The value is
+  expressed as a time scale: higher values create slower, broader gusts, while
+  lower values create faster changes.
+
+### Changed
+
+- Noise Scale participates in cache fingerprints, so changing gust timing
+  reliably marks an existing Bake stale.
+
 ## 2.2.24 - 2026-08-10 (Dev channel)
 
 ### Changed
