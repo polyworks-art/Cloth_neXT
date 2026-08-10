@@ -71,6 +71,21 @@ def test_streaming_writer_frame_order_endianness_and_mapping(tmp_path):
         [[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]
 
 
+def test_streaming_writer_exposes_complete_frames_without_publishing(tmp_path):
+    final = tmp_path / "live.pc2"
+    writer = pc2.StreamingPc2Writer(
+        final, vertex_count=1, frame_count=2)
+    writer.write_frame([[1, 2, 3]])
+
+    live = writer.expose_live()
+
+    assert live == writer.temporary_path
+    assert live.is_file()
+    assert live.stat().st_size == pc2.PC2_HEADER_SIZE + 12
+    assert not final.exists()
+    writer.abort()
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_streaming_writer_rejects_nonfinite_and_preserves_old_cache(tmp_path, value):
     path = tmp_path / "cache.pc2"

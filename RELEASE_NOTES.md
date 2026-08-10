@@ -1,23 +1,15 @@
-# Cloth NeXt 2.2.22 Dev
+# Cloth NeXt 2.2.23 Dev
 
-Cloth NeXt 2.2.22 fixes live deformation feedback during Bake and makes Force
-direction controls unambiguous in preparation for the 2.3.0 Beta milestone.
+Cloth NeXt 2.2.23 repairs the live deformation feedback introduced in 2.2.22.
 
-## Live Bake feedback
+## Live Bake cache playback
 
-- Each growing PC2 cache is attached to its deformable before Blender advances
-  the timeline, so completed frames visibly deform the mesh during the first
-  Bake as well as subsequent runs.
-- Final cache validation and authoritative playback setup remain unchanged.
+- Completed PC2 frames are flushed to the private growing cache before the
+  Blender main thread receives the progress event.
+- Blender's Mesh Cache modifier is pointed at that growing file during Bake,
+  rather than at the final path that does not exist until publication.
+- The timeline advances only after the matching deformation frame is readable.
+- Single- and multi-object bakes use the same live-path handoff while final
+  cache validation and atomic publication remain unchanged.
 
-## Force controls
-
-- Gravity has an explicit X+, X-, Y+, Y-, Z+, or Z- world-axis selector and no
-  longer follows the Force Empty rotation.
-- Wind continues to use the Force Empty's local positive Z axis, so rotating the
-  Empty aims Wind only.
-- Air Density now defaults to the solver-recommended `0.01`. An inline warning
-  explains why active Wind may appear ineffective at very low density.
-
-This is Dev version `2.2.22`, is eligible only for the Dev channel, and prepares
-the force and live-playback behavior for `2.3.0` Beta validation.
+This is Dev version `2.2.23` and is eligible only for the Dev channel.

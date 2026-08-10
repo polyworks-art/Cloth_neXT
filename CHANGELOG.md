@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.23 - 2026-08-10 (Dev channel)
+
+### Fixed
+
+- Live Bake now flushes each completed frame before notifying Blender and
+  attaches the private growing PC2 file instead of waiting for the final
+  transactional cache publication.
+- The timeline advances only after its corresponding deformation data is
+  readable, including during first bakes and multi-object simulations.
+
 ## 2.2.22 - 2026-08-09 (Dev channel)
 
 ### Added

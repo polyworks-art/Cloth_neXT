@@ -5497,13 +5497,6 @@ def _worker_main_multi(plan: RunPlan) -> None:
             nonlocal transform_seconds, write_seconds
             if _cancel_event.is_set():
                 raise SessionCancelled()
-            emit(type("CacheEvent", (), {
-                "phase": "TRANSFORMING_FRAME",
-                "message": (f"Creating {len(targets)} playback caches Â· frame "
-                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
-                "frame_current": frame.solver_frame,
-                "frame_total": plan.frame_count,
-                "indeterminate": False})())
             for target in targets:
                 positions = frame.positions_by_uuid.get(target.uuid)
                 if positions is None:
@@ -5518,6 +5511,16 @@ def _worker_main_multi(plan: RunPlan) -> None:
                 step = time.monotonic()
                 writers[target.uuid].write_frame(local)
                 write_seconds += time.monotonic() - step
+            live_paths = {target.uuid: str(
+                writers[target.uuid].expose_live()) for target in targets}
+            emit(type("CacheEvent", (), {
+                "phase": "TRANSFORMING_FRAME",
+                "message": (f"Creating {len(targets)} playback caches · frame "
+                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
+                "frame_current": frame.solver_frame,
+                "frame_total": plan.frame_count,
+                "indeterminate": False,
+                "live_paths": live_paths})())
 
         session = SolverSession(
             resolved=plan.resolved, scene=plan.scene,
@@ -5642,14 +5645,6 @@ def _worker_main(plan: RunPlan) -> None:
             nonlocal transform_seconds, write_seconds
             if _cancel_event.is_set():
                 raise SessionCancelled()
-            emit(type("CacheEvent", (), {
-                "phase": "TRANSFORMING_FRAME",
-                "message": (f"Creating playback cache · frame "
-                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
-                "frame_current": frame.solver_frame,
-                "frame_total": plan.frame_count,
-                "indeterminate": False,
-            })())
             step = time.monotonic()
             positions = _snap_closed_sewing_pairs(
                 frame.positions_solver_world, plan.stitch_pairs,
@@ -5661,6 +5656,17 @@ def _worker_main(plan: RunPlan) -> None:
             step = time.monotonic()
             writer.write_frame(local)
             write_seconds += time.monotonic() - step
+            live_path = writer.expose_live()
+            emit(type("CacheEvent", (), {
+                "phase": "TRANSFORMING_FRAME",
+                "message": (f"Creating playback cache · frame "
+                            f"{frame.solver_frame + 1} / {plan.frame_count}"),
+                "frame_current": frame.solver_frame,
+                "frame_total": plan.frame_count,
+                "indeterminate": False,
+                "live_paths": {_plan_deformables(plan)[0].uuid:
+                               str(live_path)},
+            })())
 
         session = SolverSession(resolved=plan.resolved, scene=plan.scene,
                                 work_directory=plan.work_directory,
@@ -6176,7 +6182,7 @@ def _show_baked_timeline(plan: RunPlan) -> None:
         pass
 
 
-def _attach_live_playback(plan: RunPlan) -> None:
+def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
     """Point mesh deformables at the growing PC2 before advancing Timeline.
 
     The worker writes complete transformed frames sequentially. This main-thread
@@ -6192,7 +6198,7 @@ def _attach_live_playback(plan: RunPlan) -> None:
         obj = bpy.data.objects.get(target.object_name)
         if obj is None or getattr(obj, "type", "") == "CURVE":
             continue
-        path = Path(target.pc2_path)
+        path = Path((live_paths or {}).get(target.uuid, target.pc2_path))
         if not path.is_file():
             continue
         modifiers = [mod for mod in obj.modifiers
@@ -6209,7 +6215,8 @@ def _attach_live_playback(plan: RunPlan) -> None:
         mark_owned_playback(obj, modifier, str(path))
 
 
-def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
+def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
+                           live_paths=None) -> None:
     """Move Blender's blocked UI to the newest solver frame on main thread."""
     scene = getattr(getattr(bpy, "context", None), "scene", None)
     if scene is None:
@@ -6220,7 +6227,7 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int) -> None:
     timeline_overlay.set_baked_range(
         int(plan.frame_start), frame, int(plan.frame_end))
     try:
-        _attach_live_playback(plan)
+        _attach_live_playback(plan, live_paths)
         scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
             scene.frame_set(frame)
@@ -6645,7 +6652,8 @@ def _pump_once() -> float | None:
                     current = plan.frame_start + solver_step
                     total = plan.frame_count
                     if event.phase == "TRANSFORMING_FRAME":
-                        _advance_bake_timeline(plan, current)
+                        _advance_bake_timeline(
+                            plan, current, getattr(event, "live_paths", None))
                 activity_code = None
                 if getattr(event, "activity_code", ""):
                     try:

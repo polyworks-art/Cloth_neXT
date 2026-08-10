@@ -1110,6 +1110,39 @@ def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env)
     assert timeline_overlay.baked_range() == (10, 50, 50)
 
 
+def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    final = tmp_path / "cloth.pc2"
+    live = tmp_path / ".cloth.pc2.live.tmp"
+    live.write_bytes(b"growing pc2")
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    target = module.DeformablePlan(
+        ((0, 0, 0),), identity, obj.name, "cloth-uuid", final,
+        "topology", {}, "CLOTH")
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), target.initial_local, identity,
+        obj.name, tmp_path, final, 3, frame_start=10, frame_end=12,
+        deformables=(target,))
+
+    class Scene:
+        frame_current = 10
+
+        def frame_set(self, frame):
+            assert obj.modifiers[0].filepath == str(live)
+            self.frame_current = frame
+
+    blender_env.bpy.context.scene = Scene()
+    module._advance_bake_timeline(
+        plan, 11, {target.uuid: str(live)})
+
+    assert obj.modifiers[0].filepath == str(live)
+    assert blender_env.bpy.context.scene.frame_current == 11
+
+
 def test_single_deformable_tuple_accepts_single_worker_header(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test

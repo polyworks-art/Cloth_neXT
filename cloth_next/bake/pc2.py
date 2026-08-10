@@ -120,6 +120,13 @@ class StreamingPc2Writer:
         self.frames_written += 1
         self.bytes_written += written
 
+    def expose_live(self) -> Path:
+        """Flush complete frames so Blender can read the private cache path."""
+        if self._finished:
+            raise Pc2Error("writer is already finalized or aborted")
+        self._stream.flush()
+        return self.temporary_path
+
     def finalize(self) -> Pc2Header:
         if self._finished:
             raise Pc2Error("writer is already finalized or aborted")
