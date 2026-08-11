@@ -4,419 +4,282 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080a09">
-<meta name="description" content="Cloth NeXt brings Houdini-level contact simulation into a guided Blender workflow for cloth, cables and soft bodies.">
+<meta name="description" content="Cloth NeXt brings production-ready cloth, cables and soft body simulation into a guided Blender workflow.">
 <title>Cloth NeXt | Cloth simulation that just works</title>
 <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
 <link rel="preload" href="../assets/media/WP_Hero2.webp" as="image" type="image/webp">
 <style>
-:root {
-  color-scheme: dark;
-  --bg: #080a09;
-  --soft: #101311;
-  --panel: #151917;
-  --line: rgba(255,255,255,.12);
-  --line-soft: rgba(255,255,255,.07);
-  --text: #f5f7f6;
-  --muted: #a4ada9;
-  --quiet: #6f7974;
-  --accent: #65f5c9;
-  --ink: #06100c;
-  --max: 860px;
-}
-* { box-sizing: border-box; }
-html { background: var(--bg); }
-body {
-  margin: 0;
-  overflow-x: hidden;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-img, video { display: block; max-width: 100%; }
-h1, h2, h3, p, figure { margin-top: 0; }
-h1 {
-  margin-bottom: 1.3rem;
-  max-width: 720px;
-  font-size: clamp(3.55rem, 9vw, 6.5rem);
-  line-height: .89;
-  letter-spacing: -.072em;
-  font-weight: 740;
-}
-h2 {
-  margin: .4rem 0 1.15rem;
-  font-size: clamp(2.4rem, 6.3vw, 4.3rem);
-  line-height: .96;
-  letter-spacing: -.056em;
-  font-weight: 700;
-}
-h3 {
-  margin-bottom: .6rem;
-  font-size: clamp(1.22rem, 3.3vw, 1.7rem);
-  line-height: 1.08;
-  letter-spacing: -.034em;
-}
-.eyebrow, .label, figcaption, .status, .metric span, .media-feature__tag {
-  font-size: .65rem;
-  font-weight: 820;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-}
-.eyebrow, .label { color: var(--accent); }
-.page { width: min(100%, var(--max)); margin: 0 auto; overflow: hidden; }
-.product-bar {
-  min-height: 72px;
-  padding: 1rem clamp(1rem, 4vw, 2rem);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: rgba(8,10,9,.96);
-  border-bottom: 1px solid var(--line);
-}
-.brand { display: flex; align-items: center; gap: .75rem; }
-.brand img { width: 42px; height: 33px; object-fit: contain; }
-.brand strong { display: block; font-size: .93rem; letter-spacing: -.02em; }
-.brand small { display: block; margin-top: .08rem; color: var(--quiet); font-size: .58rem; font-weight: 760; letter-spacing: .12em; }
-.status { display: inline-flex; align-items: center; gap: .45rem; color: #dce4e0; }
-.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px rgba(101,245,201,.7); }
-.hero {
-  position: relative;
-  min-height: 720px;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
-  background: #07100e;
-}
-.hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 63% center; }
-.hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(4,7,6,.98) 0%, rgba(4,7,6,.85) 43%, rgba(4,7,6,.12) 80%),
-    linear-gradient(0deg, rgba(4,7,6,.9) 0%, transparent 46%);
-}
-.hero-copy { position: relative; z-index: 1; width: 100%; padding: clamp(5rem, 11vw, 7rem) clamp(1.2rem, 6vw, 4rem) 4.5rem; }
-.hero-copy p { max-width: 610px; margin-bottom: 0; color: #c3cbc7; font-size: 1.04rem; line-height: 1.72; }
-.hero-facts { display: flex; flex-wrap: wrap; gap: .72rem 1.3rem; margin-top: 1.9rem; color: #939d98; font-size: .64rem; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
-.hero-facts span { display: flex; align-items: center; gap: .48rem; }
-.hero-facts span::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-.before-buy {
-  padding: 1.35rem clamp(1.2rem, 6vw, 4rem);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1.5rem;
-  align-items: center;
-  background: var(--accent);
-  color: var(--ink);
-}
-.before-buy strong { font-size: .88rem; }
-.before-buy p { margin: .2rem 0 0; color: rgba(6,16,12,.7); font-size: .75rem; }
-.before-buy .stack { font-size: .64rem; font-weight: 820; letter-spacing: .1em; text-transform: uppercase; text-align: right; }
-.section { padding: clamp(5.2rem, 9vw, 7.5rem) clamp(1.2rem, 6vw, 4rem); border-bottom: 1px solid var(--line); }
-.section-copy { max-width: 670px; margin-bottom: 2.6rem; }
-.section-copy p, .split-copy p { color: var(--muted); }
-.video-shell { position: relative; overflow: hidden; background: #050706; border: 1px solid var(--line); }
-.video-shell video { width: 100%; height: 100%; object-fit: contain; background: #050706; }
-.character-video { aspect-ratio: 16 / 9; }
-.softbody-video { aspect-ratio: 1 / 1; }
-figcaption {
-  position: absolute;
-  left: .85rem;
-  bottom: .85rem;
-  padding: .5rem .65rem;
-  color: var(--accent);
-  background: rgba(7,9,8,.82);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(10px);
-}
-.metric-strip {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  margin-top: 1px;
-  background: var(--line);
-  gap: 1px;
-}
-.metric { min-height: 112px; padding: 1.05rem; display: flex; flex-direction: column; justify-content: center; background: var(--soft); }
-.metric strong { font-size: clamp(1.5rem, 3.6vw, 2.5rem); line-height: 1; letter-spacing: -.05em; }
-.metric span { margin-top: .42rem; color: var(--quiet); }
-.metric-note { margin: 1rem 0 0; color: var(--quiet); font-size: .68rem; }
-.proof-note {
-  margin-top: 1.4rem;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid var(--line);
-  background: var(--soft);
-  color: var(--muted);
-  font-size: .76rem;
-}
-.proof-note strong { color: var(--text); }
-.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
-.feature-card { min-height: 280px; padding: 1.8rem; background: var(--soft); }
-.feature-card img { width: 30px; height: 30px; margin-bottom: 2.35rem; object-fit: contain; filter: invert(1); opacity: .9; }
-.feature-card p { margin-bottom: 0; color: var(--muted); font-size: .82rem; }
-.media-feature {
-  position: relative;
-  isolation: isolate;
-  min-height: 620px;
-  padding: clamp(4.6rem, 8vw, 6.4rem) clamp(1.2rem, 6vw, 4rem);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  background: #090b0a;
-}
-.media-feature__image {
-  position: absolute;
-  inset: 0;
-  z-index: -3;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  object-fit: cover;
-  transform: scale(1.015);
-  filter: saturate(.84) contrast(1.05) brightness(.82);
-}
-.media-feature::before,
-.media-feature::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.media-feature::before { z-index: -2; }
-.media-feature::after {
-  z-index: -1;
-  background: linear-gradient(0deg, rgba(8,10,9,.72) 0%, transparent 34%, rgba(8,10,9,.18) 100%);
-}
-.media-feature--copy-left::before {
-  background: linear-gradient(90deg, #080a09 0%, rgba(8,10,9,.97) 24%, rgba(8,10,9,.78) 46%, rgba(8,10,9,.17) 72%, rgba(8,10,9,.04) 100%);
-}
-.media-feature--copy-right::before {
-  background: linear-gradient(90deg, rgba(8,10,9,.04) 0%, rgba(8,10,9,.15) 28%, rgba(8,10,9,.76) 57%, rgba(8,10,9,.97) 78%, #080a09 100%);
-}
-.media-feature__copy {
-  position: relative;
-  z-index: 1;
-  width: min(50%, 420px);
-  text-shadow: 0 2px 22px rgba(0,0,0,.62);
-}
-.media-feature--copy-right .media-feature__copy { margin-left: auto; }
-.media-feature__copy p { color: #c4ccc8; }
-.media-feature__copy ul { margin: 1.7rem 0 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.16); }
-.media-feature__copy li { padding: .72rem 0; border-bottom: 1px solid rgba(255,255,255,.1); color: #e1e7e4; font-size: .78rem; }
-.media-feature__copy li::before { content: "+"; margin-right: .65rem; color: var(--accent); }
-.media-feature__tag {
-  position: absolute;
-  z-index: 2;
-  left: clamp(1.2rem, 6vw, 4rem);
-  bottom: 1.25rem;
-  padding: .52rem .7rem;
-  color: var(--accent);
-  background: rgba(7,9,8,.76);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(12px);
-}
-.media-feature--copy-right .media-feature__tag { right: clamp(1.2rem, 6vw, 4rem); left: auto; }
-.media-feature--workflow .media-feature__image { object-position: 72% center; }
-.media-feature--cage .media-feature__image {
-  inset: 0 auto 0 -18%;
-  width: 125%;
-  object-position: center;
-}
-.media-feature--bake .media-feature__image { object-position: 100% center; }
-.media-feature--bake { min-height: 590px; }
-.split { display: grid; grid-template-columns: 1.04fr .96fr; align-items: center; gap: clamp(2rem, 7vw, 4.2rem); }
-.split.reverse { grid-template-columns: .96fr 1.04fr; }
-.split.reverse > :first-child { order: 2; }
-.split-copy ul { margin: 1.7rem 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-.split-copy li { padding: .72rem 0; border-bottom: 1px solid var(--line-soft); color: #d4dbd8; font-size: .78rem; }
-.split-copy li::before { content: "+"; margin-right: .65rem; color: var(--accent); }
-.scope-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin-top: 2.2rem; background: var(--line); border: 1px solid var(--line); }
-.scope-grid article { min-height: 165px; padding: 1.4rem; background: var(--soft); }
-.scope-grid strong { display: block; margin-bottom: .4rem; font-size: .88rem; }
-.scope-grid p { margin: 0; color: var(--muted); font-size: .75rem; }
-.solver-note { margin-top: 2rem; padding: 1.25rem; display: grid; grid-template-columns: 42px 1fr; gap: 1rem; border: 1px solid var(--line); background: var(--soft); }
-.solver-note img { width: 34px; height: 34px; filter: invert(1); opacity: .9; }
-.solver-note strong { display: block; margin-bottom: .25rem; }
-.solver-note p { margin: 0; color: var(--muted); font-size: .75rem; }
-.closing { padding: 6.4rem clamp(1.2rem, 6vw, 4rem); text-align: center; background: radial-gradient(circle at 50% 18%, rgba(101,245,201,.13), transparent 42%); }
-.closing img { width: 78px; margin: 0 auto 2rem; }
-.closing h2 { max-width: 700px; margin-left: auto; margin-right: auto; }
-.closing p { max-width: 570px; margin: 0 auto; color: var(--muted); }
-@media (max-width: 760px) {
-  .feature-grid { grid-template-columns: 1fr; }
-  .feature-card { min-height: 220px; }
-  .split, .split.reverse { grid-template-columns: 1fr; }
-  .split.reverse > :first-child { order: 0; }
-  .media-feature { min-height: 720px; align-items: flex-end; padding-top: 19rem; }
-  .media-feature__copy { width: 100%; }
-  .media-feature--copy-left::before,
-  .media-feature--copy-right::before {
-    background: linear-gradient(0deg, #080a09 0%, rgba(8,10,9,.98) 35%, rgba(8,10,9,.54) 63%, rgba(8,10,9,.08) 100%);
-  }
-  .media-feature--workflow .media-feature__image { object-position: 66% top; }
-  .media-feature--cage .media-feature__image {
-    inset: 0;
-    width: 100%;
-    object-position: center 12%;
-  }
-  .media-feature--bake .media-feature__image { object-position: 25% top; }
-  .media-feature__tag,
-  .media-feature--copy-right .media-feature__tag { left: 1.2rem; right: auto; top: 1rem; bottom: auto; }
-}
-@media (max-width: 680px) {
-  h1 { font-size: clamp(3rem, 14.5vw, 4.65rem); }
-  h2 { font-size: clamp(2.2rem, 10.8vw, 3.55rem); }
-  .hero { min-height: 740px; }
-  .hero > img { object-position: 68% center; }
-  .hero::after { background: linear-gradient(0deg, rgba(4,7,6,.98) 0%, rgba(4,7,6,.87) 51%, rgba(4,7,6,.17) 100%); }
-  .hero-copy { padding-top: 12rem; }
-  .before-buy { grid-template-columns: 1fr; }
-  .before-buy .stack { text-align: left; }
-  .metric-strip { grid-template-columns: repeat(2, 1fr); }
-  .scope-grid { grid-template-columns: 1fr; }
-}
+:root{color-scheme:dark;--bg:#080a09;--soft:#101311;--panel:#151917;--line:rgba(255,255,255,.12);--line-soft:rgba(255,255,255,.07);--text:#f5f7f6;--muted:#a4ada9;--quiet:#6f7974;--accent:#65f5c9;--ink:#06100c;--max:860px}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+img,video{display:block;max-width:100%}
+h1,h2,h3,p,figure{margin-top:0}
+h1,h2,h3{text-wrap:balance}
+h1{margin-bottom:1.35rem;max-width:780px;font-size:clamp(4rem,10.4vw,7.25rem);line-height:.86;letter-spacing:-.078em;font-weight:750}
+h2{margin:.4rem 0 1.05rem;font-size:clamp(2.25rem,5.7vw,4rem);line-height:.96;letter-spacing:-.055em;font-weight:710}
+h3{margin-bottom:.55rem;font-size:clamp(1.18rem,3vw,1.55rem);line-height:1.08;letter-spacing:-.034em}
+.accent{color:var(--accent)}
+.eyebrow,.label,figcaption,.metric span,.media-feature__tag,.micro{font-size:.63rem;font-weight:820;letter-spacing:.15em;text-transform:uppercase}
+.eyebrow,.label{color:var(--accent)}
+.eyebrow{display:inline-flex;align-items:center;gap:.65rem}
+.eyebrow::before{content:"";width:18px;height:1px;background:currentColor;opacity:.72}
+.page{width:min(100%,var(--max));margin:0 auto;overflow:hidden}
+.product-bar{min-height:68px;padding:.9rem clamp(1rem,4vw,2rem);display:flex;align-items:center;justify-content:space-between;gap:1rem;background:rgba(8,10,9,.98);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:.72rem}.brand img{width:40px;height:31px;object-fit:contain}.brand strong{display:block;font-size:.92rem;letter-spacing:-.02em}.brand small{display:block;margin-top:.05rem;color:var(--quiet);font-size:.55rem;font-weight:760;letter-spacing:.12em}.status{display:inline-flex;align-items:center;color:#9ba5a0;font-size:.64rem;font-weight:720;letter-spacing:.055em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hero{position:relative;min-height:800px;display:flex;align-items:flex-end;overflow:hidden;background:#07100e;border-bottom:1px solid var(--line)}
+.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:65% center;filter:saturate(.9) contrast(1.03)}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,7,6,.995) 0%,rgba(4,7,6,.91) 41%,rgba(4,7,6,.14) 81%),linear-gradient(0deg,rgba(4,7,6,.95) 0%,transparent 49%)}
+.hero-copy{position:relative;z-index:1;width:100%;padding:clamp(6rem,13vw,8.5rem) clamp(1.2rem,6vw,4rem) 5.2rem}
+.hero-copy h1{margin-top:1rem}
+.hero-copy p{max-width:535px;margin-bottom:0;color:#c7cecb;font-size:1.07rem;line-height:1.72}
+.hero-facts{display:flex;flex-wrap:wrap;gap:.72rem 1.25rem;margin-top:2.15rem;color:#9ca5a1;font-size:.61rem;font-weight:780;letter-spacing:.1em;text-transform:uppercase}
+.hero-facts span{display:flex;align-items:center;gap:.48rem}.hero-facts span::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.section{padding:clamp(4.1rem,7.4vw,5.7rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid var(--line)}
+.section-copy{max-width:675px;margin-bottom:2.25rem}.section-copy p,.split-copy p{color:var(--muted)}
+.proof-section{padding-top:clamp(6.5rem,10.5vw,8.4rem);padding-bottom:clamp(6.5rem,10.5vw,8.4rem);background:radial-gradient(circle at 12% 8%,rgba(101,245,201,.075),transparent 32%),#080a09}
+.proof-section .section-copy{margin-bottom:3.15rem}.proof-section h2{max-width:770px;margin-top:1rem;font-size:clamp(3.15rem,7.4vw,5.15rem);line-height:.9}.proof-section .section-copy p{max-width:590px;font-size:.98rem}
+.video-shell{position:relative;overflow:hidden;background:#050706;border:1px solid var(--line)}.video-shell video{width:100%;height:100%;object-fit:contain;background:#050706}.character-video{aspect-ratio:16/9;box-shadow:0 34px 80px rgba(0,0,0,.35)}.softbody-video{aspect-ratio:1/1}
+figcaption{position:absolute;left:.85rem;bottom:.85rem;padding:.5rem .65rem;color:var(--accent);background:rgba(7,9,8,.84);border:1px solid var(--line);backdrop-filter:blur(10px)}
+.metric-strip{display:grid;grid-template-columns:repeat(5,1fr);margin-top:1px;background:var(--line);gap:1px}.metric{min-height:124px;padding:1.05rem;display:flex;flex-direction:column;justify-content:center;background:#0d100e}.metric strong{font-size:clamp(1.65rem,4vw,2.75rem);line-height:1;letter-spacing:-.055em;font-variant-numeric:tabular-nums}.metric span{margin-top:.44rem;color:var(--quiet)}.metric-note{margin:1rem 0 0;color:var(--quiet);font-size:.66rem}
+.proof-stamp{display:inline-flex;margin-top:1.35rem;padding:.55rem .72rem;border:1px solid rgba(101,245,201,.28);color:var(--accent);font-size:.62rem;font-weight:820;letter-spacing:.12em;text-transform:uppercase;background:rgba(101,245,201,.035)}
+.contrast{padding:clamp(3.6rem,6.2vw,4.7rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid var(--line);background:#090b0a}.contrast h2{max-width:690px;margin-top:.9rem;font-size:clamp(2.15rem,5vw,3.45rem)}.contrast-intro{max-width:620px;color:var(--muted);font-size:.9rem}.contrast-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:2rem;background:var(--line);border:1px solid var(--line)}.contrast-card{padding:1.25rem;background:var(--soft)}.contrast-card--gain{background:linear-gradient(150deg,rgba(101,245,201,.075),rgba(16,19,17,.98) 56%)}.contrast-card strong{display:block;margin-bottom:.7rem;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase}.contrast-card--gain strong{color:var(--accent)}.contrast-card ul{margin:0;padding:0;list-style:none}.contrast-card li{padding:.48rem 0;border-bottom:1px solid var(--line-soft);color:#c8cfcc;font-size:.75rem}.contrast-card li:last-child{border-bottom:0}.contrast-end{max-width:660px;margin:1.5rem 0 0;color:var(--muted);font-size:.9rem}.contrast-end strong{color:var(--text)}
+.support-section{padding-top:3.6rem;padding-bottom:3.6rem}.support-section .section-copy{margin-bottom:1.7rem}.support-section h2{margin-top:.85rem;font-size:clamp(2.05rem,4.8vw,3.35rem)}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}.feature-card{min-height:220px;padding:1.35rem;background:var(--soft)}.feature-card img{width:27px;height:27px;margin-bottom:1.55rem;object-fit:contain;filter:invert(1);opacity:.86}.feature-card p{margin-bottom:0;color:var(--muted);font-size:.75rem}
+.materials{position:relative;overflow:hidden;padding:clamp(3.8rem,6.5vw,5rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0b0e0c 0%,#080a09 58%)}.materials::after{content:"75";position:absolute;right:-.02em;top:-.21em;color:rgba(101,245,201,.047);font-size:clamp(14rem,38vw,24rem);font-weight:760;line-height:1;letter-spacing:-.1em;pointer-events:none}.materials-copy{position:relative;z-index:1;max-width:570px}.materials-copy h2{margin-top:.9rem;font-size:clamp(2.3rem,5vw,3.5rem)}.materials-copy p{max-width:520px;color:var(--muted);font-size:.88rem}.material-flow{position:relative;z-index:1;margin-top:2rem;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}.material-flow div{padding:.95rem;background:rgba(16,19,17,.95)}.material-flow strong{display:block;font-size:.76rem}.material-flow span{display:block;margin-top:.22rem;color:var(--quiet);font-size:.64rem}
+.media-feature{position:relative;isolation:isolate;min-height:500px;padding:clamp(3.8rem,6.5vw,5rem) clamp(1.2rem,6vw,4rem);display:flex;align-items:center;overflow:hidden;border-bottom:1px solid var(--line);background:#090b0a}.media-feature__image{position:absolute;inset:0;z-index:-3;width:100%;height:100%;max-width:none;object-fit:cover;transform:scale(1.006);filter:saturate(.86) contrast(1.04) brightness(.84)}.media-feature::before,.media-feature::after{content:"";position:absolute;inset:0;pointer-events:none}.media-feature::before{z-index:-2}.media-feature::after{z-index:-1;background:linear-gradient(0deg,rgba(8,10,9,.7) 0%,transparent 34%,rgba(8,10,9,.16) 100%)}.media-feature--copy-left::before{background:linear-gradient(90deg,#080a09 0%,rgba(8,10,9,.97) 24%,rgba(8,10,9,.77) 46%,rgba(8,10,9,.14) 72%,rgba(8,10,9,.03) 100%)}.media-feature--copy-right::before{background:linear-gradient(90deg,rgba(8,10,9,.03) 0%,rgba(8,10,9,.13) 28%,rgba(8,10,9,.75) 57%,rgba(8,10,9,.97) 78%,#080a09 100%)}.media-feature__copy{position:relative;z-index:1;width:min(48%,390px);text-shadow:0 2px 22px rgba(0,0,0,.62)}.media-feature__copy h2{margin-top:.85rem;font-size:clamp(2rem,4.7vw,3.2rem)}.media-feature--copy-right .media-feature__copy{margin-left:auto}.media-feature__copy p{color:#c4ccc8;font-size:.87rem}.media-feature__copy ul{margin:1.25rem 0 0;padding:0;list-style:none;border-top:1px solid rgba(255,255,255,.16)}.media-feature__copy li{padding:.56rem 0;border-bottom:1px solid rgba(255,255,255,.1);color:#e1e7e4;font-size:.71rem}.media-feature__copy li::before{content:"+";margin-right:.6rem;color:var(--accent)}.media-feature__tag{position:absolute;z-index:2;left:clamp(1.2rem,6vw,4rem);bottom:1rem;padding:.45rem .6rem;color:var(--accent);background:rgba(7,9,8,.76);border:1px solid var(--line);backdrop-filter:blur(12px)}.media-feature--copy-right .media-feature__tag{right:clamp(1.2rem,6vw,4rem);left:auto}.media-feature--workflow .media-feature__image{object-position:74% center}.media-feature--cage .media-feature__image{inset:0 auto 0 -18%;width:124%;object-position:center}.media-feature--bake .media-feature__image{object-position:96% center}
+.bonus-section{padding-top:3.8rem;padding-bottom:3.8rem}.split{display:grid;grid-template-columns:1.04fr .96fr;align-items:center;gap:clamp(1.8rem,5vw,3.5rem)}.split.reverse{grid-template-columns:.96fr 1.04fr}.split.reverse>:first-child{order:2}.split-copy h2{margin-top:.85rem;font-size:clamp(2.1rem,4.8vw,3.35rem)}.split-copy ul{margin:1.25rem 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}.split-copy li{padding:.56rem 0;border-bottom:1px solid var(--line-soft);color:#d4dbd8;font-size:.72rem}.split-copy li::before{content:"+";margin-right:.6rem;color:var(--accent)}
+.value-section{position:relative;padding:clamp(7rem,12vw,9.5rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid rgba(101,245,201,.28);background:radial-gradient(circle at 65% 15%,rgba(101,245,201,.16),transparent 36%),linear-gradient(180deg,#0b100d 0%,#080a09 70%)}.value-section::before{content:"VALUE";position:absolute;right:-.02em;top:-.12em;color:rgba(101,245,201,.028);font-size:clamp(9rem,28vw,17rem);font-weight:850;line-height:1;letter-spacing:-.08em;pointer-events:none}.value-section .section-copy{position:relative;z-index:1;max-width:730px;margin-bottom:3rem}.value-section h2{margin-top:1rem;font-size:clamp(3.15rem,7.6vw,5.35rem);line-height:.9}.value-section .section-copy p{max-width:600px;font-size:.94rem}.value-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:2.5rem;background:var(--line);border:1px solid var(--line)}.value-grid div{min-height:104px;padding:1rem;background:rgba(16,19,17,.96);display:flex;align-items:flex-end}.value-grid strong{font-size:.78rem;line-height:1.35}.price-anchor{position:relative;z-index:1;margin-top:3.8rem;padding-top:3rem;border-top:1px solid rgba(101,245,201,.32);display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end}.price-anchor span{display:block;color:#b9c4bf;font-size:.83rem}.price-anchor strong{display:block;margin-top:.2rem;color:var(--accent);font-size:clamp(5rem,15vw,9rem);line-height:.78;letter-spacing:-.085em;font-variant-numeric:tabular-nums}.price-anchor .price-note{text-align:right;color:#8c9892;font-size:.67rem;font-weight:780;letter-spacing:.1em;text-transform:uppercase}
+.license-section{padding:clamp(3.8rem,6.8vw,5.2rem) clamp(1.2rem,6vw,4rem);border-bottom:1px solid var(--line);background:#0a0c0b}.license-section h2{margin-top:.85rem;font-size:clamp(2.2rem,5vw,3.45rem)}.license-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:1.8rem;background:var(--line);border:1px solid var(--line)}.license-card{padding:1.25rem;background:var(--soft)}.license-card--commercial{background:linear-gradient(145deg,rgba(101,245,201,.055),#101311 56%)}.license-card .micro{color:var(--quiet)}.license-card--commercial .micro{color:var(--accent)}.license-card h3{margin:.45rem 0 .25rem;font-size:1.2rem}.license-price{display:block;margin:1rem 0 .75rem;font-size:clamp(2.5rem,6vw,3.7rem);font-weight:730;line-height:.9;letter-spacing:-.065em;font-variant-numeric:tabular-nums}.license-card p{margin:0;color:var(--muted);font-size:.72rem}.license-card .fit{margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--line-soft);color:#dbe1de;font-size:.67rem}
+.compat{padding:1.2rem clamp(1.2rem,6vw,4rem);display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:center;background:var(--accent);color:var(--ink)}.compat strong{font-size:.82rem}.compat p{margin:.16rem 0 0;color:rgba(6,16,12,.7);font-size:.68rem}.compat .stack{font-size:.61rem;font-weight:820;letter-spacing:.1em;text-transform:uppercase;text-align:right}.risk-section{padding-top:3.8rem;padding-bottom:3.8rem}.risk-section h2{margin-top:.85rem;font-size:clamp(2.1rem,4.8vw,3.35rem)}.scope-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;margin-top:1.8rem;background:var(--line);border:1px solid var(--line)}.scope-grid article{min-height:130px;padding:1.1rem;background:var(--soft)}.scope-grid strong{display:block;margin-bottom:.3rem;font-size:.8rem}.scope-grid p{margin:0;color:var(--muted);font-size:.68rem}.solver-note{margin-top:1.5rem;padding:.9rem 1rem;display:grid;grid-template-columns:30px 1fr;gap:.75rem;border:1px solid var(--line-soft);background:#0c0f0d}.solver-note img{width:25px;height:25px;filter:invert(1);opacity:.6}.solver-note strong{display:block;margin-bottom:.1rem;font-size:.72rem}.solver-note p{margin:0;color:var(--quiet);font-size:.65rem}
+.closing{padding:4.8rem clamp(1.2rem,6vw,4rem);text-align:center;background:#080a09}.closing img{width:64px;margin:0 auto 1.6rem;opacity:.9}.closing .eyebrow::before{display:none}.closing h2{max-width:680px;margin:1rem auto 1.05rem;font-size:clamp(2.6rem,6vw,4.2rem)}.closing p{max-width:560px;margin:0 auto;color:var(--muted);font-size:.9rem}.closing-price{margin-top:1.7rem}.closing-price strong{display:block;font-size:clamp(2.2rem,6vw,3.5rem);line-height:1;letter-spacing:-.06em;font-variant-numeric:tabular-nums}.closing-price span{display:block;margin-top:.45rem;color:var(--quiet);font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.truth-note{padding:.9rem clamp(1.2rem,6vw,4rem);border-top:1px solid var(--line);color:var(--quiet);font-size:.61rem;text-align:center;background:#060807}
+.attention-opener{position:fixed;z-index:9999;top:0;left:50%;width:min(100%,var(--max));height:100dvh;min-height:560px;overflow:hidden;isolation:isolate;background:#050706;color:var(--text);cursor:default;transform:translateX(-50%);transition:opacity .32s cubic-bezier(.4,0,.2,1),transform .32s cubic-bezier(.4,0,.2,1),filter .32s cubic-bezier(.4,0,.2,1)}
+.attention-opener::before{content:"";position:absolute;inset:0;z-index:-3;background:radial-gradient(circle at 78% 30%,rgba(101,245,201,.1),transparent 30%),radial-gradient(circle at 12% 86%,rgba(101,245,201,.045),transparent 28%),linear-gradient(145deg,#050706 0%,#080b09 53%,#040605 100%)}
+.attention-opener::after{content:"";position:absolute;z-index:5;inset:-20% auto -20% -34%;width:24%;transform:skewX(-12deg);background:linear-gradient(90deg,transparent,rgba(101,245,201,.055),rgba(255,255,255,.09),rgba(101,245,201,.035),transparent);filter:blur(18px);animation:attentionSweep 5.6s cubic-bezier(.55,.02,.2,1) infinite 1.2s;pointer-events:none}
+.attention-opener.is-dismissing{opacity:0;transform:translateX(-50%) scale(1.012);filter:blur(5px);pointer-events:none}
+.attention-mesh{position:absolute;z-index:-2;inset:-8% -12% -14% 18%;width:108%;height:118%;opacity:.62;transform-origin:55% 48%;animation:meshDrift 8s ease-in-out infinite alternate;pointer-events:none}
+.attention-mesh .mesh-base{fill:none;stroke:rgba(188,205,198,.18);stroke-width:1;vector-effect:non-scaling-stroke}
+.attention-mesh .mesh-soft{fill:none;stroke:rgba(101,245,201,.13);stroke-width:1;vector-effect:non-scaling-stroke}
+.attention-mesh .mesh-hot{fill:none;stroke:rgba(101,245,201,.52);stroke-width:1.25;vector-effect:non-scaling-stroke;stroke-dasharray:90 760;animation:meshTrace 5.8s linear infinite}
+.attention-vignette{position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,rgba(5,7,6,.98) 0%,rgba(5,7,6,.84) 39%,rgba(5,7,6,.18) 76%),linear-gradient(0deg,rgba(5,7,6,.88) 0%,transparent 48%,rgba(5,7,6,.28) 100%);pointer-events:none}
+.attention-inner{position:relative;z-index:2;height:100%;padding:clamp(4rem,10vw,7rem) clamp(1.35rem,7vw,4.7rem) clamp(2rem,5vw,3.1rem);display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+.attention-brand{position:absolute;top:clamp(1.3rem,4vw,2.25rem);left:clamp(1.35rem,7vw,4.7rem);display:flex;align-items:center;gap:.65rem;color:#c8d0cc;font-size:.58rem;font-weight:820;letter-spacing:.16em;text-transform:uppercase;opacity:0;animation:introFade .7s ease forwards .08s}
+.attention-brand img{width:31px;height:auto;opacity:.92}
+.attention-kicker{margin-bottom:1rem;color:#96a09b;font-size:.59rem;font-weight:800;letter-spacing:.17em;text-transform:uppercase;opacity:0;transform:translateY(10px);animation:introRise .7s cubic-bezier(.2,.75,.2,1) forwards .18s}
+.attention-title{margin:0;max-width:700px;font-size:clamp(4.35rem,12vw,7.8rem);font-weight:770;line-height:.79;letter-spacing:-.082em;text-transform:uppercase;text-wrap:balance}
+.attention-title span{display:block;opacity:0;transform:translateY(22px);animation:introRise .78s cubic-bezier(.18,.8,.18,1) forwards}
+.attention-title span:nth-child(1){animation-delay:.24s}.attention-title span:nth-child(2){animation-delay:.34s}.attention-title span:nth-child(3){animation-delay:.44s;color:var(--accent)}
+.attention-rule{width:min(460px,70%);height:1px;margin:1.6rem 0 1.2rem;background:linear-gradient(90deg,var(--accent),rgba(101,245,201,.08));transform:scaleX(0);transform-origin:left;animation:ruleGrow .9s cubic-bezier(.2,.8,.2,1) forwards .72s}
+.attention-sub{margin:0;max-width:520px;color:#c2cac6;font-size:clamp(.82rem,2.2vw,1rem);font-weight:650;letter-spacing:.035em;opacity:0;transform:translateY(8px);animation:introRise .7s ease forwards .88s}
+.attention-sub strong{color:#fff;font-weight:760}
+.attention-hint{position:absolute;left:clamp(1.35rem,7vw,4.7rem);bottom:clamp(1.4rem,4vw,2.4rem);display:flex;align-items:center;gap:.8rem;color:#7d8883;font-size:.56rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:0;animation:introFade .7s ease forwards 1.08s}
+.attention-hint i{position:relative;display:block;width:42px;height:1px;background:rgba(255,255,255,.16);overflow:hidden}
+.attention-hint i::after{content:"";position:absolute;inset:0;width:14px;background:var(--accent);animation:hintTravel 1.7s ease-in-out infinite 1.4s}
+.attention-index{position:absolute;right:clamp(1.3rem,4vw,2.3rem);bottom:clamp(1.3rem,4vw,2.2rem);color:#46504b;font-size:.52rem;font-weight:760;letter-spacing:.16em;text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg)}
+@keyframes introRise{to{opacity:1;transform:translateY(0)}}
+@keyframes introFade{to{opacity:1}}
+@keyframes ruleGrow{to{transform:scaleX(1)}}
+@keyframes meshDrift{0%{transform:translate3d(-1.2%,1%,0) rotate(-.45deg) scale(1.01)}100%{transform:translate3d(1.5%,-1.3%,0) rotate(.35deg) scale(1.025)}}
+@keyframes meshTrace{to{stroke-dashoffset:-850}}
+@keyframes attentionSweep{0%,63%{transform:translateX(0) skewX(-12deg);opacity:0}69%{opacity:1}88%,100%{transform:translateX(680%) skewX(-12deg);opacity:0}}
+@keyframes hintTravel{0%{transform:translateX(-18px);opacity:0}28%{opacity:1}72%{opacity:1}100%{transform:translateX(48px);opacity:0}}
+@media(max-width:760px){h1{font-size:clamp(3.45rem,15vw,5.7rem)}.hero{min-height:720px}.hero-copy{padding-bottom:4rem}.hero-copy h1 br{display:none}.feature-grid,.value-grid,.contrast-grid,.license-grid{grid-template-columns:1fr}.feature-card{min-height:185px}.split,.split.reverse{grid-template-columns:1fr}.split.reverse>:first-child{order:0}.media-feature{min-height:620px;align-items:flex-end;padding-top:16rem}.media-feature__copy{width:100%}.media-feature--copy-left::before,.media-feature--copy-right::before{background:linear-gradient(0deg,#080a09 0%,rgba(8,10,9,.98) 37%,rgba(8,10,9,.48) 65%,rgba(8,10,9,.05) 100%)}.media-feature--workflow .media-feature__image{object-position:66% top}.media-feature--cage .media-feature__image{inset:0;width:100%;object-position:center top}.media-feature--bake .media-feature__image{object-position:78% top}.media-feature--copy-right .media-feature__tag{left:clamp(1.2rem,6vw,4rem);right:auto}.metric-strip{grid-template-columns:repeat(2,1fr)}.metric:last-child{grid-column:1/-1}.material-flow{grid-template-columns:repeat(2,1fr)}.compat{grid-template-columns:1fr}.compat .stack{text-align:left}.scope-grid{grid-template-columns:1fr}.price-anchor{grid-template-columns:1fr}.price-anchor .price-note{text-align:left}.price-anchor strong{font-size:clamp(5rem,25vw,8rem)}.materials::after{top:.02em;right:-.04em;font-size:16rem}.status{font-size:.58rem}.attention-opener{min-height:500px}.attention-inner{justify-content:center;padding-top:5rem}.attention-title{font-size:clamp(3.65rem,16vw,6rem);line-height:.8}.attention-mesh{inset:-5% -65% -5% 5%;width:170%;opacity:.5}.attention-index{display:none}.attention-rule{margin:1.25rem 0 1rem}.attention-hint{bottom:1.3rem}}
+@media(prefers-reduced-motion:reduce){.attention-opener,.attention-mesh,.attention-mesh .mesh-hot,.attention-opener::after,.attention-brand,.attention-kicker,.attention-title span,.attention-rule,.attention-sub,.attention-hint,.attention-hint i::after{animation:none!important;transition:none!important}.attention-brand,.attention-kicker,.attention-title span,.attention-sub,.attention-hint{opacity:1;transform:none}.attention-rule{transform:none}.attention-opener.is-dismissing{opacity:0}}
 </style>
 </head>
 <body>
+<div class="attention-opener" data-attention-opener aria-hidden="true">
+  <svg class="attention-mesh" viewBox="0 0 1000 680" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g class="mesh-base">
+      <path d="M-80 110 L90 35 L240 105 L390 26 L555 112 L720 42 L885 126 L1050 48"/>
+      <path d="M-70 220 L110 145 L270 220 L430 132 L590 226 L750 145 L920 236 L1080 155"/>
+      <path d="M-90 335 L75 255 L250 344 L410 252 L575 354 L735 265 L905 368 L1065 276"/>
+      <path d="M-75 455 L100 372 L265 466 L425 374 L600 478 L765 388 L940 492 L1090 405"/>
+      <path d="M-100 575 L80 492 L245 585 L415 495 L585 596 L755 510 L925 607 L1080 523"/>
+      <path d="M90 35 L110 145 L75 255 L100 372 L80 492 L95 705"/>
+      <path d="M240 105 L270 220 L250 344 L265 466 L245 585 L265 710"/>
+      <path d="M390 26 L430 132 L410 252 L425 374 L415 495 L430 705"/>
+      <path d="M555 112 L590 226 L575 354 L600 478 L585 596 L610 710"/>
+      <path d="M720 42 L750 145 L735 265 L765 388 L755 510 L775 705"/>
+      <path d="M885 126 L920 236 L905 368 L940 492 L925 607 L945 710"/>
+      <path d="M90 35 L270 220 M240 105 L110 145 M390 26 L270 220 M240 105 L430 132 M555 112 L410 252 M430 132 L590 226 M720 42 L590 226 M555 112 L750 145 M885 126 L735 265 M750 145 L920 236 M110 145 L250 344 M270 220 L75 255 M270 220 L410 252 M430 132 L575 354 M590 226 L410 252 M590 226 L735 265 M750 145 L905 368 M920 236 L735 265 M75 255 L265 466 M250 344 L100 372 M250 344 L425 374 M410 252 L600 478 M575 354 L425 374 M575 354 L765 388 M735 265 L940 492 M905 368 L765 388 M100 372 L245 585 M265 466 L80 492 M265 466 L415 495 M425 374 L585 596 M600 478 L415 495 M600 478 L755 510 M765 388 L925 607 M940 492 L755 510"/>
+    </g>
+    <g class="mesh-soft">
+      <path d="M-90 335 C170 235 330 410 575 354 S870 245 1065 276"/>
+      <path d="M-75 455 C165 360 345 520 600 478 S860 385 1090 405"/>
+      <path d="M90 35 C205 190 185 390 245 585"/>
+      <path d="M555 112 C650 250 630 410 755 510"/>
+    </g>
+    <g class="mesh-hot">
+      <path d="M-90 335 L75 255 L250 344 L410 252 L575 354 L735 265 L905 368 L1065 276"/>
+      <path d="M240 105 L270 220 L250 344 L265 466 L245 585"/>
+      <path d="M575 354 L765 388 L925 607"/>
+    </g>
+  </svg>
+  <div class="attention-vignette"></div>
+  <div class="attention-inner">
+    <div class="attention-brand"><img src="../assets/cloth-next-white.svg" alt=""> Cloth NeXt</div>
+    <span class="attention-kicker">Simulation for Blender</span>
+    <div class="attention-title" aria-hidden="true"><span>Cloth</span><span>shouldn't</span><span>fight you.</span></div>
+    <div class="attention-rule"></div>
+    <p class="attention-sub"><strong>Make the shot.</strong> Not the workaround.</p>
+    <div class="attention-hint"><i></i><span>Click or scroll</span></div>
+    <span class="attention-index">Cloth NeXt · Product Experience</span>
+  </div>
+</div>
 <main class="page">
 <header class="product-bar">
-  <div class="brand">
-    <img src="../assets/cloth-next-white.svg" alt="" width="42" height="33">
-    <span><strong>Cloth NeXt</strong><small>SIMULATION FOR BLENDER</small></span>
-  </div>
-  <span class="status">Beta 2.2.0</span>
+  <div class="brand"><img src="../assets/cloth-next-white.svg" alt="" width="40" height="31"><span><strong>Cloth NeXt</strong><small>SIMULATION FOR BLENDER</small></span></div>
+  <span class="status">Current Release: <span data-release-version></span></span>
 </header>
+
 <section class="hero">
-  <img src="../assets/media/WP_Hero2.webp" alt="Simulated garment rendered with Cloth NeXt" width="2048" height="1152">
+  <img src="../assets/media/WP_Hero2.webp" alt="Garment simulated with Cloth NeXt" width="2048" height="1152">
   <div class="hero-copy">
-    <span class="eyebrow">HOUDINI-LEVEL CLOTH CONTACT FOR BLENDER</span>
-    <h1>The cloth add-on Blender has been missing.</h1>
-    <p>Stop fighting intersections and start simulating the clothing you actually want to create. Cloth NeXt brings serious GPU contact simulation, guided setup and production baking into the Blender workflow you already know.</p>
-    <div class="hero-facts"><span>75 material presets</span><span>Animated character collisions</span><span>Verified recovery</span></div>
+    <span class="eyebrow">THE CLOTH ADD-ON BLENDER HAS BEEN MISSING</span>
+    <h1>Make the clothes<br>you <span class="accent">wanted</span> in the<br>first place.</h1>
+    <p>Layer garments. Push animated characters. Keep the detail. Build the shot around the look you want instead of around the compromises cloth usually asks for.</p>
+    <div class="hero-facts"><span>Built for Blender</span><span>75 material presets</span><span>Recovery for long bakes</span></div>
   </div>
 </section>
-<section class="before-buy">
-  <div><strong>Ready in a few clicks.</strong><p>Install the simulation engine directly from the add-on preferences and let Cloth NeXt verify the setup for you.</p></div>
-  <div class="stack">Blender 5.0+ · Windows x64 · NVIDIA GPU</div>
-</section>
-<section class="section">
+
+<section class="section proof-section">
   <div class="section-copy">
-    <span class="eyebrow">PROOF, NOT PROMISES</span>
-    <h2>Throw a full character at it. Cloth NeXt keeps going.</h2>
-    <p>This 223-frame test simulated 230k cloth triangles directly against a complete animated character with another 200k triangles. No collision proxy was used for the body.</p>
+    <span class="eyebrow">THE ACTUAL SIMULATION</span>
+    <h2>This is the character.<br><span class="accent">Not a proxy.</span></h2>
+    <p>230k cloth triangles against a complete 200k-triangle animated character. 223 frames. About 25 minutes. No body collision proxy.</p>
+    <span class="proof-stamp">Real Cloth NeXt result · no AI marketing render</span>
   </div>
   <figure class="video-shell character-video">
-    <video autoplay muted loop playsinline preload="metadata" aria-label="Animated character wearing a Cloth NeXt garment simulation">
-      <source src="../Char_Simulation.mp4" type="video/mp4">
-    </video>
-    <figcaption>ANIMATED CHARACTER SIMULATION</figcaption>
+    <video autoplay muted loop playsinline preload="metadata" aria-label="Animated character wearing a Cloth NeXt garment simulation"><source src="../Char_Simulation.mp4" type="video/mp4"></video>
+    <figcaption>ACTUAL CLOTH NEXT SIMULATION</figcaption>
   </figure>
   <div class="metric-strip" aria-label="Character simulation data">
     <div class="metric"><strong>230k</strong><span>cloth triangles</span></div>
     <div class="metric"><strong>200k</strong><span>character triangles</span></div>
     <div class="metric"><strong>~100k</strong><span>contacts</span></div>
-    <div class="metric"><strong>223</strong><span>simulation frames</span></div>
-    <div class="metric"><strong>~25 min</strong><span>simulation time</span></div>
+    <div class="metric"><strong>223</strong><span>frames</span></div>
+    <div class="metric"><strong>~25 min</strong><span>bake time</span></div>
   </div>
   <p class="metric-note">Measured from the Cloth NeXt character demo shown above. Values are approximate. No collision proxy was used.</p>
-  <div class="proof-note"><strong>Built with serious headroom.</strong> The simulation engine used by Cloth NeXt has been stress-tested beyond 180 million contacts, giving demanding layered scenes room to go far beyond ordinary character cloth.</div>
 </section>
-<section class="section">
-  <div class="section-copy">
-    <span class="eyebrow">WHY ARTISTS BUY CLOTH NEXT</span>
-    <h2>Everything Blender cloth should have been.</h2>
-    <p>Reliable contact, fast setup and bakes you can actually trust. Cloth NeXt turns the most frustrating part of character work into a workflow you will want to use again.</p>
+
+<section class="contrast">
+  <span class="eyebrow">THE REAL COST IS THE WORKAROUND</span>
+  <h2>Cloth problems don't stay cloth problems.</h2>
+  <p class="contrast-intro">They become simpler costumes, safer animation, extra collision work, cleanup and another bake.</p>
+  <div class="contrast-grid">
+    <div class="contrast-card"><strong>WORKING AROUND CLOTH</strong><ul><li>Strip detail before simulating</li><li>Create collision proxies by hand</li><li>Leave extra room between layers</li><li>Dial animation back for stability</li><li>Fix intersections after the bake</li></ul></div>
+    <div class="contrast-card contrast-card--gain"><strong>WORKING WITH CLOTH NEXT</strong><ul><li>Keep dense characters in the shot</li><li>Layer garments with real contact</li><li>Start from a material instead of zero</li><li>See what a long bake is doing</li><li>Recover verified progress after failure</li></ul></div>
   </div>
+  <p class="contrast-end"><strong>The shot should win.</strong> Cloth should follow the art direction, not rewrite it.</p>
+</section>
+
+<section class="section support-section">
+  <div class="section-copy"><span class="eyebrow">WHAT CHANGES</span><h2>More art direction.<br>Less cloth babysitting.</h2><p>Three parts of the workflow matter most: keeping contact reliable, getting to the first bake quickly and keeping long bakes under control.</p></div>
   <div class="feature-grid">
-    <article class="feature-card">
-      <img src="../assets/cloth.svg" alt="">
-      <span class="label">ROBUST CONTACT</span>
-      <h3>Layer garments without the usual intersection cleanup.</h3>
-      <p>Use self-contact and object-to-object contact across cloth, cables, soft bodies and animated colliders.</p>
-    </article>
-    <article class="feature-card">
-      <img src="../assets/physical.svg" alt="">
-      <span class="label">ARTIST-FIRST SETUP</span>
-      <h3>Go from object to bake without learning another application.</h3>
-      <p>Assign roles, choose one of 75 material presets and validate the complete scene from Blender’s Physics Properties.</p>
-    </article>
-    <article class="feature-card">
-      <img src="../assets/diagnostics.svg" alt="">
-      <span class="label">BAKES THAT FIGHT FOR YOU</span>
-      <h3>A failed session should not erase your evening.</h3>
-      <p>Track the solve, catch setup errors early and resume from verified checkpoints after unexpected exits.</p>
-    </article>
+    <article class="feature-card"><img src="../assets/cloth.svg" alt=""><span class="label">KEEP THE LAYERS</span><h3>Let the costume stay a costume.</h3><p>Keep garments, animated characters, cables and deformable objects interacting in the same scene.</p></article>
+    <article class="feature-card"><img src="../assets/physical.svg" alt=""><span class="label">GET TO THE FIRST BAKE</span><h3>Start with fabric, not a spreadsheet.</h3><p>Assign the cloth, choose a material, validate the scene and bake directly from Blender.</p></article>
+    <article class="feature-card"><img src="../assets/diagnostics.svg" alt=""><span class="label">KEEP THE EVENING</span><h3>A failed session should not erase hours.</h3><p>Follow the bake and resume from verified recovery points after unexpected exits.</p></article>
   </div>
 </section>
+
+<section class="materials">
+  <div class="materials-copy"><span class="eyebrow">75 MATERIAL STARTING POINTS</span><h2>Pick the fabric.<br>Keep moving.</h2><p>Start from one of 75 presets and tune only when the shot asks for it. Less guessing, faster first results.</p></div>
+  <div class="material-flow" aria-label="Material workflow"><div><strong>01 · Assign</strong><span>Choose the cloth.</span></div><div><strong>02 · Pick</strong><span>Select a material.</span></div><div><strong>03 · Validate</strong><span>Catch issues early.</span></div><div><strong>04 · Bake</strong><span>Start the simulation.</span></div></div>
+</section>
+
 <section class="media-feature media-feature--copy-left media-feature--workflow">
-  <img class="media-feature__image" src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt inside Blender with a simulated garment and material controls visible" width="1917" height="1007" loading="lazy">
-  <div class="media-feature__copy">
-    <span class="eyebrow">YOUR BLENDER WORKFLOW, UPGRADED</span>
-    <h2>Stay in Blender. Go far beyond Blender Cloth.</h2>
-    <p>Assign a role, choose a material, validate the scene and start the bake. Cloth NeXt handles the heavy simulation workflow without dragging you into another application.</p>
-    <ul><li>Role-specific Physics Properties</li><li>75 production-ready starting points</li><li>Scene context and playback stay visible</li></ul>
-  </div>
+  <img class="media-feature__image" src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt inside Blender with material controls visible" width="1917" height="1007" loading="lazy">
+  <div class="media-feature__copy"><span class="eyebrow">IT STILL FEELS LIKE BLENDER</span><h2>Four steps between<br>your mesh and a bake.</h2><p>Assign. Pick a material. Validate. Bake. The work stays where your scene already lives.</p><ul><li>Role-specific Physics Properties</li><li>Scene context stays visible</li><li>Cached playback returns to Blender</li></ul></div>
   <span class="media-feature__tag">CLOTH NEXT IN BLENDER</span>
 </section>
+
 <section class="media-feature media-feature--copy-right media-feature--cage">
   <img class="media-feature__image" src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character with a Cloth NeXt collision cage visible" width="811" height="811" loading="lazy">
-  <div class="media-feature__copy">
-    <span class="eyebrow">SMART CHARACTER COLLISIONS</span>
-    <h2>Make dense characters lighter when every minute matters.</h2>
-    <p>Generate animation-aware collision cages around the rig and keep demanding character scenes moving without rebuilding your setup by hand.</p>
-    <ul><li>Per-bone collision structure</li><li>Visible and editable in Blender</li><li>Reusable evaluated data</li></ul>
-  </div>
+  <div class="media-feature__copy"><span class="eyebrow">WHEN EVERY MINUTE MATTERS</span><h2>Spend simulation time<br>where the camera sees it.</h2><p>Generate animation-aware collision cages when you want a lighter collision target without rebuilding the character setup by hand.</p><ul><li>Per-bone collision structure</li><li>Visible and editable in Blender</li><li>Reusable evaluated data</li></ul></div>
   <span class="media-feature__tag">CHARACTER COLLISION CAGES</span>
 </section>
+
 <section class="media-feature media-feature--copy-right media-feature--bake">
   <img class="media-feature__image" src="../assets/media/Bake.png" alt="Cloth NeXt Bake Companion showing progress and system activity" width="1920" height="1032" loading="lazy">
-  <div class="media-feature__copy">
-    <span class="eyebrow">THE BAKE COMPANION</span>
-    <h2>Your bake should never be a black box.</h2>
-    <p>See exactly where the simulation is, how long it may take and what your system is doing. No more staring at Blender and hoping it is still alive.</p>
-    <ul><li>Current frame and overall progress</li><li>Estimated remaining time</li><li>CPU, RAM and VRAM monitoring</li></ul>
-  </div>
-  <span class="media-feature__tag">LIVE BAKE FEEDBACK</span>
+  <div class="media-feature__copy"><span class="eyebrow">YOUR BAKE DOESN'T NEED YOUR ATTENTION</span><h2>Know where it is.<br>Know what happens next.</h2><p>See progress, estimated time and system use. If a long session ends unexpectedly, verified recovery can preserve a valid checkpoint.</p><ul><li>Current frame and progress</li><li>Estimated remaining time</li><li>CPU, RAM and VRAM monitoring</li><li>Verified recovery and resume</li></ul></div>
+  <span class="media-feature__tag">BAKE COMPANION + RECOVERY</span>
 </section>
-<section class="section split reverse">
-  <figure class="video-shell softbody-video">
-    <video autoplay muted loop playsinline preload="metadata" aria-label="Cloth NeXt soft-body simulation">
-      <source src="../Softbody.mp4" type="video/mp4">
-    </video>
-    <figcaption>SOFT BODY SIMULATION</figcaption>
-  </figure>
-  <div class="split-copy">
-    <span class="eyebrow">ONE ADD-ON. MORE THAN CLOTH.</span>
-    <h2>Push the same workflow into cables and soft bodies.</h2>
-    <p>Build complete contact scenes with cloth, cables, closed soft bodies, colliders and forces without stitching together a pile of unrelated tools.</p>
-    <ul><li>Automatic internal tetrahedral volume</li><li>Shared object-to-object contact</li><li>Cached playback inside Blender</li></ul>
-  </div>
+
+<section class="section split reverse bonus-section">
+  <figure class="video-shell softbody-video"><video autoplay muted loop playsinline preload="metadata" aria-label="Cloth NeXt soft-body simulation"><source src="../Softbody.mp4" type="video/mp4"></video><figcaption>SOFT BODY SIMULATION</figcaption></figure>
+  <div class="split-copy"><span class="eyebrow">YOU CAME FOR CLOTH</span><h2>The rest<br>comes with it.</h2><p>The same Cloth NeXt workflow extends into cables, closed soft bodies, rigid bodies, colliders and forces.</p><ul><li>Automatic internal tetrahedral volume</li><li>Shared object-to-object contact</li><li>Cached playback inside Blender</li></ul></div>
 </section>
-<section class="section">
-  <div class="section-copy">
-    <span class="eyebrow">BUILT FOR REAL WORK</span>
-    <h2>The core workflow is already here.</h2>
-    <p>Beta means Cloth NeXt is growing. It does not mean you are buying a tech demo. The complete setup, simulation, baking, cache and recovery workflow is already built for demanding Blender projects.</p>
-  </div>
-  <div class="scope-grid">
-    <article><strong>What you get today</strong><p>Cloth, Cable / Rope, Soft Body, Rigid Body, Collider, Force, Hard and Soft Pins, Collision Cages, Bake Companion and verified recovery.</p></article>
-    <article><strong>Built for production hardware</strong><p>Blender 5.0 or newer, Windows x64 and a compatible NVIDIA GPU. Cloth NeXt is focused on high-quality offline simulation, not disposable real-time approximations.</p></article>
-  </div>
-  <div class="solver-note">
-    <img src="../assets/solver.svg" alt="">
-    <div><strong>Setup that handles itself.</strong><p>The solver is not included in the add-on ZIP, but can be installed directly from the add-on preferences. Cloth NeXt handles installation guidance and compatibility checks.</p></div>
+
+<section class="value-section">
+  <div class="section-copy"><span class="eyebrow">ONE ADD-ON. ONE WORKFLOW.</span><h2>Everything around the sim<br><span class="accent">is part of the product.</span></h2><p>Setup, materials, animated characters, collision optimization, baking, monitoring, recovery and playback stay in one Blender workflow.</p></div>
+  <div class="value-grid"><div><strong>Layered Cloth</strong></div><div><strong>75 Material Presets</strong></div><div><strong>Animated Characters</strong></div><div><strong>Character Collision Cages</strong></div><div><strong>Hard + Soft Pins</strong></div><div><strong>Bake Companion</strong></div><div><strong>Verified Recovery</strong></div><div><strong>Soft Bodies + Cables</strong></div><div><strong>Rigid Bodies + Forces</strong></div></div>
+  <div class="price-anchor"><div><span>Everything above starts at</span><strong>$20</strong></div><div class="price-note">Personal license<br>Commercial license $100</div></div>
+</section>
+
+<section class="license-section">
+  <div class="section-copy"><span class="eyebrow">PICK THE LICENSE THAT MATCHES THE WORK</span><h2>Personal project<br>or paid production?</h2><p>Same Cloth NeXt workflow. The license changes with how you use it.</p></div>
+  <div class="license-grid">
+    <article class="license-card"><span class="micro">PERSONAL</span><h3>For personal work and smaller commercial use.</h3><span class="license-price">$20</span><p>For one individual user, including personal and non-commercial work plus commercial work generating up to $1,000 in revenue per year.</p><div class="fit">Best fit: learning, portfolio work, personal projects and small paid use.</div></article>
+    <article class="license-card license-card--commercial"><span class="micro">COMMERCIAL</span><h3>For unrestricted paid production.</h3><span class="license-price">$100</span><p>For one individual professional user with unlimited commercial use across freelance work, client projects and paid productions.</p><div class="fit">Best fit: professional artists using Cloth NeXt as part of paid work.</div></article>
   </div>
 </section>
+
+<section class="compat"><div><strong>Built for modern Blender workstations.</strong><p>Clear requirements and compatibility checks before the expensive part starts.</p></div><div class="stack">Blender 5.0+ · Windows x64 · NVIDIA GPU</div></section>
+
+<section class="section risk-section">
+  <div class="section-copy"><span class="eyebrow">KNOW BEFORE YOU BUY</span><h2>No surprises<br>after checkout.</h2><p>The production target is intentionally clear. If your setup matches it, Cloth NeXt handles the workflow from scene preparation through cached playback.</p></div>
+  <div class="scope-grid"><article><strong>Compatibility</strong><p>Blender 5.0 or newer on Windows x64 with a compatible NVIDIA GPU.</p></article><article><strong>Guided setup</strong><p>Cloth NeXt walks through the required setup and verifies compatibility before you bake.</p></article><article><strong>Built for final-quality work</strong><p>Designed for demanding offline simulation rather than disposable real-time approximations.</p></article><article><strong>Clear support path</strong><p>Documentation, diagnostics and compatibility checks stay part of the same workflow.</p></article></div>
+  <div class="solver-note"><img src="../assets/solver.svg" alt=""><div><strong>One setup detail.</strong><p>The required simulation engine is installed separately through Cloth NeXt preferences. Cloth NeXt guides the installation and verifies compatibility for you.</p></div></div>
+</section>
+
 <section class="closing">
-  <img src="../assets/cloth-next-white.svg" alt="" width="78" height="60">
-  <span class="eyebrow">YOUR CLOTH WORKFLOW, UPGRADED</span>
-  <h2>Stop settling for cloth that almost works.</h2>
-  <p>Cloth NeXt gives Blender the simulation workflow it should have had from the start.</p>
+  <img src="../assets/cloth-next-white.svg" alt="" width="64" height="49">
+  <span class="eyebrow">WHEN THE QUESTION IS CLOTH IN BLENDER</span>
+  <h2>Make the shot.<br><span class="accent">Not the workaround.</span></h2>
+  <p>Stop shaping the art direction around cloth limitations.</p>
+  <div class="closing-price"><strong>From $20</strong><span>Personal $20 · Commercial $100 on Superhive</span></div>
 </section>
+
+<div class="truth-note">Every simulation and result shown on this page was produced with Cloth NeXt.</div>
 </main>
+<script>
+(() => {
+  const opener=document.querySelector('[data-attention-opener]');
+  if(opener){
+    let dismissed=false;
+    const passive={passive:true,capture:true};
+    const dismiss=()=>{
+      if(dismissed)return;
+      dismissed=true;
+      opener.classList.add('is-dismissing');
+      window.removeEventListener('pointerdown',dismiss,passive);
+      window.removeEventListener('wheel',dismiss,passive);
+      window.removeEventListener('touchstart',dismiss,passive);
+      window.removeEventListener('scroll',dismiss,passive);
+      window.removeEventListener('keydown',onKey,true);
+      window.setTimeout(()=>opener.remove(),360);
+    };
+    const onKey=(event)=>{
+      if(['ArrowDown','ArrowUp','PageDown','PageUp',' ','Enter','Escape'].includes(event.key))dismiss();
+    };
+    window.addEventListener('pointerdown',dismiss,passive);
+    window.addEventListener('wheel',dismiss,passive);
+    window.addEventListener('touchstart',dismiss,passive);
+    window.addEventListener('scroll',dismiss,passive);
+    window.addEventListener('keydown',onKey,true);
+    if(window.scrollY>4)dismiss();
+  }
+})();
+
+(() => {
+  const versionTarget=document.querySelector('[data-release-version]');
+  if(!versionTarget)return;
+  fetch('../index.html',{cache:'no-store'})
+    .then(response=>{if(!response.ok)throw new Error('release source unavailable');return response.text()})
+    .then(html=>{const source=new DOMParser().parseFromString(html,'text/html');const releaseLabel=source.querySelector('.release-label')?.textContent||'';const match=releaseLabel.match(/\b(\d+)\.(\d+)(?:\.(\d+))?\b/);if(!match)throw new Error('release version missing');versionTarget.textContent=`${match[1]}.${match[2]}.${match[3]??'0'}`})
+    .catch(()=>{versionTarget.textContent='Unavailable'});
+})();
+</script>
 </body>
 </html>
