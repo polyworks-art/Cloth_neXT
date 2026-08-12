@@ -924,6 +924,37 @@ def test_cancel_before_simulation_skips_checkpoint(monkeypatch, tmp_path):
     assert "cancel_build" in requests
 
 
+def test_cancel_before_solver_start_initializes_recovery(monkeypatch, tmp_path):
+    server_root = tmp_path / "server"
+    metadata = tmp_path / "recovery" / "metadata.json"
+    options = RecoveryOptions(
+        True, metadata, _recovery_identity(), server_root,
+        save_on_cancel=True)
+    cancel = threading.Event()
+    cancel.set()
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, tmp_path / "ppf-cts-server.exe",
+        "0.1.0", "0.13", "2", ConnectionOwnership.OWNED_PROCESS,
+        None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(),
+        work_directory=tmp_path / "run", cancel_event=cancel,
+        recovery_options=options)
+
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+
+    outcome = raised.value.recovery_outcome
+    assert outcome is not None
+    assert not outcome.checkpoint_saved
+    assert outcome.kind is RecoveryOutcomeKind.NOT_AVAILABLE_YET
+    assert outcome.state_before == "STARTING_SOLVER"
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.ABANDONED
+    assert record.error == "Recovery project missing"
+
+
 def test_cancel_with_failed_save_and_quit_marks_record_failed(
         monkeypatch, tmp_path):
     scripted = ScriptedWire(monkeypatch)

@@ -1413,7 +1413,7 @@ class SolverSession:
     def _save_recovery_on_cancel(self) -> RecoveryOutcome:
         options, record = self._recovery, self._recovery_record
         if (options is None or record is None
-                or not options.save_on_cancel or self._address is None):
+                or not options.save_on_cancel):
             return RecoveryOutcome(
                 checkpoint_saved=False,
                 artist_message="Bake cancelled",
@@ -1421,6 +1421,21 @@ class SolverSession:
                 state_before="N/A",
                 saved_states=(),
                 kind=RecoveryOutcomeKind.NOT_ENABLED)
+
+        if self._address is None:
+            technical = (
+                "cancel arrived before the solver connection was available")
+            self._recovery_record = recovery.transition(
+                options.metadata_path, record, recovery.ProjectState.FAILED,
+                error=technical)
+            return RecoveryOutcome(
+                checkpoint_saved=False,
+                artist_message=(
+                    "Bake cancelled before a recovery checkpoint was available"),
+                technical_reason=technical,
+                state_before="STARTING_SOLVER",
+                saved_states=(),
+                kind=RecoveryOutcomeKind.NOT_AVAILABLE_YET)
 
         verified_before = tuple(
             sorted(item.frame for item in self._recovery_record.checkpoints))
@@ -1734,8 +1749,12 @@ class SolverSession:
         preserved = False
         primary_error: BaseException | None = None
         try:
-            self._check_cancel()
+            # Establish durable Recovery ownership before observing Cancel.
+            # The UI can request cancellation immediately after the worker is
+            # published; checking first used to misreport that narrow window
+            # as Recovery NOT_ENABLED and create no metadata at all.
             self._recovery_start()
+            self._check_cancel()
             if owned:
                 self._event("STARTING_SOLVER", "Starting PPF solver",
                             indeterminate=True)
