@@ -632,7 +632,7 @@ def _solver_status(context) -> _SolverStatus:
         raw = ""
     # The installation registry is the authority for the side-by-side solver
     # manager. Check it before the legacy single-installation pointer: a
-    # downloaded 0.11 or 0.13 release need not own old ``current.json``.
+    # A registered side-by-side release need not own legacy ``current.json``.
     try:
         from ..updater.install_paths import ManagedSolverPaths
         from ..updater.solver_registry import load_registry

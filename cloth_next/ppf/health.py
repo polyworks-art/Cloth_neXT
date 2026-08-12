@@ -71,15 +71,21 @@ def query_health(
         if executable_protocol is not None and executable_protocol != parsed.protocol_version:
             compatibility = validate_versions(
                 executable_protocol, schema, package, profile=profile)
-        if response.get("error"):
-            raise ValueError(f"PPF error response: {response['error']}")
+        if parsed.error:
+            crash = (f"; crash_kind={parsed.crash_kind!r}"
+                     if parsed.crash_kind else "")
+            raise ValueError(f"PPF error response: {parsed.error}{crash}")
         error = compatibility.error
         if compatibility.schema_compatible is None:
             error = ErrorRecord.create(
                 category=ErrorCategory.PROTOCOL_COMPATIBILITY,
                 user_message="The server protocol matches, but its scene schema cannot be verified remotely.",
-                technical_message="PPF 0.11 status responses do not expose schema_version or package_version",
-                recommended_action="For full verification, configure the matching local executable from pinned commit 7193f158.",
+                technical_message=(
+                    "A remote status response does not expose a verifiable "
+                    "schema or package version."),
+                recommended_action=(
+                    "Select a locally installed supported Cloth NeXt solver "
+                    "for full verification."),
                 recoverable=True,
             )
         return HealthSnapshot(True, compatibility.fully_compatible, ownership, process_running,

@@ -20,7 +20,7 @@ from cloth_next.ppf.transport import TransportConfig
 from tests.test_ppf_transport import TcpTestDouble
 
 
-def response(protocol="0.11", status="READY"):
+def response(protocol="0.13", status="READY"):
     return json.dumps({"protocol_version": protocol, "status": status, "error": "", "frame": 0}).encode() + b"\n"
 
 
@@ -28,11 +28,11 @@ def test_owned_health_snapshot_is_fully_verified_and_immutable():
     server = TcpTestDouble([response()])
     health = query_health(host="127.0.0.1", port=server.port, project_name="demo",
         ownership=ConnectionOwnership.OWNED_PROCESS, transport=TransportConfig(),
-        local_versions=("0.1.0", "0.11", "1"), process_running=True, process_id=42)
+        local_versions=("0.1.0", "0.13", "2"), process_running=True, process_id=42)
     server.close()
     assert health.reachable and health.compatible
     assert health.application_state is ApplicationState.READY
-    assert health.schema_version == "1"
+    assert health.schema_version == "2"
     with pytest.raises(FrozenInstanceError):
         health.reachable = False
 
@@ -75,7 +75,7 @@ class FakeManager:
         self.polls = iter(polls)
         self.started = False
         self.stopped = False
-    def executable_version(self): return ("0.1.0", "0.11", "1")
+    def executable_version(self): return ("0.1.0", "0.13", "2")
     def start(self): self.started = True
     def poll(self): return next(self.polls)
     def stop(self): self.stopped = True
@@ -92,7 +92,7 @@ def poll(running=True, ready=False, exit_code=None):
 def test_start_waits_for_delayed_ready_marker_and_query():
     manager = FakeManager([poll(ready=False), poll(ready=True)])
     ready = HealthSnapshot(True, True, ConnectionOwnership.OWNED_PROCESS, True,
-        "127.0.0.1", 19091, "0.1.0", "0.11", "1", "NO_DATA", None, 42, None, None,
+        "127.0.0.1", 19091, "0.1.0", "0.13", "2", "NO_DATA", None, 42, None, None,
         __import__("datetime").datetime.now(__import__("datetime").timezone.utc))
     with patch("cloth_next.ppf.health.port_reachable", return_value=False), \
          patch("cloth_next.ppf.health.query_health", return_value=ready), \
@@ -116,7 +116,7 @@ def test_ready_marker_tolerates_initial_connection_refusals_then_succeeds():
             __import__("datetime").timezone.utc))
     ready = HealthSnapshot(
         True, True, ConnectionOwnership.OWNED_PROCESS, True,
-        "127.0.0.1", 19091, "0.1.0", "0.11", "1", "NO_DATA",
+        "127.0.0.1", 19091, "0.1.0", "0.13", "2", "NO_DATA",
         None, 42, None, None,
         __import__("datetime").datetime.now(
             __import__("datetime").timezone.utc))

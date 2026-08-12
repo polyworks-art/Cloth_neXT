@@ -40,13 +40,13 @@ def installation(tmp_path: Path, *, installation_id: str, display_name: str,
 def test_bundled_releases_have_expected_codenames():
     releases = load_bundled_manifest().releases_for(PLATFORM)
     assert [(entry.protocol_version, entry.release_name) for entry in releases] == [
-        ("0.11", "Lunelle"),
         ("0.13", "Velune"),
+        ("0.18", "Lumen"),
     ]
     assert all(entry.codename == entry.display_name for entry in releases)
 
 
-def test_existing_date_named_registry_is_presented_with_codenames(
+def test_retired_installation_is_preserved_but_supported_release_is_renamed(
         blender_env, monkeypatch, tmp_path):
     import cloth_next.blender.solver_release_naming as naming
 
@@ -74,7 +74,7 @@ def test_existing_date_named_registry_is_presented_with_codenames(
 
     assert error is None
     assert [item.display_name for item in renamed.installations] == [
-        "Lunelle", "Velune"]
+        "PPF Contact Solver 2026-07-13", "Velune"]
     assert renamed.selected_installation_id == velune.installation_id
     assert renamed.installations[1].executable_path == velune.executable_path
 

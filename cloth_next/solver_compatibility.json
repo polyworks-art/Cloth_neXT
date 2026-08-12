@@ -1,32 +1,15 @@
 {
   "manifest_version": 2,
-  "cloth_next_version": "2.2.26",
+  "cloth_next_version": "2.2.27",
   "platforms": {
     "windows-x86_64": {
-      "default_release_id": "ppf-0.11-stable",
+      "default_release_id": "ppf-0.13-stable",
       "releases": [
         {
-          "id": "ppf-0.11-stable",
-          "codename": "Lunelle",
-          "display_name": "Lunelle",
-          "channel": "stable",
-          "solver_package_version": "0.1.0",
-          "protocol_version": "0.11",
-          "schema_version": "1",
-          "official_repository": "st-tech/ppf-contact-solver",
-          "official_release_tag": "2026-07-13-21-05",
-          "official_asset_name": "ppf-contact-solver-2026-07-13-21-05-win64.zip",
-          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-13-21-05/ppf-contact-solver-2026-07-13-21-05-win64.zip",
-          "download_size": 445446777,
-          "sha256": "ad51f4fedfe1dfdf4c837b8e55cc4fe2a73efb5fe9b6abff3d2e9cc742a0b6f9",
-          "archive_layout_version": 1,
-          "health_check_required": true
-        },
-        {
-          "id": "ppf-0.13-current",
+          "id": "ppf-0.13-stable",
           "codename": "Velune",
           "display_name": "Velune",
-          "channel": "current",
+          "channel": "stable",
           "solver_package_version": "0.1.0",
           "protocol_version": "0.13",
           "schema_version": "2",
@@ -36,6 +19,23 @@
           "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-07-26-22-53/ppf-contact-solver-2026-07-26-22-53-win64.zip",
           "download_size": 448046043,
           "sha256": "a7fcb372990ad568b6fcf01149a1e1e750aa4f735d1b8047e540b5e9540c4db5",
+          "archive_layout_version": 1,
+          "health_check_required": true
+        },
+        {
+          "id": "ppf-0.18-current",
+          "codename": "Lumen",
+          "display_name": "Lumen",
+          "channel": "current",
+          "solver_package_version": "0.1.0",
+          "protocol_version": "0.18",
+          "schema_version": "2",
+          "official_repository": "st-tech/ppf-contact-solver",
+          "official_release_tag": "2026-08-12-15-47",
+          "official_asset_name": "ppf-contact-solver-2026-08-12-15-47-win64.zip",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-08-12-15-47/ppf-contact-solver-2026-08-12-15-47-win64.zip",
+          "download_size": 447922058,
+          "sha256": "f80d185b5c585b5f7749d747f317f4e7ab57d0522f10083f970089ff7d378733",
           "archive_layout_version": 1,
           "health_check_required": true
         }

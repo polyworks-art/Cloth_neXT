@@ -36,18 +36,21 @@ def _probe(executable: Path):
 
 
 def _encode_payloads(deformable: SceneObject, collider: SceneObject,
-                     kind: str, material, schema_version: int):
+                     kind: str, material, schema_version: int,
+                     protocol_version: str = "0.13"):
     settings = SimulationSettings(5, 24, (0, 0, -9.81))
     data, data_hash = encode_deformable_scene(
         deformable, collider, group_type=kind, schema_version=schema_version)
     params, param_hash = encode_deformable_param(
         settings, deformable.name, deformable.uuid,
         ((collider.name, collider.uuid, DEFAULT_STATIC_SETTINGS),),
-        group_type=kind, material=material, schema_version=schema_version)
+        group_type=kind, material=material, schema_version=schema_version,
+        protocol_version=protocol_version)
     return settings, data, data_hash, params, param_hash
 
 
-def _run(resolved, output: Path, kind: str, *, schema_version: int):
+def _run(resolved, output: Path, kind: str, *, schema_version: int,
+         protocol_version: str):
     uid = f"smoke-{kind.lower()}"
     if kind == "ROD":
         vertices = ((-0.8, 0, 1.1), (-0.4, 0.1, 1.0), (0, 0, 0.9),
@@ -76,7 +79,8 @@ def _run(resolved, output: Path, kind: str, *, schema_version: int):
         ((-2, -2, 0), (2, -2, 0), (2, 2, 0), (-2, 2, 0)),
         ((0, 1, 2), (0, 2, 3)), IDENTITY)
     settings, data, data_hash, params, param_hash = _encode_payloads(
-        deformable, collider, kind, material, schema_version)
+        deformable, collider, kind, material, schema_version,
+        protocol_version)
     scene = SessionScene(new_project_name(), deformable.name, uid, len(vertices),
         collider.name, collider.uuid, settings.frame_count, data, params,
         data_hash, param_hash,
@@ -112,7 +116,10 @@ def run(solver: Path, output: Path) -> dict[str, object]:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     wire_schema = int(resolved.schema_version or "1")
-    report = {kind: _run(resolved, output, kind, schema_version=wire_schema)
+    wire_protocol = getattr(resolved, "protocol_version", None) or "0.13"
+    report = {kind: _run(
+                  resolved, output, kind, schema_version=wire_schema,
+                  protocol_version=wire_protocol)
               for kind in ("ROD", "SOLID", "PDRD")}
     return {"result": "PASS", **report}
 

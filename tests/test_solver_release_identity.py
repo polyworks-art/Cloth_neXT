@@ -213,7 +213,7 @@ def test_legacy_installation_initializes_as_update_available(tmp_path):
     paths.ensure_layout()
     write_legacy_current(paths, "0.1.0", "ppf-cts-server.exe")
     installer = ManagedSolverInstaller(
-        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.11", "1"),
+        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.13", "2"),
         health_check=lambda _p: True, fetch=FetchSpy(archive))
     assert installer.state is InstallerState.UPDATE_AVAILABLE
 
@@ -236,7 +236,7 @@ def test_corrupt_metadata_initializes_as_repair_required(tmp_path):
     paths.ensure_layout()
     paths.current_json.write_text("{broken", encoding="utf-8")
     installer = ManagedSolverInstaller(
-        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.11", "1"),
+        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.13", "2"),
         health_check=lambda _p: True, fetch=FetchSpy(archive))
     assert installer.state is InstallerState.REPAIR_REQUIRED
 
@@ -306,7 +306,7 @@ def test_update_installs_side_by_side_under_the_release_tag(tmp_path):
     paths, _snapshot = legacy_setup(tmp_path)
     archive = make_solver_zip(tmp_path)
     installer = ManagedSolverInstaller(
-        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.11", "1"),
+        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.13", "2"),
         health_check=lambda _p: True, fetch=FetchSpy(archive))
     assert run_pipeline(installer) is InstallerState.READY
     # old folder untouched, new release side by side under the immutable tag
@@ -326,7 +326,7 @@ def test_failed_update_preserves_the_legacy_installation(tmp_path, failure):
     paths, snapshot = legacy_setup(tmp_path)
     archive = make_solver_zip(tmp_path)
     entry = make_entry(archive)
-    probe = lambda _p: ("0.1.0", "0.11", "1")  # noqa: E731
+    probe = lambda _p: ("0.1.0", "0.13", "2")  # noqa: E731
     health = lambda _p: True  # noqa: E731
     if failure == "hash":
         entry = replace(entry, sha256="0" * 64)
@@ -357,7 +357,7 @@ def test_successful_update_switches_only_after_health_check(tmp_path):
         return True
 
     installer = ManagedSolverInstaller(
-        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.11", "1"),
+        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.13", "2"),
         health_check=health, fetch=FetchSpy(archive))
     assert run_pipeline(installer) is InstallerState.READY
     assert not observed["active_during_health_check"].has_release_identity
@@ -368,7 +368,7 @@ def test_reading_legacy_metadata_never_rewrites_it(tmp_path):
     paths, snapshot = legacy_setup(tmp_path)
     archive = make_solver_zip(tmp_path)
     installer = ManagedSolverInstaller(
-        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.11", "1"),
+        paths, make_entry(archive), probe_version=lambda _p: ("0.1.0", "0.13", "2"),
         health_check=lambda _p: True, fetch=FetchSpy(archive))
     installer.check_for_update()
     installer.active_installation()

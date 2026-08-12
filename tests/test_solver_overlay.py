@@ -119,6 +119,7 @@ def test_existing_v4_overlay_gains_unverified_flag_suppression(tmp_path):
 def test_protocol_013_uses_only_verified_upstream_integration(tmp_path):
     frontend = tmp_path / "frontend"
     frontend.mkdir()
+    (frontend / "_decoder_.py").write_text("decoder\n", encoding="utf-8")
     scene = frontend / "_scene_.py"
     worker = frontend / "build_worker.py"
     scene.write_text(
@@ -136,6 +137,51 @@ def test_protocol_013_uses_only_verified_upstream_integration(tmp_path):
     assert (tmp_path / ".cloth-next-upstream-integration-0.13-schema-2").is_file()
     assert not (tmp_path / (
         f".cloth-next-{solver_overlay.OVERLAY_VERSION}")).exists()
+
+
+def test_protocol_018_uses_exact_verified_noop_recipe(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    scene = frontend / "_scene_.py"
+    decoder = frontend / "_decoder_.py"
+    worker = frontend / "build_worker.py"
+    scene.write_text(
+        'all_violations = result["violations"]\n'
+        'raise ValidationError(result["combined_message"], '
+        'violations=all_violations)\n'
+        'statistics_input_path = os.path.join(path, "statistics_input.cbor")\n',
+        encoding="utf-8")
+    decoder.write_text(
+        'elif key == "lock-translation":\n'
+        'elif key == "lock-rotation":\n'
+        'elif key == "lock-rotation-prohibit-axis":\n', encoding="utf-8")
+    worker.write_text(
+        'json.dump({"violations": violations}, fp)\n', encoding="utf-8")
+
+    before = (scene.read_text(encoding="utf-8"),
+              decoder.read_text(encoding="utf-8"),
+              worker.read_text(encoding="utf-8"))
+    solver_overlay.apply_solver_overlay(
+        tmp_path, protocol_version="0.18", schema_version="2",
+        official_release_tag="2026-08-12-15-47", managed=True)
+
+    assert before == (scene.read_text(encoding="utf-8"),
+                      decoder.read_text(encoding="utf-8"),
+                      worker.read_text(encoding="utf-8"))
+    assert (tmp_path / ".cloth-next-upstream-integration-0.18-schema-2").is_file()
+
+
+def test_protocol_018_recipe_fails_closed_on_modified_frontend(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "_scene_.py").write_text("modified", encoding="utf-8")
+    (frontend / "_decoder_.py").write_text("modified", encoding="utf-8")
+    (frontend / "build_worker.py").write_text("modified", encoding="utf-8")
+
+    with pytest.raises(solver_overlay.SolverOverlayError, match="anchors"):
+        solver_overlay.apply_solver_overlay(
+            tmp_path, protocol_version="0.18", schema_version="2",
+            official_release_tag="2026-08-12-15-47", managed=True)
 
 
 def test_unknown_or_external_release_is_not_patched(tmp_path):

@@ -28,7 +28,7 @@ from cloth_next.updater.solver_manifest import (OFFICIAL_DOWNLOAD_PREFIX,
 from cloth_next.updater.states import DESCRIPTORS, InstallerState
 from cloth_next.updater.view_model import build_section
 
-VERSIONS = ("0.1.0", "0.11", "1")
+VERSIONS = ("0.1.0", "0.13", "2")
 
 
 def make_solver_zip(tmp_path, members=None, name="solver.zip"):
@@ -45,7 +45,7 @@ def make_entry(archive, version="0.1.0"):
     asset = f"ppf-contact-solver-{tag}-win64.zip"
     return SolverCompatibilityEntry(
         platform="windows-x86_64", solver_package_version=version,
-        protocol_version="0.11", schema_version="1",
+        protocol_version="0.13", schema_version="2",
         official_repository="st-tech/ppf-contact-solver",
         official_release_tag=tag, official_asset_name=asset,
         official_asset_url=f"{OFFICIAL_DOWNLOAD_PREFIX}{tag}/{asset}",
@@ -272,7 +272,7 @@ def test_protocol_mismatch_prevents_activation(tmp_path):
 
 
 def test_schema_mismatch_prevents_activation(tmp_path):
-    installer, _ = make_installer(tmp_path, probe=lambda _p: ("0.1.0", "0.11", "9"))
+    installer, _ = make_installer(tmp_path, probe=lambda _p: ("0.1.0", "0.13", "9"))
     assert run_pipeline(installer) is InstallerState.ERROR
     assert "schema" in installer.error.technical_message
     assert read_current(installer.paths) is None

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Parse verified PPF 0.11 status responses and map only unambiguous states."""
+"""Parse supported PPF status responses and map only unambiguous states."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ class ParsedStatus:
     wire_status: WireStatus
     protocol_version: str
     error: str = ""
+    crash_kind: str = ""
     frame: int = 0
 
 
@@ -37,10 +38,17 @@ def parse_status(response: dict[str, object]) -> ParsedStatus:
         raise ValueError("response missing protocol_version")
     if not isinstance(status, str):
         raise ValueError("response missing status")
+    error = response.get("error", "")
+    crash_kind = response.get("crash_kind", "")
+    if error is not None and not isinstance(error, str):
+        raise ValueError("response error must be text")
+    if crash_kind is not None and not isinstance(crash_kind, str):
+        raise ValueError("response crash_kind must be text")
     return ParsedStatus(
         wire_status=WireStatus(status),
         protocol_version=protocol,
-        error=str(response.get("error", "")),
+        error=error or "",
+        crash_kind=crash_kind or "",
         frame=int(response.get("frame", 0)),
     )
 

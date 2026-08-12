@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""PPF 0.11 Param payload with the real Phase-3B material mapping.
+"""PPF Param payload with the real Phase-3B material mapping.
 
 Exact reproduction of the subset of ``kinds/param.rs`` /
 ``encoder/params.py`` (pinned commit ``7193f158``) the vertical slice
@@ -268,7 +268,8 @@ class SimulationSettings:
 
 def _scene_wire_params(settings: SimulationSettings,
                        contact_enabled: bool, *,
-                       schema_version: int = 1) -> dict:
+                       schema_version: int = 1,
+                       protocol_version: str = "0.13") -> dict:
     scene = {
         "dt": float32_wire(settings.quality.time_step),
         "min-newton-steps": int(settings.quality.min_newton_steps),
@@ -280,8 +281,6 @@ def _scene_wire_params(settings: SimulationSettings,
         "constraint-ghat": float32_wire(
             settings.quality.constraint_ghat),
         "constraint-tol": float32_wire(settings.quality.constraint_tol),
-        "ccd-reduction": float32_wire(settings.quality.ccd_reduction),
-        "ccd-max-iter": int(settings.quality.ccd_max_iter),
         "max-newton-steps": int(settings.quality.max_newton_steps),
         "max-dx": float32_wire(settings.quality.max_dx),
         "eiganalysis-eps": float32_wire(settings.quality.eigenanalysis_eps),
@@ -300,6 +299,13 @@ def _scene_wire_params(settings: SimulationSettings,
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
+    if protocol_version == "0.13":
+        scene["ccd-reduction"] = float32_wire(
+            settings.quality.ccd_reduction)
+        scene["ccd-max-iter"] = int(settings.quality.ccd_max_iter)
+    elif protocol_version != "0.18":
+        raise ParamEncodeError(
+            f"unsupported PPF protocol {protocol_version!r}")
     if settings.auto_save_interval:
         scene["auto-save"] = int(settings.auto_save_interval)
     if settings.keep_saved_states:
@@ -357,14 +363,16 @@ def build_param_payload(settings: SimulationSettings,
                         static: StaticMaterialSettings,
                         contact_enabled: bool = True,
                         static_pin: StaticPinConfig | None = None,
-                        schema_version: int = 1) -> dict:
+                        schema_version: int = 1,
+                        protocol_version: str = "0.13") -> dict:
     for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
                          ("collider name", collider_name),
                          ("collider uuid", collider_uuid)):
         if not value.strip():
             raise ParamEncodeError(f"{label} must not be empty")
     scene = _scene_wire_params(
-        settings, contact_enabled, schema_version=schema_version)
+        settings, contact_enabled, schema_version=schema_version,
+        protocol_version=protocol_version)
     group = [
         (shell_wire_params(shell), [cloth_name], [cloth_uuid]),
         (static_wire_params(static), [collider_name], [collider_uuid]),
@@ -386,19 +394,21 @@ def build_multi_collider_param_payload(
         colliders, *, shell: ShellMaterialSettings,
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
-        schema_version: int = 1) -> dict:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> dict:
     """PPF Param payload with one material group per STATIC collider."""
     entries = tuple(colliders)
     if not entries:
         return build_multi_deformable_param_payload(
             settings, ((cloth_name, cloth_uuid, "SHELL", shell,
                         static_pin),), (), contact_enabled=contact_enabled,
-            schema_version=schema_version)
+            schema_version=schema_version, protocol_version=protocol_version)
     first_name, first_uuid, first_static = entries[0]
     payload = build_param_payload(
         settings, cloth_name, cloth_uuid, first_name, first_uuid,
         shell=shell, static=first_static, contact_enabled=contact_enabled,
-        static_pin=static_pin, schema_version=schema_version)
+        static_pin=static_pin, schema_version=schema_version,
+        protocol_version=protocol_version)
     payload["group"] = [payload["group"][0]] + [
         (static_wire_params(static), [name], [uuid])
         for name, uuid, static in entries]
@@ -410,11 +420,12 @@ def encode_multi_collider_param(
         colliders, *, shell: ShellMaterialSettings,
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
-        schema_version: int = 1) -> tuple[bytes, str]:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> tuple[bytes, str]:
     payload = build_multi_collider_param_payload(
         settings, cloth_name, cloth_uuid, colliders, shell=shell,
         contact_enabled=contact_enabled, static_pin=static_pin,
-        schema_version=schema_version)
+        schema_version=schema_version, protocol_version=protocol_version)
     blob = envelope.dumps_envelope(
         envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
@@ -427,19 +438,21 @@ def build_deformable_param_payload(
         SoftBodyMaterialSettings | RigidBodyMaterialSettings,
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
-        schema_version: int = 1) -> dict:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> dict:
     return build_multi_deformable_param_payload(
         settings,
         ((deformable_name, deformable_uuid, group_type, material,
           static_pin),),
         colliders, contact_enabled=contact_enabled,
-        schema_version=schema_version)
+        schema_version=schema_version, protocol_version=protocol_version)
 
 
 def build_multi_deformable_param_payload(
         settings: SimulationSettings, deformables, colliders, *,
         contact_enabled: bool = True,
-        schema_version: int = 1) -> dict:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> dict:
     """PPF parameters for multiple dynamic objects and shared colliders.
 
     Each deformable tuple is ``(name, uuid, group_type, material, pin)``.
@@ -477,7 +490,8 @@ def build_multi_deformable_param_payload(
                     static_pin, index, offset)
             pin_config[uuid] = object_pins
     payload = {"scene": _scene_wire_params(
-                   settings, contact_enabled, schema_version=schema_version),
+                   settings, contact_enabled, schema_version=schema_version,
+                   protocol_version=protocol_version),
                "group": [
         *dynamic_groups,
         *((static_wire_params(static), [name], [uuid])
@@ -495,12 +509,13 @@ def encode_deformable_param(
         SoftBodyMaterialSettings | RigidBodyMaterialSettings,
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
-        schema_version: int = 1) -> tuple[bytes, str]:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> tuple[bytes, str]:
     payload = build_deformable_param_payload(
         settings, deformable_name, deformable_uuid, colliders,
         group_type=group_type, material=material,
         contact_enabled=contact_enabled, static_pin=static_pin,
-        schema_version=schema_version)
+        schema_version=schema_version, protocol_version=protocol_version)
     blob = envelope.dumps_envelope(
         envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
@@ -509,10 +524,11 @@ def encode_deformable_param(
 def encode_multi_deformable_param(
         settings: SimulationSettings, deformables, colliders, *,
         contact_enabled: bool = True,
-        schema_version: int = 1) -> tuple[bytes, str]:
+        schema_version: int = 1,
+        protocol_version: str = "0.13") -> tuple[bytes, str]:
     payload = build_multi_deformable_param_payload(
         settings, deformables, colliders, contact_enabled=contact_enabled,
-        schema_version=schema_version)
+        schema_version=schema_version, protocol_version=protocol_version)
     blob = envelope.dumps_envelope(
         envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)
@@ -525,13 +541,15 @@ def encode_param(settings: SimulationSettings,
                  static: StaticMaterialSettings,
                  contact_enabled: bool = True,
                  static_pin: StaticPinConfig | None = None,
-                 schema_version: int = 1) -> tuple[bytes, str]:
+                 schema_version: int = 1,
+                 protocol_version: str = "0.13") -> tuple[bytes, str]:
     payload = build_param_payload(settings, cloth_name, cloth_uuid,
                                   collider_name, collider_uuid,
                                   shell=shell, static=static,
                                   contact_enabled=contact_enabled,
                                   static_pin=static_pin,
-                                  schema_version=schema_version)
+                                  schema_version=schema_version,
+                                  protocol_version=protocol_version)
     blob = envelope.dumps_envelope(
         envelope.KIND_PARAM, payload, schema_version=schema_version)
     return blob, envelope.payload_sha256(blob)

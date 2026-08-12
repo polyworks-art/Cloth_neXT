@@ -36,6 +36,9 @@ def _arguments():
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--solver", type=Path, required=True)
+    parser.add_argument("--bake-end", type=int, default=4)
+    parser.add_argument("--abort-frame", type=int, default=1)
+    parser.add_argument("--checkpoint-interval", type=int, default=2)
     return parser.parse_args(values)
 
 
@@ -98,7 +101,7 @@ def _make_scene(args):
     cloth.cloth_next.enabled = True
     cloth.cloth_next.role = "CLOTH"
     cloth.cloth_next.bake_start = 1
-    cloth.cloth_next.bake_end = 4
+    cloth.cloth_next.bake_end = args.bake_end
     cloth.cloth_next.cache_directory = str(args.cache)
     scene = bpy.context.scene
     scene.name = "Recovery UI Gate"
@@ -106,7 +109,7 @@ def _make_scene(args):
     settings = scene.cloth_next_recovery
     settings.enabled = True
     settings.auto_save = True
-    settings.checkpoint_interval = 2
+    settings.checkpoint_interval = args.checkpoint_interval
     settings.keep_saved_states = 3
     settings.save_on_cancel = True
     settings.save_on_finish = False
@@ -140,7 +143,8 @@ def _hard_abort(args, solver_test):
         if not verdict.available:
             return 0.05
         record = recovery.load_project(metadata)
-        if record is None or not record.checkpoints:
+        if (record is None or not record.checkpoints
+                or record.checkpoints[-1].frame < args.abort_frame):
             return 0.05
         checkpoint = Path(record.checkpoints[-1].checkpoint_path)
         with gzip.open(checkpoint, "rb") as stream:

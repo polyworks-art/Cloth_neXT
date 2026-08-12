@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.2.27 - 2026-08-12 (Dev channel)
+
+### Added
+
+- Added the verified Lumen solver profile using PPF protocol 0.18 and schema 2.
+- Added exact Lumen release identity, archive size, SHA-256, frontend overlay
+  verification, crash classification, and protocol-specific parameter encoding.
+
+### Changed
+
+- Velune protocol 0.13 remains the stable default while Lumen protocol 0.18 is
+  available as the current compatible release.
+- Solver Preferences now expose and download only Velune and Lumen; retired
+  protocol 0.11 installations are no longer shown or selectable.
+- Recovery startup validates the control server independently from the status
+  of the deliberately interrupted project before resuming that project.
+
+### Fixed
+
+- Recovery can resume an interrupted Lumen Bake from its latest verified
+  checkpoint without uploading or rebuilding the scene.
+- Multiline solver errors and `crash_kind` now survive status parsing and are
+  included in artist-facing and diagnostic failure reports.
+- Protocol 0.18 no longer receives the removed `ccd-reduction` and
+  `ccd-max-iter` parameters.
+
 ## 2.2.26 - 2026-08-10 (Dev channel)
 
 ### Changed

@@ -2,7 +2,7 @@
 
 ## Verified query
 
-Compatibility and status are the same side-effect-free project ping in PPF 0.11. For
+Compatibility and status use the same side-effect-free project ping in supported PPF releases. For
 project `demo`, the exact request is:
 
 ```text
@@ -16,13 +16,14 @@ separate connect/read timeouts, partial-read accumulation, a 1 MiB default respo
 
 Always-present successful fields are `status`, `data`, `frame`, `initialized`, `error`,
 `violations`, `root`, `upload_id`, `data_hash`, `param_hash`, `protocol_version`,
-`hardware`, and `git_branch`. TCMD errors include `NO_ID` and text-decode failures.
+`hardware`, and `git_branch`. Protocol 0.18 also supplies optional structured
+`crash_kind` diagnostics. TCMD errors include `NO_ID` and text-decode failures.
 
 The response exposes no `schema_version` and no package version. The local executable's
 verified `--version` output is:
 
 ```text
-ppf-cts-server 0.1.0 (protocol v0.11, schema v1)
+ppf-cts-server 0.1.0 (protocol v0.18, schema v2)
 ```
 
 An owned local solver can therefore be fully validated. An external server can be

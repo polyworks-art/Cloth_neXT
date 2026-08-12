@@ -115,7 +115,14 @@ def _safe_read_current():
 
 def _read_registry() -> tuple[SolverRegistry, str | None]:
     try:
-        return load_registry(ManagedSolverPaths.default().registry_json), None
+        registry = load_registry(ManagedSolverPaths.default().registry_json)
+        supported = tuple(
+            installation for installation in registry.installations
+            if installation.compatible)
+        selected = registry.selected_installation_id
+        if not any(item.installation_id == selected for item in supported):
+            selected = None
+        return SolverRegistry(supported, selected), None
     except ValueError as exc:
         return SolverRegistry(), str(exc)
 
@@ -196,7 +203,7 @@ class CLOTHNEXT_OT_solver_use(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_solver_refresh_installations(bpy.types.Operator):
-    """Refresh registered installations and migrate the previous 0.11 setup"""
+    """Refresh registrations without deleting retired solver installations."""
     bl_idname = "clothnext.solver_refresh_installations"
     bl_label = "Refresh Installations"
     bl_description = (
@@ -351,8 +358,8 @@ class _SolverInstallDialog:
 
     def execute(self, _context):
         # Keep using the release selected by invoke(). Calling the default
-        # installer here would replace a confirmed 0.13 installer with the
-        # manifest's default 0.11 installer and lose the confirmation state.
+        # installer here would replace the explicitly confirmed release with
+        # the manifest default and lose the confirmation state.
         release_id = str(getattr(self, "release_id", "") or "")
         installer = _session.ensure_installer(release_id)
         if installer is None:

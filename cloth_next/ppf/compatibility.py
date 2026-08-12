@@ -11,8 +11,8 @@ from types import MappingProxyType
 
 from ..core.errors import ErrorCategory, ErrorRecord
 
-EXPECTED_PROTOCOL = "0.11"
-EXPECTED_SCHEMA = "1"
+EXPECTED_PROTOCOL = "0.13"
+EXPECTED_SCHEMA = "2"
 EXPECTED_PACKAGE = "0.1.0"
 _VERSION_RE = re.compile(r"(?P<package>\d+\.\d+\.\d+) \(protocol v(?P<protocol>[^,]+), schema v(?P<schema>[^)]+)\)")
 
@@ -26,10 +26,10 @@ class ProtocolProfile:
 
 
 PROTOCOL_PROFILES = MappingProxyType({
-    ("0.11", "1"): ProtocolProfile(
-        "0.11", "1", "0.1.0", "PPF Protocol 0.11 / Schema 1"),
     ("0.13", "2"): ProtocolProfile(
         "0.13", "2", "0.1.0", "PPF Protocol 0.13 / Schema 2"),
+    ("0.18", "2"): ProtocolProfile(
+        "0.18", "2", "0.1.0", "PPF Protocol 0.18 / Schema 2"),
 })
 DEFAULT_PROTOCOL_PROFILE = PROTOCOL_PROFILES[(EXPECTED_PROTOCOL, EXPECTED_SCHEMA)]
 
@@ -77,7 +77,9 @@ def validate_versions(protocol: str | None, schema: str | None,
             technical_message=(f"expected protocol={profile.protocol_version}, "
                                f"schema={profile.schema_version}; "
                                f"found protocol={protocol!r}, schema={schema!r}, package={package!r}"),
-            recommended_action="Use the solver built from pinned upstream commit 7193f158.",
+            recommended_action=(
+                "Install or select a solver release listed as supported by "
+                "this Cloth NeXt version."),
             recoverable=False,
         )
     return CompatibilityResult(protocol, schema, package, protocol_ok, schema_ok, package_ok, error)

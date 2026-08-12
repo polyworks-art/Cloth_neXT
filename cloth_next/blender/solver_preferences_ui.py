@@ -3,10 +3,9 @@
 
 """Compact solver preferences UI.
 
-The solver registry intentionally continues to support side-by-side releases
-while protocol 0.11 and 0.13 are both needed. The normal preferences view only
-shows the active release; switching, installing, repairing, and cleanup live in
-a single Manage menu instead of permanent installation and download lists.
+The solver registry may preserve retired releases on disk, but Preferences only
+exposes releases in the current compatibility matrix. Switching, installing,
+repairing, and cleanup live in a single Manage menu.
 """
 
 from __future__ import annotations
@@ -37,6 +36,10 @@ def _is_selectable(installation) -> bool:
         and installation.verified
         and installation.healthy
     )
+
+
+def _supported_installations(registry):
+    return tuple(item for item in registry.installations if item.compatible)
 
 
 def _worker_active() -> bool:
@@ -86,7 +89,11 @@ def draw_solver_section(self, layout) -> None:
 
     _preferences._session.load()
     registry, registry_error = _preferences._read_registry()
+    supported = _supported_installations(registry)
     selected_id, active = _selected_installation(self, registry)
+    if active is not None and not active.compatible:
+        active = None
+        selected_id = ""
     session_active = _preferences._solver_session_active()
     busy = session_active or _worker_active()
 
@@ -96,14 +103,14 @@ def draw_solver_section(self, layout) -> None:
     if active is None:
         title = (
             "No Solver Installed"
-            if not registry.installations
+            if not supported
             else "No Solver Selected"
         )
         box.label(text=title, **icon_registry.icon_kwargs("error", "ERROR"))
         if selected_id:
             box.label(text="The selected solver installation is missing.")
 
-        if registry.installations:
+        if supported:
             selector = box.row()
             selector.enabled = not busy
             selector.prop(self, "selected_solver_installation_id", text="Release")
@@ -134,7 +141,7 @@ def draw_solver_section(self, layout) -> None:
         )
     )
 
-    if len(registry.installations) > 1:
+    if len(supported) > 1:
         selector = box.row()
         selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
@@ -167,7 +174,10 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
         layout = self.layout
         _preferences._session.load()
         registry, registry_error = _preferences._read_registry()
+        supported = _supported_installations(registry)
         active = registry.selected
+        if active is not None and not active.compatible:
+            active = None
         session_active = _preferences._solver_session_active()
         busy = session_active or _worker_active()
 
@@ -175,9 +185,9 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             layout.label(text=registry_error, icon="ERROR")
             layout.separator()
 
-        if registry.installations:
+        if supported:
             layout.label(text="Installed Releases")
-            for installation in registry.installations:
+            for installation in supported:
                 if installation.installation_id == registry.selected_installation_id:
                     layout.label(
                         text=f"{installation.display_name} · Active",
@@ -196,7 +206,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
         layout.label(text="Compatible Releases")
         installed_by_tag = {
             installation.official_release_tag: installation
-            for installation in registry.installations
+            for installation in supported
             if installation.managed and installation.official_release_tag
         }
         for entry in _preferences._session.entries:

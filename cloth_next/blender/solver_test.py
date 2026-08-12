@@ -183,7 +183,7 @@ def _clear_intersection_diagnostics() -> None:
 
 
 def _ensure_solver_static(scene_colliders, collider_specs):
-    """Satisfy PPF 0.11's internal STATIC-group build requirement."""
+    """Satisfy the supported PPF server's internal STATIC-group requirement."""
     if collider_specs:
         return scene_colliders, collider_specs
     sentinel = internal_static_sentinel()
@@ -3774,7 +3774,8 @@ def _all_dynamic_parameters(snapshot, force_capture, fps: float):
 
 
 def _encode_cached_param(context, snapshot, force_capture, pin_configs,
-                         cache, target_uuids, *, schema_version: int = 1):
+                         cache, target_uuids, *, schema_version: int = 1,
+                         protocol_version: str = "0.13"):
     entries = snapshot.deformables
     settings = SimulationSettings(
         snapshot.bake_range.output_count, _scene_fps(context),
@@ -3812,7 +3813,8 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
         lambda: encode_multi_deformable_param(
             settings, dynamics, colliders,
             contact_enabled=snapshot.contact_enabled,
-            schema_version=schema_version))
+            schema_version=schema_version,
+            protocol_version=protocol_version))
 
 
 def _pin_configs_cache_identity(pin_configs):
@@ -3965,7 +3967,9 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
         param_payload, param_hash = _encode_cached_param(
             context, snapshot, force_capture, tuple(pin_configs), cache,
             tuple(target.uuid for target in target_plans),
-            schema_version=int(resolved.schema_version or "1"))
+            schema_version=int(resolved.schema_version or "2"),
+            protocol_version=getattr(
+                resolved, "protocol_version", None) or "0.13")
         param_key = _param_source_key(
             context, snapshot, force_capture,
             tuple(target.uuid for target in target_plans),
@@ -4054,6 +4058,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene = context.scene
     resolved = resolve_solver(context)
     wire_schema = int(resolved.schema_version or "1")
+    wire_protocol = getattr(resolved, "protocol_version", None) or "0.13"
     if (any(_friction_region_settings(entry.obj)
             for entry in snapshot.deformables)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
@@ -4322,7 +4327,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
         contact_enabled=snapshot.contact_enabled,
-        schema_version=wire_schema)
+        schema_version=wire_schema, protocol_version=wire_protocol)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, tuple(uuids),
         tuple(item[1] for item in collider_specs),
@@ -4476,6 +4481,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
     wire_schema = int(resolved.schema_version or "1")
+    wire_protocol = getattr(resolved, "protocol_version", None) or "0.13"
     if (_friction_region_settings(cloth_obj)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
         raise SceneValidationError(
@@ -4736,14 +4742,14 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         return encode_multi_collider_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
             contact_enabled=contact_enabled, static_pin=pin_config,
-            schema_version=wire_schema)
+            schema_version=wire_schema, protocol_version=wire_protocol)
       return encode_deformable_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs,
             group_type=("ROD" if deformable_role == "ROD" else
                         "PDRD" if deformable_role == "RIGID_BODY" else
                         "SOLID"),
             material=shell, contact_enabled=contact_enabled,
-            schema_version=wire_schema)
+            schema_version=wire_schema, protocol_version=wire_protocol)
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, (cloth_uuid,),
         tuple(item[1] for item in collider_specs), (pin_config,))

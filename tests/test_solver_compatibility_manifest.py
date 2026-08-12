@@ -32,22 +32,22 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
     resolved = manifest.entry_for(PLATFORM)
     assert resolved is not None
     assert resolved.official_repository == OFFICIAL_REPOSITORY_SLUG
-    assert resolved.protocol_version == "0.11"
-    assert resolved.schema_version == "1"
+    assert resolved.protocol_version == "0.13"
+    assert resolved.schema_version == "2"
     assert resolved.download_size > 0
     assert len(resolved.sha256) == 64
 
 
 def test_valid_manifest_parses():
     manifest = parse_manifest(valid_payload())
-    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-13-21-05"
+    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-26-22-53"
     releases = manifest.releases_for(PLATFORM)
     assert [(item.protocol_version, item.schema_version) for item in releases] == [
-        ("0.11", "1"), ("0.13", "2")]
-    assert releases[1].official_release_tag == "2026-07-26-22-53"
-    assert releases[1].download_size == 448046043
+        ("0.13", "2"), ("0.18", "2")]
+    assert releases[1].official_release_tag == "2026-08-12-15-47"
+    assert releases[1].download_size == 447922058
     assert releases[1].sha256 == (
-        "a7fcb372990ad568b6fcf01149a1e1e750aa4f735d1b8047e540b5e9540c4db5")
+        "f80d185b5c585b5f7749d747f317f4e7ab57d0522f10083f970089ff7d378733")
 
 
 @pytest.mark.parametrize("missing", ["sha256", "protocol_version", "schema_version"])

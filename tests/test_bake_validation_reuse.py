@@ -298,8 +298,8 @@ def test_three_separate_cloths_publish_and_attach_authenticated_caches(
                     frame, positions[first.uuid], positions))
             return SimpleNamespace(
                 timings={}, solver_mode="OWNED_PROCESS",
-                package_version="0.1.0", protocol_version="0.11",
-                schema_version="1", bytes_transferred=0)
+                package_version="0.1.0", protocol_version="0.13",
+                schema_version="2", bytes_transferred=0)
 
     monkeypatch.setattr(module, "SolverSession", StubSession)
     while not module._queue.empty():
@@ -489,8 +489,8 @@ def test_validation_state_stores_no_blender_data():
 class _FakeResolved:
     executable_path = Path("/fake/solver")
     package_version = "1.0"
-    protocol_version = "0.11"
-    schema_version = "1"
+    protocol_version = "0.13"
+    schema_version = "2"
 
     class mode:
         name = "OWNED_PROCESS"

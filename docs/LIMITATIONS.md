@@ -29,10 +29,8 @@ topmost, responsive companion is a fatal startup error. Blender remains
 editable and the previous cache is preserved. Disabling automatic launch opts
 into Blender-only progress without a global workflow lock.
 
-- Upstream was audited at commit `7193f158` on 2026-07-12. Protocol/schema and docs can
-  change; implementation must pin a compatible solver release.
-- No NVIDIA solver binary was installed or launched in this audit. Findings are static
-  source/documentation evidence, not a successful GPU solve on this workstation.
+- Upstream protocol 0.18 was audited at release commit `53b8da89` on 2026-08-12.
+  Protocol/schema and docs can change; implementation must pin a compatible solver release.
 - A locally installed official solver passed the real health integration test during
   development. That external runtime is untracked local state and is never included in
   a Cloth NeXt package.
@@ -40,9 +38,10 @@ into Blender-only progress without a global workflow lock.
   registration/RNA smoke test passes. Background mode cannot verify final on-screen
   HUD contrast, clipping, DPI behavior, or icon appearance; those remain explicit
   interactive visual checks.
-- PPF 0.11 status responses do not carry schema or package versions. Full verification
-  is possible for an owned local executable via `--version`; external servers remain
-  protocol-identified but schema-unverified.
+- Supported releases are Velune (protocol 0.13/schema 2) and Lumen (protocol
+  0.18/schema 2). Full package/schema verification is possible for an owned local
+  executable via `--version`; external servers remain protocol-identified but
+  schema-unverified.
 - The official release tag commit (`4f42d8c1…`) is earlier than the audited source
   commit (`7193f158…`). Runtime compatibility is verified as package `0.1.0`, protocol
   `0.11`, schema `1`; source identity is not falsely claimed.

@@ -22,8 +22,9 @@ timeout abort startup before any worker/PPF process or cache replacement. Logs
 rotate under the user's Cloth NeXt configuration/runtime log directory and the
 companion's Local AppData log directory, never inside the extension.
 
-Baseline: upstream `7193f158e3843597070f66cb29af19efd9bdcff7`, protocol
-`0.11`, schema `1`, package `0.1.0`.
+Compatibility baseline: Velune protocol `0.13`, schema `2`, package `0.1.0`.
+Lumen protocol `0.18`, schema `2`, package `0.1.0` is also supported through
+its separate compatibility profile.
 
 ```text
 validate executable -> probe port

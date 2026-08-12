@@ -371,30 +371,53 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
     if not managed:
         return
     identity = (protocol_version, schema_version, official_release_tag)
-    if identity == ("0.11", "1", "2026-07-13-21-05"):
-        apply_managed_solver_overlay(bundle_root)
-        return
-    if identity == ("0.13", "2", UPSTREAM_013_RELEASE):
+    verified_upstream = {
+        ("0.13", "2", UPSTREAM_013_RELEASE): (
+            ".cloth-next-upstream-integration-0.13-schema-2",
+            (),
+        ),
+        ("0.18", "2", "2026-08-12-15-47"): (
+            ".cloth-next-upstream-integration-0.18-schema-2",
+            (
+                'elif key == "lock-translation":',
+                'elif key == "lock-rotation":',
+                'elif key == "lock-rotation-prohibit-axis":',
+                'statistics_input_path = os.path.join(path, "statistics_input.cbor")',
+            ),
+        ),
+    }
+    recipe = verified_upstream.get(identity)
+    if recipe is not None:
         frontend = bundle_root / "frontend"
         scene = frontend / "_scene_.py"
+        decoder = frontend / "_decoder_.py"
         worker = frontend / "build_worker.py"
-        if not scene.is_file() or not worker.is_file():
+        if not scene.is_file() or not decoder.is_file() or not worker.is_file():
             raise SolverOverlayError(
-                "verified protocol 0.13 frontend files are missing")
+                f"verified protocol {protocol_version} frontend files are missing")
         scene_text = scene.read_text(encoding="utf-8")
+        decoder_text = decoder.read_text(encoding="utf-8")
         worker_text = worker.read_text(encoding="utf-8")
-        required = (
+        common_required = (
             'all_violations = result["violations"]',
             'raise ValidationError(result["combined_message"], violations=all_violations)',
             'json.dump({"violations": violations}, fp)',
         )
-        if (required[0] not in scene_text or required[1] not in scene_text
-                or required[2] not in worker_text):
+        sources = (scene_text, scene_text, worker_text)
+        if any(source.count(anchor) != 1
+               for source, anchor in zip(sources, common_required)):
             raise SolverOverlayError(
-                "protocol 0.13 upstream integration anchors do not match the "
+                f"protocol {protocol_version} upstream integration anchors "
+                "do not match the verified release")
+        marker_name, protocol_anchors = recipe
+        if any((scene_text.count(anchor) + decoder_text.count(anchor)
+                + worker_text.count(anchor)) != 1
+               for anchor in protocol_anchors):
+            raise SolverOverlayError(
+                f"protocol {protocol_version} frontend contract does not match the "
                 "verified release")
-        marker = bundle_root / ".cloth-next-upstream-integration-0.13-schema-2"
-        marker.write_text(UPSTREAM_013_RELEASE + "\n", encoding="ascii")
+        marker = bundle_root / marker_name
+        marker.write_text(str(official_release_tag) + "\n", encoding="ascii")
         return
     raise SolverOverlayError(
         "no Cloth NeXt integration is registered for "

@@ -12,6 +12,7 @@ from cloth_next.ppf.layout import BundledSolverLayout, PLATFORM_DIRECTORY
 from cloth_next.ppf.resolver import (SolverResolutionContext, SolverResolver,
                                      development_executable_from_environment)
 from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
+from cloth_next.ppf.compatibility import protocol_profile
 from cloth_next.core.errors import ClothNextError
 
 
@@ -40,6 +41,11 @@ def _resolved_solver():
         pytest.skip(
             "no CLOTH_NEXT_PPF_EXECUTABLE or local development solver "
             "configured")
+    versions = _probe(resolved.executable_path)
+    if protocol_profile(versions[1], versions[2]) is None:
+        pytest.skip(
+            f"configured solver {versions[1]}/{versions[2]} is not in the "
+            "supported 0.13/0.18 matrix")
     return resolved
 
 

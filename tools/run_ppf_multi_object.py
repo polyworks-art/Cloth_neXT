@@ -48,7 +48,10 @@ def run(executable: Path, output_dir: Path, *, include_collider: bool = True) ->
     static = SceneObject("Floor", collider_uuid, collider.vertices_local,
         collider.triangles, solver_world_matrix(collider.world_matrix))
     statics = (static,) if include_collider else (internal_static_sentinel(),)
-    data_payload, data_hash = encode_multi_deformable_scene(objects, statics)
+    wire_schema = int(resolved.schema_version or "2")
+    wire_protocol = resolved.protocol_version or "0.13"
+    data_payload, data_hash = encode_multi_deformable_scene(
+        objects, statics, schema_version=wire_schema)
     settings = SimulationSettings(
         4, 24, fixture.DEFAULT_GRAVITY, wind_blender=(0.5, 0.0, 0.0),
         air_density=0.001, air_friction=0.2, vertex_air_damp=0.01,
@@ -73,7 +76,8 @@ def run(executable: Path, output_dir: Path, *, include_collider: bool = True) ->
                  if include_collider else ((statics[0].name,statics[0].uuid,
                                              DEFAULT_STATIC_SETTINGS),))
     param_payload, param_hash = encode_multi_deformable_param(
-        settings, deformables, colliders)
+        settings, deformables, colliders, schema_version=wire_schema,
+        protocol_version=wire_protocol)
     scene = SessionScene(
         new_project_name(), "ClothA", uuid_a, len(cloth.vertices_local),
         ("Floor" if include_collider else ""),

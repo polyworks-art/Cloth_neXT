@@ -170,24 +170,26 @@ def test_nurbs_rod_has_actionable_conversion_error():
 def test_smoke_tool_threads_resolved_schema_version(monkeypatch, tmp_path):
     from tools import run_ppf_rod_softbody as smoke
 
-    captured: dict[str, int] = {}
+    captured: dict[str, tuple[int, str]] = {}
 
     class _FakeResolver:
         def __init__(self, _probe):
             pass
 
         def resolve(self, context):
-            return SimpleNamespace(schema_version="2")
+            return SimpleNamespace(schema_version="2", protocol_version="0.18")
 
-    def _fake_run(resolved, output, kind, *, schema_version):
-        captured[kind] = schema_version
+    def _fake_run(resolved, output, kind, *, schema_version,
+                  protocol_version):
+        captured[kind] = (schema_version, protocol_version)
         return {"frames": 4, "vertices": 1}
 
     monkeypatch.setattr(smoke, "SolverResolver", _FakeResolver)
     monkeypatch.setattr(smoke, "_run", _fake_run)
     report = smoke.run(Path("ignored-solver"), tmp_path)
     assert report["result"] == "PASS"
-    assert captured == {"ROD": 2, "SOLID": 2, "PDRD": 2}
+    assert captured == {"ROD": (2, "0.18"), "SOLID": (2, "0.18"),
+                        "PDRD": (2, "0.18")}
 
 
 def test_smoke_payloads_carry_resolved_schema_envelope():

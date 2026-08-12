@@ -422,11 +422,24 @@ class SolverSession:
                     schema_version=self.diagnostics.schema_version,
                     host=self.diagnostics.host, port=self.diagnostics.port)
 
-    def _status(self) -> dict:
+    def _status(self, *, allow_server_error: bool = False) -> dict:
         assert self._address is not None
         self.diagnostics.command_in_flight = "status"
-        response = wire.send_tcmd(
-            self._address, self.transport, self.scene.project_name)
+        if allow_server_error:
+            try:
+                response = wire.send_tcmd(
+                    self._address, self.transport, self.scene.project_name,
+                    allow_server_error=True)
+            except TypeError as exc:
+                # Compatibility for injected transports implementing the
+                # historical send_tcmd signature.
+                if "allow_server_error" not in str(exc):
+                    raise
+                response = wire.send_tcmd(
+                    self._address, self.transport, self.scene.project_name)
+        else:
+            response = wire.send_tcmd(
+                self._address, self.transport, self.scene.project_name)
         self.diagnostics.last_successful_command = "status"
         self.diagnostics.command_in_flight = ""
         status = str(response.get("status", ""))
@@ -757,6 +770,9 @@ class SolverSession:
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
         error_text = str(response.get("error", "") or "no server error text")
+        crash_kind_value = response.get("crash_kind", "")
+        crash_kind = (crash_kind_value.strip()
+                      if isinstance(crash_kind_value, str) else "")
         abnormal = re.search(
             r"Solver exited abnormally: pid\s+(\d+)\s+stopped after frame\s+"
             r"(\d+)\s+without writing a terminal outcome",
@@ -770,6 +786,7 @@ class SolverSession:
                 f"failure_kind=SOLVER_WORKER_ABNORMAL_EXIT; "
                 f"solver_worker_pid={pid}; "
                 f"last_completed_logical_frame={completed}; "
+                f"crash_kind={crash_kind or 'unclassified'}; "
                 f"server_error={error_text}; "
                 f"stdout_tail={self.diagnostics.stdout_tail}; "
                 f"stderr_tail={self.diagnostics.stderr_tail}",
@@ -790,9 +807,13 @@ class SolverSession:
         if not parsed_violations and phase == "simulating":
             parsed_violations = list(
                 self._load_runtime_intersection_sidecar(phase=phase))
+        user_message = (
+            f"The solver crashed while {phase} ({crash_kind})."
+            if crash_kind else f"The solver reported a failure while {phase}.")
         error = _session_error(
-            f"The solver reported a failure while {phase}.",
+            user_message,
             f"server status FAILED during {phase}: {error_text}; "
+            f"crash_kind={crash_kind or 'none'}; "
             f"contacts(last={self.diagnostics.contact_last}, "
             f"peak={self.diagnostics.contact_peak}, "
             f"samples={self.diagnostics.contact_samples}); "
@@ -1062,7 +1083,17 @@ class SolverSession:
             environment=tuple(sorted(environment.items())),
         )
         self._manager = SolverProcessManager(config)
-        health = start_owned_and_wait(self._manager, self.scene.project_name)
+        # Startup errors are classified before start_owned_and_wait returns.
+        # Keep the selected endpoint available to that diagnostic path too.
+        self._address = wire.ServerAddress(config.host, config.port)
+        health_project = self.scene.project_name
+        if self._recovery is not None and self._recovery.resume:
+            # The saved project's terminal status describes the deliberately
+            # interrupted worker, not the newly started control server. Probe
+            # server identity on an isolated name, then reconcile the real
+            # recovery project after readiness has been established.
+            health_project = f"{self.scene.project_name}_health_probe"
+        health = start_owned_and_wait(self._manager, health_project)
         poll = self._manager.poll()
         self.diagnostics.host, self.diagnostics.port = config.host, config.port
         self.diagnostics.process_id = poll.process_id
@@ -1079,7 +1110,6 @@ class SolverSession:
             "wire_status": health.wire_status,
         }
         self.diagnostics.last_successful_stage = "READY"
-        self._address = wire.ServerAddress(config.host, config.port)
 
     def _upload(self) -> None:
         assert self._address is not None
@@ -1724,7 +1754,7 @@ class SolverSession:
             self._check_cancel()
             resuming = bool(self._recovery and self._recovery.resume)
             if resuming:
-                response = self._status()
+                response = self._status(allow_server_error=True)
                 server_state = reconcile_resume_server_state(response)
                 self.diagnostics.note_status(server_state.status)
                 if not server_state.may_resume:

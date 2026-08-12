@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Minimal PPF 0.11 TCMD status transport. No other operations live here."""
+"""Minimal PPF TCMD status transport. No other operations live here."""
 
 from __future__ import annotations
 

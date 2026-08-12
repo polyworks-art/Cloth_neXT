@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Typed PPF 0.11 wire operations: TCMD lifecycle requests, atomic scene
+"""Typed supported-PPF wire operations: TCMD lifecycle requests, atomic scene
 upload, and bounded file retrieval.
 
 Framing verified against the pinned upstream server sources
@@ -180,7 +180,8 @@ def _reject_server_error(parsed: dict, operation: str) -> dict:
 
 def send_tcmd(address: ServerAddress, config: TransportConfig,
               project_name: str, request: str | None = None, *,
-              frame: int | None = None) -> dict:
+              frame: int | None = None,
+              allow_server_error: bool = False) -> dict:
     """Send one TCMD frame and return the parsed JSON status response."""
     frame_bytes = tcmd_request_bytes(
         project_name, request, frame=frame)
@@ -188,7 +189,8 @@ def send_tcmd(address: ServerAddress, config: TransportConfig,
         _send_all(connection, frame_bytes)
         line, _rest = _read_line(connection, max_bytes=config.max_response_bytes)
     label = request or "status"
-    return _reject_server_error(_parse_json_line(line), label)
+    parsed = _parse_json_line(line)
+    return parsed if allow_server_error else _reject_server_error(parsed, label)
 
 
 def upload_atomic(address: ServerAddress, config: TransportConfig, *,

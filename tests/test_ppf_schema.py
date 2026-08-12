@@ -218,6 +218,18 @@ def test_schema2_envelope_animation_offsets_and_required_time_scale():
     assert param["payload"]["time_scale"] == pytest.approx(0.5)
 
 
+def test_protocol_018_omits_parameters_removed_by_upstream():
+    payload = build_param_payload(
+        _micro_settings(), "MicroCloth", "cn-cloth-0001",
+        "Ground", "cn-static-0001", shell=DEFAULT_SHELL_SETTINGS,
+        static=DEFAULT_STATIC_SETTINGS, schema_version=2,
+        protocol_version="0.18")
+
+    assert "ccd-reduction" not in payload["scene"]
+    assert "ccd-max-iter" not in payload["scene"]
+    assert payload["time_scale"] == 1.0
+
+
 def test_schema2_static_deform_has_no_time_array():
     import numpy as np
     deform = SceneObject(

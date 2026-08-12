@@ -83,8 +83,8 @@ def install_compact_ui(monkeypatch, registry):
     return preferences, compact_ui
 
 
-def test_solver_section_only_shows_active_release(blender_env, monkeypatch,
-                                                   tmp_path):
+def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
+                                                       tmp_path):
     old = make_installation(
         tmp_path,
         installation_id="old",
@@ -111,10 +111,9 @@ def test_solver_section_only_shows_active_release(blender_env, monkeypatch,
 
     labels = [text for text, _icon in layout.labels]
     assert "Solver" in labels
-    assert old.display_name in labels
+    assert old.display_name not in labels
     assert current.display_name not in labels
-    assert "Ready" in labels
-    assert "Protocol 0.11 · Schema 1 · Managed" in labels
+    assert "No Solver Selected" in labels
     assert "PPF Contact Solver" not in labels
     assert "Solver Installations" not in labels
     assert "Installed" not in labels
@@ -125,10 +124,8 @@ def test_solver_section_only_shows_active_release(blender_env, monkeypatch,
     assert layout.menus == [
         ("CLOTHNEXT_MT_solver_manage", "Manage", True)
     ]
-    assert any(
-        idname == "clothnext.solver_health_check" and text == "Test"
-        for idname, text, _operator, _enabled in layout.operators
-    )
+    assert not any(idname == "clothnext.solver_health_check"
+                   for idname, _text, _operator, _enabled in layout.operators)
 
     compact_ui.uninstall()
 
@@ -139,8 +136,8 @@ def test_single_installed_release_hides_release_selector(blender_env, monkeypatc
         tmp_path,
         installation_id="active",
         display_name="Solver Release",
-        protocol="0.11",
-        schema="1",
+        protocol="0.13",
+        schema="2",
         release_tag="active-tag",
     )
     registry = SolverRegistry((active,), active.installation_id)
@@ -165,8 +162,8 @@ def test_registered_release_without_selection_shows_selector_not_install(
         tmp_path,
         installation_id="available",
         display_name="Available Release",
-        protocol="0.11",
-        schema="1",
+        protocol="0.13",
+        schema="2",
         release_tag="available-tag",
     )
     registry = SolverRegistry((installed,), None)
@@ -191,8 +188,8 @@ def test_registered_release_without_selection_shows_selector_not_install(
     compact_ui.uninstall()
 
 
-def test_manage_menu_keeps_both_transition_releases(blender_env, monkeypatch,
-                                                     tmp_path):
+def test_manage_menu_only_offers_velune_and_lumen(blender_env, monkeypatch,
+                                                  tmp_path):
     installed = make_installation(
         tmp_path,
         installation_id="old",
@@ -205,14 +202,14 @@ def test_manage_menu_keeps_both_transition_releases(blender_env, monkeypatch,
     preferences, compact_ui = install_compact_ui(monkeypatch, registry)
     entries = (
         SimpleNamespace(
-            release_id="ppf-0.11-stable",
-            display_name="Legacy Release",
-            official_release_tag="old-tag",
+            release_id="ppf-0.13-stable",
+            display_name="Velune",
+            official_release_tag="velune-tag",
         ),
         SimpleNamespace(
-            release_id="ppf-0.13-current",
-            display_name="Current Release",
-            official_release_tag="current-tag",
+            release_id="ppf-0.18-current",
+            display_name="Lumen",
+            official_release_tag="lumen-tag",
         ),
     )
     preferences._session.entries = entries
@@ -226,14 +223,13 @@ def test_manage_menu_keeps_both_transition_releases(blender_env, monkeypatch,
         for idname, text, operator, _enabled in menu.layout.operators
         if idname == "clothnext.solver_download"
     }
-    reinstall_text, reinstall = release_actions["ppf-0.11-stable"]
-    install_text, install = release_actions["ppf-0.13-current"]
-    assert reinstall_text == "Reinstall Legacy Release"
-    assert reinstall.reinstall is True
-    assert reinstall.activate_after_install is False
-    assert install_text == "Install Current Release"
-    assert install.activate_after_install is False
-    assert not hasattr(install, "reinstall")
+    assert set(release_actions) == {"ppf-0.13-stable", "ppf-0.18-current"}
+    velune_text, velune = release_actions["ppf-0.13-stable"]
+    lumen_text, lumen = release_actions["ppf-0.18-current"]
+    assert velune_text == "Install Velune"
+    assert lumen_text == "Install Lumen"
+    assert velune.activate_after_install is True
+    assert lumen.activate_after_install is True
 
     compact_ui.uninstall()
 

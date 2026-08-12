@@ -497,6 +497,22 @@ def test_abnormal_solver_worker_status_preserves_pid_and_last_frame(
     assert session.diagnostics.last_completed_logical_frame == 103
 
 
+def test_protocol_018_crash_kind_survives_session_error_mapping(tmp_path):
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(), work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 49152))
+
+    error = session._fail_from_status({
+        "status": "FAILED", "crash_kind": "device_assert",
+        "error": "solver failed\nCUDA device assertion\nstderr tail",
+    }, "simulating")
+
+    assert "device_assert" in error.record.user_message
+    assert "crash_kind=device_assert" in error.record.technical_message
+    assert "CUDA device assertion\nstderr tail" in (
+        error.record.technical_message)
+
+
 def test_project_name_generation():
     names = {new_project_name() for _ in range(64)}
     assert len(names) == 64

@@ -19,7 +19,7 @@ import pytest
 from cloth_next.updater.install_paths import ActiveInstallation
 from cloth_next.updater.solver_registry import SolverInstallation, SolverRegistry
 
-TAG = "2026-07-13-21-05"
+TAG = "2026-07-26-22-53"
 
 
 class RecordingLayout:
@@ -93,7 +93,7 @@ def draw_preferences(env, monkeypatch, active, valid=True):
             executable_path="C:/solver/ppf-cts-server.exe",
             frontend_path="C:/solver/frontend",
             package_version=active.solver_package_version,
-            protocol_version="0.11", schema_version="1",
+            protocol_version="0.13", schema_version="2",
             official_release_tag=active.official_release_tag,
             managed=True, verified=True, healthy=True, channel="stable")
         registry = SolverRegistry(
@@ -184,7 +184,7 @@ def test_installed_and_available_release_rows_are_shown(blender_env, monkeypatch
     shown = labels(log)
     assert "Installed" in shown
     assert "Available Downloads" in shown
-    assert any("Release 2026-07-13-21-05" in text for text in shown)
+    assert any("Release 2026-07-26-22-53" in text for text in shown)
 
 
 def test_download_needs_the_confirmation_dialog_even_from_the_alert(

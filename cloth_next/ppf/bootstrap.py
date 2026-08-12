@@ -20,7 +20,7 @@ from pathlib import Path, PurePosixPath
 from .compatibility import EXPECTED_PROTOCOL, EXPECTED_SCHEMA
 from .layout import BundledSolverLayout, EXECUTABLE_NAME
 
-UPSTREAM_BASELINE = "7193f158e3843597070f66cb29af19efd9bdcff7"
+UPSTREAM_BASELINE = "fec156e3edd8c931c1029215bf6973164f433270"
 
 
 def safe_extract_zip(archive: Path, target: Path) -> None:
