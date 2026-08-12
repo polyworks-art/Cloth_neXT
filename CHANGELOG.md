@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.29 - 2026-08-12 (Dev channel)
+
+### Fixed
+
+- Cancel during solver simulation now produces a durable, visible Recovery
+  checkpoint and Resume successfully continues the same solver project.
+- Recovery identity is derived from the canonical encoded solver parameters,
+  preventing false material/settings mismatch errors on immediate Resume.
+- Checkpoint discovery tolerates delayed disk publication after the solver
+  status connection closes.
+- Rebake safely accepts owned private live caches and only the exact Recovery
+  partial authenticated by the active run plan.
+- Timeline marker and Bake strip follow simulation and fetch progress while
+  retaining the required attach-before-frame-evaluation live-loading order.
+
 ## 2.2.28 - 2026-08-12 (Dev channel)
 
 ### Added

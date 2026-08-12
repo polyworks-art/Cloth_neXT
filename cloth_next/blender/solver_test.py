@@ -5154,8 +5154,8 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
     recovery_partials = {
         Path(value).resolve()
         for _uuid, value in (
-            plan.recovery_options.partial_pc2
-            if plan.recovery_options is not None else ())}
+            getattr(getattr(plan, "recovery_options", None),
+                    "partial_pc2", ()))}
     if getattr(obj, "type", "") == "CURVE":
         recorded = str(getattr(getattr(obj, "data", None), "get",
                                lambda *_: "")("cloth_next_rod_cache", "") or "")
