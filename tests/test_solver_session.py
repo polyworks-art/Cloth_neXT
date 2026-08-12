@@ -802,6 +802,60 @@ def test_controlled_cancel_confirms_saved_state_and_preserves_project(
     assert "delete" not in requests
 
 
+def test_cancel_recovers_durable_state_when_status_port_closes(
+        monkeypatch, tmp_path):
+    """DO NOT REGRESS: save_and_quit may close status after writing state."""
+    scripted = ScriptedWire(monkeypatch)
+    scripted.hang_in_sim = True
+    server_root = tmp_path / "server"
+    project_root = server_root / _scene().project_name
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    saved = False
+    original = scripted._send_tcmd
+
+    def recovery_wire(address, config, project, request=None, *, frame=None):
+        nonlocal saved
+        if request == "save_and_quit":
+            threading.Timer(
+                0.02,
+                lambda: (output / "state_2.bin.gz").write_bytes(
+                    gzip.compress(b"durable-after-disconnect"))).start()
+            saved = True
+            return {**scripted.base, "status": "SAVE_AND_QUIT",
+                    "frame": 2, "saved_states": []}
+        if saved and request is None:
+            raise OSError("solver status port closed")
+        return original(address, config, project, request, frame=frame)
+
+    monkeypatch.setattr(wire, "send_tcmd", recovery_wire)
+    cancel = threading.Event()
+
+    def emit(event):
+        if event.phase == "SIMULATING":
+            cancel.set()
+
+    metadata = tmp_path / "recovery" / "metadata.json"
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, emit=emit, poll_interval=0.001,
+        recovery_options=RecoveryOptions(
+            True, metadata, _recovery_identity(), server_root,
+            save_on_cancel=True))
+
+    with pytest.raises(SessionCancelled) as raised:
+        session.run()
+
+    assert raised.value.resumable
+    assert raised.value.recovery_outcome.checkpoint_saved
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert record.state is recovery.ProjectState.RESUMABLE
+    assert [item.frame for item in record.checkpoints] == [2]
+
+
 def test_periodic_checkpoint_emits_verified_recovery_event(
         monkeypatch, tmp_path):
     scene = _scene()

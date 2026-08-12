@@ -509,8 +509,35 @@ class SolverSession:
             else self.work_directory / "server-data")
 
     def _checkpoint_output_directory(self) -> Path:
+        # RECOVERY INVARIANT -- project_root is the authoritative opaque
+        # solver-project location.  Reconstructing it from scene.project_name
+        # loses checkpoints when a cleared/resumed generation preserves a
+        # different project id.
+        if self._recovery_record is not None:
+            return Path(self._recovery_record.project_root) / "session" / "output"
         return (self._server_data_root() / self.scene.project_name /
                 "session" / "output")
+
+    def _checkpoint_frames_on_disk(self) -> tuple[int, ...]:
+        """Return complete solver states even after its status port closes."""
+        frames = []
+        for path in self._checkpoint_output_directory().glob(
+                "state_*.bin.gz"):
+            try:
+                frames.append(int(path.name[len("state_"):-len(".bin.gz")]))
+            except ValueError:
+                continue
+        return tuple(sorted(set(frames)))
+
+    def _wait_for_checkpoint_frames_on_disk(
+            self, timeout: float = 5.0) -> tuple[int, ...]:
+        """Allow the solver's final atomic state rename to finish."""
+        deadline = time.monotonic() + max(0.0, timeout)
+        while True:
+            frames = self._checkpoint_frames_on_disk()
+            if frames or time.monotonic() >= deadline:
+                return frames
+            time.sleep(min(self._poll_interval, 0.1))
 
     def _request(self, request: str) -> dict:
         assert self._address is not None
@@ -1446,6 +1473,35 @@ class SolverSession:
         except ClothNextError as exc:
             initial_status = "CONNECTION_ERROR"
             technical = f"initial status query failed: {exc.record.technical_message}"
+            # RECOVERY INVARIANT -- THE COMPANION CANCEL PATH MAY CLOSE THE
+            # status port after already issuing save_and_quit.  Reconcile its
+            # durable state before declaring that early disconnect a failure.
+            disk_frames = self._wait_for_checkpoint_frames_on_disk(
+                20.0 if self.diagnostics.last_successful_command ==
+                wire.REQUEST_SAVE_AND_QUIT else 5.0)
+            if disk_frames:
+                self._sync_checkpoints({"saved_states": disk_frames})
+                verified = tuple(sorted(
+                    item.frame for item in self._recovery_record.checkpoints))
+                if verified:
+                    current = recovery.transition(
+                        options.metadata_path, self._recovery_record,
+                        recovery.ProjectState.SAVED)
+                    self._recovery_record = recovery.transition(
+                        options.metadata_path, current,
+                        recovery.ProjectState.RESUMABLE)
+                    outcome = RecoveryOutcome(
+                        checkpoint_saved=True,
+                        artist_message="Recovery checkpoint saved",
+                        technical_reason=(
+                            "Companion closed status after durable "
+                            "save_and_quit"),
+                        state_before=initial_status,
+                        saved_states=verified,
+                        kind=RecoveryOutcomeKind.SAVED)
+                    self._event("RECOVERY_SAVED", outcome.artist_message,
+                                activity_code="RECOVERY_SAVED")
+                    return outcome
             log_with_context(self._logger, logging.WARNING,
                 "Recovery checkpoint: cannot query server status",
                 {"project": self.scene.project_name,
@@ -1575,8 +1631,15 @@ class SolverSession:
                 status = str(response.get("status", ""))
                 last_known_status = status
                 saved = self._saved_states(response)
+                # RECOVERY INVARIANT -- DO NOT REMOVE THIS DISK FALLBACK.
+                # save_and_quit may atomically finish the state file and then
+                # close the solver status endpoint before the next poll.  The
+                # durable state file is authoritative in that shutdown race.
+                if not saved:
+                    saved = self._checkpoint_frames_on_disk()
                 if saved:
-                    self._sync_checkpoints(response)
+                    self._sync_checkpoints({**response,
+                                            "saved_states": saved})
                 verified = tuple(sorted(
                     item.frame for item in self._recovery_record.checkpoints))
                 log_with_context(
@@ -1672,6 +1735,35 @@ class SolverSession:
                 kind=RecoveryOutcomeKind.FAILED)
 
         except (ClothNextError, OSError, ValueError) as exc:
+            # The most common exception here is the expected connection close
+            # immediately after save_and_quit.  Confirm the durable file before
+            # classifying that successful shutdown as Recovery failure.
+            # RECOVERY INVARIANT -- KEEP THE GRACE WINDOW.  The status socket
+            # can close just before the final state file's atomic rename.
+            disk_frames = self._wait_for_checkpoint_frames_on_disk(20.0)
+            if disk_frames and self._recovery_record is not None:
+                self._sync_checkpoints({"saved_states": disk_frames})
+                verified = tuple(sorted(
+                    item.frame for item in self._recovery_record.checkpoints))
+                if verified:
+                    record = recovery.transition(
+                        options.metadata_path, self._recovery_record,
+                        recovery.ProjectState.SAVED)
+                    self._recovery_record = recovery.transition(
+                        options.metadata_path, record,
+                        recovery.ProjectState.RESUMABLE)
+                    outcome = RecoveryOutcome(
+                        checkpoint_saved=True,
+                        artist_message="Recovery checkpoint saved",
+                        technical_reason=(
+                            "Solver status endpoint closed after durable "
+                            "checkpoint publication"),
+                        state_before=initial_status,
+                        saved_states=verified,
+                        kind=RecoveryOutcomeKind.SAVED)
+                    self._event("RECOVERY_SAVED", outcome.artist_message,
+                                activity_code="RECOVERY_SAVED")
+                    return outcome
             # Preserve the actual exception for logging
             technical = f"{type(exc).__name__}: {exc}"
             log_with_context(self._logger, logging.WARNING,

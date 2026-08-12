@@ -1108,6 +1108,43 @@ def test_attach_reuses_owned_modifier(blender_env, monkeypatch, tmp_path):
     assert old.up_axis == "POS_Z"
 
 
+def test_rebake_accepts_owned_live_preview_left_by_cancel(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    live = tmp_path / ".cn_test_cloth_old.pc2.deadbeef.tmp"
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(live)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    final = tmp_path / "cn_test_cloth_new.pc2"
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        obj.name, tmp_path, final, 1)
+
+    module.prepare_cache_for_new_run(plan)
+
+
+def test_resume_accepts_only_its_authenticated_recovery_partial(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    partial = tmp_path / ".cloth_next_recovery" / "scene" / "partials" / "cloth.pc2.partial"
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(partial)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    final = tmp_path / "cn_test_cloth_new.pc2"
+    options = SimpleNamespace(partial_pc2=(("cloth-uuid", str(partial)),))
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        obj.name, tmp_path, final, 1, recovery_options=options)
+
+    module.prepare_cache_for_new_run(plan)
+
+
 def test_finished_cache_is_exposed_as_timeline_strip(blender_env):
     module = blender_env.solver_test
 
@@ -1149,6 +1186,33 @@ def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env)
     module._advance_bake_timeline(plan, 999)
     assert scene.frame_current == 50
     assert timeline_overlay.baked_range() == (10, 50, 50)
+
+
+def test_solver_progress_moves_timeline_before_live_pc2_is_available(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+
+    class Scene:
+        frame_current = 10
+        use_preview_range = True
+
+        def frame_set(self, frame):
+            self.frame_current = frame
+
+    scene = Scene()
+    blender_env.bpy.context.scene = scene
+    plan = SimpleNamespace(frame_start=10, frame_end=50)
+    attached = []
+    monkeypatch.setattr(module, "_attach_live_playback",
+                        lambda *_args, **_kwargs: attached.append(True))
+
+    module._advance_bake_progress(plan, 23)
+
+    from cloth_next.blender import timeline_overlay
+    assert scene.frame_current == 23
+    assert timeline_overlay.baked_range() == (10, 23, 50)
+    assert not scene.use_preview_range
+    assert attached == []
 
 
 def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
@@ -1841,7 +1905,7 @@ def _recovery_plan(tmp_path, *, geometry="geometry"):
         project_name="project", cloth_name="cloth", cloth_uuid="target-a",
         cloth_vertex_count=1, collider_name="", collider_uuid="",
         frame_count=1, data_payload=b"", param_payload=b"",
-        data_hash="", param_hash="")
+        data_hash="", param_hash="param")
     return dict(
         scene=scene, resolved=resolved,
         initial_local=((0.0, 0.0, 0.0),),
@@ -2213,6 +2277,33 @@ def test_configure_recovery_uses_selected_project_when_export_key_changes(
     assert result.recovery_options.metadata_path == metadata
     assert result.recovery_options.identity.scene_key == "scene"
     assert result.scene.project_name == "project"
+
+
+def test_recovery_identity_uses_wire_param_hash_not_unstable_cache_recipe(
+        blender_env, tmp_path):
+    """DO NOT REGRESS: a cache-key change must not invalidate Resume.
+
+    Only the canonical PARAM bytes accepted by the solver define parameter
+    compatibility. Internal cache recipes are implementation details and may
+    change across an otherwise identical second Bake preparation.
+    """
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    plan = module.RunPlan(**{
+        **_recovery_plan(tmp_path),
+        # Empty is valid: Recovery must not be gated on this optional recipe.
+        "param_cache_key": "",
+    })
+    settings = _recovery_settings(
+        resume_requested=True, recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+
+    result = module._configure_recovery(
+        context, SimpleNamespace(collider_objs=()), plan)
+
+    assert result.recovery_options.resume is True
+    assert result.recovery_options.identity.param_key == "param"
 
 
 def test_configure_recovery_missing_selected_metadata_never_starts_fresh(

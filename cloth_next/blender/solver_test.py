@@ -4926,7 +4926,7 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     settings = getattr(context.scene, "cloth_next_recovery", None)
     if (snapshot is None or settings is None
             or not bool(getattr(settings, "enabled", False))
-            or not plan.scene_cache_key or not plan.param_cache_key):
+            or not plan.scene_cache_key or not plan.scene.param_hash):
         return plan
     targets = _plan_deformables(plan)
     cache_root = targets[0].pc2_path.parent
@@ -4938,7 +4938,15 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         for obj in snapshot.collider_objs))
     identity = recovery.RecoveryIdentity(
         scene_key=plan.scene_cache_key,
-        param_key=plan.param_cache_key,
+        # RECOVERY INVARIANT -- DO NOT REPLACE WITH ``param_cache_key``.
+        # Recovery compatibility is the identity of the bytes accepted by the
+        # solver, not the add-on's internal cache recipe.  The recipe can
+        # legitimately change between two preparations of an unchanged scene
+        # (for example after frame evaluation or an add-on reload), while the
+        # canonical encoded PARAM payload remains byte-for-byte identical.
+        # Using the recipe here made Resume reject its own freshly-created
+        # checkpoint as "Material or solver settings changed".
+        param_key=plan.scene.param_hash,
         export_uuids=tuple(sorted(
             [target.uuid for target in targets]
             + [export_identity.export_uuid(obj)
@@ -5106,6 +5114,25 @@ def _is_within(path: Path, root: Path) -> bool:
         return False
 
 
+def _is_owned_playback_cache_path(path: Path, cache_root: Path) -> bool:
+    """Accept final and private live PC2 paths created by Cloth NeXt.
+
+    A live preview is intentionally attached as
+    ``cn_test_cloth_<id>.pc2.<nonce>.tmp`` while the streaming writer owns it.
+    Cancel can leave that owned modifier attached.  Treating its final
+    ``.tmp`` suffix as foreign made the next Bake fail with CNX-E100 before it
+    could replace the modifier.
+    """
+    if not _is_within(path, cache_root):
+        return False
+    name = path.name
+    # StreamingPc2Writer prefixes the private live mirror with a dot.
+    if not name.lstrip(".").startswith("cn_test_cloth_"):
+        return False
+    return (name.endswith(".pc2")
+            or (".pc2." in name and name.endswith(".tmp")))
+
+
 def prepare_cache_for_new_run(plan: RunPlan) -> None:
     """Validate old ownership; preserve the old result until attach succeeds."""
     if getattr(plan, "deformables", ()):
@@ -5119,14 +5146,22 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
              if is_cloth_next_playback_modifier(obj,mod)]
     targets: list[Path] = []
     cache_root = plan.pc2_path.parent.resolve()
+    # RECOVERY INVARIANT -- DO NOT BROADEN THIS TO AN ARBITRARY DIRECTORY.
+    # After Cancel the owned playback modifier points at the authenticated
+    # partial named by this exact RecoveryOptions instance. Resume must accept
+    # that file even though it deliberately lives below .cloth_next_recovery,
+    # outside the publication cache root.
+    recovery_partials = {
+        Path(value).resolve()
+        for _uuid, value in (
+            plan.recovery_options.partial_pc2
+            if plan.recovery_options is not None else ())}
     if getattr(obj, "type", "") == "CURVE":
         recorded = str(getattr(getattr(obj, "data", None), "get",
                                lambda *_: "")("cloth_next_rod_cache", "") or "")
         if recorded:
             path = Path(recorded).resolve()
-            if (not _is_within(path, cache_root)
-                    or not path.name.startswith("cn_test_cloth_")
-                    or path.suffix.lower() != ".pc2"):
+            if not _is_owned_playback_cache_path(path, cache_root):
                 raise SceneValidationError(
                     "The previous Cable / Rope cache could not be replaced. "
                     "Rebake was not started.")
@@ -5136,9 +5171,8 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
         if not value:
             continue
         path = Path(bpy.path.abspath(value)).resolve()
-        if (not _is_within(path, cache_root)
-                or not path.name.startswith("cn_test_cloth_")
-                or path.suffix.lower() != ".pc2"):
+        if (path not in recovery_partials
+                and not _is_owned_playback_cache_path(path, cache_root)):
             raise SceneValidationError(
                 "The previous Cloth NeXt cache could not be removed. "
                 "Rebake was not started.")
@@ -6251,6 +6285,23 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
 def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
                            live_paths=None) -> None:
     """Move Blender's blocked UI to the newest solver frame on main thread."""
+    try:
+        # Preserve the live-loading handoff invariant: the growing PC2 must be
+        # attached before frame_set evaluates the dependency graph.
+        _attach_live_playback(plan, live_paths)
+    except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+        pass
+    _advance_bake_progress(plan, blender_frame)
+
+
+def _advance_bake_progress(plan: RunPlan, blender_frame: int) -> None:
+    """Keep Timeline marker/strip synchronized before frames are fetched.
+
+    During PPF simulation checkpoints advance long before transformed PC2
+    frames become available.  Live playback attachment therefore remains in
+    ``_advance_bake_timeline`` while this lightweight path follows every
+    SIMULATING/FETCHING progress event.
+    """
     scene = getattr(getattr(bpy, "context", None), "scene", None)
     if scene is None:
         return
@@ -6260,7 +6311,6 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
     timeline_overlay.set_baked_range(
         int(plan.frame_start), frame, int(plan.frame_end))
     try:
-        _attach_live_playback(plan, live_paths)
         scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
             scene.frame_set(frame)
@@ -6689,6 +6739,8 @@ def _pump_once() -> float | None:
                     if event.phase == "TRANSFORMING_FRAME":
                         _advance_bake_timeline(
                             plan, current, getattr(event, "live_paths", None))
+                    else:
+                        _advance_bake_progress(plan, current)
                 activity_code = None
                 if getattr(event, "activity_code", ""):
                     try:
@@ -6742,6 +6794,51 @@ def _pump_once() -> float | None:
         elif kind == "cancelled":
             resumable = message[1] if len(message) > 1 else False
             recovery_outcome = message[2] if len(message) > 2 else None
+            # RECOVERY INVARIANT -- DO NOT DISCARD BEFORE THIS RECONCILIATION.
+            # The companion can complete save_and_quit after its status socket
+            # closes, so the worker's terminal message may race the durable
+            # state rename.  The Blender main thread is the final owner before
+            # _discard_incomplete; promote any complete states from the opaque
+            # project_root instead of deleting a valid Recovery checkpoint.
+            options = getattr(plan, "recovery_options", None)
+            if not resumable and options is not None:
+                try:
+                    record = recovery.load_project(
+                        options.metadata_path, verify_checkpoints=False)
+                    frames = []
+                    if record is not None:
+                        output = (Path(record.project_root) / "session" /
+                                  "output")
+                        for state_path in output.glob("state_*.bin.gz"):
+                            try:
+                                frames.append(int(state_path.name[
+                                    len("state_"):-len(".bin.gz")]))
+                            except ValueError:
+                                continue
+                    if record is not None and frames:
+                        record = recovery.confirm_saved_states(
+                            options.metadata_path, record, frames,
+                            keep=options.keep_saved_states)
+                        if record.checkpoints:
+                            if record.state is not recovery.ProjectState.SAVED:
+                                record = recovery.transition(
+                                    options.metadata_path, record,
+                                    recovery.ProjectState.SAVED)
+                            recovery.transition(
+                                options.metadata_path, record,
+                                recovery.ProjectState.RESUMABLE)
+                            resumable = True
+                            recovery_outcome = RecoveryOutcome(
+                                checkpoint_saved=True,
+                                artist_message="Recovery checkpoint saved",
+                                technical_reason=(
+                                    "Reconciled durable state during Blender "
+                                    "cancel finalization"),
+                                state_before="CANCELLED",
+                                saved_states=tuple(sorted(set(frames))),
+                                kind=RecoveryOutcomeKind.SAVED)
+                except (OSError, ValueError):
+                    pass
             if _ram_auto_cancel_triggered:
                 shared_controller.fail(
                     "Bake stopped at the RAM safety limit.",
