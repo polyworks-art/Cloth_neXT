@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.2.28 - 2026-08-12 (Dev channel)
+
+### Added
+
+- Added optional live Bake viewport auto-framing with configurable margin and
+  Smooth or Cinematic motion. Fast cloth motion pulls the view back
+  immediately to keep every deformable visible while closer framing remains
+  softly damped.
+
+### Fixed
+
+- Cancel requests issued during the transition into export remain latched and
+  reliably reach the Bake worker.
+- Cancelled Bakes retain their terminal state so the Bake Window and Recovery
+  UI can observe saved checkpoints before a new Bake or Resume takes ownership.
+
 ## 2.2.27 - 2026-08-12 (Dev channel)
 
 ### Added

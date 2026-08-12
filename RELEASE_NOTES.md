@@ -1,31 +1,33 @@
-# Cloth NeXt 2.2.27 Dev
+# Cloth NeXt 2.2.28 Dev
 
-Cloth NeXt 2.2.27 adds verified support for the latest PPF Contact Solver under
-the codename Lumen and hardens the real Blender recovery workflow.
+Cloth NeXt 2.2.28 adds live Bake viewport framing and hardens cancellation and
+Recovery hand-offs.
 
-## Solver compatibility
+## Live Bake viewport
 
-- Velune remains the stable default with protocol 0.13 and schema 2.
-- Lumen is available with protocol 0.18 and schema 2.
-- Both releases can be downloaded explicitly from Solver Preferences with
-  pinned official URLs, archive sizes, and SHA-256 checksums.
-- Retired protocol 0.11 installations are no longer shown or selectable.
+- Auto-Frame Cloth During Bake keeps every live-baked deformable visible in
+  open 3D viewports.
+- Smooth and Cinematic motion styles control how deliberately the view follows
+  position and scale changes.
+- Framing response and margin are configurable in Add-on Preferences.
+- Fast cloth expansion pulls the view back immediately to avoid cropping;
+  closer framing remains softly damped.
+- Camera view is never modified.
 
-## Lumen integration
+## Cancellation and Recovery
 
-- Protocol-specific encoding omits parameters removed by protocol 0.18.
-- Exact frontend identity and required integration anchors are verified before
-  installation is accepted.
-- Solver `crash_kind` and multiline diagnostics are preserved end to end.
+- Cancel is latched before startup ownership can move between the controller,
+  pending plan, and worker.
+- The active plan owns the run before the EXPORTING transition is published.
+- A cancelled Bake remains in its terminal state so the Bake Window and
+  Recovery UI can reliably observe checkpoint results.
+- The next Bake or Resume performs the controlled transition back to a new
+  PREPARING state without a background reset timer.
 
-## Recovery
+## Compatibility
 
-- Recovery startup now distinguishes a healthy control server from the
-  intentionally interrupted state of the saved project.
-- A real Blender 5.2 test resumed a 20-frame Lumen Bake from verified frame 10,
-  continued at frame 11, skipped scene upload and rebuild, and published a
-  valid 20-frame PC2 cache.
+- Velune protocol 0.13 and Lumen protocol 0.18 remain supported.
+- The external PPF Contact Solver remains a separate explicit download and is
+  not included in the extension archive.
 
-The external PPF Contact Solver remains a separate explicit download and is not
-included in the Cloth NeXt extension archive. Version `2.2.27` is published
-only to the Dev channel.
+Version `2.2.28` is published only to the Dev channel.

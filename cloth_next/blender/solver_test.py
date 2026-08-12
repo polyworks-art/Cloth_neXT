@@ -6264,6 +6264,8 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
         scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
             scene.frame_set(frame)
+        from . import viewport_autoframe
+        viewport_autoframe.update(plan, frame)
     except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
         pass
 
@@ -6858,6 +6860,14 @@ def _start_prepared_run(plan: RunPlan) -> None:
         target.pc2_path.parent.mkdir(parents=True, exist_ok=True)
     plan.work_directory.mkdir(parents=True, exist_ok=True)
     _last_work_directory = plan.work_directory
+    # Clear only cancellation left by an older Bake. Once EXPORTING is
+    # published, Cancel from the panel, HUD, or Bake Window must remain latched
+    # for the lifetime of this attempt and reach the worker's first check.
+    _cancel_event.clear()
+    # Establish ownership before publishing EXPORTING. A synchronous Cancel
+    # subscriber must see a real active plan, not classify this hand-off as an
+    # orphaned controller state while startup continues behind it.
+    _active_plan = plan
     shared_controller.transition(
         BakeState.EXPORTING,
         status_message=(f"Exporting {len(_plan_deformables(plan))} "
@@ -6866,12 +6876,10 @@ def _start_prepared_run(plan: RunPlan) -> None:
         frame_start=plan.frame_start, frame_end=plan.frame_end,
         current_frame=plan.frame_start, progress_current=1,
         progress_total=plan.frame_count)
-    _cancel_event.clear()
     _ram_auto_cancel_triggered = False
     while not _queue.empty():
         try: _queue.get_nowait()
         except queue.Empty: break
-    _active_plan = plan
     _run_started_at = _time.monotonic()
     _eta_estimator.reset()
     if _unsubscribe is None:
@@ -7486,6 +7494,10 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
+    # Latch first. Export/startup ownership can move between controller,
+    # pending-plan and worker state during this call; no branch may lose the
+    # artist's Cancel request while that hand-off is in progress.
+    _cancel_event.set()
     if _pending_job_id:
         cancel_pending_startup(); return
     # A Companion can disappear after startup while no capture or worker owns
@@ -7502,7 +7514,6 @@ def request_cancel() -> None:
                 BakeState.CANCELLED, status_message="Stale Bake state cleared")
             modal_lock.release(snapshot.job_id)
         return
-    _cancel_event.set()
     snapshot = shared_controller.snapshot()
     if snapshot.active and snapshot.state is not BakeState.CANCELLING:
         shared_controller.request_cancel()

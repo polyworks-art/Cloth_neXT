@@ -23,7 +23,8 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                object_properties, physics_operators, physics_ui,
                pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
-               timeline_overlay, validation_state, viewport_colors)
+               timeline_overlay, validation_state, viewport_autoframe,
+               viewport_colors)
 
 _CLASSES = (
     preferences.CLASSES
@@ -104,6 +105,7 @@ def unregister() -> None:
     # test shutdown cancels the run, stops the exact owned solver process
     # (never an external server), and joins the worker thread.
     solver_test.shutdown()
+    viewport_autoframe.reset()
     preferences.shutdown()
     addon_update_operators.shutdown()
     bake_preview.stop()

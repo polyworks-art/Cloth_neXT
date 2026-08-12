@@ -756,6 +756,70 @@ def test_new_bake_clears_stale_cancel_before_run_plan(blender_env,
     assert not module._cancel_event.is_set()
 
 
+def test_cancel_on_export_transition_remains_latched_for_worker(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    module._cancel_event.set()  # stale cancellation from an older attempt
+    plan = SimpleNamespace(
+        work_directory=tmp_path / "run",
+        cloth_object_name="Cloth",
+        frame_start=1,
+        frame_end=20,
+        frame_count=20,
+        deformables=())
+    monkeypatch.setattr(module, "_plan_deformables", lambda _plan: ())
+    monkeypatch.setattr(module, "_worker_main", lambda _plan: None)
+    monkeypatch.setattr(module.bpy.app.timers, "is_registered", lambda _fn: True)
+    module._begin_controller(module.BakeJobKind.BAKE)
+    module.shared_controller.transition(module.BakeState.STARTING_RUN)
+
+    unsubscribe = module.shared_controller.subscribe(
+        lambda snapshot: module.request_cancel()
+        if snapshot.state is module.BakeState.EXPORTING else None)
+    try:
+        module._start_prepared_run(plan)
+        assert module._cancel_event.is_set()
+        assert module.shared_controller.snapshot().state is module.BakeState.CANCELLING
+    finally:
+        unsubscribe()
+        if module._worker is not None:
+            module._worker.join(timeout=1)
+        module._worker = None
+        module._active_plan = None
+        module.shared_controller.transition(module.BakeState.CANCELLED)
+        module.shared_controller.reset()
+
+
+def test_cancelled_terminal_state_persists_for_recovery_ui(blender_env):
+    module = blender_env.solver_test
+    module._begin_controller(module.BakeJobKind.BAKE)
+    job_id = module.shared_controller.snapshot().job_id
+    module.shared_controller.request_cancel()
+    module.shared_controller.transition(module.BakeState.CANCELLED)
+    module._cancel_event.set()
+
+    snapshot = module.shared_controller.snapshot()
+    assert snapshot.job_id == job_id
+    assert snapshot.state is module.BakeState.CANCELLED
+    assert module._cancel_event.is_set()
+
+
+def test_next_bake_replaces_cancelled_terminal_state(blender_env):
+    module = blender_env.solver_test
+    module._begin_controller(module.BakeJobKind.BAKE)
+    cancelled_job_id = module.shared_controller.snapshot().job_id
+    module.shared_controller.request_cancel()
+    module.shared_controller.transition(module.BakeState.CANCELLED)
+
+    module._begin_controller(module.BakeJobKind.BAKE)
+    new_job_id = module.shared_controller.snapshot().job_id
+
+    snapshot = module.shared_controller.snapshot()
+    assert new_job_id != cancelled_job_id
+    assert snapshot.job_id == new_job_id
+    assert snapshot.state is module.BakeState.PREPARING
+
+
 def test_preparation_window_launches_before_animated_collider_capture(
         blender_env, monkeypatch):
     module = blender_env.solver_test

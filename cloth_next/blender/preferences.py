@@ -729,6 +729,23 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Require the visible topmost Bake window before locking "
                     "Blender. When disabled, Bake runs in Blender without a "
                     "global modal workflow lock")
+    auto_frame_bake: bpy.props.BoolProperty(
+        name="Auto-Frame Cloth During Bake", default=True,
+        description="Keep all live-baked deformables comfortably visible in "
+                    "open 3D viewports")
+    auto_frame_style: bpy.props.EnumProperty(
+        name="Framing Motion",
+        items=(("SMOOTH", "Smooth", "Responsive, softly damped framing"),
+               ("CINEMATIC", "Cinematic",
+                "Slower, more deliberate camera drift")),
+        default="SMOOTH")
+    auto_frame_smoothing: bpy.props.FloatProperty(
+        name="Framing Response", default=0.18, min=0.02, max=1.0,
+        description="How quickly the viewport follows changes in cloth "
+                    "position and size")
+    auto_frame_margin: bpy.props.FloatProperty(
+        name="Framing Margin", default=1.25, min=1.02, max=3.0,
+        description="Extra space kept around the simulated objects")
     show_bake_hud: bpy.props.BoolProperty(name="Show Resource Monitor", default=True)
     bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")
     bake_hud_scale: bpy.props.FloatProperty(name="HUD Scale", default=1.0, min=0.75, max=2.0)
@@ -749,6 +766,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         if is_dev_build():
             layout.prop(self, "developer_tools")
         layout.prop(self, "auto_launch_bake_window")
+        framing = layout.box()
+        framing.label(text="Live Bake Viewport")
+        framing.prop(self, "auto_frame_bake")
+        framing_controls = framing.column()
+        framing_controls.enabled = getattr(self, "auto_frame_bake", True)
+        for name in ("auto_frame_style", "auto_frame_smoothing",
+                     "auto_frame_margin"):
+            framing_controls.prop(self, name)
         hud_box=layout.box(); hud_box.label(text="Bake Resource Monitor")
         for name in ("show_bake_hud","bake_hud_anchor","bake_hud_scale","telemetry_refresh_seconds"): hud_box.prop(self,name)
         safety=hud_box.box(); safety.label(text="Memory Safety", **icon_registry.icon_kwargs("monitor", "MEMORY"))
