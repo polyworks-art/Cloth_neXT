@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.31 - 2026-08-14
+
+### Fixed
+
+- Periodic Lumen Recovery checkpoints are now discovered from the solver's
+  atomic state files when its normal status response omits `saved_states`.
+- The configured checkpoint interval now produces artist-visible, verified
+  Recovery points during a running Bake instead of appearing only after
+  Save on Cancel.
+
 ## 2.2.30 - 2026-08-13
 
 ### Fixed

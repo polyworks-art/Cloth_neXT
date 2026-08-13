@@ -1,31 +1,23 @@
-# Cloth NeXt 2.2.30
+# Cloth NeXt 2.2.31
 
-Cloth NeXt 2.2.30 makes live Bake framing calm and continuous and fixes
-Recovery for complex scenes whose evaluated state cannot use the optional
-persistent export cache.
-
-## Live Bake viewport
-
-- Auto-Framer motion is driven by a refresh-rate-independent timer rather than
-  by the irregular completion cadence of solver frames.
-- Smooth and Cinematic modes interpolate continuously between new targets.
-- A small framing dead zone prevents evaluated bounding-box noise from making
-  the viewport hunt back and forth.
-- Pull-back motion is eased instead of snapping outward multiple times.
+Cloth NeXt 2.2.31 restores periodic automatic Recovery checkpoints for the
+Lumen solver.
 
 ## Recovery
 
-- Recovery no longer depends on eligibility for the optional persistent Scene
-  export cache.
-- When that cache is unsafe for an evaluated scene, the canonical Scene hash
-  sent to the solver supplies a stable durable Recovery identity.
-- Auto-save interval, retention, and Save on Cancel therefore remain attached
-  to the production Bake instead of leaving solver states only in Blender's
-  temporary run directory.
+- The configured Auto Save Checkpoints interval is passed to the solver and
+  is now reflected immediately in Cloth NeXt's durable Recovery metadata.
+- Lumen's normal running status may omit the legacy `saved_states` field.
+  Cloth NeXt now verifies its atomically completed `state_<frame>.bin.gz`
+  files during ordinary status polling, using the same authoritative fallback
+  already proven by Save on Cancel.
+- Automatic checkpoints therefore appear while the Bake continues; cancelling
+  is no longer required to make them visible or resumable.
+- Retention continues to follow the configured Keep Saved States value.
 
 ## Validation
 
-- Auto-Framer timing, Cinematic response, and jitter dead-zone unit coverage.
-- Regression coverage for durable Recovery without a Scene export-cache key.
-- Full Python suite and release-policy/package gates are required before
-  publication. The external PPF Contact Solver is not bundled.
+- Regression coverage reproduces a Lumen status response without
+  `saved_states` while a periodic state exists on disk.
+- Full Python suite: 1,358 passed, 9 skipped, 3 deselected.
+- The external PPF Contact Solver is not bundled.

@@ -895,6 +895,38 @@ def test_periodic_checkpoint_emits_verified_recovery_event(
                 if event.phase == "RECOVERY_SAVED"]) == 1
 
 
+def test_periodic_checkpoint_uses_disk_when_lumen_status_omits_saved_states(
+        monkeypatch, tmp_path):
+    scene = _scene()
+    server_root = tmp_path / "server"
+    output = server_root / scene.project_name / "session" / "output"
+    output.mkdir(parents=True)
+    metadata = tmp_path / "recovery" / "metadata.json"
+    events = []
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=tmp_path / "run",
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        emit=events.append,
+        recovery_options=RecoveryOptions(
+            True, metadata, _recovery_identity(), server_root,
+            auto_save_interval=20))
+    session._recovery_start()
+    (output / "state_19.bin.gz").write_bytes(gzip.compress(b"state"))
+    monkeypatch.setattr(
+        wire, "send_tcmd",
+        lambda *_args, **_kwargs: {"status": "BUSY", "frame": 19})
+
+    response = session._status()
+
+    assert "saved_states" not in response
+    record = recovery.load_project(metadata)
+    assert record is not None
+    assert [item.frame for item in record.checkpoints] == [19]
+    assert [event.frame_current for event in events
+            if event.phase == "RECOVERY_SAVED"] == [19]
+
+
 def test_identical_saved_states_do_not_republish_metadata(
         monkeypatch, tmp_path):
     scene = _scene()

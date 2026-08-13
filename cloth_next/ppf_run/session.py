@@ -446,10 +446,20 @@ class SolverSession:
         self.diagnostics.note_status(status)
         previous = (tuple(item.frame for item in self._recovery_record.checkpoints)
                     if self._recovery_record is not None else ())
-        self._sync_checkpoints(response)
+        saved = self._saved_states(response)
+        # Lumen writes periodic states atomically but its normal RunStatus does
+        # not expose the legacy ``saved_states`` collection. The files are the
+        # same durable authority already used by save-and-quit recovery; use
+        # them during ordinary polling as well so Auto Save is visible before
+        # an artist cancels or Blender exits unexpectedly.
+        if self._recovery is not None and not saved:
+            saved = self._checkpoint_frames_on_disk()
+        checkpoint_response = (
+            response if saved == self._saved_states(response)
+            else {**response, "saved_states": saved})
+        self._sync_checkpoints(checkpoint_response)
         current = (tuple(item.frame for item in self._recovery_record.checkpoints)
                    if self._recovery_record is not None else ())
-        saved = self._saved_states(response)
         if current != previous and current:
             self._event(
                 "RECOVERY_SAVED",
