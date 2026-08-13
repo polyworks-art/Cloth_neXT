@@ -4924,20 +4924,26 @@ def build_run_plan(context, *, animated_pin_samples=None,
 
 def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
     settings = getattr(context.scene, "cloth_next_recovery", None)
+    # The persistent export-cache recipe is optional. Complex evaluated scenes
+    # can deliberately decline that cache while still producing canonical
+    # solver Scene bytes. Recovery must follow those bytes instead of silently
+    # falling back to the temporary run directory.
+    scene_key = str(
+        plan.scene_cache_key or getattr(plan.scene, "data_hash", "") or "")
     if (snapshot is None or settings is None
             or not bool(getattr(settings, "enabled", False))
-            or not plan.scene_cache_key or not plan.scene.param_hash):
+            or not scene_key or not plan.scene.param_hash):
         return plan
     targets = _plan_deformables(plan)
     cache_root = targets[0].pc2_path.parent
-    root = recovery.recovery_root(cache_root, plan.scene_cache_key)
+    root = recovery.recovery_root(cache_root, scene_key)
     metadata = root / recovery.METADATA_NAME
     collider_sampling = tuple(sorted(
         (export_identity.export_uuid(obj),
          int(getattr(obj.cloth_next, "collider_samples_per_frame", 1)))
         for obj in snapshot.collider_objs))
     identity = recovery.RecoveryIdentity(
-        scene_key=plan.scene_cache_key,
+        scene_key=scene_key,
         # RECOVERY INVARIANT -- DO NOT REPLACE WITH ``param_cache_key``.
         # Recovery compatibility is the identity of the bytes accepted by the
         # solver, not the add-on's internal cache recipe.  The recipe can

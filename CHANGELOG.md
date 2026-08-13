@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.30 - 2026-08-13
+
+### Fixed
+
+- Live Bake auto-framing now animates continuously at a time-based refresh
+  cadence instead of stepping once per completed solver frame.
+- Cinematic framing suppresses small evaluated-bound fluctuations and eases
+  both inward and outward motion instead of snapping the viewport backward.
+- Recovery now remains enabled when a complex evaluated scene cannot use the
+  optional persistent export cache; its canonical solver Scene hash provides
+  the durable Recovery project identity.
+
 ## 2.2.29 - 2026-08-12 (Dev channel)
 
 ### Fixed

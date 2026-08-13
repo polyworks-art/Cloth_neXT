@@ -1,46 +1,31 @@
-# Cloth NeXt 2.2.29 Dev
+# Cloth NeXt 2.2.30
 
-Cloth NeXt 2.2.29 repairs the complete cancel-to-Recovery workflow and keeps
-live Bake progress synchronized in Blender.
+Cloth NeXt 2.2.30 makes live Bake framing calm and continuous and fixes
+Recovery for complex scenes whose evaluated state cannot use the optional
+persistent export cache.
 
 ## Live Bake viewport
 
-- Auto-Frame Cloth During Bake keeps every live-baked deformable visible in
-  open 3D viewports.
-- Smooth and Cinematic motion styles control how deliberately the view follows
-  position and scale changes.
-- Framing response and margin are configurable in Add-on Preferences.
-- Fast cloth expansion pulls the view back immediately to avoid cropping;
-  closer framing remains softly damped.
-- Camera view is never modified.
+- Auto-Framer motion is driven by a refresh-rate-independent timer rather than
+  by the irregular completion cadence of solver frames.
+- Smooth and Cinematic modes interpolate continuously between new targets.
+- A small framing dead zone prevents evaluated bounding-box noise from making
+  the viewport hunt back and forth.
+- Pull-back motion is eased instead of snapping outward multiple times.
 
-## Cancellation and Recovery
+## Recovery
 
-- Cancel is latched before startup ownership can move between the controller,
-  pending plan, and worker.
-- The active plan owns the run before the EXPORTING transition is published.
-- A cancelled Bake remains in its terminal state so the Bake Window and
-  Recovery UI can reliably observe checkpoint results.
-- The next Bake or Resume performs the controlled transition back to a new
-  PREPARING state without a background reset timer.
-- Recovery compatibility uses the canonical solver parameter payload identity,
-  so a freshly saved checkpoint is accepted by its own Resume operation.
-- Cancel waits for and reconciles durable solver state even when the status
-  connection closes before the checkpoint file becomes visible.
-- Rebake accepts Cloth NeXt's private live PC2 and the exact authenticated
-  Recovery partial without weakening cache ownership checks.
+- Recovery no longer depends on eligibility for the optional persistent Scene
+  export cache.
+- When that cache is unsafe for an evaluated scene, the canonical Scene hash
+  sent to the solver supplies a stable durable Recovery identity.
+- Auto-save interval, retention, and Save on Cancel therefore remain attached
+  to the production Bake instead of leaving solver states only in Blender's
+  temporary run directory.
 
-## Live progress
+## Validation
 
-- Timeline marker and Cloth NeXt Bake strip now follow SIMULATING and FETCHING
-  progress, including resumed Bakes.
-- Growing PC2 playback remains attached before Blender evaluates the next
-  timeline frame, preserving live loading.
-
-## Compatibility
-
-- Velune protocol 0.13 and Lumen protocol 0.18 remain supported.
-- The external PPF Contact Solver remains a separate explicit download and is
-  not included in the extension archive.
-
-Version `2.2.29` is published only to the Dev channel.
+- Auto-Framer timing, Cinematic response, and jitter dead-zone unit coverage.
+- Regression coverage for durable Recovery without a Scene export-cache key.
+- Full Python suite and release-policy/package gates are required before
+  publication. The external PPF Contact Solver is not bundled.

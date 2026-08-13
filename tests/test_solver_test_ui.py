@@ -2306,6 +2306,29 @@ def test_recovery_identity_uses_wire_param_hash_not_unstable_cache_recipe(
     assert result.recovery_options.identity.param_key == "param"
 
 
+def test_recovery_uses_wire_scene_hash_when_export_cache_is_unsafe(
+        blender_env, tmp_path):
+    """Recovery remains durable when the optional export cache is declined."""
+    module = blender_env.solver_test
+    plan = module.RunPlan(**{
+        **_recovery_plan(tmp_path),
+        "scene_cache_key": "",
+        "scene": replace(
+            _recovery_plan(tmp_path)["scene"], data_hash="wire-scene"),
+    })
+    settings = _recovery_settings(auto_save=True, checkpoint_interval=5)
+    context = SimpleNamespace(scene=SimpleNamespace(
+        cloth_next_recovery=settings))
+
+    result = module._configure_recovery(
+        context, SimpleNamespace(collider_objs=()), plan)
+
+    assert result.recovery_options is not None
+    assert result.recovery_options.identity.scene_key == "wire-scene"
+    assert result.recovery_options.auto_save_interval == 5
+    assert settings.recovery_directory.endswith("wire-scene")
+
+
 def test_configure_recovery_missing_selected_metadata_never_starts_fresh(
         blender_env, tmp_path):
     module = blender_env.solver_test
