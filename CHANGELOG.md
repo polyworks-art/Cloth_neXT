@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.32 - 2026-08-14
+
+### Fixed
+
+- The Bake window now launches before expensive scene validation, topology
+  hashing, evaluated geometry capture, and run-plan construction.
+- Clicking Bake therefore provides immediate visible feedback while Blender
+  continues preparing complex scenes in the background.
+
 ## 2.2.31 - 2026-08-14
 
 ### Fixed

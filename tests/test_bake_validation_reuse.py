@@ -76,6 +76,8 @@ def test_bake_start_hashes_topology_and_scans_pins_exactly_once(env,
     monkeypatch.setattr(module, "_extract_mesh",
                         lambda obj, _d, needs_edges: _fake_mesh(obj))
     monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module.companion_manager, "ensure_running",
+                        lambda: (True, "ready"))
 
     scene.counters.reset()
     module.begin_production_bake(scene.context)
@@ -343,6 +345,8 @@ def test_unregister_completes_even_mid_bake(blender_env, monkeypatch):
     monkeypatch.setattr(module, "_extract_mesh",
                         lambda obj, _d, needs_edges: _fake_mesh(obj))
     monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module.companion_manager, "ensure_running",
+                        lambda: (True, "ready"))
     module.begin_production_bake(scene.context)
     assert shared_controller.snapshot().state is BakeState.PREPARING
 

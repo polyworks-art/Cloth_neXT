@@ -834,7 +834,8 @@ def test_preparation_window_launches_before_animated_collider_capture(
         bake_range=module.BakeFrameRange(1, 2), deformables=(),
         collider_objs=(collider,))
     calls = []
-    monkeypatch.setattr(module, "validate_scene", lambda _context: snapshot)
+    monkeypatch.setattr(module, "validate_scene",
+                        lambda _context: calls.append("validate") or snapshot)
     monkeypatch.setattr(module, "build_run_plan",
                         lambda *_args, **_kwargs: calls.append("build") or
                         SimpleNamespace())
@@ -846,7 +847,7 @@ def test_preparation_window_launches_before_animated_collider_capture(
     _job_id, waiting = module.begin_production_bake(context)
 
     assert waiting is True
-    assert calls == ["window"]
+    assert calls == ["window", "validate"]
     assert module._pin_capture is not None
     assert module._pin_capture["wait_for_companion"] is True
     module.request_cancel()

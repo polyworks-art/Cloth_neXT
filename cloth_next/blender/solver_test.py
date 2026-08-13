@@ -7102,10 +7102,24 @@ def begin_production_bake(context) -> tuple[str, bool]:
         raise SceneValidationError(
             "Another Cloth NeXt Bake generation already owns startup.")
     try:
+        # Start the Companion before any evaluated-scene work. Validation and
+        # run-plan construction can spend a long time hashing topology or
+        # evaluating modifiers; launching here lets the OS construct and show
+        # the Bake window concurrently instead of making the click appear
+        # unresponsive until all preparation has finished.
+        objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
+        try:
+            prefs = addon_preferences(context, __package__)
+            open_preparation_window = bool(prefs.auto_launch_bake_window)
+        except (KeyError, AttributeError):
+            open_preparation_window = True
+        if objects and open_preparation_window:
+            ok, message = companion_manager.ensure_running()
+            if not ok:
+                raise SceneValidationError(message)
         # One authoritative validation for the whole Bake start: it hashes the
         # topology once and scans the pin group once. Everything downstream
         # (pin capture, run plan, fingerprints, cache check) reuses it.
-        objects=tuple(getattr(getattr(context,"scene",None),"objects",()))
         snapshot=validate_scene(context) if objects else None
         if snapshot is not None:
             _require_cache_directories(
@@ -7138,17 +7152,6 @@ def begin_production_bake(context) -> tuple[str, bool]:
             needs_timeline = bool(
                 animated_targets or animated_colliders
                 or force_capture is None)
-            if needs_timeline:
-                try:
-                    prefs = addon_preferences(context, __package__)
-                    open_preparation_window = bool(
-                        prefs.auto_launch_bake_window)
-                except (KeyError, AttributeError):
-                    open_preparation_window = True
-                if open_preparation_window:
-                    ok, message = companion_manager.ensure_running()
-                    if not ok:
-                        raise SceneValidationError(message)
             if needs_timeline:
                 collider_rates = tuple(int(getattr(
                     obj.cloth_next, "collider_samples_per_frame",
