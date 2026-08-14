@@ -1292,6 +1292,21 @@ def test_attach_places_cache_after_armature_and_before_later_modifiers(
     assert obj.modifiers[2] is subdivision
 
 
+def test_playback_index_is_after_corrective_smooth(blender_env):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Corrected Cloth", type="MESH")
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    smooth = obj.modifiers.new("Corrective Smooth", "CORRECTIVE_SMOOTH")
+    subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
+    solidify = obj.modifiers.new("Solidify", "SOLIDIFY")
+    for modifier in obj.modifiers:
+        modifier.show_viewport = True
+    cache = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+
+    assert module._playback_stack_index(obj, cache) == 2
+    assert [armature, smooth, subdivision, solidify] == list(obj.modifiers[:4])
+
+
 def test_attach_places_cache_after_last_armature(blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="cloth", type="MESH")

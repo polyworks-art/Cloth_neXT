@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Deformable modifiers are accepted independently of export geometry."""
+"""Solver-input modifier boundary and pinning validation regressions."""
 
 import sys
 from types import ModuleType, SimpleNamespace
@@ -98,22 +98,23 @@ def test_deformable_export_reads_source_mesh_without_evaluating_modifiers(
     blender_env.registration.unregister()
 
 
-def test_rig_export_disables_only_modifiers_after_last_armature(
+def test_solver_input_export_disables_only_modifiers_after_boundary(
         blender_env, monkeypatch):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="Rigged Cloth", type="MESH")
-    before = obj.modifiers.new("Before Rig", "SUBSURF")
     rig = obj.modifiers.new("Armature", "ARMATURE")
+    smooth = obj.modifiers.new("Corrective Smooth", "CORRECTIVE_SMOOTH")
     after = obj.modifiers.new("After Rig", "SOLIDIFY")
-    before.show_viewport = rig.show_viewport = after.show_viewport = True
+    rig.show_viewport = smooth.show_viewport = after.show_viewport = True
     updates = []
     monkeypatch.setattr(module, "_depsgraph_update",
                         lambda _context: updates.append(True))
 
-    with module._evaluate_through_last_armature(SimpleNamespace(), obj) as rigged:
-        assert rigged
-        assert before.show_viewport
+    with module._evaluate_through_solver_input_modifiers(
+            SimpleNamespace(), obj) as evaluated:
+        assert evaluated
         assert rig.show_viewport
+        assert smooth.show_viewport
         assert not after.show_viewport
 
     assert after.show_viewport
@@ -132,6 +133,69 @@ def test_disabled_armature_keeps_source_mesh_export_path(
                         lambda _context: (_ for _ in ()).throw(
                             AssertionError("depsgraph must stay untouched")))
 
-    with module._evaluate_through_last_armature(SimpleNamespace(), obj) as rigged:
-        assert not rigged
+    with module._evaluate_through_solver_input_modifiers(
+            SimpleNamespace(), obj) as evaluated:
+        assert not evaluated
         assert after.show_viewport
+
+
+def test_corrective_smooth_without_armature_is_solver_input(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Smoothed Cloth", type="MESH")
+    smooth = obj.modifiers.new("Corrective Smooth", "CORRECTIVE_SMOOTH")
+    downstream = obj.modifiers.new("Subdivision", "SUBSURF")
+    smooth.show_viewport = downstream.show_viewport = True
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: None)
+
+    with module._evaluate_through_solver_input_modifiers(
+            SimpleNamespace(), obj) as evaluated:
+        assert evaluated
+        assert smooth.show_viewport
+        assert not downstream.show_viewport
+
+    assert downstream.show_viewport
+
+
+def test_disabled_corrective_smooth_is_ignored(blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Disabled Smooth", type="MESH")
+    smooth = obj.modifiers.new("Corrective Smooth", "CORRECTIVE_SMOOTH")
+    smooth.show_viewport = False
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: (_ for _ in ()).throw(
+        AssertionError("depsgraph must stay untouched")))
+
+    with module._evaluate_through_solver_input_modifiers(
+            SimpleNamespace(), obj) as evaluated:
+        assert not evaluated
+        assert not smooth.show_viewport
+
+
+def test_supported_modifier_after_topology_modifier_is_rejected(blender_env):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Unsafe Cloth", type="MESH")
+    obj.modifiers.new("Armature", "ARMATURE")
+    obj.modifiers.new("Subdivision", "SUBSURF")
+    obj.modifiers.new("Corrective Smooth", "CORRECTIVE_SMOOTH")
+
+    import pytest
+    with pytest.raises(module.SceneValidationError, match="cannot be included"):
+        module._validate_deformable_modifier_path(obj, _pin_membership(False))
+
+
+def test_solver_input_visibility_restored_after_exception(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Rigged Cloth", type="MESH")
+    obj.modifiers.new("Armature", "ARMATURE").show_viewport = True
+    downstream = obj.modifiers.new("Subdivision", "SUBSURF")
+    downstream.show_viewport = True
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: None)
+
+    import pytest
+    with pytest.raises(RuntimeError):
+        with module._evaluate_through_solver_input_modifiers(
+                SimpleNamespace(), obj):
+            assert not downstream.show_viewport
+            raise RuntimeError("capture failed")
+    assert downstream.show_viewport

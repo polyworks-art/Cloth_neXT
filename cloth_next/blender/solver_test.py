@@ -801,23 +801,53 @@ def _source_polygon_indices(obj, expected_triangle_count: int) \
         return ()
 
 
+_SOLVER_INPUT_MODIFIER_TYPES = frozenset({"ARMATURE", "CORRECTIVE_SMOOTH"})
+_TOPOLOGY_CHANGING_MODIFIER_TYPES = frozenset({
+    "ARRAY", "BOOLEAN", "BUILD", "DECIMATE", "EDGE_SPLIT", "EXPLODE",
+    "FLUID", "MASK", "MESH_SEQUENCE_CACHE", "MIRROR", "MULTIRES", "NODES",
+    "OCEAN", "PARTICLE_INSTANCE", "PARTICLE_SYSTEM", "REMESH", "SCREW",
+    "SKIN", "SOLIDIFY", "SUBSURF", "TRIANGULATE", "VOLUME_TO_MESH", "WELD",
+    "WIREFRAME",
+})
+
+
+def _solver_input_modifier_cutoff(obj) -> int:
+    """Last enabled modifier in the contiguous solver-input prefix."""
+    cutoff = -1
+    topology_barrier = False
+    for index, modifier in enumerate(getattr(obj, "modifiers", ())):
+        if not bool(getattr(modifier, "show_viewport", True)):
+            continue
+        kind = str(getattr(modifier, "type", ""))
+        if kind in _SOLVER_INPUT_MODIFIER_TYPES:
+            if topology_barrier:
+                name = str(getattr(modifier, "name", kind))
+                raise SceneValidationError(
+                    f"{name} cannot be included in the Cloth NeXt solver input "
+                    "because a topology-changing modifier appears "
+                    "before it. Move Corrective Smooth and Armature modifiers "
+                    "before the topology-changing modifier or disable them for "
+                    "the bake.")
+            cutoff = index
+        elif kind in _TOPOLOGY_CHANGING_MODIFIER_TYPES:
+            topology_barrier = True
+    return cutoff
+
+
 @contextmanager
-def _evaluate_through_last_armature(context, obj):
-    """Expose the modifier stack only through its last enabled Armature.
+def _evaluate_through_solver_input_modifiers(context, obj):
+    """Expose only the supported, contiguous solver-input modifier prefix.
 
     Rigged deformables must enter PPF in their visible Bake-Start pose. Any
-    modifier after the rig remains a downstream display modifier and must not
-    change solver geometry. Objects without an enabled Armature keep the
-    original pre-modifier export path.
+    Armature and Corrective Smooth are the only supported input deformations.
+    Later modifiers remain downstream display modifiers. Objects without an
+    enabled supported prefix keep the original pre-modifier export path.
     """
     modifiers = tuple(getattr(obj, "modifiers", ()))
-    armatures = [index for index, modifier in enumerate(modifiers)
-                 if (getattr(modifier, "type", "") == "ARMATURE"
-                     and bool(getattr(modifier, "show_viewport", True)))]
-    if not armatures:
+    cutoff = _solver_input_modifier_cutoff(obj)
+    if cutoff < 0:
         yield False
         return
-    cutoff = armatures[-1]
     changed = []
     try:
         for modifier in modifiers[cutoff + 1:]:
@@ -833,9 +863,9 @@ def _evaluate_through_last_armature(context, obj):
 
 
 def _extract_deformable_mesh(context, obj, *, needs_edges: bool):
-    """Bake-Start rig pose when present, otherwise untouched source mesh."""
-    with _evaluate_through_last_armature(context, obj) as rigged:
-        if not rigged:
+    """Bake-Start supported deformation, otherwise untouched source mesh."""
+    with _evaluate_through_solver_input_modifiers(context, obj) as evaluated:
+        if not evaluated:
             return _extract_source_mesh(obj, needs_edges=needs_edges)
         return _extract_mesh(
             obj, context.evaluated_depsgraph_get(), needs_edges=needs_edges)
@@ -4040,15 +4070,17 @@ def _verified_early_scene_available(snapshot, source_key) -> bool:
 
 
 def _validate_deformable_modifier_path(obj, pin_membership) -> None:
-    """Artist modifiers are accepted; Armature precedes Cloth NeXt playback.
+    """Validate the narrow, contiguous solver-input deformation prefix.
 
-    Export evaluates through the last enabled Armature at Bake Start and ignores
-    later modifiers. Without an Armature it reads ``obj.data`` directly.
-    Playback is attached after the last Armature modifier. Topology changes in
-    the evaluated rig prefix are rejected by the extraction vertex-count check.
+    Export ends after the final enabled Armature or Corrective Smooth before a
+    topology-changing barrier, then ignores the downstream suffix. A supported
+    modifier after such a barrier is rejected because reaching it would also
+    evaluate the topology-changing modifier. The extraction vertex-count check
+    remains the final constant-topology guard.
     ``pin_membership`` remains accepted for call-site stability.
     """
-    del obj, pin_membership
+    del pin_membership
+    _solver_input_modifier_cutoff(obj)
 
 
 def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
@@ -5860,7 +5892,7 @@ def _modifier_index(obj, modifier) -> int:
 
 
 def _playback_stack_index(obj, playback_modifier) -> int:
-    """Return the slot immediately after every Armature modifier.
+    """Return the slot immediately after the solver-input modifier prefix.
 
     The cache must never precede the rig: doing so lets the Armature deform the
     simulated result a second time. Other modifier types keep their relative
@@ -5869,9 +5901,8 @@ def _playback_stack_index(obj, playback_modifier) -> int:
     stack_without_playback = [modifier for modifier in obj.modifiers
                               if not _same_modifier(modifier,
                                                     playback_modifier)]
-    armature_indices = [index for index, modifier in enumerate(stack_without_playback)
-                        if getattr(modifier, "type", "") == "ARMATURE"]
-    return armature_indices[-1] + 1 if armature_indices else 0
+    proxy = type("_ModifierStack", (), {"modifiers": stack_without_playback})()
+    return _solver_input_modifier_cutoff(proxy) + 1
 
 
 _ROD_FCURVE_GROUP = "Cloth NeXt Rod Cache"
@@ -7235,7 +7266,7 @@ def _suspend_pin_capture_playback(state) -> None:
     """Expose the same modifier stage used by deformable export.
 
     Animated Pin targets and the exported Bake-start mesh must address the
-    same vertices.  Export stops after the last enabled Armature; leaving a
+    same vertices. Export stops after the supported modifier prefix; leaving a
     later Mirror, Solidify, Subdivision, or playback modifier enabled here
     makes the evaluated Pin mesh larger and produces a false E105 topology
     failure.  Disable that downstream suffix once for the whole timeline
@@ -7249,11 +7280,7 @@ def _suspend_pin_capture_playback(state) -> None:
                 raise SceneValidationError(
                     f"The Cloth object {object_name!r} no longer exists.")
             modifiers = tuple(getattr(obj, "modifiers", ()))
-            armatures = [
-                index for index, modifier in enumerate(modifiers)
-                if (getattr(modifier, "type", "") == "ARMATURE"
-                    and bool(getattr(modifier, "show_viewport", True)))]
-            cutoff = armatures[-1] if armatures else -1
+            cutoff = _solver_input_modifier_cutoff(obj)
             for index, modifier in enumerate(modifiers):
                 downstream = cutoff >= 0 and index > cutoff
                 if (not downstream
@@ -7297,14 +7324,11 @@ def _sample_evaluated_pin_positions(context, obj, membership, *,
     if depsgraph is None:
         depsgraph = context.evaluated_depsgraph_get()
     evaluated = obj.evaluated_get(depsgraph)
-    has_armature = any(
-        getattr(modifier, "type", "") == "ARMATURE"
-        and bool(getattr(modifier, "show_viewport", True))
-        for modifier in getattr(obj, "modifiers", ()))
-    # Deformable export reads the untouched source mesh when no Armature is
+    has_solver_input_deformation = _solver_input_modifier_cutoff(obj) >= 0
+    # Deformable export reads the untouched source mesh when no supported input is
     # active.  Do the same for Pins while retaining the evaluated object
     # transform (parents/object animation may still move the Pin target).
-    mesh = evaluated.data if has_armature else obj.data
+    mesh = evaluated.data if has_solver_input_deformation else obj.data
     count = len(mesh.vertices)
     if count != membership.source_vertex_count:
         raise SceneValidationError(

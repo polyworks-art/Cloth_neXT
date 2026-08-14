@@ -1,20 +1,24 @@
-# Cloth NeXt 2.2.32
+# Cloth NeXt 2.2.33
 
-Cloth NeXt 2.2.32 makes the Bake window appear promptly after clicking Bake,
-including in complex scenes that require lengthy preparation.
+Cloth NeXt 2.2.33 adds Corrective Smooth support to the geometry sent into the
+deformable solver while preserving constant-topology playback safety.
 
-## Bake startup
+## Corrective Smooth solver input
 
-- The Companion process now launches before scene validation, topology
-  hashing, evaluated geometry capture, and run-plan construction.
-- Expensive Blender-side preparation continues after the window is visible,
-  so the Bake action no longer appears unresponsive while that work runs.
-- Animated Pin and Collider capture retains the existing readiness gate and
-  does not begin until the Companion transport is ready.
+- Enabled Armature and Corrective Smooth modifiers can contribute to the
+  Bake-Start geometry exported to PPF.
+- Corrective Smooth also works without an Armature.
+- The Cloth NeXt Mesh Cache is placed after the final solver-input modifier,
+  preventing Corrective Smooth from deforming the finished simulation twice.
+- Subdivision, Solidify, Geometry Nodes, Remesh, and other topology-changing
+  modifiers remain downstream. A supported input modifier placed after such a
+  topology-changing barrier is rejected with guidance to fix the stack.
+- Disabled modifier state and artist-owned modifiers are preserved.
 
 ## Validation
 
-- Regression coverage verifies that Companion launch precedes scene
-  validation and geometry preparation.
-- Full Python suite: 1,358 passed, 9 skipped, 3 deselected.
+- Regression coverage includes export-boundary selection, Corrective Smooth
+  without Armature, disabled modifiers, exception restoration, unsafe stack
+  rejection, playback placement, topology, and pinning behavior.
+- Full Python suite: 1,363 passed, 9 skipped, 3 deselected.
 - The external PPF Contact Solver is not bundled.

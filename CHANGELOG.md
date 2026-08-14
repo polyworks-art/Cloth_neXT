@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.33 - 2026-08-14
+
+### Added
+
+- Corrective Smooth can now participate in deformable solver-input geometry,
+  both after an Armature and as the only supported input modifier.
+- Cloth NeXt playback is inserted after the final Armature or Corrective
+  Smooth solver-input modifier so corrected deformation is not applied twice.
+
+### Safety
+
+- Solver-input modifiers after a topology-changing modifier are rejected with
+  an actionable validation error, while constant vertex-count checks remain in
+  force for export and animated Pin capture.
+- Temporary modifier visibility changes are restored after successful and
+  failed capture, and disabled Corrective Smooth modifiers remain excluded.
+
 ## 2.2.32 - 2026-08-14
 
 ### Fixed

@@ -55,6 +55,12 @@ into Blender-only progress without a global workflow lock.
   delivery or a stable frame cadence; UI wording remains Buffered Live/Follow Solver.
 - Cloth NeXt uses PC2 playback for constant topology. It cannot represent
   topology-changing tearing.
+- Deformable solver input supports enabled Armature and Corrective Smooth
+  modifiers before the downstream topology-changing portion of the viewport
+  stack. Playback is inserted after the final supported input modifier; later
+  visual modifiers remain downstream. A supported input modifier after a known
+  topology-changing modifier is rejected. Other modifier types are not
+  generically supported as solver-input deformation.
 - Pressure is implemented as a uniform shell parameter. Uniform Cloth Shrink maps to
   PPF's physical `shrink-x`/`shrink-y` rest-shape factors. The pinned solver does not
   support animating object-local rest factors, so Shrink is active from Bake start and
