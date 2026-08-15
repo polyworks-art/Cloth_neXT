@@ -29,9 +29,9 @@ COMPANION_MESSAGE_BATCH_LIMIT=2048
 
 
 def receive_message_batch(transport,*,limit=COMPANION_MESSAGE_BATCH_LIMIT):
-    """Drain buffered status traffic so it cannot delay control messages."""
+    """Drain buffered status traffic without blocking Tk's animation loop."""
     messages=[]
-    first=transport.receive(.01)
+    first=transport.receive(0.0)
     if first is None:return messages
     messages.append(first)
     while len(messages)<limit:

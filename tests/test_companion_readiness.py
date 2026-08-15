@@ -37,6 +37,18 @@ def test_companion_drains_preparation_backlog_in_one_ui_tick():
     assert messages[-1]["type"] == "enter_bake_mode"
 
 
+def test_companion_status_poll_never_blocks_the_animation_loop():
+    timeouts = []
+
+    class Transport:
+        def receive(self, timeout):
+            timeouts.append(timeout)
+            return None
+
+    assert receive_message_batch(Transport()) == []
+    assert timeouts == [0.0]
+
+
 def test_companion_batch_has_a_hard_fairness_limit():
     class EndlessTransport:
         def __init__(self):
