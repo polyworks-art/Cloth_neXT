@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.2.34 - 2026-08-15
+
+### Fixed
+
+- The Bake window now uses a passive native Windows topmost Z-order while a
+  Bake is active, keeping progress visible without repeatedly stealing focus.
+- Animated Collider captures are reused from the verified export cache when
+  geometry, animation, transforms, timing, capture settings, and safe
+  dependencies are unchanged.
+- Solver project-build progress is transported as generic percentage progress
+  instead of simulation-frame progress, so the Bake window shows `43%` rather
+  than the misleading `Frame 43 / 100` during contact construction.
+
+### Safety
+
+- Missing, incomplete, corrupt, or unverifiable Collider cache artifacts force
+  a complete recapture; uncertain dependencies remain fail-closed cache misses.
+- BUILDING percentages no longer seed simulation-frame ETA estimation.
+
 ## 2.2.33 - 2026-08-14
 
 ### Added

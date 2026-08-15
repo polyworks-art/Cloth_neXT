@@ -14,11 +14,13 @@ from typing import Mapping
 EXPORT_CACHE_SCHEMA_VERSION = 1
 SCENE_KEY_SCHEMA_VERSION = 1
 PARAM_KEY_SCHEMA_VERSION = 1
+COLLIDER_KEY_SCHEMA_VERSION = 1
 
 
 def deterministic_key(kind: str, identity: dict) -> str:
     version = (SCENE_KEY_SCHEMA_VERSION if kind == "scene"
-               else PARAM_KEY_SCHEMA_VERSION if kind == "param" else None)
+               else PARAM_KEY_SCHEMA_VERSION if kind == "param"
+               else COLLIDER_KEY_SCHEMA_VERSION if kind == "collider" else None)
     if version is None:
         raise ValueError(f"unsupported export cache kind: {kind}")
     blob = json.dumps(

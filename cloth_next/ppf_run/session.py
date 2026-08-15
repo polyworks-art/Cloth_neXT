@@ -268,6 +268,8 @@ def new_project_name() -> str:
 class SessionEvent:
     phase: str
     message: str
+    progress_current: int | None = None
+    progress_total: int | None = None
     frame_current: int | None = None
     frame_total: int | None = None
     indeterminate: bool = False
@@ -1222,8 +1224,8 @@ class SolverSession:
                     info = activity_message
                 if isinstance(progress, (int, float)):
                     self._event("BUILDING", info,
-                                frame_current=int(progress * 100),
-                                frame_total=100,
+                                progress_current=int(progress * 100),
+                                progress_total=100,
                                 activity_code=activity_code)
                 else:
                     self._event("BUILDING", info, indeterminate=True,

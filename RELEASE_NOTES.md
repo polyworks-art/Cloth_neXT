@@ -1,24 +1,32 @@
-# Cloth NeXt 2.2.33
+# Cloth NeXt 2.2.34
 
-Cloth NeXt 2.2.33 adds Corrective Smooth support to the geometry sent into the
-deformable solver while preserving constant-topology playback safety.
+Cloth NeXt 2.2.34 improves Bake-window visibility, avoids unnecessary animated
+Collider recapture, and reports solver build percentages correctly.
 
-## Corrective Smooth solver input
+## Bake window
 
-- Enabled Armature and Corrective Smooth modifiers can contribute to the
-  Bake-Start geometry exported to PPF.
-- Corrective Smooth also works without an Armature.
-- The Cloth NeXt Mesh Cache is placed after the final solver-input modifier,
-  preventing Corrective Smooth from deforming the finished simulation twice.
-- Subdivision, Solidify, Geometry Nodes, Remesh, and other topology-changing
-  modifiers remain downstream. A supported input modifier placed after such a
-  topology-changing barrier is rejected with guidance to fix the stack.
-- Disabled modifier state and artist-owned modifiers are preserved.
+- On Windows, the active Bake window now uses native passive topmost ordering.
+- It remains visible above Blender without repeatedly taking keyboard focus,
+  and returns to normal window behavior after the Bake ends.
+
+## Animated Collider reuse
+
+- Completed animated Collider captures are stored in the existing verified
+  export cache and reused when all solver-relevant capture inputs are unchanged.
+- Geometry, animation, transform animation, safe modifier dependencies, capture
+  mode/rate, frame range, and FPS participate in the cache identity.
+- Missing, partial, corrupt, or uncertain cache state triggers full recapture.
+
+## Progress semantics
+
+- PPF's normalized BUILDING progress is now shown as a percentage such as
+  `43%`, not as a simulation frame.
+- `Frame X / Y` and frame ETA remain reserved for actual simulation frames.
 
 ## Validation
 
-- Regression coverage includes export-boundary selection, Corrective Smooth
-  without Armature, disabled modifiers, exception restoration, unsafe stack
-  rejection, playback placement, topology, and pinning behavior.
-- Full Python suite: 1,363 passed, 9 skipped, 3 deselected.
+- Regression coverage includes native topmost semantics, Collider cache hits
+  and invalidation, artifact integrity, BUILDING/SIMULATING separation, and
+  frame-estimator isolation.
+- Full Python suite: 1,372 passed, 9 skipped, 3 deselected.
 - The external PPF Contact Solver is not bundled.

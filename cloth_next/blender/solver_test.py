@@ -3550,6 +3550,126 @@ def _payload_cache_for(obj) -> ExportPayloadCache:
     return ExportPayloadCache(root / ".cloth_next_export")
 
 
+def _animated_collider_cache_key(context, obj, bake_range):
+    """Fail-closed key for one reusable animated Collider capture."""
+    safe, dependencies, reason = _safe_object_dependency_identity(obj)
+    if not safe:
+        return None, reason
+    identity = {
+        "capture_schema": 1,
+        "scene_export_schema": SCENE_EXPORT_CACHE_SCHEMA,
+        "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
+        "uuid": export_identity.export_uuid(obj),
+        "name": str(getattr(obj, "name_full", getattr(obj, "name", ""))),
+        "source_geometry": mesh_geometry_signature(getattr(obj, "data", None)),
+        "dependencies": dependencies,
+        "animation": _animation_signature(obj),
+        "capture_mode": _effective_collider_capture_mode(obj),
+        "samples_per_frame": int(getattr(
+            obj.cloth_next, "collider_samples_per_frame",
+            COLLIDER_SAMPLES_PER_FRAME)),
+        "frame_start": int(bake_range.start),
+        "frame_end": int(bake_range.end),
+        "fps": _scene_fps(context),
+    }
+    return deterministic_key("collider", identity), "safe collider identity"
+
+
+def _collider_capture_arrays(capture):
+    vertices = np.ascontiguousarray(np.asarray(capture.vertices, dtype="<f4"))
+    triangles = np.ascontiguousarray(np.asarray(capture.triangles, dtype="<i4"))
+    transform = np.ascontiguousarray(np.asarray(capture.transform, dtype="<f8"))
+    animation = dict(capture.animation or {})
+    frames = animation.pop("vert_frames", None)
+    artifacts = {"vertices.f32": vertices, "triangles.i32": triangles,
+                 "transform.f64": transform}
+    frame_shape = None
+    if frames is not None:
+        frame_array = np.ascontiguousarray(np.asarray(frames, dtype="<f4"))
+        artifacts["frames.f32"] = frame_array
+        frame_shape = list(frame_array.shape)
+    record = {"version": 1, "motion_type": capture.motion_type,
+              "vertex_shape": list(vertices.shape),
+              "triangle_shape": list(triangles.shape),
+              "transform_shape": list(transform.shape),
+              "frame_shape": frame_shape, "animation": animation,
+              "content_digest": capture.content_digest}
+    return record, artifacts
+
+
+def _store_animated_collider_capture(cache, key, capture):
+    record, artifacts = _collider_capture_arrays(capture)
+    payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+    cache.store("collider", key, payload, artifacts=artifacts)
+
+
+def _load_animated_collider_capture(cache, key):
+    lookup = cache.lookup("collider", key)
+    if not lookup.hit:
+        return None, lookup.reason
+    artifacts = cache.lookup_artifacts("collider", key)
+    required = {"vertices.f32", "triangles.i32", "transform.f64"}
+    if not required.issubset(artifacts):
+        return None, "missing or invalid collider artifacts"
+    try:
+        record = json.loads(lookup.path.read_text(encoding="utf-8"))
+        if record.get("version") != 1:
+            return None, "collider record version mismatch"
+        def array(name, dtype, shape, *, mmap=False):
+            expected = tuple(int(value) for value in shape)
+            count = math.prod(expected)
+            values = (np.memmap(artifacts[name], dtype=dtype, mode="r",
+                                shape=expected) if mmap else
+                      np.fromfile(artifacts[name], dtype=dtype, count=count)
+                      .reshape(expected))
+            if values.size != count:
+                raise ValueError(f"truncated {name}")
+            return values
+        vertices = array("vertices.f32", "<f4", record["vertex_shape"])
+        triangles = array("triangles.i32", "<i4", record["triangle_shape"])
+        transform = array("transform.f64", "<f8", record["transform_shape"])
+        animation = dict(record.get("animation") or {})
+        frame_shape = record.get("frame_shape")
+        if frame_shape is not None:
+            if "frames.f32" not in artifacts:
+                return None, "missing collider frame artifact"
+            animation["vert_frames"] = array(
+                "frames.f32", "<f4", frame_shape, mmap=True)
+        capture = ColliderMotionCapture(
+            str(record["motion_type"]),
+            tuple(tuple(float(v) for v in row) for row in vertices),
+            tuple(tuple(int(v) for v in row) for row in triangles),
+            tuple(tuple(float(v) for v in row) for row in transform),
+            animation, content_digest=str(record.get("content_digest", "")))
+        return capture, "verified"
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return None, f"invalid collider cache: {exc}"
+
+
+def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
+    cloth_obj = getattr(snapshot, "cloth_obj", None)
+    if cloth_obj is None:
+        return {}, tuple(colliders), {}, None
+    cache = _payload_cache_for(cloth_obj)
+    hits, misses, keys = {}, [], {}
+    for obj in colliders:
+        key, reason = _animated_collider_cache_key(context, obj, bake_range)
+        if key is not None:
+            capture, reason = _load_animated_collider_capture(cache, key)
+            if capture is not None:
+                hits[obj.name] = capture
+                log_with_context(get_logger("export.cache"), 20,
+                    "Animated collider cache hit - reusing existing export",
+                    {"object": obj.name, "key": key})
+                continue
+            keys[obj.name] = key
+        misses.append(obj)
+        log_with_context(get_logger("export.cache"), 20,
+            "Animated collider changed - rebuilding export",
+            {"object": obj.name, "reason": reason})
+    return hits, tuple(misses), keys, cache
+
+
 def _cached_payload(cache, kind, key, producer):
     lookup = cache.lookup(kind, key)
     if _export_timing_sink is not None:
@@ -6769,6 +6889,8 @@ def _pump_once() -> float | None:
                 state = BakeState.IMPORTING
             if state is not None:
                 current, total = event.frame_current, event.frame_total
+                phase_current = getattr(event, "progress_current", None)
+                phase_total = getattr(event, "progress_total", None)
                 if event.phase in {"SIMULATING", "FETCHING", "TRANSFORMING_FRAME"} and current is not None:
                     solver_step = min(plan.frame_count - 1, int(current))
                     current = plan.frame_start + solver_step
@@ -6791,9 +6913,12 @@ def _pump_once() -> float | None:
                 _safe_transition(
                     state, status_message=event.message,
                     current_frame=current,
-                    progress_current=(current - plan.frame_start + 1
-                                      if current is not None else 0),
+                    progress_current=(
+                        current - plan.frame_start + 1
+                        if current is not None else
+                        phase_current if phase_current is not None else 0),
                     progress_total=(None if event.indeterminate
+                                    else phase_total if phase_total is not None
                                     else total), **activity_changes)
         elif kind == "finished":
             header, diagnostics = message[1], message[2]
@@ -7152,6 +7277,8 @@ def begin_production_bake(context) -> tuple[str, bool]:
         # topology once and scans the pin group once. Everything downstream
         # (pin capture, run plan, fingerprints, cache check) reuses it.
         snapshot=validate_scene(context) if objects else None
+        animated_colliders = ()
+        cached_colliders = {}
         if snapshot is not None:
             _require_cache_directories(
                 tuple(entry.obj for entry in snapshot.deformables))
@@ -7178,18 +7305,25 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 if
                 str(getattr(obj.cloth_next, "collider_motion", "STATIC")) ==
                 "ANIMATED")
+            cached_colliders, colliders_to_capture, collider_cache_keys, \
+                collider_cache = _load_cached_animated_colliders(
+                    context, snapshot, animated_colliders, bake_range)
             force_capture = _capture_force_without_timeline(
                 context, bake_range)
             needs_timeline = bool(
-                animated_targets or animated_colliders
+                animated_targets or colliders_to_capture
                 or force_capture is None)
             if needs_timeline:
-                collider_rates = tuple(int(getattr(
+                all_collider_rates = tuple(int(getattr(
                     obj.cloth_next, "collider_samples_per_frame",
                     COLLIDER_SAMPLES_PER_FRAME))
                     for obj in animated_colliders)
+                collider_rates = tuple(int(getattr(
+                    obj.cloth_next, "collider_samples_per_frame",
+                    COLLIDER_SAMPLES_PER_FRAME))
+                    for obj in colliders_to_capture)
                 pin_rates = (
-                    collider_rates or (COLLIDER_SAMPLES_PER_FRAME,))
+                    all_collider_rates or (COLLIDER_SAMPLES_PER_FRAME,))
                 points = build_sample_plan(
                     bake_range.start, bake_range.end,
                     collider_samples=(
@@ -7202,7 +7336,10 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     "force_samples":[], "active_scalar_types":set(),
                     "force_capture":force_capture,
                     "collider_states":_begin_collider_pump(
-                        animated_colliders, bake_range, _scene_fps(context)),
+                        colliders_to_capture, bake_range, _scene_fps(context)),
+                    "cached_colliders":cached_colliders,
+                    "collider_cache_keys":collider_cache_keys,
+                    "collider_cache":collider_cache,
                     "index_arrays":{
                         name: np.asarray(membership.vertex_indices,
                                          dtype=np.intp)
@@ -7243,7 +7380,10 @@ def begin_production_bake(context) -> tuple[str, bool]:
                     bpy.app.timers.unregister(_pin_capture_pump)
                 bpy.app.timers.register(_pin_capture_pump, first_interval=.05)
                 return job_id,True
-        plan=build_run_plan(context,snapshot=snapshot)
+        plan=build_run_plan(
+            context, snapshot=snapshot,
+            collider_captures=(cached_colliders
+                               if animated_colliders else None))
     except (SceneValidationError, ClothNextError) as exc:
         modal_lock.release(job_id)
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
@@ -7512,8 +7652,21 @@ def _pin_capture_pump():
             force_capture = _force_capture_from_samples(
                 state["force_samples"], state["active_scalar_types"],
                 state["range"], _scene_fps(context))
-        collider_captures = _finish_collider_pump(
+        new_collider_captures = _finish_collider_pump(
             state["collider_states"])
+        collider_captures = {
+            **state.get("cached_colliders", {}), **new_collider_captures}
+        for name, capture in new_collider_captures.items():
+            key = state.get("collider_cache_keys", {}).get(name)
+            if not key:
+                continue
+            try:
+                _store_animated_collider_capture(
+                    state["collider_cache"], key, capture)
+            except (OSError, ValueError, TypeError) as exc:
+                log_with_context(get_logger("export.cache"), 30,
+                    "Animated collider cache write failed", {
+                        "object": name, "error": f"{type(exc).__name__}: {exc}"})
         timings["capture_seconds"] = (
             timings.get("capture_seconds", 0.0)
             + time.perf_counter() - state["capture_started"])

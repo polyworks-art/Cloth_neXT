@@ -14,6 +14,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from tests import mesh_fixtures
+
 from cloth_next import recovery
 from cloth_next.bake import cache_metadata, pc2
 from cloth_next.bake.status import BakeState
@@ -1305,6 +1307,111 @@ def test_playback_index_is_after_corrective_smooth(blender_env):
 
     assert module._playback_stack_index(obj, cache) == 2
     assert [armature, smooth, subdivision, solidify] == list(obj.modifiers[:4])
+
+
+def test_animated_collider_capture_cache_round_trip(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    cache = module.ExportPayloadCache(tmp_path)
+    capture = module.ColliderMotionCapture(
+        "RIGID_ANIMATED", ((0.0, 0.0, 0.0),), ((0, 0, 0),),
+        tuple(tuple(1.0 if row == column else 0.0 for column in range(4))
+              for row in range(4)),
+        {"time": [0.0, 1.0], "translation": [[0, 0, 0], [1, 0, 0]],
+         "quaternion": [[1, 0, 0, 0], [1, 0, 0, 0]],
+         "scale": [[1, 1, 1], [1, 1, 1]], "segments": []},
+        content_digest="motion")
+
+    module._store_animated_collider_capture(cache, "a" * 64, capture)
+    restored, reason = module._load_animated_collider_capture(cache, "a" * 64)
+
+    assert reason == "verified"
+    assert restored.motion_type == capture.motion_type
+    assert restored.vertices == capture.vertices
+    assert restored.animation["translation"] == capture.animation["translation"]
+
+
+def test_animated_collider_cache_hit_skips_expensive_capture_list(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    cache = module.ExportPayloadCache(tmp_path)
+    key = "c" * 64
+    collider = SimpleNamespace(name="Collider")
+    snapshot = SimpleNamespace(cloth_obj=object())
+    capture = module.ColliderMotionCapture(
+        "RIGID_ANIMATED", ((0.0, 0.0, 0.0),), ((0, 0, 0),),
+        tuple(tuple(1.0 if row == column else 0.0 for column in range(4))
+              for row in range(4)), {"time": [0.0]}, content_digest="motion")
+    module._store_animated_collider_capture(cache, key, capture)
+    monkeypatch.setattr(module, "_payload_cache_for", lambda _obj: cache)
+    monkeypatch.setattr(module, "_animated_collider_cache_key",
+                        lambda *_args: (key, "safe collider identity"))
+
+    hits, misses, keys, selected_cache = \
+        module._load_cached_animated_colliders(
+            SimpleNamespace(), snapshot, (collider,),
+            module.BakeFrameRange(1, 2))
+
+    assert tuple(hits) == ("Collider",)
+    assert misses == ()  # _begin_collider_pump receives no Collider
+    assert keys == {}
+    assert selected_cache is cache
+
+
+def test_animated_collider_cache_rejects_missing_artifact(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    cache = module.ExportPayloadCache(tmp_path)
+    capture = module.ColliderMotionCapture(
+        "RIGID_ANIMATED", ((0.0, 0.0, 0.0),), ((0, 0, 0),),
+        tuple(tuple(1.0 if row == column else 0.0 for column in range(4))
+              for row in range(4)), {"time": [0.0]}, content_digest="motion")
+    key = "b" * 64
+    module._store_animated_collider_capture(cache, key, capture)
+    cache.lookup_artifacts("collider", key)["vertices.f32"].unlink()
+
+    restored, reason = module._load_animated_collider_capture(cache, key)
+
+    assert restored is None
+    assert "artifact" in reason
+
+
+def test_animated_collider_key_tracks_geometry_animation_range_and_fps(
+        blender_env):
+    module = blender_env.solver_test
+    blender_env.registration.register()
+    scene = mesh_fixtures.build_cloth_scene(blender_env.bpy, vertex_count=16)
+    collider = scene.collider
+    collider.cloth_next.collider_capture_mode = "AUTO"
+    collider.cloth_next.collider_samples_per_frame = 2
+    collider.cloth_next.collider_motion = "ANIMATED"
+    collider.cloth_next.persistent_export_id = "collider-cache-test"
+    bake_range = module.BakeFrameRange(1, 24)
+    first, reason = module._animated_collider_cache_key(
+        scene.context, collider, bake_range)
+    assert first and reason == "safe collider identity"
+
+    collider.data.arrays[("vertex_scans", "co")][0] = (3.0, 0.0, 0.0)
+    geometry, _ = module._animated_collider_cache_key(
+        scene.context, collider, bake_range)
+    keyframe = SimpleNamespace(co=(1.0, 2.0), handle_left=(1.0, 2.0),
+                               handle_right=(1.0, 2.0),
+                               interpolation="LINEAR", easing="AUTO")
+    curve = SimpleNamespace(data_path="location", array_index=0,
+                            keyframe_points=(keyframe,), modifiers=())
+    collider.animation_data = SimpleNamespace(action=SimpleNamespace(
+        name="Move", name_full="Move", fcurves=(curve,), library=None),
+        drivers=(), nla_tracks=())
+    animation, _ = module._animated_collider_cache_key(
+        scene.context, collider, bake_range)
+    ranged, _ = module._animated_collider_cache_key(
+        scene.context, collider, module.BakeFrameRange(2, 24))
+    scene.context.scene.render.fps = 30
+    timed, _ = module._animated_collider_cache_key(
+        scene.context, collider, module.BakeFrameRange(2, 24))
+
+    assert len({first, geometry, animation, ranged, timed}) == 5
+    blender_env.registration.unregister()
 
 
 def test_attach_places_cache_after_last_armature(blender_env, monkeypatch, tmp_path):

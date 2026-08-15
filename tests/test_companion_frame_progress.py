@@ -86,3 +86,16 @@ def test_new_bake_restart_resume_or_cancel_resets_estimate(replacement):
     assert estimator.estimated_duration is None
     assert estimator.sample_count == 0
     assert estimator.tick(now=3.0).fraction == 0.0
+
+
+def test_build_percentage_does_not_seed_frame_estimator():
+    estimator = CurrentFrameProgressEstimator(minimum_samples=1)
+    building = snapshot(None, 5.0, state=BakeState.BUILDING)
+    building.progress_current = 43
+    building.progress_total = 100
+
+    result = estimator.observe(building, now=5.0)
+
+    assert result.fraction == 0.0
+    assert estimator.sample_count == 0
+    assert estimator.estimated_duration is None

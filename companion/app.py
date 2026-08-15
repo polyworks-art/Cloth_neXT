@@ -165,6 +165,15 @@ def run_stats(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
         ("ACTIVITY", activity[:34] or "—"),
     )
 
+def progress_display_text(snapshot: BakeSnapshot) -> str:
+    """Render frame text only when the snapshot carries a real frame."""
+    if snapshot.current_frame is not None and snapshot.progress_total:
+        return (f"Frame {snapshot.current_frame} · "
+                f"{snapshot.progress_current} / {snapshot.progress_total}")
+    if snapshot.progress_total:
+        return f"{snapshot.progress_fraction:.0%}"
+    return snapshot.status_title or "Ready"
+
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
     packaged=base/"companion_assets"/name
@@ -185,6 +194,20 @@ def _match_windows_title_bar(root):
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,35,ctypes.byref(color),ctypes.sizeof(color))
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(light),ctypes.sizeof(light))
     except (AttributeError,OSError): pass
+
+def _set_bake_window_topmost(root, enabled):
+    """Set passive bake-window Z order without repeatedly stealing focus."""
+    root.attributes("-topmost",bool(enabled))
+    if sys.platform!="win32":return
+    try:
+        root.update_idletasks()
+        hwnd=ctypes.windll.user32.GetParent(root.winfo_id()) or root.winfo_id()
+        insert_after=-1 if enabled else -2  # HWND_TOPMOST / HWND_NOTOPMOST
+        # Preserve position/size and do not activate the window. This makes the
+        # Windows Z-order explicit while leaving Alt-Tab and other apps usable.
+        ctypes.windll.user32.SetWindowPos(
+            hwnd,insert_after,0,0,0,0,0x0001|0x0002|0x0010)
+    except (AttributeError,OSError):pass
 
 PARTICLE_ASSETS=("particle_bake_12.png","particle_cloth_16.png",
     "particle_collider_12.png","particle_collision_16.png",
@@ -312,7 +335,7 @@ class BakeWindow:
             self.root.update_idletasks()
             if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden":
                 self.root.withdraw(); self.root.update_idletasks()
-            self.root.attributes("-topmost",True); self.root.lift()
+            _set_bake_window_topmost(self.root,True); self.root.lift()
             if not already_visible:
                 self.root.after_idle(self.root.focus_force)
             self.root.update_idletasks()
@@ -674,17 +697,11 @@ class BakeWindow:
                  and self._job_modal)
         if modal != self._job_modal:
             self._job_modal=modal
-            self.root.attributes("-topmost", modal)
+            _set_bake_window_topmost(self.root,modal)
             if modal:
                 self.root.lift()
                 self.root.after_idle(self.root.focus_force)
-        if snapshot.current_frame is not None and snapshot.progress_total:
-            self.progress_text.set(
-                f"Frame {snapshot.current_frame} · {snapshot.progress_current} / "
-                f"{snapshot.progress_total}")
-        elif snapshot.progress_total:
-            self.progress_text.set(f"{snapshot.progress_fraction:.0%}")
-        else: self.progress_text.set(snapshot.status_title or "Ready")
+        self.progress_text.set(progress_display_text(snapshot))
         self.progress.itemconfigure(self.progress_label,text=self.progress_text.get())
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
@@ -722,7 +739,7 @@ class BakeWindow:
                                   "The connection to Blender was lost.")
             return
         self._job_modal=False
-        self.root.attributes("-topmost",False)
+        _set_bake_window_topmost(self.root,False)
         self.primary.set("Disconnected from Blender"); self.secondary.set("Blender-side work is unaffected.")
         self.cancel.state(["disabled"])
 

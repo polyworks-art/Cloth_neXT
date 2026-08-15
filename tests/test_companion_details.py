@@ -3,9 +3,41 @@
 """Bake-window details and non-modal About gag."""
 
 import inspect
+from types import SimpleNamespace
 
 from cloth_next.bake.status import BakeSnapshot, BakeState
 from companion import app
+
+
+def test_windows_topmost_uses_no_activate_native_z_order(monkeypatch):
+    calls = []
+    root = SimpleNamespace(
+        attributes=lambda *args: calls.append(("attributes", args)),
+        update_idletasks=lambda: calls.append(("update",)),
+        winfo_id=lambda: 42)
+    user32 = SimpleNamespace(
+        GetParent=lambda _hwnd: 84,
+        SetWindowPos=lambda *args: calls.append(("set", args)))
+    monkeypatch.setattr(app.sys, "platform", "win32")
+    monkeypatch.setattr(app.ctypes, "windll", SimpleNamespace(user32=user32),
+                        raising=False)
+
+    app._set_bake_window_topmost(root, True)
+
+    assert ("attributes", ("-topmost", True)) in calls
+    native = next(item[1] for item in calls if item[0] == "set")
+    assert native[0:2] == (84, -1)
+    assert native[-1] & 0x0010  # SWP_NOACTIVATE: no focus stealing
+
+
+def test_non_windows_topmost_keeps_portable_tk_flag(monkeypatch):
+    calls = []
+    root = SimpleNamespace(attributes=lambda *args: calls.append(args))
+    monkeypatch.setattr(app.sys, "platform", "linux")
+
+    app._set_bake_window_topmost(root, False)
+
+    assert calls == [("-topmost", False)]
 
 
 def test_details_meta_collects_useful_snapshot_facts():
@@ -22,6 +54,18 @@ def test_simulation_details_do_not_duplicate_the_progress_frame():
         state=BakeState.SIMULATING,
         status_message="Simulating frame 67 of 137")
     assert app.details_status(snapshot) == ""
+
+
+def test_build_progress_is_percentage_while_simulation_is_frame_text():
+    building = BakeSnapshot(
+        state=BakeState.BUILDING, progress_current=43, progress_total=100,
+        current_frame=None, status_title="Building")
+    simulating = BakeSnapshot(
+        state=BakeState.SIMULATING, progress_current=43, progress_total=100,
+        current_frame=43, status_title="Simulating")
+
+    assert app.progress_display_text(building) == "43%"
+    assert app.progress_display_text(simulating) == "Frame 43 · 43 / 100"
 
 
 def test_error_details_remain_visible_while_simulating():

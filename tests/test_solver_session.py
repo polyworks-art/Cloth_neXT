@@ -244,6 +244,29 @@ def test_protocol_013_busy_build_finalization_waits_for_ready(
                for event in events)
 
 
+def test_build_progress_is_generic_progress_not_frame_progress(
+        monkeypatch, tmp_path):
+    events = []
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        emit=events.append, poll_interval=0.0, build_timeout=1.0)
+    responses = iter((
+        {"status": "BUILDING", "progress": 0.43,
+         "info": "Building contact constraints"},
+        {"status": "READY", "frame": 0},
+    ))
+    monkeypatch.setattr(session, "_status", lambda: next(responses))
+
+    session._await_build()
+
+    building = events[0]
+    assert (building.progress_current, building.progress_total) == (43, 100)
+    assert building.frame_current is None
+    assert building.frame_total is None
+
+
 def test_cancel_during_build_sends_cancel_build_then_delete(monkeypatch):
     scripted = ScriptedWire(monkeypatch)
     scripted.hang_in_build = True
