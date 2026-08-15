@@ -1,32 +1,28 @@
-# Cloth NeXt 2.2.34
+# Cloth NeXt 2.2.35
 
-Cloth NeXt 2.2.34 improves Bake-window visibility, avoids unnecessary animated
-Collider recapture, and reports solver build percentages correctly.
+Cloth NeXt 2.2.35 hardens recovery ownership, keeps validation reliable across
+Blender file loads, and prevents stale cache reuse across solver releases.
 
-## Bake window
+## Recovery and cache safety
 
-- On Windows, the active Bake window now uses native passive topmost ordering.
-- It remains visible above Blender without repeatedly taking keyboard focus,
-  and returns to normal window behavior after the Bake ends.
+- Recovery cleanup only removes checkpoint paths derived from Cloth NeXt's
+  owned recovery root; persisted paths cannot authorize arbitrary deletion.
+- Confirmed checkpoints can be abandoned cleanly.
+- Scene cache identity includes the exact resolved solver installation and
+  release, preventing reuse after a solver switch.
 
-## Animated Collider reuse
+## Blender lifecycle and Companion
 
-- Completed animated Collider captures are stored in the existing verified
-  export cache and reused when all solver-relevant capture inputs are unchanged.
-- Geometry, animation, transform animation, safe modifier dependencies, capture
-  mode/rate, frame range, and FPS participate in the cache identity.
-- Missing, partial, corrupt, or uncertain cache state triggers full recapture.
-
-## Progress semantics
-
-- PPF's normalized BUILDING progress is now shown as a percentage such as
-  `43%`, not as a simulation frame.
-- `Frame X / Y` and frame ETA remain reserved for actual simulation frames.
+- Validation handlers remain persistent when opening or replacing `.blend`
+  files, with teardown checks guarding against duplicate registrations.
+- Missing worker status retains specific installation and quarantine guidance.
+- Companion transport polling is non-blocking when no status message is ready,
+  keeping the animation loop responsive.
 
 ## Validation
 
-- Regression coverage includes native topmost semantics, Collider cache hits
-  and invalidation, artifact integrity, BUILDING/SIMULATING separation, and
-  frame-estimator isolation.
-- Full Python suite: 1,372 passed, 9 skipped, 3 deselected.
-- The external PPF Contact Solver is not bundled.
+- New real-Blender harnesses cover file-load lifecycle and solver identity cache
+  reuse/invalidation in addition to expanded unit and smoke coverage.
+- Full Python suite: 1,379 passed, 9 skipped, 3 deselected.
+- All 9 external solver integration tests passed separately with the official
+  Lumen solver. The external PPF Contact Solver is not bundled.

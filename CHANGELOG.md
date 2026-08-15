@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.2.35 - 2026-08-15
+
+### Fixed
+
+- Recovery cleanup now derives every removable checkpoint path from Cloth NeXt's
+  owned recovery root instead of trusting persisted paths.
+- Blender validation handlers remain registered across `.blend` file loads, and
+  cache reuse now includes the resolved solver release identity.
+- Recovery sessions can transition cleanly from a confirmed checkpoint to an
+  abandoned state, and missing worker status preserves the more actionable
+  installation or quarantine error.
+- Companion status polling no longer blocks Blender's animation loop while no
+  transport message is ready.
+
+### Validation
+
+- Added real-Blender lifecycle and solver-identity reuse/invalidation harnesses,
+  expanded smoke teardown checks, and regression coverage for recovery ownership,
+  handler persistence, cache identity, and non-blocking Companion polling.
+- Full Python suite: 1,379 passed, 9 skipped, 3 deselected; all 9 external solver
+  integration tests passed separately with the official Lumen solver.
+
 ## 2.2.34 - 2026-08-15
 
 ### Fixed
