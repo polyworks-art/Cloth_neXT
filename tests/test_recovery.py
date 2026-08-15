@@ -105,7 +105,7 @@ def test_geometry_and_params_compatibility():
     assert allowed.compatible and allowed.params_changed
 
 
-def test_retention_publishes_metadata_before_deleting_old(tmp_path):
+def test_legacy_retention_drops_metadata_without_deleting_unowned_path(tmp_path):
     current = identity()
     paths = []
     for frame in (20, 40, 60):
@@ -115,11 +115,12 @@ def test_retention_publishes_metadata_before_deleting_old(tmp_path):
                            checkpoint_path=path)
     metadata = recovery_root(tmp_path, current.scene_key) / "metadata.json"
     removed = apply_retention(metadata, 2)
-    assert removed == (paths[0],)
+    assert removed == ()
+    assert paths[0].exists()
     assert [record.frame for record in load_records(metadata)] == [40, 60]
 
 
-def test_clear_checkpoints_does_not_touch_result(tmp_path):
+def test_legacy_clear_does_not_delete_unowned_checkpoint_or_result(tmp_path):
     current = identity()
     state = checkpoint(tmp_path, "state.bin")
     result = checkpoint(tmp_path, "result.pc2")
@@ -127,7 +128,7 @@ def test_clear_checkpoints_does_not_touch_result(tmp_path):
                        checkpoint_path=state)
     metadata = recovery_root(tmp_path, current.scene_key) / "metadata.json"
     clear_checkpoints(metadata)
-    assert not state.exists()
+    assert state.exists()
     assert result.exists()
 
 
@@ -158,13 +159,13 @@ def test_invalid_lifecycle_transition_is_rejected(tmp_path):
 
 
 def test_confirmed_state_is_published_before_retention(tmp_path):
-    project_root = tmp_path / "server" / "project"
+    project_root = tmp_path / "server-data" / "project"
     output = project_root / "session" / "output"
     output.mkdir(parents=True)
     metadata = tmp_path / "metadata.json"
     record = create_project(
         metadata, project_id="project", identity=identity(),
-        server_data_root=tmp_path / "server", project_root=project_root)
+        server_data_root=tmp_path / "server-data", project_root=project_root)
     record = transition(metadata, record, ProjectState.RUNNING)
     for frame in (20, 40, 60):
         (output / f"state_{frame}.bin.gz").write_bytes(
@@ -175,6 +176,28 @@ def test_confirmed_state_is_published_before_retention(tmp_path):
     assert not (output / "state_20.bin.gz").exists()
     assert (output / "state_40.bin.gz").exists()
     assert load_project(metadata).state is ProjectState.CHECKPOINT_CONFIRMED
+
+
+def test_clear_checkpoints_refuses_metadata_path_outside_owned_project(tmp_path):
+    metadata = tmp_path / "metadata.json"
+    project_root = tmp_path / "server-data" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    legitimate = output / "state_20.bin.gz"
+    legitimate.write_bytes(gzip.compress(b"state-20"))
+    record = create_project(
+        metadata, project_id="project", identity=identity(),
+        server_data_root=tmp_path / "server-data", project_root=project_root)
+    record = transition(metadata, record, ProjectState.RUNNING)
+    record = confirm_saved_states(metadata, record, (20,), keep=3)
+    foreign = tmp_path / "artist-file.bin.gz"
+    foreign.write_bytes(legitimate.read_bytes())
+    forged = replace(record.checkpoints[0], checkpoint_path=str(foreign))
+    transition(metadata, record, record.state, checkpoints=(forged,))
+
+    clear_checkpoints(metadata)
+
+    assert foreign.exists()
 
 
 def test_missing_project_is_not_reported_resumable(tmp_path):

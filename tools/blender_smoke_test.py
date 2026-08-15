@@ -59,6 +59,47 @@ def _clothnext_draw_callback_count(bpy) -> int:
                if getattr(func, "_clothnext_add_entry", False))
 
 
+def _clothnext_handler_count(bpy) -> int:
+    """Count every registered app handler owned by this extension."""
+    total = 0
+    handlers = bpy.app.handlers
+    for name in dir(handlers):
+        container = getattr(handlers, name, None)
+        if not isinstance(container, list):
+            continue
+        total += sum(
+            1 for callback in container
+            if "cloth_next" in getattr(callback, "__module__", "")
+            or getattr(callback, "_clothnext_recovery_handler", False))
+    return total
+
+
+def _assert_no_runtime_timers(bpy, module_name: str) -> None:
+    candidates = (
+        ("addon_update_operators", "_ui_refresh_pulse"),
+        ("addon_update_operators", "_automatic_update_check_timer"),
+        ("bake_preview", "_tick"),
+        ("companion_manager", "_pulse"),
+        ("hud", "_redraw_pulse"),
+        ("preferences", "_ui_refresh_pulse"),
+        ("solver_test", "_delayed_recovery_refresh"),
+        ("solver_test", "_pump"),
+        ("solver_test", "_pump_watchdog"),
+        ("solver_test", "_startup_pump"),
+        ("solver_test", "_pin_capture_pump"),
+        ("validation_state", "_validation_pump"),
+        ("viewport_autoframe", "_tick"),
+        ("viewport_colors", "_refresh_timer"),
+    )
+    leaked = []
+    for module, name in candidates:
+        callback = getattr(importlib.import_module(
+            f"{module_name}.blender.{module}"), name)
+        if bpy.app.timers.is_registered(callback):
+            leaked.append(f"{module}.{name}")
+    assert not leaked, f"Cloth NeXt timers survived unregister: {leaked}"
+
+
 def _phase28_roundtrip(bpy) -> None:
     """Enable and remove Cloth NeXt on a real mesh through the operators."""
     mesh_obj = next((obj for obj in bpy.data.objects if obj.type == "MESH"), None)
@@ -173,6 +214,7 @@ def main() -> None:
             assert cls.is_registered, f"{cls.__name__} is not registered"
         assert "cloth_next" in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 1
+        assert _clothnext_handler_count(bpy) > 0
         _solver_download_dispatch_check(bpy, module_name)
         _addon_update_section_check(bpy, module_name)
         _phase28_roundtrip(bpy)
@@ -203,10 +245,12 @@ def main() -> None:
             assert not cls.is_registered, f"{cls.__name__} survived unregister"
         assert "cloth_next" not in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 0
+        assert _clothnext_handler_count(bpy) == 0
         assert icons._collection is None and hud._handle is None
         updates = importlib.import_module(
             module_name + ".blender.addon_update_operators")
         assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)
+        _assert_no_runtime_timers(bpy, module_name)
 
     leftover = [thread.name for thread in threading.enumerate()
                 if thread.name.startswith("clothnext-")]

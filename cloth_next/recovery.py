@@ -53,7 +53,7 @@ _TRANSITIONS = {
     ProjectState.CHECKPOINT_CONFIRMED: {
         ProjectState.RUNNING, ProjectState.CHECKPOINT_REQUESTED,
         ProjectState.SAVED, ProjectState.RESUMABLE, ProjectState.FINISHED,
-        ProjectState.FAILED},
+        ProjectState.FAILED, ProjectState.ABANDONED},
     ProjectState.SAVED: {ProjectState.RESUMABLE, ProjectState.FAILED,
                          ProjectState.DELETED},
     ProjectState.RESUMABLE: {ProjectState.RESUMING, ProjectState.ABANDONED,
@@ -386,6 +386,40 @@ def checkpoint_path(project_root: Path, frame: int) -> Path:
             / f"state_{int(frame)}.bin.gz")
 
 
+def owned_server_data_root(metadata_path: Path) -> Path:
+    """The only solver-data root a Recovery record may authorize deleting."""
+    return (Path(metadata_path).resolve().parent / "server-data").resolve()
+
+
+def owned_project_root(metadata_path: Path, record: ProjectRecord) -> Path | None:
+    """Return a proven Cloth NeXt project root, never a metadata-trusted path."""
+    expected_server = owned_server_data_root(metadata_path)
+    server = Path(record.server_data_root).resolve()
+    project = Path(record.project_root).resolve()
+    if server != expected_server or project == server:
+        return None
+    if server not in project.parents:
+        return None
+    return project
+
+
+def owned_checkpoint_path(metadata_path: Path, record: ProjectRecord,
+                          item: CheckpointRecord) -> Path | None:
+    project = owned_project_root(metadata_path, record)
+    if project is None:
+        return None
+    candidate = Path(item.checkpoint_path).resolve()
+    expected = checkpoint_path(project, item.frame).resolve()
+    return candidate if candidate == expected else None
+
+
+def owned_partial_path(metadata_path: Path, uuid: str, value: str) -> Path | None:
+    partial_root = (Path(metadata_path).resolve().parent / "partials").resolve()
+    candidate = Path(value).resolve()
+    expected = (partial_root / f"{uuid}.pc2.partial").resolve()
+    return candidate if candidate == expected else None
+
+
 def confirm_saved_states(path: Path, record: ProjectRecord,
                          saved_states, *, keep: int) -> ProjectRecord:
     """Publish newly server-confirmed states before pruning old ones."""
@@ -428,8 +462,11 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
     published = transition(
         path, published, published.state, checkpoints=tuple(retained))
     for item in stale:
+        owned = owned_checkpoint_path(path, published, item)
+        if owned is None:
+            continue
         try:
-            Path(item.checkpoint_path).unlink()
+            owned.unlink()
         except OSError:
             pass
     return published
@@ -593,15 +630,10 @@ def apply_retention(path: Path, keep: int) -> tuple[Path, ...]:
         "schema_version": RECOVERY_SCHEMA_VERSION,
         "records": [_record_dict(item) for item in retained],
     })
-    removed = []
-    for record in stale:
-        file_path = Path(record.checkpoint_path)
-        try:
-            file_path.unlink()
-            removed.append(file_path)
-        except OSError:
-            pass
-    return tuple(removed)
+    # Legacy checkpoint indexes do not carry a trusted project/server root.
+    # Remove their metadata entries, but never treat their persisted absolute
+    # paths as authority to delete a filesystem object.
+    return ()
 
 
 def clear_checkpoints(path: Path) -> tuple[Path, ...]:
@@ -609,7 +641,10 @@ def clear_checkpoints(path: Path) -> tuple[Path, ...]:
     records = record.checkpoints if record is not None else load_records(path)
     removed = []
     for item in records:
-        file_path = Path(item.checkpoint_path)
+        file_path = (owned_checkpoint_path(path, record, item)
+                     if record is not None else None)
+        if file_path is None:
+            continue
         try:
             file_path.unlink()
             removed.append(file_path)

@@ -562,6 +562,25 @@ def test_owned_solver_fails_before_start_when_native_worker_was_quarantined(
         caught.value.record.recommended_action
 
 
+def test_failed_status_reports_worker_quarantine_before_generic_crash(tmp_path):
+    executable = tmp_path / "ppf-cts-server.exe"
+    executable.write_bytes(b"server")
+    resolved = ResolvedSolver(
+        SolverMode.DEVELOPMENT, tmp_path, executable, "0.1.0", "0.18", "2",
+        ConnectionOwnership.OWNED_PROCESS, None, True)
+    session = SolverSession(
+        resolved=resolved, scene=_scene(), work_directory=tmp_path / "work")
+
+    error = session._fail_from_status({
+        "status": "FAILED",
+        "error": "run script exited 0 without a terminal outcome",
+    }, "simulating")
+
+    assert error.record.category is ErrorCategory.SOLVER_INSTALLATION
+    assert "worker is missing" in error.record.technical_message
+    assert "run script exited 0" in error.record.technical_message
+
+
 def test_native_worker_path_accepts_official_source_tree(tmp_path):
     executable = tmp_path / "ppf-cts-server.exe"
     executable.write_bytes(b"server")

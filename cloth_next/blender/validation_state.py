@@ -35,6 +35,13 @@ from enum import Enum
 
 import bpy
 
+try:
+    from bpy.app.handlers import persistent
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - pytest fake bpy
+    def persistent(function):
+        function._bpy_persistent = None
+        return function
+
 
 class ValidationState(str, Enum):
     UNKNOWN = "UNKNOWN"      # never validated this session
@@ -319,6 +326,7 @@ def _validation_pump():
     return None
 
 
+@persistent
 def _on_depsgraph_update(scene, depsgraph=None) -> None:
     """Mark Cloth NeXt objects dirty. Reads no vertices, edges, or polygons.
 
@@ -374,10 +382,12 @@ def _on_depsgraph_update(scene, depsgraph=None) -> None:
             continue
 
 
+@persistent
 def _on_load_post(*_args) -> None:
     clear()
 
 
+@persistent
 def _on_undo_redo_post(scene, *_args) -> None:
     """Undo/redo can resurrect or remove objects; keep only what still exists."""
     try:

@@ -2077,7 +2077,7 @@ def _vertex_group_signature(obj, group_names) -> str:
     return cache_metadata.deterministic_hash(records)
 
 
-def _scene_source_key(context, snapshot: ValidationSnapshot):
+def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
     """Return a fail-closed early Scene key after authoritative validation."""
     if (not getattr(snapshot, "deformables", ())
             or not getattr(snapshot, "geometry_fingerprint", "")):
@@ -2187,7 +2187,23 @@ def _scene_source_key(context, snapshot: ValidationSnapshot):
         # v4 makes the dense capture timeline explicit and prevents Schema 2
         # from interpreting sub-frame samples as additional logical frames.
         "export_schema": SCENE_EXPORT_CACHE_SCHEMA,
-        "solver_installation": _solver_selection_key(context),
+        # Use the solver that resolution actually selected.  In real Blender
+        # the resolver may populate/normalise the preference on its first
+        # call; keying the cold Bake from the pre-resolution UI value made the
+        # immediately following Bake look like a different installation.
+        "solver_installation": ({
+            "installation_id": (
+                _resolved_installation_id(resolved) or "unregistered"),
+            "release_tag": _resolved_release_tag(resolved),
+            "package_version": str(getattr(
+                resolved, "package_version", "") or "unknown"),
+            "protocol_version": str(getattr(
+                resolved, "protocol_version", "") or "unknown"),
+            "schema_version": str(getattr(
+                resolved, "schema_version", "") or "unknown"),
+        } if resolved is not None else {
+            "selection_id": _solver_selection_key(context),
+        }),
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
         "geometry": snapshot.geometry_fingerprint,
         "objects": objects,
@@ -4589,7 +4605,12 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     scene = context.scene
     if snapshot is None:
         snapshot = validate_scene(context)
-    source_key, source_reason = _scene_source_key(context, snapshot)
+    # Resolve before constructing the reusable Scene identity.  The selected
+    # preference is not authoritative and can change as a side effect of the
+    # first real resolution; the resolved installation/protocol/schema are.
+    resolved_for_cache = resolve_solver(context)
+    source_key, source_reason = _scene_source_key(
+        context, snapshot, resolved_for_cache)
     if _export_timing_sink is not None:
         _export_timing_sink["scene_source_key_safe"] = (
             1.0 if source_key else 0.0)
@@ -4599,7 +4620,6 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # A verified hit therefore occurs before evaluated meshes, Pins,
     # Colliders, and Scene CBOR encoding.
     if source_key:
-        resolved_for_cache = resolve_solver(context)
         force_capture = (force_capture or
                          _capture_force_animation(
                              context, snapshot.bake_range))
@@ -8530,13 +8550,16 @@ class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
                     error="Fresh Bake confirmed by user")
             except ValueError:
                 pass
-            project = Path(record.project_root).resolve()
-            server_root = Path(record.server_data_root).resolve()
-            if project != server_root and project.is_relative_to(server_root):
+            project = recovery.owned_project_root(metadata, record)
+            if project is not None:
                 shutil.rmtree(project, ignore_errors=True)
-            for _uuid, partial in record.partial_pc2:
+            for uuid, partial in record.partial_pc2:
+                owned_partial = recovery.owned_partial_path(
+                    metadata, uuid, partial)
+                if owned_partial is None:
+                    continue
                 try:
-                    Path(partial).unlink(missing_ok=True)
+                    owned_partial.unlink(missing_ok=True)
                 except OSError:
                     pass
             try:

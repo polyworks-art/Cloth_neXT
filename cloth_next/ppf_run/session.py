@@ -78,6 +78,23 @@ def _native_worker_path(executable: Path) -> Path:
     return executable.parent / "target" / "release" / bundled.name
 
 
+def _missing_worker_error(worker: Path, *, detail: str = "") -> ClothNextError:
+    technical = f"native solver worker is missing: {worker}"
+    if detail:
+        technical += f"; {detail}"
+    return ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_INSTALLATION,
+        user_message=(
+            "The native solver worker is missing. Security software may "
+            "have quarantined it."),
+        technical_message=technical,
+        recommended_action=(
+            "Restore or reinstall the verified solver, allow its installation "
+            "folder in the security software, then retry the Bake."),
+        recoverable=True,
+        context={"worker_path": str(worker)}))
+
+
 class RecoveryOutcomeKind(str, Enum):
     SAVED = "SAVED"
     EXISTING_PRESERVED = "EXISTING_PRESERVED"
@@ -809,6 +826,13 @@ class SolverSession:
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
         error_text = str(response.get("error", "") or "no server error text")
+        executable = self.resolved.executable_path
+        if (self.resolved.ownership is ConnectionOwnership.OWNED_PROCESS
+                and executable is not None):
+            worker = _native_worker_path(executable)
+            if not worker.is_file():
+                return _missing_worker_error(
+                    worker, detail=f"server_error={error_text}")
         crash_kind_value = response.get("crash_kind", "")
         crash_kind = (crash_kind_value.strip()
                       if isinstance(crash_kind_value, str) else "")

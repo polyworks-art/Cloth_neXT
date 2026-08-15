@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+import gzip
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +15,7 @@ import pytest
 
 from cloth_next.bake.controller import InvalidTransition, shared_controller
 from cloth_next.bake.status import BakeState
+from cloth_next import recovery
 from cloth_next.pinning import StaticPinConfig
 from tests import mesh_fixtures
 
@@ -155,6 +157,64 @@ def test_verified_early_scene_hit_skips_all_mesh_capture(
     assert warmed.export_timings["mesh_export_cache_bytes_reused"] > 0.0
 
 
+def test_unchanged_pinned_scene_has_identical_canonical_param_on_warm_hit(
+        env, monkeypatch, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(
+        env.bpy, vertex_count=400, pinning=True)
+    scene.cloth.data.move_vertex(0, 0.123456789)
+    scene.context.scene.cloth_next_recovery = SimpleNamespace(
+        enabled=True, resume_requested=False, auto_save=True,
+        checkpoint_interval=7, keep_saved_states=3, save_on_finish=True,
+        save_on_cancel=True, recovery_directory="", compatible=False,
+        resumable=False, latest_checkpoint_frame=0, checkpoint_count=0,
+        older_checkpoint_preserved=False, status="", status_detail="")
+    module = env.solver_test
+    monkeypatch.setattr(module, "resolve_solver", lambda _c: _FakeResolved())
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda obj, _depsgraph, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    cold = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+    cold_payload = (cold.scene.param_payload.read_bytes()
+                    if hasattr(cold.scene.param_payload, "read_bytes")
+                    else bytes(cold.scene.param_payload))
+    cached_param = module._payload_cache_for(scene.cloth).lookup(
+        "param", cold.param_cache_key)
+    assert cached_param.hit
+    cached_param.path.unlink()
+    options = cold.recovery_options
+    project_root = tmp_path / "server" / "project"
+    output = project_root / "session" / "output"
+    output.mkdir(parents=True)
+    record = recovery.create_project(
+        options.metadata_path, project_id="project",
+        identity=options.identity, server_data_root=tmp_path / "server",
+        project_root=project_root)
+    record = recovery.transition(
+        options.metadata_path, record, recovery.ProjectState.RUNNING)
+    (output / "state_20.bin.gz").write_bytes(gzip.compress(b"state-20"))
+    record = recovery.confirm_saved_states(
+        options.metadata_path, record, (20,), keep=3)
+    recovery.transition(
+        options.metadata_path, record, recovery.ProjectState.RESUMABLE)
+    scene.context.scene.cloth_next_recovery.resume_requested = True
+    scene.context.scene.cloth_next_recovery.recovery_directory = str(
+        options.metadata_path.parent)
+    warm = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+
+    warm_payload = (warm.scene.param_payload.read_bytes()
+                    if hasattr(warm.scene.param_payload, "read_bytes")
+                    else bytes(warm.scene.param_payload))
+    assert warm_payload == cold_payload
+    assert warm.scene.param_hash == cold.scene.param_hash
+    assert warm.recovery_options.resume is True
+
+
 def test_export_cache_benchmark_reuses_only_unchanged_scene_artifacts(
         env, monkeypatch, tmp_path):
     """Deterministic preparation benchmark: cold, warm, then one change."""
@@ -182,6 +242,41 @@ def test_export_cache_benchmark_reuses_only_unchanged_scene_artifacts(
     assert warm.export_timings.get("to_mesh_count", 0.0) == 0.0
     assert changed.export_timings.get("mesh_export_cache_misses", 0.0) >= 2.0
     assert changed.scene.data_hash != warm.scene.data_hash
+
+
+def test_first_solver_resolution_normalisation_does_not_change_scene_key(
+        env, monkeypatch, tmp_path):
+    """Real resolution may populate the selected-installation preference."""
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    module = env.solver_test
+    selection = {"id": ""}
+    resolved = _FakeResolved()
+    resolved.installation_id = "managed-0.13"
+
+    def resolve(_context):
+        selection["id"] = resolved.installation_id
+        return resolved
+
+    monkeypatch.setattr(module, "resolve_solver", resolve)
+    monkeypatch.setattr(module, "_solver_selection_key",
+                        lambda _context: selection["id"])
+    monkeypatch.setattr(module, "_extract_mesh",
+                        lambda obj, _d, needs_edges: _fake_mesh(obj))
+    monkeypatch.setattr(module, "without_owned_playback", _noop_context)
+    monkeypatch.setattr(module, "_cache_directory", lambda: tmp_path / "cache")
+    monkeypatch.setattr(module.bpy.app, "tempdir", str(tmp_path))
+
+    cold = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+    monkeypatch.setattr(
+        module, "_extract_mesh",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("mesh capture after stable resolved identity")))
+    warm = module.build_run_plan(
+        scene.context, snapshot=module.validate_scene(scene.context))
+
+    assert cold.scene_cache_key == warm.scene_cache_key
+    assert warm.export_timings["scene_early_cache_hit"] == 1.0
 
 
 def test_stable_frame_handler_participates_in_cache_key_without_disabling_hit(

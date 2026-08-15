@@ -10,9 +10,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = (5, 1, 2)
+MANIFEST = ROOT / "cloth_next" / "blender_manifest.toml"
+
+
+def minimum_blender_version() -> tuple[int, int, int]:
+    value = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))[
+        "blender_version_min"]
+    parts = tuple(int(part) for part in str(value).split("."))
+    if len(parts) != 3:
+        raise ValueError(f"invalid blender_version_min {value!r}")
+    return parts
+
+
+def supported_blender_version(value: tuple[int, int, int]) -> bool:
+    return value >= minimum_blender_version()
 
 def candidates(explicit: str | None = None):
     values = [explicit, os.environ.get("CLOTH_NEXT_BLENDER"),
@@ -40,9 +54,12 @@ def resolve(explicit: str | None = None) -> tuple[Path, str]:
                                 text=True, timeout=30)
         first = (result.stdout or result.stderr).splitlines()[0]
         match = re.search(r"Blender (\d+)\.(\d+)\.(\d+)", first)
-        if match and tuple(map(int, match.groups())) == EXPECTED:
+        if match and supported_blender_version(tuple(map(int, match.groups()))):
             return path.resolve(), first
-    raise FileNotFoundError("Blender 5.1.2 not found. Searched:\n" + "\n".join(searched))
+    minimum = ".".join(map(str, minimum_blender_version()))
+    raise FileNotFoundError(
+        f"Blender {minimum} or newer not found. Searched:\n"
+        + "\n".join(searched))
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
@@ -51,13 +68,16 @@ def main(argv=None):
     blender, version = resolve(args.blender)
     print(f"Executable: {blender}")
     print(f"Detected: {version}")
-    command = [str(blender), "--background", "--factory-startup", "--python",
+    command = [str(blender), "--background", "--factory-startup",
+               "--python-exit-code", "1", "--python",
                str(ROOT / "tools/blender_smoke_test.py")]
     with tempfile.TemporaryDirectory(prefix="clothnext-blender-") as temp:
         env = os.environ.copy()
-        env.update(BLENDER_USER_CONFIG=str(Path(temp) / "config"),
-                   BLENDER_USER_SCRIPTS=str(Path(temp) / "scripts"),
-                   BLENDER_USER_DATAFILES=str(Path(temp) / "datafiles"))
+        # Blender 5.x extension repositories and their Python wheels live
+        # below the unified user-resources root.  The older per-category
+        # variables do not isolate that state and can mutate the artist's
+        # normal extension cache during a supposedly clean smoke test.
+        env["BLENDER_USER_RESOURCES"] = str(Path(temp) / "resources")
         result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True,
                                 text=True)
         output = (result.stdout or "") + (result.stderr or "")

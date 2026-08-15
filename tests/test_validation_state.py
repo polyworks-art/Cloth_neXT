@@ -266,6 +266,13 @@ def test_handlers_registered_exactly_once(env):
     assert len(handlers.redo_post) == 1
 
 
+def test_validation_handlers_are_persistent_across_file_loads(env):
+    module = env.solver_test.validation_state
+    for callback in (module._on_depsgraph_update, module._on_load_post,
+                     module._on_undo_redo_post):
+        assert hasattr(callback, "_bpy_persistent")
+
+
 def test_unregister_removes_every_handler(blender_env):
     env = blender_env
     env.registration.register()
