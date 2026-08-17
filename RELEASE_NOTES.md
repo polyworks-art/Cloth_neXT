@@ -1,28 +1,21 @@
-# Cloth NeXt 2.2.35
+# Cloth NeXt 2.2.36
 
-Cloth NeXt 2.2.35 hardens recovery ownership, keeps validation reliable across
-Blender file loads, and prevents stale cache reuse across solver releases.
+Cloth NeXt 2.2.36 refreshes the add-on and Companion application identity with
+the new approved full-color Cloth NeXt logo.
 
-## Recovery and cache safety
+## Updated identity
 
-- Recovery cleanup only removes checkpoint paths derived from Cloth NeXt's
-  owned recovery root; persisted paths cannot authorize arbitrary deletion.
-- Confirmed checkpoints can be abandoned cleanly.
-- Scene cache identity includes the exact resolved solver installation and
-  release, preventing reuse after a solver switch.
+- The add-on brand asset now uses the new high-resolution color logo.
+- The Companion window and Windows executable use matching PNG and multi-size
+  ICO derivatives generated from that canonical source.
 
-## Blender lifecycle and Companion
+## Blender theme compatibility
 
-- Validation handlers remain persistent when opening or replacing `.blend`
-  files, with teardown checks guarding against duplicate registrations.
-- Missing worker status retains specific installation and quarantine guidance.
-- Companion transport polling is non-blocking when no status message is ready,
-  keeping the animation loop responsive.
+- Blender's in-panel custom icons remain white on transparency so they retain
+  their established contrast and readability in the dark interface theme.
 
 ## Validation
 
-- New real-Blender harnesses cover file-load lifecycle and solver identity cache
-  reuse/invalidation in addition to expanded unit and smoke coverage.
-- Full Python suite: 1,379 passed, 9 skipped, 3 deselected.
-- All 9 external solver integration tests passed separately with the official
-  Lumen solver. The external PPF Contact Solver is not bundled.
+- Asset tests verify deterministic color-logo PNG/ICO generation and preserve
+  the Blender icon theme contract.
+- The external PPF Contact Solver is not bundled.

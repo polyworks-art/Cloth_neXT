@@ -4,12 +4,12 @@
 from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
-import shutil
 import sys
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "cloth_next" / "assets" / "icons"
+IDENTITY_SOURCE = ROOT / "assets" / "Logo_CN.png"
 STATUS_SOURCE = ROOT / "assets" / "solver_status_icons"
 TARGET = ROOT / "companion" / "assets"
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
@@ -25,6 +25,7 @@ STATUS_ASSETS={
     "status_iterations_16.png":"linear_iterations.svg",
 }
 STATUS_SIZE=(16,16)
+APP_ICON_SIZE=(256,256)
 
 def _build_status_icon(source: Path) -> Image.Image:
     try:
@@ -52,19 +53,20 @@ def _build_status_icon(source: Path) -> Image.Image:
     return icon
 
 def build() -> None:
-    app_source, bake_source = SOURCE / "cloth_next.png", SOURCE / "bake.png"
+    app_source, bake_source = IDENTITY_SOURCE, SOURCE / "bake.png"
     if not app_source.is_file() or not bake_source.is_file():
         raise FileNotFoundError("run tools/build_icons.py before companion asset build")
     TARGET.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(app_source, TARGET / "cloth_next.png")
+    with Image.open(app_source) as image:
+        master = image.convert("RGBA").resize(APP_ICON_SIZE, Image.Resampling.LANCZOS)
+        master.save(TARGET / "cloth_next.png", format="PNG", optimize=False,
+                    compress_level=9)
     with Image.open(bake_source) as bake:
         alpha=bake.convert("RGBA").getchannel("A")
         tinted=Image.new("RGBA",bake.size,(217,154,50,0)); tinted.putalpha(alpha)
         tinted.save(TARGET/"bake.png",format="PNG",optimize=False,compress_level=9)
-    with Image.open(app_source) as image:
-        master = image.convert("RGBA").resize((256, 256), Image.Resampling.LANCZOS)
-        master.save(TARGET / "cloth_next.ico", format="ICO", sizes=ICO_SIZES,
-                    bitmap_format="png")
+    master.save(TARGET / "cloth_next.ico", format="ICO", sizes=ICO_SIZES,
+                bitmap_format="png")
     for name,(size,angle) in PARTICLE_SOURCES.items():
         with Image.open(SOURCE/f"{name}.png") as source:
             inset=max(2,size//6)
