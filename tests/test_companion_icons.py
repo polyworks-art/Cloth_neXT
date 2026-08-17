@@ -11,17 +11,39 @@ from cloth_next.bake.status import BakeSnapshot,BakeState
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_identity_sources_are_tightly_cropped_to_visible_alpha():
+    color = ROOT / "assets" / "Logo_CN.png"
+    monochrome = ROOT / "assets" / "Logo_CN_BW.png"
+    for path, expected_size in ((color, (1368, 1534)),
+                                (monochrome, (1367, 1532))):
+        with Image.open(path) as image:
+            rgba = image.convert("RGBA")
+            assert rgba.getchannel("A").getbbox() == (0, 0, *expected_size)
+            assert rgba.size == expected_size
+    assert (ROOT / "assets" / "LOGO_addon.png").read_bytes() == color.read_bytes()
+
+
 def test_companion_assets_reuse_approved_identity_and_bake_icons():
     build()
     target = ROOT / "companion" / "assets"
+    first_identity = {
+        name: (target / name).read_bytes()
+        for name in ("cloth_next.png", "cloth_next.ico")}
+    build()
+    assert first_identity == {
+        name: (target / name).read_bytes()
+        for name in ("cloth_next.png", "cloth_next.ico")}
     source = ROOT / "cloth_next" / "assets" / "icons"
     with Image.open(target / "cloth_next.png") as actual, \
             Image.open(ROOT / "assets" / "Logo_CN.png") as approved:
-        expected = approved.convert("RGBA").resize(APP_ICON_SIZE, Image.Resampling.LANCZOS)
-        assert actual.convert("RGBA").tobytes() == expected.tobytes()
-        assert actual.size == APP_ICON_SIZE
+        rgba = actual.convert("RGBA")
+        visible_bounds = rgba.getchannel("A").getbbox()
+        assert actual.size == APP_ICON_SIZE == (256, 256)
+        assert visible_bounds == (14, 0, 242, 256)
+        assert visible_bounds[2] - visible_bounds[0] == round(
+            approved.width * APP_ICON_SIZE[1] / approved.height)
         assert any(pixel[2] > pixel[0]
-                   for pixel in actual.convert("RGBA").get_flattened_data()
+                   for pixel in rgba.get_flattened_data()
                    if pixel[3])
     with Image.open(target/"bake.png") as derived, Image.open(source/"bake.png") as approved:
         assert derived.getchannel("A").tobytes() == approved.convert("RGBA").getchannel("A").tobytes()
