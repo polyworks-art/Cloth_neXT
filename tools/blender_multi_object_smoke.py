@@ -35,21 +35,15 @@ try:
     assert physics_ui.CLOTHNEXT_PT_empty_force.poll(bpy.context)
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
-    wind.cloth_next.force.force_type = "WIND"
     wind.cloth_next.force.wind_variation = 0.0
-    wind.cloth_next.force.strength = 1.0
-    wind.keyframe_insert(data_path="cloth_next.force.strength", frame=1)
-    wind.cloth_next.force.strength = 3.0
-    wind.keyframe_insert(data_path="cloth_next.force.strength", frame=3)
-    bpy.ops.object.empty_add(type="PLAIN_AXES", location=(0.0, 0.0, 0.0))
-    air = bpy.context.object
-    air.name = "MultiAirDensity"
-    bpy.ops.clothnext.add_physics()
-    air.cloth_next.force.force_type = "AIR_DENSITY"
-    air.cloth_next.force.air_density = 0.1
-    air.keyframe_insert(data_path="cloth_next.force.air_density", frame=1)
-    air.cloth_next.force.air_density = 0.5
-    air.keyframe_insert(data_path="cloth_next.force.air_density", frame=3)
+    wind.cloth_next.force.wind_strength = 1.0
+    wind.keyframe_insert(data_path="cloth_next.force.wind_strength", frame=1)
+    wind.cloth_next.force.wind_strength = 3.0
+    wind.keyframe_insert(data_path="cloth_next.force.wind_strength", frame=3)
+    wind.cloth_next.force.air_density = 0.1
+    wind.keyframe_insert(data_path="cloth_next.force.air_density", frame=1)
+    wind.cloth_next.force.air_density = 0.5
+    wind.keyframe_insert(data_path="cloth_next.force.air_density", frame=3)
     for cloth, pin_mode in (
             (cloth_a, "STATIC"), (cloth_b, "FOLLOW_ANIMATION")):
         cloth.cloth_next.bake_start = 1

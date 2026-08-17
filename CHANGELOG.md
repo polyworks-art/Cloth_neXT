@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.36 - 2026-08-17
+
+### Changed
+
+- Replaced the add-on brand asset and Companion application identity with the
+  new approved full-color Cloth NeXt logo.
+- Companion PNG and Windows ICO derivatives are now generated deterministically
+  from the canonical high-resolution color logo.
+- Preserved the dedicated white transparent Blender UI icon family for reliable
+  contrast in Blender's dark theme.
+
+### Validation
+
+- Added regression coverage that verifies the generated Companion identity is
+  pixel-identical to the approved color source at its runtime size while all
+  Blender runtime icons remain white and transparent.
+
 ## 2.2.35 - 2026-08-15
 
 ### Fixed

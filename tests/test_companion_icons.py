@@ -3,7 +3,8 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
-from companion.build_assets import PARTICLE_ASSETS, STATUS_ASSETS, STATUS_SIZE
+from companion.build_assets import (APP_ICON_SIZE, PARTICLE_ASSETS, STATUS_ASSETS,
+                                    STATUS_SIZE)
 from companion.app import error_activity_label
 from cloth_next.bake.status import BakeSnapshot,BakeState
 
@@ -14,7 +15,14 @@ def test_companion_assets_reuse_approved_identity_and_bake_icons():
     build()
     target = ROOT / "companion" / "assets"
     source = ROOT / "cloth_next" / "assets" / "icons"
-    assert (target / "cloth_next.png").read_bytes() == (source / "cloth_next.png").read_bytes()
+    with Image.open(target / "cloth_next.png") as actual, \
+            Image.open(ROOT / "assets" / "Logo_CN.png") as approved:
+        expected = approved.convert("RGBA").resize(APP_ICON_SIZE, Image.Resampling.LANCZOS)
+        assert actual.convert("RGBA").tobytes() == expected.tobytes()
+        assert actual.size == APP_ICON_SIZE
+        assert any(pixel[2] > pixel[0]
+                   for pixel in actual.convert("RGBA").get_flattened_data()
+                   if pixel[3])
     with Image.open(target/"bake.png") as derived, Image.open(source/"bake.png") as approved:
         assert derived.getchannel("A").tobytes() == approved.convert("RGBA").getchannel("A").tobytes()
         assert derived.getpixel((derived.width//2,derived.height//2))[:3] in {(217,154,50),(0,0,0)}
