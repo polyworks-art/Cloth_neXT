@@ -27,6 +27,18 @@ STATUS_ASSETS={
 STATUS_SIZE=(16,16)
 APP_ICON_SIZE=(256,256)
 
+def _build_app_icon(source: Image.Image) -> Image.Image:
+    rgba=source.convert("RGBA")
+    scale=min(APP_ICON_SIZE[0]/rgba.width,APP_ICON_SIZE[1]/rgba.height)
+    fitted=rgba.resize(
+        (max(1,round(rgba.width*scale)),max(1,round(rgba.height*scale))),
+        Image.Resampling.LANCZOS)
+    canvas=Image.new("RGBA",APP_ICON_SIZE,(255,255,255,0))
+    canvas.alpha_composite(
+        fitted,((APP_ICON_SIZE[0]-fitted.width)//2,
+                (APP_ICON_SIZE[1]-fitted.height)//2))
+    return canvas
+
 def _build_status_icon(source: Path) -> Image.Image:
     try:
         import resvg_py
@@ -58,7 +70,7 @@ def build() -> None:
         raise FileNotFoundError("run tools/build_icons.py before companion asset build")
     TARGET.mkdir(parents=True, exist_ok=True)
     with Image.open(app_source) as image:
-        master = image.convert("RGBA").resize(APP_ICON_SIZE, Image.Resampling.LANCZOS)
+        master = _build_app_icon(image)
         master.save(TARGET / "cloth_next.png", format="PNG", optimize=False,
                     compress_level=9)
     with Image.open(bake_source) as bake:
