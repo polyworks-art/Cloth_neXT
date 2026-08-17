@@ -1,21 +1,22 @@
-# Cloth NeXt 2.2.36
+# Cloth NeXt 2.2.37
 
-Cloth NeXt 2.2.36 refreshes the add-on and Companion application identity with
-the new approved full-color Cloth NeXt logo.
+Cloth NeXt 2.2.37 refines the new logo assets by removing unused transparent
+canvas while keeping every visible pixel and color unchanged.
 
-## Updated identity
+## Tighter logo assets
 
-- The add-on brand asset now uses the new high-resolution color logo.
-- The Companion window and Windows executable use matching PNG and multi-size
-  ICO derivatives generated from that canonical source.
+- Both the color and monochrome source logos are cropped exactly to their
+  visible alpha bounds.
+- The canonical add-on logo is refreshed from the cropped color source.
 
-## Blender theme compatibility
+## Companion identity
 
-- Blender's in-panel custom icons remain white on transparency so they retain
-  their established contrast and readability in the dark interface theme.
+- Companion PNG and Windows ICO assets are regenerated deterministically.
+- The application-icon pipeline preserves the logo's original proportions when
+  fitting it into the square icon canvas.
 
 ## Validation
 
-- Asset tests verify deterministic color-logo PNG/ICO generation and preserve
-  the Blender icon theme contract.
+- Asset tests verify exact source dimensions, edge-tight alpha bounds,
+  pixel-preserving source crops, and repeatable PNG/ICO output.
 - The external PPF Contact Solver is not bundled.

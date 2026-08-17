@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.37 - 2026-08-17
+
+### Changed
+
+- Cropped the approved color and monochrome Cloth NeXt logo sources exactly to
+  their visible alpha bounds without changing their visible pixels or colors.
+- Refreshed the canonical add-on logo from the cropped color source and rebuilt
+  the Companion PNG and Windows ICO derivatives.
+- Companion identity generation now preserves the source aspect ratio while
+  fitting the logo into the required square application-icon canvas.
+
+### Validation
+
+- Added regression coverage for exact cropped dimensions, edge-tight alpha
+  bounds, canonical logo equality, aspect-preserving output, and deterministic
+  Companion PNG/ICO generation.
+
 ## 2.2.36 - 2026-08-17
 
 ### Changed
