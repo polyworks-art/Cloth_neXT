@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.39 - 2026-08-18
+
+### Fixed
+
+- Intersection diagnostics and **Auto Fix Intersections** now render in the
+  normal production Solver panel after a solver-confirmed intersection error.
+- The hidden Developer Tools view reuses the same diagnostics renderer instead
+  of owning the only path to the controls.
+
+### Validation
+
+- Added production-panel regression coverage for mapped self-intersections and
+  the enabled Auto Fix action.
+- Full Python suite: 1,394 passed, 9 skipped, 3 deselected.
+
 ## 2.2.38 - 2026-08-18
 
 ### Added

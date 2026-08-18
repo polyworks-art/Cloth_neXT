@@ -1,32 +1,25 @@
-# Cloth NeXt 2.2.38
+# Cloth NeXt 2.2.39
 
-Cloth NeXt 2.2.38 adds a conservative repair action for small initial cloth
-self-intersections and makes the viewport diagnostics lifecycle reliable.
+Cloth NeXt 2.2.39 makes the intersection repair controls from 2.2.38 visible
+in the normal production Solver panel.
 
-## Auto Fix Intersections
+## Production UI hotfix
 
-- Fully mapped, solver-confirmed self-intersections can be gently separated
-  without remeshing, deleting faces, or changing topology.
-- Both surfaces share the correction, repeated contributions to a vertex are
-  averaged, and movement is clamped using local triangle scale.
-- Blender Undo is supported, and the normal Bake workflow reruns afterward so
-  the PPF solver remains the authoritative validation source.
+- Solver-confirmed intersection diagnostics now appear directly below the
+  failed Bake status in the standard Solver panel.
+- Navigation, face selection, solver-input preview, Clear, and **Auto Fix
+  Intersections** are available there when the retained mapping supports them.
+- The Developer Tools view reuses the same shared diagnostics renderer.
 
-## Safety
+## Auto Fix safety
 
-- Auto Fix is limited to same-object cloth self-intersections in this release.
-- Stale diagnostics, changed topology or transforms, shape keys, linked meshes,
-  colliders, rods, generated proxies, sentinels, and incomplete mappings are
-  rejected instead of guessed.
-
-## Intersection display reliability
-
-- Clear and add-on shutdown now remove retained geometry and GPU handlers.
-- Invalid triangle payloads no longer create count-only highlights.
-- The UI explicitly reports detected and mapped counts when they differ.
+- Auto Fix remains limited to fully mapped, same-object cloth
+  self-intersections.
+- Unsafe, stale, collider, rod, proxy, sentinel, linked, or shape-key cases are
+  still rejected rather than guessed.
+- The external PPF Contact Solver is not bundled or modified.
 
 ## Validation
 
-- The full Python suite passes with 1,393 tests; external solver integration
-  prerequisites remain skipped when not configured.
-- The external PPF Contact Solver is not bundled or modified.
+- The full Python suite passes with 1,394 tests.
+- Release-policy and package-structure checks pass.

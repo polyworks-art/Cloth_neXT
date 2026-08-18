@@ -517,6 +517,8 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         if snapshot.state.value == "ERROR" and snapshot.error_summary:
             layout.operator("clothnext.companion_open_logs", text="Open Logs",
                             **icon_registry.icon_kwargs("folder", "FILE_FOLDER"))
+            _draw_intersection_diagnostics(
+                layout, snapshot, running=solver_test.run_active())
         if not snapshot.active:
             validation = layout.row(align=True)
             validation.label(text=_validation_line(context))
@@ -1926,6 +1928,57 @@ def _developer_tools_build_enabled() -> bool:
     return is_dev_build()
 
 
+def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
+    """Draw solver-confirmed intersections in production and developer UI."""
+    from . import intersection_overlay, solver_test
+
+    violations = solver_test.intersection_violations()
+    if not violations:
+        return
+    current = intersection_overlay.current() or violations[0]
+    current_number = intersection_overlay.current_index() + 1
+    mapped_count = len(violations)
+    count_label = (
+        f"{current.total_count} detected · {mapped_count} mapped"
+        if mapped_count != current.total_count
+        else f"{current_number} of {mapped_count}")
+    column = layout.column(align=True)
+    column.label(
+        text=f"{current.classification.replace('_', ' ').title()} "
+             f"· {count_label}", icon="RESTRICT_SELECT_OFF")
+    for element in current.elements:
+        face = (element.source_polygon_index
+                if element.source_polygon_index is not None
+                else element.local_triangle_index)
+        column.label(text=f"{element.object_name} · Triangle {face}")
+    navigation = column.row(align=True)
+    navigation.operator("clothnext.intersection_previous",
+                        text="", icon="TRIA_LEFT")
+    navigation.operator("clothnext.intersection_next",
+                        text="", icon="TRIA_RIGHT")
+    navigation.operator("clothnext.intersection_frame",
+                        text="Frame", icon="VIEWZOOM")
+    selection = column.row(align=True)
+    for index, element in enumerate(current.elements[:2]):
+        op = selection.operator(
+            "clothnext.intersection_select_element",
+            text=f"Select {element.object_name}")
+        op.element_index = index
+    diagnostics = column.row(align=True)
+    diagnostics.operator(
+        "clothnext.intersection_show_input",
+        text=("Hide Solver Input"
+              if intersection_overlay.solver_input_visible()
+              else "Show Solver Input"), icon="MESH_DATA")
+    diagnostics.operator("clothnext.intersection_clear",
+                         text="Clear", icon="X")
+    if solver_test._auto_fix_supported_violations():
+        auto_fix = column.row(align=True)
+        auto_fix.enabled = not running and not snapshot.active
+        auto_fix.operator("clothnext.intersection_auto_fix",
+                          text="Auto Fix Intersections", icon="MODIFIER")
+
+
 def _draw_solver_test_controls(layout, context) -> None:
     """Draw real-solver developer controls into a supplied container."""
     from . import solver_test
@@ -1971,55 +2024,7 @@ def _draw_solver_test_controls(layout, context) -> None:
                          if value.startswith(prefix)), None)
             if line:
                 column.label(text=line[:180])
-        violations = solver_test.intersection_violations()
-        if violations:
-            from . import intersection_overlay
-            current = intersection_overlay.current() or violations[0]
-            current_number = intersection_overlay.current_index() + 1
-            mapped_count = len(violations)
-            count_label = (
-                f"{current.total_count} detected · {mapped_count} mapped"
-                if mapped_count != current.total_count
-                else f"{current_number} of {mapped_count}")
-            column.label(
-                text=f"{current.classification.replace('_', ' ').title()} "
-                     f"· {count_label}",
-                icon="RESTRICT_SELECT_OFF")
-            for element in current.elements:
-                face = (element.source_polygon_index
-                        if element.source_polygon_index is not None
-                        else element.local_triangle_index)
-                column.label(
-                    text=f"{element.object_name} · Triangle {face}")
-            navigation = column.row(align=True)
-            navigation.operator("clothnext.intersection_previous",
-                                text="", icon="TRIA_LEFT")
-            navigation.operator("clothnext.intersection_next",
-                                text="", icon="TRIA_RIGHT")
-            navigation.operator("clothnext.intersection_frame",
-                                text="Frame", icon="VIEWZOOM")
-            selection = column.row(align=True)
-            for index, element in enumerate(current.elements[:2]):
-                op = selection.operator(
-                    "clothnext.intersection_select_element",
-                    text=f"Select {element.object_name}")
-                op.element_index = index
-            diagnostics = column.row(align=True)
-            diagnostics.operator(
-                "clothnext.intersection_show_input",
-                text=("Hide Solver Input"
-                      if intersection_overlay.solver_input_visible()
-                      else "Show Solver Input"),
-                icon="MESH_DATA")
-            diagnostics.operator(
-                "clothnext.intersection_clear", text="Clear", icon="X")
-            supported = solver_test._auto_fix_supported_violations()
-            if supported:
-                auto_fix = column.row(align=True)
-                auto_fix.enabled = not running and not snapshot.active
-                auto_fix.operator(
-                    "clothnext.intersection_auto_fix",
-                    text="Auto Fix Intersections", icon="MODIFIER")
+        _draw_intersection_diagnostics(layout, snapshot, running=running)
     layout.operator("clothnext.inspect_parameters",
                     **icon_registry.icon_kwargs("info", "VIEWZOOM"))
     actions=layout.row(align=True)
