@@ -1259,6 +1259,8 @@ class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
             _draw_quality_selector(layout, context, snapshot.active)
         model = _bake_panel_model(context, _active_backend_status(context))
         _draw_bake_action(layout, context, model, snapshot)
+        _draw_intersection_diagnostics(
+            layout, snapshot, running=snapshot.active)
         _draw_recovery_banner(layout, context, snapshot)
         _draw_scene_statistics(layout, context)
 

@@ -233,6 +233,52 @@ def test_production_intersection_diagnostics_show_auto_fix(
     env.registration.unregister()
 
 
+def test_visible_simulation_panel_renders_auto_fix_for_cloth(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    from cloth_next import intersection_diagnostics as diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    objects = _objects(env)
+    context = _context(env, objects)
+    element = diagnostics.IntersectionElement(
+        kind="TRIANGLE", object_uuid="cloth-uuid", object_name="Cloth0",
+        role="CLOTH", combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=1,
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))
+    second = diagnostics.IntersectionElement(
+        kind="TRIANGLE", object_uuid="cloth-uuid", object_name="Cloth0",
+        role="CLOTH", combined_triangle_index=1, local_triangle_index=1,
+        source_polygon_index=2,
+        vertices=((0.0, 0.0, -0.1), (1.0, 0.0, 0.1),
+                  (0.0, 1.0, 0.1)))
+    violation = diagnostics.IntersectionViolation(
+        classification="SELF_INTERSECTION", detection_method="SOLVER_REPORTED",
+        elements=(element, second), combined_pair=(0, 1), total_count=1)
+    env.solver_test._intersection_violations = (violation,)
+    monkeypatch.setattr(intersection_overlay, "current", lambda: violation)
+    monkeypatch.setattr(intersection_overlay, "current_index", lambda: 0)
+    monkeypatch.setattr(intersection_overlay, "solver_input_visible", lambda: False)
+    monkeypatch.setattr(env.physics_ui, "_active_backend_status",
+                        lambda _context: env.physics_ui._SolverStatus(True, "Ready"))
+    monkeypatch.setattr(env.physics_ui, "_draw_quality_selector",
+                        lambda *_args: None)
+    monkeypatch.setattr(env.physics_ui, "_draw_recovery_banner",
+                        lambda *_args: None)
+    monkeypatch.setattr(env.physics_ui, "_draw_scene_statistics",
+                        lambda *_args: None)
+
+    assert env.physics_ui.CLOTHNEXT_PT_simulation.poll(context)
+    panel = env.physics_ui.CLOTHNEXT_PT_simulation()
+    panel.layout = RecordingLayout()
+    panel.draw(context)
+
+    assert any(identifier == "clothnext.intersection_auto_fix"
+               for identifier, _text, _enabled in panel.layout.operators)
+    env.solver_test._intersection_violations = ()
+    env.registration.unregister()
+
+
 def test_selected_registry_solver_enables_bake(blender_env, monkeypatch,
                                                 tmp_path):
     env = blender_env; env.registration.register()
