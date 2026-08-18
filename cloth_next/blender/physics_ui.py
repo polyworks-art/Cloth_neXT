@@ -1976,9 +1976,14 @@ def _draw_solver_test_controls(layout, context) -> None:
             from . import intersection_overlay
             current = intersection_overlay.current() or violations[0]
             current_number = intersection_overlay.current_index() + 1
+            mapped_count = len(violations)
+            count_label = (
+                f"{current.total_count} detected · {mapped_count} mapped"
+                if mapped_count != current.total_count
+                else f"{current_number} of {mapped_count}")
             column.label(
                 text=f"{current.classification.replace('_', ' ').title()} "
-                     f"· {current_number} of {current.total_count}",
+                     f"· {count_label}",
                 icon="RESTRICT_SELECT_OFF")
             for element in current.elements:
                 face = (element.source_polygon_index
@@ -2008,6 +2013,13 @@ def _draw_solver_test_controls(layout, context) -> None:
                 icon="MESH_DATA")
             diagnostics.operator(
                 "clothnext.intersection_clear", text="Clear", icon="X")
+            supported = solver_test._auto_fix_supported_violations()
+            if supported:
+                auto_fix = column.row(align=True)
+                auto_fix.enabled = not running and not snapshot.active
+                auto_fix.operator(
+                    "clothnext.intersection_auto_fix",
+                    text="Auto Fix Intersections", icon="MODIFIER")
     layout.operator("clothnext.inspect_parameters",
                     **icon_registry.icon_kwargs("info", "VIEWZOOM"))
     actions=layout.row(align=True)

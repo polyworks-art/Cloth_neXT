@@ -56,6 +56,7 @@ from .addon_identity import addon_preferences, package_addon_id
 from .. import manifest_version
 from .. import export_identity, recovery
 from .. import intersection_diagnostics
+from .. import intersection_auto_fix
 from ..export_cache import ExportPayloadCache, deterministic_key
 from ..sample_plan import build_collider_timeline, build_sample_plan
 from ..bake import cache_metadata
@@ -81,6 +82,7 @@ from ..pinning import (
 )
 from ..ppf.coordinates import (
     matrix_is_finite_and_invertible,
+    ppf_vector_to_blender,
     solver_world_matrix,
     solver_world_to_object_local,
     transform_points_numpy,
@@ -7832,6 +7834,7 @@ def shutdown(join_timeout: float = 30.0) -> bool:
     happens inside the session worker.
     """
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
+    _clear_intersection_diagnostics()
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")
     if _pin_capture is not None:
@@ -8423,6 +8426,206 @@ class CLOTHNEXT_OT_intersection_clear(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _auto_fix_supported_violations():
+    """Return only complete, solver-attributed V1 repair candidates."""
+    return tuple(
+        violation for violation in _intersection_violations
+        if (violation.classification in
+            intersection_auto_fix.SUPPORTED_CLASSIFICATIONS
+            and len(violation.elements) == 2
+            and all(element.kind == "TRIANGLE"
+                    and element.role in {"CLOTH", "SOFT_BODY", "RIGID_BODY"}
+                    and not element.generated_proxy
+                    for element in violation.elements)
+            and violation.elements[0].object_uuid ==
+                violation.elements[1].object_uuid))
+
+
+def _auto_fix_object(scene, object_uuid):
+    """Resolve an exported identity without trusting a possibly reused name."""
+    return next((obj for obj in scene.objects
+                 if export_identity.export_uuid(obj) == object_uuid), None)
+
+
+def _auto_fix_snapshot_pairs(context, violations, snapshot):
+    """Validate an exact source-mesh mapping and build pure planner input."""
+    if snapshot is None:
+        raise SceneValidationError(
+            "The exact solver-input snapshot is no longer available.")
+    if int(context.scene.frame_current) != int(snapshot.bake_start_frame):
+        raise SceneValidationError(
+            f"Set the timeline to Bake Start frame {snapshot.bake_start_frame} "
+            "before using Auto Fix.")
+    by_combined = {triangle.owner.combined_triangle_index: triangle
+                   for triangle in snapshot.triangles}
+    object_uuids = set()
+    for violation in violations:
+        for combined_index in violation.combined_pair:
+            triangle = by_combined.get(combined_index)
+            if triangle is None or triangle.owner.internal:
+                raise SceneValidationError(
+                    "Intersection diagnostics no longer match the solver input.")
+            object_uuids.add(triangle.owner.object_uuid)
+    object_records = {
+        object_uuid: tuple(
+            triangle for triangle in snapshot.triangles
+            if triangle.owner.object_uuid == object_uuid)
+        for object_uuid in object_uuids}
+
+    objects = {}
+    tolerance = 1.0e-7
+    from mathutils import Vector
+    for object_uuid, records in object_records.items():
+        obj = _auto_fix_object(context.scene, object_uuid)
+        if obj is None:
+            raise SceneValidationError(
+                "An intersecting object is no longer available.")
+        mesh = getattr(obj, "data", None)
+        if (getattr(obj, "type", None) != "MESH" or mesh is None
+                or getattr(obj, "mode", "OBJECT") != "OBJECT"):
+            raise SceneValidationError(
+                f'"{obj.name}" must be an editable mesh in Object Mode.')
+        if (getattr(obj, "library", None) is not None
+                or getattr(mesh, "library", None) is not None):
+            raise SceneValidationError(
+                f'"{obj.name}" is linked and cannot be edited safely.')
+        if getattr(mesh, "shape_keys", None) is not None:
+            raise SceneValidationError(
+                f'"{obj.name}" has shape keys; Auto Fix will not guess which '
+                "key should be changed.")
+        mesh.calc_loop_triangles()
+        loop_triangles = tuple(mesh.loop_triangles)
+        if len(loop_triangles) != len(records):
+            raise SceneValidationError(
+                f'"{obj.name}" topology changed after intersection detection.')
+        for record in records:
+            local_index = record.owner.local_triangle_index
+            if local_index < 0 or local_index >= len(loop_triangles):
+                raise SceneValidationError(
+                    f'"{obj.name}" topology changed after intersection detection.')
+            current = loop_triangles[local_index]
+            current_indices = tuple(int(index) for index in current.vertices)
+            if current_indices != tuple(record.vertex_indices):
+                raise SceneValidationError(
+                    f'"{obj.name}" topology changed after intersection detection.')
+            source_polygon = record.owner.source_polygon_index
+            if (source_polygon is not None
+                    and int(current.polygon_index) != int(source_polygon)):
+                raise SceneValidationError(
+                    f'"{obj.name}" triangulation changed after detection.')
+            if any(index < 0 or index >= len(mesh.vertices)
+                   for index in current_indices):
+                raise SceneValidationError(
+                    f'"{obj.name}" contains an invalid retained vertex index.')
+            current_local = tuple(tuple(float(value) for value in
+                                  mesh.vertices[index].co)
+                                  for index in current_indices)
+            if any(abs(current_local[point][axis] -
+                       record.input_vertices[point][axis]) > tolerance
+                   for point in range(3) for axis in range(3)):
+                raise SceneValidationError(
+                    f'"{obj.name}" geometry changed after '
+                    "intersection detection. Run Bake again to refresh it.")
+            current_ppf_world = tuple(
+                intersection_diagnostics.transform_point(
+                    solver_world_matrix(obj.matrix_world), point)
+                for point in current_local)
+            if any(abs(current_ppf_world[point][axis] -
+                       record.vertices[point][axis]) > tolerance
+                   for point in range(3) for axis in range(3)):
+                raise SceneValidationError(
+                    f'"{obj.name}" transform changed after intersection '
+                    "detection. Run Bake again to refresh it.")
+        try:
+            inverse_linear = obj.matrix_world.inverted().to_3x3()
+        except (ValueError, ZeroDivisionError):
+            raise SceneValidationError(
+                f'"{obj.name}" has a non-invertible transform.') from None
+        objects[object_uuid] = (obj, inverse_linear, Vector)
+
+    pairs = []
+    for violation in violations:
+        first, second = (by_combined[index]
+                         for index in violation.combined_pair)
+        pairs.append((
+            tuple((first.owner.object_uuid, index)
+                  for index in first.vertex_indices), first.vertices,
+            tuple((second.owner.object_uuid, index)
+                  for index in second.vertex_indices), second.vertices))
+    return tuple(pairs), objects
+
+
+class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
+    """Conservatively separate solver-confirmed self-intersections."""
+    bl_idname = "clothnext.intersection_auto_fix"
+    bl_label = "Auto Fix Intersections"
+    bl_description = (
+        "Gently separate supported solver-confirmed self-intersections, "
+        "without changing mesh topology, then retry authoritative validation")
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, _context):
+        allowed = bool(_auto_fix_supported_violations()) and not run_active()
+        if not allowed and hasattr(cls, "poll_message_set"):
+            cls.poll_message_set(
+                "No safely mapped self-intersections are available")
+        return allowed
+
+    def execute(self, context):
+        from . import intersection_overlay
+        violations = _auto_fix_supported_violations()
+        try:
+            pairs, objects = _auto_fix_snapshot_pairs(
+                context, violations,
+                intersection_overlay.solver_input_snapshot())
+            desired = max(
+                2.0 * float(value[0].cloth_next.collision.collision_gap)
+                + float(value[0].cloth_next.collision.surface_offset)
+                for value in objects.values())
+            planned = intersection_auto_fix.plan_displacements(
+                pairs, desired_separation=desired)
+            if not planned:
+                raise SceneValidationError(
+                    "Auto Fix could not derive a safe correction for these faces.")
+            changed = set()
+            for (object_uuid, vertex_index), world_delta in planned.items():
+                obj, inverse_linear, Vector = objects[object_uuid]
+                obj.data.vertices[vertex_index].co += (
+                    inverse_linear @ Vector(
+                        ppf_vector_to_blender(world_delta)))
+                changed.add(obj)
+            for obj in changed:
+                obj.data.update()
+                validation_state.forget(obj)
+        except (AttributeError, SceneValidationError, ValueError) as exc:
+            self.report({"WARNING"}, str(exc))
+            return {"CANCELLED"}
+
+        initial_count = max((item.total_count for item in violations),
+                            default=len(violations))
+        _clear_intersection_diagnostics()
+        try:
+            outcome = bpy.ops.clothnext.bake("INVOKE_DEFAULT")
+        except (AttributeError, RuntimeError) as exc:
+            self.report(
+                {"WARNING"},
+                f"Applied a conservative correction to {len(planned)} "
+                f"vertices, but could not restart validation: {exc}")
+            return {"FINISHED"}
+        if "CANCELLED" in outcome:
+            self.report(
+                {"WARNING"},
+                f"Applied a conservative correction to {len(planned)} "
+                "vertices. Run Bake to verify the result.")
+        else:
+            self.report(
+                {"INFO"},
+                f"Adjusted {len(planned)} vertices for {initial_count} initial "
+                "self-intersection(s); verifying with the solver.")
+        return {"FINISHED"}
+
+
 def _recovery_metadata_from_scene(scene) -> Path | None:
     settings = getattr(scene, "cloth_next_recovery", None)
     root = str(getattr(settings, "recovery_directory", "") or "").strip()
@@ -8759,6 +8962,7 @@ CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,
            CLOTHNEXT_OT_intersection_frame,
            CLOTHNEXT_OT_intersection_show_input,
            CLOTHNEXT_OT_intersection_clear,
+           CLOTHNEXT_OT_intersection_auto_fix,
            CLOTHNEXT_OT_recovery_resume_latest,
            CLOTHNEXT_OT_recovery_start_fresh,
            CLOTHNEXT_OT_recovery_clear_checkpoints,
