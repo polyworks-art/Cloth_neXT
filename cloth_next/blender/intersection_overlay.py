@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from math import isfinite
+
 from .. import intersection_diagnostics
 from ..ppf.coordinates import ppf_position_to_blender
 
@@ -28,10 +30,18 @@ def current_index() -> int:
 
 def set_violations(violations, solver_input=None) -> None:
     global _violations, _solver_input, _index
-    _violations = tuple(violations)
+    # A converted violation is only useful to the overlay when at least one of
+    # its mapped elements still contains a complete, finite triangle. Keeping
+    # count-only records here produces a label without any corresponding GPU
+    # geometry and overstates the number of mapped violations.
+    _violations = tuple(
+        item for item in violations if _violation_is_drawable(item))
     _solver_input = solver_input
     _index = 0
-    _ensure_handler()
+    if _violations:
+        _ensure_handler()
+    else:
+        _remove_handlers()
     _redraw()
 
 
@@ -41,7 +51,29 @@ def clear() -> None:
     _solver_input = None
     _index = 0
     _show_input = False
+    _remove_handlers()
     _redraw()
+
+
+def _remove_handlers() -> None:
+    """Remove callbacks as well as state; safe across reload/unregister."""
+    global _draw_handle, _label_handle
+    handles = (_draw_handle, _label_handle)
+    # Clear first so repeated/re-entrant cleanup can never remove a handle
+    # twice, including during add-on unregister and module reload.
+    _draw_handle = None
+    _label_handle = None
+    try:
+        import bpy
+        space = bpy.types.SpaceView3D
+        for handle in handles:
+            if handle is not None:
+                try:
+                    space.draw_handler_remove(handle, "WINDOW")
+                except (ReferenceError, ValueError, RuntimeError):
+                    pass
+    except (AttributeError, RuntimeError, ImportError):
+        pass
 
 
 def next_violation():
@@ -92,7 +124,9 @@ def _ensure_handler() -> None:
             _label_handle = space.draw_handler_add(
                 _draw_label, (), "WINDOW", "POST_PIXEL")
     except (AttributeError, RuntimeError, ImportError):
-        _draw_handle = None
+        # Handler installation is a pair: never lose track of a successfully
+        # installed geometry callback when label callback installation fails.
+        _remove_handlers()
 
 
 def _redraw() -> None:
@@ -106,13 +140,32 @@ def _redraw() -> None:
         pass
 
 
+def _triangle_is_drawable(vertices) -> bool:
+    try:
+        if len(vertices) != 3:
+            return False
+        return all(
+            len(vertex) == 3
+            and all(isfinite(float(component)) for component in vertex)
+            for vertex in vertices)
+    except (TypeError, ValueError):
+        return False
+
+
+def _violation_is_drawable(violation) -> bool:
+    return any(
+        _triangle_is_drawable(element.vertices)
+        for element in violation.elements)
+
+
 def _triangles_for_draw():
     if _show_input and _solver_input is not None:
         return tuple(
             (tuple(ppf_position_to_blender(v) for v in item.vertices),
              (0.15, 0.55, 1.0, 0.12) if item.owner.role != "COLLIDER"
              else (1.0, 0.45, 0.1, 0.12))
-            for item in _solver_input.triangles)
+            for item in _solver_input.triangles
+            if _triangle_is_drawable(item.vertices))
     violation = current()
     if violation is None:
         return ()
@@ -120,7 +173,8 @@ def _triangles_for_draw():
     return tuple(
         (tuple(ppf_position_to_blender(v) for v in element.vertices),
          colors[index % len(colors)])
-        for index, element in enumerate(violation.elements))
+        for index, element in enumerate(violation.elements)
+        if _triangle_is_drawable(element.vertices))
 
 
 def _draw() -> None:
@@ -162,7 +216,10 @@ def label_lines() -> tuple[str, ...]:
                 else element.local_triangle_index)
         proxy = " · generated proxy" if element.generated_proxy else ""
         lines.append(f"{element.object_name} · Triangle {face}{proxy}")
-    lines.append(f"{_index + 1} of {violation.total_count}")
+    mapped = len(_violations)
+    lines.append(f"{violation.total_count} detected · {mapped} mapped"
+                 if mapped != violation.total_count
+                 else f"{_index + 1} of {mapped}")
     return tuple(lines)
 
 

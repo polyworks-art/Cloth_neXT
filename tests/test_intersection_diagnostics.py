@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from dataclasses import dataclass
+import sys
+from types import SimpleNamespace
 
 from cloth_next import intersection_diagnostics as diagnostics
 from cloth_next.blender import intersection_overlay
@@ -176,3 +178,111 @@ def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     intersection_overlay.clear()
     assert intersection_overlay.current() is None
     assert intersection_overlay.solver_input_snapshot() is None
+
+
+def test_overlay_clear_removes_handlers_once_and_fully_resets(monkeypatch):
+    removed = []
+    space = SimpleNamespace(
+        draw_handler_remove=lambda handle, region: removed.append(
+            (handle, region)))
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space)))
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_draw_handle", "geometry")
+    monkeypatch.setattr(intersection_overlay, "_label_handle", "label")
+    monkeypatch.setattr(intersection_overlay, "_show_input", True)
+
+    intersection_overlay.clear()
+    intersection_overlay.clear()
+
+    assert removed == [("geometry", "WINDOW"), ("label", "WINDOW")]
+    assert intersection_overlay.violations() == ()
+    assert intersection_overlay.current_index() == 0
+    assert not intersection_overlay.solver_input_visible()
+    assert intersection_overlay.solver_input_snapshot() is None
+    assert intersection_overlay._draw_handle is None
+    assert intersection_overlay._label_handle is None
+
+
+def test_overlay_set_clear_set_reinstalls_fresh_handlers(monkeypatch):
+    added = []
+    removed = []
+
+    def add(callback, args, region, phase):
+        handle = f"handle-{len(added)}"
+        added.append((handle, callback, args, region, phase))
+        return handle
+
+    space = SimpleNamespace(
+        draw_handler_add=add,
+        draw_handler_remove=lambda handle, region: removed.append(
+            (handle, region)))
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space),
+        context=SimpleNamespace(window_manager=SimpleNamespace(windows=()))))
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=1)
+
+    intersection_overlay.clear()
+    intersection_overlay.set_violations((violation,), snapshot)
+    first_handles = (intersection_overlay._draw_handle,
+                     intersection_overlay._label_handle)
+    intersection_overlay.clear()
+    intersection_overlay.set_violations((violation,), snapshot)
+
+    assert len(added) == 4
+    assert removed == [(first_handles[0], "WINDOW"),
+                       (first_handles[1], "WINDOW")]
+    assert intersection_overlay.current() is violation
+    assert intersection_overlay._draw_handle not in first_handles
+    assert intersection_overlay._label_handle not in first_handles
+    intersection_overlay.clear()
+
+
+def test_partial_handler_install_is_rolled_back(monkeypatch):
+    removed = []
+    calls = 0
+
+    def add(_callback, _args, _region, _phase):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("label handler unavailable")
+        return "geometry"
+
+    space = SimpleNamespace(
+        draw_handler_add=add,
+        draw_handler_remove=lambda handle, region: removed.append(
+            (handle, region)))
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space)))
+    monkeypatch.setattr(intersection_overlay, "_draw_handle", None)
+    monkeypatch.setattr(intersection_overlay, "_label_handle", None)
+    monkeypatch.setattr(intersection_overlay, "_violations", (object(),))
+
+    intersection_overlay._ensure_handler()
+
+    assert removed == [("geometry", "WINDOW")]
+    assert intersection_overlay._draw_handle is None
+    assert intersection_overlay._label_handle is None
+
+
+def test_nonzero_detected_count_with_mapping_has_drawable_geometry(monkeypatch):
+    monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=18)
+
+    intersection_overlay.set_violations((violation,), snapshot)
+
+    triangles = intersection_overlay._triangles_for_draw()
+    assert len(triangles) == 2
+    assert all(len(vertices) == 3 for vertices, _color in triangles)
+    assert intersection_overlay.label_lines()[-1] == "18 detected · 1 mapped"
+    intersection_overlay.clear()

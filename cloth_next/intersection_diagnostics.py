@@ -25,6 +25,7 @@ class SolverInputTriangle:
     owner: TriangleOwner
     vertices: tuple[tuple[float, float, float], ...]
     input_vertices: tuple[tuple[float, float, float], ...] = ()
+    vertex_indices: tuple[int, int, int] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +105,8 @@ def build_solver_input_snapshot(
                 generated_proxy=bool(generated_proxy),
                 internal=internal)
             records.append(SolverInputTriangle(
-                owner, vertices, input_vertices=input_vertices))
+                owner, vertices, input_vertices=input_vertices,
+                vertex_indices=tuple(map(int, triangle))))
             combined_index += 1
     return SolverInputSnapshot(int(bake_start_frame), tuple(records))
 

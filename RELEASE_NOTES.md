@@ -1,22 +1,32 @@
-# Cloth NeXt 2.2.37
+# Cloth NeXt 2.2.38
 
-Cloth NeXt 2.2.37 refines the new logo assets by removing unused transparent
-canvas while keeping every visible pixel and color unchanged.
+Cloth NeXt 2.2.38 adds a conservative repair action for small initial cloth
+self-intersections and makes the viewport diagnostics lifecycle reliable.
 
-## Tighter logo assets
+## Auto Fix Intersections
 
-- Both the color and monochrome source logos are cropped exactly to their
-  visible alpha bounds.
-- The canonical add-on logo is refreshed from the cropped color source.
+- Fully mapped, solver-confirmed self-intersections can be gently separated
+  without remeshing, deleting faces, or changing topology.
+- Both surfaces share the correction, repeated contributions to a vertex are
+  averaged, and movement is clamped using local triangle scale.
+- Blender Undo is supported, and the normal Bake workflow reruns afterward so
+  the PPF solver remains the authoritative validation source.
 
-## Companion identity
+## Safety
 
-- Companion PNG and Windows ICO assets are regenerated deterministically.
-- The application-icon pipeline preserves the logo's original proportions when
-  fitting it into the square icon canvas.
+- Auto Fix is limited to same-object cloth self-intersections in this release.
+- Stale diagnostics, changed topology or transforms, shape keys, linked meshes,
+  colliders, rods, generated proxies, sentinels, and incomplete mappings are
+  rejected instead of guessed.
+
+## Intersection display reliability
+
+- Clear and add-on shutdown now remove retained geometry and GPU handlers.
+- Invalid triangle payloads no longer create count-only highlights.
+- The UI explicitly reports detected and mapped counts when they differ.
 
 ## Validation
 
-- Asset tests verify exact source dimensions, edge-tight alpha bounds,
-  pixel-preserving source crops, and repeatable PNG/ICO output.
-- The external PPF Contact Solver is not bundled.
+- The full Python suite passes with 1,393 tests; external solver integration
+  prerequisites remain skipped when not configured.
+- The external PPF Contact Solver is not bundled or modified.
