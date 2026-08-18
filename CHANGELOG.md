@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.40 - 2026-08-18
+
+### Fixed
+
+- Intersection diagnostics and **Auto Fix Intersections** now render in the
+  `Simulation` panel that is actually visible for Cloth, Rod, Soft Body, Rigid
+  Body, Collider, and Force roles.
+- Corrected the 2.2.39 hotfix, which targeted a legacy `Solver` panel whose
+  visibility poll excludes production simulation roles.
+
+### Validation
+
+- Added a regression that polls and draws the real production `Simulation`
+  panel for a Cloth object and verifies the Auto Fix operator is present.
+- Production Bake UI suite: 45 passed.
+- Full Python suite: 1,395 passed, 9 skipped, 3 deselected.
+
 ## 2.2.39 - 2026-08-18
 
 ### Fixed

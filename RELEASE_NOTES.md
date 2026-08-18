@@ -1,25 +1,19 @@
-# Cloth NeXt 2.2.39
+# Cloth NeXt 2.2.40
 
-Cloth NeXt 2.2.39 makes the intersection repair controls from 2.2.38 visible
-in the normal production Solver panel.
+Cloth NeXt 2.2.40 exposes the intersection diagnostics and Auto Fix action in
+the production `Simulation` panel that is actually visible for Cloth objects.
 
-## Production UI hotfix
+## Visible production controls
 
-- Solver-confirmed intersection diagnostics now appear directly below the
-  failed Bake status in the standard Solver panel.
-- Navigation, face selection, solver-input preview, Clear, and **Auto Fix
-  Intersections** are available there when the retained mapping supports them.
-- The Developer Tools view reuses the same shared diagnostics renderer.
+- After a solver-confirmed intersection failure, the `Simulation` panel shows
+  the mapped faces, navigation, selection, solver-input preview, Clear, and
+  **Auto Fix Intersections** when the retained mapping is safe.
+- The controls are rendered by the same shared diagnostics component used by
+  Developer Tools.
 
-## Auto Fix safety
+## Regression protection
 
-- Auto Fix remains limited to fully mapped, same-object cloth
-  self-intersections.
-- Unsafe, stale, collider, rod, proxy, sentinel, linked, or shape-key cases are
-  still rejected rather than guessed.
+- A production UI test now polls and draws `CLOTHNEXT_PT_simulation` for a real
+  Cloth role and verifies that `clothnext.intersection_auto_fix` is present.
+- The full Python suite passes with 1,395 tests.
 - The external PPF Contact Solver is not bundled or modified.
-
-## Validation
-
-- The full Python suite passes with 1,394 tests.
-- Release-policy and package-structure checks pass.
