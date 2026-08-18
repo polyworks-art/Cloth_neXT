@@ -50,6 +50,61 @@ def _reset_controller():
         shared_controller.reset()
 
 
+def test_resolve_managed_solver_applies_both_frontend_overlays(env,
+                                                                monkeypatch):
+    """Managed resolution must retain the baseline overlay after metadata."""
+    from cloth_next.ppf import solver_overlay
+
+    module = env.solver_test
+    root = Path("managed-solver-root")
+    selected = SimpleNamespace(
+        managed=True,
+        root=root,
+        protocol_version="0.11",
+        schema_version="0.11",
+        official_release_tag="v-test",
+    )
+    registry = SimpleNamespace(
+        selected_installation_id="managed-id",
+        get=lambda installation_id: (
+            selected if installation_id == "managed-id" else None),
+    )
+    preferences = SimpleNamespace(selected_solver_installation_id="managed-id")
+    calls = []
+
+    monkeypatch.setattr(module, "addon_preferences",
+                        lambda _context, _package: preferences)
+    monkeypatch.setattr(module, "load_registry", lambda _path: registry)
+    monkeypatch.setattr(
+        module.ManagedSolverPaths, "default",
+        classmethod(lambda cls: SimpleNamespace(registry_json=Path("registry.json"))))
+    monkeypatch.setattr(module, "development_executable_from_environment",
+                        lambda: None)
+    monkeypatch.setattr(
+        module, "SolverResolver",
+        lambda _probe: SimpleNamespace(resolve=lambda _context: SimpleNamespace(
+            executable_path=Path("ppf_solver"))))
+    monkeypatch.setattr(
+        solver_overlay, "apply_solver_overlay",
+        lambda overlay_root, **kwargs: calls.append(
+            ("solver", overlay_root, kwargs)))
+    monkeypatch.setattr(
+        solver_overlay, "apply_managed_solver_overlay",
+        lambda overlay_root: calls.append(("managed", overlay_root)))
+
+    module.resolve_solver(SimpleNamespace())
+
+    assert calls == [
+        ("solver", root, {
+            "protocol_version": "0.11",
+            "schema_version": "0.11",
+            "official_release_tag": "v-test",
+            "managed": True,
+        }),
+        ("managed", root),
+    ]
+
+
 @pytest.fixture
 def env(blender_env):
     _reset_controller()

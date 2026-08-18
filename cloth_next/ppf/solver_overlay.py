@@ -388,6 +388,16 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
     }
     recipe = verified_upstream.get(identity)
     if recipe is not None:
+        marker_name, protocol_anchors = recipe
+        marker = bundle_root / marker_name
+        diagnostics_marker = bundle_root / f".cloth-next-{OVERLAY_VERSION}"
+        # A managed frontend is intentionally modified after its exact
+        # upstream contract has been verified.  On later launches those
+        # modifications no longer match every pristine upstream anchor; the
+        # two successful-install markers make that state explicit and keep
+        # startup idempotent.
+        if marker.is_file() and diagnostics_marker.is_file():
+            return
         frontend = bundle_root / "frontend"
         scene = frontend / "_scene_.py"
         decoder = frontend / "_decoder_.py"
@@ -409,14 +419,12 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
             raise SolverOverlayError(
                 f"protocol {protocol_version} upstream integration anchors "
                 "do not match the verified release")
-        marker_name, protocol_anchors = recipe
         if any((scene_text.count(anchor) + decoder_text.count(anchor)
                 + worker_text.count(anchor)) != 1
                for anchor in protocol_anchors):
             raise SolverOverlayError(
                 f"protocol {protocol_version} frontend contract does not match the "
                 "verified release")
-        marker = bundle_root / marker_name
         marker.write_text(str(official_release_tag) + "\n", encoding="ascii")
         return
     raise SolverOverlayError(

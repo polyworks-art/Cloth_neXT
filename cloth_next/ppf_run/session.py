@@ -57,6 +57,43 @@ _MAX_VIOLATION_SIDECAR_BYTES = 4 * 1024 * 1024
 _MAX_VIOLATION_PREVIEWS = 256
 _VIOLATION_SIDECAR_CONFIRM_TIMEOUT = 1.0
 
+
+def _normalize_violation_payload(payload) -> tuple[dict, ...]:
+    """Flatten the bounded JSON shapes used by real solver transports.
+
+    Depending on protocol generation, a status field or sidecar may contain
+    dictionaries directly, JSON strings for individual records, one JSON
+    string for the complete list, or a ``{"violations": ...}`` envelope.
+    """
+    records = []
+
+    def visit(value, depth=0):
+        if depth > 4 or len(records) >= _MAX_VIOLATION_PREVIEWS:
+            return
+        if isinstance(value, str):
+            if len(value) > _MAX_VIOLATION_SIDECAR_BYTES:
+                return
+            try:
+                visit(json.loads(value), depth + 1)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item, depth + 1)
+        elif isinstance(value, dict):
+            # An envelope is not itself a violation. Do not unwrap a genuine
+            # record that merely carries supplemental nested diagnostics.
+            identifying = {
+                "type", "classification", "combined_pair", "pair", "tris",
+                "elements", "tri_positions", "positions0", "positions1"}
+            if "violations" in value and not identifying.intersection(value):
+                visit(value["violations"], depth + 1)
+            else:
+                records.append(value)
+
+    visit(payload)
+    return tuple(records)
+
 _SOLVER_METRICS = {
     "contacts": "advance.num_contact.out",
     "newton": "advance.newton_steps.out",
@@ -854,16 +891,8 @@ class SolverSession:
                 f"stdout_tail={self.diagnostics.stdout_tail}; "
                 f"stderr_tail={self.diagnostics.stderr_tail}",
                 category=ErrorCategory.SIMULATION)
-        parsed_violations = []
-        raw_violations = response.get("violations", ())
-        if isinstance(raw_violations, (list, tuple)):
-            for item in raw_violations:
-                try:
-                    value = json.loads(item) if isinstance(item, str) else item
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(value, dict):
-                    parsed_violations.append(value)
+        parsed_violations = list(_normalize_violation_payload(
+            response.get("violations", ())))
         if not parsed_violations:
             parsed_violations = list(self._load_build_violation_sidecar(
                 phase=phase))
@@ -927,8 +956,24 @@ class SolverSession:
             triangles = []
             for key in ("positions0", "positions1"):
                 positions = record.get(key)
-                if isinstance(positions, list) and len(positions) == 3:
-                    triangles.append(positions)
+                if isinstance(positions, (list, tuple)):
+                    if (len(positions) == 9
+                            and all(isinstance(value, (int, float))
+                                    for value in positions)):
+                        positions = [positions[index:index + 3]
+                                     for index in range(0, 9, 3)]
+                    if (len(positions) == 3
+                            and all(isinstance(point, (list, tuple))
+                                    and len(point) == 3
+                                    for point in positions)):
+                        try:
+                            triangle = [
+                                [float(value) for value in point]
+                                for point in positions]
+                            if np.isfinite(np.asarray(triangle)).all():
+                                triangles.append(triangle)
+                        except (TypeError, ValueError):
+                            pass
             if not triangles:
                 continue
             violations.append({
@@ -1023,14 +1068,13 @@ class SolverSession:
                     "phase": phase, "path": str(path),
                 })
             return ()
-        valid = tuple(item for item in raw if isinstance(item, dict))
-        previews = valid[:_MAX_VIOLATION_PREVIEWS]
+        previews = _normalize_violation_payload(raw)
         log_with_context(
             self._logger, logging.ERROR,
             "Loaded structured build violations from solver sidecar", {
                 "project": self.scene.project_name,
                 "phase": phase, "path": str(path),
-                "violation_count": len(valid),
+                "violation_count": len(previews),
                 "preview_count": len(previews),
             })
         return previews
