@@ -196,6 +196,43 @@ def test_new_bake_attempt_clears_previous_intersection_overlay(
     env.registration.unregister()
 
 
+def test_production_intersection_diagnostics_show_auto_fix(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    from cloth_next import intersection_diagnostics as diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    element = diagnostics.IntersectionElement(
+        kind="TRIANGLE", object_uuid="cloth-uuid", object_name="Cloth",
+        role="CLOTH", combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=4,
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))
+    second = diagnostics.IntersectionElement(
+        kind="TRIANGLE", object_uuid="cloth-uuid", object_name="Cloth",
+        role="CLOTH", combined_triangle_index=1, local_triangle_index=1,
+        source_polygon_index=9,
+        vertices=((0.0, 0.0, -0.1), (1.0, 0.0, 0.1),
+                  (0.0, 1.0, 0.1)))
+    violation = diagnostics.IntersectionViolation(
+        classification="SELF_INTERSECTION", detection_method="SOLVER_REPORTED",
+        elements=(element, second), combined_pair=(0, 1), total_count=1)
+    env.solver_test._intersection_violations = (violation,)
+    monkeypatch.setattr(intersection_overlay, "current", lambda: violation)
+    monkeypatch.setattr(intersection_overlay, "current_index", lambda: 0)
+    monkeypatch.setattr(intersection_overlay, "solver_input_visible", lambda: False)
+    snapshot = SimpleNamespace(active=False)
+    layout = RecordingLayout()
+
+    env.physics_ui._draw_intersection_diagnostics(
+        layout, snapshot, running=False)
+
+    assert "Self Intersection · 1 of 1" in layout.labels
+    assert ("clothnext.intersection_auto_fix", "Auto Fix Intersections", True) \
+        in layout.operators
+    env.solver_test._intersection_violations = ()
+    env.registration.unregister()
+
+
 def test_selected_registry_solver_enables_bake(blender_env, monkeypatch,
                                                 tmp_path):
     env = blender_env; env.registration.register()
