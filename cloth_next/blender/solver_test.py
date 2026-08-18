@@ -166,6 +166,7 @@ _ram_auto_cancel_triggered = False
 _eta_estimator = FrameEtaEstimator()
 _intersection_violations: tuple[
     intersection_diagnostics.IntersectionViolation, ...] = ()
+_diagnostic_result = intersection_diagnostics.DiagnosticResult()
 _intersection_violation_index = 0
 _show_solver_input = False
 
@@ -175,12 +176,18 @@ def intersection_violations():
     return _intersection_violations
 
 
+def diagnostic_result():
+    return _diagnostic_result
+
+
 def _clear_intersection_diagnostics() -> None:
     """Retire solver violations when a distinct Bake attempt begins."""
     global _intersection_violations, _intersection_violation_index
+    global _diagnostic_result
     from . import intersection_overlay
     intersection_overlay.clear()
     _intersection_violations = ()
+    _diagnostic_result = intersection_diagnostics.DiagnosticResult()
     _intersection_violation_index = 0
 
 
@@ -395,13 +402,21 @@ def resolve_solver(context) -> ResolvedSolver:
     except (KeyError, AttributeError):
         pass
     if selected is not None and selected.managed:
-        from ..ppf.solver_overlay import apply_solver_overlay
+        from ..ppf.solver_overlay import (
+            apply_managed_solver_overlay,
+            apply_solver_overlay,
+        )
         apply_solver_overlay(
             selected.root,
             protocol_version=selected.protocol_version or "",
             schema_version=selected.schema_version or "",
             official_release_tag=selected.official_release_tag,
             managed=True)
+        # The protocol check above only verifies that this exact upstream
+        # frontend is supported.  Install the diagnostics extension as a
+        # separate step so authoritative intersection pairs are exported for
+        # the Blender overlay instead of relying on the lossy fallback locator.
+        apply_managed_solver_overlay(selected.root)
     resolver = SolverResolver(_version_probe)
     resolved = resolver.resolve(SolverResolutionContext(
         selected_installation=selected,
@@ -1044,6 +1059,40 @@ def _select_problem_vertices(context, obj, indices) -> bool:
         return True
     except (AttributeError, IndexError, RuntimeError, TypeError):
         return False
+
+
+def _vertices_for_triangles(triangles, triangle_indices) -> tuple[int, ...]:
+    """Return deterministic source vertex indices for reported triangles."""
+    return tuple(sorted({
+        int(vertex_index)
+        for triangle_index in triangle_indices
+        for vertex_index in triangles[triangle_index]}))
+
+
+def _publish_degenerate_diagnostics(
+        obj, role, vertices, triangles, triangle_indices, world) -> None:
+    """Retain exact preflight triangles as the current diagnostic session."""
+    global _diagnostic_result
+    source_faces = _source_polygon_indices(obj, len(triangles))
+    matrix = solver_world_matrix(world)
+    faces = []
+    for triangle_index in triangle_indices:
+        indices = tuple(map(int, triangles[triangle_index]))
+        faces.append(intersection_diagnostics.DegenerateFace(
+            object_uuid=export_identity.export_uuid(obj),
+            object_name=str(obj.name), role=str(role),
+            combined_triangle_index=int(triangle_index),
+            local_triangle_index=int(triangle_index),
+            source_polygon_index=(
+                int(source_faces[triangle_index])
+                if triangle_index < len(source_faces) else None),
+            vertex_indices=indices,
+            vertices=tuple(_solver_position(matrix, vertices[index])
+                           for index in indices)))
+    _diagnostic_result = intersection_diagnostics.DiagnosticResult(
+        degenerate_faces=tuple(faces))
+    from . import intersection_overlay
+    intersection_overlay.set_diagnostic_session(_diagnostic_result)
 
 
 def _non_manifold_edge_count(mesh) -> int:
@@ -4280,9 +4329,19 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     f"{obj.name} has a non-finite or non-invertible world matrix.")
             degenerate = zero_area_triangles(vertices, triangles)
             if degenerate:
+                _publish_degenerate_diagnostics(
+                    obj, entry.role, vertices, triangles, degenerate, world)
+                problem_vertices = _vertices_for_triangles(
+                    triangles, degenerate)
+                selected = _select_problem_vertices(
+                    context, obj, problem_vertices)
+                selection_note = (
+                    "The involved vertices are selected in Edit Mode."
+                    if selected else
+                    "Select the reported degenerate geometry in Edit Mode.")
                 raise SceneValidationError(
                     f"{obj.name} has {len(degenerate)} zero-area triangle(s) "
-                    f"(first index {degenerate[0]}).")
+                    f"(first index {degenerate[0]}). {selection_note}")
             if entry.role == "CLOTH":
                 stitch_pairs = ()
                 if entry.material.sewing_enabled:
@@ -4742,9 +4801,20 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     try:
         degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
         if degenerate:
+            _publish_degenerate_diagnostics(
+                cloth_obj, deformable_role, cloth_vertices, cloth_triangles,
+                degenerate, cloth_world)
+            problem_vertices = _vertices_for_triangles(
+                cloth_triangles, degenerate)
+            selected = _select_problem_vertices(
+                context, cloth_obj, problem_vertices)
+            selection_note = (
+                "The involved vertices are selected in Edit Mode."
+                if selected else
+                "Select the reported degenerate geometry in Edit Mode.")
             raise SceneValidationError(
                 f"{cloth_obj.name} has {len(degenerate)} zero-area triangle(s) "
-                f"(first index {degenerate[0]}); clean the mesh before running.")
+                f"(first index {degenerate[0]}). {selection_note}")
         matrix_records = [(cloth_obj, cloth_world)] + [
             (obj, world if world is not None else capture.transform)
             for obj, _vertices, _triangles, world, capture in collider_records]
@@ -5497,15 +5567,19 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
     technical = record.technical_message
     enriched = (_convert_solver_violations(plan, exc)
                 if enriched is None else enriched)
-    if enriched:
-        summary, action = intersection_diagnostics.artist_message(enriched[0])
+    mapped = tuple(getattr(enriched, "violations", enriched or ()))
+    if mapped:
+        summary, action = intersection_diagnostics.artist_message(mapped[0])
         detail_lines = [
             "Stage: initial solver-pose intersection validation",
             f"Cause: {summary}",
             f"What to do: {action}",
-            f"Reported violations: {enriched[0].total_count}",
+            f"Reported violations: {enriched.detected_count}",
+            f"Mapped violations: {enriched.mapped_count}",
         ]
-        for number, violation in enumerate(enriched[:10], 1):
+        if enriched.mapping_warning:
+            detail_lines.append(enriched.mapping_warning)
+        for number, violation in enumerate(mapped[:10], 1):
             names = " / ".join(item.object_name
                                for item in violation.elements)
             detail_lines.append(
@@ -5581,36 +5655,41 @@ def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
     snapshot = getattr(plan, "solver_input", None)
     raw = getattr(exc, "violations", ())
     if snapshot is None:
-        return ()
+        return intersection_diagnostics.DiagnosticResult()
     if not raw:
-        mirror = (
-            plan.work_directory / "server-data"
-            / f"{plan.scene.project_name}.build_violations.json")
-        try:
-            if 0 < mirror.stat().st_size <= 4 * 1024 * 1024:
-                payload = json.loads(mirror.read_text(encoding="utf-8"))
+        server_roots = [plan.work_directory / "server-data"]
+        recovery_options = getattr(plan, "recovery_options", None)
+        recovery_root = getattr(recovery_options, "server_data_root", None)
+        if recovery_root is not None:
+            server_roots.insert(0, Path(recovery_root))
+        project_name = plan.scene.project_name
+        candidates = tuple(
+            path for root in server_roots for path in (
+                root / project_name / "build_violations.json",
+                root / f"{project_name}.build_violations.json"))
+        for sidecar in candidates:
+            try:
+                if not 0 < sidecar.stat().st_size <= 4 * 1024 * 1024:
+                    continue
+                payload = json.loads(sidecar.read_text(encoding="utf-8"))
                 values = (
                     payload.get("violations", ())
                     if isinstance(payload, dict) else ())
                 if isinstance(values, list):
                     raw = tuple(
                         item for item in values if isinstance(item, dict))
-        except (FileNotFoundError, OSError, UnicodeError,
-                json.JSONDecodeError):
-            raw = ()
-    if not raw and re.search(
-            r"\d+\s+self[- ]intersections?", exc.record.technical_message,
-            re.IGNORECASE):
-        raw = _locate_confirmed_intersection_pairs(
-            snapshot, plan.work_directory / "intersection_locator.json")
-    if not raw:
-        return ()
-    total = len(raw)
-    converted = tuple(
-        result for result in (
-            intersection_diagnostics.convert_violation(
-                item, snapshot, total_count=total) for item in raw)
-        if result is not None)
+                if raw:
+                    break
+            except (FileNotFoundError, OSError, UnicodeError,
+                    json.JSONDecodeError):
+                continue
+    count_match = re.search(
+        r"(\d+)\s+self[- ]intersections?", exc.record.technical_message,
+        re.IGNORECASE)
+    detected = max(len(raw), int(count_match.group(1)) if count_match else 0)
+    result = intersection_diagnostics.map_diagnostics(
+        raw, snapshot, detected_count=detected)
+    converted = result.violations
     for violation in converted[:10]:
         average, minimum = intersection_diagnostics.triangle_metrics(
             tuple(item.vertices for item in violation.elements
@@ -5638,7 +5717,7 @@ def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
                 "generated_proxy": tuple(
                     item.generated_proxy for item in violation.elements),
             })
-    return converted
+    return result
 
 
 def _locate_confirmed_intersection_pairs(snapshot, diagnostic_path=None):
@@ -6767,6 +6846,7 @@ def _delayed_recovery_refresh() -> float | None:
 def _on_load_post_refresh_recovery(*_args) -> None:
     """Persistent, non-blocking file-load hook; durable verification is delayed."""
     global _recovery_refresh_generation, _recovery_refresh_attempt
+    _clear_intersection_diagnostics()
     _recovery_refresh_generation += 1
     _recovery_refresh_attempt = 0
     _cancel_delayed_recovery_refresh()
@@ -6831,6 +6911,7 @@ def install_recovery_ui_handler() -> None:
 
 def uninstall_recovery_ui_handler() -> None:
     global _recovery_ui_handler_registered
+    _clear_intersection_diagnostics()
     _cancel_delayed_recovery_refresh()
     handlers = getattr(bpy.app, "handlers", None)
     if handlers is not None:
@@ -6848,6 +6929,7 @@ def uninstall_recovery_ui_handler() -> None:
 def _pump_once() -> float | None:
     global _worker, _active_plan, _ram_auto_cancel_triggered
     global _intersection_violations, _intersection_violation_index
+    global _diagnostic_result
     plan = _active_plan
     if plan is None:
         return None
@@ -7063,13 +7145,22 @@ def _pump_once() -> float | None:
             return None
         elif kind == "error":
             code = message[3] if len(message) > 3 else ""
-            _intersection_violations = (
-                tuple(message[4]) if len(message) > 4 else ())
+            received = (message[4] if len(message) > 4 else
+                        intersection_diagnostics.DiagnosticResult())
+            if isinstance(received, intersection_diagnostics.DiagnosticResult):
+                _diagnostic_result = received
+            else:
+                values = tuple(received or ())
+                _diagnostic_result = intersection_diagnostics.DiagnosticResult(
+                    snapshot=getattr(plan, "solver_input", None),
+                    violations=values, detected_count=len(values))
+            _intersection_violations = _diagnostic_result.violations
             _intersection_violation_index = 0
-            if _intersection_violations:
+            if (_diagnostic_result.has_intersections
+                    or _diagnostic_result.has_degenerate_faces):
                 from . import intersection_overlay
-                intersection_overlay.set_violations(
-                    _intersection_violations,
+                intersection_overlay.set_diagnostic_session(
+                    _diagnostic_result,
                     plan.solver_input if plan is not None else None)
             shared_controller.fail(message[1], message[2], error_code=code)
             _discard_incomplete(plan)
@@ -8274,6 +8365,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         return not run_active()
 
     def execute(self, context):
+        _clear_intersection_diagnostics()
         removed_modifiers = 0
         removed_files = 0
         target = getattr(context, "object", None)

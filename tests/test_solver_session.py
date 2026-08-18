@@ -768,6 +768,56 @@ def test_status_violations_take_precedence_over_stale_sidecar(tmp_path):
     assert error.violations == (current,)
 
 
+@pytest.mark.parametrize("wire_value", [
+    '[{"combined_pair": [7, 8]}]',
+    '{"violations": [{"combined_pair": [7, 8]}]}',
+    ['[{"combined_pair": [7, 8]}]'],
+])
+def test_status_normalizes_actual_nested_violation_formats(tmp_path,
+                                                            wire_value):
+    session, _sidecar = _session_with_violation_sidecar(tmp_path)
+
+    error = session._fail_from_status({
+        "status": "FAILED", "error": "failed",
+        "violations": wire_value}, "building")
+
+    assert error.violations == ({"combined_pair": [7, 8]},)
+
+
+def test_build_sidecar_normalizes_json_encoded_records(tmp_path):
+    session, sidecar = _session_with_violation_sidecar(tmp_path)
+    expected = {"combined_pair": [3, 9]}
+    sidecar.write_text(json.dumps({"violations": [json.dumps(expected)]}),
+                       encoding="utf-8")
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "failed"}, "building")
+
+    assert error.violations == (expected,)
+
+
+def test_runtime_intersection_accepts_flat_triangle_positions(tmp_path):
+    scene = _scene()
+    work_directory = tmp_path / "run"
+    sidecar = (work_directory / "server-data" / scene.project_name
+               / "session" / "output" / "intersection_records.json")
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(json.dumps({"records": [{
+        "positions0": [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        "positions1": [0, 0, 0, 1, 0, 0],
+    }]}), encoding="utf-8")
+    session = SolverSession(
+        resolved=_external_resolved(), scene=scene,
+        work_directory=work_directory,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+
+    error = session._fail_from_status(
+        {"status": "FAILED", "error": "intersection"}, "simulating")
+
+    assert error.violations[0]["tris"] == [[
+        [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]]
+
+
 @pytest.mark.parametrize("payload", ("", "{broken", "[]",
                                      '{"violations": "invalid"}'))
 def test_invalid_build_violation_sidecar_is_not_presented(tmp_path, payload):

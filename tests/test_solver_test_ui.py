@@ -803,6 +803,45 @@ def test_solver_self_intersection_failure_is_concise(blender_env):
     assert long_tail not in details
 
 
+def test_solver_violations_fall_back_to_recovery_project_sidecar(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    source = SimpleNamespace(
+        uuid="cloth", name="Cloth",
+        vertices_local=((0, 0, 0), (1, 0, 0), (0, 1, 0),
+                        (1, 1, 0)),
+        triangles=((0, 1, 2), (1, 3, 2)), transform=identity)
+    snapshot = module.intersection_diagnostics.build_solver_input_snapshot(
+        ((source, "CLOTH", (7, 8), False),), bake_start_frame=1)
+    recovery_root = tmp_path / "recovery-server"
+    project_root = recovery_root / "recovered-project"
+    project_root.mkdir(parents=True)
+    (project_root / "build_violations.json").write_text(
+        json.dumps({"violations": [{"combined_pair": [0, 1]}]}),
+        encoding="utf-8")
+    plan = SimpleNamespace(
+        solver_input=snapshot,
+        work_directory=tmp_path / "new-run",
+        scene=SimpleNamespace(project_name="recovered-project"),
+        recovery_options=SimpleNamespace(server_data_root=recovery_root))
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver rejected the build.",
+        technical_message="build validation failed",
+        recommended_action="Inspect the highlighted faces."))
+
+    converted = module._convert_solver_violations(plan, error)
+
+    assert error.violations == ()
+    assert len(converted) == 1
+    assert converted[0].combined_pair == (0, 1)
+    assert converted[0].classification == "SELF_INTERSECTION"
+    assert [item.source_polygon_index
+            for item in converted[0].elements] == [7, 8]
+
+
 def test_ccd_failure_is_artist_friendly_and_keeps_log_tail_out_of_ui(
         blender_env):
     module = blender_env.solver_test
@@ -2517,3 +2556,12 @@ def test_configure_recovery_refuses_when_checkpoint_vanish_race(blender_env,
     assert "can no longer be resumed" in str(caught.value)
     assert settings.resume_requested is False
     assert settings.resumable is False
+
+
+def test_degenerate_triangle_vertices_are_selected_deterministically(
+        blender_env):
+    module = blender_env.solver_test
+    triangles = ((4, 2, 7), (7, 9, 4), (100, 101, 102))
+
+    assert module._vertices_for_triangles(triangles, (1, 0, 1)) == (
+        2, 4, 7, 9)

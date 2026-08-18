@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.2.41 - 2026-08-18
+
+### Fixed
+
+- Self-intersection validation now retains one authoritative diagnostic result
+  from solver payload through source-face mapping, UI counters, navigation, and
+  viewport rendering.
+- Solver-reported totals no longer disappear when only part of the payload can
+  be mapped; the UI explicitly distinguishes detected, mapped, and unmapped
+  intersections.
+- Valid-but-different solver triangle index spaces are verified against the
+  solver-provided triangle geometry before Blender ownership is assigned.
+- Degenerate faces are retained as first-class diagnostics and rendered with
+  face, outline, and point primitives so collapsed triangles remain visible.
+- Clearing, starting another Bake, loading another file, and unregistering the
+  add-on now retire the complete diagnostic session and its draw handlers.
+- Managed solver sidecars and status payloads now normalize supported nested,
+  serialized, and enveloped violation formats without silently losing records.
+
+### Validation
+
+- Full Python suite: 1,411 passed, 9 skipped, 3 deselected.
+- Blender 5.2.0 LTS source registration smoke test passed.
+- Added regression coverage for detected-versus-mapped accounting, unmapped
+  warnings, degenerate primitives, handler lifecycle, recovery-sidecar lookup,
+  payload normalization, and stale diagnostic reset paths.
+
 ## 2.2.40 - 2026-08-18
 
 ### Fixed

@@ -1,19 +1,29 @@
-# Cloth NeXt 2.2.40
+# Cloth NeXt 2.2.41
 
-Cloth NeXt 2.2.40 exposes the intersection diagnostics and Auto Fix action in
-the production `Simulation` panel that is actually visible for Cloth objects.
+Cloth NeXt 2.2.41 repairs the complete validation-diagnostics path for solver
+self intersections and Blender preflight degenerate faces.
 
-## Visible production controls
+## Reliable validation geometry
 
-- After a solver-confirmed intersection failure, the `Simulation` panel shows
-  the mapped faces, navigation, selection, solver-input preview, Clear, and
-  **Auto Fix Intersections** when the retained mapping is safe.
-- The controls are rendered by the same shared diagnostics component used by
-  Developer Tools.
+- Solver-reported intersection totals are preserved independently from the
+  number of faces that can be mapped safely.
+- The Simulation panel and viewport now state both counts, for example
+  `18 detected · 14 mapped`, and show an explicit warning when mapping data is
+  incomplete.
+- Solver triangle indices are checked against the exact solver triangle
+  geometry before they are attributed to Blender objects and source polygons.
+- Degenerate faces are highlighted as dedicated one-triangle diagnostics,
+  including point markers for fully collapsed triangles.
 
-## Regression protection
+## Disposable overlay sessions
 
-- A production UI test now polls and draws `CLOTHNEXT_PT_simulation` for a real
-  Cloth role and verifies that `clothnext.intersection_auto_fix` is present.
-- The full Python suite passes with 1,395 tests.
+- Every validation attempt owns one immutable diagnostic result.
+- Clear, a new Bake, file load, and add-on shutdown remove retained geometry,
+  navigation state, solver-input preview state, and GPU draw handlers.
+- Handler setup and removal are idempotent and safe across reloads.
+
+## Verification
+
+- Full Python suite: 1,411 passed, 9 skipped, 3 deselected.
+- Blender 5.2.0 LTS registration smoke test passed.
 - The external PPF Contact Solver is not bundled or modified.

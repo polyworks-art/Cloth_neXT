@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 from cloth_next import intersection_diagnostics as diagnostics
 from cloth_next.blender import intersection_overlay
 
@@ -102,6 +104,28 @@ def test_legacy_solver_triangle_geometry_maps_to_visible_face():
     assert violation.elements[0].source_polygon_index == 32
 
 
+def test_solver_reindexed_pair_maps_by_authoritative_triangle_geometry():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth-a", "Cloth A"), "CLOTH", (32,), False),
+        (_object("cloth-b", "Cloth B", 2), "CLOTH", (70,), False),
+        (_object("cloth-c", "Cloth C", 4), "CLOTH", (90,), False)),
+        bake_start_frame=1)
+
+    violation = diagnostics.convert_violation({
+        # Both values are in range but refer to different faces in the
+        # solver's post-decode combined mesh.
+        "combined_pair": [0, 1],
+        "tris": [
+            list(snapshot.triangles[1].vertices),
+            list(snapshot.triangles[2].vertices),
+        ],
+    }, snapshot)
+
+    assert violation is not None
+    assert violation.combined_pair == (1, 2)
+    assert [item.source_polygon_index for item in violation.elements] == [70, 90]
+
+
 def test_unmatched_legacy_solver_geometry_is_not_guessed():
     snapshot = diagnostics.build_solver_input_snapshot((
         (_object("cloth", "Skirt"), "CLOTH", None, False),),
@@ -111,6 +135,79 @@ def test_unmatched_legacy_solver_geometry_is_not_guessed():
         "type": "self_intersection",
         "tris": [[(20, 0, 0), (21, 0, 0), (20, 1, 0)]],
     }, snapshot) is None
+
+
+def test_diagnostic_result_preserves_mapped_unmapped_and_solver_total():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", (32,), False),),
+        bake_start_frame=1)
+
+    result = diagnostics.map_diagnostics((
+        {"combined_pair": [0, 0]},
+        {"combined_pair": [0, 90]},
+        {"tris": [[(20, 0, 0), (21, 0, 0), (20, 1, 0)]]},
+    ), snapshot, detected_count=18)
+
+    assert result.snapshot is snapshot
+    assert result.detected_count == 18
+    assert result.mapped_count == 1
+    assert result.unmapped_count == 17
+    assert result.total_count == 18
+    assert result.mapped_violations == result.violations
+    assert result.solver_input_snapshot is snapshot
+    assert result.mapping_warning == (
+        "17 solver-reported intersections could not be mapped safely.")
+    assert result.unattributed_count == 15
+    assert [item.reason for item in result.unmapped] == [
+        "OUT_OF_RANGE_PAIR", "UNMATCHED_TRIANGLE_GEOMETRY"]
+    assert result.unmapped[0].combined_pair == (0, 90)
+    assert result.violations[0].total_count == 18
+    assert result.self_intersections == result.violations
+    assert result.has_intersections
+
+
+def test_diagnostic_result_keeps_non_self_intersections_out_of_self_subset():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", None, False),
+        (_object("collider", "Body", 2), "COLLIDER", None, False)),
+        bake_start_frame=1)
+
+    result = diagnostics.map_diagnostics(
+        ({"combined_pair": [0, 1]},), snapshot)
+
+    assert result.mapped_count == 1
+    assert result.self_intersections == ()
+
+
+def test_degenerate_faces_are_attributed_deterministically():
+    cloth = SceneObject(
+        "cloth", "Skirt",
+        ((0, 0, 0), (1, 0, 0), (0, 1, 0), (2, 0, 0)),
+        ((0, 1, 2), (1, 3, 2)))
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (cloth, "CLOTH", (30, 31), False),), bake_start_frame=1)
+
+    faces = diagnostics.degenerate_faces_from_combined_indices(
+        snapshot, (1, 1, 99))
+    result = diagnostics.map_diagnostics(
+        (), snapshot, degenerate_faces=faces)
+
+    assert not result.has_intersections
+    assert result.has_degenerate_faces
+    assert len(result.degenerate_faces) == 1
+    face = result.degenerate_faces[0]
+    assert face.object_name == "Skirt"
+    assert face.combined_triangle_index == 1
+    assert face.local_triangle_index == 1
+    assert face.source_polygon_index == 31
+    assert face.vertex_indices == (1, 3, 2)
+    assert face.vertices == snapshot.triangles[1].vertices
+
+
+def test_diagnostic_result_rejects_inconsistent_counts():
+    with pytest.raises(ValueError, match="must equal"):
+        diagnostics.DiagnosticResult(
+            violations=(), detected_count=2, unattributed_count=1)
 
 
 def test_legacy_local_solver_geometry_maps_through_object_transform():
@@ -284,5 +381,69 @@ def test_nonzero_detected_count_with_mapping_has_drawable_geometry(monkeypatch):
     triangles = intersection_overlay._triangles_for_draw()
     assert len(triangles) == 2
     assert all(len(vertices) == 3 for vertices, _color in triangles)
-    assert intersection_overlay.label_lines()[-1] == "18 detected · 1 mapped"
+    assert "18 detected · 1 mapped" in intersection_overlay.label_lines()
     intersection_overlay.clear()
+
+
+def test_overlay_authoritative_session_presents_unmapped_and_degenerate(
+        monkeypatch):
+    monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", (4,), False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=2)
+    degenerate = diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=0, local_triangle_index=3,
+        source_polygon_index=12, vertex_indices=(0, 1, 2),
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                  (2.0, 0.0, 0.0)))
+    session = diagnostics.DiagnosticResult(
+        snapshot=snapshot, violations=(violation,),
+        unmapped=(diagnostics.UnmappedIntersection(
+            ordinal=2, reason="outside retained input"),),
+        detected_count=2, degenerate_faces=(degenerate,))
+
+    intersection_overlay.set_diagnostic_session(session)
+
+    assert intersection_overlay.diagnostic_session() is session
+    assert intersection_overlay.detected_count() == 2
+    assert intersection_overlay.mapped_count() == 1
+    assert intersection_overlay.solver_input_snapshot() is snapshot
+    assert intersection_overlay.current() is violation
+    assert "2 detected · 1 mapped" in intersection_overlay.label_lines()
+    assert "could not be mapped safely" in intersection_overlay.mapping_warning()
+
+    assert intersection_overlay.next_violation() is degenerate
+    assert intersection_overlay.label_lines()[:3] == (
+        "Degenerate Face", "Cloth · Triangle 12",
+        "Degenerate face 1 of 1")
+    primitives = intersection_overlay.primitives_for_diagnostic(degenerate)
+    assert [primitive.mode for primitive in primitives] == [
+        "TRIS", "LINES", "POINTS"]
+    assert primitives[-1].point_size == 7.0
+
+    intersection_overlay.clear()
+    assert intersection_overlay.diagnostic_session() is None
+    assert intersection_overlay.presentation_diagnostics() == ()
+    assert intersection_overlay.detected_count() == 0
+
+
+def test_self_intersection_primitive_generation_is_pure_and_deterministic():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=1)
+
+    first = intersection_overlay.primitives_for_diagnostic(violation)
+    second = intersection_overlay.primitives_for_diagnostic(violation)
+
+    assert first == second
+    assert [primitive.mode for primitive in first] == [
+        "TRIS", "LINES", "TRIS", "LINES"]
+    assert first[0].vertices == ((0.0, 0.0, 0.0),
+                                 (1.0, 0.0, 0.0),
+                                 (0.0, 0.0, 1.0))

@@ -1935,24 +1935,48 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
     from . import intersection_overlay, solver_test
 
     violations = solver_test.intersection_violations()
-    if not violations:
+    presented = intersection_overlay.presentation_diagnostics()
+    if not violations and not presented:
         return
     current = intersection_overlay.current() or violations[0]
     current_number = intersection_overlay.current_index() + 1
-    mapped_count = len(violations)
-    count_label = (
-        f"{current.total_count} detected · {mapped_count} mapped"
-        if mapped_count != current.total_count
-        else f"{current_number} of {mapped_count}")
+    elements = getattr(current, "elements", ())
+    is_degenerate = not hasattr(current, "elements")
+    if intersection_overlay.diagnostic_session() is None:
+        mapped_count = len(violations)
+        detected_count = getattr(current, "total_count", mapped_count)
+    else:
+        mapped_count = intersection_overlay.mapped_count()
+        detected_count = intersection_overlay.detected_count()
+    if is_degenerate:
+        title = "Degenerate Face"
+        count_label = next((
+            line for line in intersection_overlay.label_lines()
+            if line.startswith("Degenerate face ")), "")
+    else:
+        title = current.classification.replace('_', ' ').title()
+        count_label = (
+            f"{detected_count} detected · {mapped_count} mapped"
+            if mapped_count != detected_count
+            else f"{current_number} of {mapped_count}")
     column = layout.column(align=True)
     column.label(
-        text=f"{current.classification.replace('_', ' ').title()} "
-             f"· {count_label}", icon="RESTRICT_SELECT_OFF")
-    for element in current.elements:
-        face = (element.source_polygon_index
-                if element.source_polygon_index is not None
-                else element.local_triangle_index)
-        column.label(text=f"{element.object_name} · Triangle {face}")
+        text=f"{title} · {count_label}", icon="RESTRICT_SELECT_OFF")
+    if is_degenerate:
+        face = (current.source_polygon_index
+                if current.source_polygon_index is not None
+                else current.local_triangle_index)
+        column.label(text=f"{current.object_name} · Triangle {face}")
+    else:
+        for element in elements:
+            face = (element.source_polygon_index
+                    if element.source_polygon_index is not None
+                    else element.local_triangle_index)
+            column.label(text=f"{element.object_name} · Triangle {face}")
+    if intersection_overlay.mapping_warning():
+        warning = column.row()
+        warning.alert = True
+        warning.label(text=intersection_overlay.mapping_warning(), icon="ERROR")
     navigation = column.row(align=True)
     navigation.operator("clothnext.intersection_previous",
                         text="", icon="TRIA_LEFT")
@@ -1960,12 +1984,13 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
                         text="", icon="TRIA_RIGHT")
     navigation.operator("clothnext.intersection_frame",
                         text="Frame", icon="VIEWZOOM")
-    selection = column.row(align=True)
-    for index, element in enumerate(current.elements[:2]):
-        op = selection.operator(
-            "clothnext.intersection_select_element",
-            text=f"Select {element.object_name}")
-        op.element_index = index
+    if elements:
+        selection = column.row(align=True)
+        for index, element in enumerate(elements[:2]):
+            op = selection.operator(
+                "clothnext.intersection_select_element",
+                text=f"Select {element.object_name}")
+            op.element_index = index
     diagnostics = column.row(align=True)
     diagnostics.operator(
         "clothnext.intersection_show_input",

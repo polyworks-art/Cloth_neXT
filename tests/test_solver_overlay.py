@@ -184,6 +184,18 @@ def test_protocol_018_recipe_fails_closed_on_modified_frontend(tmp_path):
             official_release_tag="2026-08-12-15-47", managed=True)
 
 
+def test_protocol_recipe_accepts_already_verified_diagnostics_overlay(tmp_path):
+    (tmp_path / "frontend").mkdir()
+    (tmp_path / ".cloth-next-upstream-integration-0.18-schema-2").write_text(
+        "2026-08-12-15-47\n", encoding="ascii")
+    (tmp_path / f".cloth-next-{solver_overlay.OVERLAY_VERSION}").write_text(
+        solver_overlay.OVERLAY_VERSION + "\n", encoding="ascii")
+
+    solver_overlay.apply_solver_overlay(
+        tmp_path, protocol_version="0.18", schema_version="2",
+        official_release_tag="2026-08-12-15-47", managed=True)
+
+
 def test_unknown_or_external_release_is_not_patched(tmp_path):
     original = "untouched"
     (tmp_path / "frontend").mkdir()
