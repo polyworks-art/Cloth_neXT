@@ -2565,3 +2565,31 @@ def test_degenerate_triangle_vertices_are_selected_deterministically(
 
     assert module._vertices_for_triangles(triangles, (1, 0, 1)) == (
         2, 4, 7, 9)
+
+
+def test_auto_fix_object_skips_scene_objects_without_export_identity(
+        blender_env):
+    module = blender_env.solver_test
+    target = SimpleNamespace(cloth_next=SimpleNamespace(
+        persistent_export_id="cloth-id", role="CLOTH"))
+    camera = SimpleNamespace()
+    light = SimpleNamespace(cloth_next=SimpleNamespace(
+        persistent_export_id="", role=""))
+    expected = module.export_identity.export_uuid_from_identity(
+        "cloth-id", "CLOTH")
+
+    resolved = module._auto_fix_object(
+        SimpleNamespace(objects=(camera, light, target)), expected)
+
+    assert resolved is target
+
+
+def test_bake_window_diagnostic_object_label_uses_affected_objects(
+        blender_env):
+    module = blender_env.solver_test
+    element = SimpleNamespace(object_name="Shorts")
+    result = SimpleNamespace(
+        violations=(SimpleNamespace(elements=(element, element)),),
+        degenerate_faces=())
+
+    assert module._diagnostic_object_label(result) == "Shorts"

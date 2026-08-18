@@ -180,6 +180,19 @@ def diagnostic_result():
     return _diagnostic_result
 
 
+def _diagnostic_object_label(result) -> str:
+    """Return stable affected-object names for the Bake window metadata."""
+    names = []
+    for violation in getattr(result, "violations", ()):
+        for element in violation.elements:
+            if element.object_name not in names:
+                names.append(element.object_name)
+    for face in getattr(result, "degenerate_faces", ()):
+        if face.object_name not in names:
+            names.append(face.object_name)
+    return " / ".join(names)
+
+
 def _clear_intersection_diagnostics() -> None:
     """Retire solver violations when a distinct Bake attempt begins."""
     global _intersection_violations, _intersection_violation_index
@@ -7162,6 +7175,9 @@ def _pump_once() -> float | None:
                 intersection_overlay.set_diagnostic_session(
                     _diagnostic_result,
                     plan.solver_input if plan is not None else None)
+                affected = _diagnostic_object_label(_diagnostic_result)
+                if affected:
+                    shared_controller.update(active_object_name=affected)
             shared_controller.fail(message[1], message[2], error_code=code)
             _discard_incomplete(plan)
             _refresh_recovery_ui(plan)
@@ -8535,8 +8551,17 @@ def _auto_fix_supported_violations():
 
 def _auto_fix_object(scene, object_uuid):
     """Resolve an exported identity without trusting a possibly reused name."""
-    return next((obj for obj in scene.objects
-                 if export_identity.export_uuid(obj) == object_uuid), None)
+    for obj in scene.objects:
+        settings = getattr(obj, "cloth_next", None)
+        persistent_id = str(
+            getattr(settings, "persistent_export_id", "") or "").strip()
+        role = str(getattr(settings, "role", "") or "").strip()
+        if not persistent_id or not role:
+            continue
+        if export_identity.export_uuid_from_identity(
+                persistent_id, role) == object_uuid:
+            return obj
+    return None
 
 
 def _auto_fix_snapshot_pairs(context, violations, snapshot):
