@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.2.38 - 2026-08-18
+
+### Added
+
+- Added a conservative **Auto Fix Intersections** action for fully mapped,
+  solver-confirmed initial cloth self-intersections.
+- Corrections separate both triangle surfaces, accumulate and average shared
+  vertex contributions, and clamp movement relative to local triangle scale.
+
+### Fixed
+
+- Intersection overlay clearing now removes GPU handlers and retained geometry
+  idempotently, including add-on shutdown and repeated set/clear cycles.
+- Diagnostics now reject non-drawable triangle data and distinguish the solver's
+  detected count from the number of intersections mapped for display.
+
+### Safety
+
+- Auto Fix rejects stale topology, geometry, transforms, shape keys, linked
+  meshes, generated proxies, colliders, rods, sentinels, and incomplete mappings.
+- The edit preserves topology, supports Blender Undo, and starts the normal Bake
+  workflow so the existing solver remains authoritative after correction.
+
+### Validation
+
+- Added focused regression coverage for overlay lifecycle, drawable geometry,
+  deterministic separation, shared-vertex accumulation, correction clamping,
+  unsupported classifications, and stale mapping safeguards.
+- Full Python suite: 1,393 passed, 9 skipped, 3 deselected.
+
 ## 2.2.37 - 2026-08-17
 
 ### Changed
