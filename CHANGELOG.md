@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.2.42 - 2026-08-19
+
+### Fixed
+
+- Re-Bake now preserves the previous successful playback generation until a
+  separately written and validated successor is committed.
+- Live Bake progress no longer retargets an existing successful Mesh Cache to
+  a growing private PC2 file.
+- Playback attachment reuses the owned modifier transactionally and rolls back
+  filepath, visibility, stack position, ownership, and Bake metadata when the
+  new generation cannot be committed.
+- Locked obsolete PC2 files are treated as bounded deferred garbage and cannot
+  fail an otherwise successful Re-Bake or Clear operation.
+- Active playback paths and artist-created Mesh Cache modifiers are excluded
+  from cleanup and retargeting.
+- Multi-object playback attachment validates every cache before switching and
+  rolls all objects back if any commit fails.
+- Auto Fix object lookup now skips scene objects without persistent Cloth NeXt
+  identity, and Bake-window diagnostic metadata names the actually affected
+  object instead of the first deformable.
+- Animated-collider cleanup now refreshes the dependency graph through the
+  valid Blender context.
+
+### Validation
+
+- Full Python suite: 1,419 passed, 9 skipped, 3 deselected.
+- Blender 5.2.0 LTS real lifecycle test passed with a Windows-locked obsolete
+  PC2, owned-modifier retargeting, Clear, Unicode paths, and artist-cache
+  preservation.
+- GitHub CI tests and Blender smoke checks passed on the merged fix PR.
+- Added fault-injection coverage for permanent cleanup failures, commit
+  rollback, repeated generations, active-cache safety, and multi-object
+  coherence.
+
 ## 2.2.41 - 2026-08-18
 
 ### Fixed

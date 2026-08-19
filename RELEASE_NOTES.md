@@ -1,29 +1,44 @@
-# Cloth NeXt 2.2.41
+# Cloth NeXt 2.2.42
 
-Cloth NeXt 2.2.41 repairs the complete validation-diagnostics path for solver
-self intersections and Blender preflight degenerate faces.
+Cloth NeXt 2.2.42 makes Re-Bake playback transactional and independent from
+Windows successfully deleting or unlocking the previous PC2 cache.
 
-## Reliable validation geometry
+## Transactional playback generations
 
-- Solver-reported intersection totals are preserved independently from the
-  number of faces that can be mapped safely.
-- The Simulation panel and viewport now state both counts, for example
-  `18 detected · 14 mapped`, and show an explicit warning when mapping data is
-  incomplete.
-- Solver triangle indices are checked against the exact solver triangle
-  geometry before they are attributed to Blender objects and source polygons.
-- Degenerate faces are highlighted as dedicated one-triangle diagnostics,
-  including point markers for fully collapsed triangles.
+- Every Bake writes a separate generation; the active cache is never
+  overwritten in place.
+- The previous successful generation remains authoritative throughout export,
+  simulation, PC2 writing, and validation.
+- The existing Cloth NeXt Mesh Cache modifier is retargeted only after the new
+  generation is complete and validated.
+- Commit failures restore the previous modifier path, visibility, stack
+  position, ownership metadata, and Bake state.
+- Multi-object Bakes preflight every cache and roll back coherently rather than
+  leaving a silent mixture of generations.
 
-## Disposable overlay sessions
+## Safe Windows cleanup
 
-- Every validation attempt owns one immutable diagnostic result.
-- Clear, a new Bake, file load, and add-on shutdown remove retained geometry,
-  navigation state, solver-input preview state, and GPU draw handlers.
-- Handler setup and removal are idempotent and safe across reloads.
+- A locked obsolete PC2 no longer turns a successful Re-Bake into an error.
+- Obsolete locked generations remain bounded deferred garbage and are retried
+  only at later safe cleanup points.
+- The cache currently referenced by active Cloth NeXt playback is never
+  garbage-collected.
+- Clear removes Blender playback state even when Windows keeps the obsolete
+  file locked.
+- Artist-created Mesh Cache modifiers and files are never retargeted or
+  removed.
+
+## Additional fixes
+
+- Auto Fix ignores unrelated scene objects without persistent Cloth NeXt
+  identity.
+- The Bake window identifies the object actually affected by validation
+  diagnostics.
+- Animated-collider cleanup uses the valid Blender dependency-graph context.
 
 ## Verification
 
-- Full Python suite: 1,411 passed, 9 skipped, 3 deselected.
-- Blender 5.2.0 LTS registration smoke test passed.
+- Full Python suite: 1,419 passed, 9 skipped, 3 deselected.
+- Blender 5.2.0 LTS real Windows file-lock lifecycle passed, including Unicode
+  paths, modifier reuse, generation swap, artist-cache preservation, and Clear.
 - The external PPF Contact Solver is not bundled or modified.
