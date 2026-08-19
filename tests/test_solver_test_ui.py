@@ -1289,6 +1289,37 @@ def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
     assert blender_env.bpy.context.scene.frame_current == 11
 
 
+def test_rebake_live_progress_never_retargets_successful_generation(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    old = tmp_path / "cn_test_cloth_generation_n.pc2"
+    final = tmp_path / "cn_test_cloth_generation_n1.pc2"
+    live = tmp_path / ".cn_test_cloth_generation_n1.pc2.live.tmp"
+    old.write_bytes(b"successful generation")
+    live.write_bytes(b"growing generation")
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME,
+                                 "MESH_CACHE")
+    modifier.filepath = str(old)
+    module.mark_owned_playback(obj, modifier, str(old))
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    target = module.DeformablePlan(
+        ((0, 0, 0),), identity, obj.name, "cloth-uuid", final,
+        "topology", {}, "CLOTH")
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), target.initial_local, identity,
+        obj.name, tmp_path, final, 3, frame_start=10, frame_end=12,
+        deformables=(target,))
+
+    module._attach_live_playback(plan, {target.uuid: str(live)})
+
+    assert len(obj.modifiers) == 1
+    assert modifier.filepath == str(old)
+    assert old.read_bytes() == b"successful generation"
+
+
 def test_single_deformable_tuple_accepts_single_worker_header(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
@@ -1726,7 +1757,141 @@ def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
     assert first.filepath == str(path)
 
 
-def test_attach_succeeds_when_post_import_housekeeping_fails(
+def test_repeated_generation_swap_keeps_new_cache_when_old_is_locked(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Kleid Überwurf", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    old_path = tmp_path / "缓存" / "cn_test_cloth_generation_a.pc2"
+    new_path = tmp_path / "缓存" / "cn_test_cloth_generation_b.pc2"
+    old_path.parent.mkdir()
+    old_path.write_bytes(b"old generation")
+    new_path.write_bytes(b"new generation")
+    modifier = obj.modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(old_path)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    original_unlink = Path.unlink
+
+    def locked_unlink(path, *args, **kwargs):
+        if path == old_path:
+            raise PermissionError("cache is mapped by Blender")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        obj.name, tmp_path, new_path, 1)
+
+    module._attach_playback(plan, header)
+
+    assert old_path != new_path
+    assert modifier.filepath == str(new_path)
+    assert old_path.read_bytes() == b"old generation"
+    assert new_path.read_bytes() == b"new generation"
+    assert list(obj.modifiers) == [modifier]
+
+
+def test_twelve_rebakes_succeed_with_permanently_locked_obsolete_generations(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Repeated Cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    cache_root = tmp_path / "locked generations"
+    cache_root.mkdir()
+    first = cache_root / "cn_test_cloth_generation_00.pc2"
+    first.write_bytes(b"generation 0")
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME,
+                                 "MESH_CACHE")
+    modifier.filepath = str(first)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+    original_unlink = Path.unlink
+    generations = [first]
+
+    def locked_unlink(path, *args, **kwargs):
+        if path in generations:
+            raise PermissionError("permanent Windows sharing violation")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+    for index in range(1, 13):
+        new_path = cache_root / f"cn_test_cloth_generation_{index:02d}.pc2"
+        new_path.write_bytes(f"generation {index}".encode())
+        plan = module.RunPlan(
+            SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1)),
+            obj.name, tmp_path, new_path, 1)
+        module._attach_playback(plan, header)
+        generations.append(new_path)
+
+    assert modifier.filepath == str(generations[-1])
+    assert list(obj.modifiers) == [modifier]
+    assert all(path.is_file() for path in generations)
+    assert len(module.pending_cleanup_paths()) <= 128
+
+
+def test_generation_cleanup_never_deletes_lookalike_artist_path(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    cache_root = tmp_path / "owned-cache"
+    foreign_root = tmp_path / "artist-cache"
+    cache_root.mkdir()
+    foreign_root.mkdir()
+    new_path = cache_root / "cn_test_cloth_generation_b.pc2"
+    foreign = foreign_root / "cn_test_cloth_artist_original.pc2"
+    foreign.write_bytes(b"artist data")
+    record = SimpleNamespace(
+        obj=SimpleNamespace(name="Artist Cloth", modifiers=[]), extras=(),
+        previous_paths={foreign}, new_path=new_path)
+
+    module._commit_playback_cleanup((record,))
+
+    assert foreign.read_bytes() == b"artist data"
+
+
+def test_clear_removes_only_owned_modifier_when_unicode_cache_is_locked(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="披風 München", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    owned_path = tmp_path / "缓存 Ausgabe" / "cn_test_cloth_äöü.pc2"
+    owned_path.parent.mkdir()
+    owned_path.write_bytes(b"locked")
+    owned = obj.modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    owned.filepath = str(owned_path)
+    module.mark_owned_playback(obj, owned, owned.filepath)
+    artist = obj.modifiers.new("Artist Cache", "MESH_CACHE")
+    artist.filepath = str(tmp_path / "artist.pc2")
+    original_unlink = Path.unlink
+
+    def locked_unlink(path, *args, **kwargs):
+        if path == owned_path:
+            raise PermissionError("cache is mapped by Blender")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+    operator = module.CLOTHNEXT_OT_solver_test_clear()
+    reports = []
+    operator.report = lambda level, message: reports.append((level, message))
+
+    assert operator.execute(SimpleNamespace(object=obj)) == {"FINISHED"}
+
+    assert list(obj.modifiers) == [artist]
+    assert artist.filepath.endswith("artist.pc2")
+    assert owned_path.read_bytes() == b"locked"
+    assert reports[-1][0] == {"INFO"}
+    assert "nothing else was touched" in reports[-1][1]
+
+
+def test_attach_rolls_back_when_authoritative_ownership_commit_fails(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
@@ -1742,10 +1907,10 @@ def test_attach_succeeds_when_post_import_housekeeping_fails(
         ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
         obj.name, tmp_path, path, 1)
 
-    module._attach_playback(plan, header)
+    with pytest.raises(RuntimeError, match="metadata boom"):
+        module._attach_playback(plan, header)
 
-    assert len(obj.modifiers) == 1
-    assert obj.modifiers[0].filepath == str(path)
+    assert len(obj.modifiers) == 0
 
 
 def test_pump_exception_becomes_terminal_error(blender_env, monkeypatch):
@@ -2565,3 +2730,31 @@ def test_degenerate_triangle_vertices_are_selected_deterministically(
 
     assert module._vertices_for_triangles(triangles, (1, 0, 1)) == (
         2, 4, 7, 9)
+
+
+def test_auto_fix_object_skips_scene_objects_without_export_identity(
+        blender_env):
+    module = blender_env.solver_test
+    target = SimpleNamespace(cloth_next=SimpleNamespace(
+        persistent_export_id="cloth-id", role="CLOTH"))
+    camera = SimpleNamespace()
+    light = SimpleNamespace(cloth_next=SimpleNamespace(
+        persistent_export_id="", role=""))
+    expected = module.export_identity.export_uuid_from_identity(
+        "cloth-id", "CLOTH")
+
+    resolved = module._auto_fix_object(
+        SimpleNamespace(objects=(camera, light, target)), expected)
+
+    assert resolved is target
+
+
+def test_bake_window_diagnostic_object_label_uses_affected_objects(
+        blender_env):
+    module = blender_env.solver_test
+    element = SimpleNamespace(object_name="Shorts")
+    result = SimpleNamespace(
+        violations=(SimpleNamespace(elements=(element, element)),),
+        degenerate_faces=())
+
+    assert module._diagnostic_object_label(result) == "Shorts"

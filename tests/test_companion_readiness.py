@@ -283,6 +283,20 @@ def test_playback_ownership_requires_marker_or_result_metadata(blender_env,tmp_p
     module.mark_owned_playback(obj,user,str(path))
     assert module.is_cloth_next_playback_modifier(obj,user)
 
+def test_object_playback_marker_does_not_claim_artist_mesh_cache(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object("Cloth", "MESH")
+    artist = obj.modifiers.new("Artist Cache", "MESH_CACHE")
+    artist.filepath = str(tmp_path / "artist.pc2")
+    owned = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    owned.filepath = str(tmp_path / "cn_test_cloth_owned.pc2")
+
+    module.mark_owned_playback(obj, owned, owned.filepath)
+
+    assert not module.has_cloth_next_playback_marker(obj, artist)
+    assert module.has_cloth_next_playback_marker(obj, owned)
+
 def test_owned_playback_exclusion_restores_exact_state(blender_env,tmp_path):
     module=blender_env.solver_test; obj=blender_env.bpy.types.Object("Cloth","MESH")
     path=tmp_path/"cn_test_cloth_owned.pc2"

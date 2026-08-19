@@ -8,6 +8,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import bpy
 
@@ -24,6 +25,7 @@ def main() -> None:
     args = _args()
     sys.path.insert(0, str(args.repo))
     from cloth_next import export_identity
+    from cloth_next.bake import pc2
     from cloth_next.blender import registration, solver_test, validation_state
 
     registration.register()
@@ -92,11 +94,53 @@ def main() -> None:
             solver_test.mark_owned_playback(cloth, owned, str(owned_path))
             assert not solver_test.is_cloth_next_playback_modifier(cloth, artist)
             assert solver_test.is_cloth_next_playback_modifier(cloth, owned)
+
+            # Export/validation temporarily excludes only the owned playback
+            # modifier and restores its exact viewport/render state even when
+            # the body exits normally.
+            owned.show_viewport = True
+            owned.show_render = False
+            with solver_test.without_owned_playback(cloth) as disabled:
+                assert disabled == (owned,)
+                assert not owned.show_viewport
+                assert not owned.show_render
+                assert artist.show_viewport
+            assert owned.show_viewport
+            assert not owned.show_render
+
+            # Exercise the production retarget path.  Keeping the old file
+            # open on Windows reproduces the deletion failure caused by a
+            # consumer retaining a cache handle: attaching the new valid PC2
+            # must still commit, reuse the modifier, and leave the locked old
+            # cache for later cleanup.
+            replacement_path = Path(raw) / "cn_test_cloth_retarget.pc2"
+            initial_local = tuple(tuple(vertex.co) for vertex in cloth.data.vertices)
+            header = pc2.write_pc2(replacement_path, (initial_local,))
+            plan = SimpleNamespace(
+                deformables=(), initial_local=initial_local,
+                world_matrix=tuple(tuple(row) for row in cloth.matrix_world),
+                cloth_object_name=cloth.name, work_directory=Path(raw),
+                pc2_path=replacement_path, frame_count=1, frame_start=1,
+                material_meta={}, deformable_role="CLOTH",
+                settings_fingerprint="", geometry_fingerprint="",
+                topology_signature="", scene=SimpleNamespace(
+                    cloth_uuid=cloth_uuid))
+            with owned_path.open("rb") as locked_old_cache:
+                assert locked_old_cache.read(1) == b"o"
+                solver_test._attach_playback(plan, header)
+                assert owned in cloth.modifiers[:]
+                assert owned.filepath == str(replacement_path)
+                assert solver_test.is_cloth_next_playback_modifier(cloth, owned)
+                if sys.platform == "win32":
+                    assert owned_path.exists()
+
             assert bpy.ops.clothnext.solver_test_clear() == {"FINISHED"}
             assert cloth.modifiers.get(artist_name) is not None
             assert artist_path.read_bytes() == b"artist"
-            assert cloth.modifiers.get("Owned playback") is None
-            assert not owned_path.exists()
+            assert owned not in cloth.modifiers[:]
+            assert not replacement_path.exists()
+            windows_lock_preserved_old_cache = owned_path.exists()
+            owned_path.unlink(missing_ok=True)
 
         report = {
             "blender": bpy.app.version_string,
@@ -109,6 +153,11 @@ def main() -> None:
             "undo_redo_reason": undo_redo_reason,
             "rename_delete_reopen": True,
             "artist_cache_preserved": True,
+            "owned_playback_disable_restore": True,
+            "owned_playback_retarget": True,
+            "clear_removed_retargeted_cache": True,
+            "windows_lock_preserved_old_cache": (
+                windows_lock_preserved_old_cache),
         }
         args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print("CLOTH_NEXT_FILE_LIFECYCLE_PASS", json.dumps(report))
