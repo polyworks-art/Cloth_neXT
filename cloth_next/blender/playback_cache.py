@@ -4,9 +4,32 @@
 from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
+from collections import deque
 
 OWNERSHIP_MARKER="cloth_next_playback_v1"
 OBJECT_OWNERSHIP_KEY="cloth_next_playback_owner"
+_PENDING_CLEANUP_LIMIT = 128
+_pending_cleanup = deque(maxlen=_PENDING_CLEANUP_LIMIT)
+
+
+def record_pending_cleanup(path) -> None:
+    """Remember obsolete owned cache garbage without changing playback state."""
+    value = Path(path).resolve()
+    if value not in _pending_cleanup:
+        _pending_cleanup.append(value)
+
+
+def pending_cleanup_paths() -> tuple[Path, ...]:
+    """Return the bounded process-local cleanup backlog (oldest first)."""
+    return tuple(_pending_cleanup)
+
+
+def forget_pending_cleanup(path) -> None:
+    value = Path(path).resolve()
+    try:
+        _pending_cleanup.remove(value)
+    except ValueError:
+        pass
 
 def _property(value,key,default=None):
     try:return value.get(key,default)
@@ -41,8 +64,8 @@ def has_cloth_next_playback_marker(obj,modifier)->bool:
     replaces a cache file.
     """
     if str(getattr(modifier,"type",""))!="MESH_CACHE":return False
-    marker=(_property(modifier,"cloth_next_owner","")
-            or _property(obj,OBJECT_OWNERSHIP_KEY,""))
+    modifier_marker=_property(modifier,"cloth_next_owner","")
+    marker=(modifier_marker or _property(obj,OBJECT_OWNERSHIP_KEY,""))
     actual=str(getattr(modifier,"filepath","") or "")
     if marker!=OWNERSHIP_MARKER:
         settings=getattr(obj,"cloth_next",None)
@@ -51,7 +74,12 @@ def has_cloth_next_playback_marker(obj,modifier)->bool:
                 and Path(actual).name.startswith("cn_test_cloth_")
                 and Path(actual).suffix.lower()==".pc2")
     recorded=str(_property(obj,"cloth_next_cache_path","") or "")
-    return bool(recorded and actual)
+    if modifier_marker==OWNERSHIP_MARKER:return bool(actual)
+    # The object marker is shared by every modifier on the object.  Its path
+    # is what identifies the one owned Mesh Cache without filesystem I/O;
+    # accepting any non-empty path lets retargeting hijack an artist cache
+    # that appears earlier in the modifier stack.
+    return bool(recorded and actual and recorded==actual)
 
 def is_cloth_next_playback_modifier(obj,modifier)->bool:
     """Authoritative ownership check; resolves both paths on disk.

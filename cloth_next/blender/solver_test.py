@@ -138,6 +138,9 @@ from .playback_cache import (
     is_cloth_next_playback_modifier,
     mark_owned_playback,
     without_owned_playback,
+    forget_pending_cleanup,
+    pending_cleanup_paths,
+    record_pending_cleanup,
 )
 
 _EVENT_STATE = {
@@ -3579,7 +3582,8 @@ def _cleanup_collider_pump(states):
         path = state.get("path")
         if path is not None:
             path.unlink(missing_ok=True)
-        _depsgraph_update(context)
+    if states:
+        _depsgraph_update(bpy.context)
 
 
 def _timed_export_stage(name, function):
@@ -6233,7 +6237,8 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
 
 _PLAYBACK_MODIFIER_FIELDS = (
     "name", "filepath", "cache_format", "frame_start", "interpolation",
-    "deform_mode", "play_mode", "forward_axis", "up_axis")
+    "deform_mode", "play_mode", "forward_axis", "up_axis",
+    "show_viewport", "show_render")
 _PLAYBACK_OBJECT_FIELDS = (OBJECT_OWNERSHIP_KEY, "cloth_next_cache_path")
 _PLAYBACK_SETTINGS_FIELDS = (
     "baked_settings_fingerprint", "baked_geometry_fingerprint",
@@ -6311,25 +6316,58 @@ def _rollback_playback(records) -> None:
                     "error": f"{type(exc).__name__}: {exc}"})
 
 
-def _commit_playback_cleanup(records) -> None:
-    """Remove stale modifiers/files only after every target is attached."""
-    for record in records:
-        for extra in record.extras:
+def _commit_playback_cleanup_record(record) -> None:
+    """Clean one obsolete generation after its successor is authoritative."""
+    for extra in record.extras:
+        try:
+            record.obj.modifiers.remove(extra)
+        except Exception as exc:  # noqa: BLE001 -- all new caches are live
+            log_with_context(get_logger("playback.cache"), 30,
+                "stale playback modifier cleanup failed", {
+                    "object": getattr(record.obj, "name", ""),
+                    "error": f"{type(exc).__name__}: {exc}"})
+    active_paths = {
+        Path(bpy.path.abspath(mod.filepath)).resolve()
+        for obj in getattr(bpy.data, "objects", ())
+        for mod in getattr(obj, "modifiers", ())
+        if (is_cloth_next_playback_modifier(obj, mod)
+            and getattr(mod, "filepath", ""))}
+    cache_root = record.new_path.parent.resolve()
+    candidates = set(record.previous_paths)
+    candidates.update(path for path in pending_cleanup_paths()
+                      if _is_within(path, cache_root))
+    for old_path in candidates:
+        old_path = old_path.resolve()
+        if (old_path == record.new_path.resolve()
+                or old_path in active_paths
+                or not _is_owned_playback_cache_path(old_path, cache_root)):
+            continue
+        failed = False
+        for target in (old_path, cache_metadata.sidecar_path(old_path)):
             try:
-                record.obj.modifiers.remove(extra)
-            except Exception as exc:  # noqa: BLE001 -- all new caches are live
-                log_with_context(get_logger("playback.cache"), 30,
-                    "stale playback modifier cleanup failed", {
-                        "object": getattr(record.obj, "name", ""),
+                target.unlink(missing_ok=True)
+            except OSError as exc:
+                failed = True
+                log_with_context(get_logger("playback.cache"), 20,
+                    "obsolete playback cache deferred", {
+                        "cache_path": str(target),
                         "error": f"{type(exc).__name__}: {exc}"})
-        for old_path in record.previous_paths:
-            if (old_path != record.new_path
-                    and old_path.name.startswith("cn_test_cloth_")):
-                for target in (old_path, cache_metadata.sidecar_path(old_path)):
-                    try:
-                        target.unlink(missing_ok=True)
-                    except OSError:
-                        pass
+        if failed:
+            record_pending_cleanup(old_path)
+        else:
+            forget_pending_cleanup(old_path)
+
+
+def _commit_playback_cleanup(records) -> None:
+    """Best-effort garbage collection after every target is attached."""
+    for record in records:
+        try:
+            _commit_playback_cleanup_record(record)
+        except Exception as exc:  # noqa: BLE001 -- committed playback wins
+            log_with_context(get_logger("playback.cache"), 30,
+                "obsolete playback cleanup failed", {
+                    "object": getattr(record.obj, "name", ""),
+                    "error": f"{type(exc).__name__}: {exc}"})
 
 
 def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
@@ -6398,12 +6436,12 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         raise ValueError(f"cloth object {plan.cloth_object_name!r} no longer "
                          "exists")
     settings = getattr(obj, "cloth_next", None)
-    if inspection is not None and settings is not None:
-        settings.baked_cache_condition = inspection.condition.value
-        settings.baked_cache_message = inspection.message
-        settings.baked_metadata_digest = str(
-            inspection.metadata.get("metadata_digest", ""))
     if getattr(obj, "type", "") == "CURVE" or plan.deformable_role == "ROD":
+        if inspection is not None and settings is not None:
+            settings.baked_cache_condition = inspection.condition.value
+            settings.baked_cache_message = inspection.message
+            settings.baked_metadata_digest = str(
+                inspection.metadata.get("metadata_digest", ""))
         _attach_curve_rod_playback(obj, plan, verified)
         return
     # Modifier ownership is established by the marker itself. The stricter
@@ -6443,19 +6481,21 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
           _PLAYBACK_SETTINGS_FIELDS} if settings is not None else {}))
     if _transaction is not None:
         _transaction.append(record)
-    modifier.name = import_result.MODIFIER_NAME
-    _configure_playback_modifier(modifier, plan.frame_start)
-    current_index = _modifier_index(obj, modifier)
-    if current_index < 0:
-        raise RuntimeError("Playback modifier disappeared during cache import")
-    target_index = _playback_stack_index(obj, modifier)
-    if current_index != target_index:
-        obj.modifiers.move(current_index, target_index)
-    modifier.filepath = str(plan.pc2_path)
-    # Assigning filepath above is the import commit point. Ownership metadata,
-    # validation hints, and stale-cache cleanup improve later UX but must not
-    # turn a working playback cache into a reported import failure.
     try:
+        modifier.show_viewport = False
+        modifier.show_render = False
+        _depsgraph_update(bpy.context)
+        modifier.name = import_result.MODIFIER_NAME
+        _configure_playback_modifier(modifier, plan.frame_start)
+        current_index = _modifier_index(obj, modifier)
+        if current_index < 0:
+            raise RuntimeError(
+                "Playback modifier disappeared during cache import")
+        target_index = _playback_stack_index(obj, modifier)
+        if current_index != target_index:
+            obj.modifiers.move(current_index, target_index)
+        # This unique finalized filepath assignment is the N -> N+1 handoff.
+        modifier.filepath = str(plan.pc2_path)
         mark_owned_playback(obj, modifier, str(plan.pc2_path))
         settings = getattr(obj, "cloth_next", None)
         if settings is not None and plan.settings_fingerprint:
@@ -6479,17 +6519,21 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
                 topology_signature=plan.topology_signature,
                 geometry_fingerprint=plan.geometry_fingerprint,
                 settings_fingerprint=plan.settings_fingerprint)
+        modifier.show_viewport = bool(
+            fields.get("show_viewport", True))
+        modifier.show_render = bool(fields.get("show_render", True))
+        _depsgraph_update(bpy.context)
         # Multi-object runs defer destructive cleanup until every target has
         # crossed its filepath commit point, so an attach failure can roll all
         # earlier modifiers back to their previous valid caches.
         if _transaction is None:
             _commit_playback_cleanup((record,))
-    except Exception as exc:  # noqa: BLE001 -- playback is already attached
-        log_with_context(get_logger("playback.cache"), 30,
-                         "playback attached; post-import housekeeping failed", {
-            "cache_path": str(plan.pc2_path),
-            "error": f"{type(exc).__name__}: {exc}",
-        })
+    except Exception:
+        # Ownership and metadata are part of the authoritative handoff.  A
+        # failure restores Generation N; old files remain untouched.
+        if _transaction is None:
+            _rollback_playback((record,))
+        raise
 
 
 def _safe_transition(state: BakeState, **changes) -> None:
@@ -6541,6 +6585,11 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
             continue
         modifiers = [mod for mod in obj.modifiers
                      if has_cloth_next_playback_marker(obj, mod)]
+        # Never retarget the currently successful generation to a growing
+        # private PC2 during Re-Bake.  It remains recoverable until the final,
+        # validated generation swap in _attach_playback.
+        if modifiers:
+            continue
         modifier = modifiers[0] if modifiers else getattr(
             obj.modifiers, "new")(
                 name=import_result.MODIFIER_NAME, type="MESH_CACHE")
@@ -8421,8 +8470,22 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     path.unlink(missing_ok=True)
                     cache_metadata.sidecar_path(path).unlink(missing_ok=True)
                     removed_files += int(existed)
-                except OSError:
-                    pass
+                    forget_pending_cleanup(path)
+                except OSError as exc:
+                    record_pending_cleanup(path)
+                    log_with_context(get_logger("playback.cache"), 20,
+                        "cleared playback cache deferred", {
+                            "cache_path": str(path),
+                            "error": f"{type(exc).__name__}: {exc}"})
+            if owned_paths:
+                for key in _PLAYBACK_OBJECT_FIELDS:
+                    try:
+                        del obj[key]
+                    except (AttributeError, KeyError, TypeError):
+                        try:
+                            delattr(obj, key)
+                        except AttributeError:
+                            pass
             if settings is not None and (owned_paths or removed_modifiers):
                 settings.baked_settings_fingerprint = ""
                 settings.baked_geometry_fingerprint = ""
