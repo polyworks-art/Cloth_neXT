@@ -7,7 +7,7 @@
       "id": "cloth_next",
       "name": "Cloth NeXt",
       "tagline": "High-fidelity cloth simulation with the PPF solver",
-      "version": "2.2.44",
+      "version": "2.2.45",
       "type": "add-on",
       "maintainer": "Tim Christmann",
       "license": [
@@ -28,9 +28,9 @@
       "platforms": [
         "windows-x64"
       ],
-      "archive_url": "./cloth_next-2.2.44-windows-x64.zip",
-      "archive_size": 25049325,
-      "archive_hash": "sha256:6e30b8b4215cf967f471f52f23aee2fb2957812e08edb21c000efc0a378fca4c"
+      "archive_url": "./cloth_next-2.2.45-windows-x64.zip",
+      "archive_size": 25062791,
+      "archive_hash": "sha256:bcd271855e75f457b8d8b9c85fbe4f94d57f2703ad1a154ef787ff6a4f7aae6a"
     }
   ]
 }
