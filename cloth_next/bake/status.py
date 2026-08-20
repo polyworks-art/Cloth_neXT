@@ -11,6 +11,8 @@ import math
 import time
 from typing import Any
 
+from ..veyra.model import CompanionMode, VeyraStep
+
 
 class BakeState(str, Enum):
     IDLE = "IDLE"
@@ -35,6 +37,7 @@ class BakeJobKind(str, Enum):
     PREVIEW = "PREVIEW"
     SOLVER_TEST = "SOLVER_TEST"
     BAKE = "BAKE"
+    VEYRA = "VEYRA"
 
 class BakeActivity(str, Enum):
     IDLE="IDLE"; VALIDATING="VALIDATING"; CAPTURING_GEOMETRY="CAPTURING_GEOMETRY"
@@ -173,6 +176,11 @@ class BakeSnapshot:
     activity_code: BakeActivity = BakeActivity.IDLE
     activity_label: str = ""
     activity_detail: str = ""
+    companion_mode: CompanionMode = CompanionMode.BAKE
+    veyra_step: VeyraStep | None = None
+    veyra_step_index: int = 0
+    veyra_step_current: int = 0
+    veyra_step_total: int | None = None
 
     @property
     def progress_fraction(self) -> float:
@@ -189,6 +197,9 @@ class BakeSnapshot:
         data["state"] = self.state.value
         data["job_kind"] = self.job_kind.value
         data["activity_code"] = self.activity_code.value
+        data["companion_mode"] = self.companion_mode.value
+        data["veyra_step"] = (self.veyra_step.value
+                              if self.veyra_step is not None else None)
         data["progress_fraction"] = self.progress_fraction
         return data
 
@@ -227,14 +238,28 @@ class BakeSnapshot:
             values["job_kind"] = BakeJobKind.BAKE
         try: values["activity_code"] = BakeActivity(values.get("activity_code", "IDLE"))
         except (TypeError, ValueError): values["activity_code"] = BakeActivity.UNKNOWN
+        try:
+            values["companion_mode"] = CompanionMode(
+                values.get("companion_mode", "BAKE"))
+        except (TypeError, ValueError):
+            values["companion_mode"] = CompanionMode.BAKE
+        try:
+            step = values.get("veyra_step")
+            values["veyra_step"] = VeyraStep(step) if step else None
+        except (TypeError, ValueError):
+            values["veyra_step"] = None
         for key in ("progress_current", "current_frame", "frame_start",
-                    "frame_end", "solver_process_id"):
+                    "frame_end", "solver_process_id", "veyra_step_index",
+                    "veyra_step_current"):
             if key in values and values[key] is not None:
                 try: values[key] = int(values[key])
                 except (TypeError, ValueError): values[key] = None if key != "progress_current" else 0
         if "progress_total" in values and values["progress_total"] is not None:
             try: values["progress_total"] = max(0, int(values["progress_total"]))
             except (TypeError, ValueError): values["progress_total"] = None
+        if "veyra_step_total" in values and values["veyra_step_total"] is not None:
+            try: values["veyra_step_total"] = max(0, int(values["veyra_step_total"]))
+            except (TypeError, ValueError): values["veyra_step_total"] = None
         for key in ("elapsed_seconds", "estimated_remaining_seconds"):
             if key in values and values[key] is not None:
                 try:

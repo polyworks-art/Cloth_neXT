@@ -67,6 +67,8 @@ from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.status import (BakeActivity, BakeJobKind, BakeState,
                            FrameEtaEstimator)
 from ..bake.transport import EnterBakeMode
+from ..veyra.model import (CompanionMode, RepairArtifact, VeyraRepairPlan,
+                           VeyraStep, VEYRA_STEP_LABELS, identity_digest)
 from ..core.errors import ClothNextError, ErrorRecord
 from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
@@ -7943,7 +7945,7 @@ def _start_prepared_run(plan: RunPlan) -> None:
         bpy.app.timers.register(_pump_watchdog, first_interval=.5)
 
 
-def _continue_contact_validation(context) -> None:
+def _continue_contact_validation(context, *, veyra: bool = False) -> None:
     """Continue a repaired local preflight through solver BUILD only."""
     global _worker, _active_plan, _run_started_at, _last_work_directory
     global _unsubscribe, _ram_auto_cancel_triggered
@@ -7951,12 +7953,23 @@ def _continue_contact_validation(context) -> None:
 
     if run_active() or _active_plan is not None:
         raise SceneValidationError("A Cloth NeXt validation is already active.")
-    job_id = _begin_controller(BakeJobKind.SOLVER_TEST)
-    if not modal_lock.reserve(job_id):
-        shared_controller.fail(
-            "Another Cloth NeXt Bake generation already owns startup.")
-        raise SceneValidationError(
-            "Another Cloth NeXt Bake generation already owns startup.")
+    if veyra:
+        job_id = shared_controller.snapshot().job_id
+        shared_controller.update(
+            companion_mode=CompanionMode.VEYRA,
+            job_kind=BakeJobKind.VEYRA,
+            veyra_step=VeyraStep.VALIDATING_CONTACTS,
+            veyra_step_index=5, veyra_step_current=0,
+            veyra_step_total=None,
+            status_title=VEYRA_STEP_LABELS[VeyraStep.VALIDATING_CONTACTS],
+            activity_label="Contact validation")
+    else:
+        job_id = _begin_controller(BakeJobKind.SOLVER_TEST)
+        if not modal_lock.reserve(job_id):
+            shared_controller.fail(
+                "Another Cloth NeXt Bake generation already owns startup.")
+            raise SceneValidationError(
+                "Another Cloth NeXt Bake generation already owns startup.")
     try:
         shared_controller.transition(
             BakeState.STARTING_RUN,
@@ -9640,17 +9653,147 @@ def _leave_edit_mode_for_auto_fix(context) -> None:
             "Mode safely before Auto Fix.") from exc
 
 
-def _continue_after_auto_fix_recheck(context, result) -> str:
+def _continue_after_auto_fix_recheck(context, result, *, veyra=False) -> str:
     """Start BUILD-only validation iff the freshly repaired input is clean."""
     if result.has_degenerate_faces or result.has_intersections:
         return (
             f" Local recheck: {len(result.degenerate_faces)} degenerate "
             f"face(s), {result.detected_count} intersection(s) remain; "
             "contact validation was not started.")
-    _continue_contact_validation(context)
+    if veyra:
+        _continue_contact_validation(context, veyra=True)
+    else:
+        _continue_contact_validation(context)
     return (
         " Local recheck passed; solver contact validation continues without "
         "frame simulation.")
+
+
+def _veyra_snapshot_identity(snapshot) -> str:
+    """Digest every retained source/topology/coordinate assumption."""
+    return identity_digest({
+        "bake_start_frame": int(snapshot.bake_start_frame),
+        "triangles": [{
+            "combined": int(item.owner.combined_triangle_index),
+            "object_uuid": item.owner.object_uuid,
+            "role": item.owner.role,
+            "local": int(item.owner.local_triangle_index),
+            "polygon": item.owner.source_polygon_index,
+            "generated": bool(item.owner.generated_proxy),
+            "internal": bool(item.owner.internal),
+            "indices": tuple(map(int, item.vertex_indices)),
+            "vertices": item.vertices,
+            "input_vertices": item.input_vertices,
+        } for item in snapshot.triangles],
+    })
+
+
+def _veyra_input(job_id, snapshot, pairs, degenerate_faces,
+                  validation_triangles, desired):
+    return {
+        "schema": "cnx.veyra.input.v1", "job_id": job_id,
+        "source_snapshot_identity": _veyra_snapshot_identity(snapshot),
+        "desired_separation": float(desired),
+        "pairs": [{
+            "first_keys": pair[0], "first": pair[1],
+            "second_keys": pair[2], "second": pair[3],
+        } for pair in pairs],
+        "degenerate_faces": [{
+            "object_uuid": face.object_uuid,
+            "vertex_indices": face.vertex_indices,
+            "vertices": face.vertices,
+            "source_polygon_index": face.source_polygon_index,
+        } for face in degenerate_faces],
+        "validation_triangles": [{"keys": keys, "vertices": vertices}
+                                 for keys, vertices in validation_triangles],
+    }
+
+
+def _apply_veyra_plan(context, plan, *, snapshot, violations,
+                      degenerate_faces, expected_identity):
+    """Revalidate and apply only typed VEYRA operations on Blender main thread."""
+    if (plan.job_id != shared_controller.snapshot().job_id
+            or plan.source_snapshot_identity != expected_identity
+            or _veyra_snapshot_identity(snapshot) != expected_identity):
+        raise SceneValidationError("VEYRA returned a stale repair plan.")
+    pairs, objects = _auto_fix_snapshot_pairs(
+        context, violations, snapshot, degenerate_faces)
+    validation = _auto_fix_validation_triangles(
+        snapshot, pairs, degenerate_faces)
+    originals = {}
+    for keys, triangle in validation:
+        for key, point in zip(keys, triangle):
+            originals.setdefault(key, tuple(point))
+    planned = {}
+    for operation in plan.displacements:
+        key = (operation.object_uuid, operation.vertex_index)
+        if key in planned or key not in originals or operation.original != originals[key]:
+            raise SceneValidationError(
+                "VEYRA displacement does not match the retained snapshot.")
+        if not all(math.isfinite(value) for value in operation.delta):
+            raise SceneValidationError("VEYRA returned a non-finite displacement.")
+        planned[key] = operation.delta
+    edges = [math.dist(triangle[index], triangle[(index + 1) % 3])
+             for _keys, triangle in validation for index in range(3)]
+    bound = max(edges, default=0.0) * intersection_auto_fix.MAX_CORRECTION_EDGE_FRACTION
+    if any(math.dist((0.0, 0.0, 0.0), delta) > bound + 1.0e-12
+           for delta in planned.values()):
+        raise SceneValidationError("VEYRA displacement exceeds local safety bounds.")
+    if planned and not intersection_auto_fix.validate_intersection_plan(
+            (), planned, validation):
+        raise SceneValidationError(
+            "VEYRA repair would introduce a new local intersection.")
+    diagnosed_polygons = {
+        (face.object_uuid, int(face.source_polygon_index)): face
+        for face in degenerate_faces if face.source_polygon_index is not None}
+    groups = []
+    weld_faces = []
+    seen_weld_vertices = set()
+    for operation in plan.welds:
+        indices = tuple(operation.vertex_indices)
+        keys = tuple((operation.object_uuid, index) for index in indices)
+        if (len(indices) < 2 or len(set(indices)) != len(indices)
+                or seen_weld_vertices.intersection(keys)):
+            raise SceneValidationError("VEYRA returned an invalid explicit weld map.")
+        if tuple(originals.get(key) for key in keys) != operation.original_coordinates:
+            raise SceneValidationError(
+                "VEYRA weld does not match retained source coordinates.")
+        faces = tuple(diagnosed_polygons.get((operation.object_uuid, polygon))
+                      for polygon in operation.source_polygon_indices)
+        if not faces or any(face is None or len(set(indices).intersection(
+                face.vertex_indices)) < 2 for face in faces):
+            raise SceneValidationError(
+                "VEYRA weld is not uniquely sourced from a diagnosed face.")
+        groups.append(keys); weld_faces.extend(faces); seen_weld_vertices.update(keys)
+    weld_plan = intersection_auto_fix.DegenerateWeldPlan(
+        tuple(groups), tuple(dict.fromkeys(weld_faces)))
+    validated_welds = _validated_local_welds(weld_plan, objects, planned)
+    operation_total = len(planned) + sum(
+        len(group) - 1 for groups_for_object in validated_welds.values()
+        for group in groups_for_object)
+    shared_controller.update(
+        veyra_step=VeyraStep.APPLYING_REPAIRS, veyra_step_index=3,
+        veyra_step_current=0, veyra_step_total=operation_total or 1,
+        status_title=VEYRA_STEP_LABELS[VeyraStep.APPLYING_REPAIRS],
+        activity_label="Applying typed repair operations")
+    changed = set(); completed = 0
+    for (object_uuid, vertex_index), world_delta in planned.items():
+        obj, inverse_linear, Vector = objects[object_uuid]
+        obj.data.vertices[vertex_index].co += (
+            inverse_linear @ Vector(ppf_vector_to_blender(world_delta)))
+        changed.add(obj); completed += 1
+        shared_controller.update(veyra_step_current=completed)
+    for obj in changed:
+        obj.data.update(); validation_state.forget(obj)
+    welded_objects = _apply_local_welds(validated_welds, objects)
+    changed.update(welded_objects)
+    completed = operation_total
+    shared_controller.update(veyra_step_current=completed)
+    for obj in welded_objects:
+        validation_state.forget(obj)
+    return changed, len(planned), sum(
+        len(group) - 1 for groups_for_object in validated_welds.values()
+        for group in groups_for_object)
 
 
 class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
@@ -9658,8 +9801,8 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
     bl_idname = "clothnext.intersection_auto_fix"
     bl_label = "Auto Fix"
     bl_description = (
-        "Gently repair supported geometry diagnostics; exact diagnosed "
-        "duplicate vertices may be welded after safety validation")
+        "Run the Veyra geometry repair solver; exact diagnosed duplicate "
+        "vertices may be welded after safety validation")
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -9672,7 +9815,7 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
                 "No safely mapped geometry diagnostics are available")
         return allowed
 
-    def execute(self, context):
+    def _legacy_execute(self, context):
         from . import intersection_overlay
         violations = _auto_fix_supported_violations()
         degenerate_faces = _auto_fix_supported_degenerate_faces()
@@ -9799,6 +9942,191 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             f"{welded_vertices} explicitly welded across "
             f"{len(changed)} object(s).{remaining}")
         return {"FINISHED"}
+
+    def _veyra_cleanup(self, context):
+        timer = getattr(self, "_veyra_timer", None)
+        if timer is not None:
+            try: context.window_manager.event_timer_remove(timer)
+            except (AttributeError, RuntimeError): pass
+            self._veyra_timer = None
+
+    def execute(self, context):
+        manager = getattr(context, "window_manager", None)
+        if (manager is None or not hasattr(manager, "event_timer_add")
+                or not hasattr(manager, "modal_handler_add")):
+            # Headless/fake-bpy compatibility only. Production Blender always
+            # takes the non-blocking modal VEYRA path below.
+            return self._legacy_execute(context)
+        from . import intersection_overlay
+        try:
+            _leave_edit_mode_for_auto_fix(context)
+            violations = _auto_fix_supported_violations()
+            degenerate_faces = _auto_fix_supported_degenerate_faces()
+            result = diagnostic_result()
+            snapshot = intersection_overlay.solver_input_snapshot()
+            pairs, objects = _auto_fix_snapshot_pairs(
+                context, violations, snapshot, degenerate_faces)
+            desired = max(
+                2.0 * float(value[0].cloth_next.collision.collision_gap)
+                + float(value[0].cloth_next.collision.surface_offset)
+                for value in objects.values())
+            validation = _auto_fix_validation_triangles(
+                snapshot, pairs, degenerate_faces)
+            job_id = _begin_controller(BakeJobKind.VEYRA)
+            shared_controller.update(
+                companion_mode=CompanionMode.VEYRA,
+                veyra_step=VeyraStep.ANALYZING_DIAGNOSTICS,
+                veyra_step_index=1, veyra_step_current=0,
+                veyra_step_total=len(pairs) + len(degenerate_faces),
+                status_title=VEYRA_STEP_LABELS[
+                    VeyraStep.ANALYZING_DIAGNOSTICS],
+                activity_label="Preparing immutable diagnostics")
+            if not modal_lock.reserve(job_id):
+                raise SceneValidationError(
+                    "Another Cloth NeXt operation already owns startup.")
+            ok, message = companion_manager.ensure_running()
+            if not ok:
+                raise SceneValidationError(message)
+            payload = _veyra_input(
+                job_id, snapshot, pairs, degenerate_faces, validation, desired)
+            artifact = companion_manager.session_artifacts().write_json(
+                schema="cnx.veyra.input.v1", job_id=job_id,
+                name=f"{job_id}.input.json", value=payload)
+            self._veyra_job_id = job_id
+            self._veyra_snapshot = snapshot
+            self._veyra_identity = payload["source_snapshot_identity"]
+            self._veyra_violations = violations
+            self._veyra_degenerate_faces = degenerate_faces
+            self._veyra_result = result
+            shared_controller.transition(
+                BakeState.STARTING_COMPANION,
+                status_message="Starting Veyra")
+            request = EnterBakeMode(
+                job_id=job_id, blender_process_id=os.getpid(),
+                frame_start=int(snapshot.bake_start_frame),
+                frame_end=int(snapshot.bake_start_frame), preset_label="Veyra",
+                mode=CompanionMode.VEYRA,
+                input_artifact=artifact.to_dict())
+            ok, message = companion_manager.begin_bake_mode(request)
+            if not ok:
+                raise SceneValidationError(message)
+            shared_controller.transition(
+                BakeState.WAITING_FOR_COMPANION,
+                status_message="Opening Veyra…")
+        except (AttributeError, SceneValidationError, ValueError, OSError) as exc:
+            modal_lock.release(getattr(self, "_veyra_job_id", None))
+            try: shared_controller.fail(str(exc) or "Veyra could not start.")
+            except InvalidTransition: pass
+            self.report({"WARNING"}, str(exc))
+            return {"CANCELLED"}
+        self._veyra_timer = manager.event_timer_add(
+            .1, window=getattr(context, "window", None))
+        manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def modal(self, context, event):
+        job_id = getattr(self, "_veyra_job_id", "")
+        snapshot = shared_controller.snapshot()
+        if event.type == "ESC" and snapshot.can_cancel:
+            companion_manager.cancel_veyra(job_id)
+            try: shared_controller.request_cancel()
+            except InvalidTransition: pass
+            return {"RUNNING_MODAL"}
+        if event.type != "TIMER":
+            return {"RUNNING_MODAL"}
+        for area in getattr(getattr(context, "screen", None), "areas", ()):
+            area.tag_redraw()
+        state, message = companion_manager.startup_status(job_id)
+        if snapshot.state is BakeState.WAITING_FOR_COMPANION:
+            if state == "READY":
+                if (not companion_manager.consume_ready(job_id)
+                        or not modal_lock.acquire(
+                            job_id, companion_ready_job_id=job_id)):
+                    return self._veyra_fail(context,
+                                            "Veyra readiness became stale.")
+                shared_controller.transition(
+                    BakeState.COMPANION_READY,
+                    status_message="Veyra companion ready")
+                shared_controller.transition(
+                    BakeState.STARTING_RUN,
+                    status_message="Veyra is planning repairs")
+            elif state in {"ERROR", "CANCELLED"}:
+                return self._veyra_fail(context, message)
+        while True:
+            item = companion_manager.poll_veyra_event(job_id)
+            if item is None: break
+            kind = item["type"]
+            if kind == "veyra_progress":
+                continue
+            if kind == "veyra_cancelled":
+                try:
+                    if shared_controller.snapshot().state is not BakeState.CANCELLING:
+                        shared_controller.request_cancel()
+                    shared_controller.transition(BakeState.CANCELLED,
+                                                 status_message="Veyra cancelled")
+                except InvalidTransition: pass
+                self._veyra_cleanup(context); modal_lock.release(job_id)
+                return {"CANCELLED"}
+            if kind == "veyra_error":
+                return self._veyra_fail(
+                    context, item.get("message", "Veyra planning failed."))
+            if kind == "veyra_result":
+                try:
+                    artifact = RepairArtifact.from_dict(item["artifact"])
+                    value = companion_manager.session_artifacts().read_json(
+                        artifact, schema="cnx.veyra.plan.v1", job_id=job_id)
+                    plan = VeyraRepairPlan.from_dict(value)
+                    if not plan.planned_count or not (
+                            plan.displacements or plan.welds):
+                        raise SceneValidationError(
+                            "Veyra could not derive a safe repair.")
+                    changed, moved, welded = _apply_veyra_plan(
+                        context, plan, snapshot=self._veyra_snapshot,
+                        violations=self._veyra_violations,
+                        degenerate_faces=self._veyra_degenerate_faces,
+                        expected_identity=self._veyra_identity)
+                    _clear_intersection_diagnostics()
+                    shared_controller.update(
+                        veyra_step=VeyraStep.REVALIDATING_GEOMETRY,
+                        veyra_step_index=4, veyra_step_current=0,
+                        veyra_step_total=None,
+                        status_title=VEYRA_STEP_LABELS[
+                            VeyraStep.REVALIDATING_GEOMETRY],
+                        activity_label="Building fresh solver snapshot")
+                    revalidated, stats = _revalidate_local_geometry(context)
+                    shared_controller.update(
+                        veyra_step_current=max(1, int(stats.triangle_count)),
+                        veyra_step_total=max(1, int(stats.triangle_count)))
+                    remaining = _continue_after_auto_fix_recheck(
+                        context, revalidated, veyra=True)
+                    self.report({"INFO"},
+                        f"Veyra: {plan.planned_count} diagnostic(s) repaired, "
+                        f"{plan.skipped_count} skipped; {moved} vertices moved "
+                        f"and {welded} explicitly welded across "
+                        f"{len(changed)} object(s).{remaining}")
+                    if revalidated.has_degenerate_faces or revalidated.has_intersections:
+                        shared_controller.transition(
+                            BakeState.FINISHED,
+                            status_message="Veyra partial repair complete",
+                            can_cancel=False)
+                except (KeyError, AttributeError, SceneValidationError,
+                        ValueError, OSError) as exc:
+                    return self._veyra_fail(context, str(exc))
+        snapshot = shared_controller.snapshot()
+        if snapshot.state in {BakeState.FINISHED, BakeState.CANCELLED,
+                              BakeState.ERROR}:
+            self._veyra_cleanup(context); modal_lock.release(job_id)
+            return ({"CANCELLED"} if snapshot.state is BakeState.CANCELLED
+                    else {"FINISHED"})
+        return {"RUNNING_MODAL"}
+
+    def _veyra_fail(self, context, message):
+        try: shared_controller.fail(message or "Veyra failed.")
+        except InvalidTransition: pass
+        self._veyra_cleanup(context)
+        modal_lock.release(getattr(self, "_veyra_job_id", None))
+        self.report({"WARNING"}, message or "Veyra failed.")
+        return {"CANCELLED"}
 
 
 def _recovery_metadata_from_scene(scene) -> Path | None:

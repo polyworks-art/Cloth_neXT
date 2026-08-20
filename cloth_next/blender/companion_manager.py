@@ -6,8 +6,11 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
+import tempfile
 import time
+import uuid
 
 import bpy
 
@@ -17,6 +20,8 @@ from ..bake.controller import shared_controller
 from ..bake.status import BakeJobKind, BakeState
 from ..bake.transport import (BakeWindowReady, EnterBakeMode,
                               LocalSocketServer)
+from ..veyra.artifacts import SessionArtifacts
+from ..veyra.model import CompanionMode, VeyraStep, VEYRA_STEP_LABELS
 from . import modal_lock
 
 STARTUP_TIMEOUT_SECONDS = 7.0
@@ -27,6 +32,7 @@ _server = None
 _unsubscribe = None
 _owned_for_attempt = False
 _pending_request: EnterBakeMode | None = None
+_pending_sent = False
 _pending_deadline: float | None = None
 _ready: BakeWindowReady | None = None
 _startup_error = ""
@@ -37,6 +43,9 @@ _production_session = False
 _production_job_id = ""
 _transport_ready = False
 _last_error_key: tuple[str, str, float] | None = None
+_session_artifacts: SessionArtifacts | None = None
+_veyra_events: dict[str, list[dict]] = {}
+_veyra_metrics: dict[str, dict] = {}
 
 
 def _log_path() -> Path:
@@ -133,14 +142,16 @@ def _publish(snapshot) -> None:
         except (OSError, TypeError, ValueError) as exc:
             _log("transport", "Bake status publication failed",
                  error_type=type(exc).__name__, error=str(exc)[:2048])
-    if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
+    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE,
+                                                       BakeJobKind.VEYRA}
             and snapshot.state is BakeState.ERROR):
         modal_lock.release(snapshot.job_id)
         _log("error","Companion remains open for user acknowledgement",
              job_id=snapshot.job_id,
              error_code=getattr(snapshot,"error_code","") or "CNX-E199")
         return
-    if (_production_session and snapshot.job_kind is BakeJobKind.BAKE
+    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE,
+                                                       BakeJobKind.VEYRA}
             and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):
         modal_lock.release(snapshot.job_id)
@@ -153,7 +164,7 @@ def _publish(snapshot) -> None:
 
 def _launch() -> tuple[bool, str, bool]:
     """Launch or reuse. Success means process creation, never readiness."""
-    global _process, _server, _unsubscribe, _transport_ready
+    global _process, _server, _unsubscribe, _transport_ready, _session_artifacts
     if running() and _server is not None:
         _log("process", "reusing running companion")
         return True, "Bake window process reused", False
@@ -181,7 +192,11 @@ def _launch() -> tuple[bool, str, bool]:
         message = f"Bake window transport connection failed: {exc}"
         _log("transport", message)
         return False, message, False
-    command += ["--port", str(_server.port), "--token", _server.token]
+    session_root = (Path(tempfile.gettempdir()) / "cloth_next" / "veyra" /
+                    uuid.uuid4().hex)
+    _session_artifacts = SessionArtifacts(session_root)
+    command += ["--port", str(_server.port), "--token", _server.token,
+                "--session-root", str(session_root)]
     try:
         _process = subprocess.Popen(command, cwd=root, shell=False)
     except OSError as exc:
@@ -202,6 +217,7 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     """Reserve one readiness attempt. No worker, PPF, or modal lock starts."""
     global _pending_request, _pending_deadline, _ready, _startup_error
     global _owned_for_attempt, _production_session, _production_job_id
+    global _pending_sent
     if _pending_request is not None:
         return False, "A Bake window startup is already pending."
     ok, message, owned = _launch()
@@ -209,6 +225,7 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
         _startup_error = message
         return False, message
     _pending_request = request
+    _pending_sent = False
     _pending_deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
     _ready = None
     _startup_error = ""
@@ -218,13 +235,46 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     # terminal transition can release that lock before a listener sees it.
     _production_session = True
     _production_job_id = request.job_id
+    if request.mode is CompanionMode.VEYRA:
+        _veyra_metrics[request.job_id] = {
+            "steps": [], "progress": [], "companion_pid": None,
+            "planning_seconds": None}
     _log("handshake", "waiting for Bake window readiness",
          job_id=request.job_id, frame_start=request.frame_start,
          frame_end=request.frame_end)
     # A reused, already-connected companion does not send another `ready`.
-    if getattr(_server, "connected", lambda: False)():
+    if (_transport_ready
+            and getattr(_server, "connected", lambda: False)()):
         _server.enter_bake_mode(request)
+        _pending_sent = True
     return True, message
+
+
+def session_artifacts() -> SessionArtifacts:
+    if _session_artifacts is None:
+        raise RuntimeError("Companion session artifacts are not initialized")
+    return _session_artifacts
+
+
+def poll_veyra_event(job_id: str) -> dict | None:
+    queue = _veyra_events.get(str(job_id), [])
+    if not queue:
+        return None
+    event = queue.pop(0)
+    if not queue:
+        _veyra_events.pop(str(job_id), None)
+    return event
+
+
+def veyra_metrics(job_id: str) -> dict:
+    value = _veyra_metrics.get(str(job_id), {})
+    return {**value, "steps": list(value.get("steps", ())),
+            "progress": list(value.get("progress", ()))}
+
+
+def cancel_veyra(job_id: str) -> None:
+    if _server is not None:
+        _server.cancel_veyra(job_id)
 
 
 def launch() -> tuple[bool, str]:
@@ -265,20 +315,23 @@ def startup_status(job_id: str) -> tuple[str, str]:
 
 
 def consume_ready(job_id: str) -> bool:
-    global _pending_request, _pending_deadline
+    global _pending_request, _pending_deadline, _pending_sent
     if _ready is None or _ready.job_id != job_id or not _ready.ready:
         return False
     _pending_request = None
+    _pending_sent = False
     _pending_deadline = None
     return True
 
 
 def cancel_startup(job_id: str, reason: str = "Bake window startup cancelled.") -> None:
     global _pending_request, _pending_deadline, _ready, _startup_error
+    global _pending_sent
     if _pending_request is None or _pending_request.job_id != job_id:
         return
     _log("handshake", reason, job_id=job_id)
     _pending_request = None; _pending_deadline = None; _ready = None
+    _pending_sent = False
     _startup_error = reason
     modal_lock.release(job_id)
     if _owned_for_attempt:
@@ -305,13 +358,16 @@ def _handle_ready(payload: dict) -> None:
         cancel_startup(request.job_id, _startup_error)
         return
     _ready = ack
+    metrics = _veyra_metrics.get(ack.job_id)
+    if metrics is not None:
+        metrics["companion_pid"] = ack.companion_process_id
     _log("handshake", "Bake window ready", job_id=ack.job_id,
          companion_pid=ack.companion_process_id)
 
 
 def _pulse():
     global _pending_request, _pending_deadline, _startup_error, _transport_ready
-    global _terminal_deadline, _force_deadline, _kill_deadline
+    global _terminal_deadline, _force_deadline, _kill_deadline, _pending_sent
     if _server is None:
         return None
     message = _server.poll_request()
@@ -320,8 +376,9 @@ def _pulse():
         if kind == "ready":
             _transport_ready = True
             _server.publish(shared_controller.snapshot())
-            if _pending_request is not None:
+            if _pending_request is not None and not _pending_sent:
                 _server.enter_bake_mode(_pending_request)
+                _pending_sent = True
                 _log("transport", "companion transport ready",
                      job_id=_pending_request.job_id)
             else:
@@ -338,6 +395,47 @@ def _pulse():
                 cancel_startup(_pending_request.job_id)
             elif snapshot.can_cancel:
                 shared_controller.request_cancel()
+        elif kind.startswith("veyra_"):
+            payload = dict(message.get("payload", {}))
+            job_id = str(payload.get("job_id", ""))
+            if not job_id or job_id != _production_job_id:
+                _log("veyra", "ignored stale VEYRA event", job_id=job_id)
+            else:
+                payload["type"] = kind
+                _veyra_events.setdefault(job_id, []).append(payload)
+                metrics = _veyra_metrics.setdefault(job_id, {
+                    "steps": [], "progress": [], "companion_pid": None,
+                    "planning_seconds": None})
+                if kind == "veyra_progress":
+                    step_name = str(payload.get("step", ""))
+                    if step_name and (not metrics["steps"]
+                                      or metrics["steps"][-1] != step_name):
+                        metrics["steps"].append(step_name)
+                    if len(metrics["progress"]) < 512:
+                        metrics["progress"].append({
+                            "step": step_name,
+                            "current": payload.get("current"),
+                            "total": payload.get("total"),
+                            "elapsed": payload.get("elapsed")})
+                elif kind == "veyra_result":
+                    metrics["planning_seconds"] = payload.get("elapsed")
+                if kind == "veyra_progress":
+                    try:
+                        step = VeyraStep(payload["step"])
+                        shared_controller.update(
+                            companion_mode=CompanionMode.VEYRA,
+                            job_kind=BakeJobKind.VEYRA,
+                            veyra_step=step,
+                            veyra_step_index=list(VeyraStep).index(step) + 1,
+                            veyra_step_current=int(payload.get("current", 0)),
+                            veyra_step_total=(None if payload.get("total") is None
+                                              else int(payload["total"])),
+                            status_title=VEYRA_STEP_LABELS[step],
+                            activity_label=str(payload.get("detail", "")),
+                            elapsed_seconds=float(payload.get("elapsed", 0.0)))
+                    except (KeyError, TypeError, ValueError):
+                        _log("veyra", "ignored malformed VEYRA progress",
+                             job_id=job_id)
         elif kind == "close_notice":
             snapshot = shared_controller.snapshot()
             modal_lock.release(snapshot.job_id)
@@ -392,6 +490,7 @@ def _dispose_transport() -> None:
     global _process, _server, _unsubscribe, _terminal_deadline
     global _force_deadline, _kill_deadline, _production_session
     global _production_job_id, _owned_for_attempt, _transport_ready
+    global _session_artifacts
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
     if _server: _server.close(join=False)
@@ -399,6 +498,11 @@ def _dispose_transport() -> None:
     _force_deadline = None; _kill_deadline = None; _production_session = False
     _production_job_id = ""; _owned_for_attempt = False
     _transport_ready = False
+    artifact_root = (_session_artifacts.root
+                     if _session_artifacts is not None else None)
+    _session_artifacts = None
+    if artifact_root is not None:
+        shutil.rmtree(artifact_root, ignore_errors=True)
 
 
 def shutdown() -> bool:
@@ -406,9 +510,11 @@ def shutdown() -> bool:
     global _process, _server, _unsubscribe, _pending_request, _ready
     global _production_session, _production_job_id, _owned_for_attempt
     global _terminal_deadline, _force_deadline, _kill_deadline
-    global _pending_deadline, _startup_error, _transport_ready
+    global _pending_deadline, _startup_error, _transport_ready, _session_artifacts
+    global _pending_sent
     modal_lock.release()
     _pending_request = None; _ready = None
+    _pending_sent = False
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
     server = _server
@@ -455,4 +561,9 @@ def shutdown() -> bool:
     _terminal_deadline = None; _force_deadline = None; _kill_deadline = None
     _pending_deadline = None; _startup_error = ""
     _transport_ready = False
+    artifact_root = (_session_artifacts.root
+                     if _session_artifacts is not None else None)
+    _session_artifacts = None; _veyra_events.clear()
+    if artifact_root is not None:
+        shutil.rmtree(artifact_root, ignore_errors=True)
     return process_stopped and transport_stopped

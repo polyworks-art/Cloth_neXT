@@ -36,3 +36,20 @@ def advance_particle(particle: dict, elapsed: float, rate: float,
     perpendicular_y = particle["direction_x"]
     return (particle["base_x"] + perpendicular_x * noise,
             particle["base_y"] + perpendicular_y * noise)
+
+
+def advance_veyra_particle(particle: dict, elapsed: float, rate: float,
+                           width: float, height: float) -> tuple[float, float]:
+    """Advance a bounded repair/convergence loop toward the center seam."""
+    duration = max(0.8, float(particle.get("duration", 2.4)))
+    particle["veyra_time"] = (float(particle.get("veyra_time", 0.0))
+                              + max(0.0, elapsed) * max(0.05, rate)) % duration
+    phase = particle["veyra_time"] / duration
+    eased = phase * phase * (3.0 - 2.0 * phase)
+    start_x = min(width, max(0.0, float(particle.get("start_x", 0.0))))
+    start_y = min(height, max(0.0, float(particle.get("start_y", height / 2))))
+    seam_x = width / 2 + float(particle.get("seam_offset", 0.0))
+    x = start_x + (seam_x - start_x) * eased
+    y = start_y + math.sin(phase * math.pi) * float(
+        particle.get("vertical_arc", 0.0))
+    return min(width, max(0.0, x)), min(height, max(0.0, y))

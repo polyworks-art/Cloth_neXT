@@ -2,21 +2,33 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Capture the real Tk companion for the mandatory human visual gate."""
 from pathlib import Path
+import argparse
 import sys
 import time
 from PIL import ImageGrab
 import ctypes
 
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
-from cloth_next.bake.status import BakeActivity, BakeSnapshot, BakeState
+from cloth_next.bake.status import BakeActivity, BakeJobKind, BakeSnapshot, BakeState
+from cloth_next.veyra.model import CompanionMode, VeyraStep
 from companion.app import BakeWindow
 
+parser=argparse.ArgumentParser(); parser.add_argument(
+    "--mode",choices=("bake","veyra"),default="bake")
+args=parser.parse_args()
 window=BakeWindow()
-window.show(BakeSnapshot(state=BakeState.SIMULATING,preview=True,
+snapshot=(BakeSnapshot(state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,
+    companion_mode=CompanionMode.VEYRA,
+    veyra_step=VeyraStep.SOLVING_REPAIR_PLAN,veyra_step_index=2,
+    veyra_step_current=128,veyra_step_total=240,status_title="Solving Repair Plan",
+    activity_label="repair candidates",elapsed_seconds=12,can_cancel=True,
+    job_id="veyra-capture") if args.mode=="veyra" else
+    BakeSnapshot(state=BakeState.SIMULATING,preview=True,
     progress_current=7,progress_total=240,current_frame=7,frame_start=1,frame_end=240,
     status_title="Simulating cloth",status_message="Simulating frame 7 of 240",
     activity_code=BakeActivity.SOLVING_CONSTRAINTS,
     elapsed_seconds=2,estimated_remaining_seconds=66,can_cancel=True))
+window.show(snapshot)
 window.root.update_idletasks(); window.root.update(); window.root.lift(); window.root.attributes("-topmost",True)
 for _ in range(6):
     window.root.update_idletasks(); window.root.update(); time.sleep(.2)
@@ -25,6 +37,6 @@ if sys.platform=="win32":
     hwnd=ctypes.windll.user32.GetParent(window.root.winfo_id()) or window.root.winfo_id()
     rect=(ctypes.c_long*4)(); ctypes.windll.user32.GetWindowRect(hwnd,rect)
     x,y,right,bottom=rect; w,h=right-x,bottom-y
-output=ROOT/"dist/companion-ui-preview.png"; output.parent.mkdir(exist_ok=True)
+output=ROOT/f"dist/companion-ui-{args.mode}.png"; output.parent.mkdir(exist_ok=True)
 ImageGrab.grab((x,y,x+w,y+h),all_screens=True).save(output)
 window.close(); print(output)

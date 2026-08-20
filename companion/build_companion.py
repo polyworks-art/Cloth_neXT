@@ -17,6 +17,7 @@ def main():
         "--onefile","--windowed","--noconfirm",
         f"--icon={assets/'cloth_next.ico'}",
         f"--add-data={assets/'cloth_next.png'};companion_assets",
+        f"--add-data={assets/'veyra.png'};companion_assets",
         f"--add-data={assets/'bake.png'};companion_assets",
         *[f"--add-data={assets/name};companion_assets" for name in PARTICLE_ASSETS],
         *[f"--add-data={assets/name};companion_assets" for name in STATUS_ASSETS],

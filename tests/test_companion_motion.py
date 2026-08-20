@@ -5,7 +5,8 @@ import math
 
 import pytest
 
-from companion.particle_motion import advance_particle, smooth_rate
+from companion.particle_motion import (advance_particle, advance_veyra_particle,
+                                       smooth_rate)
 
 
 def particle():
@@ -46,3 +47,18 @@ def test_rate_smoothing_depends_on_elapsed_time_not_frame_count():
     expected = 1.0 + (0.18 - 1.0) * math.exp(-5.0)
     assert fast == pytest.approx(expected)
     assert slow > 0.18
+
+
+def test_veyra_convergence_is_deterministic_bounded_and_moves_toward_center():
+    first = {"start_x": 4.0, "start_y": 30.0, "seam_offset": -2.0,
+             "vertical_arc": 2.0, "duration": 2.0, "veyra_time": 0.0}
+    second = deepcopy(first)
+    start_distance = abs(first["start_x"] - 38.0)
+    positions = [advance_veyra_particle(first, .05, 1.0, 76, 72)
+                 for _ in range(20)]
+    for _ in range(20):
+        expected = advance_veyra_particle(second, .05, 1.0, 76, 72)
+    assert positions[-1] == pytest.approx(expected)
+    assert all(math.isfinite(value) for point in positions for value in point)
+    assert all(0 <= x <= 76 and 0 <= y <= 72 for x, y in positions)
+    assert abs(positions[-1][0] - 38.0) < start_distance

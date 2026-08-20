@@ -4,7 +4,9 @@ import time
 import pytest
 
 from cloth_next.bake.status import BakeSnapshot, BakeState
-from cloth_next.bake.transport import LocalSocketClient, LocalSocketServer
+from cloth_next.bake.transport import (EnterBakeMode, LocalSocketClient,
+                                       LocalSocketServer)
+from cloth_next.veyra.model import CompanionMode
 
 def wait_for(predicate, timeout=2):
     end=time.time()+timeout
@@ -44,3 +46,12 @@ def test_server_close_is_idempotent_and_joins_active_client_thread():
 
 def test_non_localhost_server_rejected():
     with pytest.raises(ValueError): LocalSocketServer("0.0.0.0")
+
+def test_explicit_veyra_mode_and_small_artifact_metadata_round_trip():
+    request = EnterBakeMode(
+        "veyra-job", 123, 1, 1, "Veyra", mode=CompanionMode.VEYRA,
+        input_artifact={"schema": "cnx.veyra.input.v1", "job_id": "veyra-job",
+                        "relative_path": "veyra-job.input.json", "size": 42,
+                        "sha256": "a" * 64})
+    assert request.to_dict()["mode"] == "VEYRA"
+    assert len(str(request.to_dict())) < 1024

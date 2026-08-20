@@ -12,13 +12,16 @@ import socket
 import threading
 
 from .status import BakeSnapshot
+from ..veyra.model import CompanionMode
 
 MAX_MESSAGE_BYTES = 64 * 1024
 
 
 MESSAGE_TYPES = {"session_hello", "bake_status", "shutdown", "heartbeat",
                  "ready", "cancel_request", "close_notice",
-                 "enter_bake_mode", "bake_window_ready", "startup_error"}
+                 "enter_bake_mode", "bake_window_ready", "startup_error",
+                 "veyra_progress", "veyra_result", "veyra_error",
+                 "veyra_cancelled", "veyra_cancel"}
 _ALIASES = {"status": "bake_status", "cancel": "cancel_request", "close": "close_notice"}
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +33,13 @@ class EnterBakeMode:
     preset_label: str
     requested_topmost: bool = True
     requested_visible: bool = True
+    mode: CompanionMode = CompanionMode.BAKE
+    input_artifact: dict | None = None
+
+    def to_dict(self):
+        value = asdict(self)
+        value["mode"] = self.mode.value
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +90,8 @@ def decode_message(value: bytes, token: str) -> dict:
             raise ValueError("status snapshot missing")
         data["snapshot"] = BakeSnapshot.from_dict(data["snapshot"])
     if data["type"] in {"enter_bake_mode", "bake_window_ready",
-                        "startup_error"} and not isinstance(
+                        "startup_error", "veyra_progress", "veyra_result",
+                        "veyra_error", "veyra_cancelled", "veyra_cancel"} and not isinstance(
                             data.get("payload"), dict):
         raise ValueError("message payload missing")
     return data
@@ -128,7 +139,9 @@ class LocalSocketServer:
     def __init__(self, host: str = "127.0.0.1", *, token: str | None = None):
         validate_localhost(host)
         self.token = token or secrets.token_urlsafe(32)
-        self.requests: Queue[str] = Queue(maxsize=32)
+        # Bounded, but large enough that throttled VEYRA progress can never
+        # crowd a terminal result while Blender drains at 20 Hz.
+        self.requests: Queue[str] = Queue(maxsize=256)
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server.bind((host, 0)); self._server.listen(1); self._server.settimeout(0.2)
@@ -170,9 +183,13 @@ class LocalSocketServer:
                         try: message = decode_message(raw, self.token)
                         except (ValueError, PermissionError): continue
                         if message["type"] in {"ready", "cancel_request", "close_notice",
-                                               "bake_window_ready", "startup_error"}:
+                                               "bake_window_ready", "startup_error",
+                                               "veyra_progress", "veyra_result",
+                                               "veyra_error", "veyra_cancelled"}:
                             value = (message if message["type"] in {
-                                "bake_window_ready", "startup_error"}
+                                "bake_window_ready", "startup_error",
+                                "veyra_progress", "veyra_result",
+                                "veyra_error", "veyra_cancelled"}
                                 else message["type"])
                             try: self.requests.put_nowait(value)
                             except Exception: pass
@@ -193,7 +210,9 @@ class LocalSocketServer:
     def connected(self):
         with self._lock: return self._client is not None
     def enter_bake_mode(self, request: EnterBakeMode):
-        self._send_payload("enter_bake_mode", asdict(request))
+        self._send_payload("enter_bake_mode", request.to_dict())
+    def cancel_veyra(self, job_id: str):
+        self._send_payload("veyra_cancel", {"job_id": str(job_id)})
     def _send_payload(self, kind, payload):
         data = encode_message(kind, self.token, payload=payload) + b"\n"
         with self._lock: client = self._client
@@ -228,8 +247,10 @@ class LocalSocketClient:
     def __init__(self, port: int, token: str):
         self.token=token; self._socket=socket.create_connection(("127.0.0.1", int(port)), timeout=2)
         self._socket.settimeout(0.2); self._buffer=b""; self.closed=False
+        self._send_lock=threading.Lock()
     def send(self, kind, payload=None):
-        self._socket.sendall(encode_message(kind, self.token, payload=payload)+b"\n")
+        with self._send_lock:
+            self._socket.sendall(encode_message(kind, self.token, payload=payload)+b"\n")
     def receive(self, timeout=0.2):
         self._socket.settimeout(timeout)
         while b"\n" not in self._buffer:

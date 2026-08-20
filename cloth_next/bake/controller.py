@@ -11,6 +11,7 @@ import uuid
 
 from .status import BakeSnapshot, BakeState, normalized
 from ..core.error_codes import classify_error, valid_error_code
+from ..veyra.model import CompanionMode
 
 
 class InvalidTransition(ValueError):
@@ -27,8 +28,8 @@ _NEXT = {
                                       BakeState.CANCELLING, BakeState.ERROR},
     BakeState.COMPANION_READY: {BakeState.STARTING_RUN, BakeState.CANCELLING,
                                 BakeState.ERROR},
-    BakeState.STARTING_RUN: {BakeState.EXPORTING, BakeState.CANCELLING,
-                             BakeState.ERROR},
+    BakeState.STARTING_RUN: {BakeState.EXPORTING, BakeState.FINISHED,
+                             BakeState.CANCELLING, BakeState.ERROR},
     BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.CANCELLING, BakeState.ERROR},
     # STARTING_SOLVER -> SIMULATING stays for the display-only UI preview;
     # the real run goes through UPLOADING and BUILDING.
@@ -103,6 +104,15 @@ class BakeController:
                 changes.setdefault("activity_detail", "")
                 changes.setdefault("can_pause", False)
                 changes.setdefault("is_paused", False)
+                changes.setdefault(
+                    "companion_mode",
+                    (CompanionMode.VEYRA if changes.get("job_kind") is not None
+                     and getattr(changes["job_kind"], "value", "") == "VEYRA"
+                     else CompanionMode.BAKE))
+                changes.setdefault("veyra_step", None)
+                changes.setdefault("veyra_step_index", 0)
+                changes.setdefault("veyra_step_current", 0)
+                changes.setdefault("veyra_step_total", None)
             self._snapshot = normalized(old, state=state, **changes)
             listeners = tuple(self._listeners)
             result = self._snapshot

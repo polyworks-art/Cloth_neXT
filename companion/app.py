@@ -12,6 +12,7 @@ import random
 import re
 import sys
 import tkinter as tk
+import threading
 import time
 import traceback
 import webbrowser
@@ -21,8 +22,13 @@ from tkinter import font as tkfont, ttk
 from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
                                     BakeSnapshot, BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
-from companion.particle_motion import advance_particle, smooth_rate
-from companion.frame_progress import CurrentFrameProgressEstimator
+from cloth_next.veyra.artifacts import SessionArtifacts
+from cloth_next.veyra.model import (CompanionMode, RepairArtifact, VeyraStep,
+                                    VEYRA_STEP_LABELS)
+from cloth_next.veyra.solver import VeyraCancelled, solve_repair_plan
+from companion.particle_motion import (advance_particle,
+                                       advance_veyra_particle, smooth_rate)
+from companion.frame_progress import CurrentFrameProgressEstimator, FrameProgress
 from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
 
 COMPANION_MESSAGE_BATCH_LIMIT=2048
@@ -154,6 +160,18 @@ def run_stats(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
     solver = " · ".join(value for value in (
         snapshot.solver_mode.replace("_", " ").title(),
         snapshot.solver_version) if value) or "—"
+    if snapshot.companion_mode is CompanionMode.VEYRA:
+        step = (VEYRA_STEP_LABELS.get(snapshot.veyra_step, "—")
+                if snapshot.veyra_step else "—")
+        within = (f"{snapshot.veyra_step_current} / {snapshot.veyra_step_total}"
+                  if snapshot.veyra_step_total else "—")
+        return (
+            ("FRAME", "Veyra"), ("PROGRESS", within),
+            ("ELAPSED", format_duration(snapshot.elapsed_seconds)),
+            ("SOLVER", "Veyra"), ("CONTACTS", solver_values.get("contacts", "—")),
+            ("NEWTON", solver_values.get("newton", "—")),
+            ("LINEAR ITERS", solver_values.get("iterations", "—")),
+            ("ACTIVITY", step[:34]),)
     return (
         ("FRAME", f"{frame} / {total}"),
         ("PROGRESS", progress),
@@ -183,6 +201,8 @@ def _windows_identity():
     if sys.platform=="win32":
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
+            # Preserve the established taskbar/icon identity. It is one shared
+            # application identity even while the explicit system mode changes.
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Polyworks.ClothNeXt.Bake")
         except (AttributeError,OSError): pass
 
@@ -221,6 +241,14 @@ class IconParticleField:
         self.canvas=tk.Canvas(parent,width=self.WIDTH,height=self.HEIGHT,bg=PANEL,highlightthickness=0,borderwidth=0)
         self.reduced_motion=reduced_motion; self._after=None; self._running=False; self._closed=False
         self._rate=.18; self._target=.18; self._last_tick=None; self._images=[]; self._particles=[]
+        self.mode=CompanionMode.BAKE
+        self._veyra_seam=(
+            self.canvas.create_line(
+                self.WIDTH/2,7,self.WIDTH/2,self.HEIGHT-7,
+                fill=GRAPH_FILL,width=3,state="hidden") ,
+            self.canvas.create_line(
+                self.WIDTH/2,7,self.WIDTH/2,self.HEIGHT-7,
+                fill=AMBER,width=1,dash=(2,3),state="hidden"))
         try:
             self._images=[tk.PhotoImage(file=str(_asset(name))) for name in PARTICLE_ASSETS]
             rng=random.Random()
@@ -235,6 +263,11 @@ class IconParticleField:
                     "frequency":rng.uniform(.5,1.2),
                     "frequency_2":rng.uniform(1.1,2.),
                     "amplitude":rng.uniform(1.4,4.)}
+                side=-1 if index%2==0 else 1
+                particle.update(start_x=(8.0 if side<0 else self.WIDTH-8.0),
+                    start_y=8.0+(index*7.0)%(self.HEIGHT-16.0),
+                    seam_offset=side*(1.5+(index%3)),vertical_arc=side*(index%4-1.5),
+                    duration=1.8+(index%4)*.25,veyra_time=(index/self.COUNT)*2.2)
                 particle["item"]=self.canvas.create_image(
                     particle["base_x"],particle["base_y"],
                     image=self._images[index%len(self._images)])
@@ -252,6 +285,17 @@ class IconParticleField:
             BakeState.CANCELLED:.05,BakeState.ERROR:.08}.get(state,.58)
         if activity is BakeActivity.WRITING_FRAME:self._target=.82
         elif activity in {BakeActivity.BUILDING_PC2,BakeActivity.APPLYING_PLAYBACK}:self._target=.24
+    def set_mode(self,mode):
+        self.mode=CompanionMode(mode)
+        seam_state="normal" if self.mode is CompanionMode.VEYRA else "hidden"
+        for item in self._veyra_seam:
+            self.canvas.itemconfigure(item,state=seam_state)
+            self.canvas.tag_lower(item)
+        if self.mode is CompanionMode.VEYRA and self.reduced_motion:
+            for index,particle in enumerate(self._particles):
+                self.canvas.coords(particle["item"],
+                    self.WIDTH/2+(-1 if index%2==0 else 1)*(2+index%3),
+                    8+(index*7)%(self.HEIGHT-16))
     def _tick(self):
         if self._closed or not self._running:return
         now=time.perf_counter()
@@ -259,7 +303,11 @@ class IconParticleField:
         self._rate=smooth_rate(self._rate,self._target,elapsed)
         if not self.reduced_motion:
             for particle in self._particles:
-                x,y=advance_particle(particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
+                if self.mode is CompanionMode.VEYRA:
+                    x,y=advance_veyra_particle(
+                        particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
+                else:
+                    x,y=advance_particle(particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
                 self.canvas.coords(particle["item"],x,y)
         try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
         except tk.TclError:self._running=False
@@ -272,15 +320,20 @@ class IconParticleField:
             self._after=None
 
 class BakeWindow:
-    def __init__(self,transport=None,root=None):
+    def __init__(self,transport=None,root=None,session_root=None,
+                 initial_mode=CompanionMode.BAKE):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
+        initial_mode=CompanionMode(initial_mode)
         # Prevent Tk's default top-left placement from flashing before the
         # preparation window receives its first Bake command.
         self.root.withdraw()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
-        self.root.title("Cloth NeXt Bake"); self.root.configure(bg=BG); self.root.resizable(False,False)
+        self.root.title("Cloth NeXt Veyra" if initial_mode is CompanionMode.VEYRA
+                        else "Cloth NeXt Bake")
+        self.root.configure(bg=BG); self.root.resizable(False,False)
         self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.minsize(390,COMPACT_HEIGHT)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
+        self._veyra_icon=tk.PhotoImage(file=str(_asset("veyra.png")))
         self.root.iconphoto(True,self._app_icon)
         self.primary=tk.StringVar(value="Ready")
         self.secondary=tk.StringVar(value="No PPF simulation is running.")
@@ -302,9 +355,21 @@ class BakeWindow:
         self._error_details=""
         self._last_snapshot=BakeSnapshot()
         self._connection_failed=False
+        self._mode=initial_mode
+        self._session_artifacts=(SessionArtifacts(session_root)
+                                 if session_root else None)
+        self._veyra_thread=None; self._veyra_cancel=threading.Event()
+        self._veyra_job_id=""
         self._details_visible=False
         self._configure_style(); self._build(); _match_windows_title_bar(self.root)
-        self.show(BakeSnapshot()); self.particles.start()
+        initial_snapshot=(BakeSnapshot(
+            state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,
+            companion_mode=CompanionMode.VEYRA,
+            veyra_step=VeyraStep.ANALYZING_DIAGNOSTICS,
+            veyra_step_index=1,status_title="Analyzing Diagnostics",
+            activity_label="Preparing repair analysis",can_cancel=True)
+            if initial_mode is CompanionMode.VEYRA else BakeSnapshot())
+        self.show(initial_snapshot); self.particles.start()
         self._tick_status_fill()
         self.root.update_idletasks()
         self._center_on_screen()
@@ -322,7 +387,16 @@ class BakeWindow:
 
     def enter_bake_mode(self,payload):
         job_id=str(payload.get("job_id", ""))
+        try: mode=CompanionMode(payload.get("mode", "BAKE"))
+        except (TypeError,ValueError): mode=CompanionMode.BAKE
         try:
+            self._mode=mode
+            self.root.title("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
+                            else "Cloth NeXt Bake")
+            self.root.iconphoto(
+                True,self._veyra_icon if mode is CompanionMode.VEYRA
+                else self._app_icon)
+            self.particles.set_mode(mode)
             already_visible=bool(
                 self.root.winfo_ismapped() and self.root.winfo_viewable())
             self.root.minsize(390,COMPACT_HEIGHT)
@@ -348,6 +422,8 @@ class BakeWindow:
             if visible and topmost:
                 self._job_modal=True
                 self.transport.send("bake_window_ready",response)
+                if mode is CompanionMode.VEYRA:
+                    self._start_veyra(job_id,payload.get("input_artifact"))
             else:
                 self.transport.send("startup_error",{"job_id":job_id,
                     "message":"Bake window did not become visible or topmost."})
@@ -355,6 +431,50 @@ class BakeWindow:
             LOG.exception("enter_bake_mode failed job_id=%s",job_id)
             self.transport.send("startup_error",{"job_id":job_id,
                 "message":f"Bake window could not enter foreground mode: {exc}"})
+
+    def _start_veyra(self,job_id,artifact_value):
+        if self._session_artifacts is None:
+            self.transport.send("veyra_error",{"job_id":job_id,
+                "message":"VEYRA session artifact root is unavailable."})
+            return
+        if self._veyra_thread is not None and self._veyra_thread.is_alive():
+            self.transport.send("veyra_error",{"job_id":job_id,
+                "message":"A VEYRA repair job is already running."})
+            return
+        self._veyra_cancel=threading.Event()
+        self._veyra_job_id=job_id
+        started=time.monotonic(); last_sent=[0.0,None]
+        def report(step,current,total,detail):
+            now=time.monotonic(); final=bool(total and current>=total)
+            marker=(step.value,current,total,detail)
+            if not final and marker==last_sent[1]:return
+            if not final and now-last_sent[0]<.06:return
+            last_sent[:]=[now,marker]
+            self.transport.send("veyra_progress",{
+                "job_id":job_id,"step":step.value,"current":current,
+                "total":total,"detail":detail,"elapsed":now-started})
+        def work():
+            try:
+                artifact=RepairArtifact.from_dict(artifact_value)
+                value=self._session_artifacts.read_json(
+                    artifact,schema="cnx.veyra.input.v1",job_id=job_id)
+                plan=solve_repair_plan(value,progress=report,
+                                       cancelled=self._veyra_cancel.is_set)
+                output=self._session_artifacts.write_json(
+                    schema="cnx.veyra.plan.v1",job_id=job_id,
+                    name=f"{job_id}.plan.json",value=plan.to_dict())
+                self.transport.send("veyra_result",{
+                    "job_id":job_id,"artifact":output.to_dict(),
+                    "elapsed":time.monotonic()-started})
+            except VeyraCancelled:
+                self.transport.send("veyra_cancelled",{"job_id":job_id})
+            except Exception as exc:
+                LOG.exception("VEYRA planning failed job_id=%s",job_id)
+                self.transport.send("veyra_error",{
+                    "job_id":job_id,"message":str(exc)[:2048]})
+        self._veyra_thread=threading.Thread(
+            target=work,name="ClothNeXtVeyraWorker",daemon=True)
+        self._veyra_thread.start()
 
     def _configure_style(self):
         style=ttk.Style(self.root); style.theme_use("clam"); self._style=style
@@ -539,7 +659,8 @@ class BakeWindow:
 
     def _tick_status_fill(self):
         if self._closed:return
-        self._frame_progress_state=self._frame_progress.tick()
+        if self._mode is not CompanionMode.VEYRA:
+            self._frame_progress_state=self._frame_progress.tick()
         self._status_fill_phase=(
             self._status_fill_phase+0.055)%1.0
         self._draw_status_fill()
@@ -608,6 +729,7 @@ class BakeWindow:
             text="Hide" if self._details_visible else "Details")
         self._fit_window_to_content()
     def _cancel(self):
+        if self._mode is CompanionMode.VEYRA:self._veyra_cancel.set()
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
 
     def _open_error_docs(self,_event=None):
@@ -688,12 +810,30 @@ class BakeWindow:
 
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
-        self._frame_progress_state=self._frame_progress.observe(snapshot)
+        self._mode=snapshot.companion_mode
+        self.root.title("Cloth NeXt Veyra" if self._mode is CompanionMode.VEYRA
+                        else "Cloth NeXt Bake")
+        self.root.iconphoto(
+            True,self._veyra_icon if self._mode is CompanionMode.VEYRA
+            else self._app_icon)
+        self.particles.set_mode(self._mode)
+        if self._mode is CompanionMode.VEYRA:
+            total=snapshot.veyra_step_total
+            current=snapshot.veyra_step_current
+            self._frame_progress_state=FrameProgress(
+                min(1.0,max(0.0,current/total)) if total else 0.0,
+                indeterminate=not bool(total))
+        else:
+            self._frame_progress_state=self._frame_progress.observe(snapshot)
         self.root.update_idletasks()
-        width=max(1,self.progress.winfo_width()); fraction=snapshot.progress_fraction
+        width=max(1,self.progress.winfo_width())
+        fraction=(min(1.0,max(0.0,snapshot.veyra_step_index/5.0))
+                  if self._mode is CompanionMode.VEYRA
+                  else snapshot.progress_fraction)
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
-        modal = (snapshot.job_kind is BakeJobKind.BAKE and snapshot.active
+        modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA}
+                 and snapshot.active
                  and self._job_modal)
         if modal != self._job_modal:
             self._job_modal=modal
@@ -701,7 +841,11 @@ class BakeWindow:
             if modal:
                 self.root.lift()
                 self.root.after_idle(self.root.focus_force)
-        self.progress_text.set(progress_display_text(snapshot))
+        if self._mode is CompanionMode.VEYRA and snapshot.veyra_step:
+            self.progress_text.set(
+                f"{VEYRA_STEP_LABELS[snapshot.veyra_step]} · "
+                f"Step {snapshot.veyra_step_index} / 5")
+        else:self.progress_text.set(progress_display_text(snapshot))
         self.progress.itemconfigure(self.progress_label,text=self.progress_text.get())
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
@@ -713,7 +857,11 @@ class BakeWindow:
             self._request_error_guidance(snapshot.error_code)
         else:
             self._guidance_code=""
-        label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
+        if self._mode is CompanionMode.VEYRA:
+            label=(f"{snapshot.veyra_step_current} / {snapshot.veyra_step_total}"
+                   if snapshot.veyra_step_total else
+                   (snapshot.activity_label or "Working…"))
+        else:label=snapshot.activity_label or ACTIVITY_LABELS.get(snapshot.activity_code,"Running solver")
         if snapshot.activity_code is BakeActivity.WRITING_FRAME and snapshot.current_frame is not None:label=f"Writing frame {snapshot.current_frame}"
         if snapshot.state is BakeState.ERROR:
             label=error_activity_label(snapshot)
@@ -779,6 +927,9 @@ class BakeWindow:
                     if message["type"]=="bake_status":latest_status=message["snapshot"]
                     elif message["type"]=="session_hello":self.transport.send("ready")
                     elif message["type"]=="enter_bake_mode":self.enter_bake_mode(message["payload"])
+                    elif message["type"]=="veyra_cancel":
+                        if str(message["payload"].get("job_id","")) == self._veyra_job_id:
+                            self._veyra_cancel.set()
                     elif message["type"]=="shutdown":self.close(); return
                 if latest_status is not None:self.show(latest_status)
                 self._apply_error_guidance()
@@ -792,9 +943,11 @@ class BakeWindow:
         self.root.after(10,poll); self.root.mainloop()
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token")
+    parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
+    parser.add_argument("--mode",choices=("bake","veyra"),default="bake")
     args=parser.parse_args(argv); transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
-    try: BakeWindow(transport).run()
+    try: BakeWindow(transport,session_root=args.session_root,
+                    initial_mode=CompanionMode(args.mode.upper())).run()
     except Exception:
         LOG.error("uncaught companion exception\n%s",traceback.format_exc())
         raise
