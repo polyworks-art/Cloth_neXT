@@ -2856,7 +2856,14 @@ def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
     operator = module.CLOTHNEXT_OT_intersection_auto_fix()
     operator.report = lambda level, message: reports.append((level, message))
 
-    outcome = operator.execute(SimpleNamespace(scene=SimpleNamespace()))
+    progress = []
+    window_manager = SimpleNamespace(
+        progress_begin=lambda minimum, maximum:
+            progress.append(("begin", minimum, maximum)),
+        progress_update=lambda value: progress.append(("update", value)),
+        progress_end=lambda: progress.append(("end",)))
+    outcome = operator.execute(SimpleNamespace(
+        scene=SimpleNamespace(), window_manager=window_manager))
 
     assert outcome == {"FINISHED"}
     assert updates == [True]
@@ -2867,6 +2874,9 @@ def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
                for vertex in foreign.data.vertices)
     assert module.diagnostic_result() == diagnostics.DiagnosticResult()
     assert intersection_overlay.presentation_diagnostics() == ()
+    assert progress[0] == ("begin", 0, 100)
+    assert progress[-1] == ("end",)
+    assert any(item[0] == "update" and item[1] == 100 for item in progress)
     assert "1 intersection(s) and 2 degenerate face(s) repaired" in reports[-1][1]
 
 

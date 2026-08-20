@@ -9157,11 +9157,22 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
         violations = _auto_fix_supported_violations()
         degenerate_faces = _auto_fix_supported_degenerate_faces()
         result = diagnostic_result()
+        window_manager = getattr(context, "window_manager", None)
+        progress_begin = getattr(window_manager, "progress_begin", None)
+        progress_update = getattr(window_manager, "progress_update", None)
+        progress_end = getattr(window_manager, "progress_end", None)
+        show_progress = all(callable(callback) for callback in (
+            progress_begin, progress_update, progress_end))
         try:
+            if show_progress:
+                progress_begin(0, 100)
+                progress_update(5)
             pairs, objects = _auto_fix_snapshot_pairs(
                 context, violations,
                 intersection_overlay.solver_input_snapshot(),
                 degenerate_faces)
+            if show_progress:
+                progress_update(25)
             desired = max(
                 2.0 * float(value[0].cloth_next.collision.collision_gap)
                 + float(value[0].cloth_next.collision.surface_offset)
@@ -9176,19 +9187,29 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             if not planned:
                 raise SceneValidationError(
                     "Auto Fix could not derive a safe correction for these faces.")
+            if show_progress:
+                progress_update(40)
             changed = set()
-            for (object_uuid, vertex_index), world_delta in planned.items():
+            for index, ((object_uuid, vertex_index), world_delta) in enumerate(
+                    planned.items(), start=1):
                 obj, inverse_linear, Vector = objects[object_uuid]
                 obj.data.vertices[vertex_index].co += (
                     inverse_linear @ Vector(
                         ppf_vector_to_blender(world_delta)))
                 changed.add(obj)
+                if show_progress:
+                    progress_update(40 + 50 * index / len(planned))
             for obj in changed:
                 obj.data.update()
                 validation_state.forget(obj)
+            if show_progress:
+                progress_update(100)
         except (AttributeError, SceneValidationError, ValueError) as exc:
             self.report({"WARNING"}, str(exc))
             return {"CANCELLED"}
+        finally:
+            if show_progress:
+                progress_end()
 
         intersections_fixed = len(violations) if intersection_plan else 0
         skipped = (

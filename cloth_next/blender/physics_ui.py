@@ -1955,23 +1955,27 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
         summary.append(
             f"{degenerate_count} Degenerate Face"
             f"{'s' if degenerate_count != 1 else ''}")
-    column = layout.column(align=True)
-    column.label(text="Geometry Diagnostics", icon="RESTRICT_SELECT_OFF")
-    column.label(text=" · ".join(summary))
+    diagnostics_box = layout.box()
+    header = diagnostics_box.row(align=True)
+    header.label(text="Geometry Diagnostics", icon="ERROR")
+    summary_row = diagnostics_box.row(align=True)
+    summary_row.label(text=" · ".join(summary))
     if intersection_overlay.mapping_warning():
-        warning = column.row()
+        warning = diagnostics_box.row()
         warning.alert = True
         warning.label(text=intersection_overlay.mapping_warning(), icon="ERROR")
-    diagnostics = column.row(align=True)
-    auto_fix = diagnostics.row(align=True)
+    actions = diagnostics_box.split(factor=0.7, align=True)
+    auto_fix = actions.column(align=True)
     auto_fix.enabled = (
         bool(solver_test._auto_fix_supported_violations()
              or solver_test._auto_fix_supported_degenerate_faces())
         and not running and not snapshot.active)
+    auto_fix.scale_y = 1.15
     auto_fix.operator("clothnext.intersection_auto_fix",
                       text="Auto Fix", icon="MODIFIER")
-    diagnostics.operator("clothnext.intersection_clear",
-                         text="Clear", icon="X")
+    clear = actions.column(align=True)
+    clear.scale_y = 1.15
+    clear.operator("clothnext.intersection_clear", text="Clear", icon="X")
 
 
 def _draw_solver_test_controls(layout, context) -> None:

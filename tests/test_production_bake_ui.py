@@ -233,6 +233,8 @@ def test_production_intersection_diagnostics_show_auto_fix(
 
     assert "Geometry Diagnostics" in layout.labels
     assert "1 Intersection" in layout.labels
+    assert "box" in layout.containers
+    assert "split" in layout.containers
     assert not any(" of " in label for label in layout.labels)
     assert ("clothnext.intersection_auto_fix", "Auto Fix", True) \
         in layout.operators
