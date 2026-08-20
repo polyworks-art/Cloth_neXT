@@ -2783,6 +2783,26 @@ def test_auto_fix_object_skips_scene_objects_without_export_identity(
     assert resolved is target
 
 
+def test_auto_fix_leaves_preflight_edit_mode_before_snapshot_validation(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    active = SimpleNamespace(name="Cloth", mode="EDIT")
+    calls = []
+
+    def mode_set(*, mode):
+        calls.append(mode)
+        active.mode = mode
+
+    monkeypatch.setattr(
+        module.bpy.ops, "object", SimpleNamespace(mode_set=mode_set),
+        raising=False)
+
+    module._leave_edit_mode_for_auto_fix(SimpleNamespace(object=active))
+
+    assert calls == ["OBJECT"]
+    assert active.mode == "OBJECT"
+
+
 def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
         blender_env, monkeypatch):
     module = blender_env.solver_test
@@ -2791,8 +2811,8 @@ def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
 
     first_vertices = ((-1.0, -1.0, 0.0), (1.0, -1.0, 0.0),
                       (0.0, 1.0, 0.0))
-    second_vertices = ((0.0, -0.5, -1.0), (0.0, 0.5, 1.0),
-                       (0.0, 0.5, -1.0))
+    second_vertices = ((0.0, -0.5, -0.001), (0.0, 0.5, 0.001),
+                       (0.0, 0.5, -0.001))
     elements = tuple(
         diagnostics.IntersectionElement(
             kind="TRIANGLE", object_uuid="cloth", object_name="Cloth",

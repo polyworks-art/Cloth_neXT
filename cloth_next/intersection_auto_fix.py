@@ -77,6 +77,42 @@ def _average_edge_length(triangles):
     return sum(edges) / len(edges) if edges else 0.0
 
 
+def _segment_strictly_crosses_triangle(start, end, triangle):
+    """Return whether an open segment pierces a triangle's open interior."""
+    direction = _sub(end, start)
+    edge_a = _sub(triangle[1], triangle[0])
+    edge_b = _sub(triangle[2], triangle[0])
+    cross_direction = _cross(direction, edge_b)
+    determinant = _dot(edge_a, cross_direction)
+    epsilon = 1.0e-12
+    if abs(determinant) <= epsilon:
+        return False
+    inverse = 1.0 / determinant
+    offset = _sub(start, triangle[0])
+    first = inverse * _dot(offset, cross_direction)
+    if first <= epsilon or first >= 1.0 - epsilon:
+        return False
+    cross_offset = _cross(offset, edge_a)
+    second = inverse * _dot(direction, cross_offset)
+    if second <= epsilon or first + second >= 1.0 - epsilon:
+        return False
+    distance = inverse * _dot(edge_b, cross_offset)
+    return epsilon < distance < 1.0 - epsilon
+
+
+def _triangles_strictly_cross(first, second):
+    return any(
+        _segment_strictly_crosses_triangle(
+            triangle[index], triangle[(index + 1) % 3], other)
+        for triangle, other in ((first, second), (second, first))
+        for index in range(3))
+
+
+def _planned_triangle(keys, triangle, planned):
+    return tuple(_add(point, planned.get(key, (0.0, 0.0, 0.0)))
+                 for key, point in zip(keys, triangle))
+
+
 def separation_direction(first, second):
     """Return a deterministic direction that sends the first side forward."""
     first_normal, second_normal = _normal(first), _normal(second)
@@ -104,6 +140,7 @@ def plan_displacements(confirmed_pairs, *, desired_separation):
     Each pair is ``(first_keys, first_triangle, second_keys, second_triangle)``;
     keys may be any hashable source-vertex identifiers.
     """
+    confirmed_pairs = tuple(confirmed_pairs)
     desired = float(desired_separation)
     if not isfinite(desired) or desired < 0.0:
         raise ValueError("desired_separation must be a finite non-negative value")
@@ -141,6 +178,13 @@ def plan_displacements(confirmed_pairs, *, desired_separation):
         if average_length > limit and average_length > 0.0:
             average = _mul(average, limit / average_length)
         planned[key] = average
+    # A bounded nudge may be too small for a deep crossing. Never claim a
+    # repair when the planned coordinates still contain the reported crossing.
+    if any(_triangles_strictly_cross(
+            _planned_triangle(first_keys, first, planned),
+            _planned_triangle(second_keys, second, planned))
+           for first_keys, first, second_keys, second in confirmed_pairs):
+        return {}
     return planned
 
 

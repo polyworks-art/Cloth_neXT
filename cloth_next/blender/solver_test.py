@@ -9133,6 +9133,25 @@ def _auto_fix_snapshot_pairs(
     return tuple(pairs), objects
 
 
+def _leave_edit_mode_for_auto_fix(context) -> None:
+    """Commit the preflight selection before exact snapshot validation.
+
+    Degenerate preflight deliberately selects the affected vertices in Edit
+    Mode.  Auto Fix must return to Object Mode before editing source vertices;
+    the subsequent retained-coordinate checks still reject any artist edits
+    made after diagnostics were captured.
+    """
+    active = getattr(context, "object", None)
+    if active is None or getattr(active, "mode", "OBJECT") != "EDIT":
+        return
+    try:
+        bpy.ops.object.mode_set(mode="OBJECT")
+    except (AttributeError, RuntimeError) as exc:
+        raise SceneValidationError(
+            f'"{getattr(active, "name", "Object")}" could not leave Edit '
+            "Mode safely before Auto Fix.") from exc
+
+
 class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
     """Conservatively repair safely mapped geometry diagnostics."""
     bl_idname = "clothnext.intersection_auto_fix"
@@ -9164,6 +9183,7 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
         show_progress = all(callable(callback) for callback in (
             progress_begin, progress_update, progress_end))
         try:
+            _leave_edit_mode_for_auto_fix(context)
             if show_progress:
                 progress_begin(0, 100)
                 progress_update(5)

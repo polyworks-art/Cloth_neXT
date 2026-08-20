@@ -43,20 +43,36 @@ def test_supported_classification_is_conservative():
     assert not is_supported_classification(None)
 
 
-def test_direction_moves_pair_farther_apart():
+def test_direction_is_oriented_toward_first_triangle():
     crossing = ((0.0, -0.5, -1.0), (0.0, 0.5, 1.0), (0.0, 0.5, -1.0))
     direction = separation_direction(FIRST, crossing)
     assert direction is not None
-    planned = plan_displacements(
-        [((0, 1, 2), FIRST, (3, 4, 5), crossing)],
-        desired_separation=0.02,
-    )
-    first_motion = tuple(sum(planned[key][axis] for key in (0, 1, 2)) / 3.0
+    first_center = tuple(sum(point[axis] for point in FIRST) / 3.0
                          for axis in range(3))
-    second_motion = tuple(sum(planned[key][axis] for key in (3, 4, 5)) / 3.0
+    second_center = tuple(sum(point[axis] for point in crossing) / 3.0
                           for axis in range(3))
-    relative_motion = tuple(a - b for a, b in zip(first_motion, second_motion))
-    assert _dot(relative_motion, direction) > 0.0
+    center_delta = tuple(first_center[axis] - second_center[axis]
+                         for axis in range(3))
+    assert _dot(direction, center_delta) >= 0.0
+
+
+def test_unresolved_real_world_strict_crossing_fails_closed():
+    first = (
+        (-0.13171677261363257, 0.8933217002075959, 0.03316186803011829),
+        (-0.1329977632750623, 0.8900272055884498, 0.03536378793909536),
+        (-0.12930788272870863, 0.8928136436714242, 0.03486502366694917),
+    )
+    second = (
+        (-0.13284317647572763, 0.8895712118935805, 0.035087394070013066),
+        (-0.13187831742111022, 0.8932520591380577, 0.033785075157261944),
+        (-0.12909523623423347, 0.8923811485466382, 0.035036471461651224),
+    )
+
+    planned = plan_displacements(
+        [((0, 1, 2), first, (3, 4, 5), second)],
+        desired_separation=0.00027466)
+
+    assert planned == {}
 
 
 def test_shared_vertex_contributions_cancel_instead_of_multiplying():
