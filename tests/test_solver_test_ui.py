@@ -2900,6 +2900,83 @@ def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
     assert "1 intersection(s) and 2 degenerate face(s) repaired" in reports[-1][1]
 
 
+def test_auto_fix_applies_degenerate_when_real_intersection_is_unsafe(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    first_vertices = (
+        (-0.13171677261363257, 0.8933217002075959, 0.03316186803011829),
+        (-0.1329977632750623, 0.8900272055884498, 0.03536378793909536),
+        (-0.12930788272870863, 0.8928136436714242, 0.03486502366694917),
+    )
+    second_vertices = (
+        (-0.13284317647572763, 0.8895712118935805, 0.035087394070013066),
+        (-0.13187831742111022, 0.8932520591380577, 0.033785075157261944),
+        (-0.12909523623423347, 0.8923811485466382, 0.035036471461651224),
+    )
+    elements = tuple(
+        diagnostics.IntersectionElement(
+            kind="TRIANGLE", object_uuid="cloth", object_name="Cloth",
+            role="CLOTH", combined_triangle_index=index,
+            local_triangle_index=index, source_polygon_index=index,
+            vertices=vertices)
+        for index, vertices in enumerate((first_vertices, second_vertices)))
+    violation = diagnostics.IntersectionViolation(
+        classification="SELF_INTERSECTION", detection_method="STRICT_CROSSING",
+        elements=elements, combined_pair=(0, 1), total_count=1)
+    face = diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=2, local_triangle_index=2,
+        source_polygon_index=2, vertex_indices=(6, 7, 8),
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                  (2.0, 0.0, 0.0)))
+    result = diagnostics.DiagnosticResult(
+        snapshot=object(), violations=(violation,), detected_count=1,
+        degenerate_faces=(face,))
+    module._diagnostic_result = result
+    module._intersection_violations = (violation,)
+
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    obj.cloth_next = SimpleNamespace(collision=SimpleNamespace(
+        collision_gap=0.01, surface_offset=0.0))
+    updates = []
+    obj.data = SimpleNamespace(
+        vertices=[SimpleNamespace(co=np.zeros(3)) for _index in range(9)],
+        update=lambda: updates.append(True))
+
+    class IdentityLinear:
+        def __matmul__(self, value):
+            return np.asarray(value, dtype=float)
+
+    pairs = ((
+        tuple(("cloth", index) for index in (0, 1, 2)), first_vertices,
+        tuple(("cloth", index) for index in (3, 4, 5)), second_vertices),)
+    monkeypatch.setattr(
+        module, "_auto_fix_snapshot_pairs",
+        lambda *_args: (pairs, {
+            "cloth": (obj, IdentityLinear(), lambda value: value)}))
+    monkeypatch.setattr(intersection_overlay, "solver_input_snapshot",
+                        lambda: result.snapshot)
+    monkeypatch.setattr(module.validation_state, "forget", lambda _obj: None)
+    reports = []
+    operator = module.CLOTHNEXT_OT_intersection_auto_fix()
+    operator.report = lambda level, message: reports.append((level, message))
+
+    outcome = operator.execute(SimpleNamespace(
+        scene=SimpleNamespace(), window_manager=SimpleNamespace()))
+
+    assert outcome == {"FINISHED"}
+    assert updates == [True]
+    assert np.linalg.norm(obj.data.vertices[7].co) > 0.0
+    assert all(np.allclose(obj.data.vertices[index].co, 0.0)
+               for index in (*range(6), 6, 8))
+    assert "0 intersection(s) and 1 degenerate face(s) repaired" \
+        in reports[-1][1]
+    assert "1 skipped" in reports[-1][1]
+
+
 def test_auto_fix_degenerate_requires_retained_solver_input(blender_env):
     module = blender_env.solver_test
     diagnostics = module.intersection_diagnostics

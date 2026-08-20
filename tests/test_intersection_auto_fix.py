@@ -12,9 +12,12 @@ from cloth_next.intersection_auto_fix import (
     MAX_DEGENERATE_EDGE_FRACTION,
     ZERO_AREA_CROSS_EPSILON,
     combine_displacement_plans,
+    evaluate_degenerate_repairs,
     is_supported_classification,
     plan_degenerate_displacements,
+    plan_degenerate_welds,
     plan_displacements,
+    plan_intersection_repairs,
     separation_direction,
 )
 
@@ -73,6 +76,29 @@ def test_unresolved_real_world_strict_crossing_fails_closed():
         desired_separation=0.00027466)
 
     assert planned == {}
+
+
+def test_unsafe_cluster_does_not_discard_independent_safe_cluster():
+    shallow = ((0.0, -0.5, -0.001), (0.0, 0.5, 0.001),
+               (0.0, 0.5, -0.001))
+    real_first = (
+        (-0.13171677261363257, 0.8933217002075959, 0.03316186803011829),
+        (-0.1329977632750623, 0.8900272055884498, 0.03536378793909536),
+        (-0.12930788272870863, 0.8928136436714242, 0.03486502366694917),
+    )
+    real_second = (
+        (-0.13284317647572763, 0.8895712118935805, 0.035087394070013066),
+        (-0.13187831742111022, 0.8932520591380577, 0.033785075157261944),
+        (-0.12909523623423347, 0.8923811485466382, 0.035036471461651224),
+    )
+    result = plan_intersection_repairs((
+        ((0, 1, 2), FIRST, (3, 4, 5), shallow),
+        ((6, 7, 8), real_first, (9, 10, 11), real_second),
+    ), desired_separation=0.02)
+
+    assert result.repaired_pairs == 1
+    assert result.skipped_pairs == 1
+    assert set(result.displacements) == set(range(6))
 
 
 def test_shared_vertex_contributions_cancel_instead_of_multiplying():
@@ -146,16 +172,37 @@ def test_zero_area_face_gets_positive_bounded_area():
         2.0 * MAX_DEGENERATE_EDGE_FRACTION)
 
 
-def test_duplicate_position_is_repaired_without_topology_change():
+def test_collision_separation_does_not_block_local_degenerate_repair():
+    face = _face()
+
+    small = plan_degenerate_displacements(
+        (face,), desired_separation=0.0)
+    huge = plan_degenerate_displacements(
+        (face,), desired_separation=1000.0)
+
+    assert huge == small
+    assert huge.repaired_faces == 1
+
+
+def test_final_degenerate_count_uses_combined_geometry():
+    face = _face()
+
+    assert evaluate_degenerate_repairs((face,), {}) == (0, 1)
+    planned = plan_degenerate_displacements(
+        (face,), desired_separation=1000.0).displacements
+    assert evaluate_degenerate_repairs((face,), planned) == (1, 0)
+
+
+def test_duplicate_position_is_reserved_for_explicit_weld_validation():
     face = _face(vertices=((0.0, 0.0, 0.0),
                           (1.0, 0.0, 0.0),
                           (1.0, 0.0, 0.0)))
     result = plan_degenerate_displacements(
         (face,), desired_separation=0.01)
 
-    assert result.repaired_faces == 1
-    assert result.skipped_faces == 0
-    assert len(result.displacements) == 1
+    assert result.repaired_faces == 0
+    assert result.skipped_faces == 1
+    assert result.displacements == {}
 
 
 def test_repeated_vertex_index_is_skipped():
@@ -165,6 +212,50 @@ def test_repeated_vertex_index_is_skipped():
     assert result.displacements == {}
     assert result.repaired_faces == 0
     assert result.skipped_faces == 1
+
+
+def test_fully_collapsed_triangle_without_edge_is_skipped():
+    face = _face(vertices=((1.0, 1.0, 1.0),) * 3)
+
+    result = plan_degenerate_displacements(
+        (face,), desired_separation=1000.0)
+
+    assert result.displacements == {}
+    assert result.repaired_faces == 0
+    assert result.skipped_faces == 1
+
+
+def test_unresolved_coincident_distinct_ids_form_explicit_weld_group():
+    face = _face(vertices=((0.0, 0.0, 0.0),
+                          (1.0, 0.0, 0.0),
+                          (0.0, 0.0, 0.0)))
+
+    result = plan_degenerate_welds((face,), {})
+
+    assert result.vertex_groups == ((('cloth', 0), ('cloth', 2)),)
+    assert result.faces == (face,)
+
+
+def test_successful_position_repair_is_not_also_welded():
+    face = _face()
+    position_plan = plan_degenerate_displacements(
+        (face,), desired_separation=1000.0).displacements
+
+    result = plan_degenerate_welds((face,), position_plan)
+
+    assert result.vertex_groups == ()
+    assert result.faces == ()
+
+
+def test_local_weld_planner_does_not_radius_collect_nearby_vertex():
+    face = _face(vertices=((0.0, 0.0, 0.0),
+                          (1.0, 0.0, 0.0),
+                          (1.0e-8, 0.0, 0.0)))
+
+    result = plan_degenerate_welds((face,), {})
+
+    assert result.vertex_groups == ()
+    assert result.faces == ()
 
 
 def test_multiple_degenerate_faces_are_planned_deterministically():
@@ -187,3 +278,25 @@ def test_combined_shared_vertex_repairs_are_averaged_and_bounded():
 
     assert combined[("cloth", 1)] == pytest.approx((0.0, 0.01, 0.02))
     assert _length(combined[("cloth", 1)]) < 0.04
+
+
+def test_shared_vertex_degenerate_repairs_remain_bounded_and_valid():
+    faces = (
+        _face(indices=(0, 1, 2),
+              vertices=((0.0, 0.0, 0.0),
+                        (1.0, 0.0, 0.0),
+                        (2.0, 0.0, 0.0))),
+        _face(indices=(3, 1, 4),
+              vertices=((1.0, -1.0, 0.0),
+                        (1.0, 0.0, 0.0),
+                        (1.0, 1.0, 0.0))),
+    )
+
+    result = plan_degenerate_displacements(
+        faces, desired_separation=1000.0)
+
+    assert result.repaired_faces == 2
+    assert result.skipped_faces == 0
+    assert set(result.displacements) == {("cloth", 1)}
+    assert _length(result.displacements[("cloth", 1)]) <= (
+        2.0 * MAX_DEGENERATE_EDGE_FRACTION)

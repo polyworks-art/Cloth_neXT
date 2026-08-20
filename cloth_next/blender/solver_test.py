@@ -8986,11 +8986,12 @@ def _auto_fix_supported_violations():
 
 
 def _auto_fix_supported_degenerate_faces():
-    """Return attributed deformable faces eligible for position-only repair."""
+    """Return attributed deformable faces eligible for conservative repair."""
     return tuple(
         face for face in _diagnostic_result.degenerate_faces
         if (face.role in {"CLOTH", "SOFT_BODY", "RIGID_BODY"}
             and bool(face.object_uuid)
+            and not bool(getattr(face, "generated_proxy", False))
             and len(face.vertex_indices) == 3
             and len(face.vertices) == 3))
 
@@ -9133,6 +9134,196 @@ def _auto_fix_snapshot_pairs(
     return tuple(pairs), objects
 
 
+def _auto_fix_validation_triangles(snapshot, pairs, degenerate_faces=()):
+    """Return retained source triangles for bounded local repair validation."""
+    object_uuids = {
+        object_uuid
+        for pair in pairs
+        for keys in (pair[0], pair[2])
+        for object_uuid, _vertex_index in keys}
+    object_uuids.update(face.object_uuid for face in degenerate_faces)
+    return tuple(
+        (tuple((record.owner.object_uuid, int(index))
+               for index in record.vertex_indices),
+         tuple(record.vertices))
+        for record in getattr(snapshot, "triangles", ())
+        if (not record.owner.internal
+            and record.owner.object_uuid in object_uuids))
+
+
+def _auto_fix_data_value(item):
+    for name in ("value", "vector", "color", "color_srgb", "uv"):
+        if not hasattr(item, name):
+            continue
+        value = getattr(item, name)
+        try:
+            return tuple(value)
+        except TypeError:
+            return value
+    raise SceneValidationError(
+        "Auto Fix cannot safely preserve an unsupported point attribute.")
+
+
+def _auto_fix_vertex_group_signature(obj, vertex_index):
+    return {
+        obj.vertex_groups[item.group].name: float(item.weight)
+        for item in obj.data.vertices[vertex_index].groups}
+
+
+def _validated_local_welds(weld_plan, objects, planned):
+    """Prove that explicit diagnosed-ID welds have no collateral effects."""
+    if not weld_plan.vertex_groups:
+        return {}
+    import bmesh
+    from mathutils import Vector
+
+    faces_by_object = {}
+    for face in weld_plan.faces:
+        faces_by_object.setdefault(face.object_uuid, []).append(face)
+    groups_by_object = {}
+    for group in weld_plan.vertex_groups:
+        object_uuids = {key[0] for key in group}
+        if len(object_uuids) != 1:
+            raise SceneValidationError(
+                "A local weld candidate spans multiple source objects.")
+        groups_by_object.setdefault(next(iter(object_uuids)), []).append(
+            tuple(int(key[1]) for key in group))
+
+    validated = {}
+    for object_uuid, groups in groups_by_object.items():
+        obj, inverse_linear, _vector_type = objects[object_uuid]
+        mesh = obj.data
+        if int(getattr(mesh, "users", 1)) != 1:
+            raise SceneValidationError(
+                f'"{obj.name}" has shared mesh data; local weld was skipped.')
+        for group in groups:
+            if any(index < 0 or index >= len(mesh.vertices)
+                   for index in group):
+                raise SceneValidationError("A local weld vertex ID is invalid.")
+            points = [tuple(float(value) for value in mesh.vertices[index].co)
+                      for index in group]
+            coordinate_scale = max(
+                1.0, *(abs(value) for point in points for value in point))
+            tolerance = max(1.0e-9, coordinate_scale * 1.0e-12)
+            if any(math.dist(points[left], points[right]) > tolerance
+                   for left in range(len(points))
+                   for right in range(left + 1, len(points))):
+                raise SceneValidationError(
+                    "A local weld candidate is not position-coincident.")
+            signatures = [_auto_fix_vertex_group_signature(obj, index)
+                          for index in group]
+            if any(value != signatures[0] for value in signatures[1:]):
+                raise SceneValidationError(
+                    "A local weld would lose differing vertex-group weights.")
+            for attribute in getattr(mesh, "attributes", ()):
+                if (getattr(attribute, "domain", None) != "POINT"
+                        or getattr(attribute, "name", "") == "position"):
+                    continue
+                values = [_auto_fix_data_value(attribute.data[index])
+                          for index in group]
+                if any(value != values[0] for value in values[1:]):
+                    raise SceneValidationError(
+                        f'A local weld would lose point attribute '
+                        f'"{attribute.name}".')
+
+        mesh_copy = mesh.copy()
+        bm = bmesh.new()
+        try:
+            bm.from_mesh(mesh_copy)
+            bm.verts.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+            original_faces = tuple(bm.faces)
+            allowed_deleted = {
+                int(face.source_polygon_index)
+                for face in faces_by_object.get(object_uuid, ())
+                if face.source_polygon_index is not None}
+            if len(allowed_deleted) != len(faces_by_object.get(object_uuid, ())):
+                raise SceneValidationError(
+                    "A local weld face has no unique source polygon mapping.")
+            for (key_object_uuid, vertex_index), world_delta in planned.items():
+                if key_object_uuid != object_uuid:
+                    continue
+                bm.verts[int(vertex_index)].co += (
+                    inverse_linear @ Vector(
+                        ppf_vector_to_blender(world_delta)))
+            degenerate_before = {
+                index for index, face in enumerate(original_faces)
+                if face.calc_area() <= 1.0e-12}
+            non_manifold_before = sum(not edge.is_manifold for edge in bm.edges)
+            duplicate_before = len(original_faces) - len({
+                tuple(sorted(vertex.index for vertex in face.verts))
+                for face in original_faces})
+            materials_before = {
+                index: face.material_index
+                for index, face in enumerate(original_faces)}
+            targetmap = {}
+            for group in groups:
+                target = bm.verts[group[0]]
+                for index in group[1:]:
+                    targetmap[bm.verts[index]] = target
+            bmesh.ops.weld_verts(bm, targetmap=targetmap)
+            bm.verts.index_update()
+            bm.edges.index_update()
+            bm.faces.index_update()
+            deleted = {index for index, face in enumerate(original_faces)
+                       if not face.is_valid}
+            if deleted != allowed_deleted:
+                raise SceneValidationError(
+                    "A local weld would remove non-diagnosed geometry.")
+            if any(face.material_index != materials_before[index]
+                   for index, face in enumerate(original_faces)
+                   if face.is_valid):
+                raise SceneValidationError(
+                    "A local weld would change a surviving face material.")
+            degenerate_after = {
+                index for index, face in enumerate(original_faces)
+                if face.is_valid and face.calc_area() <= 1.0e-12}
+            if degenerate_after - (degenerate_before - deleted):
+                raise SceneValidationError(
+                    "A local weld would create a new degenerate face.")
+            duplicate_after = len(bm.faces) - len({
+                tuple(sorted(vertex.index for vertex in face.verts))
+                for face in bm.faces})
+            if duplicate_after > duplicate_before:
+                raise SceneValidationError(
+                    "A local weld would create duplicate faces.")
+            if sum(not edge.is_manifold for edge in bm.edges) > non_manifold_before:
+                raise SceneValidationError(
+                    "A local weld would create non-manifold geometry.")
+        finally:
+            bm.free()
+            bpy.data.meshes.remove(mesh_copy)
+        validated[object_uuid] = tuple(groups)
+    return validated
+
+
+def _apply_local_welds(validated_welds, objects):
+    """Apply only the prevalidated explicit target maps; never radius-search."""
+    if not validated_welds:
+        return set()
+    import bmesh
+
+    changed = set()
+    for object_uuid, groups in validated_welds.items():
+        obj = objects[object_uuid][0]
+        bm = bmesh.new()
+        try:
+            bm.from_mesh(obj.data)
+            bm.verts.ensure_lookup_table()
+            targetmap = {}
+            for group in groups:
+                target = bm.verts[group[0]]
+                for index in group[1:]:
+                    targetmap[bm.verts[index]] = target
+            bmesh.ops.weld_verts(bm, targetmap=targetmap)
+            bm.to_mesh(obj.data)
+        finally:
+            bm.free()
+        obj.data.update()
+        changed.add(obj)
+    return changed
+
+
 def _leave_edit_mode_for_auto_fix(context) -> None:
     """Commit the preflight selection before exact snapshot validation.
 
@@ -9157,8 +9348,8 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
     bl_idname = "clothnext.intersection_auto_fix"
     bl_label = "Auto Fix"
     bl_description = (
-        "Gently repair supported geometry diagnostics without changing mesh "
-        "topology; run Bake afterwards to verify the result")
+        "Gently repair supported geometry diagnostics; exact diagnosed "
+        "duplicate vertices may be welded after safety validation")
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -9187,9 +9378,10 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             if show_progress:
                 progress_begin(0, 100)
                 progress_update(5)
+            snapshot = intersection_overlay.solver_input_snapshot()
             pairs, objects = _auto_fix_snapshot_pairs(
                 context, violations,
-                intersection_overlay.solver_input_snapshot(),
+                snapshot,
                 degenerate_faces)
             if show_progress:
                 progress_update(25)
@@ -9197,14 +9389,42 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
                 2.0 * float(value[0].cloth_next.collision.collision_gap)
                 + float(value[0].cloth_next.collision.surface_offset)
                 for value in objects.values())
-            intersection_plan = intersection_auto_fix.plan_displacements(
-                pairs, desired_separation=desired)
+            validation_triangles = _auto_fix_validation_triangles(
+                snapshot, pairs, degenerate_faces)
+            intersection_repair = (
+                intersection_auto_fix.plan_intersection_repairs(
+                    pairs, desired_separation=desired,
+                    validation_triangles=validation_triangles))
             degenerate_plan = (
                 intersection_auto_fix.plan_degenerate_displacements(
                     degenerate_faces, desired_separation=desired))
+            if (degenerate_plan.displacements
+                    and not intersection_auto_fix.validate_intersection_plan(
+                        (), degenerate_plan.displacements,
+                        validation_triangles)):
+                degenerate_plan = intersection_auto_fix.DegenerateRepairPlan(
+                    {}, 0, len(degenerate_faces))
             planned = intersection_auto_fix.combine_displacement_plans(
-                intersection_plan, degenerate_plan.displacements)
-            if not planned:
+                intersection_repair.displacements,
+                degenerate_plan.displacements)
+            if (intersection_repair.repaired_pairs
+                    and not intersection_auto_fix.validate_intersection_plan(
+                        intersection_repair.repaired_pair_records,
+                        planned, validation_triangles)):
+                intersection_repair = (
+                    intersection_auto_fix.IntersectionRepairPlan(
+                        {}, 0, len(pairs), ()))
+                planned = dict(degenerate_plan.displacements)
+            weld_plan = intersection_auto_fix.plan_degenerate_welds(
+                degenerate_faces, planned)
+            try:
+                validated_welds = _validated_local_welds(
+                    weld_plan, objects, planned)
+            except SceneValidationError:
+                # A topology candidate is optional. Preserve independent safe
+                # position/intersection work instead of making Auto Fix global.
+                validated_welds = {}
+            if not planned and not validated_welds:
                 raise SceneValidationError(
                     "Auto Fix could not derive a safe correction for these faces.")
             if show_progress:
@@ -9222,6 +9442,10 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             for obj in changed:
                 obj.data.update()
                 validation_state.forget(obj)
+            welded_objects = _apply_local_welds(validated_welds, objects)
+            changed.update(welded_objects)
+            for obj in welded_objects:
+                validation_state.forget(obj)
             if show_progress:
                 progress_update(100)
         except (AttributeError, SceneValidationError, ValueError) as exc:
@@ -9231,17 +9455,29 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             if show_progress:
                 progress_end()
 
-        intersections_fixed = len(violations) if intersection_plan else 0
+        intersections_fixed = intersection_repair.repaired_pairs
+        position_fixed, _position_skipped = (
+            intersection_auto_fix.evaluate_degenerate_repairs(
+                degenerate_faces, planned))
+        welded_faces = sum(
+            face.object_uuid in validated_welds for face in weld_plan.faces)
+        welded_vertices = sum(
+            len(group) - 1 for groups in validated_welds.values()
+            for group in groups)
+        degenerates_fixed = position_fixed + welded_faces
+        degenerates_skipped = len(degenerate_faces) - degenerates_fixed
         skipped = (
             len(result.violations) - len(violations)
             + len(result.degenerate_faces) - len(degenerate_faces)
-            + degenerate_plan.skipped_faces)
+            + intersection_repair.skipped_pairs
+            + degenerates_skipped)
         _clear_intersection_diagnostics()
         self.report(
             {"INFO"},
             f"Auto Fix: {intersections_fixed} intersection(s) and "
-            f"{degenerate_plan.repaired_faces} degenerate face(s) repaired, "
-            f"{skipped} skipped; {len(planned)} vertices modified across "
+            f"{degenerates_fixed} degenerate face(s) repaired, "
+            f"{skipped} skipped; {len(planned)} vertices moved and "
+            f"{welded_vertices} explicitly welded across "
             f"{len(changed)} object(s). Run Bake to verify.")
         return {"FINISHED"}
 
