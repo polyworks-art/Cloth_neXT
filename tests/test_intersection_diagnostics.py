@@ -266,9 +266,10 @@ def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     intersection_overlay.set_violations((first, second), snapshot)
     assert intersection_overlay.current() is first
     assert intersection_overlay.label_lines() == (
-        "Initial Collider Penetration", "A · Triangle 0",
-        "B · Triangle 0", "1 of 2")
+        "Geometry Diagnostics", "2 intersections")
     assert intersection_overlay.next_violation() is second
+    assert intersection_overlay.label_lines() == (
+        "Geometry Diagnostics", "2 intersections")
     assert intersection_overlay.previous_violation() is first
     assert intersection_overlay.solver_input_snapshot() is snapshot
     assert intersection_overlay.toggle_solver_input()
@@ -381,7 +382,7 @@ def test_nonzero_detected_count_with_mapping_has_drawable_geometry(monkeypatch):
     triangles = intersection_overlay._triangles_for_draw()
     assert len(triangles) == 2
     assert all(len(vertices) == 3 for vertices, _color in triangles)
-    assert "18 detected · 1 mapped" in intersection_overlay.label_lines()
+    assert "18 intersections" in intersection_overlay.label_lines()
     intersection_overlay.clear()
 
 
@@ -413,13 +414,13 @@ def test_overlay_authoritative_session_presents_unmapped_and_degenerate(
     assert intersection_overlay.mapped_count() == 1
     assert intersection_overlay.solver_input_snapshot() is snapshot
     assert intersection_overlay.current() is violation
-    assert "2 detected · 1 mapped" in intersection_overlay.label_lines()
+    assert "2 intersections · 1 degenerate face" in (
+        intersection_overlay.label_lines())
     assert "could not be mapped safely" in intersection_overlay.mapping_warning()
 
     assert intersection_overlay.next_violation() is degenerate
-    assert intersection_overlay.label_lines()[:3] == (
-        "Degenerate Face", "Cloth · Triangle 12",
-        "Degenerate face 1 of 1")
+    assert intersection_overlay.label_lines()[:2] == (
+        "Geometry Diagnostics", "2 intersections · 1 degenerate face")
     primitives = intersection_overlay.primitives_for_diagnostic(degenerate)
     assert [primitive.mode for primitive in primitives] == [
         "TRIS", "LINES", "POINTS"]
@@ -447,3 +448,48 @@ def test_self_intersection_primitive_generation_is_pure_and_deterministic():
     assert first[0].vertices == ((0.0, 0.0, 0.0),
                                  (1.0, 0.0, 0.0),
                                  (0.0, 0.0, 1.0))
+
+
+def test_overlay_aggregates_all_mapped_intersections_and_degenerates(
+        monkeypatch):
+    monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("a", "A"), "CLOTH", None, False),
+        (_object("b", "B"), "COLLIDER", None, False)),
+        bake_start_frame=1)
+    first = diagnostics.convert_violation(
+        {"pair": [0, 1]}, snapshot, total_count=2)
+    second = diagnostics.convert_violation(
+        {"pair": [1, 0]}, snapshot, total_count=2)
+    degenerates = (
+        diagnostics.DegenerateFace(
+            object_uuid="a", object_name="A", role="CLOTH",
+            combined_triangle_index=0, local_triangle_index=0,
+            source_polygon_index=0, vertex_indices=(0, 1, 2),
+            vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                      (2.0, 0.0, 0.0))),
+        diagnostics.DegenerateFace(
+            object_uuid="a", object_name="A", role="CLOTH",
+            combined_triangle_index=1, local_triangle_index=1,
+            source_polygon_index=1, vertex_indices=(3, 4, 5),
+            vertices=((0.0, 1.0, 0.0), (1.0, 1.0, 0.0),
+                      (2.0, 1.0, 0.0))))
+    session = diagnostics.DiagnosticResult(
+        snapshot=snapshot, violations=(first, second), detected_count=2,
+        degenerate_faces=degenerates)
+
+    intersection_overlay.set_diagnostic_session(session)
+    primitives = intersection_overlay.primitives_for_diagnostics(
+        intersection_overlay.presentation_diagnostics())
+
+    assert intersection_overlay.presentation_diagnostics() == (
+        first, second, *degenerates)
+    assert [primitive.mode for primitive in primitives].count("TRIS") == 6
+    assert [primitive.mode for primitive in primitives].count("LINES") == 6
+    assert [primitive.mode for primitive in primitives].count("POINTS") == 2
+    assert len(intersection_overlay._triangles_for_draw()) == 6
+    assert intersection_overlay.label_lines() == (
+        "Geometry Diagnostics", "2 intersections · 2 degenerate faces")
+    assert not any(" of " in line for line in intersection_overlay.label_lines())
+    intersection_overlay.clear()

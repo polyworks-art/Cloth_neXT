@@ -2,12 +2,18 @@
 """Regression tests for conservative intersection repair planning."""
 
 import math
+from types import SimpleNamespace
 
 import pytest
 
+from cloth_next.ppf.schema.data import zero_area_triangles
 from cloth_next.intersection_auto_fix import (
     MAX_CORRECTION_EDGE_FRACTION,
+    MAX_DEGENERATE_EDGE_FRACTION,
+    ZERO_AREA_CROSS_EPSILON,
+    combine_displacement_plans,
     is_supported_classification,
+    plan_degenerate_displacements,
     plan_displacements,
     separation_direction,
 )
@@ -89,3 +95,79 @@ def test_planning_is_deterministic_for_identical_input():
 def test_invalid_desired_separation_is_rejected(invalid):
     with pytest.raises(ValueError):
         plan_displacements([_pair()], desired_separation=invalid)
+
+
+def _face(indices=(0, 1, 2), vertices=((0.0, 0.0, 0.0),
+                                      (1.0, 0.0, 0.0),
+                                      (2.0, 0.0, 0.0)), uuid="cloth"):
+    return SimpleNamespace(
+        object_uuid=uuid, vertex_indices=indices, vertices=vertices)
+
+
+def _triangle_area(vertices):
+    first = tuple(vertices[1][axis] - vertices[0][axis] for axis in range(3))
+    second = tuple(vertices[2][axis] - vertices[0][axis] for axis in range(3))
+    cross = (first[1] * second[2] - first[2] * second[1],
+             first[2] * second[0] - first[0] * second[2],
+             first[0] * second[1] - first[1] * second[0])
+    return _length(cross) * 0.5
+
+
+def test_zero_area_face_gets_positive_bounded_area():
+    face = _face()
+    result = plan_degenerate_displacements(
+        (face,), desired_separation=0.01)
+    repaired = [list(point) for point in face.vertices]
+    for (_uuid, index), delta in result.displacements.items():
+        repaired[index] = [repaired[index][axis] + delta[axis]
+                           for axis in range(3)]
+
+    assert result.repaired_faces == 1
+    assert result.skipped_faces == 0
+    assert _triangle_area(repaired) > ZERO_AREA_CROSS_EPSILON * 0.5
+    assert zero_area_triangles(repaired, ((0, 1, 2),)) == []
+    assert max(map(_length, result.displacements.values())) <= (
+        2.0 * MAX_DEGENERATE_EDGE_FRACTION)
+
+
+def test_duplicate_position_is_repaired_without_topology_change():
+    face = _face(vertices=((0.0, 0.0, 0.0),
+                          (1.0, 0.0, 0.0),
+                          (1.0, 0.0, 0.0)))
+    result = plan_degenerate_displacements(
+        (face,), desired_separation=0.01)
+
+    assert result.repaired_faces == 1
+    assert result.skipped_faces == 0
+    assert len(result.displacements) == 1
+
+
+def test_repeated_vertex_index_is_skipped():
+    result = plan_degenerate_displacements(
+        (_face(indices=(0, 0, 1)),), desired_separation=0.01)
+
+    assert result.displacements == {}
+    assert result.repaired_faces == 0
+    assert result.skipped_faces == 1
+
+
+def test_multiple_degenerate_faces_are_planned_deterministically():
+    faces = (_face(), _face(indices=(3, 4, 5), uuid="other"))
+
+    first = plan_degenerate_displacements(faces, desired_separation=0.01)
+    second = plan_degenerate_displacements(faces, desired_separation=0.01)
+
+    assert first == second
+    assert first.repaired_faces == 2
+    assert first.skipped_faces == 0
+    assert len(first.displacements) == 2
+
+
+def test_combined_shared_vertex_repairs_are_averaged_and_bounded():
+    intersection = {("cloth", 1): (0.0, 0.0, 0.04)}
+    degenerate = {("cloth", 1): (0.0, 0.02, 0.0)}
+
+    combined = combine_displacement_plans(intersection, degenerate)
+
+    assert combined[("cloth", 1)] == pytest.approx((0.0, 0.01, 0.02))
+    assert _length(combined[("cloth", 1)]) < 0.04

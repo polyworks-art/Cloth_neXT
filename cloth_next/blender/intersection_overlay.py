@@ -340,19 +340,32 @@ def primitives_for_diagnostic(
     return tuple(primitives)
 
 
+def primitives_for_diagnostics(
+        diagnostics, *, solver_input=None,
+        show_solver_input=False) -> tuple[DrawPrimitive, ...]:
+    """Aggregate the existing per-diagnostic primitives deterministically."""
+    if show_solver_input:
+        return primitives_for_diagnostic(
+            solver_input=solver_input, show_solver_input=True)
+    return tuple(
+        primitive
+        for diagnostic in diagnostics
+        for primitive in primitives_for_diagnostic(diagnostic))
+
+
 def _triangles_for_draw():
     return tuple(
         (primitive.vertices, primitive.color)
-        for primitive in primitives_for_diagnostic(
-            current(), solver_input=_solver_input,
+        for primitive in primitives_for_diagnostics(
+            presentation_diagnostics(), solver_input=_solver_input,
             show_solver_input=_show_input)
         if primitive.mode == "TRIS")
 
 
 def _draw() -> None:
     """Draw both reported sides through geometry, with distinct outlines."""
-    primitives = primitives_for_diagnostic(
-        current(), solver_input=_solver_input,
+    primitives = primitives_for_diagnostics(
+        presentation_diagnostics(), solver_input=_solver_input,
         show_solver_input=_show_input)
     if not primitives:
         return
@@ -384,32 +397,19 @@ def _draw() -> None:
 
 
 def label_lines() -> tuple[str, ...]:
-    violation = current()
-    if violation is None:
+    items = presentation_diagnostics()
+    if not items:
         return ("Solver Input",) if _show_input else ()
-    if not hasattr(violation, "elements"):
-        face = (violation.source_polygon_index
-                if violation.source_polygon_index is not None
-                else violation.local_triangle_index)
-        lines = ["Degenerate Face",
-                 f"{violation.object_name} · Triangle {face}"]
-        position = _degenerate_faces.index(violation) + 1
-        lines.append(f"Degenerate face {position} of {len(_degenerate_faces)}")
-        if _mapping_warning:
-            lines.append(_mapping_warning)
-        return tuple(lines)
-    title = violation.classification.replace("_", " ").title()
-    lines = [title]
-    for element in violation.elements:
-        face = (element.source_polygon_index
-                if element.source_polygon_index is not None
-                else element.local_triangle_index)
-        proxy = " · generated proxy" if element.generated_proxy else ""
-        lines.append(f"{element.object_name} · Triangle {face}{proxy}")
-    mapped = mapped_count()
-    lines.append(f"{_detected_count} detected · {mapped} mapped"
-                 if mapped != _detected_count
-                 else f"{_index + 1} of {mapped}")
+    parts = []
+    if _detected_count:
+        parts.append(
+            f"{_detected_count} intersection"
+            f"{'s' if _detected_count != 1 else ''}")
+    if _degenerate_faces:
+        count = len(_degenerate_faces)
+        parts.append(
+            f"{count} degenerate face{'s' if count != 1 else ''}")
+    lines = ["Geometry Diagnostics", " · ".join(parts)]
     if _mapping_warning:
         lines.append(_mapping_warning)
     return tuple(lines)

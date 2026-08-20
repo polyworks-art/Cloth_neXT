@@ -217,19 +217,33 @@ def test_production_intersection_diagnostics_show_auto_fix(
         classification="SELF_INTERSECTION", detection_method="SOLVER_REPORTED",
         elements=(element, second), combined_pair=(0, 1), total_count=1)
     env.solver_test._intersection_violations = (violation,)
-    monkeypatch.setattr(intersection_overlay, "current", lambda: violation)
-    monkeypatch.setattr(intersection_overlay, "current_index", lambda: 0)
-    monkeypatch.setattr(intersection_overlay, "solver_input_visible", lambda: False)
+    result = diagnostics.DiagnosticResult(
+        violations=(violation,), detected_count=1)
+    env.solver_test._diagnostic_result = result
+    monkeypatch.setattr(intersection_overlay, "presentation_diagnostics",
+                        lambda: (violation,))
+    monkeypatch.setattr(intersection_overlay, "diagnostic_session",
+                        lambda: result)
+    monkeypatch.setattr(intersection_overlay, "detected_count", lambda: 1)
     snapshot = SimpleNamespace(active=False)
     layout = RecordingLayout()
 
     env.physics_ui._draw_intersection_diagnostics(
         layout, snapshot, running=False)
 
-    assert "Self Intersection · 1 of 1" in layout.labels
-    assert ("clothnext.intersection_auto_fix", "Auto Fix Intersections", True) \
+    assert "Geometry Diagnostics" in layout.labels
+    assert "1 Intersection" in layout.labels
+    assert not any(" of " in label for label in layout.labels)
+    assert ("clothnext.intersection_auto_fix", "Auto Fix", True) \
         in layout.operators
+    assert ("clothnext.intersection_clear", "Clear", True) in layout.operators
+    identifiers = {identifier for identifier, _text, _enabled
+                   in layout.operators}
+    assert not identifiers.intersection({
+        "clothnext.intersection_previous", "clothnext.intersection_next",
+        "clothnext.intersection_frame", "clothnext.intersection_show_input"})
     env.solver_test._intersection_violations = ()
+    env.solver_test._diagnostic_result = diagnostics.DiagnosticResult()
     env.registration.unregister()
 
 
@@ -256,9 +270,14 @@ def test_visible_simulation_panel_renders_auto_fix_for_cloth(
         classification="SELF_INTERSECTION", detection_method="SOLVER_REPORTED",
         elements=(element, second), combined_pair=(0, 1), total_count=1)
     env.solver_test._intersection_violations = (violation,)
-    monkeypatch.setattr(intersection_overlay, "current", lambda: violation)
-    monkeypatch.setattr(intersection_overlay, "current_index", lambda: 0)
-    monkeypatch.setattr(intersection_overlay, "solver_input_visible", lambda: False)
+    result = diagnostics.DiagnosticResult(
+        violations=(violation,), detected_count=1)
+    env.solver_test._diagnostic_result = result
+    monkeypatch.setattr(intersection_overlay, "presentation_diagnostics",
+                        lambda: (violation,))
+    monkeypatch.setattr(intersection_overlay, "diagnostic_session",
+                        lambda: result)
+    monkeypatch.setattr(intersection_overlay, "detected_count", lambda: 1)
     monkeypatch.setattr(env.physics_ui, "_active_backend_status",
                         lambda _context: env.physics_ui._SolverStatus(True, "Ready"))
     monkeypatch.setattr(env.physics_ui, "_draw_quality_selector",
@@ -276,6 +295,40 @@ def test_visible_simulation_panel_renders_auto_fix_for_cloth(
     assert any(identifier == "clothnext.intersection_auto_fix"
                for identifier, _text, _enabled in panel.layout.operators)
     env.solver_test._intersection_violations = ()
+    env.solver_test._diagnostic_result = diagnostics.DiagnosticResult()
+    env.registration.unregister()
+
+
+def test_degenerate_only_artist_diagnostics_keep_auto_fix_and_clear(
+        blender_env, monkeypatch):
+    env = blender_env; env.registration.register()
+    from cloth_next import intersection_diagnostics as diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    face = diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=0, vertex_indices=(0, 1, 2),
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                  (2.0, 0.0, 0.0)))
+    result = diagnostics.DiagnosticResult(degenerate_faces=(face,))
+    env.solver_test._diagnostic_result = result
+    monkeypatch.setattr(intersection_overlay, "presentation_diagnostics",
+                        lambda: (face,))
+    monkeypatch.setattr(intersection_overlay, "diagnostic_session",
+                        lambda: result)
+    monkeypatch.setattr(intersection_overlay, "detected_count", lambda: 0)
+    layout = RecordingLayout()
+
+    env.physics_ui._draw_intersection_diagnostics(
+        layout, SimpleNamespace(active=False), running=False)
+
+    assert layout.labels == ["Geometry Diagnostics", "1 Degenerate Face"]
+    assert ("clothnext.intersection_auto_fix", "Auto Fix", True) \
+        in layout.operators
+    assert ("clothnext.intersection_clear", "Clear", True) \
+        in layout.operators
+    env.solver_test._diagnostic_result = diagnostics.DiagnosticResult()
     env.registration.unregister()
 
 

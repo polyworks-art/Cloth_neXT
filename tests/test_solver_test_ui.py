@@ -2735,6 +2735,37 @@ def test_degenerate_triangle_vertices_are_selected_deterministically(
         2, 4, 7, 9)
 
 
+def test_published_degenerate_diagnostics_retain_exact_solver_input(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    from cloth_next.blender import intersection_overlay
+    captured = []
+    obj = SimpleNamespace(name="Cloth")
+    vertices = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                (2.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    triangles = ((0, 1, 2), (0, 2, 3))
+    identity = tuple(tuple(1.0 if row == column else 0.0
+                           for column in range(4)) for row in range(4))
+    monkeypatch.setattr(module, "_source_polygon_indices",
+                        lambda *_args: (4, 9))
+    monkeypatch.setattr(module.export_identity, "export_uuid",
+                        lambda _obj: "cloth-uuid")
+    monkeypatch.setattr(intersection_overlay, "set_diagnostic_session",
+                        captured.append)
+
+    module._publish_degenerate_diagnostics(
+        obj, "CLOTH", vertices, triangles, (0,), identity, 7)
+
+    result = module.diagnostic_result()
+    assert captured == [result]
+    assert result.snapshot.bake_start_frame == 7
+    assert len(result.snapshot.triangles) == 2
+    assert result.snapshot.triangles[0].input_vertices == vertices[:3]
+    assert result.degenerate_faces[0].vertex_indices == (0, 1, 2)
+    assert result.degenerate_faces[0].source_polygon_index == 4
+    module._clear_intersection_diagnostics()
+
+
 def test_auto_fix_object_skips_scene_objects_without_export_identity(
         blender_env):
     module = blender_env.solver_test
@@ -2750,6 +2781,117 @@ def test_auto_fix_object_skips_scene_objects_without_export_identity(
         SimpleNamespace(objects=(camera, light, target)), expected)
 
     assert resolved is target
+
+
+def test_auto_fix_operator_repairs_intersection_and_all_safe_degenerates(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    from cloth_next.blender import intersection_overlay
+
+    first_vertices = ((-1.0, -1.0, 0.0), (1.0, -1.0, 0.0),
+                      (0.0, 1.0, 0.0))
+    second_vertices = ((0.0, -0.5, -1.0), (0.0, 0.5, 1.0),
+                       (0.0, 0.5, -1.0))
+    elements = tuple(
+        diagnostics.IntersectionElement(
+            kind="TRIANGLE", object_uuid="cloth", object_name="Cloth",
+            role="CLOTH", combined_triangle_index=index,
+            local_triangle_index=index, source_polygon_index=index,
+            vertices=vertices)
+        for index, vertices in enumerate((first_vertices, second_vertices)))
+    violation = diagnostics.IntersectionViolation(
+        classification="SELF_INTERSECTION", detection_method="SOLVER_REPORTED",
+        elements=elements, combined_pair=(0, 1), total_count=1)
+    degenerates = tuple(
+        diagnostics.DegenerateFace(
+            object_uuid="cloth", object_name="Cloth", role="CLOTH",
+            combined_triangle_index=index + 2,
+            local_triangle_index=index + 2,
+            source_polygon_index=index + 2,
+            vertex_indices=indices,
+            vertices=((0.0, float(index), 0.0),
+                      (1.0, float(index), 0.0),
+                      (2.0, float(index), 0.0)))
+        for index, indices in enumerate(((6, 7, 8), (9, 10, 11))))
+    result = diagnostics.DiagnosticResult(
+        snapshot=object(), violations=(violation,), detected_count=1,
+        degenerate_faces=degenerates)
+    module._diagnostic_result = result
+    module._intersection_violations = (violation,)
+
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    obj.cloth_next = SimpleNamespace(collision=SimpleNamespace(
+        collision_gap=0.01, surface_offset=0.0))
+    updates = []
+    obj.data = SimpleNamespace(
+        vertices=[SimpleNamespace(co=np.zeros(3)) for _index in range(12)],
+        update=lambda: updates.append(True))
+    foreign = blender_env.bpy.types.Object(name="Foreign", type="MESH")
+    foreign.data = SimpleNamespace(
+        vertices=[SimpleNamespace(co=np.zeros(3)) for _index in range(3)])
+
+    class IdentityLinear:
+        def __matmul__(self, value):
+            return np.asarray(value, dtype=float)
+
+    pairs = (((tuple(("cloth", index) for index in (0, 1, 2))),
+              first_vertices,
+              tuple(("cloth", index) for index in (3, 4, 5)),
+              second_vertices),)
+    monkeypatch.setattr(
+        module, "_auto_fix_snapshot_pairs",
+        lambda *_args: (pairs, {
+            "cloth": (obj, IdentityLinear(), lambda value: value)}))
+    forgotten = []
+    monkeypatch.setattr(module.validation_state, "forget", forgotten.append)
+    monkeypatch.setattr(intersection_overlay, "solver_input_snapshot",
+                        lambda: result.snapshot)
+    monkeypatch.setattr(
+        module.bpy.ops.clothnext, "bake",
+        lambda *_args, **_kwargs:
+            (_ for _ in ()).throw(AssertionError("Auto Fix started a Bake")),
+        raising=False)
+    reports = []
+    operator = module.CLOTHNEXT_OT_intersection_auto_fix()
+    operator.report = lambda level, message: reports.append((level, message))
+
+    outcome = operator.execute(SimpleNamespace(scene=SimpleNamespace()))
+
+    assert outcome == {"FINISHED"}
+    assert updates == [True]
+    assert forgotten == [obj]
+    assert any(np.linalg.norm(vertex.co) > 0.0
+               for vertex in obj.data.vertices)
+    assert all(np.allclose(vertex.co, 0.0)
+               for vertex in foreign.data.vertices)
+    assert module.diagnostic_result() == diagnostics.DiagnosticResult()
+    assert intersection_overlay.presentation_diagnostics() == ()
+    assert "1 intersection(s) and 2 degenerate face(s) repaired" in reports[-1][1]
+
+
+def test_auto_fix_degenerate_requires_retained_solver_input(blender_env):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    face = diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=0, vertex_indices=(0, 1, 2),
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                  (2.0, 0.0, 0.0)))
+    module._diagnostic_result = diagnostics.DiagnosticResult(
+        degenerate_faces=(face,))
+    reports = []
+    operator = module.CLOTHNEXT_OT_intersection_auto_fix()
+    operator.report = lambda level, message: reports.append((level, message))
+
+    outcome = operator.execute(SimpleNamespace(
+        scene=SimpleNamespace(frame_current=1)))
+
+    assert outcome == {"CANCELLED"}
+    assert "snapshot" in reports[-1][1]
+    assert module.diagnostic_result().degenerate_faces == (face,)
+    module._clear_intersection_diagnostics()
 
 
 def test_bake_window_diagnostic_object_label_uses_affected_objects(

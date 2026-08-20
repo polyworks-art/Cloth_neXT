@@ -1086,16 +1086,36 @@ def _vertices_for_triangles(triangles, triangle_indices) -> tuple[int, ...]:
 
 
 def _publish_degenerate_diagnostics(
-        obj, role, vertices, triangles, triangle_indices, world) -> None:
+        obj, role, vertices, triangles, triangle_indices, world,
+        bake_start_frame) -> None:
     """Retain exact preflight triangles as the current diagnostic session."""
     global _diagnostic_result
     source_faces = _source_polygon_indices(obj, len(triangles))
     matrix = solver_world_matrix(world)
     faces = []
+    snapshot_triangles = []
+    source_uuid = export_identity.export_uuid(obj)
+    transformed = tuple(_solver_position(matrix, point) for point in vertices)
+    for triangle_index, triangle in enumerate(triangles):
+        indices = tuple(map(int, triangle))
+        owner = intersection_diagnostics.TriangleOwner(
+            combined_triangle_index=int(triangle_index),
+            object_uuid=source_uuid, object_name=str(obj.name), role=str(role),
+            local_triangle_index=int(triangle_index),
+            source_polygon_index=(
+                int(source_faces[triangle_index])
+                if triangle_index < len(source_faces) else None),
+            generated_proxy=False, internal=False)
+        snapshot_triangles.append(
+            intersection_diagnostics.SolverInputTriangle(
+                owner, tuple(transformed[index] for index in indices),
+                input_vertices=tuple(tuple(map(float, vertices[index]))
+                                     for index in indices),
+                vertex_indices=indices))
     for triangle_index in triangle_indices:
         indices = tuple(map(int, triangles[triangle_index]))
         faces.append(intersection_diagnostics.DegenerateFace(
-            object_uuid=export_identity.export_uuid(obj),
+            object_uuid=source_uuid,
             object_name=str(obj.name), role=str(role),
             combined_triangle_index=int(triangle_index),
             local_triangle_index=int(triangle_index),
@@ -1103,10 +1123,11 @@ def _publish_degenerate_diagnostics(
                 int(source_faces[triangle_index])
                 if triangle_index < len(source_faces) else None),
             vertex_indices=indices,
-            vertices=tuple(_solver_position(matrix, vertices[index])
-                           for index in indices)))
+            vertices=tuple(transformed[index] for index in indices)))
+    retained = intersection_diagnostics.SolverInputSnapshot(
+        int(bake_start_frame), tuple(snapshot_triangles))
     _diagnostic_result = intersection_diagnostics.DiagnosticResult(
-        degenerate_faces=tuple(faces))
+        snapshot=retained, degenerate_faces=tuple(faces))
     from . import intersection_overlay
     intersection_overlay.set_diagnostic_session(_diagnostic_result)
 
@@ -4698,7 +4719,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             degenerate = zero_area_triangles(vertices, triangles)
             if degenerate:
                 _publish_degenerate_diagnostics(
-                    obj, entry.role, vertices, triangles, degenerate, world)
+                    obj, entry.role, vertices, triangles, degenerate, world,
+                    bake_range.start)
                 problem_vertices = _vertices_for_triangles(
                     triangles, degenerate)
                 selected = _select_problem_vertices(
@@ -5171,7 +5193,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         if degenerate:
             _publish_degenerate_diagnostics(
                 cloth_obj, deformable_role, cloth_vertices, cloth_triangles,
-                degenerate, cloth_world)
+                degenerate, cloth_world, bake_range.start)
             problem_vertices = _vertices_for_triangles(
                 cloth_triangles, degenerate)
             selected = _select_problem_vertices(
@@ -8951,7 +8973,7 @@ class CLOTHNEXT_OT_intersection_clear(bpy.types.Operator):
 def _auto_fix_supported_violations():
     """Return only complete, solver-attributed V1 repair candidates."""
     return tuple(
-        violation for violation in _intersection_violations
+        violation for violation in _diagnostic_result.violations
         if (violation.classification in
             intersection_auto_fix.SUPPORTED_CLASSIFICATIONS
             and len(violation.elements) == 2
@@ -8961,6 +8983,16 @@ def _auto_fix_supported_violations():
                     for element in violation.elements)
             and violation.elements[0].object_uuid ==
                 violation.elements[1].object_uuid))
+
+
+def _auto_fix_supported_degenerate_faces():
+    """Return attributed deformable faces eligible for position-only repair."""
+    return tuple(
+        face for face in _diagnostic_result.degenerate_faces
+        if (face.role in {"CLOTH", "SOFT_BODY", "RIGID_BODY"}
+            and bool(face.object_uuid)
+            and len(face.vertex_indices) == 3
+            and len(face.vertices) == 3))
 
 
 def _auto_fix_object(scene, object_uuid):
@@ -8978,7 +9010,8 @@ def _auto_fix_object(scene, object_uuid):
     return None
 
 
-def _auto_fix_snapshot_pairs(context, violations, snapshot):
+def _auto_fix_snapshot_pairs(
+        context, violations, snapshot, degenerate_faces=()):
     """Validate an exact source-mesh mapping and build pure planner input."""
     if snapshot is None:
         raise SceneValidationError(
@@ -8997,6 +9030,20 @@ def _auto_fix_snapshot_pairs(context, violations, snapshot):
                 raise SceneValidationError(
                     "Intersection diagnostics no longer match the solver input.")
             object_uuids.add(triangle.owner.object_uuid)
+    for face in degenerate_faces:
+        triangle = by_combined.get(face.combined_triangle_index)
+        if (triangle is None or triangle.owner.internal
+                or triangle.owner.object_uuid != face.object_uuid
+                or triangle.owner.local_triangle_index
+                != face.local_triangle_index
+                or tuple(triangle.vertex_indices)
+                != tuple(face.vertex_indices)
+                or triangle.owner.source_polygon_index
+                != face.source_polygon_index
+                or tuple(triangle.vertices) != tuple(face.vertices)):
+            raise SceneValidationError(
+                "Degenerate diagnostics no longer match the solver input.")
+        object_uuids.add(face.object_uuid)
     object_records = {
         object_uuid: tuple(
             triangle for triangle in snapshot.triangles
@@ -9087,35 +9134,45 @@ def _auto_fix_snapshot_pairs(context, violations, snapshot):
 
 
 class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
-    """Conservatively separate solver-confirmed self-intersections."""
+    """Conservatively repair safely mapped geometry diagnostics."""
     bl_idname = "clothnext.intersection_auto_fix"
-    bl_label = "Auto Fix Intersections"
+    bl_label = "Auto Fix"
     bl_description = (
-        "Gently separate supported solver-confirmed self-intersections, "
-        "without changing mesh topology, then retry authoritative validation")
+        "Gently repair supported geometry diagnostics without changing mesh "
+        "topology; run Bake afterwards to verify the result")
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, _context):
-        allowed = bool(_auto_fix_supported_violations()) and not run_active()
+        allowed = bool(
+            _auto_fix_supported_violations()
+            or _auto_fix_supported_degenerate_faces()) and not run_active()
         if not allowed and hasattr(cls, "poll_message_set"):
             cls.poll_message_set(
-                "No safely mapped self-intersections are available")
+                "No safely mapped geometry diagnostics are available")
         return allowed
 
     def execute(self, context):
         from . import intersection_overlay
         violations = _auto_fix_supported_violations()
+        degenerate_faces = _auto_fix_supported_degenerate_faces()
+        result = diagnostic_result()
         try:
             pairs, objects = _auto_fix_snapshot_pairs(
                 context, violations,
-                intersection_overlay.solver_input_snapshot())
+                intersection_overlay.solver_input_snapshot(),
+                degenerate_faces)
             desired = max(
                 2.0 * float(value[0].cloth_next.collision.collision_gap)
                 + float(value[0].cloth_next.collision.surface_offset)
                 for value in objects.values())
-            planned = intersection_auto_fix.plan_displacements(
+            intersection_plan = intersection_auto_fix.plan_displacements(
                 pairs, desired_separation=desired)
+            degenerate_plan = (
+                intersection_auto_fix.plan_degenerate_displacements(
+                    degenerate_faces, desired_separation=desired))
+            planned = intersection_auto_fix.combine_displacement_plans(
+                intersection_plan, degenerate_plan.displacements)
             if not planned:
                 raise SceneValidationError(
                     "Auto Fix could not derive a safe correction for these faces.")
@@ -9133,27 +9190,18 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             self.report({"WARNING"}, str(exc))
             return {"CANCELLED"}
 
-        initial_count = max((item.total_count for item in violations),
-                            default=len(violations))
+        intersections_fixed = len(violations) if intersection_plan else 0
+        skipped = (
+            len(result.violations) - len(violations)
+            + len(result.degenerate_faces) - len(degenerate_faces)
+            + degenerate_plan.skipped_faces)
         _clear_intersection_diagnostics()
-        try:
-            outcome = bpy.ops.clothnext.bake("INVOKE_DEFAULT")
-        except (AttributeError, RuntimeError) as exc:
-            self.report(
-                {"WARNING"},
-                f"Applied a conservative correction to {len(planned)} "
-                f"vertices, but could not restart validation: {exc}")
-            return {"FINISHED"}
-        if "CANCELLED" in outcome:
-            self.report(
-                {"WARNING"},
-                f"Applied a conservative correction to {len(planned)} "
-                "vertices. Run Bake to verify the result.")
-        else:
-            self.report(
-                {"INFO"},
-                f"Adjusted {len(planned)} vertices for {initial_count} initial "
-                "self-intersection(s); verifying with the solver.")
+        self.report(
+            {"INFO"},
+            f"Auto Fix: {intersections_fixed} intersection(s) and "
+            f"{degenerate_plan.repaired_faces} degenerate face(s) repaired, "
+            f"{skipped} skipped; {len(planned)} vertices modified across "
+            f"{len(changed)} object(s). Run Bake to verify.")
         return {"FINISHED"}
 
 

@@ -1938,72 +1938,40 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
     presented = intersection_overlay.presentation_diagnostics()
     if not violations and not presented:
         return
-    current = intersection_overlay.current() or violations[0]
-    current_number = intersection_overlay.current_index() + 1
-    elements = getattr(current, "elements", ())
-    is_degenerate = not hasattr(current, "elements")
     if intersection_overlay.diagnostic_session() is None:
-        mapped_count = len(violations)
-        detected_count = getattr(current, "total_count", mapped_count)
+        detected_count = max(
+            (getattr(item, "total_count", len(violations))
+             for item in violations), default=len(violations))
     else:
-        mapped_count = intersection_overlay.mapped_count()
         detected_count = intersection_overlay.detected_count()
-    if is_degenerate:
-        title = "Degenerate Face"
-        count_label = next((
-            line for line in intersection_overlay.label_lines()
-            if line.startswith("Degenerate face ")), "")
-    else:
-        title = current.classification.replace('_', ' ').title()
-        count_label = (
-            f"{detected_count} detected · {mapped_count} mapped"
-            if mapped_count != detected_count
-            else f"{current_number} of {mapped_count}")
+    degenerate_count = sum(
+        1 for item in presented if not hasattr(item, "elements"))
+    summary = []
+    if detected_count:
+        summary.append(
+            f"{detected_count} Intersection"
+            f"{'s' if detected_count != 1 else ''}")
+    if degenerate_count:
+        summary.append(
+            f"{degenerate_count} Degenerate Face"
+            f"{'s' if degenerate_count != 1 else ''}")
     column = layout.column(align=True)
-    column.label(
-        text=f"{title} · {count_label}", icon="RESTRICT_SELECT_OFF")
-    if is_degenerate:
-        face = (current.source_polygon_index
-                if current.source_polygon_index is not None
-                else current.local_triangle_index)
-        column.label(text=f"{current.object_name} · Triangle {face}")
-    else:
-        for element in elements:
-            face = (element.source_polygon_index
-                    if element.source_polygon_index is not None
-                    else element.local_triangle_index)
-            column.label(text=f"{element.object_name} · Triangle {face}")
+    column.label(text="Geometry Diagnostics", icon="RESTRICT_SELECT_OFF")
+    column.label(text=" · ".join(summary))
     if intersection_overlay.mapping_warning():
         warning = column.row()
         warning.alert = True
         warning.label(text=intersection_overlay.mapping_warning(), icon="ERROR")
-    navigation = column.row(align=True)
-    navigation.operator("clothnext.intersection_previous",
-                        text="", icon="TRIA_LEFT")
-    navigation.operator("clothnext.intersection_next",
-                        text="", icon="TRIA_RIGHT")
-    navigation.operator("clothnext.intersection_frame",
-                        text="Frame", icon="VIEWZOOM")
-    if elements:
-        selection = column.row(align=True)
-        for index, element in enumerate(elements[:2]):
-            op = selection.operator(
-                "clothnext.intersection_select_element",
-                text=f"Select {element.object_name}")
-            op.element_index = index
     diagnostics = column.row(align=True)
-    diagnostics.operator(
-        "clothnext.intersection_show_input",
-        text=("Hide Solver Input"
-              if intersection_overlay.solver_input_visible()
-              else "Show Solver Input"), icon="MESH_DATA")
+    auto_fix = diagnostics.row(align=True)
+    auto_fix.enabled = (
+        bool(solver_test._auto_fix_supported_violations()
+             or solver_test._auto_fix_supported_degenerate_faces())
+        and not running and not snapshot.active)
+    auto_fix.operator("clothnext.intersection_auto_fix",
+                      text="Auto Fix", icon="MODIFIER")
     diagnostics.operator("clothnext.intersection_clear",
                          text="Clear", icon="X")
-    if solver_test._auto_fix_supported_violations():
-        auto_fix = column.row(align=True)
-        auto_fix.enabled = not running and not snapshot.active
-        auto_fix.operator("clothnext.intersection_auto_fix",
-                          text="Auto Fix Intersections", icon="MODIFIER")
 
 
 def _draw_solver_test_controls(layout, context) -> None:
