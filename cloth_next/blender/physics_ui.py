@@ -1936,7 +1936,8 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
 
     violations = solver_test.intersection_violations()
     presented = intersection_overlay.presentation_diagnostics()
-    if not violations and not presented:
+    if (not violations and not presented
+            and intersection_overlay.diagnostic_session() is None):
         return
     if intersection_overlay.diagnostic_session() is None:
         detected_count = max(
@@ -1964,6 +1965,9 @@ def _draw_intersection_diagnostics(layout, snapshot, *, running: bool) -> None:
         warning = diagnostics_box.row()
         warning.alert = True
         warning.label(text=intersection_overlay.mapping_warning(), icon="ERROR")
+    if intersection_overlay.detail_notice():
+        notice = diagnostics_box.row()
+        notice.label(text=intersection_overlay.detail_notice(), icon="INFO")
     actions = diagnostics_box.split(factor=0.7, align=True)
     auto_fix = actions.column(align=True)
     auto_fix.enabled = (

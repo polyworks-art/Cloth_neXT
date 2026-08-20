@@ -6063,7 +6063,8 @@ def _with_preserved_partial_error(
             "validated_partial_pc2": paths,
             "partial_frame_counts": frame_counts,
         },
-        exception=exc), violations=exc.violations)
+        exception=exc), violations=exc.violations,
+        solver_total_count=exc.solver_total_count)
 
 
 def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
@@ -6081,6 +6082,7 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
             f"Cause: {summary}",
             f"What to do: {action}",
             f"Reported violations: {enriched.detected_count}",
+            f"Detailed pairs supplied: {enriched.detailed_count}",
             f"Mapped violations: {enriched.mapped_count}",
         ]
         if enriched.mapping_warning:
@@ -6192,9 +6194,28 @@ def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
     count_match = re.search(
         r"(\d+)\s+self[- ]intersections?", exc.record.technical_message,
         re.IGNORECASE)
-    detected = max(len(raw), int(count_match.group(1)) if count_match else 0)
+    detected = max(
+        len(raw), int(getattr(exc, "solver_total_count", 0) or 0),
+        int(count_match.group(1)) if count_match else 0)
     result = intersection_diagnostics.map_diagnostics(
         raw, snapshot, detected_count=detected)
+    normalized_pairs = []
+    for item in raw:
+        pair = intersection_diagnostics._reported_pair(item)
+        if pair is not None:
+            normalized_pairs.append(tuple(sorted(pair)))
+    log_with_context(
+        get_logger("solver.intersections"), 20,
+        "Solver contact diagnostics", {
+            "solver_total": result.detected_count,
+            "details": result.detailed_count,
+            "raw_pairs": len(normalized_pairs),
+            "normalized_unique_pairs": len(set(normalized_pairs)),
+            "duplicate_pairs": len(normalized_pairs) - len(set(normalized_pairs)),
+            "mapped": result.mapped_count,
+            "mapping_failed": result.unmapped_count,
+            "details_not_supplied": result.details_not_supplied_count,
+        })
     converted = result.violations
     for violation in converted[:10]:
         average, minimum = intersection_diagnostics.triangle_metrics(
@@ -6618,6 +6639,13 @@ def _contact_validation_worker(plan: RunPlan) -> None:
         _queue.put(("contact_cancelled",))
     except ClothNextError as exc:
         violations = _convert_solver_violations(plan, exc)
+        log_with_context(
+            get_logger("solver.intersections"), 20,
+            "Contact diagnostic worker transport", {
+                "cloth_next_error_pairs": len(exc.violations),
+                "worker_detailed_pairs": violations.detailed_count,
+                "worker_mapped_pairs": violations.mapped_count,
+            })
         summary, details = _present_worker_error(
             plan, exc, enriched=violations)
         code = classify_error("BUILDING", summary, details, exc.record)
@@ -7786,6 +7814,14 @@ def _pump_once() -> float | None:
                 _diagnostic_result = intersection_diagnostics.DiagnosticResult(
                     snapshot=getattr(plan, "solver_input", None),
                     violations=values, detected_count=len(values))
+            log_with_context(
+                get_logger("solver.intersections"), 20,
+                "Contact diagnostics received on main thread", {
+                    "main_thread_detailed_pairs": (
+                        _diagnostic_result.detailed_count),
+                    "main_thread_mapped_pairs": _diagnostic_result.mapped_count,
+                    "mapping_failed": _diagnostic_result.unmapped_count,
+                })
             _intersection_violations = _diagnostic_result.violations
             _intersection_violation_index = 0
             if (_diagnostic_result.has_intersections

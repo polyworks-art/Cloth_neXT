@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-OVERLAY_VERSION = "face-friction-intersection-preview-v8"
+OVERLAY_VERSION = "face-friction-intersection-preview-v9"
 UPSTREAM_013_RELEASE = "2026-07-26-22-53"
 
 _DECODER_NEEDLE = '''                else:
@@ -145,7 +145,7 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
                 # The compiled kernel exposes its authoritative preview in a
                 # separate field.  Some builds leave ``violations`` empty even
                 # though ``has_self_intersection`` is true.
-                for preview in result.get("self_intersections", ())[:100]:
+                for preview in result.get("self_intersections", ()):
                     if isinstance(preview, dict):
                         positions = preview.get("tri_positions", ())
                         is_rod = bool(preview.get("is_rod", False))
@@ -175,7 +175,7 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
                 self._has_self_intersection = False
                 original_intersections = []
             exact = []
-            for first, second in exact_pairs[:100]:
+            for first, second in exact_pairs:
                 elements = []
                 for triangle_index in (first, second):
                     if triangle_index < 0:
@@ -214,6 +214,11 @@ _VIOLATION_REPLACEMENT = '''        all_violations = result["violations"]
         if all_violations:
             raise ValidationError(result["combined_message"], violations=all_violations)
 '''
+_VIOLATION_REPLACEMENT_V8 = _VIOLATION_REPLACEMENT.replace(
+    'result.get("self_intersections", ()):',
+    'result.get("self_intersections", ())[:100]:').replace(
+    'for first, second in exact_pairs:',
+    'for first, second in exact_pairs[:100]:')
 _VIOLATION_REPLACEMENT_V6 = _VIOLATION_REPLACEMENT.replace(
     '''            if (not self._has_self_intersection
                     and not self._has_contact_offset_violation
@@ -325,7 +330,7 @@ def _upgrade_violation_overlay(path: Path) -> None:
         return
     previous = next((
         candidate for candidate in (
-            _VIOLATION_REPLACEMENT_V6,
+            _VIOLATION_REPLACEMENT_V8, _VIOLATION_REPLACEMENT_V6,
             _VIOLATION_REPLACEMENT_V5,
             _VIOLATION_REPLACEMENT_V4,
             _VIOLATION_REPLACEMENT_V3, _VIOLATION_REPLACEMENT_V2)

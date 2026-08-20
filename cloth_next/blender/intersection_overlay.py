@@ -17,6 +17,7 @@ _solver_input: intersection_diagnostics.SolverInputSnapshot | None = None
 _diagnostic_session = None
 _detected_count = 0
 _mapping_warning = ""
+_detail_notice = ""
 _index = 0
 _show_input = False
 _draw_handle = None
@@ -70,6 +71,10 @@ def mapping_warning() -> str:
     return _mapping_warning
 
 
+def detail_notice() -> str:
+    return _detail_notice
+
+
 def _session_values(session):
     values = getattr(session, "mapped_violations", None)
     if values is None:
@@ -82,9 +87,10 @@ def _session_values(session):
         session, "detected_count", getattr(session, "total_count", None))
     warning = getattr(
         session, "mapping_warning", getattr(session, "warning", ""))
+    notice = getattr(session, "detail_notice", "")
     degenerates = tuple(getattr(session, "degenerate_faces", ()) or ())
     return (tuple(values or ()), degenerates, solver_input, total,
-            str(warning or ""))
+            str(warning or ""), str(notice or ""))
 
 
 def set_diagnostic_session(session, solver_input=None) -> None:
@@ -96,12 +102,13 @@ def set_diagnostic_session(session, solver_input=None) -> None:
     source of truth for detected and unmapped counts.
     """
     global _diagnostic_session
-    values, degenerates, retained_input, total, warning = _session_values(
-        session)
+    values, degenerates, retained_input, total, warning, notice = (
+        _session_values(session))
     _diagnostic_session = session
     _set_state(
         values, solver_input if solver_input is not None else retained_input,
-        detected=total, warning=warning, degenerate_faces=degenerates)
+        detected=total, warning=warning, notice=notice,
+        degenerate_faces=degenerates)
 
 
 def set_violations(violations, solver_input=None) -> None:
@@ -111,14 +118,14 @@ def set_violations(violations, solver_input=None) -> None:
     total = max(
         (int(item.total_count) for item in values), default=len(values))
     _diagnostic_session = None
-    _set_state(values, solver_input, detected=total, warning="",
+    _set_state(values, solver_input, detected=total, warning="", notice="",
                degenerate_faces=())
 
 
 def _set_state(violations, solver_input, *, detected, warning,
-               degenerate_faces) -> None:
+               notice, degenerate_faces) -> None:
     global _violations, _solver_input, _index, _detected_count
-    global _degenerate_faces, _mapping_warning
+    global _degenerate_faces, _mapping_warning, _detail_notice
     # A converted violation is only useful to the overlay when at least one of
     # its mapped elements still contains a complete, finite triangle. Keeping
     # count-only records here produces a label without any corresponding GPU
@@ -133,13 +140,9 @@ def _set_state(violations, solver_input, *, detected, warning,
     except (TypeError, ValueError):
         _detected_count = len(_violations)
     _mapping_warning = warning
-    if not _mapping_warning and _detected_count > len(_violations):
-        missing = _detected_count - len(_violations)
-        _mapping_warning = (
-            f"{missing} solver-reported intersection"
-            f"{'s' if missing != 1 else ''} could not be mapped safely.")
+    _detail_notice = notice
     _index = 0
-    if presentation_diagnostics():
+    if presentation_diagnostics() or _detected_count:
         # Blender can retire draw handlers during file/workspace lifecycle
         # changes without making the opaque Python token falsy.  Re-arm the
         # pair for every newly published immutable result so a stale non-None
@@ -153,13 +156,14 @@ def _set_state(violations, solver_input, *, detected, warning,
 
 def clear() -> None:
     global _violations, _degenerate_faces, _solver_input, _diagnostic_session
-    global _detected_count, _mapping_warning, _index, _show_input
+    global _detected_count, _mapping_warning, _detail_notice, _index, _show_input
     _violations = ()
     _degenerate_faces = ()
     _solver_input = None
     _diagnostic_session = None
     _detected_count = 0
     _mapping_warning = ""
+    _detail_notice = ""
     _index = 0
     _show_input = False
     _remove_handlers()
@@ -408,7 +412,7 @@ def _draw() -> None:
 
 def label_lines() -> tuple[str, ...]:
     items = presentation_diagnostics()
-    if not items:
+    if not items and not _detected_count:
         return ("Solver Input",) if _show_input else ()
     parts = []
     if _detected_count:
@@ -422,6 +426,8 @@ def label_lines() -> tuple[str, ...]:
     lines = ["Geometry Diagnostics", " · ".join(parts)]
     if _mapping_warning:
         lines.append(_mapping_warning)
+    if _detail_notice:
+        lines.append(_detail_notice)
     return tuple(lines)
 
 

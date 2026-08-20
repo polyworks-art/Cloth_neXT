@@ -89,8 +89,9 @@ class DiagnosticResult:
     """One immutable, authoritative diagnostic result for a validation pass.
 
     ``unmapped`` describes solver records that were present but unsafe to map;
-    ``unattributed_count`` covers detections reported only as a total.  This
-    preserves the solver count without inventing geometry for the overlay.
+    ``unattributed_count`` covers detections reported only as a total.  The
+    latter are not mapping failures because no concrete record was supplied.
+    This preserves the solver count without inventing geometry for the overlay.
     """
 
     snapshot: SolverInputSnapshot | None = None
@@ -139,7 +140,18 @@ class DiagnosticResult:
 
     @property
     def unmapped_count(self) -> int:
-        return len(self.unmapped) + self.unattributed_count
+        """Concrete solver records that exact, fail-closed mapping rejected."""
+        return len(self.unmapped)
+
+    @property
+    def detailed_count(self) -> int:
+        """Concrete diagnostic records supplied by the solver/frontend."""
+        return len(self.violations) + len(self.unmapped)
+
+    @property
+    def details_not_supplied_count(self) -> int:
+        """Reported detections for which no concrete record was supplied."""
+        return self.unattributed_count
 
     @property
     def mapping_warning(self) -> str:
@@ -148,6 +160,16 @@ class DiagnosticResult:
             return ""
         return (f"{count} solver-reported intersection"
                 f"{'s' if count != 1 else ''} could not be mapped safely.")
+
+    @property
+    def detail_notice(self) -> str:
+        if not self.details_not_supplied_count:
+            return ""
+        if self.mapped_count == self.detailed_count:
+            return (f"Showing {self.mapped_count} solver-supplied location"
+                    f"{'s' if self.mapped_count != 1 else ''}.")
+        return (f"Showing {self.mapped_count} of {self.detailed_count} "
+                "solver-supplied locations.")
 
     @property
     def self_intersections(self) -> tuple[IntersectionViolation, ...]:
@@ -239,7 +261,9 @@ def _classification(first: TriangleOwner, second: TriangleOwner,
 
 
 def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
-                      total_count: int = 1) -> IntersectionViolation | None:
+                      total_count: int = 1,
+                      triangle_by_index: Mapping | None = None
+                      ) -> IntersectionViolation | None:
     """Enrich a new or legacy solver violation without guessing geometry."""
     pair_value = raw.get("combined_pair", raw.get("pair"))
     if (not isinstance(pair_value, (list, tuple))
@@ -252,9 +276,9 @@ def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
         pair = (int(pair_value[0]), int(pair_value[1]))
     except (TypeError, ValueError):
         return None
-    by_index = {
+    by_index = (triangle_by_index if triangle_by_index is not None else {
         item.owner.combined_triangle_index: item
-        for item in snapshot.triangles}
+        for item in snapshot.triangles})
     # Some managed solver builds report indices in their post-decode combined
     # mesh rather than the retained export snapshot's index space.  The same
     # authoritative record also contains both exact triangle positions.  When
@@ -267,9 +291,18 @@ def convert_violation(raw: Mapping, snapshot: SolverInputSnapshot, *,
     # the export table while referring to entirely different faces.
     raw_triangles = raw.get("tris")
     if raw_triangles:
-        matched = _match_legacy_triangle_pair(raw_triangles, snapshot)
-        if matched is not None:
-            pair = matched
+        indexed = tuple(by_index.get(index) for index in pair if index >= 0)
+        indexed_geometry_matches = (
+            len(indexed) == min(2, len(raw_triangles))
+            and all(item is not None and not item.owner.internal
+                    and (_triangle_matches(raw_triangle, item.vertices)
+                         or _triangle_matches(
+                             raw_triangle, item.input_vertices))
+                    for raw_triangle, item in zip(raw_triangles[:2], indexed)))
+        if not indexed_geometry_matches:
+            matched = _match_legacy_triangle_pair(raw_triangles, snapshot)
+            if matched is not None:
+                pair = matched
     # If either side is internal sentinel geometry, suppress the complete
     # diagnostic. Presenting only the artist-owned half recreates the very
     # one-sided preview bug this mapping is designed to prevent.
@@ -371,8 +404,12 @@ def map_diagnostics(
     total = max(reported, len(raw))
     mapped = []
     unmapped = []
+    triangle_by_index = {
+        item.owner.combined_triangle_index: item for item in snapshot.triangles}
     for ordinal, item in enumerate(raw, 1):
-        violation = convert_violation(item, snapshot, total_count=total)
+        violation = convert_violation(
+            item, snapshot, total_count=total,
+            triangle_by_index=triangle_by_index)
         if violation is None:
             unmapped.append(UnmappedIntersection(
                 ordinal=ordinal,
@@ -459,6 +496,25 @@ def local_diagnostics_from_candidates(
         narrow_phase_tests=tested_count)
 
 
+def _triangle_matches(left, right, *, tolerance: float = 1.0e-6) -> bool:
+    if not isinstance(left, (list, tuple)) or len(left) != 3:
+        return False
+    try:
+        remaining = [tuple(map(float, point)) for point in right]
+        candidate = [tuple(map(float, point)) for point in left]
+    except (TypeError, ValueError):
+        return False
+    for point in candidate:
+        match = next((
+            index for index, expected in enumerate(remaining)
+            if all(abs(point[axis] - expected[axis]) <= tolerance
+                   for axis in range(3))), None)
+        if match is None:
+            return False
+        remaining.pop(match)
+    return True
+
+
 def _match_legacy_triangle_pair(
         raw_triangles, snapshot: SolverInputSnapshot,
         *, tolerance: float = 1.0e-6) -> tuple[int, int] | None:
@@ -472,32 +528,17 @@ def _match_legacy_triangle_pair(
     if not isinstance(raw_triangles, (list, tuple)) or not raw_triangles:
         return None
 
-    def _matches(left, right) -> bool:
-        if (not isinstance(left, (list, tuple)) or len(left) != 3):
-            return False
-        try:
-            remaining = [tuple(map(float, point)) for point in right]
-            candidate = [tuple(map(float, point)) for point in left]
-        except (TypeError, ValueError):
-            return False
-        for point in candidate:
-            match = next((
-                index for index, expected in enumerate(remaining)
-                if all(abs(point[axis] - expected[axis]) <= tolerance
-                       for axis in range(3))), None)
-            if match is None:
-                return False
-            remaining.pop(match)
-        return True
-
     matched = []
     for raw_triangle in raw_triangles[:2]:
         found = next((
             item.owner.combined_triangle_index
             for item in snapshot.triangles
             if not item.owner.internal
-            and (_matches(raw_triangle, item.vertices)
-                 or _matches(raw_triangle, item.input_vertices))), None)
+            and (_triangle_matches(
+                    raw_triangle, item.vertices, tolerance=tolerance)
+                 or _triangle_matches(
+                    raw_triangle, item.input_vertices,
+                    tolerance=tolerance))), None)
         if found is not None and found not in matched:
             matched.append(found)
     if not matched:

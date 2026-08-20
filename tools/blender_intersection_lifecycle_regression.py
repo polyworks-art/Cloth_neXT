@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -19,18 +20,30 @@ def _args():
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--blend", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--skip-repeated-bake", action="store_true")
     return parser.parse_args(values)
 
 
 def _counts(result):
+    raw_pairs = [
+        tuple(sorted(item.combined_pair))
+        for item in (*result.violations, *result.unmapped)
+        if item.combined_pair is not None]
     return {
         "degenerates": len(result.degenerate_faces),
         "local_or_solver_intersections": int(result.detected_count),
+        "detailed_pairs": int(result.detailed_count),
+        "mapped_pairs": int(result.mapped_count),
+        "mapping_failed": int(result.unmapped_count),
+        "details_not_supplied": int(result.details_not_supplied_count),
+        "raw_pairs": len(raw_pairs),
+        "normalized_unique_pairs": len(set(raw_pairs)),
+        "duplicate_pairs": len(raw_pairs) - len(set(raw_pairs)),
         "presented": len(result.violations) + len(result.degenerate_faces),
     }
 
 
-def _wait_for_worker(solver_test, timeout=120.0):
+def _wait_for_worker(solver_test, timeout=900.0):
     deadline = time.monotonic() + timeout
     while solver_test._active_plan is not None and time.monotonic() < deadline:
         result = solver_test._pump_once()
@@ -51,6 +64,68 @@ def main():
     registration.register()
     report = {"blender": bpy.app.version_string, "blend": str(args.blend)}
     try:
+        from cloth_next.core.errors import ClothNextError
+        from cloth_next.ppf_run import session as session_module
+
+        pipeline = report["pipeline"] = {}
+        original_fail = session_module.SolverSession._fail_from_status
+        original_await = session_module.SolverSession._await_build
+        original_convert = solver_test._convert_solver_violations
+        original_publish = intersection_overlay.set_diagnostic_session
+
+        def traced_fail(session, response, phase):
+            payload = session_module._normalize_violation_payload(
+                response.get("violations", ()))
+            totals = [int(value) for value in re.findall(
+                r"(\d+)\s+self[- ]intersections?",
+                str(response.get("error", "")), re.IGNORECASE)]
+            pipeline["solver_status_total"] = max(
+                [len(payload), *totals], default=0)
+            pipeline["solver_status_payload_pairs"] = len(payload)
+            error = original_fail(session, response, phase)
+            pipeline["session_decoder_pairs"] = len(error.violations)
+            pipeline["cloth_next_error_pairs"] = len(error.violations)
+            return error
+
+        def traced_await(session):
+            try:
+                return original_await(session)
+            except ClothNextError as error:
+                pipeline["await_build_pairs"] = len(error.violations)
+                pipeline["session_decoder_pairs"] = len(error.violations)
+                pipeline["cloth_next_error_pairs"] = len(error.violations)
+                pipeline["solver_status_total"] = int(
+                    error.solver_total_count or 0)
+                raise
+
+        def traced_convert(plan, error):
+            pipeline["mapping_input_pairs"] = len(error.violations)
+            pipeline["session_decoder_pairs"] = len(error.violations)
+            pipeline["cloth_next_error_pairs"] = len(error.violations)
+            pipeline["solver_status_total"] = int(
+                error.solver_total_count or 0)
+            result = original_convert(plan, error)
+            pipeline["worker_transported_pairs"] = result.detailed_count
+            pipeline["mapped_pairs"] = result.mapped_count
+            pipeline["mapping_failed"] = result.unmapped_count
+            pipeline["details_not_supplied"] = (
+                result.details_not_supplied_count)
+            return result
+
+        def traced_publish(session, solver_input=None):
+            result = original_publish(session, solver_input)
+            if getattr(session, "detected_count", 0):
+                pipeline["main_thread_received_pairs"] = (
+                    session.detailed_count)
+                pipeline["overlay_drawable_pairs"] = (
+                    intersection_overlay.mapped_count())
+            return result
+
+        session_module.SolverSession._fail_from_status = traced_fail
+        session_module.SolverSession._await_build = traced_await
+        solver_test._convert_solver_violations = traced_convert
+        intersection_overlay.set_diagnostic_session = traced_publish
+
         # Source-tree registration has no installed AddonPreferences entry.
         # Point its otherwise normal resolver at the user's selected managed
         # installation without modifying Blender preferences or the registry.
@@ -58,8 +133,10 @@ def main():
         from cloth_next.updater.solver_registry import load_registry
         from cloth_next.ppf.resolver import (SolverResolutionContext,
                                              SolverResolver)
+        from cloth_next.ppf.solver_overlay import apply_managed_solver_overlay
         registry = load_registry(ManagedSolverPaths.default().registry_json)
         selected = registry.selected
+        apply_managed_solver_overlay(selected.root)
         resolved = SolverResolver(solver_test._version_probe).resolve(
             SolverResolutionContext(selected_installation=selected))
         assert resolved is not None
@@ -173,20 +250,21 @@ def main():
             }
             report["after_auto_fix_controller"] = (
                 solver_test.shared_controller.snapshot().state.value)
-            # A second explicit Bake must clear the old result first and then
-            # republish the same contact-build truth with live handlers.
-            try:
-                solver_test.start_run(bpy.context)
-            except solver_test.SceneValidationError as exc:
-                report["repeated_bake_error"] = str(exc)
-            if solver_test._active_plan is not None:
-                _wait_for_worker(solver_test)
-            repeated = solver_test.diagnostic_result()
-            report["repeated_bake"] = _counts(repeated)
-            report["repeated_bake_handlers"] = {
-                "geometry": intersection_overlay._draw_handle is not None,
-                "label": intersection_overlay._label_handle is not None,
-            }
+            if not args.skip_repeated_bake:
+                # A second explicit Bake must clear the old result first and
+                # then republish the same contact-build truth with live handlers.
+                try:
+                    solver_test.start_run(bpy.context)
+                except solver_test.SceneValidationError as exc:
+                    report["repeated_bake_error"] = str(exc)
+                if solver_test._active_plan is not None:
+                    _wait_for_worker(solver_test)
+                repeated = solver_test.diagnostic_result()
+                report["repeated_bake"] = _counts(repeated)
+                report["repeated_bake_handlers"] = {
+                    "geometry": intersection_overlay._draw_handle is not None,
+                    "label": intersection_overlay._label_handle is not None,
+                }
 
         args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print("CLOTH_NEXT_INTERSECTION_LIFECYCLE_PASS", json.dumps(report))

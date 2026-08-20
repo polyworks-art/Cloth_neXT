@@ -33,6 +33,8 @@ def test_face_friction_overlay_is_idempotent(tmp_path):
     assert "per_element" in first_scene
     assert "combined_tri" in first_scene
     assert "combined_pair" in first_scene
+    assert "exact_pairs[:100]" not in first_scene
+    assert 'self_intersections", ())[:100]' not in first_scene
     assert "exact if exact else original_intersections" in first_scene
     assert "self._has_self_intersection = False" in first_scene
     assert "all_violations = []" in first_scene
@@ -114,6 +116,29 @@ def test_existing_v4_overlay_gains_unverified_flag_suppression(tmp_path):
     assert "Without a confirmed pair" in upgraded
     assert "self._has_self_intersection = False" in upgraded
     assert "original_intersections = []" in upgraded
+
+
+def test_existing_v8_overlay_removes_diagnostic_pair_cap(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "_decoder_.py").write_text(
+        solver_overlay._DECODER_REPLACEMENT, encoding="utf-8")
+    (frontend / "build_worker.py").write_text(
+        solver_overlay._BUILD_WORKER_NEEDLE, encoding="utf-8")
+    scene = frontend / "_scene_.py"
+    scene.write_text(
+        solver_overlay._SCENE_SIGNATURE_REPLACEMENT
+        + solver_overlay._SCENE_EXTEND_REPLACEMENT
+        + solver_overlay._SCENE_SHELL_REPLACEMENT
+        + solver_overlay._VIOLATION_REPLACEMENT_V8,
+        encoding="utf-8")
+
+    solver_overlay.apply_managed_solver_overlay(tmp_path)
+
+    upgraded = scene.read_text(encoding="utf-8")
+    assert "exact_pairs[:100]" not in upgraded
+    assert 'self_intersections", ())[:100]' not in upgraded
+    assert solver_overlay._VIOLATION_REPLACEMENT in upgraded
 
 
 def test_protocol_013_uses_only_verified_upstream_integration(tmp_path):

@@ -800,6 +800,22 @@ def test_status_violations_take_precedence_over_stale_sidecar(tmp_path):
     assert error.violations == (current,)
 
 
+def test_status_decoder_preserves_all_concrete_pairs_and_total(tmp_path):
+    session, _sidecar = _session_with_violation_sidecar(tmp_path)
+    pairs = [
+        {"combined_pair": [index, index + 1]}
+        for index in range(300)]
+
+    error = session._fail_from_status({
+        "status": "FAILED",
+        "error": "2129 self-intersections (2129 tri-tri)",
+        "violations": pairs,
+    }, "building")
+
+    assert len(error.violations) == 300
+    assert error.solver_total_count == 2129
+
+
 @pytest.mark.parametrize("wire_value", [
     '[{"combined_pair": [7, 8]}]',
     '{"violations": [{"combined_pair": [7, 8]}]}',

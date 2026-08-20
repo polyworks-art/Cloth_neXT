@@ -151,12 +151,15 @@ def test_diagnostic_result_preserves_mapped_unmapped_and_solver_total():
     assert result.snapshot is snapshot
     assert result.detected_count == 18
     assert result.mapped_count == 1
-    assert result.unmapped_count == 17
+    assert result.detailed_count == 3
+    assert result.unmapped_count == 2
+    assert result.details_not_supplied_count == 15
     assert result.total_count == 18
     assert result.mapped_violations == result.violations
     assert result.solver_input_snapshot is snapshot
     assert result.mapping_warning == (
-        "17 solver-reported intersections could not be mapped safely.")
+        "2 solver-reported intersections could not be mapped safely.")
+    assert result.detail_notice == "Showing 1 of 3 solver-supplied locations."
     assert result.unattributed_count == 15
     assert [item.reason for item in result.unmapped] == [
         "OUT_OF_RANGE_PAIR", "UNMATCHED_TRIANGLE_GEOMETRY"]
@@ -164,6 +167,31 @@ def test_diagnostic_result_preserves_mapped_unmapped_and_solver_total():
     assert result.violations[0].total_count == 18
     assert result.self_intersections == result.violations
     assert result.has_intersections
+
+
+@pytest.mark.parametrize(("total", "mapped", "failed", "expected_notice"), [
+    (2129, 100, 0, "Showing 100 solver-supplied locations."),
+    (2129, 80, 20, "Showing 80 of 100 solver-supplied locations."),
+    (100, 100, 0, ""),
+    (100, 0, 100, ""),
+])
+def test_diagnostic_count_semantics_distinguish_unsupplied_details(
+        total, mapped, failed, expected_notice):
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    raw = ([{"combined_pair": [0, 0]}] * mapped
+           + [{"combined_pair": [0, 99]}] * failed)
+
+    result = diagnostics.map_diagnostics(raw, snapshot, detected_count=total)
+
+    assert result.detected_count == total
+    assert result.detailed_count == 100
+    assert result.mapped_count == mapped
+    assert result.unmapped_count == failed
+    assert result.details_not_supplied_count == total - 100
+    assert result.detail_notice == expected_notice
+    assert bool(result.mapping_warning) is bool(failed)
 
 
 def test_diagnostic_result_keeps_non_self_intersections_out_of_self_subset():
@@ -679,3 +707,28 @@ def test_overlay_runtime_reset_drops_file_data_and_handles(monkeypatch):
     assert intersection_overlay._draw_handle is None
     assert intersection_overlay._label_handle is None
     assert removed == [("geometry", "WINDOW"), ("label", "WINDOW")]
+
+
+def test_overlay_distinguishes_solver_sample_from_mapping_failure(monkeypatch):
+    monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"combined_pair": [0, 0]}, snapshot, total_count=2129)
+    session = diagnostics.DiagnosticResult(
+        snapshot=snapshot, violations=(violation,) * 100,
+        detected_count=2129, unattributed_count=2029)
+
+    intersection_overlay.set_diagnostic_session(session)
+
+    assert intersection_overlay.detected_count() == 2129
+    assert intersection_overlay.mapped_count() == 100
+    assert intersection_overlay.mapping_warning() == ""
+    assert intersection_overlay.detail_notice() == (
+        "Showing 100 solver-supplied locations.")
+    assert intersection_overlay.label_lines() == (
+        "Geometry Diagnostics", "2129 intersections",
+        "Showing 100 solver-supplied locations.")
+    intersection_overlay.clear()

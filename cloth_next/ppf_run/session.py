@@ -54,7 +54,6 @@ STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 
 _POLL_INTERVAL = 0.25
 _MAX_VIOLATION_SIDECAR_BYTES = 4 * 1024 * 1024
-_MAX_VIOLATION_PREVIEWS = 256
 _VIOLATION_SIDECAR_CONFIRM_TIMEOUT = 1.0
 
 
@@ -68,7 +67,7 @@ def _normalize_violation_payload(payload) -> tuple[dict, ...]:
     records = []
 
     def visit(value, depth=0):
-        if depth > 4 or len(records) >= _MAX_VIOLATION_PREVIEWS:
+        if depth > 4:
             return
         if isinstance(value, str):
             if len(value) > _MAX_VIOLATION_SIDECAR_BYTES:
@@ -677,12 +676,22 @@ class SolverSession:
         poll = self._manager.poll()
         self.diagnostics.stdout_tail = poll.stdout_tail
         self.diagnostics.stderr_tail = poll.stderr_tail
+        operation = self.diagnostics.active_operation
+        build_violations = (
+            self._load_build_violation_sidecar(phase="building")
+            if operation == "BUILDING" else ())
+        count_matches = re.findall(
+            r"(\d+)\s+self[- ]intersections?",
+            " ".join((exc.record.technical_message, str(poll.stdout_tail),
+                      str(poll.stderr_tail))), re.IGNORECASE)
+        solver_total_count = max(
+            [len(build_violations), *(int(value) for value in count_matches)],
+            default=0)
         if not poll.running:
             error = self._manager.early_exit_error(poll)
             final_poll = getattr(self._manager, "final_poll", None)
             poll = final_poll() if final_poll is not None else poll
             record = error.record
-            operation = self.diagnostics.active_operation
             frame = self.diagnostics.current_logical_frame
             if operation == "STARTING_SOLVER":
                 user_message = (
@@ -744,9 +753,10 @@ class SolverSession:
                     "last_fetched_frame": self.diagnostics.last_fetched_frame,
                     "last_output_frame": self.diagnostics.last_output_frame,
                     "ipc_host": self._address.host,
-                    "ipc_port": self._address.port}))
+                    "ipc_port": self._address.port}),
+                violations=build_violations,
+                solver_total_count=solver_total_count)
         record = exc.record
-        operation = self.diagnostics.active_operation
         frame = self.diagnostics.current_logical_frame
         return ClothNextError(ErrorRecord.create(
             category=record.category,
@@ -774,7 +784,9 @@ class SolverSession:
                      "exit_code": poll.exit_code,
                      "failure_kind": "TRANSPORT_LOST_PROCESS_ALIVE",
                      "active_operation": operation,
-                     "current_logical_frame": frame}))
+                     "current_logical_frame": frame}),
+            violations=build_violations,
+            solver_total_count=solver_total_count)
 
     def _external_connection_error(
             self, exc: ClothNextError) -> ClothNextError:
@@ -858,7 +870,8 @@ class SolverSession:
                 "recovery_checkpoint_frame": checkpoint_frame,
                 "partial_cache_candidates": partial_paths,
             },
-            exception=exc), violations=exc.violations)
+            exception=exc), violations=exc.violations,
+            solver_total_count=exc.solver_total_count)
 
     def _fail_from_status(self, response: dict, phase: str) -> ClothNextError:
         self._capture_process_tails()
@@ -899,6 +912,27 @@ class SolverSession:
         if not parsed_violations and phase == "simulating":
             parsed_violations = list(
                 self._load_runtime_intersection_sidecar(phase=phase))
+        reported_counts = []
+        for key in ("total_count", "intersection_count",
+                    "n_self_intersections_total"):
+            try:
+                reported_counts.append(int(response[key]))
+            except (KeyError, TypeError, ValueError):
+                pass
+        reported_counts.extend(
+            int(match.group(1)) for match in re.finditer(
+                r"(\d+)\s+self[- ]intersections?", error_text,
+                re.IGNORECASE))
+        solver_total_count = max(
+            [len(parsed_violations), *reported_counts], default=0)
+        log_with_context(self._logger, logging.INFO,
+            "Solver contact diagnostics decoded", {
+                "phase": phase,
+                "solver_total": solver_total_count,
+                "status_payload_pairs": len(_normalize_violation_payload(
+                    response.get("violations", ()))),
+                "session_decoder_pairs": len(parsed_violations),
+            })
         user_message = (
             f"The solver crashed while {phase} ({crash_kind})."
             if crash_kind else f"The solver reported a failure while {phase}.")
@@ -920,8 +954,10 @@ class SolverSession:
                     "preview_count": min(10, len(parsed_violations)),
                 })
             return ClothNextError(
-                error.record, violations=tuple(parsed_violations))
-        return error
+                error.record, violations=tuple(parsed_violations),
+                solver_total_count=solver_total_count)
+        return ClothNextError(
+            error.record, solver_total_count=solver_total_count)
 
     def _load_runtime_intersection_sidecar(
             self, *, phase: str) -> tuple[dict, ...]:
@@ -983,7 +1019,7 @@ class SolverSession:
                 "runtime_elements": [
                     record.get("elem0"), record.get("elem1")],
             })
-        previews = tuple(violations[:_MAX_VIOLATION_PREVIEWS])
+        previews = tuple(violations)
         if previews:
             log_with_context(
                 self._logger, logging.ERROR,
