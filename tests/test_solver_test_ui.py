@@ -2766,6 +2766,84 @@ def test_published_degenerate_diagnostics_retain_exact_solver_input(
     module._clear_intersection_diagnostics()
 
 
+def test_local_geometry_gate_publishes_combined_result_before_solver_start(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    snapshot = diagnostics.SolverInputSnapshot(1, ())
+    face = diagnostics.DegenerateFace(
+        "a", "Top", "CLOTH", 0, 0, 4, (0, 1, 2),
+        ((0.0, 0.0, 0.0),) * 3)
+    result = diagnostics.DiagnosticResult(
+        snapshot=snapshot,
+        violations=(diagnostics.IntersectionViolation(
+            "SELF_INTERSECTION", "STRICT_CROSSING", (), (1, 2), 1),),
+        detected_count=1, degenerate_faces=(face,))
+    stats = diagnostics.LocalDiagnosticStats(3, 2, 1)
+    published = []
+    monkeypatch.setattr(module, "_combined_degenerate_indices",
+                        lambda *_args: (0,))
+    monkeypatch.setattr(module, "_local_geometry_diagnostics",
+                        lambda *_args, **_kwargs: (result, stats))
+    monkeypatch.setattr(module, "_publish_local_geometry_diagnostics",
+                        lambda value, value_stats: published.append(
+                            (value, value_stats)))
+
+    with pytest.raises(module.SceneValidationError, match=(
+            "1 degenerate face.*1 intersection")):
+        module._validate_local_solver_geometry(snapshot, ())
+
+    assert published == [(result, stats)]
+
+
+def test_clean_local_geometry_gate_allows_normal_plan_construction(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    snapshot = diagnostics.SolverInputSnapshot(1, ())
+    clean = diagnostics.DiagnosticResult(snapshot=snapshot)
+    stats = diagnostics.LocalDiagnosticStats()
+    monkeypatch.setattr(module, "_combined_degenerate_indices",
+                        lambda *_args: ())
+    monkeypatch.setattr(module, "_local_geometry_diagnostics",
+                        lambda *_args, **_kwargs: (clean, stats))
+    monkeypatch.setattr(
+        module, "_publish_local_geometry_diagnostics",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("clean geometry was published as an issue")))
+
+    assert module._validate_local_solver_geometry(snapshot, ()) == (
+        clean, stats)
+
+
+def test_local_revalidation_replaces_pre_weld_snapshot_ids(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    diagnostics = module.intersection_diagnostics
+    old_snapshot = diagnostics.SolverInputSnapshot(1, ())
+    fresh_snapshot = diagnostics.SolverInputSnapshot(2, ())
+    fresh = diagnostics.DiagnosticResult(snapshot=fresh_snapshot)
+    stats = diagnostics.LocalDiagnosticStats()
+    published = []
+    monkeypatch.setattr(module, "validate_scene", lambda _context: object())
+    monkeypatch.setattr(module, "_build_local_geometry_snapshot",
+                        lambda *_args: (fresh_snapshot, ()))
+    monkeypatch.setattr(module, "_combined_degenerate_indices",
+                        lambda *_args: ())
+    monkeypatch.setattr(module, "_local_geometry_diagnostics",
+                        lambda *_args, **_kwargs: (fresh, stats))
+    monkeypatch.setattr(module, "_publish_local_geometry_diagnostics",
+                        lambda result, result_stats: published.append(
+                            (result, result_stats)))
+
+    result, returned_stats = module._revalidate_local_geometry(object())
+
+    assert result.snapshot is fresh_snapshot
+    assert result.snapshot is not old_snapshot
+    assert returned_stats is stats
+    assert published == [(fresh, stats)]
+
+
 def test_auto_fix_object_skips_scene_objects_without_export_identity(
         blender_env):
     module = blender_env.solver_test
@@ -2960,6 +3038,17 @@ def test_auto_fix_applies_degenerate_when_real_intersection_is_unsafe(
     monkeypatch.setattr(intersection_overlay, "solver_input_snapshot",
                         lambda: result.snapshot)
     monkeypatch.setattr(module.validation_state, "forget", lambda _obj: None)
+    fresh_snapshot = object()
+    remaining_result = diagnostics.DiagnosticResult(
+        snapshot=fresh_snapshot, violations=(violation,), detected_count=1)
+
+    def revalidate(_context):
+        module._diagnostic_result = remaining_result
+        module._intersection_violations = remaining_result.violations
+        intersection_overlay.set_diagnostic_session(remaining_result)
+        return remaining_result, diagnostics.LocalDiagnosticStats(2, 1, 1)
+
+    monkeypatch.setattr(module, "_revalidate_local_geometry", revalidate)
     reports = []
     operator = module.CLOTHNEXT_OT_intersection_auto_fix()
     operator.report = lambda level, message: reports.append((level, message))
@@ -2975,6 +3064,12 @@ def test_auto_fix_applies_degenerate_when_real_intersection_is_unsafe(
     assert "0 intersection(s) and 1 degenerate face(s) repaired" \
         in reports[-1][1]
     assert "1 skipped" in reports[-1][1]
+    assert "Local recheck: 0 degenerate face(s), 1 intersection(s) remain" \
+        in reports[-1][1]
+    assert module.diagnostic_result().snapshot is fresh_snapshot
+    assert module.diagnostic_result().snapshot is not result.snapshot
+    assert intersection_overlay.presentation_diagnostics() == (violation,)
+    module._clear_intersection_diagnostics()
 
 
 def test_auto_fix_degenerate_requires_retained_solver_input(blender_env):

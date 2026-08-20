@@ -163,6 +163,15 @@ class DiagnosticResult:
         return bool(self.degenerate_faces)
 
 
+@dataclass(frozen=True, slots=True)
+class LocalDiagnosticStats:
+    """Structural accounting for one broad-phase local geometry pass."""
+
+    triangle_count: int = 0
+    broad_phase_candidates: int = 0
+    narrow_phase_tests: int = 0
+
+
 _DEFORMABLE_ROLES = frozenset({"CLOTH", "SOFT_BODY", "RIGID_BODY", "ROD"})
 
 
@@ -382,6 +391,74 @@ def map_diagnostics(
         unattributed_count=total - len(raw))
 
 
+def local_diagnostics_from_candidates(
+        snapshot: SolverInputSnapshot,
+        candidate_pairs: Iterable[tuple[int, int]], *,
+        degenerate_indices: Iterable[int] = ()) \
+        -> tuple[DiagnosticResult, LocalDiagnosticStats]:
+    """Map exact local intersections from broad-phase triangle candidates.
+
+    Candidate generation deliberately remains outside this pure module so the
+    Blender main thread can use ``BVHTree``.  This function owns the existing
+    strict/coplanar narrow-phase semantics and the adjacency exclusions.
+    Degenerate input triangles are retained as faces but never tested as
+    intersections.
+    """
+    by_index = {
+        item.owner.combined_triangle_index: item for item in snapshot.triangles}
+    excluded = frozenset(map(int, degenerate_indices))
+    deformable_count = sum(
+        item.owner.role in _DEFORMABLE_ROLES and not item.owner.internal
+        for item in snapshot.triangles)
+    seen = set()
+    raw = []
+    candidate_count = 0
+    tested_count = 0
+    for first_value, second_value in candidate_pairs:
+        try:
+            first, second = sorted((int(first_value), int(second_value)))
+        except (TypeError, ValueError):
+            continue
+        pair = (first, second)
+        if first == second or pair in seen:
+            continue
+        seen.add(pair)
+        candidate_count += 1
+        if first in excluded or second in excluded:
+            continue
+        left, right = by_index.get(first), by_index.get(second)
+        if left is None or right is None:
+            continue
+        if (left.owner.internal or right.owner.internal
+                or left.owner.role not in _DEFORMABLE_ROLES
+                or right.owner.role not in _DEFORMABLE_ROLES):
+            continue
+        # Numeric source vertex indices are object-local.  Only matching IDs
+        # on the same source object establish normal mesh adjacency.
+        if (left.owner.object_uuid == right.owner.object_uuid
+                and set(left.vertex_indices).intersection(
+                    right.vertex_indices)):
+            continue
+        tested_count += 1
+        strict = triangles_strictly_cross(left.vertices, right.vertices)
+        coplanar = (not strict and triangles_coplanar_overlap(
+            left.vertices, right.vertices))
+        if strict or coplanar:
+            raw.append({
+                "type": "self_intersection",
+                "combined_pair": pair,
+                "detection_method": (
+                    "STRICT_CROSSING" if strict else "COPLANAR_OVERLAP"),
+            })
+    faces = degenerate_faces_from_combined_indices(snapshot, excluded)
+    result = map_diagnostics(
+        raw, snapshot, detected_count=len(raw), degenerate_faces=faces)
+    return result, LocalDiagnosticStats(
+        triangle_count=deformable_count,
+        broad_phase_candidates=candidate_count,
+        narrow_phase_tests=tested_count)
+
+
 def _match_legacy_triangle_pair(
         raw_triangles, snapshot: SolverInputSnapshot,
         *, tolerance: float = 1.0e-6) -> tuple[int, int] | None:
@@ -432,8 +509,8 @@ def triangles_strictly_cross(first, second, *,
                              tolerance: float = 1.0e-9) -> bool:
     """Return whether either triangle has an edge crossing the other.
 
-    This is used only to locate faces after the solver has already confirmed
-    an intersection but its legacy binding omitted the pair indices.
+    The same exact predicate is shared by local preflight and the legacy
+    solver-diagnostic locator so both paths use one intersection definition.
     """
     def _sub(a, b):
         return tuple(float(a[i]) - float(b[i]) for i in range(3))

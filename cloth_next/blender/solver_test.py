@@ -38,6 +38,7 @@ import uuid as uuid_module
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import bpy
 import numpy as np
@@ -170,6 +171,7 @@ _eta_estimator = FrameEtaEstimator()
 _intersection_violations: tuple[
     intersection_diagnostics.IntersectionViolation, ...] = ()
 _diagnostic_result = intersection_diagnostics.DiagnosticResult()
+_local_diagnostic_stats = intersection_diagnostics.LocalDiagnosticStats()
 _intersection_violation_index = 0
 _show_solver_input = False
 
@@ -181,6 +183,10 @@ def intersection_violations():
 
 def diagnostic_result():
     return _diagnostic_result
+
+
+def local_diagnostic_stats():
+    return _local_diagnostic_stats
 
 
 def _diagnostic_object_label(result) -> str:
@@ -199,11 +205,12 @@ def _diagnostic_object_label(result) -> str:
 def _clear_intersection_diagnostics() -> None:
     """Retire solver violations when a distinct Bake attempt begins."""
     global _intersection_violations, _intersection_violation_index
-    global _diagnostic_result
+    global _diagnostic_result, _local_diagnostic_stats
     from . import intersection_overlay
     intersection_overlay.clear()
     _intersection_violations = ()
     _diagnostic_result = intersection_diagnostics.DiagnosticResult()
+    _local_diagnostic_stats = intersection_diagnostics.LocalDiagnosticStats()
     _intersection_violation_index = 0
 
 
@@ -1028,30 +1035,173 @@ def _snap_closed_sewing_pairs(positions, pairs, threshold: float):
 
 
 def _self_intersection_vertices(vertices, triangles) -> tuple[int, tuple[int, ...]]:
-    """Return intersecting triangle-pair count and their source vertices."""
+    """Compatibility wrapper around the authoritative local diagnostic pass."""
     if len(triangles) < 2:
         return 0, ()
+    records = []
+    for index, triangle in enumerate(triangles):
+        indices = tuple(map(int, triangle))
+        owner = intersection_diagnostics.TriangleOwner(
+            index, "local", "Local", "CLOTH", index, index)
+        records.append(intersection_diagnostics.SolverInputTriangle(
+            owner, tuple(tuple(map(float, vertices[item]))
+                         for item in indices),
+            vertex_indices=indices))
+    snapshot = intersection_diagnostics.SolverInputSnapshot(0, tuple(records))
+    result, _stats = _local_geometry_diagnostics(snapshot)
+    marked = {
+        vertex_index
+        for violation in result.violations
+        for element in violation.elements
+        for vertex_index in snapshot.triangles[
+            element.combined_triangle_index].vertex_indices}
+    return result.detected_count, tuple(sorted(marked))
+
+
+def _bvh_candidate_pairs(snapshot, *, excluded_indices=(),
+                         include_colliders=False):
+    """Yield scene-wide deformable candidates from Blender's main-thread BVH."""
     try:
         from mathutils.bvhtree import BVHTree
-    except ImportError:  # Pure-Python test hosts do not ship Blender mathutils.
-        return 0, ()
-    tree = BVHTree.FromPolygons(vertices, triangles, all_triangles=True)
-    pairs = set()
-    marked = set()
-    for first, second in tree.overlap(tree):
-        first, second = int(first), int(second)
-        if first == second:
+    except ImportError:  # Pure-Python unit-test hosts do not ship mathutils.
+        return
+
+    excluded = frozenset(map(int, excluded_indices))
+    vertices = []
+    polygons = []
+    combined_indices = []
+    for triangle in snapshot.triangles:
+        owner = triangle.owner
+        if (owner.internal or (owner.role == "COLLIDER" and
+                               not include_colliders)
+                or owner.combined_triangle_index in excluded):
             continue
-        pair = (min(first, second), max(first, second))
-        if pair in pairs:
-            continue
-        left, right = triangles[pair[0]], triangles[pair[1]]
-        if set(left).intersection(right):
-            continue
-        pairs.add(pair)
-        marked.update(left)
-        marked.update(right)
-    return len(pairs), tuple(sorted(marked))
+        start = len(vertices)
+        vertices.extend(triangle.vertices)
+        polygons.append((start, start + 1, start + 2))
+        combined_indices.append(owner.combined_triangle_index)
+    if len(polygons) < 2:
+        return
+    first_tree = BVHTree.FromPolygons(
+        vertices, polygons, all_triangles=True)
+    second_tree = BVHTree.FromPolygons(
+        vertices, polygons, all_triangles=True)
+    for first, second in first_tree.overlap(second_tree):
+        yield combined_indices[int(first)], combined_indices[int(second)]
+
+
+def _local_geometry_diagnostics(snapshot, *, degenerate_indices=()):
+    """Run one read-only BVH + exact narrow-phase diagnostic pass."""
+    return intersection_diagnostics.local_diagnostics_from_candidates(
+        snapshot,
+        _bvh_candidate_pairs(snapshot, excluded_indices=degenerate_indices),
+        degenerate_indices=degenerate_indices)
+
+
+def _publish_local_geometry_diagnostics(result, stats=None) -> None:
+    global _diagnostic_result, _intersection_violations
+    global _local_diagnostic_stats
+    _diagnostic_result = result
+    _intersection_violations = result.violations
+    if stats is not None:
+        _local_diagnostic_stats = stats
+    from . import intersection_overlay
+    intersection_overlay.set_diagnostic_session(result)
+
+
+def _combined_degenerate_indices(snapshot, dynamic_records):
+    """Translate per-object zero-area indices into the combined snapshot."""
+    local = set()
+    for record in dynamic_records:
+        entry, vertices, triangles = record[0], record[2], record[3]
+        object_uuid = export_identity.export_uuid(entry.obj)
+        local.update(
+            (object_uuid, int(index))
+            for index in zero_area_triangles(vertices, triangles))
+    return tuple(
+        triangle.owner.combined_triangle_index
+        for triangle in snapshot.triangles
+        if (triangle.owner.object_uuid,
+            triangle.owner.local_triangle_index) in local)
+
+
+def _diagnostic_snapshot_from_dynamic_records(dynamic_records, bake_start):
+    """Build ownership before schema objects reject already-invalid triangles."""
+    ordered = []
+    for record in dynamic_records:
+        entry, vertices, triangles, world = (
+            record[0], record[2], record[3], record[5])
+        raw_object = SimpleNamespace(
+            name=entry.obj.name,
+            uuid=export_identity.export_uuid(entry.obj),
+            vertices_local=vertices,
+            triangles=triangles,
+            transform=solver_world_matrix(world))
+        ordered.append((
+            raw_object, entry.role,
+            _source_polygon_indices(entry.obj, len(triangles)), False))
+    return intersection_diagnostics.build_solver_input_snapshot(
+        ordered, bake_start_frame=bake_start)
+
+
+def _validate_local_solver_geometry(snapshot, dynamic_records):
+    """Publish every locally detectable issue, then block solver startup."""
+    degenerate = _combined_degenerate_indices(snapshot, dynamic_records)
+    result, stats = _local_geometry_diagnostics(
+        snapshot, degenerate_indices=degenerate)
+    if result.has_degenerate_faces or result.has_intersections:
+        _publish_local_geometry_diagnostics(result, stats)
+        raise SceneValidationError(
+            "Geometry Diagnostics found "
+            f"{len(result.degenerate_faces)} degenerate face(s) and "
+            f"{result.detected_count} intersection(s). Repair or clear the "
+            "reported geometry before Bake.")
+    return result, stats
+
+
+def _build_local_geometry_snapshot(context, validation_snapshot):
+    """Rebuild current deformable solver geometry without resolving/running Lumen."""
+    scene = context.scene
+    bake_start = validation_snapshot.bake_range.start
+    original_frame = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
+    records = []
+    try:
+        scene.frame_set(bake_start)
+        for entry in validation_snapshot.deformables:
+            obj = entry.obj
+            with without_owned_playback(
+                    obj, lambda: _depsgraph_update(context)):
+                if entry.role == "ROD":
+                    vertices, edges, _splines = sample_curve(obj)
+                    triangles = ()
+                else:
+                    vertices, triangles = _extract_deformable_mesh(
+                        context, obj, needs_edges=True)
+                    edges = ()
+            world = tuple(tuple(row) for row in obj.matrix_world)
+            if not matrix_is_finite_and_invertible(world):
+                raise SceneValidationError(
+                    f"{obj.name} has a non-finite or non-invertible world matrix.")
+            records.append((entry, None, vertices, triangles, edges, world))
+    finally:
+        scene.frame_set(original_frame, subframe=original_subframe)
+        _depsgraph_update(context)
+    records = tuple(records)
+    return (_diagnostic_snapshot_from_dynamic_records(records, bake_start),
+            records)
+
+
+def _revalidate_local_geometry(context):
+    """Replace stale post-fix IDs with a fresh read-only local pass."""
+    validation_snapshot = validate_scene(context)
+    solver_input, records = _build_local_geometry_snapshot(
+        context, validation_snapshot)
+    degenerate = _combined_degenerate_indices(solver_input, records)
+    result, stats = _local_geometry_diagnostics(
+        solver_input, degenerate_indices=degenerate)
+    _publish_local_geometry_diagnostics(result, stats)
+    return result, stats
 
 
 def _select_problem_vertices(context, obj, indices) -> bool:
@@ -1089,7 +1239,6 @@ def _publish_degenerate_diagnostics(
         obj, role, vertices, triangles, triangle_indices, world,
         bake_start_frame) -> None:
     """Retain exact preflight triangles as the current diagnostic session."""
-    global _diagnostic_result
     source_faces = _source_polygon_indices(obj, len(triangles))
     matrix = solver_world_matrix(world)
     faces = []
@@ -1126,10 +1275,9 @@ def _publish_degenerate_diagnostics(
             vertices=tuple(transformed[index] for index in indices)))
     retained = intersection_diagnostics.SolverInputSnapshot(
         int(bake_start_frame), tuple(snapshot_triangles))
-    _diagnostic_result = intersection_diagnostics.DiagnosticResult(
-        snapshot=retained, degenerate_faces=tuple(faces))
-    from . import intersection_overlay
-    intersection_overlay.set_diagnostic_session(_diagnostic_result)
+    _publish_local_geometry_diagnostics(
+        intersection_diagnostics.DiagnosticResult(
+            snapshot=retained, degenerate_faces=tuple(faces)))
 
 
 def _non_manifold_edge_count(mesh) -> int:
@@ -4716,22 +4864,6 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             if not matrix_is_finite_and_invertible(world):
                 raise SceneValidationError(
                     f"{obj.name} has a non-finite or non-invertible world matrix.")
-            degenerate = zero_area_triangles(vertices, triangles)
-            if degenerate:
-                _publish_degenerate_diagnostics(
-                    obj, entry.role, vertices, triangles, degenerate, world,
-                    bake_range.start)
-                problem_vertices = _vertices_for_triangles(
-                    triangles, degenerate)
-                selected = _select_problem_vertices(
-                    context, obj, problem_vertices)
-                selection_note = (
-                    "The involved vertices are selected in Edit Mode."
-                    if selected else
-                    "Select the reported degenerate geometry in Edit Mode.")
-                raise SceneValidationError(
-                    f"{obj.name} has {len(degenerate)} zero-area triangle(s) "
-                    f"(first index {degenerate[0]}). {selection_note}")
             if entry.role == "CLOTH":
                 stitch_pairs = ()
                 if entry.material.sewing_enabled:
@@ -4745,18 +4877,6 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                             f"{obj.name} has {len(hanging)} Sewing vertex/vertices "
                             "that are not part of any face and therefore carry no "
                             f"surface mass. {selection_note}")
-                pair_count, problem_vertices = _self_intersection_vertices(
-                    vertices, triangles)
-                if pair_count:
-                    selected = _select_problem_vertices(
-                        context, obj, problem_vertices)
-                    selection_note = ("The involved vertices are selected in Edit Mode."
-                                      if selected else
-                                      "Select and repair the intersecting region in Edit Mode.")
-                    raise SceneValidationError(
-                        f"{obj.name} has {pair_count} self-intersecting triangle "
-                        f"pair(s) involving {len(problem_vertices)} vertices. "
-                        f"{selection_note}")
             else:
                 stitch_pairs = ()
             if (pin_snapshot.enabled and
@@ -4800,6 +4920,10 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     finally:
         scene.frame_set(original_frame, subframe=original_subframe)
         _depsgraph_update(context)
+
+    diagnostic_snapshot = _diagnostic_snapshot_from_dynamic_records(
+        dynamic_records, bake_range.start)
+    _validate_local_solver_geometry(diagnostic_snapshot, dynamic_records)
 
     project_name = new_project_name()
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
@@ -5189,22 +5313,6 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     finally:
         scene.frame_set(original_frame, subframe=original_subframe)
     try:
-        degenerate = zero_area_triangles(cloth_vertices, cloth_triangles)
-        if degenerate:
-            _publish_degenerate_diagnostics(
-                cloth_obj, deformable_role, cloth_vertices, cloth_triangles,
-                degenerate, cloth_world, bake_range.start)
-            problem_vertices = _vertices_for_triangles(
-                cloth_triangles, degenerate)
-            selected = _select_problem_vertices(
-                context, cloth_obj, problem_vertices)
-            selection_note = (
-                "The involved vertices are selected in Edit Mode."
-                if selected else
-                "Select the reported degenerate geometry in Edit Mode.")
-            raise SceneValidationError(
-                f"{cloth_obj.name} has {len(degenerate)} zero-area triangle(s) "
-                f"(first index {degenerate[0]}). {selection_note}")
         matrix_records = [(cloth_obj, cloth_world)] + [
             (obj, world if world is not None else capture.transform)
             for obj, _vertices, _triangles, world, capture in collider_records]
@@ -5225,6 +5333,14 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                    for expected,captured in zip(initial,pin_snapshot.samples[0].positions)):
                 raise SceneValidationError(
                     "Animated Pin targets at Bake Start do not match the exported Cloth positions.")
+        diagnostic_records = ((
+            snapshot.deformables[0], pin_snapshot, cloth_vertices,
+            cloth_triangles, cloth_edges, cloth_world, stitch_pairs,
+            cloth_uv_faces, cloth_face_friction),)
+        diagnostic_snapshot = _diagnostic_snapshot_from_dynamic_records(
+            diagnostic_records, bake_range.start)
+        _validate_local_solver_geometry(
+            diagnostic_snapshot, diagnostic_records)
     except Exception:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -6112,24 +6228,11 @@ def _convert_solver_violations(plan: RunPlan, exc: ClothNextError):
 
 def _locate_confirmed_intersection_pairs(snapshot, diagnostic_path=None):
     """Locate faces only after the solver confirmed an intersection."""
-    from mathutils.bvhtree import BVHTree
-
-    vertices = []
-    polygons = []
-    for triangle in snapshot.triangles:
-        start = len(vertices)
-        vertices.extend(triangle.vertices)
-        polygons.append((start, start + 1, start + 2))
-    if not polygons:
-        return ()
-    first_tree = BVHTree.FromPolygons(
-        vertices, polygons, all_triangles=True, epsilon=0.0)
-    second_tree = BVHTree.FromPolygons(
-        vertices, polygons, all_triangles=True, epsilon=0.0)
     found = []
     overlap_count = 0
     tested_count = 0
-    for first, second in first_tree.overlap(second_tree):
+    for first, second in _bvh_candidate_pairs(
+            snapshot, include_colliders=True):
         overlap_count += 1
         if first >= second:
             continue
@@ -9472,13 +9575,24 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             + intersection_repair.skipped_pairs
             + degenerates_skipped)
         _clear_intersection_diagnostics()
+        try:
+            revalidated, _stats = _revalidate_local_geometry(context)
+            remaining = (
+                f" Local recheck: {len(revalidated.degenerate_faces)} "
+                f"degenerate face(s), {revalidated.detected_count} "
+                "intersection(s) remain; no solver was started.")
+        except (AttributeError, SceneValidationError, ValueError) as exc:
+            # The committed mesh repair remains valid and undoable.  Never
+            # resurrect stale pre-weld IDs when rebuilding the overlay fails.
+            _clear_intersection_diagnostics()
+            remaining = f" Local recheck unavailable: {exc}"
         self.report(
             {"INFO"},
             f"Auto Fix: {intersections_fixed} intersection(s) and "
             f"{degenerates_fixed} degenerate face(s) repaired, "
             f"{skipped} skipped; {len(planned)} vertices moved and "
             f"{welded_vertices} explicitly welded across "
-            f"{len(changed)} object(s). Run Bake to verify.")
+            f"{len(changed)} object(s).{remaining}")
         return {"FINISHED"}
 
 

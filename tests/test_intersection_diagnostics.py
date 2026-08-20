@@ -251,6 +251,105 @@ def test_coplanar_locator_detects_overlap_and_duplicates_not_shared_edge():
     assert not diagnostics.triangles_coplanar_overlap(first, adjacent)
 
 
+def _combined_local_snapshot():
+    vertices = (
+        (0, 0, 0), (2, 0, 0), (0, 2, 0),
+        (0, 0, 0), (2, 0, 0), (0, 2, 0),
+        (0, 0, 0), (2, 0, 0), (0, 2, 0),
+        (10, 0, 0), (11, 0, 0), (12, 0, 0),
+        (20, 0, 0), (21, 0, 0), (22, 0, 0))
+    cloth = SceneObject(
+        "top", "Top", vertices,
+        ((0, 1, 2), (3, 4, 5), (6, 7, 8),
+         (9, 10, 11), (12, 13, 14)))
+    return diagnostics.build_solver_input_snapshot(
+        ((cloth, "CLOTH", (40, 41, 42, 43, 44), False),),
+        bake_start_frame=7)
+
+
+def test_local_pass_combines_degenerates_and_intersections_without_double_count():
+    snapshot = _combined_local_snapshot()
+    result, stats = diagnostics.local_diagnostics_from_candidates(
+        snapshot,
+        ((0, 1), (0, 2), (1, 2), (0, 3), (3, 4)),
+        degenerate_indices=(3, 4))
+
+    assert len(result.degenerate_faces) == 2
+    assert result.detected_count == 3
+    assert len(result.violations) == 3
+    assert result.unmapped_count == 0
+    assert stats.triangle_count == 5
+    assert stats.broad_phase_candidates == 5
+    assert stats.narrow_phase_tests == 3
+    assert all(3 not in item.combined_pair and 4 not in item.combined_pair
+               for item in result.violations)
+
+
+def test_local_pass_maps_multiple_objects_and_source_faces_scene_wide():
+    degenerate = SceneObject(
+        "top", "Top", ((10, 0, 0), (11, 0, 0), (12, 0, 0)),
+        ((0, 1, 2),))
+    crossing = SceneObject(
+        "shorts", "Shorts",
+        ((0, 0, 0), (2, 0, 0), (0, 2, 0),
+         (0.5, 0.5, -1), (0.5, 0.5, 1), (1.5, 0.5, 0)),
+        ((0, 1, 2), (3, 4, 5)))
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (degenerate, "CLOTH", (70,), False),
+        (crossing, "CLOTH", (80, 81), False)), bake_start_frame=3)
+
+    result, _stats = diagnostics.local_diagnostics_from_candidates(
+        snapshot, ((0, 1), (1, 2)), degenerate_indices=(0,))
+
+    assert [item.object_uuid for item in result.degenerate_faces] == ["top"]
+    assert result.degenerate_faces[0].source_polygon_index == 70
+    assert result.detected_count == 1
+    assert result.violations[0].classification == "SELF_INTERSECTION"
+    assert [item.object_uuid for item in result.violations[0].elements] == [
+        "shorts", "shorts"]
+    assert [item.local_triangle_index
+            for item in result.violations[0].elements] == [0, 1]
+    assert [item.source_polygon_index
+            for item in result.violations[0].elements] == [80, 81]
+
+
+def test_local_pass_excludes_adjacent_faces_before_narrow_phase():
+    cloth = SceneObject(
+        "cloth", "Cloth",
+        ((0, 0, 0), (2, 0, 0), (0, 2, 0), (2, 2, 0)),
+        ((0, 1, 2), (1, 3, 2)))
+    snapshot = diagnostics.build_solver_input_snapshot(
+        ((cloth, "CLOTH", None, False),), bake_start_frame=1)
+
+    result, stats = diagnostics.local_diagnostics_from_candidates(
+        snapshot, ((0, 1),))
+
+    assert result.detected_count == 0
+    assert stats.broad_phase_candidates == 1
+    assert stats.narrow_phase_tests == 0
+
+
+def test_local_pass_structural_guard_only_narrow_tests_bvh_candidates():
+    triangles = tuple(
+        ((index * 3, index * 3 + 1, index * 3 + 2))
+        for index in range(100))
+    vertices = tuple(
+        (float(index // 3) * 10.0, float(index % 3 == 1),
+         float(index % 3 == 2))
+        for index in range(300))
+    cloth = SceneObject("cloth", "Cloth", vertices, triangles)
+    snapshot = diagnostics.build_solver_input_snapshot(
+        ((cloth, "CLOTH", None, False),), bake_start_frame=1)
+
+    result, stats = diagnostics.local_diagnostics_from_candidates(
+        snapshot, ((0, 1), (50, 51)))
+
+    assert result.detected_count == 0
+    assert stats.broad_phase_candidates == 2
+    assert stats.narrow_phase_tests == 2
+    assert stats.narrow_phase_tests < 100 * 99 // 2
+
+
 def test_overlay_navigation_clear_and_solver_input_reuses_snapshot(monkeypatch):
     monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
     monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)

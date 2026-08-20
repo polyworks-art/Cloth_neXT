@@ -32,8 +32,12 @@ def test_self_intersection_check_deduplicates_pairs_and_ignores_neighbours(
     monkeypatch.setitem(sys.modules, "mathutils.bvhtree", fake_bvhtree)
     triangles = ((0, 1, 2), (2, 1, 3), (4, 5, 6))
 
-    count, vertices = module._self_intersection_vertices(
-        ((0.0, 0.0, 0.0),) * 7, triangles)
+    vertices = (
+        (0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (0.0, 2.0, 0.0),
+        (2.0, 2.0, 0.0), (0.5, 0.5, -1.0),
+        (0.5, 0.5, 1.0), (1.5, 0.5, 0.0))
+
+    count, vertices = module._self_intersection_vertices(vertices, triangles)
 
     assert count == 1
     assert vertices == (0, 1, 2, 4, 5, 6)
