@@ -1407,7 +1407,7 @@ def test_animated_collider_cache_hit_skips_expensive_capture_list(
     cache = module.ExportPayloadCache(tmp_path)
     key = "c" * 64
     collider = SimpleNamespace(name="Collider")
-    snapshot = SimpleNamespace(cloth_obj=object())
+    snapshot = SimpleNamespace(cloth_obj=object(), timings={})
     capture = module.ColliderMotionCapture(
         "RIGID_ANIMATED", ((0.0, 0.0, 0.0),), ((0, 0, 0),),
         tuple(tuple(1.0 if row == column else 0.0 for column in range(4))
@@ -1426,6 +1426,9 @@ def test_animated_collider_cache_hit_skips_expensive_capture_list(
     assert misses == ()  # _begin_collider_pump receives no Collider
     assert keys == {}
     assert selected_cache is cache
+    assert snapshot.timings["animated_collider_cache_hits"] == 1.0
+    assert snapshot.timings["animated_collider_cache_misses"] == 0.0
+    assert snapshot.timings["collider_sample_count"] == 0.0
 
 
 def test_animated_collider_cache_rejects_missing_artifact(

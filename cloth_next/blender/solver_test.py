@@ -1961,6 +1961,39 @@ def _id_source_identity(data) -> dict:
     }
 
 
+def _action_curves_for_owner(owner, action):
+    direct = getattr(action, "fcurves", None)
+    if direct is not None:
+        return tuple(direct), {"storage": "legacy"}, ""
+    animation = getattr(owner, "animation_data", None)
+    assigned = int(getattr(animation, "action_slot_handle", 0) or 0)
+    curves = []
+    layers = []
+    for layer in getattr(action, "layers", ()):
+        strips = tuple(getattr(layer, "strips", ()))
+        if len(strips) != 1:
+            return (), {}, "unsupported layered Action strips"
+        strip = strips[0]
+        if str(getattr(strip, "type", "KEYFRAME")) != "KEYFRAME":
+            return (), {}, "unsupported layered Action strip"
+        matched = []
+        for bag in getattr(strip, "channelbags", ()):
+            handle = int(getattr(bag, "slot_handle", 0) or 0)
+            if assigned and handle != assigned:
+                continue
+            matched.extend(getattr(bag, "fcurves", ()))
+        curves.extend(matched)
+        layers.append({"name": str(getattr(layer, "name", ""))})
+    if (not layers and not bool(getattr(action, "is_empty", True))):
+        return (), {}, "unidentifiable Action storage"
+    return tuple(curves), {
+        "storage": "layered", "layers": layers,
+        "slot_handle": assigned,
+        "slot_identifier": str(getattr(
+            animation, "last_slot_identifier", "")),
+    }, ""
+
+
 def _safe_action_identity(owner) -> tuple[bool, dict, str]:
     animation = getattr(owner, "animation_data", None)
     if animation is None:
@@ -1971,8 +2004,13 @@ def _safe_action_identity(owner) -> tuple[bool, dict, str]:
     if any(tuple(getattr(track, "strips", ())) for track in nla_tracks):
         return False, {}, "NLA dependency"
     action = getattr(animation, "action", None)
+    curves_source, storage, storage_reason = (
+        _action_curves_for_owner(owner, action)
+        if action is not None else ((), {"storage": "none"}, ""))
+    if storage_reason:
+        return False, {}, storage_reason
     curves = []
-    for curve in getattr(action, "fcurves", ()) if action else ():
+    for curve in curves_source:
         if getattr(curve, "modifiers", ()):
             return False, {}, "FCurve modifier"
         points = []
@@ -1987,31 +2025,254 @@ def _safe_action_identity(owner) -> tuple[bool, dict, str]:
                 "interpolation": str(
                     getattr(point, "interpolation", "")),
                 "easing": str(getattr(point, "easing", "")),
+                "amplitude": float(getattr(point, "amplitude", 0.0)),
+                "back": float(getattr(point, "back", 0.0)),
+                "period": float(getattr(point, "period", 0.0)),
             })
         curves.append({
             "path": str(getattr(curve, "data_path", "")),
             "index": int(getattr(curve, "array_index", 0)),
+            "extrapolation": str(getattr(curve, "extrapolation", "")),
+            "mute": bool(getattr(curve, "mute", False)),
             "points": points,
         })
     return True, {
         "action": (_id_source_identity(action) if action else None),
+        "storage": storage,
+        "action_extrapolation": str(getattr(
+            animation, "action_extrapolation", "")),
+        "action_blend_type": str(getattr(
+            animation, "action_blend_type", "")),
+        "action_influence": float(getattr(
+            animation, "action_influence", 1.0)),
+        "use_nla": bool(getattr(animation, "use_nla", True)),
+        "action_use_cyclic": bool(getattr(action, "use_cyclic", False)),
+        "action_use_frame_range": bool(getattr(
+            action, "use_frame_range", False)),
+        "action_frame_start": float(getattr(action, "frame_start", 0.0)),
+        "action_frame_end": float(getattr(action, "frame_end", 0.0)),
         "curves": sorted(curves, key=lambda row: (
             row["path"], row["index"])),
     }, ""
 
 
-def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
+def _animated_component_paths(owner) -> set[tuple[str, int]]:
+    animation = getattr(owner, "animation_data", None)
+    action = getattr(animation, "action", None)
+    curves, _storage, _reason = (
+        _action_curves_for_owner(owner, action)
+        if action is not None else ((), {}, ""))
+    return {
+        (str(getattr(curve, "data_path", "")),
+         int(getattr(curve, "array_index", 0)))
+        for curve in curves
+    }
+
+
+def _stable_animated_value(value, data_path, animated_paths):
+    if isinstance(value, (bool, int, float, str)):
+        if (data_path, 0) in animated_paths:
+            return {"animated": True}
+        return float(value) if isinstance(value, float) else value
+    try:
+        values = tuple(float(item) for item in value)
+    except TypeError:
+        if (data_path, 0) in animated_paths:
+            return {"animated": True}
+        raise
+    return [({"animated": True} if (data_path, index) in animated_paths
+             else item) for index, item in enumerate(values)]
+
+
+def _stable_transform_identity(obj) -> dict:
+    animated = _animated_component_paths(obj)
+    result = {}
+    for name in (
+            "location", "rotation_axis_angle", "rotation_euler",
+            "rotation_quaternion", "scale", "delta_location",
+            "delta_rotation_euler", "delta_rotation_quaternion",
+            "delta_scale"):
+        if hasattr(obj, name):
+            result[name] = _stable_animated_value(
+                getattr(obj, name), name, animated)
+    result["rotation_mode"] = str(getattr(obj, "rotation_mode", ""))
+    result["matrix_parent_inverse"] = [
+        [float(value) for value in row]
+        for row in getattr(obj, "matrix_parent_inverse", ())]
+    return result
+
+
+def _safe_collider_constraint_identity(
+        constraint, owner, *, self_target) -> tuple[bool, dict, str]:
+    """Fingerprint ordinary rig-internal constraints without evaluating them."""
+    supported = {
+        "COPY_LOCATION", "COPY_ROTATION", "COPY_SCALE", "COPY_TRANSFORMS",
+        "LIMIT_LOCATION", "LIMIT_ROTATION", "LIMIT_SCALE", "LIMIT_DISTANCE",
+        "TRACK_TO", "DAMPED_TRACK", "LOCKED_TRACK", "STRETCH_TO",
+        "MAINTAIN_VOLUME", "TRANSFORM", "CHILD_OF", "FLOOR", "SHRINKWRAP",
+        "IK", "SPLINE_IK",
+    }
+    kind = str(getattr(constraint, "type", ""))
+    if kind not in supported:
+        return False, {}, f"unsupported {kind or 'unknown'} constraint"
+    rna = getattr(getattr(constraint, "bl_rna", None), "properties", None)
+    if rna is None:
+        return False, {}, f"unidentifiable {kind} constraint"
+    animated = _animated_component_paths(owner)
+    values = {}
+    for prop in rna:
+        name = str(getattr(prop, "identifier", ""))
+        if (not name or name == "rna_type"
+                or bool(getattr(prop, "is_readonly", False))):
+            continue
+        if name in {"show_expanded", "active"}:
+            continue
+        prop_type = str(getattr(prop, "type", ""))
+        if prop_type == "POINTER":
+            target = getattr(constraint, name, None)
+            if target is None:
+                values[name] = None
+            elif target is self_target:
+                values[name] = {"self": True}
+            else:
+                return False, {}, (
+                    f"external target in {kind} constraint property {name}")
+            continue
+        if prop_type == "COLLECTION":
+            if tuple(getattr(constraint, name, ())):
+                return False, {}, f"collection dependency in {kind} constraint"
+            values[name] = []
+            continue
+        if prop_type not in {"BOOLEAN", "INT", "FLOAT", "STRING", "ENUM"}:
+            return False, {}, f"unsupported {kind} constraint property {name}"
+        if name == "name":
+            values[name] = str(getattr(constraint, name, ""))
+            continue
+        try:
+            path = f"{constraint.path_from_id()}.{name}"
+            values[name] = _stable_animated_value(
+                getattr(constraint, name), path, animated)
+        except (AttributeError, TypeError, ValueError):
+            return False, {}, f"unreadable {kind} constraint property {name}"
+    return True, {"type": kind, "properties": values}, ""
+
+
+def _stable_pose_identity(armature) -> tuple[bool, list[dict], str]:
+    animated = _animated_component_paths(armature)
+    rows = []
+    for bone in getattr(getattr(armature, "pose", None), "bones", ()):
+        transforms = {}
+        for name in ("location", "rotation_axis_angle", "rotation_euler",
+                     "rotation_quaternion", "scale"):
+            try:
+                path = f"{bone.path_from_id()}.{name}"
+                transforms[name] = _stable_animated_value(
+                    getattr(bone, name), path, animated)
+            except (AttributeError, TypeError, ValueError):
+                return False, [], f"{bone.name}: unreadable pose transform"
+        parameters = {}
+        for name in (
+                "bbone_rollin", "bbone_rollout", "bbone_curveinx",
+                "bbone_curveinz", "bbone_curveoutx", "bbone_curveoutz",
+                "bbone_easein", "bbone_easeout", "bbone_scalein",
+                "bbone_scaleout", "lock_ik_x", "lock_ik_y", "lock_ik_z",
+                "use_ik_limit_x", "use_ik_limit_y", "use_ik_limit_z",
+                "use_ik_rotation_control", "use_ik_linear_control",
+                "ik_min_x", "ik_max_x", "ik_min_y", "ik_max_y",
+                "ik_min_z", "ik_max_z", "ik_stiffness_x",
+                "ik_stiffness_y", "ik_stiffness_z", "ik_stretch",
+                "ik_rotation_weight", "ik_linear_weight"):
+            if not hasattr(bone, name):
+                continue
+            try:
+                path = f"{bone.path_from_id()}.{name}"
+                parameters[name] = _stable_animated_value(
+                    getattr(bone, name), path, animated)
+            except (AttributeError, TypeError, ValueError):
+                return False, [], f"{bone.name}: unreadable pose parameter"
+        constraints = []
+        for constraint in getattr(bone, "constraints", ()):
+            safe, identity, reason = _safe_collider_constraint_identity(
+                constraint, armature, self_target=armature)
+            if not safe:
+                return False, [], f"{bone.name}: {reason}"
+            constraints.append(identity)
+        rows.append({
+            "name": str(getattr(bone, "name", "")),
+            "rotation_mode": str(getattr(bone, "rotation_mode", "")),
+            "transforms": transforms,
+            "parameters": parameters,
+            "constraints": constraints,
+        })
+    return True, rows, ""
+
+
+def _safe_shape_key_identity(data) -> tuple[bool, dict | None, str]:
+    shape_keys = getattr(data, "shape_keys", None)
+    if shape_keys is None:
+        return True, None, ""
+    safe, action, reason = _safe_action_identity(shape_keys)
+    if not safe:
+        return False, None, reason
+    animated = _animated_component_paths(shape_keys)
+    blocks = []
+    for block in getattr(shape_keys, "key_blocks", ()):
+        coordinates = np.empty(len(block.data) * 3, dtype="<f4")
+        block.data.foreach_get("co", coordinates)
+        try:
+            value_path = f"{block.path_from_id()}.value"
+        except (AttributeError, TypeError, ValueError):
+            return False, None, "unidentifiable Shape Key value"
+        blocks.append({
+            "name": str(block.name),
+            "relative": str(getattr(getattr(
+                block, "relative_key", None), "name", "")),
+            "coordinates": hashlib.sha256(
+                memoryview(coordinates).cast("B")).hexdigest(),
+            "value": _stable_animated_value(
+                float(block.value), value_path, animated),
+            "frame": float(getattr(block, "frame", 0.0)),
+            "mute": bool(getattr(block, "mute", False)),
+            "vertex_group": str(getattr(block, "vertex_group", "")),
+            "interpolation": str(getattr(block, "interpolation", "")),
+        })
+    return True, {
+        "source": _id_source_identity(shape_keys),
+        "action": action,
+        "use_relative": bool(getattr(shape_keys, "use_relative", True)),
+        "eval_time": _stable_animated_value(
+            float(getattr(shape_keys, "eval_time", 0.0)),
+            "eval_time", animated),
+        "blocks": blocks,
+    }, ""
+
+
+def _safe_object_dependency_identity(
+        obj, *, collider_capture=False) -> tuple[bool, dict, str]:
     """Cheap, conservative dependency identity for an early cache lookup."""
+    object_constraints = []
     if tuple(getattr(obj, "constraints", ())):
-        return False, {}, f"{obj.name}: constraint dependency"
+        if not collider_capture:
+            return False, {}, f"{obj.name}: constraint dependency"
+        for constraint in obj.constraints:
+            safe, identity, reason = _safe_collider_constraint_identity(
+                constraint, obj, self_target=obj)
+            if not safe:
+                return False, {}, f"{obj.name}: {reason}"
+            object_constraints.append(identity)
     data = getattr(obj, "data", None)
     if data is None:
         return False, {}, f"{obj.name}: missing data-block"
     source = _id_source_identity(data)
     if source["library"].get("unresolved"):
         return False, {}, f"{obj.name}: unresolved library dependency"
+    shape_key_identity = None
     if getattr(data, "shape_keys", None) is not None:
-        return False, {}, f"{obj.name}: Shape Keys require safe capture"
+        if not collider_capture:
+            return False, {}, f"{obj.name}: Shape Keys require safe capture"
+        safe, shape_key_identity, reason = _safe_shape_key_identity(data)
+        if not safe:
+            return False, {}, f"{obj.name}: {reason}"
     safe, action, reason = _safe_action_identity(obj)
     if not safe:
         return False, {}, f"{obj.name}: {reason}"
@@ -2031,13 +2292,23 @@ def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
         armature = getattr(modifier, "object", None)
         if armature is None:
             return False, {}, f"{obj.name}: unresolved Armature modifier"
+        armature_constraints = []
         if tuple(getattr(armature, "constraints", ())):
-            return False, {}, f"{obj.name}: constrained Armature"
+            if not collider_capture:
+                return False, {}, f"{obj.name}: constrained Armature"
+            for constraint in armature.constraints:
+                constraint_safe, identity, reason = (
+                    _safe_collider_constraint_identity(
+                        constraint, armature, self_target=armature))
+                if not constraint_safe:
+                    return False, {}, f"{armature.name}: {reason}"
+                armature_constraints.append(identity)
         if getattr(armature, "parent", None) is not None:
             return False, {}, f"{obj.name}: parented Armature dependency"
-        if any(tuple(getattr(bone, "constraints", ()))
-               for bone in getattr(
-                   getattr(armature, "pose", None), "bones", ())):
+        pose_bones = getattr(getattr(armature, "pose", None), "bones", ())
+        if (not collider_capture
+                and any(tuple(getattr(bone, "constraints", ()))
+                        for bone in pose_bones)):
             return False, {}, f"{obj.name}: constrained pose bone"
         armature_safe, armature_action, reason = (
             _safe_action_identity(armature))
@@ -2050,20 +2321,53 @@ def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
             armature_data)
         if not data_safe:
             return False, {}, f"{armature.name} data: {reason}"
-        bones = [{
-            "name": str(getattr(bone, "name", "")),
-            "parent": str(getattr(
-                getattr(bone, "parent", None), "name", "")),
-            "matrix_local": [[float(value) for value in row]
-                             for row in getattr(bone, "matrix_local", ())],
-            "use_deform": bool(getattr(bone, "use_deform", True)),
-        } for bone in getattr(armature_data, "bones", ())]
-        pose_basis = [{
-            "name": str(getattr(bone, "name", "")),
-            "matrix_basis": [[float(value) for value in row]
-                             for row in getattr(bone, "matrix_basis", ())],
-        } for bone in getattr(
-            getattr(armature, "pose", None), "bones", ())]
+        bones = []
+        for bone in getattr(armature_data, "bones", ()):
+            bone_row = {
+                "name": str(getattr(bone, "name", "")),
+                "parent": str(getattr(
+                    getattr(bone, "parent", None), "name", "")),
+                "matrix_local": [[float(value) for value in row]
+                                 for row in getattr(bone, "matrix_local", ())],
+            }
+            for name in (
+                    "use_inherit_rotation", "use_envelope_multiply",
+                    "use_deform", "inherit_scale", "use_local_location",
+                    "use_relative_parent", "use_cyclic_offset",
+                    "envelope_distance", "envelope_weight", "head_radius",
+                    "tail_radius", "bbone_segments", "bbone_mapping_mode",
+                    "bbone_x", "bbone_z", "bbone_handle_type_start",
+                    "bbone_handle_use_scale_start",
+                    "bbone_handle_use_ease_start", "bbone_handle_type_end",
+                    "bbone_handle_use_scale_end",
+                    "bbone_handle_use_ease_end", "bbone_rollin",
+                    "bbone_rollout", "use_endroll_as_inroll",
+                    "bbone_curveinx", "bbone_curveinz", "bbone_curveoutx",
+                    "bbone_curveoutz", "bbone_easein", "bbone_easeout",
+                    "use_scale_easing", "bbone_scalein", "bbone_scaleout"):
+                if hasattr(bone, name):
+                    value = getattr(bone, name)
+                    if isinstance(value, (bool, int, str)):
+                        bone_row[name] = value
+                    elif isinstance(value, float):
+                        bone_row[name] = float(value)
+                    else:
+                        bone_row[name] = [float(item) for item in value]
+            for name in ("bbone_custom_handle_start",
+                         "bbone_custom_handle_end"):
+                target = getattr(bone, name, None)
+                bone_row[name] = str(getattr(target, "name", ""))
+            bones.append(bone_row)
+        if collider_capture:
+            pose_safe, pose_basis, reason = _stable_pose_identity(armature)
+            if not pose_safe:
+                return False, {}, f"{armature.name}: {reason}"
+        else:
+            pose_basis = [{
+                "name": str(getattr(bone, "name", "")),
+                "matrix_basis": [[float(value) for value in row]
+                                 for row in getattr(bone, "matrix_basis", ())],
+            } for bone in pose_bones]
         modifiers.append({
             "type": kind,
             "name": str(getattr(modifier, "name", "")),
@@ -2073,12 +2377,21 @@ def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
                 modifier, "use_vertex_groups", True)),
             "use_bone_envelopes": bool(getattr(
                 modifier, "use_bone_envelopes", False)),
+            "vertex_group": str(getattr(modifier, "vertex_group", "")),
+            "invert_vertex_group": bool(getattr(
+                modifier, "invert_vertex_group", False)),
+            "use_multi_modifier": bool(getattr(
+                modifier, "use_multi_modifier", False)),
             "armature": _id_source_identity(armature_data),
+            "armature_transform": (_stable_transform_identity(armature)
+                                   if collider_capture else None),
             "armature_action": armature_action,
             "armature_data_action": armature_data_action,
+            "armature_constraints": armature_constraints,
             "bones": bones, "pose_basis": pose_basis,
         })
     parents = []
+    child = obj
     parent = getattr(obj, "parent", None)
     visited = set()
     while parent is not None:
@@ -2086,20 +2399,33 @@ def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
         if marker in visited:
             return False, {}, f"{obj.name}: cyclic parenting"
         visited.add(marker)
+        parent_constraints = []
         if tuple(getattr(parent, "constraints", ())):
-            return False, {}, f"{obj.name}: constrained parent"
+            if not collider_capture:
+                return False, {}, f"{obj.name}: constrained parent"
+            for constraint in parent.constraints:
+                constraint_safe, identity, reason = (
+                    _safe_collider_constraint_identity(
+                        constraint, parent, self_target=parent))
+                if not constraint_safe:
+                    return False, {}, f"{parent.name}: {reason}"
+                parent_constraints.append(identity)
         parent_safe, parent_action, reason = _safe_action_identity(parent)
         if not parent_safe:
             return False, {}, f"{parent.name}: {reason}"
         parents.append({
             "identity": _id_source_identity(parent),
             "action": parent_action,
-            "matrix_world": [[float(value) for value in row]
-                             for row in getattr(parent, "matrix_world", ())],
+            "transform": (_stable_transform_identity(parent)
+                          if collider_capture else
+                          [[float(value) for value in row]
+                           for row in getattr(parent, "matrix_world", ())]),
+            "constraints": parent_constraints,
             "matrix_parent_inverse": [
                 [float(value) for value in row]
-                for row in getattr(obj, "matrix_parent_inverse", ())],
+                for row in getattr(child, "matrix_parent_inverse", ())],
         })
+        child = parent
         parent = getattr(parent, "parent", None)
     deform_weights = ""
     if modifiers:
@@ -2108,10 +2434,14 @@ def _safe_object_dependency_identity(obj) -> tuple[bool, dict, str]:
                   for group in getattr(obj, "vertex_groups", ())))
     return True, {
         "data": source, "action": action, "data_action": data_action,
+        "shape_keys": shape_key_identity,
+        "constraints": object_constraints,
         "modifiers": modifiers, "parents": parents,
         "deform_weights": deform_weights,
-        "matrix_world": [[float(value) for value in row]
-                         for row in getattr(obj, "matrix_world", ())],
+        "matrix_world": (_stable_transform_identity(obj)
+                         if collider_capture else
+                         [[float(value) for value in row]
+                          for row in getattr(obj, "matrix_world", ())]),
     }, ""
 
 
@@ -2144,15 +2474,11 @@ def _vertex_group_signature(obj, group_names) -> str:
     return cache_metadata.deterministic_hash(records)
 
 
-def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
-    """Return a fail-closed early Scene key after authoritative validation."""
-    if (not getattr(snapshot, "deformables", ())
-            or not getattr(snapshot, "geometry_fingerprint", "")):
-        return None, "Incomplete validation snapshot"
+def _safe_frame_change_handler_identity():
     handler_owner = getattr(bpy.app, "handlers", None)
     handlers = tuple(getattr(handler_owner, "frame_change_pre", ())) + \
         tuple(getattr(handler_owner, "frame_change_post", ()))
-    handler_identity = []
+    identity = []
     for handler in handlers:
         function = getattr(handler, "__func__", handler)
         code = getattr(function, "__code__", None)
@@ -2161,8 +2487,8 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
             function, "__qualname__",
             getattr(function, "__name__", "")) or "")
         if not module or not qualified or code is None:
-            return None, "Unidentifiable frame-change script handler"
-        handler_identity.append({
+            return False, [], "Unidentifiable frame-change script handler"
+        identity.append({
             "module": module,
             "qualified_name": qualified,
             "source": str(getattr(code, "co_filename", "") or ""),
@@ -2170,6 +2496,18 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
             "bytecode": hashlib.sha256(
                 bytes(getattr(code, "co_code", b""))).hexdigest(),
         })
+    return True, identity, ""
+
+
+def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
+    """Return a fail-closed early Scene key after authoritative validation."""
+    if (not getattr(snapshot, "deformables", ())
+            or not getattr(snapshot, "geometry_fingerprint", "")):
+        return None, "Incomplete validation snapshot"
+    handlers_safe, handler_identity, reason = (
+        _safe_frame_change_handler_identity())
+    if not handlers_safe:
+        return None, reason
     objects = []
     ordered = sorted(
         (*snapshot.deformables, *(
@@ -3636,8 +3974,13 @@ def _payload_cache_for(obj) -> ExportPayloadCache:
 
 def _animated_collider_cache_key(context, obj, bake_range):
     """Fail-closed key for one reusable animated Collider capture."""
-    safe, dependencies, reason = _safe_object_dependency_identity(obj)
+    safe, dependencies, reason = _safe_object_dependency_identity(
+        obj, collider_capture=True)
     if not safe:
+        return None, reason
+    handlers_safe, handler_identity, reason = (
+        _safe_frame_change_handler_identity())
+    if not handlers_safe:
         return None, reason
     identity = {
         "capture_schema": 1,
@@ -3647,8 +3990,11 @@ def _animated_collider_cache_key(context, obj, bake_range):
         "name": str(getattr(obj, "name_full", getattr(obj, "name", ""))),
         "source_geometry": mesh_geometry_signature(getattr(obj, "data", None)),
         "dependencies": dependencies,
+        "frame_change_handlers": handler_identity,
         "animation": _animation_signature(obj),
-        "capture_mode": _effective_collider_capture_mode(obj),
+        "capture_mode": str(getattr(
+            obj.cloth_next, "collider_capture_mode", "AUTO")),
+        "effective_capture_mode": _effective_collider_capture_mode(obj),
         "samples_per_frame": int(getattr(
             obj.cloth_next, "collider_samples_per_frame",
             COLLIDER_SAMPLES_PER_FRAME)),
@@ -3751,6 +4097,11 @@ def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
         log_with_context(get_logger("export.cache"), 20,
             "Animated collider changed - rebuilding export",
             {"object": obj.name, "reason": reason})
+    timings = getattr(snapshot, "timings", None)
+    if isinstance(timings, dict):
+        timings["animated_collider_cache_hits"] = float(len(hits))
+        timings["animated_collider_cache_misses"] = float(len(misses))
+        timings.setdefault("collider_sample_count", 0.0)
     return hits, tuple(misses), keys, cache
 
 
