@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.2.45 - 2026-08-20
+
+### Fixed
+
+- Degenerate-face repair now derives its minimum correction from local face
+  geometry instead of Cloth Collision Gap or Surface Offset.
+- Distinct diagnosed vertex IDs at effectively identical positions use only
+  explicit, prevalidated BMesh weld target maps; Auto Fix never performs a
+  radius-based Merge by Distance.
+- Local weld candidates fail closed for linked or shared meshes, Shape Keys,
+  incompatible vertex groups or point attributes, collateral face removal,
+  material changes, new degenerates, duplicate faces, or additional
+  non-manifold geometry.
+- Position-based degenerate corrections and bounded intersection corrections
+  are checked against relevant local triangles before they are accepted.
+- Independent safe repair clusters and degenerate fixes remain applicable when
+  another reported intersection cannot be repaired safely.
+- Intersection validation now reuses the authoritative diagnostic strict- and
+  coplanar-overlap helpers instead of maintaining divergent geometry tests.
+
+### Validation
+
+- Full Python suite: 1,440 passed, 9 skipped, 3 deselected.
+- Blender 5.2.0 LTS built and validated the Windows Dev extension locally; all
+  3 packaged-artifact tests, the Companion scan, and the forbidden-solver
+  material scan passed.
+- Blender 5.2.0 LTS and the real Lumen solver repaired all 40 zero-area faces
+  in `IntersectionTest.blend` through 15 explicit weld groups without moving
+  any surviving vertex positions.
+- The approved local topology delta was 33 vertices, 75 edges, and 40
+  diagnosed polygons; duplicate faces stayed at zero and non-manifold edges
+  decreased by 30.
+- The 36,666 Top intersection pairs already present in the source scene did
+  not increase. The isolated Shorts pair 15970 / 18393 remained one confirmed
+  intersection and was skipped without changing geometry after no safe
+  bounded candidate was found.
+- The external PPF Contact Solver remains unbundled and unmodified.
+
 ## 2.2.44 - 2026-08-20
 
 ### Fixed
