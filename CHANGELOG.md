@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.43 - 2026-08-20
+## 2.2.44 - 2026-08-20
 
 ### Fixed
 
@@ -11,16 +11,23 @@
   navigation.
 - Auto Fix repairs every safely supported diagnostic in one undoable action,
   reports Blender status-bar progress, and never starts a Bake implicitly.
+- Auto Fix safely leaves the Edit Mode used by degenerate-face preflight before
+  validating and changing source geometry.
+- Bounded intersection corrections now fail closed when the confirmed faces
+  would still intersect, instead of reporting success and exposing additional
+  crossings.
 - The production Simulation panel groups the diagnostic summary, primary Auto
   Fix action, and independent Clear action into a compact visual hierarchy.
 
 ### Validation
 
-- Full Python suite: 1,429 passed, 9 skipped, 3 deselected.
+- Full Python suite: 1,431 passed, 9 skipped, 3 deselected.
 - Blender 5.2.0 LTS built and validated the Windows extension locally; all 3
   packaged-artifact tests and the forbidden-solver-material scan passed.
 - Added regression coverage for animated collider cache reuse and invalidation,
   combined diagnostic rendering, multi-issue repair, and Auto Fix progress.
+- Real Blender/Lumen validation covers the updated Top-and-Shorts test scene,
+  including isolated Shorts intersection mapping and post-fix revalidation.
 - The external PPF Contact Solver remains unbundled and unmodified.
 
 ## 2.2.42 - 2026-08-19
