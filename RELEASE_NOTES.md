@@ -1,43 +1,44 @@
-# Cloth NeXt 2.2.45
+# Cloth NeXt 2.2.46
 
-Cloth NeXt 2.2.45 safely repairs duplicate-vertex zero-area faces while keeping
-intersection correction strictly fail-closed.
+Cloth NeXt 2.2.46 presents every safely detectable geometry problem in one
+preflight and keeps the diagnostic overlay current after Auto Fix.
 
-## Targeted degenerate repair
+## Complete geometry preflight
 
-- Degenerate corrections no longer depend on Collision Gap or Surface Offset.
-- Ordinary collinear triangles use the smallest robust local movement within
-  the existing 2% edge-length limit.
-- Diagnosed distinct vertex IDs at the same position may be welded through an
-  explicit ID-to-ID target map. Auto Fix never searches a radius or runs Merge
-  by Distance on a selection or object.
-- Every weld is simulated first and rejected if it would affect unreported
-  faces, incompatible attributes or groups, materials, duplicate faces,
-  degenerates, or non-manifold geometry.
+- Degenerate faces no longer hide intersections until a second Bake attempt.
+- Every deformable is scanned before invalid geometry blocks solver startup.
+- Degenerates and mapped intersections share one authoritative diagnostic
+  result and appear together in the existing compact viewport presentation.
+- Degenerate triangles are excluded from intersection candidates, so counts
+  remain accurate.
 
-## Fail-closed intersection handling
+## Exact and scalable intersection detection
 
-- Candidate repairs are checked against relevant local triangles using the
-  authoritative strict-crossing and coplanar-overlap diagnostics.
-- Independent safe clusters are retained when another cluster is unsafe.
-- Degenerate fixes can complete even when a reported self-intersection must be
-  skipped.
-- Auto Fix reports actual post-plan repairs rather than counting a vertex move
-  as success.
+- Blender's BVH provides the broad phase instead of an all-pairs scan.
+- Candidate pairs use Cloth NeXt's existing strict-crossing and
+  coplanar-overlap predicates.
+- Identical triangles, normal mesh adjacency, and shared source vertices are
+  excluded from self-intersection results.
+- Cross-object deformable intersections can be represented without confusing
+  object-local vertex indices.
 
-## Real-scene verification
+## Fresh diagnostics after Auto Fix
 
-- Full Python suite: 1,440 passed, 9 skipped, 3 deselected.
-- Blender 5.2.0 LTS built and validated the Windows Dev extension locally; all
-  three packaged-artifact tests, the Companion scan, and the forbidden-solver
-  material scan passed.
-- Blender 5.2.0 LTS and Lumen repaired all 40 Top zero-area faces in the real
-  `IntersectionTest.blend` scene through 15 explicit weld groups.
-- The repair removed only the approved 33 redundant vertices, 75 edges, and 40
-  diagnosed polygons. Surviving vertex positions did not move, duplicate faces
-  stayed at zero, and non-manifold edges decreased by 30.
-- Top's 36,666 pre-existing intersection pairs remained exactly unchanged.
-- The isolated Shorts pair 15970 / 18393 remained safely skipped after all
-  deterministic candidates within the 8% correction bound failed validation;
-  Shorts geometry was unchanged.
+- Safely diagnosed duplicate-position degenerates continue to use explicit
+  local weld target maps—never a radius-based Merge by Distance.
+- Supported intersections continue to use bounded, validated nudging.
+- Auto Fix clears the pre-repair snapshot, rebuilds current Triangle IDs, and
+  performs a local recheck without starting a Bake or Lumen.
+- Remaining unsafe intersections stay visible immediately after repair.
+
+## Verification
+
+- Full Python suite: 1,447 passed, 9 skipped, 3 deselected.
+- Targeted geometry and UI suite: 186 passed.
+- Blender 5.2.0 LTS tested the updated real Top-and-Shorts scene. Its current
+  first pass found 18 degenerates, blocked solver startup, and reduced 62,462
+  triangles to 14,167 BVH candidates and 122 exact narrow-phase tests.
+- Auto Fix repaired all 18 current Top degenerates through explicit local
+  welds. A new post-fix snapshot reported no stale IDs, no degenerates, and no
+  exact local intersections; Shorts remained unchanged.
 - The external PPF Contact Solver is not bundled or modified.

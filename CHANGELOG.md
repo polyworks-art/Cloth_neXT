@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.2.46 - 2026-08-20
+
+### Fixed
+
+- Geometry preflight now collects degenerate faces and locally detectable
+  intersections across every deformable before blocking Bake, instead of
+  stopping at the first object or issue type.
+- Degenerate triangles are retained for repair diagnostics but excluded from
+  intersection candidates, preventing artificial double-counting.
+- Local intersection diagnosis reuses the authoritative strict-crossing and
+  coplanar-overlap predicates after a Blender BVH broad phase; normal mesh
+  adjacency and shared source vertices remain excluded.
+- Auto Fix now discards topology-stale diagnostics and immediately rebuilds a
+  fresh local snapshot and overlay without starting Lumen.
+- Exact local welds remain the repair for safely diagnosed duplicate-position
+  degenerates, while supported intersections continue to use bounded nudging.
+
+### Validation
+
+- Full Python suite: 1,447 passed, 9 skipped, 3 deselected.
+- Targeted geometry, UI, snapshot, Auto Fix, multi-object, mapping, adjacency,
+  and performance coverage: 186 passed.
+- Blender 5.2.0 LTS validated the updated real `IntersectionTest.blend`: the
+  first pass found all 18 current Top degenerates and blocked solver startup.
+- The strict/coplanar local pass reduced 62,462 triangles through BVH to 14,167
+  candidates and 122 narrow-phase tests, with no confirmed intersections in
+  the updated scene.
+- Auto Fix repaired all 18 degenerates through 18 explicit local welds; the
+  fresh post-fix snapshot reported zero degenerates and zero intersections.
+- The source Blend remained byte-identical with SHA-256
+  `1C1AED91BDB5A5C3A63B0A49710CAD7B900E01665AD7F6913B8A553A384D603F`.
+- The external PPF Contact Solver remains unbundled and unmodified.
+
 ## 2.2.45 - 2026-08-20
 
 ### Fixed
