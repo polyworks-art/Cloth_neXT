@@ -6296,26 +6296,40 @@ def _worker_main_multi(plan: RunPlan) -> None:
                 cache_metadata.write_atomic(
                     cache_metadata.sidecar_path(target.pc2_path), partial)
                 partials[target.uuid] = partial
-            writer = pc2.StreamingPc2Writer(
-                target.pc2_path, vertex_count=len(target.initial_local),
-                frame_count=plan.frame_count,
-                start_frame=import_result.PC2_START_FRAME,
-                sample_rate=import_result.PC2_SAMPLE_RATE,
-                resume_path=(
-                    Path(recovery_partials[target.uuid])
-                    if target.uuid in recovery_partials else None))
-            if writer.frames_written == 0:
-                writer.write_frame(target.initial_local)
-            writers[target.uuid] = writer
         to_local = {target.uuid: solver_world_to_object_local(
                     target.world_matrix) for target in targets}
         transform_seconds = 0.0
         write_seconds = 0.0
 
+        def ensure_writers() -> None:
+            nonlocal write_seconds, failure_stage
+            if writers:
+                return
+            failure_stage = "CACHE_SETUP"
+            step = time.monotonic()
+            for target in targets:
+                writer = pc2.StreamingPc2Writer(
+                    target.pc2_path,
+                    vertex_count=len(target.initial_local),
+                    frame_count=plan.frame_count,
+                    start_frame=import_result.PC2_START_FRAME,
+                    sample_rate=import_result.PC2_SAMPLE_RATE,
+                    resume_path=(
+                        Path(recovery_partials[target.uuid])
+                        if target.uuid in recovery_partials else None))
+                if writer.frames_written == 0:
+                    writer.write_frame(target.initial_local)
+                writers[target.uuid] = writer
+            write_seconds += time.monotonic() - step
+            failure_stage = "SIMULATION"
+
         def consume(frame: SolverFrame) -> None:
             nonlocal transform_seconds, write_seconds
             if _cancel_event.is_set():
                 raise SessionCancelled()
+            # Contact BUILD completed before SolverSession can invoke this
+            # sink.  Initial validation failures therefore create no PC2.
+            ensure_writers()
             for target in targets:
                 positions = frame.positions_by_uuid.get(target.uuid)
                 if positions is None:
@@ -6348,6 +6362,7 @@ def _worker_main_multi(plan: RunPlan) -> None:
             recovery_options=plan.recovery_options)
         failure_stage = "SIMULATION"
         diagnostics = session.run()
+        ensure_writers()
         _merge_export_diagnostics(diagnostics, plan)
         diagnostics.timings["coordinate_transform"] = transform_seconds
         diagnostics.timings["pc2_write"] = write_seconds
@@ -6441,29 +6456,38 @@ def _worker_main(plan: RunPlan) -> None:
                 details=plan.material_meta["details"])
             cache_metadata.write_atomic(
                 cache_metadata.sidecar_path(plan.pc2_path), partial)
-        writer = pc2.StreamingPc2Writer(
-            plan.pc2_path, vertex_count=len(plan.initial_local),
-            frame_count=plan.frame_count,
-            start_frame=import_result.PC2_START_FRAME,
-            sample_rate=import_result.PC2_SAMPLE_RATE,
-            resume_path=(
-                Path(dict(plan.recovery_options.partial_pc2).get(
-                    str(getattr(plan.scene, "cloth_uuid", ""))))
-                if plan.recovery_options is not None
-                and dict(plan.recovery_options.partial_pc2).get(
-                    str(getattr(plan.scene, "cloth_uuid", "")))
-                else None))
-        step = time.monotonic()
-        if writer.frames_written == 0:
-            writer.write_frame(plan.initial_local)
-        write_seconds = time.monotonic() - step
+        write_seconds = 0.0
         transform_seconds = 0.0
         to_local = solver_world_to_object_local(plan.world_matrix)
+
+        def ensure_writer() -> None:
+            nonlocal writer, write_seconds
+            if writer is not None:
+                return
+            step = time.monotonic()
+            writer = pc2.StreamingPc2Writer(
+                plan.pc2_path, vertex_count=len(plan.initial_local),
+                frame_count=plan.frame_count,
+                start_frame=import_result.PC2_START_FRAME,
+                sample_rate=import_result.PC2_SAMPLE_RATE,
+                resume_path=(
+                    Path(dict(plan.recovery_options.partial_pc2).get(
+                        str(getattr(plan.scene, "cloth_uuid", ""))))
+                    if plan.recovery_options is not None
+                    and dict(plan.recovery_options.partial_pc2).get(
+                        str(getattr(plan.scene, "cloth_uuid", "")))
+                    else None))
+            if writer.frames_written == 0:
+                writer.write_frame(plan.initial_local)
+            write_seconds += time.monotonic() - step
 
         def consume(frame: SolverFrame) -> None:
             nonlocal transform_seconds, write_seconds
             if _cancel_event.is_set():
                 raise SessionCancelled()
+            # No frame cache exists until contact BUILD has passed and the
+            # solver produces its first frame.
+            ensure_writer()
             step = time.monotonic()
             positions = _snap_closed_sewing_pairs(
                 frame.positions_solver_world, plan.stitch_pairs,
@@ -6493,6 +6517,7 @@ def _worker_main(plan: RunPlan) -> None:
                                 frame_sink=consume,
                                 recovery_options=plan.recovery_options)
         diagnostics = session.run()
+        ensure_writer()
         if not hasattr(diagnostics, "timings"):
             diagnostics.timings = {}
         _merge_export_diagnostics(diagnostics, plan)
@@ -6574,6 +6599,40 @@ def _worker_main(plan: RunPlan) -> None:
         code = classify_error("SIMULATING", summary, details)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details, code), code))
+
+
+def _contact_validation_worker(plan: RunPlan) -> None:
+    """Run the real solver contact build without creating frame output."""
+    def emit(event) -> None:
+        _queue.put(("event", event))
+
+    try:
+        session = SolverSession(
+            resolved=plan.resolved, scene=plan.scene,
+            work_directory=plan.work_directory, emit=emit,
+            cancel_event=_cancel_event, recovery_options=None)
+        diagnostics = session.validate_contacts()
+        _merge_export_diagnostics(diagnostics, plan)
+        _queue.put(("contact_validated", diagnostics))
+    except SessionCancelled:
+        _queue.put(("contact_cancelled",))
+    except ClothNextError as exc:
+        violations = _convert_solver_violations(plan, exc)
+        summary, details = _present_worker_error(
+            plan, exc, enriched=violations)
+        code = classify_error("BUILDING", summary, details, exc.record)
+        _queue.put(("contact_error", summary,
+                    _record_worker_failure(
+                        plan, summary, details, code,
+                        technical_details=exc.record.technical_message), code,
+                    violations))
+    except Exception:  # noqa: BLE001 -- surfaced through the main-thread pump
+        summary = "Solver contact validation failed unexpectedly."
+        details = traceback.format_exc()
+        code = classify_error("BUILDING", summary, details)
+        _queue.put(("contact_error", summary,
+                    _record_worker_failure(plan, summary, details, code), code,
+                    intersection_diagnostics.DiagnosticResult()))
 
 
 def _configure_playback_modifier(modifier, frame_start: int) -> None:
@@ -7381,6 +7440,16 @@ def _delayed_recovery_refresh() -> float | None:
 
 
 @persistent
+def _on_load_pre_reset_overlay(*_args) -> None:
+    """Drop file-bound diagnostics and opaque GPU handles before file load."""
+    from . import intersection_overlay
+    intersection_overlay.reset_runtime()
+
+
+_on_load_pre_reset_overlay._clothnext_recovery_handler = True
+
+
+@persistent
 def _on_load_post_refresh_recovery(*_args) -> None:
     """Persistent, non-blocking file-load hook; durable verification is delayed."""
     global _recovery_refresh_generation, _recovery_refresh_attempt
@@ -7416,14 +7485,17 @@ _on_load_post_refresh_recovery._clothnext_recovery_handler = True
 
 def _purge_stale_recovery_handlers(container) -> None:
     """Remove callbacks left behind by a previous module instance (reload)."""
-    live = {_on_load_post_refresh_recovery}
+    live = {_on_load_pre_reset_overlay, _on_load_post_refresh_recovery}
     for func in list(container):
         if (getattr(func, "_clothnext_recovery_handler", False)
                 and func not in live):
             container.remove(func)
 
 
-_RECOVERY_HANDLER_SLOTS = (("load_post", "_on_load_post_refresh_recovery"),)
+_RECOVERY_HANDLER_SLOTS = (
+    ("load_pre", "_on_load_pre_reset_overlay"),
+    ("load_post", "_on_load_post_refresh_recovery"),
+)
 
 _recovery_ui_handler_registered = False
 
@@ -7595,6 +7667,28 @@ def _pump_once() -> float | None:
             modal_lock.release()
             shared_telemetry.set_solver_pid(None)
             return None
+        elif kind == "contact_validated":
+            # A validation continuation is deliberately not a successful
+            # Bake: BUILD completed cleanly, but START was never sent and no
+            # playback or Recovery artifact exists.
+            shared_controller.reset()
+            shared_controller.update(
+                status_message="Contact validation passed",
+                activity_code=BakeActivity.IDLE,
+                activity_label="Contact validation passed")
+            modal_lock.release()
+            _worker, _active_plan = None, None
+            shared_telemetry.set_solver_pid(None)
+            return None
+        elif kind == "contact_cancelled":
+            _safe_transition(
+                BakeState.CANCELLED,
+                status_message="Contact validation cancelled",
+                estimated_remaining_seconds=None)
+            modal_lock.release()
+            _worker, _active_plan = None, None
+            shared_telemetry.set_solver_pid(None)
+            return None
         elif kind == "cancelled":
             resumable = message[1] if len(message) > 1 else False
             recovery_outcome = message[2] if len(message) > 2 else None
@@ -7681,7 +7775,7 @@ def _pump_once() -> float | None:
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
             return None
-        elif kind == "error":
+        elif kind in {"error", "contact_error"}:
             code = message[3] if len(message) > 3 else ""
             received = (message[4] if len(message) > 4 else
                         intersection_diagnostics.DiagnosticResult())
@@ -7704,8 +7798,9 @@ def _pump_once() -> float | None:
                 if affected:
                     shared_controller.update(active_object_name=affected)
             shared_controller.fail(message[1], message[2], error_code=code)
-            _discard_incomplete(plan)
-            _refresh_recovery_ui(plan)
+            if kind == "error":
+                _discard_incomplete(plan)
+                _refresh_recovery_ui(plan)
             modal_lock.release()
             _worker, _active_plan = None, None
             shared_telemetry.set_solver_pid(None)
@@ -7806,6 +7901,69 @@ def _start_prepared_run(plan: RunPlan) -> None:
         shared_controller.fail("The Bake worker could not be started.", str(exc))
         raise SceneValidationError(
             "The Bake worker could not be started; no solver process was launched.") from exc
+    if not bpy.app.timers.is_registered(_pump):
+        bpy.app.timers.register(_pump, first_interval=.1)
+    if not bpy.app.timers.is_registered(_pump_watchdog):
+        bpy.app.timers.register(_pump_watchdog, first_interval=.5)
+
+
+def _continue_contact_validation(context) -> None:
+    """Continue a repaired local preflight through solver BUILD only."""
+    global _worker, _active_plan, _run_started_at, _last_work_directory
+    global _unsubscribe, _ram_auto_cancel_triggered
+    import time as _time
+
+    if run_active() or _active_plan is not None:
+        raise SceneValidationError("A Cloth NeXt validation is already active.")
+    job_id = _begin_controller(BakeJobKind.SOLVER_TEST)
+    if not modal_lock.reserve(job_id):
+        shared_controller.fail(
+            "Another Cloth NeXt Bake generation already owns startup.")
+        raise SceneValidationError(
+            "Another Cloth NeXt Bake generation already owns startup.")
+    try:
+        shared_controller.transition(
+            BakeState.STARTING_RUN,
+            status_message="Preparing contact validation")
+        # Rebuild the complete immutable solver input after the mesh edit.
+        # Recovery is a simulation concern and must not be created by this
+        # build-only continuation.
+        plan = replace(build_run_plan(context), recovery_options=None)
+        plan.work_directory.mkdir(parents=True, exist_ok=True)
+        _last_work_directory = plan.work_directory
+        _cancel_event.clear()
+        _active_plan = plan
+        shared_controller.transition(
+            BakeState.EXPORTING,
+            status_message="Exporting repaired geometry for validation",
+            active_object_name=plan.cloth_object_name,
+            frame_start=plan.frame_start, frame_end=plan.frame_end,
+            current_frame=None, progress_current=0, progress_total=None)
+        while not _queue.empty():
+            try:
+                _queue.get_nowait()
+            except queue.Empty:
+                break
+        _run_started_at = _time.monotonic()
+        _eta_estimator.reset()
+        _ram_auto_cancel_triggered = False
+        if _unsubscribe is None:
+            _unsubscribe = shared_controller.subscribe(
+                _on_controller_snapshot)
+        _worker = threading.Thread(
+            target=_contact_validation_worker, args=(plan,),
+            name="clothnext-contact-validation-worker", daemon=True)
+        _worker.start()
+    except Exception as exc:
+        _worker = None
+        _active_plan = None
+        modal_lock.release(job_id)
+        try:
+            shared_controller.fail(
+                "Contact validation could not be started.", str(exc))
+        except InvalidTransition:
+            pass
+        raise
     if not bpy.app.timers.is_registered(_pump):
         bpy.app.timers.register(_pump, first_interval=.1)
     if not bpy.app.timers.is_registered(_pump_watchdog):
@@ -9446,6 +9604,19 @@ def _leave_edit_mode_for_auto_fix(context) -> None:
             "Mode safely before Auto Fix.") from exc
 
 
+def _continue_after_auto_fix_recheck(context, result) -> str:
+    """Start BUILD-only validation iff the freshly repaired input is clean."""
+    if result.has_degenerate_faces or result.has_intersections:
+        return (
+            f" Local recheck: {len(result.degenerate_faces)} degenerate "
+            f"face(s), {result.detected_count} intersection(s) remain; "
+            "contact validation was not started.")
+    _continue_contact_validation(context)
+    return (
+        " Local recheck passed; solver contact validation continues without "
+        "frame simulation.")
+
+
 class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
     """Conservatively repair safely mapped geometry diagnostics."""
     bl_idname = "clothnext.intersection_auto_fix"
@@ -9577,10 +9748,8 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
         _clear_intersection_diagnostics()
         try:
             revalidated, _stats = _revalidate_local_geometry(context)
-            remaining = (
-                f" Local recheck: {len(revalidated.degenerate_faces)} "
-                f"degenerate face(s), {revalidated.detected_count} "
-                "intersection(s) remain; no solver was started.")
+            remaining = _continue_after_auto_fix_recheck(
+                context, revalidated)
         except (AttributeError, SceneValidationError, ValueError) as exc:
             # The committed mesh repair remains valid and undoable.  Never
             # resurrect stale pre-weld IDs when rebuilding the overlay fails.

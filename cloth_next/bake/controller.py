@@ -35,7 +35,7 @@ _NEXT = {
     BakeState.STARTING_SOLVER: {BakeState.UPLOADING, BakeState.SIMULATING,
                                 BakeState.CANCELLING, BakeState.ERROR},
     BakeState.UPLOADING: {BakeState.BUILDING, BakeState.CANCELLING, BakeState.ERROR},
-    BakeState.BUILDING: {BakeState.SIMULATING, BakeState.FETCHING,
+    BakeState.BUILDING: {BakeState.IDLE, BakeState.SIMULATING, BakeState.FETCHING,
                          BakeState.CANCELLING, BakeState.ERROR},
     # Simulation and incremental frame download interleave.
     BakeState.SIMULATING: {BakeState.FETCHING, BakeState.IMPORTING,

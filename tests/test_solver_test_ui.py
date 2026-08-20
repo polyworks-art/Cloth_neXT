@@ -563,6 +563,67 @@ def test_worker_never_accesses_bpy(blender_env, monkeypatch, tmp_path):
     assert messages[-1] == "finished"
 
 
+def test_contact_validation_worker_never_creates_or_writes_frame_cache(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    calls = []
+
+    class StubSession:
+        def __init__(self, **kwargs):
+            calls.append(("init", kwargs.get("frame_sink"),
+                          kwargs.get("recovery_options")))
+
+        def validate_contacts(self):
+            calls.append(("validate",))
+            return SimpleNamespace(timings={}, cache_events={})
+
+    monkeypatch.setattr(module, "SolverSession", StubSession)
+    path = tmp_path / "must-not-exist.pc2"
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        "cloth", tmp_path / "run", path, 1)
+
+    module._contact_validation_worker(plan)
+
+    message = module._queue.get_nowait()
+    assert message[0] == "contact_validated"
+    assert calls == [("init", None, None), ("validate",)]
+    assert not path.exists()
+
+
+def test_initial_contact_build_failure_never_constructs_frame_writer(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+
+    class FailingBuildSession:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self):
+            raise ClothNextError(ErrorRecord.create(
+                category=ErrorCategory.SIMULATION,
+                user_message="Initial self intersection",
+                technical_message="contact BUILD failed before START"))
+
+    monkeypatch.setattr(module, "SolverSession", FailingBuildSession)
+    monkeypatch.setattr(
+        module.pc2, "StreamingPc2Writer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("frame writer created before clean contact build")))
+    path = tmp_path / "must-not-exist.pc2"
+    plan = module.RunPlan(
+        SimpleNamespace(cloth_uuid="cloth"), SimpleNamespace(),
+        ((0.0, 0.0, 0.0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)),
+        "cloth", tmp_path / "run", path, 2)
+
+    module._worker_main(plan)
+
+    assert module._queue.get_nowait()[0] == "error"
+    assert not path.exists()
+
+
 def test_worker_failure_is_printed_persisted_and_sent_to_ui(
         blender_env, monkeypatch, tmp_path, capsys):
     module = blender_env.solver_test
@@ -710,6 +771,17 @@ def test_multi_worker_does_not_mislabel_solver_failure_as_cache_failure(
 def test_multi_worker_keeps_cache_message_for_real_writer_failure(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
+    class ProducingSession:
+        def __init__(self, **kwargs):
+            self.sink = kwargs["frame_sink"]
+
+        def run(self):
+            positions = {
+                "uuid-a": np.asarray(((0.0, 0.0, 0.0),), dtype=np.float32),
+                "uuid-b": np.asarray(((1.0, 0.0, 0.0),), dtype=np.float32)}
+            self.sink(module.SolverFrame(1, positions["uuid-a"], positions))
+
+    monkeypatch.setattr(module, "SolverSession", ProducingSession)
     monkeypatch.setattr(
         module.pc2, "StreamingPc2Writer",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
@@ -2053,6 +2125,51 @@ def test_periodic_recovery_event_refreshes_panel_from_durable_metadata(
         module.shared_controller.reset()
 
 
+def test_contact_build_error_publishes_overlay_without_cache_cleanup(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    from cloth_next.blender import intersection_overlay
+    if module.shared_controller.snapshot().state is not BakeState.IDLE:
+        module.shared_controller.reset()
+    for state in (BakeState.PREPARING, BakeState.STARTING_RUN,
+                  BakeState.EXPORTING, BakeState.STARTING_SOLVER,
+                  BakeState.UPLOADING, BakeState.BUILDING):
+        module.shared_controller.transition(state)
+    face = module.intersection_diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=0, vertex_indices=(0, 1, 2),
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+                  (2.0, 0.0, 0.0)))
+    result = module.intersection_diagnostics.DiagnosticResult(
+        degenerate_faces=(face,))
+    plan = SimpleNamespace(solver_input=None)
+    module._active_plan = plan
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    module._ram_auto_cancel_enabled = False
+    published = []
+    monkeypatch.setattr(intersection_overlay, "set_diagnostic_session",
+                        lambda *args: published.append(args))
+    monkeypatch.setattr(
+        module, "_discard_incomplete",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("contact validation touched playback cache")))
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._queue.put((
+        "contact_error", "Initial self intersections found", "details",
+        "CNX-E118", result))
+
+    assert module._pump_once() is None
+
+    assert published == [(result, None)]
+    assert module.diagnostic_result() is result
+    assert module.shared_controller.snapshot().state is BakeState.ERROR
+    assert module._active_plan is None
+    assert module._worker is None
+    module.shared_controller.reset()
+
+
 def test_ram_safety_cancel_becomes_actionable_error(blender_env, monkeypatch):
     module = blender_env.solver_test
     if module.shared_controller.snapshot().state is not BakeState.IDLE:
@@ -2431,6 +2548,24 @@ def test_load_post_recovery_handler_registered_exactly_once(blender_env):
     assert container.count(module._on_load_post_refresh_recovery) == 1
 
 
+def test_load_pre_overlay_reset_handler_registered_once_and_clears_runtime(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    container = blender_env.bpy.app.handlers.load_pre
+    from cloth_next.blender import intersection_overlay
+    resets = []
+    monkeypatch.setattr(intersection_overlay, "reset_runtime",
+                        lambda: resets.append(True))
+
+    module.install_recovery_ui_handler()
+    module.install_recovery_ui_handler()
+    module._on_load_pre_reset_overlay(None)
+
+    assert container.count(module._on_load_pre_reset_overlay) == 1
+    assert hasattr(module._on_load_pre_reset_overlay, "_bpy_persistent")
+    assert resets == [True]
+
+
 def test_recovery_load_handler_is_blender_persistent(blender_env):
     module = blender_env.solver_test
 
@@ -2463,6 +2598,8 @@ def test_uninstall_removes_recovery_handler(blender_env):
     module.uninstall_recovery_ui_handler()
 
     assert module._on_load_post_refresh_recovery not in container
+    assert module._on_load_pre_reset_overlay not in (
+        blender_env.bpy.app.handlers.load_pre)
     assert not blender_env.bpy.app.timers.is_registered(
         module._delayed_recovery_refresh)
 
@@ -2842,6 +2979,41 @@ def test_local_revalidation_replaces_pre_weld_snapshot_ids(
     assert result.snapshot is not old_snapshot
     assert returned_stats is stats
     assert published == [(fresh, stats)]
+
+
+def test_clean_auto_fix_recheck_automatically_continues_contact_validation(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    context = object()
+    clean = module.intersection_diagnostics.DiagnosticResult()
+    continued = []
+    monkeypatch.setattr(module, "_continue_contact_validation",
+                        lambda value: continued.append(value))
+
+    message = module._continue_after_auto_fix_recheck(context, clean)
+
+    assert continued == [context]
+    assert "continues without frame simulation" in message
+
+
+def test_degenerate_auto_fix_recheck_never_starts_solver_contact_validation(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    face = module.intersection_diagnostics.DegenerateFace(
+        object_uuid="cloth", object_name="Cloth", role="CLOTH",
+        combined_triangle_index=0, local_triangle_index=0,
+        source_polygon_index=0, vertex_indices=(0, 1, 2),
+        vertices=((0.0, 0.0, 0.0),) * 3)
+    blocked = module.intersection_diagnostics.DiagnosticResult(
+        degenerate_faces=(face,))
+    monkeypatch.setattr(
+        module, "_continue_contact_validation",
+        lambda _context: (_ for _ in ()).throw(
+            AssertionError("degenerate geometry reached solver")))
+
+    message = module._continue_after_auto_fix_recheck(object(), blocked)
+
+    assert "contact validation was not started" in message
 
 
 def test_auto_fix_object_skips_scene_objects_without_export_identity(

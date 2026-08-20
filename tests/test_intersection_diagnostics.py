@@ -592,3 +592,90 @@ def test_overlay_aggregates_all_mapped_intersections_and_degenerates(
         "Geometry Diagnostics", "2 intersections · 2 degenerate faces")
     assert not any(" of " in line for line in intersection_overlay.label_lines())
     intersection_overlay.clear()
+
+
+def test_overlay_new_result_recovers_from_stale_non_none_handles(monkeypatch):
+    added = []
+
+    def add(_callback, _args, _region, phase):
+        handle = (phase, len(added))
+        added.append(handle)
+        return handle
+
+    def remove(_handle, _region):
+        raise ValueError("handler token is stale")
+
+    space = SimpleNamespace(
+        draw_handler_add=add, draw_handler_remove=remove)
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space),
+        context=SimpleNamespace(window_manager=SimpleNamespace(windows=()))))
+    monkeypatch.setattr(intersection_overlay, "_draw_handle", "stale-view")
+    monkeypatch.setattr(intersection_overlay, "_label_handle", "stale-label")
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=1)
+
+    intersection_overlay.set_violations((violation,), snapshot)
+
+    assert len(added) == 2
+    assert intersection_overlay._draw_handle == added[0]
+    assert intersection_overlay._label_handle == added[1]
+    # Prevent the deliberately failing fake remover from leaking test state.
+    monkeypatch.setattr(space, "draw_handler_remove", lambda *_args: None)
+    intersection_overlay.clear()
+
+
+def test_overlay_ten_publications_keep_exactly_one_handler_pair(monkeypatch):
+    active = set()
+    added = []
+
+    def add(_callback, _args, _region, phase):
+        handle = (phase, len(added))
+        added.append(handle)
+        active.add(handle)
+        return handle
+
+    def remove(handle, _region):
+        active.remove(handle)
+
+    space = SimpleNamespace(
+        draw_handler_add=add, draw_handler_remove=remove)
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space),
+        context=SimpleNamespace(window_manager=SimpleNamespace(windows=()))))
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Cloth"), "CLOTH", None, False),),
+        bake_start_frame=1)
+    violation = diagnostics.convert_violation(
+        {"pair": [0, 0]}, snapshot, total_count=1)
+
+    intersection_overlay.clear()
+    for _cycle in range(10):
+        intersection_overlay.set_violations((violation,), snapshot)
+        assert len(active) == 2
+    assert len(added) == 20
+    intersection_overlay.clear()
+    assert active == set()
+
+
+def test_overlay_runtime_reset_drops_file_data_and_handles(monkeypatch):
+    removed = []
+    space = SimpleNamespace(
+        draw_handler_remove=lambda handle, region: removed.append(
+            (handle, region)))
+    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(
+        types=SimpleNamespace(SpaceView3D=space),
+        context=SimpleNamespace(window_manager=SimpleNamespace(windows=()))))
+    monkeypatch.setattr(intersection_overlay, "_draw_handle", "geometry")
+    monkeypatch.setattr(intersection_overlay, "_label_handle", "label")
+    monkeypatch.setattr(intersection_overlay, "_violations", (object(),))
+
+    intersection_overlay.reset_runtime()
+
+    assert intersection_overlay.presentation_diagnostics() == ()
+    assert intersection_overlay._draw_handle is None
+    assert intersection_overlay._label_handle is None
+    assert removed == [("geometry", "WINDOW"), ("label", "WINDOW")]

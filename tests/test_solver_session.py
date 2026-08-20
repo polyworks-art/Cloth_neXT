@@ -165,6 +165,38 @@ def test_full_lifecycle_order_and_frames(monkeypatch):
     assert "FETCHING" in phases
 
 
+def test_contact_validation_stops_after_build_without_frames_or_recovery(
+        monkeypatch):
+    session, scripted, frames, events = _run_session(monkeypatch)
+
+    diagnostics = session.validate_contacts()
+
+    requests = [entry[2] for entry in scripted.log if entry[0] == "tcmd"
+                and entry[2] is not None]
+    assert requests == ["build", "delete"]
+    assert frames == []
+    assert diagnostics.fetched_frames == []
+    assert [event.phase for event in events][-1] == "BUILDING"
+
+
+def test_contact_validation_rejects_recovery_configuration(monkeypatch,
+                                                           tmp_path):
+    identity = recovery.RecoveryIdentity(
+        scene_key="scene", param_key="params", export_uuids=("uuid-cloth",),
+        geometry_fingerprint="geometry", topology_fingerprint="topology",
+        frame_start=1, frame_end=8, fps=24.0, collider_sampling=(),
+        solver_version="test", protocol_version="test",
+        solver_schema_version="test")
+    options = RecoveryOptions(
+        enabled=True, metadata_path=tmp_path / "recovery.json",
+        identity=identity, server_data_root=tmp_path, keep_saved_states=1)
+    session, _scripted, _frames, _events = _run_session(
+        monkeypatch, recovery_options=options)
+
+    with pytest.raises(ValueError, match="must not create Recovery"):
+        session.validate_contacts()
+
+
 def test_frames_are_split_for_multiple_deformables(monkeypatch):
     class MultiWire(ScriptedWire):
         def _data_receive(self, address, config, *, project_name, path,

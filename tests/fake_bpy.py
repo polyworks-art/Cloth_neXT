@@ -297,7 +297,7 @@ def make_module() -> types.ModuleType:
     # Blender's handler lists are plain Python lists; append/remove semantics
     # (and therefore duplicate-handler bugs) are reproduced exactly.
     handlers_module = types.SimpleNamespace(
-        frame_change_post=[], depsgraph_update_post=[], load_post=[],
+        frame_change_post=[], depsgraph_update_post=[], load_pre=[], load_post=[],
         undo_post=[], redo_post=[])
 
     app_module = types.SimpleNamespace(

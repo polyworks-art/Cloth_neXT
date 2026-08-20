@@ -1913,6 +1913,22 @@ class SolverSession:
     # -- entry point ---------------------------------------------------------
 
     def run(self) -> SessionDiagnostics:
+        return self._run(contact_validation_only=False)
+
+    def validate_contacts(self) -> SessionDiagnostics:
+        """Upload and build contacts without starting frame simulation.
+
+        The supported solver protocol has no separate validation request.  A
+        normal project build is nevertheless a strict boundary: initial
+        contact diagnostics are returned while awaiting BUILD, before START
+        can advance the first simulation frame.
+        """
+        if self._recovery is not None:
+            raise ValueError(
+                "contact-only validation must not create Recovery state")
+        return self._run(contact_validation_only=True)
+
+    def _run(self, *, contact_validation_only: bool) -> SessionDiagnostics:
         """Execute the full vertical slice; raises on failure, returns
         diagnostics on success. Cleanup always runs."""
         started = time.monotonic()
@@ -1925,7 +1941,8 @@ class SolverSession:
             # The UI can request cancellation immediately after the worker is
             # published; checking first used to misreport that narrow window
             # as Recovery NOT_ENABLED and create no metadata at all.
-            self._recovery_start()
+            if not contact_validation_only:
+                self._recovery_start()
             self._check_cancel()
             if owned:
                 self._event("STARTING_SOLVER", "Starting PPF solver",
@@ -1979,6 +1996,12 @@ class SolverSession:
                 self._await_build()
                 self.diagnostics.timings["build"] = (
                     time.monotonic() - step)
+                if contact_validation_only:
+                    # BUILD is the last request needed for initial contact
+                    # diagnostics.  Do not send START, create Recovery state,
+                    # fetch frames, or invoke the frame sink.
+                    completed = True
+                    return self.diagnostics
             self._check_cancel()
             step = time.monotonic()
             self._simulate_and_fetch(resume=resuming)

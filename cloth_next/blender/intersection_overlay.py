@@ -140,6 +140,11 @@ def _set_state(violations, solver_input, *, detected, warning,
             f"{'s' if missing != 1 else ''} could not be mapped safely.")
     _index = 0
     if presentation_diagnostics():
+        # Blender can retire draw handlers during file/workspace lifecycle
+        # changes without making the opaque Python token falsy.  Re-arm the
+        # pair for every newly published immutable result so a stale non-None
+        # token can never suppress later diagnostics.
+        _remove_handlers()
         _ensure_handler()
     else:
         _remove_handlers()
@@ -159,6 +164,11 @@ def clear() -> None:
     _show_input = False
     _remove_handlers()
     _redraw()
+
+
+def reset_runtime() -> None:
+    """Forget file-specific data and opaque draw tokens at a load boundary."""
+    clear()
 
 
 def _remove_handlers() -> None:
