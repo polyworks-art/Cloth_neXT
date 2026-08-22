@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.2.47 - 2026-08-22
+
+### Added
+
+- Veyra provides a dedicated Cloth NeXt Companion workflow for repairing
+  solver-confirmed self-intersections without starting frame simulation.
+- Deterministic intersection regions retain object-bound vertex identity,
+  bounded two-ring patches, adaptive 1%, 2%, 4%, and 8% displacement
+  candidates, local geometry safety checks, and exact transactional rollback.
+- Independent regions can be combined into one authoritative transaction when
+  their vertices and expanded triangle patches are provably disjoint; failed
+  batches are subdivided deterministically.
+
+### Fixed
+
+- Solver contact totals, detailed pairs, mapped pairs, overlays, and Bake
+  window state now retain one consistent authoritative diagnostic result.
+- Veyra keeps one Companion job and PID through Analyze, Solve, Apply,
+  Revalidate, and Validate Contacts instead of flashing an intermediate error
+  or restarting between accepted passes.
+- Follow-up validation reuses immutable topology, adjacency, object metadata,
+  Params, and export structure while refreshing only current vertex positions.
+- Candidate ranking favors dense, high-value safe regions and local crossing
+  validation no longer recomputes triangle points and bounds for every pair.
+- Session caches are released after success, cancellation, and failure.
+
+### Validation
+
+- Full Python suite: 1,501 passed, 9 skipped, 3 deselected.
+- Three real Blender 5.2.0 LTS/Lumen runs produced the identical monotonic
+  chain `2129 -> 1777 -> 1584 -> 1224`, repairing 905 intersections (42.51%).
+- Authoritative BUILD calls fell from 7 to 4. Measured total Veyra times were
+  79.61 s, 92.31 s, and 106.30 s versus the 162.14 s baseline.
+- All 18 Top degenerates were repaired through the existing exact local weld
+  path. Shorts used position-only repairs, no frame simulation started, and
+  the original Blend remained byte-identical.
+- The external PPF Contact Solver remains unbundled and unmodified.
+
 ## 2.2.46 - 2026-08-20
 
 ### Fixed
