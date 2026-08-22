@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050706">
+<meta name="description" content="Explore Cloth NeXt by the question that matters to you: character cloth, workflow, Veyra intersection repair, or simulation beyond cloth.">
+<title>Cloth NeXt | Interactive Product Overview</title>
+<link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/media/SH_IF_new.webp" as="image" type="image/webp">
+<link rel="preload" href="../assets/veyra.png" as="image" type="image/png">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#050706;
+  --text:#f4f6f5;
+  --muted:#9ca6a1;
+  --dim:#707a74;
+  --line:rgba(255,255,255,.13);
+  --line-soft:rgba(255,255,255,.075);
+  --mint:#65f5c9;
+  --purple:#b177f2;
+  --purple-soft:#dbc3f7;
+  --pad-x:clamp(1.35rem,5.5vw,4.4rem);
+  --pad-y:clamp(1.2rem,3vw,2rem);
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button{font:inherit;color:inherit}
+img,video{display:block}
+.app{position:relative;width:100%;height:100dvh;min-height:560px;overflow:hidden;isolation:isolate;background:#050706}
+.app::after{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(180deg,rgba(3,5,4,.08),rgba(3,5,4,.18) 62%,rgba(3,5,4,.74))}
+.media{position:absolute;inset:0;z-index:-5;opacity:0;transition:opacity .48s cubic-bezier(.22,.7,.2,1);pointer-events:none}
+.media::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,6,5,.97) 0%,rgba(4,6,5,.80) 33%,rgba(4,6,5,.28) 67%,rgba(4,6,5,.08) 100%),linear-gradient(0deg,rgba(4,6,5,.72),transparent 48%,rgba(4,6,5,.12))}
+.media img,.media video{width:100%;height:100%;object-fit:cover;transform:scale(1.025);transition:transform 1.2s cubic-bezier(.2,.75,.2,1);filter:saturate(.95) contrast(1.04) brightness(.86)}
+.media.active{opacity:1}.media.active img,.media.active video{transform:scale(1)}
+.media.character img,.media.character video{object-position:67% center}
+.media.workflow img{object-position:72% center;filter:saturate(.84) contrast(1.05) brightness(.63)}
+.media.workflow::after{background:linear-gradient(90deg,rgba(4,6,5,.98) 0%,rgba(4,6,5,.88) 39%,rgba(4,6,5,.34) 70%,rgba(4,6,5,.13) 100%),linear-gradient(0deg,rgba(4,6,5,.72),transparent 55%,rgba(4,6,5,.18))}
+.media.more video{object-position:center;filter:saturate(.86) contrast(1.06) brightness(.56)}
+.media.more::after{background:linear-gradient(90deg,rgba(4,6,5,.98) 0%,rgba(4,6,5,.78) 39%,rgba(4,6,5,.24) 72%,rgba(4,6,5,.18) 100%),linear-gradient(0deg,rgba(4,6,5,.76),transparent 47%,rgba(4,6,5,.2))}
+.veyra-bg{position:absolute;inset:0;z-index:-5;opacity:0;transition:opacity .48s cubic-bezier(.22,.7,.2,1);background:radial-gradient(circle at 72% 48%,rgba(177,119,242,.18),transparent 22%),radial-gradient(circle at 72% 48%,rgba(177,119,242,.055),transparent 44%),linear-gradient(120deg,#050706 0%,#070609 57%,#100b15 100%)}
+.veyra-bg.active{opacity:1}
+.topbar{position:absolute;z-index:20;top:var(--pad-y);left:var(--pad-x);right:var(--pad-x);display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.brand{display:flex;align-items:center;gap:.65rem;border:0;padding:0;background:none;cursor:pointer;color:#d5dcd8;font-size:.58rem;font-weight:820;letter-spacing:.16em;text-transform:uppercase}
+.brand img{width:31px;height:auto}.brand:hover{color:#fff}
+.release{color:#7b8580;font-size:.54rem;font-weight:760;letter-spacing:.055em;white-space:nowrap}
+.home{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:6.5rem var(--pad-x) 8rem;transition:opacity .34s ease,transform .5s cubic-bezier(.2,.75,.2,1);background:radial-gradient(circle at 78% 22%,rgba(101,245,201,.08),transparent 27%),linear-gradient(145deg,#050706,#070a08 58%,#050706)}
+.app[data-state]:not([data-state="home"]) .home{opacity:0;transform:scale(.985);pointer-events:none}
+.home-inner{width:min(100%,900px);text-align:center}
+.home-mark{width:58px;margin:0 auto 1.55rem;opacity:.95}
+.home-kicker{display:block;margin-bottom:.9rem;color:#87918c;font-size:.61rem;font-weight:820;letter-spacing:.17em;text-transform:uppercase}
+.home h1{margin:0 auto;max-width:820px;font-size:clamp(3.1rem,8.2vw,6.1rem);font-weight:760;line-height:.84;letter-spacing:-.075em}
+.home h1 span{color:var(--mint)}
+.home p{max-width:590px;margin:1.3rem auto 0;color:#aeb7b2;font-size:clamp(.88rem,2vw,1rem);line-height:1.65}
+.question-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;width:min(100%,880px);margin:2.5rem auto 0;border:1px solid var(--line);background:var(--line)}
+.question{position:relative;min-height:126px;padding:1rem 1rem 1.05rem;border:0;background:rgba(10,13,11,.94);cursor:pointer;text-align:left;overflow:hidden;transition:background .24s ease}
+.question::after{content:"";position:absolute;left:0;right:100%;bottom:0;height:2px;background:var(--mint);transition:right .28s cubic-bezier(.2,.75,.2,1)}
+.question[data-target="veyra"]::after{background:var(--purple)}
+.question:hover,.question:focus-visible{background:#111512;outline:none}.question:hover::after,.question:focus-visible::after{right:0}
+.question small{display:block;color:#737d77;font-size:.5rem;font-weight:820;letter-spacing:.13em;text-transform:uppercase}
+.question strong{display:block;margin-top:.78rem;font-size:clamp(.76rem,1.45vw,.9rem);line-height:1.3}
+.question span{display:block;margin-top:.5rem;color:#7f8984;font-size:.6rem;line-height:1.45}
+.scene{position:absolute;inset:0;z-index:6;opacity:0;pointer-events:none;transition:opacity .36s ease}
+.scene.active{opacity:1;pointer-events:auto}
+.copy{position:absolute;left:var(--pad-x);top:50%;width:min(47%,520px);transform:translateY(-50%);transition:transform .58s cubic-bezier(.2,.75,.2,1),opacity .36s ease}
+.scene:not(.active) .copy{transform:translateY(calc(-50% + 12px))}
+.eyebrow{display:block;margin-bottom:.9rem;color:#929c96;font-size:.59rem;font-weight:820;letter-spacing:.17em;text-transform:uppercase}
+.copy h2{margin:0;font-size:clamp(3.3rem,7.5vw,5.8rem);font-weight:760;line-height:.82;letter-spacing:-.077em}
+.copy p{max-width:510px;margin:1.15rem 0 0;color:#bbc3bf;font-size:clamp(.82rem,1.85vw,.96rem);line-height:1.65}
+.accent{color:var(--mint)}.v-accent{color:var(--purple-soft)}
+.proof-line{display:flex;align-items:end;gap:1.3rem;margin-top:1.45rem;padding-top:.95rem;border-top:1px solid var(--line)}
+.proof-line div{min-width:94px}.proof-line strong{display:block;font-size:clamp(1.55rem,3.3vw,2.25rem);line-height:1;letter-spacing:-.055em;font-variant-numeric:tabular-nums}.proof-line span{display:block;margin-top:.28rem;color:#77817b;font-size:.49rem;font-weight:820;letter-spacing:.11em;text-transform:uppercase}
+.proof-line .wide{min-width:125px}
+.workflow-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:1.55rem;background:var(--line);border:1px solid var(--line)}
+.workflow-steps div{padding:.8rem;background:rgba(8,11,9,.83);backdrop-filter:blur(9px)}
+.workflow-steps b{display:block;color:var(--mint);font-size:.5rem;letter-spacing:.13em}.workflow-steps strong{display:block;margin-top:.38rem;font-size:.68rem}.workflow-steps span{display:block;margin-top:.13rem;color:#7d8781;font-size:.56rem}
+.fact-list{margin:1.25rem 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}
+.fact-list li{padding:.5rem 0;border-bottom:1px solid var(--line-soft);color:#cbd2cf;font-size:.68rem}.fact-list li::before{content:"+";margin-right:.55rem;color:var(--mint)}
+.visual-aside{position:absolute;right:var(--pad-x);top:50%;width:min(34vw,320px);transform:translateY(-50%)}
+.veyra-logo{width:min(100%,235px);height:auto;margin:0 auto;filter:drop-shadow(0 28px 55px rgba(0,0,0,.5)) drop-shadow(0 0 24px rgba(177,119,242,.12))}
+.veyra-flow{margin-top:.9rem;text-align:center;color:#9f8daa;font-size:.51rem;font-weight:820;letter-spacing:.13em;text-transform:uppercase}
+.veyra-proof{margin-top:1.3rem;padding:.95rem 0;border-top:1px solid rgba(219,195,247,.22);border-bottom:1px solid rgba(219,195,247,.14)}
+.veyra-numbers{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:.7rem}.veyra-numbers div:last-child{text-align:right}
+.veyra-numbers span{display:block;color:#827789;font-size:.47rem;font-weight:820;letter-spacing:.11em;text-transform:uppercase}.veyra-numbers strong{display:block;margin-top:.15rem;font-size:clamp(1.85rem,4vw,2.55rem);line-height:.92;letter-spacing:-.06em;font-variant-numeric:tabular-nums}.veyra-arrow{padding-bottom:.15rem;color:#866999;font-size:1rem}
+.veyra-meta{display:flex;justify-content:space-between;gap:.8rem;margin-top:.55rem;color:#837789;font-size:.49rem;font-weight:760;letter-spacing:.08em;text-transform:uppercase}.veyra-meta strong{color:#c8b1d6}
+.more-tags{display:flex;flex-wrap:wrap;gap:.55rem .65rem;margin-top:1.35rem}.more-tags span{padding:.5rem .64rem;border:1px solid var(--line);background:rgba(8,11,9,.72);color:#c9d0cd;font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.bottom{position:absolute;z-index:30;left:var(--pad-x);right:var(--pad-x);bottom:var(--pad-y);display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}
+.price{color:#7f8984;font-size:.52rem;font-weight:800;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap}.price strong{color:#dfe5e2;font-size:.72rem;letter-spacing:0}.price i{margin:0 .45rem;color:#46504a;font-style:normal}
+.tabs{display:flex;align-items:center;gap:.25rem;padding:.28rem;border:1px solid var(--line);background:rgba(5,7,6,.72);backdrop-filter:blur(13px)}
+.tab{position:relative;padding:.62rem .75rem;border:0;background:none;color:#7d8781;cursor:pointer;font-size:.52rem;font-weight:820;letter-spacing:.11em;text-transform:uppercase;transition:color .2s ease,background .2s ease}
+.tab:hover,.tab:focus-visible{color:#dfe5e2;outline:none}.tab.active{color:#eff3f1;background:rgba(255,255,255,.055)}.tab[data-target="veyra"].active{color:var(--purple-soft)}
+.home-tab{padding:.62rem .7rem;color:#87918c}
+.keyboard{margin-left:.6rem;color:#59635d;font-size:.48rem;font-weight:760;letter-spacing:.08em;text-transform:uppercase}
+@media(max-width:760px){
+  .app{min-height:620px}.release{font-size:.49rem}.home{padding:5.7rem 1.25rem 7.4rem}.home-mark{width:48px;margin-bottom:1.1rem}.home h1{font-size:clamp(2.8rem,12.7vw,4.7rem)}.home p{font-size:.78rem;max-width:88%}.question-grid{grid-template-columns:1fr 1fr;margin-top:1.7rem}.question{min-height:102px;padding:.8rem}.question span{display:none}
+  .copy{left:1.3rem;right:1.3rem;top:44%;width:auto}.copy h2{max-width:92%;font-size:clamp(2.7rem,11.7vw,4.35rem)}.copy p{max-width:88%;font-size:.76rem;line-height:1.55}.proof-line{gap:.9rem;max-width:94%}.proof-line strong{font-size:1.45rem}.proof-line span{font-size:.42rem}.workflow-steps{grid-template-columns:1fr 1fr;max-width:94%;margin-top:1rem}.fact-list{max-width:88%;margin-top:1rem}.fact-list li{font-size:.59rem}.visual-aside{right:-1.2rem;top:21%;width:190px;opacity:.18;pointer-events:none}.veyra-logo{width:180px}.veyra-flow,.veyra-proof{display:none}.more-tags{max-width:92%;gap:.35rem}.more-tags span{font-size:.49rem;padding:.4rem .48rem}
+  .bottom{left:1.2rem;right:1.2rem;bottom:1rem;display:block}.price{margin-bottom:.55rem;font-size:.46rem}.tabs{width:100%;justify-content:space-between;overflow:hidden}.tab{flex:1;padding:.58rem .3rem;font-size:.43rem;letter-spacing:.07em}.home-tab{flex:0 0 auto;padding-inline:.55rem}.keyboard{display:none}
+}
+@media(max-height:670px) and (min-width:761px){.copy{top:48%}.copy h2{font-size:clamp(2.8rem,6.6vw,4.7rem)}.copy p{margin-top:.9rem;font-size:.82rem}.proof-line,.workflow-steps,.fact-list,.more-tags{margin-top:1rem}.visual-aside{width:270px}.veyra-logo{width:190px}}
+@media(prefers-reduced-motion:reduce){.media,.media img,.media video,.home,.scene,.copy{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" data-app data-state="home">
+  <div class="media character" data-media="character"><video muted loop playsinline preload="metadata"><source src="../Char_Simulation.mp4" type="video/mp4"></video></div>
+  <div class="media workflow" data-media="workflow"><img src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt workflow in Blender"></div>
+  <div class="veyra-bg" data-media="veyra"></div>
+  <div class="media more" data-media="more"><video muted loop playsinline preload="metadata"><source src="../Softbody.mp4" type="video/mp4"></video></div>
+
+  <header class="topbar">
+    <button class="brand" type="button" data-home aria-label="Return to overview"><img src="../assets/cloth-next-white.svg" alt="">Cloth NeXt</button>
+    <div class="release">Current Release: <span data-release-version></span></div>
+  </header>
+
+  <section class="home" data-home-panel>
+    <div class="home-inner">
+      <img class="home-mark" src="../assets/cloth-next-white.svg" alt="">
+      <span class="home-kicker">GPU CLOTH SIMULATION FOR BLENDER</span>
+      <h1>What do you<br>want to <span>know?</span></h1>
+      <p>Pick the part that matters to your shot. Cloth NeXt changes the page instead of making you read through everything first.</p>
+      <div class="question-grid">
+        <button class="question" type="button" data-target="character"><small>Characters</small><strong>Can it handle my character?</strong><span>Production-scale cloth, animated geometry and contact.</span></button>
+        <button class="question" type="button" data-target="workflow"><small>Workflow</small><strong>How much setup is involved?</strong><span>Assign, pick a material, validate and bake in Blender.</span></button>
+        <button class="question" type="button" data-target="veyra"><small>Veyra</small><strong>What about intersections?</strong><span>Repair the starting garment before frame one.</span></button>
+        <button class="question" type="button" data-target="more"><small>Beyond cloth</small><strong>What else can it simulate?</strong><span>Rod, cable, soft body, colliders and forces.</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" data-scene="character">
+    <div class="copy">
+      <span class="eyebrow">CHARACTER CLOTH · ACTUAL DEMO</span>
+      <h2>230K cloth.<br><span class="accent">No body proxy.</span></h2>
+      <p>The demo runs 230k cloth triangles against a complete 200k-triangle animated character. Keep the layers and detail instead of rebuilding the shot around a simplified collision body.</p>
+      <div class="proof-line">
+        <div><strong>230k</strong><span>cloth triangles</span></div>
+        <div><strong>200k</strong><span>character triangles</span></div>
+        <div><strong>223</strong><span>frames</span></div>
+        <div class="wide"><strong>~10 min</strong><span>measured bake</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" data-scene="workflow">
+    <div class="copy">
+      <span class="eyebrow">THE WORK STAYS IN BLENDER</span>
+      <h2>From mesh<br>to bake in <span class="accent">four steps.</span></h2>
+      <p>Cloth NeXt handles the handoff to the solver while the setup remains in Blender. Scene Health catches common problems before a long bake starts.</p>
+      <div class="workflow-steps">
+        <div><b>01</b><strong>Assign</strong><span>Choose the cloth.</span></div>
+        <div><b>02</b><strong>Pick</strong><span>Select a material.</span></div>
+        <div><b>03</b><strong>Validate</strong><span>Catch issues early.</span></div>
+        <div><b>04</b><strong>Bake</strong><span>Start the simulation.</span></div>
+      </div>
+      <ul class="fact-list">
+        <li>37 practical fabric presets</li>
+        <li>Animation-aware character collision cages</li>
+        <li>Bake progress, ETA, RAM and VRAM monitoring</li>
+        <li>Verified playback caches and recovery tools</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="scene" data-scene="veyra">
+    <div class="copy">
+      <span class="eyebrow">MEET VEYRA</span>
+      <h2>Intersections<br>before frame one?<br><span class="v-accent">Repair them first.</span></h2>
+      <p>Veyra checks solver-confirmed garment intersections, tests local repair candidates and only keeps changes that improve the authoritative intersection count.</p>
+      <div class="veyra-proof">
+        <div class="veyra-numbers">
+          <div><span>Starting</span><strong>2,129</strong></div>
+          <div class="veyra-arrow">→</div>
+          <div><span>Remaining</span><strong>1,224</strong></div>
+        </div>
+        <div class="veyra-meta"><span><strong>905 repaired</strong></span><span>42.51% fewer intersections</span></div>
+      </div>
+      <p style="margin-top:.55rem;color:#6f7974;font-size:.55rem">Measured on the current real Shorts validation case. No frame simulation started.</p>
+    </div>
+    <aside class="visual-aside" aria-hidden="true">
+      <img class="veyra-logo" src="../assets/veyra.png" alt="">
+      <div class="veyra-flow">Analyze · Repair · Revalidate</div>
+    </aside>
+  </section>
+
+  <section class="scene" data-scene="more">
+    <div class="copy">
+      <span class="eyebrow">CLOTH FIRST. MORE WHEN YOU NEED IT.</span>
+      <h2>The same workflow<br><span class="accent">goes further.</span></h2>
+      <p>Use the same guided simulation workflow for other deformable setups instead of switching to a completely different tool every time the shot changes.</p>
+      <div class="more-tags"><span>Rod / Cable</span><span>Closed Soft Body</span><span>Animated Colliders</span><span>Wind</span><span>Air Density</span><span>Air Friction</span><span>Static Pins</span><span>Follow Animation Pins</span></div>
+    </div>
+  </section>
+
+  <footer class="bottom">
+    <div class="price">Starts at <strong>$20</strong><i>·</i>Commercial <strong>$100</strong></div>
+    <div style="display:flex;align-items:center">
+      <nav class="tabs" aria-label="Product sections">
+        <button class="tab home-tab active" type="button" data-home aria-label="Overview">⌂</button>
+        <button class="tab" type="button" data-target="character">Characters</button>
+        <button class="tab" type="button" data-target="workflow">Workflow</button>
+        <button class="tab" type="button" data-target="veyra">Veyra</button>
+        <button class="tab" type="button" data-target="more">Beyond cloth</button>
+      </nav>
+      <span class="keyboard">← → to switch</span>
+    </div>
+  </footer>
+</div>
+<script>
+(() => {
+  const app=document.querySelector('[data-app]');
+  const scenes=[...document.querySelectorAll('[data-scene]')];
+  const medias=[...document.querySelectorAll('[data-media]')];
+  const tabs=[...document.querySelectorAll('.tab[data-target]')];
+  const homeTabs=[...document.querySelectorAll('[data-home]')];
+  const targets=[...document.querySelectorAll('[data-target]')];
+  const order=['character','workflow','veyra','more'];
+  const videos=[...document.querySelectorAll('.media video')];
+  if(!app)return;
+
+  function syncMedia(state){
+    medias.forEach(el=>el.classList.toggle('active',el.dataset.media===state));
+    videos.forEach(video=>{
+      const owner=video.closest('[data-media]');
+      const active=owner?.dataset.media===state && !document.hidden;
+      if(active)video.play().catch(()=>{});else video.pause();
+    });
+  }
+
+  function setState(next,push=true){
+    const state=order.includes(next)?next:'home';
+    app.dataset.state=state;
+    scenes.forEach(el=>el.classList.toggle('active',el.dataset.scene===state));
+    tabs.forEach(el=>el.classList.toggle('active',el.dataset.target===state));
+    document.querySelector('.home-tab')?.classList.toggle('active',state==='home');
+    syncMedia(state);
+    if(push){
+      const hash=state==='home'?'':`#${state}`;
+      if(location.hash!==hash)history.replaceState(null,'',location.pathname+location.search+hash);
+    }
+  }
+
+  targets.forEach(btn=>btn.addEventListener('click',()=>setState(btn.dataset.target)));
+  homeTabs.forEach(btn=>btn.addEventListener('click',()=>setState('home')));
+  addEventListener('hashchange',()=>setState(location.hash.slice(1),false));
+  addEventListener('visibilitychange',()=>syncMedia(app.dataset.state));
+  addEventListener('keydown',e=>{
+    if(e.key==='Escape'){setState('home');return}
+    if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+    const current=app.dataset.state;
+    let i=order.indexOf(current);
+    if(i<0)i=e.key==='ArrowRight'?-1:0;
+    i=(i+(e.key==='ArrowRight'?1:-1)+order.length)%order.length;
+    setState(order[i]);
+  });
+  setState(location.hash.slice(1),false);
+})();
+
+(() => {
+  const target=document.querySelector('[data-release-version]');
+  const wrap=target?.closest('.release');
+  if(!target)return;
+  fetch('../index.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text()}).then(html=>{
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const label=doc.querySelector('.release-label')?.textContent||'';
+    const m=label.match(/\b(\d+)\.(\d+)(?:\.(\d+))?\b/);
+    if(!m)throw 0;
+    target.textContent=`${m[1]}.${m[2]}.${m[3]??'0'}`;
+  }).catch(()=>{if(wrap)wrap.hidden=true});
+})();
+</script>
+</body>
+</html>
