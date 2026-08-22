@@ -1,60 +1,60 @@
-# Cloth NeXt 2.2.47
+# Cloth NeXt 2.2.48
 
-Cloth NeXt 2.2.47 introduces Veyra, a dedicated Companion workflow that safely
-reduces large groups of solver-confirmed garment intersections without starting
-the frame simulation.
+Cloth NeXt 2.2.48 hardens VEYRA as a general-purpose cloth topology and
+intersection repair system. Ambiguous geometry is now preserved instead of
+being repaired from assumptions learned from one garment scene.
 
-## Veyra region repair
+## Proven safe topology repair
 
-- Veyra groups mapped self-intersections into deterministic, object-bound
-  regions and builds small two-ring repair patches.
-- Adaptive 1%, 2%, 4%, and 8% candidates are checked locally; only the
-  strongest safe candidate proceeds to authoritative Lumen validation.
-- Independent regions may be applied as one transaction only when affected
-  vertices and expanded triangle patches are disjoint.
-- Every authoritative result must strictly lower the global intersection
-  count. Equal or higher results, cancellation, and exceptions restore exact
-  saved coordinates.
-- Ambiguous sheet assignments remain fail-closed and are never guessed.
+- Safe Weld considers only vertices belonging to solver-diagnosed
+  self-intersections and never performs an unrestricted Merge by Distance.
+- A disconnected-island weld requires an exact, coherent boundary chain and
+  geometrically continuous surface evidence. Merely belonging to the same
+  object is no longer considered proof of an import seam.
+- Intentional lining, stacked panels, decorative patches, pockets, folded
+  cuffs, near duplicates, and unrelated coincidences remain protected when
+  repair intent cannot be proven.
+- Point attributes, vertex groups and pin weights, materials, UV/corner data,
+  seam/sharp flags, Shape Keys, linked data, and shared mesh datablocks retain
+  their existing fail-closed protection.
 
-## Persistent validation session
+## Generalized region solving
 
-- One Veyra Companion job and PID remains active through Analyze, Solve, Apply,
-  Revalidate, and Validate Contacts.
-- Immutable topology, adjacency, object identity, collision settings, Params,
-  and export structure are retained for the repair operation.
-- Follow-up passes refresh compact vertex-position state instead of rebuilding
-  the complete evaluated scene and topology.
-- Artist-facing progress stays responsive without intermediate error flashing,
-  readiness loops, or Companion restarts.
+- Contact regions with more than two topological sheets are no longer forced
+  into a two-side solution solely because their contact graph is bipartite.
+- Adaptive 1%, 2%, 4%, and 8% displacements are all evaluated against local
+  crossing reduction, edge and area safety margins, and movement cost.
+- Two-sheet assignments, patch expansion, candidate ordering, independent
+  batching, cache identity, and authoritative rollback remain deterministic.
+- Every installed repair must strictly reduce the fresh global Lumen contact
+  count. Equal, increased, cancelled, or failed attempts restore exact state.
 
-## Diagnostic consistency
+## Generalization verification
 
-- Solver totals, detailed pairs, mapped pairs, overlays, and Bake-window state
-  now retain the same authoritative contact result.
-- Expected Veyra contact findings are presented as measurements rather than
-  transient Bake failures.
-- Cleanup releases topology and validation caches after success, cancellation,
-  and failure.
+- A new synthetic corpus covers clean meshes, intended duplicate seams,
+  intentional layers, near duplicates, two-sheet penetration, folded and
+  multi-sheet cloth, multiple independent regions, density and scale changes,
+  semantic discontinuities, and multiple Cloth NeXt objects.
+- Translation, rotation, uniform scale, vertex/face order, object naming, and
+  region-order metamorphic checks remain functionally equivalent.
+- Three frozen adversarial holdouts passed on their first run without tuning.
+- Across the generalized corpus, destructive false-positive repairs were zero.
 
-## Real-scene result
+## Real-scene regression
 
-- The real Shorts case improved monotonically from 2,129 to 1,224
-  intersections: 905 repaired, or 42.51%.
-- Three accepted batch transactions produced the same authoritative chain in
-  every measured run: `2129 -> 1777 -> 1584 -> 1224`.
-- Lumen BUILD calls fell from 7 to 4. Total measured Veyra time was 79.61 s,
-  92.31 s, and 106.30 s, compared with the previous 162.14 s baseline.
-- All 18 Top degenerates were repaired through the existing exact local weld
-  path. Shorts topology remained unchanged and only vertex positions moved.
-- No frame simulation started, the Companion PID was reused, and the final UI
-  state was `FINISHED`.
+- Blender 5.2.0 LTS and Lumen reduced the updated production scene monotonically
+  from `2077 -> 2072 -> 1682 -> 1469 -> 1132`.
+- All 18 Top degenerates were repaired. Three structurally proven Shorts weld
+  clusters were accepted, while 145 unproven coincident boundary clusters were
+  intentionally protected.
+- Three region iterations were accepted without rollback, five authoritative
+  Lumen calls were made, no frame simulation started, and the same Veyra
+  Companion process remained active through completion.
+- The original `IntersectionTest.blend` remained byte-identical with SHA-256
+  `8402CE65A13A4D375985FDB681745F7FEBB93AFBBA6665B68831AF38F0D122B3`.
 
 ## Verification
 
-- Full Python suite: 1,501 passed, 9 skipped, 3 deselected.
-- Blender 5.2.0 LTS and the real Lumen solver completed three reproducible
-  validation runs with no accepted crossing regression or rollback drift.
-- The original `IntersectionTest.blend` remained byte-identical with SHA-256
-  `E88FACD6AB6F9A1805160D2DF4539C2971806088278F711D32FA2CB9904C41E5`.
+- Full Python suite: 1,543 passed, 9 skipped, 3 deselected.
+- Targeted VEYRA, UI, rollback, holdout, and pipeline coverage: 187 passed.
 - The external PPF Contact Solver is not bundled or modified.

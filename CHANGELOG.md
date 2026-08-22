@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.2.48 - 2026-08-22
+
+### Added
+
+- A reproducible VEYRA generalization corpus covers clean cloth, intended
+  duplicate seams, stacked layers, near duplicates, folded and multi-sheet
+  contacts, independent regions, scale changes, semantic discontinuities,
+  multiple objects, and adversarial false-positive cases.
+- Frozen holdout cases verify folded cuffs, decorative patches, and three-layer
+  contact chains without feeding their results back into heuristic tuning.
+- The VEYRA heuristic audit documents every important topology, region,
+  ranking, displacement, batching, cache, and authoritative-validation rule.
+
+### Fixed
+
+- Safe topology repair now considers only vertices from solver-diagnosed
+  intersections instead of scanning unrelated coincident geometry as eligible
+  repair targets.
+- Disconnected islands require a coherent coincident boundary chain and
+  opposite surface continuation before an explicit-ID weld is allowed. Object
+  membership alone no longer treats lining, pockets, or stacked panels as
+  import seams.
+- Multi-sheet contact graphs are no longer forced into two sides merely because
+  their constraint graph is bipartite; unresolved regions remain fail-closed.
+- Adaptive displacement evaluates every locally safe 1%, 2%, 4%, and 8%
+  candidate and ranks measured crossing reduction, geometry margin, and
+  movement cost instead of assuming the strongest candidate is best.
+- Weld eligibility remains protected by object identity, point attributes,
+  vertex groups, face/corner semantics, material assignments, seam/sharp flags,
+  Shape Keys, linked/shared data, and strict authoritative rollback.
+
+### Validation
+
+- Full Python suite: 1,543 passed, 9 skipped, 3 deselected.
+- The clean/generalization corpus produced zero destructive false-positive
+  repairs; all three previously frozen holdouts passed on their first run.
+- Blender 5.2.0 LTS and the real Lumen solver reduced the updated production
+  scene monotonically from `2077 -> 2072 -> 1682 -> 1469 -> 1132` while
+  repairing all 18 Top degenerates and accepting three region iterations.
+- Only three structurally proven Shorts weld clusters were accepted; 145
+  unproven coincident boundary clusters were protected rather than guessed.
+- No frame simulation started, one Companion process was reused, and the
+  original Blend remained byte-identical with SHA-256
+  `8402CE65A13A4D375985FDB681745F7FEBB93AFBBA6665B68831AF38F0D122B3`.
+- The external PPF Contact Solver remains unbundled and unmodified.
+
 ## 2.2.47 - 2026-08-22
 
 ### Added
