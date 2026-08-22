@@ -69,7 +69,8 @@ from ..bake.status import (BakeActivity, BakeJobKind, BakeState,
 from ..bake.transport import EnterBakeMode
 from ..veyra.model import (CompanionMode, RepairArtifact, VeyraRepairPlan,
                            VeyraStep, VEYRA_STEP_LABELS, identity_digest)
-from ..veyra.regions import RegionCandidate, RegionCandidateBatch
+from ..veyra.regions import (RegionCandidate, RegionCandidateBatch,
+                             clear_topology_cache, topology_key)
 from ..core.errors import ClothNextError, ErrorRecord
 from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
@@ -104,6 +105,7 @@ from ..ppf.schema.data import (GROUP_PDRD, GROUP_ROD, GROUP_SHELL, GROUP_SOLID,
                                encode_multi_deformable_scene,
                                encode_multi_deformable_scene_file, encode_scene,
                                internal_static_sentinel, zero_area_triangles)
+from ..ppf.schema import envelope
 from ..ppf.schema.params import (
     SimulationSettings,
     build_multi_collider_param_payload,
@@ -213,10 +215,25 @@ class _VeyraRegionSession:
     current_result: object | None = None
     current_violations: tuple = ()
     current_identity: str = ""
+    topology_key: str = ""
+    topology_sent: bool = False
+    validation_plan: "RunPlan | None" = None
+    validation_payload_template: object | None = None
+    snapshot_seconds: float = 0.0
+    mesh_extraction_seconds: float = 0.0
+    serialization_seconds: float = 0.0
+    export_seconds: float = 0.0
+    ipc_seconds: float = 0.0
+    solver_setup_seconds: float = 0.0
+    authoritative_build_seconds: float = 0.0
+    result_parse_seconds: float = 0.0
+    plan_cache_hits: int = 0
+    plan_cache_misses: int = 0
 
 
 _veyra_region_session: _VeyraRegionSession | None = None
 _veyra_next_scheduled = False
+_VEYRA_MAX_ACCEPTED_TRANSACTIONS = 3
 
 
 def intersection_violations():
@@ -253,6 +270,16 @@ def veyra_region_metrics():
         "apply_seconds": session.apply_seconds,
         "rollback_seconds": session.rollback_seconds,
         "lumen_seconds": session.lumen_seconds,
+        "snapshot_seconds": session.snapshot_seconds,
+        "mesh_extraction_seconds": session.mesh_extraction_seconds,
+        "serialization_seconds": session.serialization_seconds,
+        "export_seconds": session.export_seconds,
+        "ipc_seconds": session.ipc_seconds,
+        "solver_setup_seconds": session.solver_setup_seconds,
+        "authoritative_build_seconds": session.authoritative_build_seconds,
+        "result_parse_seconds": session.result_parse_seconds,
+        "plan_cache_hits": session.plan_cache_hits,
+        "plan_cache_misses": session.plan_cache_misses,
         "elapsed": time.monotonic() - session.started_at,
     }
 
@@ -300,6 +327,7 @@ def _continue_veyra_region_planning(context, session) -> None:
     if not job_id or shared_controller.snapshot().job_id != job_id:
         raise SceneValidationError("The active Veyra job identity is stale.")
     payload = _veyra_region_input(job_id, result, session)
+    ipc_started = time.monotonic()
     artifact = companion_manager.session_artifacts().write_json(
         schema=payload["schema"], job_id=job_id,
         name=f"{job_id}.input.json", value=payload)
@@ -324,6 +352,7 @@ def _continue_veyra_region_planning(context, session) -> None:
         frame_end=int(snapshot.bake_start_frame), preset_label="Veyra",
         mode=CompanionMode.VEYRA, input_artifact=artifact.to_dict())
     ok, message = companion_manager.continue_veyra(request)
+    session.ipc_seconds += max(0.0, time.monotonic() - ipc_started)
     if not ok:
         raise SceneValidationError(message)
 
@@ -389,7 +418,7 @@ def _handle_veyra_contact_result(result) -> None:
         session.pending_result = None
     if after == 0:
         session.active = False; session.termination_reason = "SUCCESS"
-    elif session.accepted_iterations >= 6:
+    elif session.accepted_iterations >= _VEYRA_MAX_ACCEPTED_TRANSACTIONS:
         session.active = False; session.termination_reason = "PARTIAL_SUCCESS_ITERATION_CAP"
     elif session.rejected_candidates >= 12:
         session.active = False
@@ -6842,6 +6871,14 @@ def _contact_validation_worker(plan: RunPlan, veyra: bool = False) -> None:
     def emit(event) -> None:
         _queue.put(("event", event))
 
+    session = None
+    profile_sent = False
+    def emit_profile() -> None:
+        nonlocal profile_sent
+        if veyra and session is not None and not profile_sent:
+            _queue.put(("veyra_profile", dict(session.diagnostics.timings)))
+            profile_sent = True
+
     try:
         session = SolverSession(
             resolved=plan.resolved, scene=plan.scene,
@@ -6849,8 +6886,10 @@ def _contact_validation_worker(plan: RunPlan, veyra: bool = False) -> None:
             cancel_event=_cancel_event, recovery_options=None)
         diagnostics = session.validate_contacts()
         _merge_export_diagnostics(diagnostics, plan)
+        emit_profile()
         _queue.put(("contact_validated", diagnostics))
     except SessionCancelled:
+        emit_profile()
         _queue.put(("contact_cancelled",))
     except ClothNextError as exc:
         violations = _convert_solver_violations(plan, exc)
@@ -6881,15 +6920,19 @@ def _contact_validation_worker(plan: RunPlan, veyra: bool = False) -> None:
             recorded_details = _record_worker_failure(
                 plan, summary, details, code,
                 technical_details=exc.record.technical_message)
+        emit_profile()
         _queue.put(("contact_error", summary, recorded_details, code,
                     violations))
     except Exception:  # noqa: BLE001 -- surfaced through the main-thread pump
         summary = "Solver contact validation failed unexpectedly."
         details = traceback.format_exc()
         code = classify_error("BUILDING", summary, details)
+        emit_profile()
         _queue.put(("contact_error", summary,
                     _record_worker_failure(plan, summary, details, code), code,
                     intersection_diagnostics.DiagnosticResult()))
+    finally:
+        emit_profile()
 
 
 def _configure_playback_modifier(modifier, frame_start: int) -> None:
@@ -7823,6 +7866,17 @@ def _pump_once() -> float | None:
             break
         drained += 1
         kind = message[0]
+        if kind == "veyra_profile":
+            session = _veyra_region_session
+            if session is not None and session.active:
+                timings = message[1]
+                session.solver_setup_seconds += float(
+                    timings.get("start_solver", 0.0) or 0.0)
+                session.ipc_seconds += float(
+                    timings.get("upload", 0.0) or 0.0)
+                session.authoritative_build_seconds += float(
+                    timings.get("build", 0.0) or 0.0)
+            continue
         if kind == "event":
             event = message[1]
             if event.phase == "RUNTIME_METADATA":
@@ -8236,6 +8290,109 @@ def _start_prepared_run(plan: RunPlan) -> None:
         bpy.app.timers.register(_pump_watchdog, first_interval=.5)
 
 
+def _refresh_veyra_solver_snapshot(snapshot, positions_by_uuid,
+                                   matrices_by_uuid):
+    if snapshot is None:
+        return None
+    triangles = []
+    for item in snapshot.triangles:
+        coordinates = positions_by_uuid.get(item.owner.object_uuid)
+        matrix = matrices_by_uuid.get(item.owner.object_uuid)
+        if coordinates is None or matrix is None:
+            triangles.append(item); continue
+        try:
+            local = tuple(coordinates[index] for index in item.vertex_indices)
+        except IndexError as exc:
+            raise SceneValidationError(
+                "Veyra cached solver topology no longer matches the mesh.") from exc
+        world = tuple(intersection_diagnostics.transform_point(matrix, point)
+                      for point in local)
+        triangles.append(replace(item, vertices=world, input_vertices=local))
+    return replace(snapshot, triangles=tuple(triangles))
+
+
+def _refresh_cached_veyra_plan(plan: RunPlan, payload_template,
+                               positions_by_uuid) -> RunPlan:
+    """Re-encode only mutable vertex arrays in an immutable solver template."""
+    template_objects = {}
+    for group in payload_template:
+        for item in group.get("object", ()):
+            template_objects[str(item.get("uuid", ""))] = item
+    targets = _plan_deformables(plan)
+    matrices = {}
+    updated_targets = []
+    for target in targets:
+        positions = tuple(tuple(map(float, point))
+                          for point in positions_by_uuid[target.uuid])
+        if len(positions) != len(target.initial_local):
+            raise SceneValidationError(
+                f"Veyra cached vertex count changed for {target.object_name}.")
+        encoded = template_objects.get(target.uuid)
+        if encoded is None:
+            raise SceneValidationError(
+                f"Veyra cached scene is missing {target.object_name}.")
+        encoded["vert"] = [list(point) for point in positions]
+        matrices[target.uuid] = solver_world_matrix(target.world_matrix)
+        updated_targets.append(replace(target, initial_local=positions))
+    schema_version = int(plan.resolved.schema_version or "1")
+    data_payload = envelope.dumps_envelope(
+        envelope.KIND_SCENE, payload_template,
+        schema_version=schema_version)
+    project_name = new_project_name()
+    work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
+    scene = replace(
+        plan.scene, project_name=project_name, data_payload=data_payload,
+        data_hash=envelope.payload_sha256(data_payload))
+    solver_input = _refresh_veyra_solver_snapshot(
+        plan.solver_input, positions_by_uuid, matrices)
+    first = updated_targets[0]
+    return replace(
+        plan, scene=scene, initial_local=first.initial_local,
+        deformables=tuple(updated_targets), work_directory=work_directory,
+        solver_input=solver_input, recovery_options=None,
+        export_timings={"veyra_persistent_plan_cache_hit": 1.0},
+        export_cache_events={"veyra_validation_plan": "HIT"})
+
+
+def _veyra_validation_plan(context, session) -> RunPlan:
+    """Build once, then refresh positions without evaluated-scene export."""
+    started = time.monotonic()
+    if session.validation_plan is None:
+        plan = replace(build_run_plan(context), recovery_options=None)
+        session.snapshot_seconds += float(
+            plan.export_timings.get("validation", 0.0) or 0.0)
+        session.mesh_extraction_seconds += float(
+            plan.export_timings.get("mesh_extraction", 0.0) or 0.0)
+        session.serialization_seconds += float(
+            plan.export_timings.get("scene_encoding", 0.0) or 0.0)
+        payload = plan.scene.data_payload
+        blob = payload.read_bytes() if isinstance(payload, Path) else payload
+        session.validation_payload_template = envelope.loads_envelope(
+            blob, envelope.KIND_SCENE,
+            schema_version=int(plan.resolved.schema_version or "1"))
+        session.validation_plan = plan
+        session.plan_cache_misses += 1
+        session.export_seconds += time.monotonic() - started
+        return plan
+    extraction_started = time.monotonic()
+    positions = {}
+    for target in _plan_deformables(session.validation_plan):
+        obj = _auto_fix_object(context.scene, target.uuid)
+        if obj is None or _hash_mesh_topology(obj.data) != target.topology_signature:
+            raise SceneValidationError(
+                f"Veyra topology changed for {target.object_name}.")
+        positions[target.uuid] = tuple(
+            tuple(float(value) for value in vertex.co)
+            for vertex in obj.data.vertices)
+    session.mesh_extraction_seconds += time.monotonic() - extraction_started
+    refreshed = _refresh_cached_veyra_plan(
+        session.validation_plan, session.validation_payload_template, positions)
+    session.validation_plan = refreshed
+    session.plan_cache_hits += 1
+    session.export_seconds += time.monotonic() - started
+    return refreshed
+
+
 def _continue_contact_validation(context, *, veyra: bool = False) -> None:
     """Continue a repaired local preflight through solver BUILD only."""
     global _worker, _active_plan, _run_started_at, _last_work_directory
@@ -8268,10 +8425,12 @@ def _continue_contact_validation(context, *, veyra: bool = False) -> None:
             shared_controller.transition(
                 BakeState.STARTING_RUN,
                 status_message="Preparing contact validation")
-        # Rebuild the complete immutable solver input after the mesh edit.
-        # Recovery is a simulation concern and must not be created by this
-        # build-only continuation.
-        plan = replace(build_run_plan(context), recovery_options=None)
+        # A Veyra run keeps topology, Params and export structure immutable.
+        # Refresh only current vertex arrays after the first authoritative
+        # validation; ordinary contact checks retain the historical path.
+        plan = (_veyra_validation_plan(context, _veyra_region_session)
+                if veyra and _veyra_region_session is not None else
+                replace(build_run_plan(context), recovery_options=None))
         plan.work_directory.mkdir(parents=True, exist_ok=True)
         _last_work_directory = plan.work_directory
         _cancel_event.clear()
@@ -9971,20 +10130,34 @@ def _continue_after_auto_fix_recheck(context, result, *, veyra=False) -> str:
 
 def _veyra_snapshot_identity(snapshot) -> str:
     """Digest every retained source/topology/coordinate assumption."""
+    topology = []
+    positions = {}; input_positions = {}
+    metadata = []
+    for item in snapshot.triangles:
+        owner = item.owner
+        topology.append((owner.object_uuid, int(owner.combined_triangle_index),
+                         tuple(map(int, item.vertex_indices))))
+        metadata.append((int(owner.combined_triangle_index), owner.role,
+                         owner.source_polygon_index,
+                         bool(owner.generated_proxy), bool(owner.internal)))
+        for index, point in zip(item.vertex_indices, item.vertices):
+            key = (owner.object_uuid, int(index))
+            existing = positions.setdefault(key, tuple(point))
+            if existing != tuple(point):
+                raise SceneValidationError(
+                    "Retained solver input has inconsistent vertex positions.")
+        for index, point in zip(item.vertex_indices, item.input_vertices):
+            key = (owner.object_uuid, int(index))
+            existing = input_positions.setdefault(key, tuple(point))
+            if existing != tuple(point):
+                raise SceneValidationError(
+                    "Retained solver input has inconsistent local positions.")
     return identity_digest({
         "bake_start_frame": int(snapshot.bake_start_frame),
-        "triangles": [{
-            "combined": int(item.owner.combined_triangle_index),
-            "object_uuid": item.owner.object_uuid,
-            "role": item.owner.role,
-            "local": int(item.owner.local_triangle_index),
-            "polygon": item.owner.source_polygon_index,
-            "generated": bool(item.owner.generated_proxy),
-            "internal": bool(item.owner.internal),
-            "indices": tuple(map(int, item.vertex_indices)),
-            "vertices": item.vertices,
-            "input_vertices": item.input_vertices,
-        } for item in snapshot.triangles],
+        "topology": topology, "metadata": metadata,
+        "positions": [(key, positions[key]) for key in sorted(positions)],
+        "input_positions": [(key, input_positions[key])
+                            for key in sorted(input_positions)],
     })
 
 
@@ -10011,6 +10184,7 @@ def _veyra_input(job_id, snapshot, pairs, degenerate_faces,
 
 def _veyra_region_input(job_id, result, session):
     """Serialize only authoritative mapped seeds plus retained mesh topology."""
+    started = time.monotonic()
     snapshot = result.snapshot
     if snapshot is None:
         raise SceneValidationError("Veyra region repair has no retained snapshot.")
@@ -10021,21 +10195,43 @@ def _veyra_region_input(job_id, result, session):
                        and not any(element.generated_proxy
                                    for element in item.elements))
     object_uuids = {item.elements[0].object_uuid for item in violations}
-    return {
+    retained = tuple(item for item in snapshot.triangles
+        if item.owner.object_uuid in object_uuids
+        and not item.owner.generated_proxy and not item.owner.internal)
+    topology_rows = [{
+        "object_uuid": item.owner.object_uuid,
+        "triangle_index": item.owner.combined_triangle_index,
+        "vertex_indices": item.vertex_indices,
+    } for item in retained]
+    key = topology_key(topology_rows)
+    if session.topology_key and session.topology_key != key:
+        raise SceneValidationError(
+            "Veyra source topology changed during the repair session.")
+    session.topology_key = key
+    positions = {}
+    for item in retained:
+        for vertex_index, position in zip(item.vertex_indices, item.vertices):
+            position_key = (item.owner.object_uuid, int(vertex_index))
+            existing = positions.setdefault(position_key, tuple(position))
+            if existing != tuple(position):
+                raise SceneValidationError(
+                    "Veyra retained inconsistent coordinates for one vertex.")
+    payload = {
         "schema": "cnx.veyra.region-input.v1", "job_id": job_id,
         "source_snapshot_identity": _veyra_snapshot_identity(snapshot),
+        "topology_key": key,
         "authoritative_total": int(result.detected_count),
         "detailed_count": int(result.detailed_count),
         "mapped_count": int(result.mapped_count),
         "pairs": [item.combined_pair for item in violations],
-        "triangles": [{
-            "object_uuid": item.owner.object_uuid,
-            "triangle_index": item.owner.combined_triangle_index,
-            "vertex_indices": item.vertex_indices,
-            "vertices": item.vertices,
-        } for item in snapshot.triangles
-            if item.owner.object_uuid in object_uuids
-            and not item.owner.generated_proxy and not item.owner.internal],
+        "triangles": ([{
+            **row, "vertices": item.vertices,
+        } for row, item in zip(topology_rows, retained)]
+            if not session.topology_sent else []),
+        "vertex_positions": [{
+            "object_uuid": object_uuid, "vertex_index": vertex_index,
+            "position": position,
+        } for (object_uuid, vertex_index), position in sorted(positions.items())],
         "cumulative_displacements": [{
             "object_uuid": object_uuid, "vertex_index": vertex_index,
             "delta": delta,
@@ -10043,6 +10239,9 @@ def _veyra_region_input(job_id, result, session):
             session.cumulative.items())],
         "rejected_candidate_ids": sorted(session.rejected_ids),
     }
+    session.topology_sent = True
+    session.serialization_seconds += time.monotonic() - started
+    return payload
 
 
 def _rollback_veyra_region_candidate(context, session) -> None:
@@ -10425,6 +10624,11 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
         return {"FINISHED"}
 
     def _veyra_cleanup(self, context):
+        session = _veyra_region_session
+        if session is not None:
+            clear_topology_cache(session.job_id)
+            session.validation_plan = None
+            session.validation_payload_template = None
         timer = getattr(self, "_veyra_timer", None)
         if timer is not None:
             try: context.window_manager.event_timer_remove(timer)
@@ -10586,12 +10790,16 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
                     context, item.get("message", "Veyra planning failed."))
             if kind == "veyra_result":
                 try:
+                    parse_started = time.monotonic()
                     artifact = RepairArtifact.from_dict(item["artifact"])
                     value = companion_manager.session_artifacts().read_json(
                         artifact, schema=artifact.schema, job_id=job_id)
                     if artifact.schema == "cnx.veyra.region-plan.v1":
                         batch = RegionCandidateBatch.from_dict(value)
                         session = _veyra_region_session
+                        if session is not None:
+                            session.result_parse_seconds += max(
+                                0.0, time.monotonic() - parse_started)
                         current_identity = (
                             session.current_identity if session is not None
                             else self._veyra_identity)

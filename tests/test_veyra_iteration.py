@@ -66,3 +66,26 @@ def test_cancel_during_applied_candidate_rolls_back_to_last_accept():
         lambda *_: 1000, cancelled=cancelled)
     assert result.termination_reason == "CANCELLED"
     assert coordinates == {0: (0.0, 0.0, 0.0)}
+
+
+def test_independent_batch_is_accepted_as_one_transaction():
+    coordinates = {0: (0.0, 0.0, 0.0), 1: (1.0, 0.0, 0.0)}
+    batch = IterationCandidate(
+        "batch[a+b]", {0: (.1, 0.0, 0.0), 1: (0.0, .1, 0.0)})
+    result = run_monotonic_iterations(
+        coordinates, 20,
+        lambda _count, pass_index: (batch,) if pass_index == 0 else (),
+        lambda *_: 8)
+    assert (result.accepted, result.rejected, result.final_count) == (1, 0, 8)
+    assert coordinates == {0: (.1, 0.0, 0.0), 1: (1.0, .1, 0.0)}
+
+
+def test_failed_batch_rolls_back_every_member_exactly():
+    coordinates = {0: (.123, .456, .789), 1: (-.1, -.2, -.3)}
+    baseline = dict(coordinates)
+    batch = IterationCandidate(
+        "batch[a+b]", {0: (.1, 0.0, 0.0), 1: (0.0, .1, 0.0)})
+    result = run_monotonic_iterations(
+        coordinates, 20, lambda *_: (batch,), lambda *_: 20)
+    assert result.rejected == 1
+    assert coordinates == baseline

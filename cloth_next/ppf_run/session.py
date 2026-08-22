@@ -1984,9 +1984,12 @@ class SolverSession:
                 self._event("STARTING_SOLVER", "Starting PPF solver",
                             indeterminate=True)
                 step = time.monotonic()
-                self._start_owned_solver()
-                self._metadata_event()
-                self.diagnostics.timings["start_solver"] = time.monotonic() - step
+                try:
+                    self._start_owned_solver()
+                    self._metadata_event()
+                finally:
+                    self.diagnostics.timings["start_solver"] = (
+                        time.monotonic() - step)
             else:
                 assert self._address is not None
                 self.diagnostics.host = self._address.host
@@ -2021,17 +2024,21 @@ class SolverSession:
                 self._event("UPLOADING", "Uploading scene",
                             indeterminate=True)
                 step = time.monotonic()
-                self._upload()
-                self.diagnostics.timings["upload"] = (
-                    time.monotonic() - step)
+                try:
+                    self._upload()
+                finally:
+                    self.diagnostics.timings["upload"] = (
+                        time.monotonic() - step)
                 self._check_cancel()
                 self._event("BUILDING", "Building solver project",
                             indeterminate=True)
                 step = time.monotonic()
-                self._request(REQUEST_BUILD_ALIAS)
-                self._await_build()
-                self.diagnostics.timings["build"] = (
-                    time.monotonic() - step)
+                try:
+                    self._request(REQUEST_BUILD_ALIAS)
+                    self._await_build()
+                finally:
+                    self.diagnostics.timings["build"] = (
+                        time.monotonic() - step)
                 if contact_validation_only:
                     # BUILD is the last request needed for initial contact
                     # diagnostics.  Do not send START, create Recovery state,

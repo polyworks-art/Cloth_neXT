@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from math import isfinite, sqrt
 from time import perf_counter
 from typing import Iterable
@@ -85,6 +87,9 @@ class RegionCandidate:
     max_area_ratio: float
     local_crossings_before: int
     local_crossings_after: int
+    affected_triangle_indices: tuple[int, ...] = ()
+    member_candidate_ids: tuple[str, ...] = ()
+    estimated_value: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -103,6 +108,9 @@ class RegionCandidate:
             "max_area_ratio": self.max_area_ratio,
             "local_crossings_before": self.local_crossings_before,
             "local_crossings_after": self.local_crossings_after,
+            "affected_triangle_indices": self.affected_triangle_indices,
+            "member_candidate_ids": self.member_candidate_ids,
+            "estimated_value": self.estimated_value,
         }
 
     @classmethod
@@ -118,7 +126,10 @@ class RegionCandidate:
             float(value["max_edge_compression"]),
             float(value["min_area_ratio"]), float(value["max_area_ratio"]),
             int(value["local_crossings_before"]),
-            int(value["local_crossings_after"]))
+            int(value["local_crossings_after"]),
+            tuple(map(int, value.get("affected_triangle_indices", ()))),
+            tuple(map(str, value.get("member_candidate_ids", ()))),
+            float(value.get("estimated_value", 0.0)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +176,71 @@ class RegionCandidateBatch:
                   for item in value["candidates"]), dict(value["analysis"]),
             float(value["planning_seconds"]),
             float(value["local_validation_seconds"]))
+
+
+@dataclass(frozen=True, slots=True)
+class RegionTopologyCache:
+    """Immutable triangle/adjacency state retained by one Companion job."""
+
+    key: str
+    triangles: tuple[tuple[str, int, tuple[int, int, int]], ...]
+    edge_adjacency: dict[int, frozenset[int]]
+    vertex_adjacency: dict[int, frozenset[int]]
+
+    @classmethod
+    def from_rows(cls, rows) -> "RegionTopologyCache":
+        topology = tuple(sorted(
+            (str(row["object_uuid"]), int(row["triangle_index"]),
+             tuple(map(int, row["vertex_indices"]))) for row in rows))
+        key = hashlib.sha256(json.dumps(
+            topology, separators=(",", ":")).encode("utf-8")).hexdigest()
+        placeholder = {index: RegionTriangle(object_uuid, index, vertices,
+                                               ((0.0, 0.0, 0.0),) * 3)
+                       for object_uuid, index, vertices in topology}
+        edge_adjacency = {index: frozenset(values) for index, values in
+                          _edge_adjacency(placeholder).items()}
+        by_vertex = {}
+        for triangle in placeholder.values():
+            for vertex in triangle.vertex_indices:
+                by_vertex.setdefault((triangle.object_uuid, vertex), set()).add(
+                    triangle.triangle_index)
+        vertex_adjacency = {index: set() for index in placeholder}
+        for linked in by_vertex.values():
+            for index in linked:
+                vertex_adjacency[index].update(linked - {index})
+        return cls(key, topology, edge_adjacency, {
+            index: frozenset(values)
+            for index, values in vertex_adjacency.items()})
+
+    def triangles_at(self, positions) -> dict[int, RegionTriangle]:
+        coordinates = {
+            (str(row["object_uuid"]), int(row["vertex_index"])):
+                _point(row["position"])
+            for row in positions}
+        result = {}
+        for object_uuid, index, vertices in self.triangles:
+            try:
+                points = tuple(coordinates[(object_uuid, vertex)]
+                               for vertex in vertices)
+            except KeyError as exc:
+                raise ValueError(
+                    "VEYRA position update is incomplete for cached topology") from exc
+            result[index] = RegionTriangle(
+                object_uuid, index, vertices, points)
+        return result
+
+
+_TOPOLOGY_CACHES: dict[tuple[str, str], RegionTopologyCache] = {}
+
+
+def topology_key(rows) -> str:
+    return RegionTopologyCache.from_rows(rows).key
+
+
+def clear_topology_cache(job_id: str) -> None:
+    for key in tuple(_TOPOLOGY_CACHES):
+        if key[0] == str(job_id):
+            _TOPOLOGY_CACHES.pop(key, None)
 
 
 def _length(value: Point) -> float:
@@ -302,15 +378,16 @@ def _side_assignment(seeds, triangles, adjacency):
     return side_a, side_b, ambiguous
 
 
-def build_regions(value: dict) -> RegionAnalysis:
+def build_regions(value: dict, *, triangles=None, adjacency=None) -> RegionAnalysis:
     """Build topological pair components without inventing solver seeds."""
     started = perf_counter()
-    triangle_rows = value.get("triangles", ())
-    triangles = {int(row["triangle_index"]): RegionTriangle(
-        str(row["object_uuid"]), int(row["triangle_index"]),
-        tuple(map(int, row["vertex_indices"])),
-        tuple(tuple(map(float, point)) for point in row["vertices"]))
-        for row in triangle_rows}
+    if triangles is None:
+        triangle_rows = value.get("triangles", ())
+        triangles = {int(row["triangle_index"]): RegionTriangle(
+            str(row["object_uuid"]), int(row["triangle_index"]),
+            tuple(map(int, row["vertex_indices"])),
+            tuple(tuple(map(float, point)) for point in row["vertices"]))
+            for row in triangle_rows}
     raw_pairs = [tuple(map(int, row)) for row in value.get("pairs", ())]
     normalized = [tuple(sorted(pair)) for pair in raw_pairs]
     unique_keys = sorted(set(normalized))
@@ -320,15 +397,16 @@ def build_regions(value: dict) -> RegionAnalysis:
                   triangles[pair[1]].object_uuid)
     reversed_count = sum(pair[0] > pair[1] for pair in raw_pairs)
 
-    by_vertex = {}
-    for triangle in triangles.values():
-        for vertex in triangle.vertex_indices:
-            key = (triangle.object_uuid, vertex)
-            by_vertex.setdefault(key, set()).add(triangle.triangle_index)
-    adjacency = {index: set() for index in triangles}
-    for linked in by_vertex.values():
-        for index in linked:
-            adjacency[index].update(linked - {index})
+    if adjacency is None:
+        by_vertex = {}
+        for triangle in triangles.values():
+            for vertex in triangle.vertex_indices:
+                key = (triangle.object_uuid, vertex)
+                by_vertex.setdefault(key, set()).add(triangle.triangle_index)
+        adjacency = {index: set() for index in triangles}
+        for linked in by_vertex.values():
+            for index in linked:
+                adjacency[index].update(linked - {index})
 
     pair_neighbors = [set() for _seed in seeds]
     vertex_to_pairs = {}
@@ -561,6 +639,16 @@ def _candidate_metrics(planned, patch_indices, triangles):
 
 def _patch_crossings(patch_indices, triangles, planned):
     values = sorted(patch_indices)
+    # Candidate points and AABBs are triangle properties, not pair
+    # properties. The historical nested loop rebuilt both O(n) times per
+    # triangle, dominating large-patch planning.
+    before_points = {index: triangles[index].vertices for index in values}
+    after_points = {index: _candidate_points(triangles[index], planned)
+                    for index in values}
+    before_bounds = {index: _point_bounds(points)
+                     for index, points in before_points.items()}
+    after_bounds = {index: _point_bounds(points)
+                    for index, points in after_points.items()}
     before = 0; after = 0
     for offset, left_index in enumerate(values):
         left = triangles[left_index]
@@ -569,33 +657,130 @@ def _patch_crossings(patch_indices, triangles, planned):
             if set(left.vertex_indices).intersection(right.vertex_indices):
                 continue
             # Cheap pair AABB gate before exact narrow phase.
-            left_before, right_before = left.vertices, right.vertices
-            left_after = _candidate_points(left, planned)
-            right_after = _candidate_points(right, planned)
+            left_before, right_before = (before_points[left_index],
+                                         before_points[right_index])
+            left_after, right_after = (after_points[left_index],
+                                       after_points[right_index])
             if (_point_bounds_overlap(
-                    _point_bounds(left_before), _point_bounds(right_before))
+                    before_bounds[left_index], before_bounds[right_index])
                     and _crossing(left_before, right_before)):
                 before += 1
             if (_point_bounds_overlap(
-                    _point_bounds(left_after), _point_bounds(right_after))
+                    after_bounds[left_index], after_bounds[right_index])
                     and _crossing(left_after, right_after)):
                 after += 1
     return before, after
 
 
+def _cached_input_geometry(value):
+    job_id = str(value["job_id"])
+    rows = tuple(value.get("triangles", ()))
+    supplied_key = str(value.get("topology_key", ""))
+    if rows:
+        cache = RegionTopologyCache.from_rows(rows)
+        if supplied_key and supplied_key != cache.key:
+            raise ValueError("VEYRA topology identity does not match payload")
+        _TOPOLOGY_CACHES[(job_id, cache.key)] = cache
+        # A Companion services one active Veyra operation. Bound defensive
+        # retention without weakening the job/topology identity gate.
+        while len(_TOPOLOGY_CACHES) > 4:
+            _TOPOLOGY_CACHES.pop(next(iter(_TOPOLOGY_CACHES)))
+        triangles = {int(row["triangle_index"]): RegionTriangle(
+            str(row["object_uuid"]), int(row["triangle_index"]),
+            tuple(map(int, row["vertex_indices"])),
+            tuple(_point(point) for point in row["vertices"]))
+            for row in rows}
+        return cache, triangles
+    if not supplied_key:
+        raise ValueError("VEYRA compact input has no topology identity")
+    cache = _TOPOLOGY_CACHES.get((job_id, supplied_key))
+    if cache is None:
+        raise ValueError("VEYRA topology cache is unavailable for this job")
+    return cache, cache.triangles_at(value.get("vertex_positions", ()))
+
+
+def _candidate_score(region, candidate) -> float:
+    density = len(region.seeds) / max(1, len(region.triangle_indices))
+    safety = max(0.0, min(
+        candidate.max_edge_compression - 0.80,
+        1.20 - candidate.max_edge_stretch,
+        candidate.min_area_ratio - 0.60,
+        1.50 - candidate.max_area_ratio) + 0.40)
+    cost = max(1.0, len(candidate.displacements) ** 0.5)
+    return len(region.seeds) * density * (0.5 + safety) / cost
+
+
+def _combine_candidates(candidates) -> RegionCandidate:
+    values = tuple(candidates)
+    if not values:
+        raise ValueError("cannot combine an empty VEYRA candidate batch")
+    identifiers = tuple(item.candidate_id for item in values)
+    return RegionCandidate(
+        "batch[" + "+".join(identifiers) + "]",
+        min(item.region_id for item in values), values[0].object_uuid,
+        tuple(operation for item in values for operation in item.displacements),
+        min(item.local_scale for item in values),
+        max(item.amplitude_fraction for item in values), "independent_batch",
+        max(item.max_displacement for item in values),
+        max(item.max_edge_stretch for item in values),
+        min(item.max_edge_compression for item in values),
+        min(item.min_area_ratio for item in values),
+        max(item.max_area_ratio for item in values),
+        sum(item.local_crossings_before for item in values),
+        sum(item.local_crossings_after for item in values),
+        tuple(sorted({index for item in values
+                      for index in item.affected_triangle_indices})),
+        identifiers, sum(item.estimated_value for item in values))
+
+
+def _validation_schedule(ranked):
+    """Full independent batch, deterministic binary splits, then leaves."""
+    remaining = []
+    used_vertices = set(); used_triangles = set(); object_uuid = ""
+    for candidate in ranked:
+        vertices = {item.vertex_index for item in candidate.displacements}
+        triangles = set(candidate.affected_triangle_indices)
+        if (remaining and candidate.object_uuid != object_uuid) or (
+                used_vertices.intersection(vertices)
+                or used_triangles.intersection(triangles)):
+            continue
+        batch_scale = min(candidate.local_scale,
+                          min((item.local_scale for item in remaining),
+                              default=candidate.local_scale))
+        if any(item.max_displacement > batch_scale * 0.08 + 1.0e-15
+               for item in (*remaining, candidate)):
+            continue
+        object_uuid = candidate.object_uuid
+        remaining.append(candidate)
+        used_vertices.update(vertices); used_triangles.update(triangles)
+        if len(remaining) >= 6:
+            break
+    if len(remaining) < 2:
+        return tuple(ranked)
+    schedule = [_combine_candidates(remaining)]
+    queue = [tuple(remaining)]
+    while queue:
+        group = queue.pop(0)
+        if len(group) <= 1:
+            continue
+        middle = len(group) // 2
+        for half in (group[:middle], group[middle:]):
+            if len(half) > 1:
+                schedule.append(_combine_candidates(half)); queue.append(half)
+    schedule.extend(remaining)
+    schedule.extend(item for item in ranked if item not in remaining)
+    return tuple(schedule)
+
+
 def solve_region_candidates(value, *, progress=None, cancelled=None):
-    """Plan a small ranked batch; Blender/Lumen remains acceptance authority."""
+    """Plan ranked independent transactions; Lumen remains the authority."""
     started = perf_counter()
     if value.get("schema") != "cnx.veyra.region-input.v1":
         raise ValueError("unsupported VEYRA region input schema")
-    analysis = build_regions(value)
-    triangle_rows = value.get("triangles", ())
-    triangles = {int(row["triangle_index"]): RegionTriangle(
-        str(row["object_uuid"]), int(row["triangle_index"]),
-        tuple(map(int, row["vertex_indices"])),
-        tuple(_point(point) for point in row["vertices"]))
-        for row in triangle_rows}
-    adjacency = _edge_adjacency(triangles)
+    topology, triangles = _cached_input_geometry(value)
+    analysis = build_regions(
+        value, triangles=triangles, adjacency=topology.vertex_adjacency)
+    adjacency = topology.edge_adjacency
     cumulative = {
         (str(item["object_uuid"]), int(item["vertex_index"])):
             _point(item["delta"])
@@ -608,6 +793,7 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
         item.ambiguous_sides, len(item.triangle_indices) > 256,
         -(len(item.seeds) / max(1, len(item.triangle_indices))),
         -len(item.seeds), item.region_id))
+    viable_regions = 0
     for region_offset, region in enumerate(regions, start=1):
         if cancelled and cancelled():
             from .solver import VeyraCancelled
@@ -634,8 +820,11 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
         if not directions:
             skipped += 1; continue
         patch_indices = set(side_a_patch) | set(side_b_patch)
+        region_candidates = []
         for direction_kind, direction in directions:
-            for amplitude_fraction in (0.02, 0.04, 0.08):
+            # Strongest safe variant wins locally. Only that variant becomes
+            # eligible for authoritative validation.
+            for amplitude_fraction in (0.08, 0.04, 0.02, 0.01):
                 generated += 1
                 amplitude = region.local_edge_scale * amplitude_fraction
                 planned = {}
@@ -673,25 +862,39 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
                     region.local_edge_scale, amplitude_fraction, direction_kind,
                     max(map(_length, planned.values()), default=0.0),
                     maximum_edge, minimum_edge, minimum_area, maximum_area,
-                    before, after))
-        # Limit expensive Lumen candidates to the best compact region in one
-        # fresh-diagnostics pass. Accepted geometry always rebuilds regions.
-        if accepted:
-            break
+                    before, after, tuple(sorted(patch_indices)), (), 0.0))
+                region_candidates.append(accepted.pop())
+                break
+        for candidate in region_candidates:
+            accepted.append(RegionCandidate(
+                candidate.candidate_id, candidate.region_id,
+                candidate.object_uuid, candidate.displacements,
+                candidate.local_scale, candidate.amplitude_fraction,
+                candidate.direction_kind, candidate.max_displacement,
+                candidate.max_edge_stretch, candidate.max_edge_compression,
+                candidate.min_area_ratio, candidate.max_area_ratio,
+                candidate.local_crossings_before,
+                candidate.local_crossings_after,
+                candidate.affected_triangle_indices, (),
+                _candidate_score(region, candidate)))
+        if region_candidates:
+            viable_regions += 1
+            # Region order already uses deterministic density/value proxies.
+            # Six disjoint batch slots are enough to rank one authoritative
+            # transaction without scanning low-value tail regions.
+            if viable_regions >= 6:
+                break
     accepted.sort(key=lambda item: (
+        -item.estimated_value,
         item.local_crossings_after - item.local_crossings_before,
-        item.max_displacement, item.region_id, item.direction_kind,
-        item.amplitude_fraction, item.candidate_id))
+        -item.amplitude_fraction, item.region_id, item.direction_kind,
+        item.candidate_id))
     rejected_ids = set(map(str, value.get("rejected_candidate_ids", ())))
     accepted = [item for item in accepted
                 if item.candidate_id not in rejected_ids]
-    # Preserve scale coverage: six tiny candidates are less useful to the
-    # authoritative validator than two directions at each bounded amplitude.
-    selected = []
-    for amplitude in (0.02, 0.04, 0.08):
-        selected.extend([item for item in accepted
-                         if item.amplitude_fraction == amplitude][:2])
-    accepted = selected
+    accepted = list(_validation_schedule(accepted))
+    accepted = [item for item in accepted
+                if item.candidate_id not in rejected_ids]
     planning_seconds = perf_counter() - started
     return RegionCandidateBatch(
         "cnx.veyra.region-plan.v1", str(value["job_id"]),

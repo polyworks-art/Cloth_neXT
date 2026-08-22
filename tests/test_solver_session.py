@@ -252,6 +252,8 @@ def test_build_failure_surfaces_server_error(monkeypatch):
     session, _s, _f, _e = _run_session(monkeypatch, scripted)
     with pytest.raises(ClothNextError, match="building"):
         session.run()
+    assert session.diagnostics.timings["upload"] >= 0.0
+    assert session.diagnostics.timings["build"] >= 0.0
 
 
 def test_protocol_013_busy_build_finalization_waits_for_ready(

@@ -1,6 +1,8 @@
 from cloth_next.veyra.regions import (
-    RegionTriangle, _candidate_metrics, _edge_adjacency, _patch_crossings,
-    _patch_weights, build_regions, expand_patch, solve_region_candidates)
+    RegionCandidate, RegionDisplacement, RegionTriangle, _candidate_metrics,
+    _edge_adjacency, _patch_crossings, _patch_weights, _validation_schedule,
+    build_regions, clear_topology_cache, expand_patch,
+    solve_region_candidates)
 
 
 def triangle(index, vertices, points):
@@ -138,3 +140,67 @@ def test_edge_collapse_is_rejected():
     row = RegionTriangle("cloth", 0, (0, 1, 2),
                          ((0, 0, 0), (1, 0, 0), (0, 1, 0)))
     assert _candidate_metrics({1: (-1, 0, 0)}, {0}, {0: row}) is None
+
+
+def test_compact_iteration_reuses_topology_and_refreshes_geometry():
+    full = two_sheet_value()
+    first = solve_region_candidates(full)
+    rows = full.pop("triangles")
+    full["topology_key"] = first.analysis.get("topology_key", "")
+    # The public input normally carries the key computed by Blender. Obtain it
+    # from the same immutable rows here and send only unique positions.
+    from cloth_next.veyra.regions import topology_key
+    full["topology_key"] = topology_key(rows)
+    positions = {}
+    for row in rows:
+        for index, point in zip(row["vertex_indices"], row["vertices"]):
+            positions[(row["object_uuid"], index)] = point
+    positions[("cloth", 10)] = (0.0, 0.0, 0.2)
+    full["vertex_positions"] = [
+        {"object_uuid": key[0], "vertex_index": key[1], "position": point}
+        for key, point in sorted(positions.items())]
+    second = solve_region_candidates(full)
+    assert second.candidates
+    assert any(operation.original == (0.0, 0.0, 0.2)
+               for candidate in second.candidates
+               for operation in candidate.displacements
+               if operation.vertex_index == 10)
+    clear_topology_cache("job")
+
+
+def test_adaptive_strength_emits_only_strongest_safe_variant_per_direction():
+    batch = solve_region_candidates(two_sheet_value())
+    leaves = [item for item in batch.candidates
+              if not item.member_candidate_ids]
+    by_direction = {}
+    for item in leaves:
+        key = (item.region_id, item.direction_kind)
+        assert key not in by_direction
+        by_direction[key] = item.amplitude_fraction
+    assert set(by_direction.values()) == {0.08}
+
+
+def _rank_candidate(name, vertex, triangle):
+    return RegionCandidate(
+        name, vertex, "cloth",
+        (RegionDisplacement(vertex, (0.0, 0.0, 0.0), (.01, 0.0, 0.0)),),
+        1.0, .01, "test", .01, 1.0, 1.0, 1.0, 1.0, 0, 0,
+        (triangle,), (), float(10 - vertex))
+
+
+def test_independent_candidates_are_batched_and_binary_split_stably():
+    candidates = tuple(_rank_candidate(str(index), index, index)
+                       for index in range(4))
+    schedule = _validation_schedule(candidates)
+    assert schedule[0].member_candidate_ids == ("0", "1", "2", "3")
+    assert [item.member_candidate_ids for item in schedule[1:3]] == [
+        ("0", "1"), ("2", "3")]
+    assert tuple(item.candidate_id for item in schedule[-4:]) == (
+        "0", "1", "2", "3")
+
+
+def test_overlapping_candidates_are_never_batched():
+    first = _rank_candidate("first", 1, 1)
+    second = _rank_candidate("second", 1, 2)
+    schedule = _validation_schedule((first, second))
+    assert all(not item.member_candidate_ids for item in schedule)
