@@ -168,7 +168,7 @@ def test_compact_iteration_reuses_topology_and_refreshes_geometry():
     clear_topology_cache("job")
 
 
-def test_adaptive_strength_emits_only_strongest_safe_variant_per_direction():
+def test_adaptive_strength_uses_smallest_deformation_when_effect_is_equal():
     batch = solve_region_candidates(two_sheet_value())
     leaves = [item for item in batch.candidates
               if not item.member_candidate_ids]
@@ -177,7 +177,7 @@ def test_adaptive_strength_emits_only_strongest_safe_variant_per_direction():
         key = (item.region_id, item.direction_kind)
         assert key not in by_direction
         by_direction[key] = item.amplitude_fraction
-    assert set(by_direction.values()) == {0.08}
+    assert set(by_direction.values()) == {0.01}
 
 
 def _rank_candidate(name, vertex, triangle):

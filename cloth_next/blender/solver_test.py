@@ -10191,6 +10191,17 @@ def _veyra_safe_weld_transaction(context, result):
         and item.elements[0].object_uuid == item.elements[1].object_uuid
         and not any(element.generated_proxy for element in item.elements)})
     transactions = []
+    diagnosed = {}
+    snapshot_triangles = {
+        int(item.owner.combined_triangle_index): item
+        for item in getattr(getattr(result, "snapshot", None), "triangles", ())}
+    for violation in result.self_intersections:
+        for element in violation.elements:
+            combined = int(element.combined_triangle_index)
+            triangle = snapshot_triangles.get(combined)
+            if triangle is not None:
+                diagnosed.setdefault(element.object_uuid, set()).update(
+                    map(int, triangle.vertex_indices))
     for object_uuid in object_uuids:
         obj = _auto_fix_object(context.scene, object_uuid)
         if (obj is None or obj.type != "MESH" or obj.library is not None
@@ -10217,9 +10228,7 @@ def _veyra_safe_weld_transaction(context, result):
             frozenset(faces[int(vertex.index)])) for vertex in mesh.vertices)
         plan = plan_safe_welds(
             object_uuid, vertices, local_scale=local_scale,
-            # Cloth NeXt deformables are required to be a single connected
-            # garment sheet; exact coincident loose islands are import seams.
-            allow_disconnected_islands=True)
+            eligible_indices=diagnosed.get(object_uuid, ()))
         if not plan.clusters:
             continue
         before_faces = _veyra_face_semantics(mesh)

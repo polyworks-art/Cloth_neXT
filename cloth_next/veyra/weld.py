@@ -62,16 +62,89 @@ def conservative_tolerance(local_scale: float) -> float:
     return max(1.0e-12, local_scale * 1.0e-9)
 
 
+def _sub(left, right):
+    return tuple(a - b for a, b in zip(left, right))
+
+
+def _dot(left, right):
+    return sum(a * b for a, b in zip(left, right))
+
+
+def _unit(value):
+    length = math.sqrt(_dot(value, value))
+    return (tuple(component / length for component in value)
+            if length > 1.0e-15 else None)
+
+
+def _project_perpendicular(value, tangent):
+    return tuple(component - tangent[axis] * _dot(value, tangent)
+                 for axis, component in enumerate(value))
+
+
+def _continuous_boundary_seam(cluster, *, by_index, candidate_by_vertex) -> bool:
+    """Prove that a coincident pair joins opposite sides of one boundary seam.
+
+    Coincidence alone cannot distinguish an import seam from lining or a
+    decorative layer.  The pair therefore needs a second coincident boundary
+    pair along the seam and the two surface interiors must continue away on
+    opposite sides of that seam.  Missing or multi-sheet evidence fails closed.
+    """
+    if len(cluster) != 2:
+        return False
+    left, right = (by_index[index] for index in cluster)
+    if left.island == right.island or not left.boundary or not right.boundary:
+        return False
+    island_pair = frozenset((left.island, right.island))
+    linked_clusters = []
+    for left_neighbor in left.adjacent_vertices:
+        neighbor_cluster = candidate_by_vertex.get(left_neighbor)
+        if neighbor_cluster is None or neighbor_cluster == cluster:
+            continue
+        rows = tuple(by_index[index] for index in neighbor_cluster)
+        if (len(rows) == 2 and frozenset(row.island for row in rows) == island_pair
+                and any(row.index in right.adjacent_vertices for row in rows)):
+            linked_clusters.append(neighbor_cluster)
+    if not linked_clusters:
+        return False
+
+    for neighbor_cluster in sorted(set(linked_clusters)):
+        neighbor_by_island = {by_index[index].island: by_index[index]
+                              for index in neighbor_cluster}
+        seam_vector = _sub(
+            neighbor_by_island[left.island].coordinate, left.coordinate)
+        tangent = _unit(seam_vector)
+        if tangent is None:
+            continue
+        inward = []
+        for row in (left, right):
+            vectors = []
+            for neighbor_index in row.adjacent_vertices:
+                if candidate_by_vertex.get(neighbor_index) == neighbor_cluster:
+                    continue
+                vector = _project_perpendicular(
+                    _sub(by_index[neighbor_index].coordinate, row.coordinate),
+                    tangent)
+                unit = _unit(vector)
+                if unit is not None:
+                    vectors.append(unit)
+            if not vectors:
+                break
+            inward.append(_unit(tuple(sum(vector[axis] for vector in vectors)
+                                      for axis in range(3))))
+        if len(inward) == 2 and all(inward) and _dot(*inward) <= -0.25:
+            return True
+    return False
+
+
 def plan_safe_welds(
         object_uuid: str, vertices: Iterable[WeldVertex], *,
-        local_scale: float, allow_disconnected_islands: bool = False,
+        local_scale: float, eligible_indices: Iterable[int] | None = None,
 ) -> SafeWeldPlan:
     """Plan explicit near-exact weld IDs without radius-expanding selection.
 
     Same-island candidates must be boundary vertices. All candidates require
-    identical point-domain attributes. Disconnected islands are rejected unless
-    the caller has an explicit invariant that a deformable is one connected
-    sheet.
+    identical point-domain attributes. Disconnected islands require geometric
+    proof of a coherent boundary seam; object membership alone is not intent.
     """
     if not object_uuid:
         raise ValueError("an object UUID is required")
@@ -82,6 +155,8 @@ def plan_safe_welds(
     cells: dict[tuple[int, int, int], list[WeldVertex]] = defaultdict(list)
     union = _UnionFind(row.index for row in rows)
     by_index = {row.index: row for row in rows}
+    eligible = (None if eligible_indices is None
+                else frozenset(map(int, eligible_indices)))
     offsets = tuple(product((-1, 0, 1), repeat=3))
     for row in rows:
         if not all(math.isfinite(value) for value in row.coordinate):
@@ -98,6 +173,7 @@ def plan_safe_welds(
         groups[union.find(row.index)].append(row.index)
     accepted = []
     skipped = []
+    provisional = []
     for cluster in sorted((tuple(values) for values in groups.values()
                            if len(values) > 1)):
         items = tuple(by_index[index] for index in cluster)
@@ -113,12 +189,22 @@ def plan_safe_welds(
                  for offset, left in enumerate(items)
                  for right in items[offset + 1:]):
             reason = "SHARED_FACE"
-        elif island_count > 1 and not allow_disconnected_islands:
-            reason = "DISCONNECTED_SHEETS"
+        elif eligible is not None and not eligible.intersection(cluster):
+            reason = "NOT_DIAGNOSED"
         else:
-            accepted.append(cluster)
+            provisional.append(cluster)
             continue
         skipped.append((cluster, reason))
+    candidate_by_vertex = {index: cluster for cluster in provisional
+                           for index in cluster}
+    for cluster in provisional:
+        items = tuple(by_index[index] for index in cluster)
+        if len({item.island for item in items}) > 1 and not _continuous_boundary_seam(
+                cluster, by_index=by_index,
+                candidate_by_vertex=candidate_by_vertex):
+            skipped.append((cluster, "UNPROVEN_BOUNDARY_SEAM"))
+        else:
+            accepted.append(cluster)
     return SafeWeldPlan(
         object_uuid, float(local_scale), tolerance,
         tuple(accepted), tuple(skipped))

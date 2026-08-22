@@ -36,14 +36,11 @@ def test_object_identity_is_mandatory():
         plan_safe_welds("", (), local_scale=1.0)
 
 
-def test_disconnected_sheets_fail_closed_without_object_invariant():
+def test_disconnected_sheets_fail_closed_without_seam_evidence():
     values = (vertex(0, (0.0, 0.0, 0.0), island=0, boundary=False),
               vertex(1, (0.0, 0.0, 0.0), island=1, boundary=False))
     rejected = plan_safe_welds("cloth", values, local_scale=1.0)
-    accepted = plan_safe_welds(
-        "cloth", values, local_scale=1.0, allow_disconnected_islands=True)
-    assert rejected.skip_reasons == {"DISCONNECTED_SHEETS": 1}
-    assert accepted.clusters == ((0, 1),)
+    assert rejected.skip_reasons == {"UNPROVEN_BOUNDARY_SEAM": 1}
 
 
 @pytest.mark.parametrize(("change", "reason"), [
@@ -59,6 +56,14 @@ def test_ambiguous_or_destructive_clusters_are_skipped(change, reason):
     plan = plan_safe_welds("cloth", (left, right), local_scale=1.0)
     assert plan.clusters == ()
     assert plan.skip_reasons == {reason: 1}
+
+
+def test_undiagnosed_coincidence_is_protected():
+    plan = plan_safe_welds("cloth", (
+        vertex(0, (0.0, 0.0, 0.0)),
+        vertex(1, (0.0, 0.0, 0.0)),
+    ), local_scale=1.0, eligible_indices=())
+    assert plan.skip_reasons == {"NOT_DIAGNOSED": 1}
 
 
 class Mesh:

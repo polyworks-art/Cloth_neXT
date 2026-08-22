@@ -347,6 +347,7 @@ def _side_assignment(seeds, triangles, adjacency):
         for neighbor in adjacency.get(triangle_index, ()):
             if neighbor in involved_set:
                 union(triangle_index, neighbor)
+    roots = sorted({find(value) for value in involved})
     constraints = {}
     ambiguous = False
     for seed in seeds:
@@ -357,7 +358,7 @@ def _side_assignment(seeds, triangles, adjacency):
         constraints.setdefault(left, set()).add(right)
         constraints.setdefault(right, set()).add(left)
     colors = {}
-    for root in sorted({find(value) for value in involved}):
+    for root in roots:
         if root in colors:
             continue
         colors[root] = 0
@@ -373,7 +374,10 @@ def _side_assignment(seeds, triangles, adjacency):
                     queue.append(neighbor)
     side_a = tuple(value for value in involved if colors.get(find(value), 0) == 0)
     side_b = tuple(value for value in involved if colors.get(find(value), 0) == 1)
-    if not side_a or not side_b:
+    # A bipartite contact graph is not itself proof of two sheets: A-B-C is
+    # bipartite too.  More than two topologically distinct components is a
+    # multi-sheet/fragmented region and must be subdivided or skipped.
+    if len(roots) != 2 or not side_a or not side_b:
         ambiguous = True
     return side_a, side_b, ambiguous
 
@@ -707,7 +711,10 @@ def _candidate_score(region, candidate) -> float:
         candidate.min_area_ratio - 0.60,
         1.50 - candidate.max_area_ratio) + 0.40)
     cost = max(1.0, len(candidate.displacements) ** 0.5)
-    return len(region.seeds) * density * (0.5 + safety) / cost
+    crossing_gain = max(0, candidate.local_crossings_before
+                        - candidate.local_crossings_after)
+    effectiveness = 1.0 + crossing_gain / max(1, len(region.seeds))
+    return len(region.seeds) * density * effectiveness * (0.5 + safety) / cost
 
 
 def _combine_candidates(candidates) -> RegionCandidate:
@@ -822,8 +829,7 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
         patch_indices = set(side_a_patch) | set(side_b_patch)
         region_candidates = []
         for direction_kind, direction in directions:
-            # Strongest safe variant wins locally. Only that variant becomes
-            # eligible for authoritative validation.
+            direction_candidates = []
             for amplitude_fraction in (0.08, 0.04, 0.02, 0.01):
                 generated += 1
                 amplitude = region.local_edge_scale * amplitude_fraction
@@ -854,7 +860,7 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
                 if after > before:
                     locally_rejected += 1; continue
                 minimum_edge, maximum_edge, minimum_area, maximum_area = metrics
-                accepted.append(RegionCandidate(
+                direction_candidates.append(RegionCandidate(
                     f"r{region.region_id}-{direction_kind}-{amplitude_fraction:.2f}",
                     region.region_id, region.object_uuid,
                     tuple(RegionDisplacement(vertex, coordinates[vertex], delta)
@@ -863,8 +869,16 @@ def solve_region_candidates(value, *, progress=None, cancelled=None):
                     max(map(_length, planned.values()), default=0.0),
                     maximum_edge, minimum_edge, minimum_area, maximum_area,
                     before, after, tuple(sorted(patch_indices)), (), 0.0))
-                region_candidates.append(accepted.pop())
-                break
+            if direction_candidates:
+                # Prefer measured local crossing reduction, then the greatest
+                # remaining geometry margin, then the smaller deformation.
+                region_candidates.append(max(direction_candidates, key=lambda item: (
+                    item.local_crossings_before - item.local_crossings_after,
+                    min(item.max_edge_compression - 0.80,
+                        1.20 - item.max_edge_stretch,
+                        item.min_area_ratio - 0.60,
+                        1.50 - item.max_area_ratio),
+                    -item.max_displacement, -item.amplitude_fraction)))
         for candidate in region_candidates:
             accepted.append(RegionCandidate(
                 candidate.candidate_id, candidate.region_id,
