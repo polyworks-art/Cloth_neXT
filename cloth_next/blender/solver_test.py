@@ -71,6 +71,8 @@ from ..veyra.model import (CompanionMode, RepairArtifact, VeyraRepairPlan,
                            VeyraStep, VEYRA_STEP_LABELS, identity_digest)
 from ..veyra.regions import (RegionCandidate, RegionCandidateBatch,
                              clear_topology_cache, topology_key)
+from ..veyra.weld import (TopologyTransaction, WeldVertex,
+                          plan_safe_welds)
 from ..core.errors import ClothNextError, ErrorRecord
 from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
@@ -229,10 +231,14 @@ class _VeyraRegionSession:
     result_parse_seconds: float = 0.0
     plan_cache_hits: int = 0
     plan_cache_misses: int = 0
+    weld_attempted: bool = False
+    pending_weld: object | None = None
+    weld_metrics: dict = field(default_factory=dict)
 
 
 _veyra_region_session: _VeyraRegionSession | None = None
 _veyra_next_scheduled = False
+_veyra_weld_validation_scheduled = False
 _VEYRA_MAX_ACCEPTED_TRANSACTIONS = 3
 
 
@@ -280,6 +286,7 @@ def veyra_region_metrics():
         "result_parse_seconds": session.result_parse_seconds,
         "plan_cache_hits": session.plan_cache_hits,
         "plan_cache_misses": session.plan_cache_misses,
+        "safe_weld": dict(session.weld_metrics),
         "elapsed": time.monotonic() - session.started_at,
     }
 
@@ -309,6 +316,38 @@ def _schedule_veyra_region_pass() -> None:
                     BakeState.FINISHED,
                     status_message="Veyra stopped safely",
                     activity_label=str(exc)[:240], can_cancel=False)
+            except InvalidTransition:
+                pass
+        return None
+    bpy.app.timers.register(invoke, first_interval=.2)
+
+
+def _schedule_veyra_weld_validation() -> None:
+    """Start post-weld Lumen only after the previous worker is retired."""
+    global _veyra_weld_validation_scheduled
+    if _veyra_weld_validation_scheduled:
+        return
+    _veyra_weld_validation_scheduled = True
+    def invoke():
+        global _veyra_weld_validation_scheduled
+        session = _veyra_region_session
+        if session is None or not session.active or session.pending_weld is None:
+            _veyra_weld_validation_scheduled = False
+            return None
+        if run_active() or _active_plan is not None:
+            return .1
+        _veyra_weld_validation_scheduled = False
+        try:
+            _continue_contact_validation(bpy.context, veyra=True)
+        except (AttributeError, OSError, RuntimeError,
+                SceneValidationError, ValueError) as exc:
+            print("CLOTH_NEXT_VEYRA_WELD_VALIDATION_ERROR", repr(exc),
+                  flush=True)
+            _rollback_veyra_topology_candidate(session)
+            session.active = False
+            session.termination_reason = f"NO_SAFE_REPAIR: {exc}"
+            try:
+                shared_controller.fail(str(exc))
             except InvalidTransition:
                 pass
         return None
@@ -357,6 +396,43 @@ def _continue_veyra_region_planning(context, session) -> None:
         raise SceneValidationError(message)
 
 
+def _try_start_veyra_safe_weld(session, result) -> bool:
+    if session.weld_attempted or not result.has_intersections:
+        return False
+    session.weld_attempted = True
+    try:
+        transaction = _veyra_safe_weld_transaction(bpy.context, result)
+    except SceneValidationError as exc:
+        session.weld_metrics = {
+            "planned": False, "skip_reason": str(exc)}
+        return False
+    if transaction is None:
+        session.weld_metrics = {"planned": False}
+        return False
+    obj, plan, _transaction = transaction
+    session.pending_weld = transaction
+    session.weld_metrics = {
+        "planned": True, "object": obj.name,
+        "object_uuid": plan.object_uuid, "tolerance": plan.tolerance,
+        "local_scale": plan.local_scale, "clusters": len(plan.clusters),
+        "merged_vertices": plan.merged_vertices,
+        "skip_reasons": plan.skip_reasons,
+    }
+    session.topology_key = ""
+    session.topology_sent = False
+    session.validation_plan = None
+    session.validation_payload_template = None
+    clear_topology_cache(session.job_id)
+    shared_controller.update(
+        veyra_step=VeyraStep.REVALIDATING_GEOMETRY,
+        veyra_step_index=4, veyra_step_current=0,
+        veyra_step_total=plan.merged_vertices,
+        status_title="Repairing Topology",
+        activity_label=(f"Validating {len(plan.clusters)} exact topology seams"))
+    _schedule_veyra_weld_validation()
+    return True
+
+
 def _handle_veyra_contact_result(result) -> None:
     """Accept only strict global improvement, otherwise exact rollback."""
     global _diagnostic_result, _intersection_violations
@@ -371,10 +447,42 @@ def _handle_veyra_contact_result(result) -> None:
     session.lumen_calls += 1
     after = int(result.detected_count)
     candidate = session.pending_candidate
-    if candidate is None:
+    if session.pending_weld is not None:
+        obj, plan, transaction = session.pending_weld
+        before = int(session.baseline_count or 0)
+        accepted = after < before
+        session.weld_metrics.update({
+            "before": before, "after": after, "accepted": accepted,
+            "object": obj.name, "object_uuid": plan.object_uuid,
+            "tolerance": plan.tolerance, "local_scale": plan.local_scale,
+            "clusters": len(plan.clusters),
+            "merged_vertices": plan.merged_vertices,
+            "skip_reasons": plan.skip_reasons,
+        })
+        if accepted:
+            transaction.accept()
+            session.baseline_count = after
+            session.baseline_result = result
+            session.topology_key = ""
+            session.topology_sent = False
+            session.validation_plan = None
+            session.validation_payload_template = None
+            clear_topology_cache(session.job_id)
+        else:
+            transaction.rollback()
+            validation_state.forget(obj)
+            session.validation_plan = None
+            session.validation_payload_template = None
+            clear_topology_cache(session.job_id)
+            _restore_veyra_region_baseline(session)
+            after = before
+        session.pending_weld = None
+    elif candidate is None:
         session.initial_count = after if session.initial_count is None else session.initial_count
         session.baseline_count = after
         session.baseline_result = result
+        if _try_start_veyra_safe_weld(session, result):
+            return
     else:
         before = int(session.baseline_count or 0)
         session.pass_index += 1
@@ -8011,6 +8119,7 @@ def _pump_once() -> float | None:
         elif kind == "contact_cancelled":
             if (_veyra_region_session is not None
                     and _veyra_region_session.active):
+                _rollback_veyra_topology_candidate(_veyra_region_session)
                 if _veyra_region_session.pending_candidate is not None:
                     _rollback_veyra_region_candidate(
                         bpy.context, _veyra_region_session)
@@ -9939,6 +10048,257 @@ def _auto_fix_vertex_group_signature(obj, vertex_index):
         for item in obj.data.vertices[vertex_index].groups}
 
 
+def _veyra_mesh_digest(mesh) -> str:
+    """Digest topology, coordinates and relevant generic mesh attributes."""
+    attributes = []
+    for attribute in getattr(mesh, "attributes", ()):
+        values = []
+        for item in attribute.data:
+            try:
+                value = _auto_fix_data_value(item)
+            except SceneValidationError:
+                value = repr(item)
+            values.append(value)
+        attributes.append((attribute.name, attribute.domain,
+                           getattr(attribute, "data_type", ""), values))
+    payload = {
+        "vertices": [tuple(map(float, vertex.co)) for vertex in mesh.vertices],
+        "groups": [[(int(item.group), float(item.weight))
+                    for item in vertex.groups] for vertex in mesh.vertices],
+        "edges": [(tuple(map(int, edge.vertices)), bool(edge.use_seam))
+                  for edge in mesh.edges],
+        "faces": [(tuple(map(int, face.vertices)), int(face.material_index))
+                  for face in mesh.polygons],
+        "attributes": attributes,
+        "properties": sorted((str(key), repr(mesh[key]))
+                             for key in mesh.keys()),
+    }
+    return hashlib.sha256(json.dumps(
+        payload, sort_keys=True, separators=(",", ":"),
+        default=repr).encode("utf-8")).hexdigest()
+
+
+def _veyra_mesh_islands(mesh):
+    neighbors = {index: set() for index in range(len(mesh.vertices))}
+    edge_uses = {}
+    for edge in mesh.edges:
+        left, right = map(int, edge.vertices)
+        neighbors[left].add(right)
+        neighbors[right].add(left)
+        edge_uses[tuple(sorted((left, right)))] = 0
+    for face in mesh.polygons:
+        values = tuple(map(int, face.vertices))
+        for offset, left in enumerate(values):
+            key = tuple(sorted((left, values[(offset + 1) % len(values)])))
+            edge_uses[key] = edge_uses.get(key, 0) + 1
+    boundary = {index for edge, uses in edge_uses.items() if uses != 2
+                for index in edge}
+    islands = {}
+    island = 0
+    unseen = set(neighbors)
+    while unseen:
+        stack = [min(unseen)]
+        unseen.remove(stack[0])
+        while stack:
+            current = stack.pop()
+            islands[current] = island
+            for neighbor in neighbors[current]:
+                if neighbor in unseen:
+                    unseen.remove(neighbor)
+                    stack.append(neighbor)
+        island += 1
+    return islands, boundary, neighbors
+
+
+def _veyra_point_signature(obj, index):
+    mesh = obj.data
+    values = []
+    for attribute in getattr(mesh, "attributes", ()):
+        if (getattr(attribute, "domain", None) != "POINT"
+                or getattr(attribute, "name", "") == "position"
+                or getattr(attribute, "name", "").startswith(".")):
+            continue
+        values.append((attribute.name, _auto_fix_data_value(
+            attribute.data[index])))
+    return (tuple(sorted(_auto_fix_vertex_group_signature(
+        obj, index).items())), tuple(values))
+
+
+def _veyra_face_semantics_rows(mesh):
+    """Coordinate-keyed material/corner data, independent of vertex IDs."""
+    result = []
+    corner_attributes = tuple(attribute for attribute in getattr(
+        mesh, "attributes", ())
+        if getattr(attribute, "domain", None) == "CORNER"
+        and not getattr(attribute, "name", "").startswith("."))
+    for face in mesh.polygons:
+        corners = []
+        for loop_index in face.loop_indices:
+            loop = mesh.loops[loop_index]
+            coordinate = tuple(round(float(value), 12)
+                               for value in mesh.vertices[loop.vertex_index].co)
+            data = tuple((attribute.name,
+                          _auto_fix_data_value(attribute.data[loop_index]))
+                         for attribute in corner_attributes)
+            corners.append((coordinate, data))
+        key = (tuple(sorted(corners, key=repr)), int(face.material_index))
+        result.append(key)
+    return result
+
+
+def _veyra_face_semantics(mesh):
+    result = {}
+    for key in _veyra_face_semantics_rows(mesh):
+        result[key] = result.get(key, 0) + 1
+    return result
+
+
+def _veyra_edge_flags(mesh):
+    sharp = getattr(mesh, "attributes", {}).get("sharp_edge")
+    result = {}
+    for edge in mesh.edges:
+        coordinates = tuple(sorted((
+            tuple(round(float(value), 12)
+                  for value in mesh.vertices[index].co)
+            for index in edge.vertices)))
+        flags = (bool(edge.use_seam), bool(sharp.data[edge.index].value)
+                 if sharp is not None else False)
+        previous = result.get(coordinates, (False, False))
+        result[coordinates] = (previous[0] or flags[0],
+                               previous[1] or flags[1])
+    return result
+
+
+def _apply_veyra_edge_flags(mesh, flags) -> None:
+    sharp = getattr(mesh, "attributes", {}).get("sharp_edge")
+    for edge in mesh.edges:
+        coordinates = tuple(sorted((
+            tuple(round(float(value), 12)
+                  for value in mesh.vertices[index].co)
+            for index in edge.vertices)))
+        seam, is_sharp = flags.get(coordinates, (False, False))
+        edge.use_seam = seam
+        if sharp is not None:
+            sharp.data[edge.index].value = is_sharp
+
+
+def _veyra_safe_weld_transaction(context, result):
+    """Build and install one explicit-ID topology transaction, if provable."""
+    import bmesh
+    object_uuids = sorted({
+        item.elements[0].object_uuid for item in result.self_intersections
+        if len(item.elements) == 2
+        and item.elements[0].object_uuid == item.elements[1].object_uuid
+        and not any(element.generated_proxy for element in item.elements)})
+    transactions = []
+    for object_uuid in object_uuids:
+        obj = _auto_fix_object(context.scene, object_uuid)
+        if (obj is None or obj.type != "MESH" or obj.library is not None
+                or obj.data.library is not None or obj.data.shape_keys is not None
+                or int(getattr(obj.data, "users", 1)) != 1):
+            continue
+        mesh = obj.data
+        islands, boundary, neighbors = _veyra_mesh_islands(mesh)
+        faces = {index: set() for index in range(len(mesh.vertices))}
+        for face in mesh.polygons:
+            for index in face.vertices:
+                faces[int(index)].add(int(face.index))
+        lengths = [math.dist(tuple(mesh.vertices[edge.vertices[0]].co),
+                             tuple(mesh.vertices[edge.vertices[1]].co))
+                   for edge in mesh.edges]
+        local_scale = sum(lengths) / len(lengths) if lengths else 0.0
+        if local_scale <= 0.0:
+            continue
+        vertices = tuple(WeldVertex(
+            int(vertex.index), tuple(map(float, vertex.co)),
+            islands[int(vertex.index)], int(vertex.index) in boundary,
+            _veyra_point_signature(obj, int(vertex.index)),
+            frozenset(neighbors[int(vertex.index)]),
+            frozenset(faces[int(vertex.index)])) for vertex in mesh.vertices)
+        plan = plan_safe_welds(
+            object_uuid, vertices, local_scale=local_scale,
+            # Cloth NeXt deformables are required to be a single connected
+            # garment sheet; exact coincident loose islands are import seams.
+            allow_disconnected_islands=True)
+        if not plan.clusters:
+            continue
+        before_faces = _veyra_face_semantics(mesh)
+        before_flags = _veyra_edge_flags(mesh)
+        clusters = list(plan.clusters)
+        working = None
+        while clusters:
+            candidate_mesh = mesh.copy()
+            bm = bmesh.new()
+            safe = False
+            try:
+                bm.from_mesh(candidate_mesh)
+                bm.verts.ensure_lookup_table()
+                before_non_manifold = sum(not edge.is_manifold for edge in bm.edges)
+                targetmap = {}
+                for cluster in clusters:
+                    target = bm.verts[cluster[0]]
+                    for index in cluster[1:]:
+                        targetmap[bm.verts[index]] = target
+                bmesh.ops.weld_verts(bm, targetmap=targetmap)
+                safe = not (
+                    any(face.calc_area() <= 1.0e-12 for face in bm.faces)
+                    or any(edge.calc_length() <= 1.0e-12 for edge in bm.edges)
+                    or sum(not edge.is_manifold for edge in bm.edges)
+                    > before_non_manifold)
+                if safe:
+                    bm.to_mesh(candidate_mesh)
+                    candidate_mesh.update()
+            finally:
+                bm.free()
+            if not safe:
+                bpy.data.meshes.remove(candidate_mesh)
+                break
+            _apply_veyra_edge_flags(candidate_mesh, before_flags)
+            candidate_mesh.update()
+            after_faces = _veyra_face_semantics(candidate_mesh)
+            new_semantics = any(count > before_faces.get(key, 0)
+                                for key, count in after_faces.items())
+            removed_keys = {key for key, count in before_faces.items()
+                            if count - after_faces.get(key, 0) > 0
+                            and count < 2}
+            if not new_semantics and not removed_keys:
+                working = candidate_mesh
+                break
+            bpy.data.meshes.remove(candidate_mesh)
+            protected_vertices = set()
+            rows = _veyra_face_semantics_rows(mesh)
+            for face, key in zip(mesh.polygons, rows):
+                if key in removed_keys:
+                    protected_vertices.update(map(int, face.vertices))
+            removable = [cluster for cluster in clusters
+                         if protected_vertices.intersection(cluster)]
+            if not removable:
+                break
+            rejected = max(removable)
+            clusters.remove(rejected)
+            plan = replace(plan, clusters=tuple(clusters),
+                           skipped=(*plan.skipped,
+                                    (rejected, "FACE_ATTRIBUTE_CONFLICT")))
+        if working is None:
+            continue
+        transaction = TopologyTransaction(
+            mesh, working, install=lambda value, obj=obj: setattr(obj, "data", value),
+            dispose=lambda value: bpy.data.meshes.remove(value),
+            digest=_veyra_mesh_digest)
+        transactions.append((obj, plan, transaction))
+    if not transactions:
+        return None
+    if len(transactions) != 1:
+        for _obj, _plan, transaction in reversed(transactions):
+            bpy.data.meshes.remove(transaction.working)
+        raise SceneValidationError(
+            "Safe topology repair currently requires one affected object.")
+    obj, _plan, transaction = transactions[0]
+    transaction.begin()
+    validation_state.forget(obj)
+    return transactions[0]
+
+
 def _validated_local_welds(weld_plan, objects, planned):
     """Prove that explicit diagnosed-ID welds have no collateral effects."""
     if not weld_plan.vertex_groups:
@@ -10261,6 +10621,18 @@ def _rollback_veyra_region_candidate(context, session) -> None:
     for obj in changed:
         obj.data.update(); validation_state.forget(obj)
     session.rollback_seconds += time.monotonic() - started
+
+
+def _rollback_veyra_topology_candidate(session) -> None:
+    if session is None or getattr(session, "pending_weld", None) is None:
+        return
+    obj, _plan, transaction = session.pending_weld
+    transaction.rollback(); validation_state.forget(obj)
+    session.pending_weld = None
+    session.validation_plan = None
+    session.validation_payload_template = None
+    clear_topology_cache(session.job_id)
+    _restore_veyra_region_baseline(session)
 
 
 def _restore_veyra_region_baseline(session) -> None:
@@ -10626,6 +10998,7 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
     def _veyra_cleanup(self, context):
         session = _veyra_region_session
         if session is not None:
+            _rollback_veyra_topology_candidate(session)
             clear_topology_cache(session.job_id)
             session.validation_plan = None
             session.validation_payload_template = None
@@ -10814,6 +11187,18 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
                                 current_result.detected_count):
                             raise SceneValidationError(
                                 "Veyra returned a stale region plan.")
+                        # A Bake-supplied authoritative contact set may enter
+                        # Veyra directly, without an earlier degenerate pass.
+                        # Discard this first position plan when an exact-ID
+                        # topology transaction can normalize the mesh first.
+                        if session.initial_count is None:
+                            session.initial_count = int(
+                                current_result.detected_count)
+                            session.baseline_count = session.initial_count
+                            session.baseline_result = current_result
+                            if _try_start_veyra_safe_weld(
+                                    session, current_result):
+                                continue
                         session.generated_candidates += batch.generated_count
                         session.locally_rejected += batch.locally_rejected_count
                         build_seconds = float(
@@ -10920,6 +11305,11 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _veyra_fail(self, context, message):
+        session = _veyra_region_session
+        _rollback_veyra_topology_candidate(session)
+        if session is not None:
+            session.active = False
+            session.termination_reason = f"NO_SAFE_REPAIR: {message}"
         try: shared_controller.fail(message or "Veyra failed.")
         except InvalidTransition: pass
         self._veyra_cleanup(context)

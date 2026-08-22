@@ -13,6 +13,7 @@ import sys
 import time
 
 import bpy
+import bmesh
 
 
 values = sys.argv[sys.argv.index("--") + 1:]
@@ -20,6 +21,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--repo", type=Path, required=True)
 parser.add_argument("--blend", type=Path, required=True)
 parser.add_argument("--report", type=Path, required=True)
+parser.add_argument("--global-weld-object", default="")
+parser.add_argument("--global-weld-threshold", type=float, default=0.0)
 args = parser.parse_args(values)
 sys.path.insert(0, str(args.repo))
 print("CLOTH_NEXT_VEYRA_REAL_START", args.blend, flush=True)
@@ -117,6 +120,7 @@ bake_terminal_at = [None]
 original_apply = solver_test._apply_veyra_plan
 original_revalidate = solver_test._revalidate_local_geometry
 original_contact = solver_test._continue_contact_validation
+original_contact_result = solver_test._handle_veyra_contact_result
 
 
 def measured_apply(*positional, **keywords):
@@ -171,6 +175,49 @@ def measured_contact(*positional, **keywords):
 solver_test._apply_veyra_plan = measured_apply
 solver_test._revalidate_local_geometry = measured_revalidate
 solver_test._continue_contact_validation = measured_contact
+
+
+def measured_contact_result(result):
+    if ("authoritative_baseline" not in report
+            and result.has_intersections and result.snapshot is not None):
+        value = region_input(result)
+        path = args.report.with_name(f"{args.report.stem}-baseline-input.json")
+        path.write_text(json.dumps(value), encoding="utf-8")
+        report["authoritative_baseline"] = counts(result)
+        report["authoritative_baseline_input"] = str(path)
+    return original_contact_result(result)
+
+
+solver_test._handle_veyra_contact_result = measured_contact_result
+
+
+def apply_global_weld_measurement():
+    if not args.global_weld_object:
+        return
+    obj = bpy.data.objects.get(args.global_weld_object)
+    if obj is None or obj.type != "MESH":
+        raise RuntimeError(
+            f"global weld measurement object {args.global_weld_object!r} missing")
+    mesh = obj.data
+    before = {"vertices": len(mesh.vertices), "edges": len(mesh.edges),
+              "polygons": len(mesh.polygons)}
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(mesh)
+        bmesh.ops.remove_doubles(
+            bm, verts=list(bm.verts), dist=args.global_weld_threshold)
+        bm.to_mesh(mesh)
+    finally:
+        bm.free()
+    mesh.update(); solver_test.validation_state.forget(obj)
+    report["diagnostic_global_weld"] = {
+        "object": obj.name, "local_threshold": args.global_weld_threshold,
+        "world_threshold_at_uniform_scale": (
+            args.global_weld_threshold * abs(float(obj.scale.x))),
+        "before": before,
+        "after": {"vertices": len(mesh.vertices), "edges": len(mesh.edges),
+                  "polygons": len(mesh.polygons)},
+    }
 
 
 def finish(error=""):
@@ -277,6 +324,7 @@ def tick():
                 report["pid_before"], report["title_before"] = pid, title
                 phase[0] = "veyra"
                 veyra_started[0] = time.monotonic()
+                apply_global_weld_measurement()
                 report["auto_fix_operator"] = sorted(
                     bpy.ops.clothnext.intersection_auto_fix("EXEC_DEFAULT"))
                 report["veyra_job_id"] = (
@@ -290,6 +338,11 @@ def tick():
                     and solver_test._active_plan is None
                     and not region_active):
                 return finish()
+            if snapshot.state is BakeState.ERROR and not solver_test.run_active():
+                if bake_terminal_at[0] is None:
+                    bake_terminal_at[0] = time.monotonic()
+                if time.monotonic() - bake_terminal_at[0] >= 2.0:
+                    return finish("VEYRA remained active after terminal ERROR")
         return .05
     except Exception as exc:
         import traceback
