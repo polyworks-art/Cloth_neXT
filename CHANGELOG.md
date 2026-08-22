@@ -1,5 +1,50 @@
 # Changelog
 
+## 2.3.0 - 2026-08-22
+
+### Added
+
+- VEYRA provides an artist-facing Analyze, Repair, and Validate workflow for
+  solver-confirmed self-intersections without starting a cloth simulation.
+- Safe topology cleanup can repair exactly diagnosed duplicate-position
+  vertices through bounded local welds while preserving ambiguous seams,
+  layers, attributes, materials, Shape Keys, linked data, and shared meshes.
+- Deterministic region repair uses topology-aware sheet assignment, adaptive
+  movement candidates, local geometry checks, strict global validation, and
+  exact rollback for every rejected change.
+- A generalization corpus and frozen adversarial holdouts cover layered,
+  folded, multi-sheet, multi-object, transformed, reordered, and intentionally
+  coincident cloth instead of relying on one production garment.
+
+### Fixed
+
+- VEYRA keeps one Companion process and job active through analysis, repair,
+  revalidation, and contact validation, avoiding intermediate error flashes or
+  visible restarts between successful passes.
+- Geometry diagnostics collect repairable issues across all Cloth objects and
+  retain object-bound vertex identity after topology changes.
+- Solver contact totals, overlays, details, and final states now come from the
+  same fresh validation result and stale results are discarded.
+- Cancelled and failed repair candidates restore exact coordinates and
+  topology, release cached session data, and leave no partially applied change.
+- Companion startup, readiness, cancellation, terminal shutdown, stale-job
+  isolation, and Blender shutdown cleanup were hardened.
+
+### Validation
+
+- Blender 5.2.0 LTS passed repeated registration, file lifecycle, Unicode path,
+  scene switching, owned-cache cleanup, and packaged Companion lifecycle tests.
+- Real Velune (protocol 0.13) and Lumen (protocol 0.18) multi-object runs each
+  simulated two Cloth objects with a collider and imported all requested frames.
+- The real VEYRA/Lumen regression repaired all 18 diagnosed degenerates and
+  reduced contacts monotonically from `2077 -> 2072 -> 1667 -> 1571 -> 1566`.
+  Three region transactions were accepted, none rejected, and five Lumen BUILD
+  validations ran without starting frame simulation.
+- The same VEYRA Companion process was reused for the complete run, and the
+  original Blend remained byte-identical with SHA-256
+  `8402CE65A13A4D375985FDB681745F7FEBB93AFBBA6665B68831AF38F0D122B3`.
+- The external PPF Contact Solver remains separate, unmodified, and unbundled.
+
 ## 2.2.48 - 2026-08-22
 
 ### Added

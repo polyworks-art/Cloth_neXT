@@ -1,60 +1,49 @@
-# Cloth NeXt 2.2.48
+# Cloth NeXt 2.3.0 Beta
 
-Cloth NeXt 2.2.48 hardens VEYRA as a general-purpose cloth topology and
-intersection repair system. Ambiguous geometry is now preserved instead of
-being repaired from assumptions learned from one garment scene.
+Cloth NeXt 2.3.0 introduces VEYRA, a guided way to analyze and safely reduce
+cloth self-intersections before baking. This is a Beta release: use a copy or
+versioned save of important production scenes while the workflow receives
+broader real-world testing.
 
-## Proven safe topology repair
+## Analyze, repair, validate
 
-- Safe Weld considers only vertices belonging to solver-diagnosed
-  self-intersections and never performs an unrestricted Merge by Distance.
-- A disconnected-island weld requires an exact, coherent boundary chain and
-  geometrically continuous surface evidence. Merely belonging to the same
-  object is no longer considered proof of an import seam.
-- Intentional lining, stacked panels, decorative patches, pockets, folded
-  cuffs, near duplicates, and unrelated coincidences remain protected when
-  repair intent cannot be proven.
-- Point attributes, vertex groups and pin weights, materials, UV/corner data,
-  seam/sharp flags, Shape Keys, linked data, and shared mesh datablocks retain
-  their existing fail-closed protection.
+- VEYRA finds solver-confirmed contact regions, repairs only changes that pass
+  local mesh safety checks, and validates every accepted step again with the
+  selected solver.
+- The Veyra window stays open as one continuous job. Progress moves through
+  analysis, repair, and validation without flashing an error or restarting
+  between successful passes.
+- Results clearly report repaired topology, remaining intersections, and areas
+  skipped because they could not be changed safely.
+- VEYRA never starts the normal frame simulation automatically.
 
-## Generalized region solving
+## Safety first
 
-- Contact regions with more than two topological sheets are no longer forced
-  into a two-side solution solely because their contact graph is bipartite.
-- Adaptive 1%, 2%, 4%, and 8% displacements are all evaluated against local
-  crossing reduction, edge and area safety margins, and movement cost.
-- Two-sheet assignments, patch expansion, candidate ordering, independent
-  batching, cache identity, and authoritative rollback remain deterministic.
-- Every installed repair must strictly reduce the fresh global Lumen contact
-  count. Equal, increased, cancelled, or failed attempts restore exact state.
+- Exact local welds are limited to diagnosed duplicate-position vertices.
+  Cloth NeXt does not run a global Merge by Distance.
+- Intentional layers, lining, patches, folded cloth, near duplicates, and
+  ambiguous multi-sheet regions are preserved when repair intent cannot be
+  proven.
+- Vertex groups and pin weights, attributes, materials, UV data, seam and sharp
+  flags, Shape Keys, linked data, and shared meshes are protected by fail-closed
+  checks.
+- A repair is kept only when a fresh global solver check reports fewer contacts.
+  Failed, cancelled, unchanged, or worse candidates are rolled back exactly.
 
-## Generalization verification
+## Stability and compatibility
 
-- A new synthetic corpus covers clean meshes, intended duplicate seams,
-  intentional layers, near duplicates, two-sheet penetration, folded and
-  multi-sheet cloth, multiple independent regions, density and scale changes,
-  semantic discontinuities, and multiple Cloth NeXt objects.
-- Translation, rotation, uniform scale, vertex/face order, object naming, and
-  region-order metamorphic checks remain functionally equivalent.
-- Three frozen adversarial holdouts passed on their first run without tuning.
-- Across the generalized corpus, destructive false-positive repairs were zero.
+- Companion startup, reuse, cancellation, terminal shutdown, and Blender-exit
+  cleanup have been hardened so repeated operations do not leave stale jobs or
+  orphan windows.
+- Geometry diagnostics now collect issues across all Cloth objects and refresh
+  overlays after topology changes.
+- Both currently supported solver profiles are retained: Velune (protocol 0.13)
+  and Lumen (protocol 0.18). The solver remains a separate installation and is
+  not included in the Cloth NeXt extension.
 
-## Real-scene regression
+## Known Beta limitation
 
-- Blender 5.2.0 LTS and Lumen reduced the updated production scene monotonically
-  from `2077 -> 2072 -> 1682 -> 1469 -> 1132`.
-- All 18 Top degenerates were repaired. Three structurally proven Shorts weld
-  clusters were accepted, while 145 unproven coincident boundary clusters were
-  intentionally protected.
-- Three region iterations were accepted without rollback, five authoritative
-  Lumen calls were made, no frame simulation started, and the same Veyra
-  Companion process remained active through completion.
-- The original `IntersectionTest.blend` remained byte-identical with SHA-256
-  `8402CE65A13A4D375985FDB681745F7FEBB93AFBBA6665B68831AF38F0D122B3`.
-
-## Verification
-
-- Full Python suite: 1,543 passed, 9 skipped, 3 deselected.
-- Targeted VEYRA, UI, rollback, holdout, and pipeline coverage: 187 passed.
-- The external PPF Contact Solver is not bundled or modified.
+VEYRA is deliberately conservative. Complex or ambiguous regions can remain
+unrepaired when Cloth NeXt cannot prove that a change is safe. A partial result
+with fewer intersections is expected in such cases; review the highlighted
+remaining contacts before starting the normal bake.
