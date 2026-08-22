@@ -22,11 +22,13 @@ parser.add_argument("--blend", type=Path, required=True)
 parser.add_argument("--report", type=Path, required=True)
 args = parser.parse_args(values)
 sys.path.insert(0, str(args.repo))
+print("CLOTH_NEXT_VEYRA_REAL_START", args.blend, flush=True)
 
 from cloth_next.blender import (companion_manager, intersection_overlay,
                                 registration, solver_test)
 from cloth_next.bake.status import BakeState
 from cloth_next.veyra.model import VeyraStep
+from cloth_next.veyra.regions import analysis_dict, build_regions
 
 
 def counts(result):
@@ -47,7 +49,7 @@ def companion_window():
         if length:
             buffer = ctypes.create_unicode_buffer(length + 1)
             ctypes.windll.user32.GetWindowTextW(hwnd, buffer, length + 1)
-            if buffer.value.startswith("Cloth NeXt"):
+            if buffer.value in {"Cloth NeXt Bake", "Cloth NeXt Veyra"}:
                 pid = ctypes.c_ulong()
                 ctypes.windll.user32.GetWindowThreadProcessId(
                     hwnd, ctypes.byref(pid))
@@ -55,6 +57,33 @@ def companion_window():
         return True
     ctypes.windll.user32.EnumWindows(callback_type(visit), 0)
     return result[0] if result else (None, "")
+
+
+def region_input(result):
+    pairs = [tuple(map(int, item.combined_pair))
+             for item in result.self_intersections
+             if len(item.elements) == 2
+             and item.elements[0].object_uuid == item.elements[1].object_uuid]
+    involved_objects = {
+        item.elements[0].object_uuid for item in result.self_intersections
+        if len(item.elements) == 2
+        and item.elements[0].object_uuid == item.elements[1].object_uuid}
+    triangles = []
+    for item in result.snapshot.triangles if result.snapshot else ():
+        if item.owner.object_uuid not in involved_objects:
+            continue
+        triangles.append({
+            "object_uuid": item.owner.object_uuid,
+            "triangle_index": item.owner.combined_triangle_index,
+            "vertex_indices": item.vertex_indices,
+            "vertices": item.vertices,
+        })
+    return {
+        "authoritative_total": result.detected_count,
+        "detailed_count": result.detailed_count,
+        "mapped_count": result.mapped_count,
+        "pairs": pairs, "triangles": triangles,
+    }
 
 
 registration.register()
@@ -156,6 +185,14 @@ def finish(error=""):
     }
     current = solver_test.diagnostic_result()
     report["diagnostics_after"] = counts(current)
+    if current.has_intersections and current.snapshot is not None:
+        region_value = region_input(current)
+        region_path = args.report.with_name(
+            f"{args.report.stem}-region-input.json")
+        region_path.write_text(json.dumps(region_value), encoding="utf-8")
+        report["shorts_region_input"] = str(region_path)
+        report["shorts_region_analysis"] = analysis_dict(
+            build_regions(region_value))
     report["pid_after"], report["title"] = companion_window()
     report["process_reused"] = (
         report.get("pid_before") is not None
@@ -163,6 +200,7 @@ def finish(error=""):
     job_id = report.get("veyra_job_id", "")
     metrics = companion_manager.veyra_metrics(job_id)
     report["companion_metrics"] = metrics
+    report["region_metrics"] = solver_test.veyra_region_metrics()
     progress = metrics.get("progress", [])
     plan_seconds = metrics.get("planning_seconds")
     if plan_seconds is not None:
@@ -246,8 +284,11 @@ def tick():
         elif phase[0] == "veyra":
             terminal = snapshot.state in {
                 BakeState.ERROR, BakeState.FINISHED, BakeState.CANCELLED}
+            region_active = bool(
+                solver_test.veyra_region_metrics().get("active", False))
             if (terminal and not solver_test.run_active()
-                    and solver_test._active_plan is None):
+                    and solver_test._active_plan is None
+                    and not region_active):
                 return finish()
         return .05
     except Exception as exc:

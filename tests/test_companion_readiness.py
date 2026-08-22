@@ -6,6 +6,7 @@ import pytest
 from cloth_next.bake.transport import (BakeWindowReady, EnterBakeMode,
                                         decode_message, encode_message)
 from cloth_next.bake.status import BakeState
+from cloth_next.veyra.model import CompanionMode
 from companion.app import receive_message_batch
 
 
@@ -87,6 +88,23 @@ def test_popen_or_process_alive_is_not_readiness(blender_env, monkeypatch):
     monkeypatch.setattr(manager,"_server",fake_server)
     assert manager.begin_bake_mode(request())[0]
     assert manager.startup_status("job")[0] == "WAITING"
+
+
+def test_veyra_continuation_reuses_active_job_without_new_readiness_gate(
+        blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager); sent=[]
+    manager._production_session=True; manager._production_job_id="veyra-job"
+    monkeypatch.setattr(manager,"_transport_ready",True)
+    monkeypatch.setattr(manager,"_server",SimpleNamespace(
+        connected=lambda:True, enter_bake_mode=lambda value:sent.append(value)))
+    value=EnterBakeMode("veyra-job",100,1,1,"Veyra",
+                        mode=CompanionMode.VEYRA,input_artifact={"x":1})
+
+    assert manager.continue_veyra(value) == (
+        True, "Veyra repair pass submitted")
+    assert sent == [value]
+    assert manager._pending_request is None
 
 
 def test_matching_ready_only_and_hidden_or_non_topmost_rejected(blender_env,

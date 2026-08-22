@@ -36,7 +36,8 @@ _NEXT = {
     BakeState.STARTING_SOLVER: {BakeState.UPLOADING, BakeState.SIMULATING,
                                 BakeState.CANCELLING, BakeState.ERROR},
     BakeState.UPLOADING: {BakeState.BUILDING, BakeState.CANCELLING, BakeState.ERROR},
-    BakeState.BUILDING: {BakeState.IDLE, BakeState.SIMULATING, BakeState.FETCHING,
+    BakeState.BUILDING: {BakeState.IDLE, BakeState.FINISHED,
+                         BakeState.SIMULATING, BakeState.FETCHING,
                          BakeState.CANCELLING, BakeState.ERROR},
     # Simulation and incremental frame download interleave.
     BakeState.SIMULATING: {BakeState.FETCHING, BakeState.IMPORTING,
@@ -114,6 +115,32 @@ class BakeController:
                 changes.setdefault("veyra_step_current", 0)
                 changes.setdefault("veyra_step_total", None)
             self._snapshot = normalized(old, state=state, **changes)
+            listeners = tuple(self._listeners)
+            result = self._snapshot
+        for listener in listeners:
+            listener(result)
+        return result
+
+    def continue_veyra_validation(self, **changes) -> BakeSnapshot:
+        """Re-enter export inside one active VEYRA BUILD-only session.
+
+        This deliberately is not a general BUILDING -> EXPORTING transition:
+        only the same live VEYRA job may use the iterative validation loop.
+        """
+        with self._lock:
+            old = self._snapshot
+            if (old.state is not BakeState.BUILDING
+                    or old.companion_mode is not CompanionMode.VEYRA
+                    or not old.job_id):
+                raise InvalidTransition(
+                    "Only an active VEYRA BUILDING job can continue validation")
+            changes.setdefault("job_id", old.job_id)
+            changes.setdefault("companion_mode", CompanionMode.VEYRA)
+            changes.setdefault("error_summary", "")
+            changes.setdefault("error_details", "")
+            changes.setdefault("error_code", "")
+            self._snapshot = normalized(
+                old, state=BakeState.EXPORTING, **changes)
             listeners = tuple(self._listeners)
             result = self._snapshot
         for listener in listeners:

@@ -456,12 +456,16 @@ class BakeWindow:
         def work():
             try:
                 artifact=RepairArtifact.from_dict(artifact_value)
+                if artifact.schema not in {
+                        "cnx.veyra.input.v1",
+                        "cnx.veyra.region-input.v1"}:
+                    raise ValueError("Unsupported VEYRA input artifact schema.")
                 value=self._session_artifacts.read_json(
-                    artifact,schema="cnx.veyra.input.v1",job_id=job_id)
+                    artifact,schema=artifact.schema,job_id=job_id)
                 plan=solve_repair_plan(value,progress=report,
                                        cancelled=self._veyra_cancel.is_set)
                 output=self._session_artifacts.write_json(
-                    schema="cnx.veyra.plan.v1",job_id=job_id,
+                    schema=plan.schema,job_id=job_id,
                     name=f"{job_id}.plan.json",value=plan.to_dict())
                 self.transport.send("veyra_result",{
                     "job_id":job_id,"artifact":output.to_dict(),

@@ -250,6 +250,19 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     return True, message
 
 
+def continue_veyra(request: EnterBakeMode) -> tuple[bool, str]:
+    """Submit another plan to the already-active VEYRA window and job."""
+    if (request.mode is not CompanionMode.VEYRA
+            or not _production_session
+            or _production_job_id != request.job_id):
+        return False, "The active Veyra session identity no longer matches."
+    if (_server is None or not _transport_ready
+            or not getattr(_server, "connected", lambda: False)()):
+        return False, "The active Veyra window transport is unavailable."
+    _server.enter_bake_mode(request)
+    return True, "Veyra repair pass submitted"
+
+
 def session_artifacts() -> SessionArtifacts:
     if _session_artifacts is None:
         raise RuntimeError("Companion session artifacts are not initialized")

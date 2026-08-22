@@ -508,6 +508,11 @@ def solve_repair_plan(value, *, progress=None, cancelled=None):
     UI dependency and checks cancellation only before mutating local planner
     state, so cancellation can never expose a partial plan.
     """
+    if (isinstance(value, dict)
+            and value.get("schema") == "cnx.veyra.region-input.v1"):
+        from .regions import solve_region_candidates
+        return solve_region_candidates(
+            value, progress=progress, cancelled=cancelled)
     if not isinstance(value, dict) or value.get("schema") != "cnx.veyra.input.v1":
         raise ValueError("unsupported VEYRA input schema")
     job_id = str(value.get("job_id", ""))

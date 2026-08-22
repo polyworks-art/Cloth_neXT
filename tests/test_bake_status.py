@@ -9,6 +9,7 @@ from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeSnapshot,
                                     format_duration)
 from cloth_next.bake.transport import (MAX_MESSAGE_BYTES, decode_message,
                                        encode_message, validate_localhost)
+from cloth_next.veyra.model import CompanionMode
 
 
 def test_full_transition_and_cancel_paths():
@@ -28,6 +29,32 @@ def test_invalid_transition_rejected_without_mutation():
     with pytest.raises(InvalidTransition):
         c.transition(BakeState.SIMULATING)
     assert c.snapshot() is before
+
+
+def test_only_active_veyra_build_can_reenter_export_without_new_job():
+    c = BakeController()
+    started = c.transition(
+        BakeState.PREPARING, companion_mode=CompanionMode.VEYRA)
+    for state in (BakeState.STARTING_RUN, BakeState.EXPORTING,
+                  BakeState.STARTING_SOLVER, BakeState.UPLOADING,
+                  BakeState.BUILDING):
+        c.transition(state)
+
+    continued = c.continue_veyra_validation(
+        status_message="Exporting repaired geometry")
+
+    assert continued.state is BakeState.EXPORTING
+    assert continued.job_id == started.job_id
+    assert continued.companion_mode is CompanionMode.VEYRA
+
+    normal = BakeController()
+    normal.transition(BakeState.PREPARING)
+    normal.transition(BakeState.EXPORTING)
+    normal.transition(BakeState.STARTING_SOLVER)
+    normal.transition(BakeState.UPLOADING)
+    normal.transition(BakeState.BUILDING)
+    with pytest.raises(InvalidTransition):
+        normal.continue_veyra_validation()
 
 
 def test_preparing_status_updates_preserve_bake_attempt_identity():
