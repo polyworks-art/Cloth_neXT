@@ -62,6 +62,7 @@ jobs:
         run: |
           git fetch origin gh-pages
           git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
+          python tools/build_error_guidance.py --output "$env:RUNNER_TEMP\pages\errors\errors.json"
           $dev=Join-Path "$env:RUNNER_TEMP\pages" dev
           New-Item -ItemType Directory -Force $dev | Out-Null
           $zip="dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
@@ -84,9 +85,9 @@ jobs:
           if ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }
           if ($candidates[0].version -cne '${{ inputs.version }}') { throw 'Dev index candidate version mismatch' }
           python tools/scan_release_artifact.py $destination
-          git -C "$env:RUNNER_TEMP\pages" add dev
+          git -C "$env:RUNNER_TEMP\pages" add dev errors/errors.json
           $changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only
-          if ($changed | Where-Object {$_ -notlike 'dev/*'}) { throw 'attempted non-Dev Pages modification' }
+          if ($changed | Where-Object {$_ -notlike 'dev/*' -and $_ -ne 'errors/errors.json'}) { throw 'attempted non-Dev Pages modification' }
           git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish Dev ${{ inputs.version }}"
           git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
       - name: Summary

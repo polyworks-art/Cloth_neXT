@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from .core.safe_delete import cleanup_tombstones, delete_owned
+
 EXPORT_CACHE_SCHEMA_VERSION = 1
 SCENE_KEY_SCHEMA_VERSION = 1
 PARAM_KEY_SCHEMA_VERSION = 1
@@ -80,6 +82,9 @@ class ExportPayloadCache:
               artifacts: Mapping[str, object] | None = None) -> CacheLookup:
         payload, metadata_path = self._paths(kind, key)
         payload.parent.mkdir(parents=True, exist_ok=True)
+        cleanup_tombstones(
+            self.root, ownership_authenticated=True,
+            lifecycle_stage="EXPORT_CACHE_STORE", recursive=True)
         token = uuid.uuid4().hex
         temporary_payload = payload.with_name(f".{payload.name}.{token}.tmp")
         temporary_metadata = metadata_path.with_name(
@@ -151,10 +156,22 @@ class ExportPayloadCache:
             return CacheLookup(True, payload, metadata["sha256"], size,
                                "stored", plan)
         finally:
-            temporary_payload.unlink(missing_ok=True)
-            temporary_metadata.unlink(missing_ok=True)
+            delete_owned(
+                temporary_payload, root=self.root,
+                ownership_authenticated=True,
+                lifecycle_stage="EXPORT_CACHE_STORE",
+                artifact_type="export_payload_temporary")
+            delete_owned(
+                temporary_metadata, root=self.root,
+                ownership_authenticated=True,
+                lifecycle_stage="EXPORT_CACHE_STORE",
+                artifact_type="export_metadata_temporary")
             for temporary in temporary_artifacts:
-                temporary.unlink(missing_ok=True)
+                delete_owned(
+                    temporary, root=self.root,
+                    ownership_authenticated=True,
+                    lifecycle_stage="EXPORT_CACHE_STORE",
+                    artifact_type="export_artifact_temporary")
 
     def lookup_artifacts(self, kind: str, key: str) -> dict[str, Path]:
         """Return verified auxiliary files, or an empty mapping on any fault."""

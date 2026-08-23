@@ -14,6 +14,7 @@ import uuid
 from typing import Any, Mapping
 
 from . import pc2
+from ..core.safe_delete import delete_owned
 
 CACHE_METADATA_SCHEMA_VERSION = 1
 HASH_ALGORITHM = "sha256"
@@ -78,7 +79,10 @@ def write_atomic(path: Path, payload: Mapping[str, Any]) -> None:
             os.fsync(stream.fileno())
         os.replace(temporary, path)
     finally:
-        temporary.unlink(missing_ok=True)
+        delete_owned(
+            temporary, root=temporary.parent, ownership_authenticated=True,
+            lifecycle_stage="CACHE_METADATA_WRITE",
+            artifact_type="metadata_temporary")
 
 
 def partial_metadata(*, cache_path: Path, fingerprints: Mapping[str, str],

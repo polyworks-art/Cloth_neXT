@@ -108,6 +108,7 @@ jobs:
             rm -rf "site-publish/$TARGET"
             cp -r "site/$TARGET" "site-publish/$TARGET"
           done
+          python tools/build_error_guidance.py --output site-publish/errors/errors.json
           touch site-publish/.nojekyll
           git -C site-publish add -A
           while IFS= read -r path; do
@@ -116,6 +117,7 @@ jobs:
               stable/*) [ "$CHANNEL" = stable ] || { echo "unexpected Stable path: $path" >&2; exit 1; } ;;
               beta/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Beta path: $path" >&2; exit 1; } ;;
               dev/*) ;;
+              errors/errors.json) ;;
               *) echo "attempted non-release Pages modification: $path" >&2; exit 1 ;;
             esac
           done < <(git -C site-publish diff --cached --name-only)

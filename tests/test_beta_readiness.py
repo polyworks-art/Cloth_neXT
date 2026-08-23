@@ -6,6 +6,7 @@ from cloth_next.bake import cache_metadata, pc2
 from cloth_next.core.beta_readiness import (
     CacheEntry, collider_capture_bytes, human_bytes, inventory_cache,
     pc2_size_bytes, redact_text, remove_invalid, support_markdown)
+from cloth_next.core import safe_delete
 
 
 def test_storage_estimates_are_deterministic_and_include_endpoints():
@@ -47,6 +48,64 @@ def test_cleanup_rejects_paths_outside_selected_root(tmp_path):
                        "CORRUPT", "bad", 1, True)
     with pytest.raises(ValueError, match="unsafe"):
         remove_invalid((entry,), tmp_path)
+
+
+def test_completed_valid_cache_is_never_selected_for_cleanup(tmp_path):
+    path = tmp_path / "cn_test_cloth_complete.pc2"
+    pc2.write_pc2(path, [[(0.0, 0.0, 0.0)]])
+    partial = cache_metadata.partial_metadata(
+        cache_path=path,
+        fingerprints={"settings": "s", "geometry": "g", "combined": "c",
+                      "topology": "t", "object": "o", "scene": "x"},
+        identities={
+            "cloth_next_version": "1", "blender_version": "1",
+            "object": {}, "solver": {}},
+        expected={"vertex_count": 1, "frame_count": 1,
+                  "start_frame": 0.0, "sample_rate": 1.0},
+        details={})
+    complete = cache_metadata.completed_metadata(partial, cache_path=path)
+    metadata = cache_metadata.sidecar_path(path)
+    cache_metadata.write_atomic(metadata, complete)
+
+    entries = inventory_cache(tmp_path)
+    assert entries[0].condition == "READY"
+    assert not entries[0].deletable
+    assert remove_invalid(entries, tmp_path) == ()
+    assert path.is_file() and metadata.is_file()
+
+
+def test_failed_cache_cleanup_does_not_mutate_metadata(
+        tmp_path, monkeypatch):
+    path = tmp_path / "cn_test_cloth_partial.pc2"
+    path.write_bytes(b"partial")
+    metadata = cache_metadata.sidecar_path(path)
+    cache_metadata.write_atomic(metadata, cache_metadata.partial_metadata(
+        cache_path=path,
+        fingerprints={"settings": "s", "geometry": "g", "combined": "c",
+                      "topology": "t", "object": "o", "scene": "x"},
+        identities={}, expected={}, details={}))
+    before = metadata.read_bytes()
+    entries = inventory_cache(tmp_path)
+    real_delete = safe_delete._delete_once
+    real_replace = safe_delete._replace_once
+
+    def locked_delete(target, *, recursive):
+        if target == path:
+            raise PermissionError("simulated Windows sharing violation")
+        return real_delete(target, recursive=recursive)
+
+    def locked_replace(source, target):
+        if source == path:
+            raise PermissionError("simulated Windows sharing violation")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(safe_delete, "_delete_once", locked_delete)
+    monkeypatch.setattr(safe_delete, "_replace_once", locked_replace)
+    with pytest.raises(OSError):
+        remove_invalid(entries, tmp_path)
+
+    assert path.read_bytes() == b"partial"
+    assert metadata.read_bytes() == before
 
 
 def test_support_report_redacts_longest_sensitive_values_and_has_no_payload():

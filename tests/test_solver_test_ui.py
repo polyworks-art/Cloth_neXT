@@ -1832,7 +1832,7 @@ def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
     assert first.filepath == str(path)
 
 
-def test_repeated_generation_swap_keeps_new_cache_when_old_is_locked(
+def test_repeated_generation_swap_reclaims_old_cache_when_unlink_is_locked(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="Kleid Überwurf", type="MESH")
@@ -1866,12 +1866,14 @@ def test_repeated_generation_swap_keeps_new_cache_when_old_is_locked(
 
     assert old_path != new_path
     assert modifier.filepath == str(new_path)
-    assert old_path.read_bytes() == b"old generation"
+    # A transiently locked obsolete generation is removed or tombstoned; the
+    # canonical filename must no longer block later rebakes.
+    assert not old_path.exists()
     assert new_path.read_bytes() == b"new generation"
     assert list(obj.modifiers) == [modifier]
 
 
-def test_twelve_rebakes_succeed_with_permanently_locked_obsolete_generations(
+def test_twelve_rebakes_reclaim_transiently_locked_obsolete_generations(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="Repeated Cloth", type="MESH")
@@ -1908,7 +1910,8 @@ def test_twelve_rebakes_succeed_with_permanently_locked_obsolete_generations(
 
     assert modifier.filepath == str(generations[-1])
     assert list(obj.modifiers) == [modifier]
-    assert all(path.is_file() for path in generations)
+    assert not any(path.exists() for path in generations[:-1])
+    assert generations[-1].is_file()
     assert len(module.pending_cleanup_paths()) <= 128
 
 
@@ -1931,7 +1934,42 @@ def test_generation_cleanup_never_deletes_lookalike_artist_path(
     assert foreign.read_bytes() == b"artist data"
 
 
-def test_clear_removes_only_owned_modifier_when_unicode_cache_is_locked(
+def test_playback_reader_is_released_before_obsolete_pc2_cleanup(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Reader Cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    old_path = tmp_path / "cn_test_cloth_old.pc2"
+    new_path = tmp_path / "cn_test_cloth_new.pc2"
+    old_path.write_bytes(b"old")
+    new_path.write_bytes(b"new")
+    old_modifier = obj.modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    old_modifier.filepath = str(old_path)
+    module.mark_owned_playback(obj, old_modifier, old_modifier.filepath)
+    released = []
+    monkeypatch.setattr(
+        blender_env.bpy.context, "view_layer",
+        SimpleNamespace(update=lambda: released.append(True)), raising=False)
+    calls = []
+
+    def delete_after_release(path, **_kwargs):
+        calls.append((path, bool(released)))
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(module, "_delete_cache_artifact",
+                        delete_after_release)
+    record = SimpleNamespace(
+        obj=obj, extras=(old_modifier,), previous_paths={old_path},
+        new_path=new_path)
+
+    module._commit_playback_cleanup((record,))
+
+    assert released == [True]
+    assert calls and all(was_released for _path, was_released in calls)
+
+
+def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
         blender_env, monkeypatch, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="披風 München", type="MESH")
@@ -1961,7 +1999,7 @@ def test_clear_removes_only_owned_modifier_when_unicode_cache_is_locked(
 
     assert list(obj.modifiers) == [artist]
     assert artist.filepath.endswith("artist.pc2")
-    assert owned_path.read_bytes() == b"locked"
+    assert not owned_path.exists()
     assert reports[-1][0] == {"INFO"}
     assert "nothing else was touched" in reports[-1][1]
 

@@ -3,6 +3,7 @@
 must stay parseable by the Companion's online-guidance client."""
 
 import json
+from pathlib import Path
 
 from cloth_next.core.error_codes import ERROR_CODES
 from companion.error_guidance import parse_guidance
@@ -38,3 +39,13 @@ def test_intersection_and_instability_guidance_no_longer_points_at_drivers():
 
 def test_feed_render_is_valid_json():
     json.loads(render())
+
+
+def test_pages_publish_workflows_regenerate_the_canonical_feed():
+    invocation = (
+        "python tools/build_error_guidance.py --output ")
+    for workflow in (".github/workflows/release.yml",
+                     ".github/workflows/publish-dev.yml"):
+        source = Path(workflow).read_text(encoding="utf-8")
+        assert invocation in source
+        assert "errors/errors.json" in source

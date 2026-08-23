@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
+from ..core.safe_delete import DeleteFailedError, delete_owned
 from .compatibility import EXPECTED_PROTOCOL, EXPECTED_SCHEMA
 from .layout import BundledSolverLayout, EXECUTABLE_NAME
 
@@ -104,10 +105,18 @@ def atomic_replace_directory(staged: Path, target: Path) -> None:
             target.replace(backup)
         staged.replace(target)
         if backup.exists():
-            shutil.rmtree(backup)
+            delete_owned(
+                backup, root=target.parent, ownership_authenticated=True,
+                lifecycle_stage="SOLVER_BUNDLE_PUBLISH",
+                artifact_type="solver_bundle_backup", recursive=True)
     except Exception:
         if target.exists() and backup.exists():
-            shutil.rmtree(target)
+            outcome = delete_owned(
+                target, root=target.parent, ownership_authenticated=True,
+                lifecycle_stage="SOLVER_BUNDLE_ROLLBACK",
+                artifact_type="solver_bundle_incomplete", recursive=True)
+            if not outcome.success:
+                raise DeleteFailedError(outcome)
         if backup.exists():
             backup.replace(target)
         raise

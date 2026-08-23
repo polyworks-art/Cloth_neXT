@@ -20,6 +20,7 @@ from typing import Mapping
 
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.logging import get_logger, log_with_context
+from ..core.safe_delete import delete_owned
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress
@@ -511,13 +512,19 @@ class SolverProcessManager:
         self._job = None
         self._threads.clear()
         if self.config.cleanup_progress_file:
-            try:
-                self.config.progress_file.unlink(missing_ok=True)
-            except OSError:
-                # The process is already reaped.  A locked diagnostic file is
-                # not allowed to turn a successful shutdown into a leaked
-                # process/thread report.
-                pass
+            # The owned process is reaped and every pipe reader is joined
+            # above. Only now can the generated progress file be unlinked.
+            outcome = delete_owned(
+                self.config.progress_file,
+                root=self.config.progress_file.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="SOLVER_PROCESS_STOP",
+                artifact_type="progress_file")
+            if not outcome.success:
+                log_with_context(
+                    self._logger, 30,
+                    "Owned solver progress cleanup remains pending", {
+                        "diagnostic": outcome.technical_diagnostic()})
         return result
 
     def restart(self) -> None:

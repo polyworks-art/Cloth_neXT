@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import struct
 import os
+from pathlib import Path
 
 import numpy as np
 
@@ -139,6 +140,47 @@ def test_streaming_writer_too_many_frames_and_context_abort(tmp_path):
             temporary = active.temporary_path
             raise RuntimeError("write failed")
     assert not temporary.exists()
+
+
+def test_cancellation_cleanup_closes_writer_before_safe_delete(
+        tmp_path, monkeypatch):
+    path = tmp_path / "cancelled.pc2"
+    writer = pc2.StreamingPc2Writer(
+        path, vertex_count=1, frame_count=2)
+    writer.write_frame([[0, 0, 0]])
+    real_delete = pc2.delete_owned
+    observed = []
+
+    def record_delete(target, **kwargs):
+        observed.append((Path(target), writer._stream.closed))
+        return real_delete(target, **kwargs)
+
+    monkeypatch.setattr(pc2, "delete_owned", record_delete)
+    writer.abort()
+
+    assert observed == [(writer.temporary_path.resolve(), True)]
+    assert not writer.temporary_path.exists()
+    writer.abort()  # repeated cancellation cleanup is idempotent
+
+
+def test_successful_finalization_survives_obsolete_backup_cleanup_failure(
+        tmp_path, monkeypatch):
+    path = tmp_path / "cache.pc2"
+    path.write_bytes(b"previous-cache")
+    writer = pc2.StreamingPc2Writer(
+        path, vertex_count=1, frame_count=1)
+    writer.write_frame([[1, 2, 3]])
+    cleanup_calls = []
+
+    def leave_obsolete_backup(target, **kwargs):
+        cleanup_calls.append((Path(target), kwargs))
+        return None
+
+    monkeypatch.setattr(pc2, "delete_owned", leave_obsolete_backup)
+
+    assert writer.finalize() == pc2.Pc2Header(1, 0.0, 1.0, 1)
+    assert pc2.read_header(path) == pc2.Pc2Header(1, 0.0, 1.0, 1)
+    assert cleanup_calls[0][1]["artifact_type"] == "pc2_backup"
 
 
 def test_streaming_output_is_byte_exact_with_legacy_reference(tmp_path):

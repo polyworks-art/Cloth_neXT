@@ -1,49 +1,53 @@
-# Cloth NeXt 2.3.0 Beta
+# Cloth NeXt 2.3.1 Dev
 
-Cloth NeXt 2.3.0 introduces VEYRA, a guided way to analyze and safely reduce
-cloth self-intersections before baking. This is a Beta release: use a copy or
-versioned save of important production scenes while the workflow receives
-broader real-world testing.
+Cloth NeXt 2.3.1 hardens cache cleanup and updates the public error catalogue to
+match the modern Bake, solver, recovery, playback, and Companion lifecycle.
+This is a Dev release for validation before the next Beta.
 
-## Analyze, repair, validate
+## Reliable cache cleanup
 
-- VEYRA finds solver-confirmed contact regions, repairs only changes that pass
-  local mesh safety checks, and validates every accepted step again with the
-  selected solver.
-- The Veyra window stays open as one continuous job. Progress moves through
-  analysis, repair, and validation without flashing an error or restarting
-  between successful passes.
-- Results clearly report repaired topology, remaining intersections, and areas
-  skipped because they could not be changed safely.
-- VEYRA never starts the normal frame simulation automatically.
+- Cloth NeXt now closes its playback readers and modifiers, PC2 writers, worker
+  threads, Companion process, and owned solver processes before removing files
+  they used.
+- One shared safe-delete implementation handles owned caches, metadata, PC2,
+  recovery, export, updater, temporary, and work-directory artifacts.
+- Short Windows sharing violations, antivirus scans, and delayed handle release
+  receive a small bounded retry/backoff sequence.
+- An authenticated obsolete artifact that remains briefly locked can be renamed
+  inside the same owned cache root to a unique `.clothnext-delete-*` tombstone.
+  Later cache scans and Bake lifecycle points remove it.
+- A removable obsolete temporary file no longer turns an otherwise valid,
+  completed Bake into a failed cache. Final cleanup failures retain detailed
+  local diagnostics under `CNX-E193`.
 
-## Safety first
+Ownership safety remains strict: out-of-root paths, legacy caches without Cloth
+NeXt ownership metadata, and unknown user files are protected. Cloth NeXt never
+terminates foreign processes.
 
-- Exact local welds are limited to diagnosed duplicate-position vertices.
-  Cloth NeXt does not run a global Merge by Distance.
-- Intentional layers, lining, patches, folded cloth, near duplicates, and
-  ambiguous multi-sheet regions are preserved when repair intent cannot be
-  proven.
-- Vertex groups and pin weights, attributes, materials, UV data, seam and sharp
-  flags, Shape Keys, linked data, and shared meshes are protected by fail-closed
-  checks.
-- A repair is kept only when a fresh global solver check reports fewer contacts.
-  Failed, cancelled, unchanged, or worse candidates are rolled back exactly.
+## Accurate error guidance
 
-## Stability and compatibility
+- The complete public catalogue is generated from the runtime registry, and the
+  same source now produces the GitHub Pages `errors.json` feed.
+- New dedicated codes identify animated Collider capture (`CNX-E128`), invalid
+  recovery checkpoints (`CNX-E129`), and occupied solver ports (`CNX-E136`).
+- Structured solver failure kind, crash kind, and active lifecycle stage now
+  classify startup, upload, build, simulation, and result-transfer failures
+  without relying only on generic text.
+- Historical false matches involving intersections, convergence, memory,
+  recovery, authentication, topology, playback, Rod Curves, cleanup permissions,
+  and missing native workers have been corrected while all existing identifiers
+  remain compatible.
 
-- Companion startup, reuse, cancellation, terminal shutdown, and Blender-exit
-  cleanup have been hardened so repeated operations do not leave stale jobs or
-  orphan windows.
-- Geometry diagnostics now collect issues across all Cloth objects and refresh
-  overlays after topology changes.
-- Both currently supported solver profiles are retained: Velune (protocol 0.13)
-  and Lumen (protocol 0.18). The solver remains a separate installation and is
-  not included in the Cloth NeXt extension.
+## Included validation
 
-## Known Beta limitation
+- Deterministic cleanup tests cover successful, missing, transiently locked,
+  exhausted, tombstoned, unsafe, legacy, cancellation, finalization, metadata,
+  and repeated-cleanup cases.
+- Error tests cover every specific classifier, cross-stage negative cases,
+  structured crash diagnostics, stable identifiers, and exact public-data
+  synchronization.
+- The normal repository suite passes 1,637 tests. Source compilation and
+  extension validation pass.
 
-VEYRA is deliberately conservative. Complex or ambiguous regions can remain
-unrepaired when Cloth NeXt cannot prove that a change is safe. A partial result
-with fewer intersections is expected in such cases; review the highlighted
-remaining contacts before starting the normal bake.
+The external PPF Contact Solver is unchanged, remains a separate installation,
+and is not bundled with Cloth NeXt.

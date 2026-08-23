@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 
 from ..ppf.bootstrap import sha256_file
 from .solver_manifest import SolverCompatibilityEntry
+from ..core.safe_delete import delete_owned
 
 ALLOWED_DOWNLOAD_HOSTS = frozenset({
     "github.com",
@@ -117,6 +118,10 @@ def download_asset(entry: SolverCompatibilityEntry, destination: Path, *,
                        progress=progress, cancel=cancel)
         partial.replace(destination)
     except BaseException:
-        partial.unlink(missing_ok=True)
+        delete_owned(
+            partial, root=destination.parent,
+            ownership_authenticated=True,
+            lifecycle_stage="SOLVER_DOWNLOAD",
+            artifact_type="download_partial")
         raise
     return destination

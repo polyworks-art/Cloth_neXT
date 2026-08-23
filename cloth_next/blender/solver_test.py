@@ -29,7 +29,6 @@ import math
 import os
 import queue
 import re
-import shutil
 import struct
 import threading
 import time
@@ -76,6 +75,11 @@ from ..veyra.weld import (TopologyTransaction, WeldVertex,
 from ..core.errors import ClothNextError, ErrorRecord
 from ..core.error_codes import classify_error
 from ..core.logging import get_logger, log_with_context
+from ..core.safe_delete import (
+    DeleteFailedError,
+    cleanup_tombstones,
+    delete_owned,
+)
 from ..materials import DEFAULT_STATIC_SETTINGS, MaterialValidationError
 from ..materials import formatting as material_formatting
 from ..pinning import (
@@ -621,10 +625,11 @@ class ColliderMotionCapture:
             if mapping is not None:
                 mapping.close()
         if self.temporary_path is not None:
-            try:
-                self.temporary_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            delete_owned(
+                self.temporary_path, root=self.temporary_path.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="COLLIDER_CAPTURE_RELEASE",
+                artifact_type="collider_memmap")
 
 
 @dataclass(frozen=True, slots=True)
@@ -3996,7 +4001,11 @@ def _capture_collider_motion(context, collider_obj,
                      for _index in range(sample_count - 1)]},
                 content_digest=motion_hasher.hexdigest())
             local_samples._mmap.close()
-            temporary_path.unlink(missing_ok=True)
+            delete_owned(
+                temporary_path, root=temporary_path.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="COLLIDER_CAPTURE_RIGID",
+                artifact_type="collider_memmap")
             return result
 
         local_samples.flush()
@@ -4014,10 +4023,11 @@ def _capture_collider_motion(context, collider_obj,
         if mapping is not None:
             mapping.close()
         if temporary_path is not None:
-            try:
-                temporary_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            delete_owned(
+                temporary_path, root=temporary_path.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="COLLIDER_CAPTURE_ERROR",
+                artifact_type="collider_memmap")
         raise
     finally:
         scene.frame_set(original_frame, subframe=original_subframe)
@@ -4230,7 +4240,11 @@ def _capture_animated_colliders_shared(
                 samples = state["samples"]
                 if samples is not None:
                     samples._mmap.close()
-                    state["path"].unlink(missing_ok=True)
+                    delete_owned(
+                        state["path"], root=state["path"].parent,
+                        ownership_authenticated=True,
+                        lifecycle_stage="COLLIDER_CAPTURE_RIGID",
+                        artifact_type="collider_memmap")
             else:
                 state["samples"].flush()
                 identity = tuple(tuple(
@@ -4260,7 +4274,10 @@ def _capture_animated_colliders_shared(
                 mapping.close()
             path = state.get("path")
             if path is not None:
-                path.unlink(missing_ok=True)
+                delete_owned(
+                    path, root=path.parent, ownership_authenticated=True,
+                    lifecycle_stage="COLLIDER_CAPTURE_ERROR",
+                    artifact_type="collider_memmap")
         raise
     finally:
         context.scene.frame_set(original_frame, subframe=original_subframe)
@@ -4415,7 +4432,11 @@ def _finish_collider_pump(states):
                     frame_offsets, matrices))
             if state["samples"] is not None:
                 state["samples"]._mmap.close()
-                state["path"].unlink(missing_ok=True)
+                delete_owned(
+                    state["path"], root=state["path"].parent,
+                    ownership_authenticated=True,
+                    lifecycle_stage="COLLIDER_CAPTURE_RIGID",
+                    artifact_type="collider_memmap")
         else:
             state["samples"].flush()
             identity = tuple(tuple(
@@ -4440,7 +4461,10 @@ def _cleanup_collider_pump(states):
             mapping.close()
         path = state.get("path")
         if path is not None:
-            path.unlink(missing_ok=True)
+            delete_owned(
+                path, root=path.parent, ownership_authenticated=True,
+                lifecycle_stage="COLLIDER_CAPTURE_CANCEL",
+                artifact_type="collider_memmap")
     if states:
         _depsgraph_update(bpy.context)
 
@@ -6222,6 +6246,36 @@ def _is_within(path: Path, root: Path) -> bool:
         return False
 
 
+def _release_playback_readers() -> None:
+    """Flush Blender's dependency graph after removing Mesh Cache readers."""
+    context = getattr(bpy, "context", None)
+    view_layer = getattr(context, "view_layer", None)
+    if view_layer is not None and hasattr(view_layer, "update"):
+        view_layer.update()
+        return
+    depsgraph_get = getattr(context, "evaluated_depsgraph_get", None)
+    if callable(depsgraph_get):
+        depsgraph = depsgraph_get()
+        update = getattr(depsgraph, "update", None)
+        if callable(update):
+            update()
+
+
+def _delete_cache_artifact(path: Path, *, root: Path, stage: str,
+                           artifact_type: str, required: bool = False):
+    outcome = delete_owned(
+        path, root=root, ownership_authenticated=True,
+        lifecycle_stage=stage, artifact_type=artifact_type)
+    if not outcome.success:
+        log_with_context(
+            get_logger("playback.cache"), 40,
+            "Cloth NeXt cache cleanup failed", {
+                "diagnostic": outcome.technical_diagnostic()})
+        if required:
+            raise DeleteFailedError(outcome)
+    return outcome
+
+
 def _is_owned_playback_cache_path(path: Path, cache_root: Path) -> bool:
     """Accept final and private live PC2 paths created by Cloth NeXt.
 
@@ -6254,6 +6308,9 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
              if is_cloth_next_playback_modifier(obj,mod)]
     targets: list[Path] = []
     cache_root = plan.pc2_path.parent.resolve()
+    cleanup_tombstones(
+        cache_root, ownership_authenticated=True,
+        lifecycle_stage="BAKE_START", recursive=True)
     # RECOVERY INVARIANT -- DO NOT BROADEN THIS TO AN ARBITRARY DIRECTORY.
     # After Cancel the owned playback modifier points at the authenticated
     # partial named by this exact RecoveryOptions instance. Resume must accept
@@ -6264,6 +6321,10 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
         for _uuid, value in (
             getattr(getattr(plan, "recovery_options", None),
                     "partial_pc2", ()))}
+    for partial in recovery_partials:
+        cleanup_tombstones(
+            partial.parent, ownership_authenticated=True,
+            lifecycle_stage="BAKE_START_RECOVERY", recursive=False)
     if getattr(obj, "type", "") == "CURVE":
         recorded = str(getattr(getattr(obj, "data", None), "get",
                                lambda *_: "")("cloth_next_rod_cache", "") or "")
@@ -6304,10 +6365,9 @@ def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
                                 reason=reason)
         return
     if _is_within(plan.pc2_path, plan.pc2_path.parent):
-        try:
-            plan.pc2_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        _delete_cache_artifact(
+            plan.pc2_path, root=plan.pc2_path.parent,
+            stage="INCOMPLETE_BAKE_DISCARD", artifact_type="pc2")
     sidecar = cache_metadata.sidecar_path(plan.pc2_path)
     if not _is_within(sidecar, plan.pc2_path.parent):
         return
@@ -6325,10 +6385,10 @@ def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",
         })
         cache_metadata.write_atomic(sidecar, existing)
     except (OSError, ValueError, TypeError):
-        try:
-            sidecar.unlink(missing_ok=True)
-        except OSError:
-            pass
+        _delete_cache_artifact(
+            sidecar, root=plan.pc2_path.parent,
+            stage="INCOMPLETE_BAKE_METADATA",
+            artifact_type="cache_metadata")
 
 
 def _record_worker_failure(plan: RunPlan, summary: str, details: str,
@@ -6357,10 +6417,11 @@ def _record_worker_failure(plan: RunPlan, summary: str, details: str,
         os.replace(temporary, failure_path)
         location = str(failure_path.resolve())
     except OSError as exc:
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+        delete_owned(
+            temporary, root=plan.work_directory,
+            ownership_authenticated=True,
+            lifecycle_stage="FAILURE_LOG_WRITE",
+            artifact_type="failure_log_temporary")
         location = f"unavailable ({type(exc).__name__}: {exc})"
     visible = f"{details}\nDiagnostic log: {location}"
     print(f"Cloth NeXt Bake failed: {summary}\n{visible}", flush=True)
@@ -7172,10 +7233,11 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
                 and old.name.startswith("cn_test_cloth_")
                 and old.suffix.lower() == ".pc2"):
             for target in (old, old.with_suffix(".meta.json")):
-                try:
-                    target.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                _delete_cache_artifact(
+                    target, root=plan.pc2_path.parent,
+                    stage="ROD_PLAYBACK_REPLACE",
+                    artifact_type=("pc2" if target.suffix == ".pc2"
+                                   else "cache_metadata"))
 
 
 _PLAYBACK_MODIFIER_FIELDS = (
@@ -7259,16 +7321,26 @@ def _rollback_playback(records) -> None:
                     "error": f"{type(exc).__name__}: {exc}"})
 
 
-def _commit_playback_cleanup_record(record) -> None:
-    """Clean one obsolete generation after its successor is authoritative."""
+def _remove_playback_extras(record) -> bool:
+    removed = False
     for extra in record.extras:
         try:
             record.obj.modifiers.remove(extra)
+            removed = True
         except Exception as exc:  # noqa: BLE001 -- all new caches are live
             log_with_context(get_logger("playback.cache"), 30,
                 "stale playback modifier cleanup failed", {
                     "object": getattr(record.obj, "name", ""),
                     "error": f"{type(exc).__name__}: {exc}"})
+    return removed
+
+
+def _commit_playback_cleanup_record(record, *, remove_modifiers=True) -> None:
+    """Clean one obsolete generation after its successor is authoritative."""
+    if remove_modifiers and _remove_playback_extras(record):
+        # Blender's Mesh Cache reader may outlive RNA modifier removal until
+        # the dependency graph is evaluated. Release it before touching PC2.
+        _release_playback_readers()
     active_paths = {
         Path(bpy.path.abspath(mod.filepath)).resolve()
         for obj in getattr(bpy.data, "objects", ())
@@ -7287,14 +7359,13 @@ def _commit_playback_cleanup_record(record) -> None:
             continue
         failed = False
         for target in (old_path, cache_metadata.sidecar_path(old_path)):
-            try:
-                target.unlink(missing_ok=True)
-            except OSError as exc:
+            outcome = _delete_cache_artifact(
+                target, root=cache_root,
+                stage="PLAYBACK_REPLACE",
+                artifact_type=("pc2" if target.suffix == ".pc2"
+                               else "cache_metadata"))
+            if not outcome.success:
                 failed = True
-                log_with_context(get_logger("playback.cache"), 20,
-                    "obsolete playback cache deferred", {
-                        "cache_path": str(target),
-                        "error": f"{type(exc).__name__}: {exc}"})
         if failed:
             record_pending_cleanup(old_path)
         else:
@@ -7303,9 +7374,15 @@ def _commit_playback_cleanup_record(record) -> None:
 
 def _commit_playback_cleanup(records) -> None:
     """Best-effort garbage collection after every target is attached."""
+    records = tuple(records)
+    readers_removed = False
+    for record in records:
+        readers_removed |= _remove_playback_extras(record)
+    if readers_removed:
+        _release_playback_readers()
     for record in records:
         try:
-            _commit_playback_cleanup_record(record)
+            _commit_playback_cleanup_record(record, remove_modifiers=False)
         except Exception as exc:  # noqa: BLE001 -- committed playback wins
             log_with_context(get_logger("playback.cache"), 30,
                 "obsolete playback cleanup failed", {
@@ -9684,6 +9761,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         _clear_intersection_diagnostics()
         removed_modifiers = 0
         removed_files = 0
+        cleanup_paths: set[Path] = set()
         target = getattr(context, "object", None)
         objects = (target,) if target is not None else bpy.data.objects
         for obj in objects:
@@ -9715,19 +9793,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
             for path in set(owned_paths):
                 if not path.name.startswith("cn_test_cloth_"):
                     continue
-                try:
-                    existed = path.exists() or cache_metadata.sidecar_path(
-                        path).exists()
-                    path.unlink(missing_ok=True)
-                    cache_metadata.sidecar_path(path).unlink(missing_ok=True)
-                    removed_files += int(existed)
-                    forget_pending_cleanup(path)
-                except OSError as exc:
-                    record_pending_cleanup(path)
-                    log_with_context(get_logger("playback.cache"), 20,
-                        "cleared playback cache deferred", {
-                            "cache_path": str(path),
-                            "error": f"{type(exc).__name__}: {exc}"})
+                cleanup_paths.add(path.resolve())
             if owned_paths:
                 for key in _PLAYBACK_OBJECT_FIELDS:
                     try:
@@ -9745,6 +9811,23 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                 settings.baked_cache_message = ""
                 settings.baked_metadata_digest = ""
                 validation_state.forget(obj)
+        if removed_modifiers:
+            # Removing the RNA modifier is not enough on Windows: Blender can
+            # retain its Mesh Cache reader until a dependency-graph update.
+            _release_playback_readers()
+        for path in cleanup_paths:
+            existed = (path.exists()
+                       or cache_metadata.sidecar_path(path).exists())
+            outcomes = tuple(_delete_cache_artifact(
+                artifact, root=path.parent, stage="MANUAL_CACHE_CLEAR",
+                artifact_type=("pc2" if artifact.suffix == ".pc2"
+                               else "cache_metadata"))
+                for artifact in (path, cache_metadata.sidecar_path(path)))
+            if all(outcome.success for outcome in outcomes):
+                removed_files += int(existed)
+                forget_pending_cleanup(path)
+            else:
+                record_pending_cleanup(path)
         self.report({"INFO"},
                     f"Removed {removed_modifiers} Cloth NeXt test cache "
                     f"modifier(s) and {removed_files} cache file(s); nothing "
@@ -11455,17 +11538,39 @@ class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
             except ValueError:
                 pass
             project = recovery.owned_project_root(metadata, record)
+            cleanup_failures = []
             if project is not None:
-                shutil.rmtree(project, ignore_errors=True)
+                outcome = delete_owned(
+                    project, root=Path(record.server_data_root),
+                    ownership_authenticated=True,
+                    lifecycle_stage="RECOVERY_START_FRESH",
+                    artifact_type="solver_project", recursive=True)
+                if not outcome.success:
+                    cleanup_failures.append(outcome)
             for uuid, partial in record.partial_pc2:
                 owned_partial = recovery.owned_partial_path(
                     metadata, uuid, partial)
                 if owned_partial is None:
                     continue
-                try:
-                    owned_partial.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                outcome = delete_owned(
+                    owned_partial, root=metadata.parent / "partials",
+                    ownership_authenticated=True,
+                    lifecycle_stage="RECOVERY_START_FRESH",
+                    artifact_type="partial_pc2")
+                if not outcome.success:
+                    cleanup_failures.append(outcome)
+            if cleanup_failures:
+                for outcome in cleanup_failures:
+                    log_with_context(
+                        _recovery_log, logging.ERROR,
+                        "Recovery cleanup failed", {
+                            "diagnostic": outcome.technical_diagnostic()})
+                settings = context.scene.cloth_next_recovery
+                settings.status = "Cleanup Failed"
+                settings.status_detail = (
+                    "Temporary or partial files could not be removed")
+                self.report({"ERROR"}, settings.status_detail)
+                return {"CANCELLED"}
             try:
                 recovery.transition(
                     metadata, record, recovery.ProjectState.DELETED)
@@ -11500,6 +11605,16 @@ class CLOTHNEXT_OT_recovery_clear_checkpoints(bpy.types.Operator):
         if metadata is not None:
             recovery.clear_checkpoints(metadata)
         settings = context.scene.cloth_next_recovery
+        remaining = (recovery.load_project(metadata, verify_checkpoints=False)
+                     if metadata is not None else None)
+        if remaining is not None and remaining.checkpoints:
+            settings.resumable = False
+            settings.compatible = False
+            settings.status = "Cleanup Failed"
+            settings.status_detail = (
+                "Temporary or partial files could not be removed")
+            self.report({"ERROR"}, settings.status_detail)
+            return {"CANCELLED"}
         settings.resumable = False
         settings.compatible = False
         settings.status = "No checkpoint"

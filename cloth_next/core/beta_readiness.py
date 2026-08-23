@@ -9,6 +9,7 @@ from pathlib import Path
 import os
 
 from ..bake import cache_metadata
+from .safe_delete import DeleteFailedError, cleanup_tombstones, delete_owned
 
 
 class HealthSeverity(str, Enum):
@@ -62,6 +63,11 @@ def inventory_cache(root: Path) -> tuple[CacheEntry, ...]:
     root = Path(root).expanduser().resolve()
     if not root.is_dir():
         return ()
+    # Tombstones can only have been created by the authenticated safe-delete
+    # path and remain constrained to this selected cache root.
+    cleanup_tombstones(
+        root, ownership_authenticated=True, lifecycle_stage="CACHE_SCAN",
+        recursive=True)
     paths: set[Path] = set(root.glob("cn_test_cloth_*.pc2"))
     for sidecar in root.glob("cn_test_cloth_*.meta.json"):
         paths.add(sidecar.with_suffix("").with_suffix(".pc2"))
@@ -100,8 +106,15 @@ def remove_invalid(entries: tuple[CacheEntry, ...], root: Path) -> tuple[Path, .
                     or not path.name.startswith("cn_test_cloth_")
                     or path.suffix.lower() not in {".pc2", ".json"}):
                 raise ValueError(f"refusing unsafe cache cleanup path: {path}")
-            if path.exists():
-                path.unlink()
+            existed = path.exists()
+            outcome = delete_owned(
+                path, root=root, ownership_authenticated=True,
+                lifecycle_stage="INVALID_CACHE_REMOVAL",
+                artifact_type=("pc2" if path.suffix.lower() == ".pc2"
+                               else "cache_metadata"))
+            if not outcome.success:
+                raise DeleteFailedError(outcome)
+            if existed:
                 removed.append(path)
     return tuple(removed)
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from . import cbor_codec
+from ...core.safe_delete import delete_owned
 
 SCHEMA_VERSION = 1
 
@@ -100,7 +101,10 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
                  "payload": payload},
                 HashingWriter(stream), progress=progress)
     except Exception:
-        path.unlink(missing_ok=True)
+        delete_owned(
+            path, root=path.parent, ownership_authenticated=True,
+            lifecycle_stage="PPF_ENVELOPE_WRITE",
+            artifact_type="scene_payload_partial")
         raise
     return digest.hexdigest()
 

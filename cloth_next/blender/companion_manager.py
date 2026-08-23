@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import shutil
 import sys
 import tempfile
 import time
@@ -22,6 +21,7 @@ from ..bake.transport import (BakeWindowReady, EnterBakeMode,
                               LocalSocketServer)
 from ..veyra.artifacts import SessionArtifacts
 from ..veyra.model import CompanionMode, VeyraStep, VEYRA_STEP_LABELS
+from ..core.safe_delete import cleanup_tombstones, delete_owned
 from . import modal_lock
 
 STARTUP_TIMEOUT_SECONDS = 7.0
@@ -72,7 +72,10 @@ def _log(stage: str, message: str, **details) -> None:
         path = _log_path()
         if path.exists() and path.stat().st_size > 256 * 1024:
             backup = path.with_suffix(".log.1")
-            backup.unlink(missing_ok=True)
+            delete_owned(
+                backup, root=path.parent, ownership_authenticated=True,
+                lifecycle_stage="COMPANION_LOG_ROTATE",
+                artifact_type="diagnostic_log_backup")
             path.replace(backup)
         record = {"time": time.time(), "stage": stage, "message": message,
                   **details}
@@ -95,7 +98,10 @@ def _persist_bake_error(snapshot) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists() and path.stat().st_size > 1024 * 1024:
             backup = path.with_suffix(".log.1")
-            backup.unlink(missing_ok=True)
+            delete_owned(
+                backup, root=path.parent, ownership_authenticated=True,
+                lifecycle_stage="BAKE_ERROR_LOG_ROTATE",
+                artifact_type="diagnostic_log_backup")
             path.replace(backup)
         record = {
             "time": time.time(), "job_id": key[0], "error_code": key[1],
@@ -194,6 +200,9 @@ def _launch() -> tuple[bool, str, bool]:
         return False, message, False
     session_root = (Path(tempfile.gettempdir()) / "cloth_next" / "veyra" /
                     uuid.uuid4().hex)
+    cleanup_tombstones(
+        session_root.parent, ownership_authenticated=True,
+        lifecycle_stage="COMPANION_STARTUP", recursive=True)
     _session_artifacts = SessionArtifacts(session_root)
     command += ["--port", str(_server.port), "--token", _server.token,
                 "--session-root", str(session_root)]
@@ -515,7 +524,14 @@ def _dispose_transport() -> None:
                      if _session_artifacts is not None else None)
     _session_artifacts = None
     if artifact_root is not None:
-        shutil.rmtree(artifact_root, ignore_errors=True)
+        outcome = delete_owned(
+            artifact_root, root=artifact_root.parent,
+            ownership_authenticated=True,
+            lifecycle_stage="COMPANION_DISPOSE",
+            artifact_type="companion_session", recursive=True)
+        if not outcome.success:
+            _log("cleanup", "Companion session cleanup failed",
+                 diagnostic=outcome.technical_diagnostic())
 
 
 def shutdown() -> bool:
@@ -578,5 +594,12 @@ def shutdown() -> bool:
                      if _session_artifacts is not None else None)
     _session_artifacts = None; _veyra_events.clear()
     if artifact_root is not None:
-        shutil.rmtree(artifact_root, ignore_errors=True)
+        outcome = delete_owned(
+            artifact_root, root=artifact_root.parent,
+            ownership_authenticated=True,
+            lifecycle_stage="COMPANION_SHUTDOWN",
+            artifact_type="companion_session", recursive=True)
+        if not outcome.success:
+            _log("cleanup", "Companion session cleanup failed",
+                 diagnostic=outcome.technical_diagnostic())
     return process_stopped and transport_stopped

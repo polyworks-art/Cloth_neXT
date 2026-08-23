@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from ..core.safe_delete import DeleteFailedError, delete_owned
+
 VENDOR_DIRECTORY = "ClothNeXt"
 
 #: current.json format written by this Cloth NeXt version. Version 1 is the
@@ -274,9 +276,15 @@ def write_current(paths: ManagedSolverPaths,
                    "executable": record.executable_relative,
                    "activated_at": record.activated_at}
     staged = paths.root / f".current-{uuid.uuid4().hex}.json"
-    staged.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
-                      encoding="utf-8")
-    staged.replace(paths.current_json)
+    try:
+        staged.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                          encoding="utf-8")
+        staged.replace(paths.current_json)
+    finally:
+        delete_owned(
+            staged, root=paths.root, ownership_authenticated=True,
+            lifecycle_stage="SOLVER_CURRENT_METADATA_WRITE",
+            artifact_type="solver_metadata_temporary")
     return record
 
 
@@ -292,4 +300,9 @@ def write_legacy_current(paths: ManagedSolverPaths, version: str,
 
 
 def clear_current(paths: ManagedSolverPaths) -> None:
-    paths.current_json.unlink(missing_ok=True)
+    outcome = delete_owned(
+        paths.current_json, root=paths.root, ownership_authenticated=True,
+        lifecycle_stage="SOLVER_CURRENT_METADATA_CLEAR",
+        artifact_type="solver_current_metadata", tombstone=False)
+    if not outcome.success:
+        raise DeleteFailedError(outcome)

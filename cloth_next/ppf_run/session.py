@@ -31,6 +31,7 @@ import numpy as np
 
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.logging import get_logger, log_with_context
+from ..core.safe_delete import delete_owned
 from ..ppf import results, wire
 from ..ppf.health import start_owned_and_wait
 from ..ppf.layout import BundledSolverLayout
@@ -128,7 +129,8 @@ def _missing_worker_error(worker: Path, *, detail: str = "") -> ClothNextError:
             "Restore or reinstall the verified solver, allow its installation "
             "folder in the security software, then retry the Bake."),
         recoverable=True,
-        context={"worker_path": str(worker)}))
+        context={"failure_kind": "NATIVE_WORKER_MISSING",
+                 "worker_path": str(worker)}))
 
 
 class RecoveryOutcomeKind(str, Enum):
@@ -400,10 +402,11 @@ class SessionDiagnostics:
 def _session_error(message: str, technical: str, *,
                    category: ErrorCategory = ErrorCategory.SIMULATION,
                    action: str = "Inspect the Cloth NeXt log and the solver "
-                                 "stderr tail, then retry.") -> ClothNextError:
+                                 "stderr tail, then retry.",
+                   context: dict[str, object] | None = None) -> ClothNextError:
     return ClothNextError(ErrorRecord.create(
         category=category, user_message=message, technical_message=technical,
-        recommended_action=action, recoverable=True))
+        recommended_action=action, recoverable=True, context=context))
 
 
 class SolverSession:
@@ -669,7 +672,8 @@ class SolverSession:
                     "installation folder in the security software, then "
                     "retry the Bake."),
                 recoverable=True,
-                context={"worker_path": str(worker)}))
+                context={"failure_kind": "NATIVE_WORKER_MISSING",
+                         "worker_path": str(worker)}))
         if self._manager is None:
             return exc
         self._capture_process_tails()
@@ -903,7 +907,10 @@ class SolverSession:
                 f"server_error={error_text}; "
                 f"stdout_tail={self.diagnostics.stdout_tail}; "
                 f"stderr_tail={self.diagnostics.stderr_tail}",
-                category=ErrorCategory.SIMULATION)
+                category=ErrorCategory.SIMULATION,
+                context={"failure_kind": "SOLVER_WORKER_ABNORMAL_EXIT",
+                         "crash_kind": crash_kind,
+                         "active_operation": "SIMULATING"})
         parsed_violations = list(_normalize_violation_payload(
             response.get("violations", ())))
         if not parsed_violations:
@@ -944,7 +951,9 @@ class SolverSession:
             f"peak={self.diagnostics.contact_peak}, "
             f"samples={self.diagnostics.contact_samples}); "
             f"stdout_tail={self.diagnostics.stdout_tail}; "
-            f"stderr_tail={self.diagnostics.stderr_tail}")
+            f"stderr_tail={self.diagnostics.stderr_tail}",
+            context={"crash_kind": crash_kind,
+                     "active_operation": phase.upper()})
         if parsed_violations:
             log_with_context(self._logger, logging.ERROR,
                 "Solver returned structured build violations", {
@@ -1204,7 +1213,8 @@ class SolverSession:
                     "installation folder in the security software, then "
                     "retry the Bake."),
                 recoverable=True,
-                context={"worker_path": str(worker)}))
+                context={"failure_kind": "NATIVE_WORKER_MISSING",
+                         "worker_path": str(worker)}))
         root = bundle_root_for(executable)
         layout = BundledSolverLayout.from_root(root)
         server_data = self._server_data_root()
@@ -2163,7 +2173,14 @@ class SolverSession:
                 if isinstance(payload, Path):
                     try:
                         if payload.parent.resolve() == self.work_directory.resolve():
-                            payload.unlink(missing_ok=True)
+                            outcome = delete_owned(
+                                payload, root=self.work_directory,
+                                ownership_authenticated=True,
+                                lifecycle_stage="PPF_SESSION_FINALIZE",
+                                artifact_type="scene_payload")
+                            if not outcome.success:
+                                self.diagnostics.cleanup_issues.append(
+                                    outcome.technical_diagnostic())
                     except OSError:
                         pass
                 self.diagnostics.timings["total"] = time.monotonic() - started

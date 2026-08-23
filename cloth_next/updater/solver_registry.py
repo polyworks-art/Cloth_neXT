@@ -11,6 +11,8 @@ import uuid
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
+from ..core.safe_delete import delete_owned
+
 REGISTRY_VERSION = 1
 
 
@@ -190,9 +192,16 @@ def write_registry(path: Path, registry: SolverRegistry) -> SolverRegistry:
         "installations": [asdict(item) for item in registry.installations],
     }
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    try:
+        temporary.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        delete_owned(
+            temporary, root=path.parent, ownership_authenticated=True,
+            lifecycle_stage="SOLVER_REGISTRY_WRITE",
+            artifact_type="solver_registry_temporary")
     return registry
 
 

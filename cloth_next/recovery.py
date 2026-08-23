@@ -18,6 +18,8 @@ from pathlib import Path
 import tempfile
 import time
 
+from .core.safe_delete import cleanup_tombstones, delete_owned
+
 RECOVERY_SCHEMA_VERSION = 2
 # Schema 3 used the identical project/checkpoint wire layout, but recorded the
 # internal format number in every identity.  Keep it readable so a rollback to
@@ -202,25 +204,31 @@ def _atomic_json(path: Path, value: object) -> None:
                     raise
                 time.sleep(0.01 * (2 ** attempt))
     except Exception:
-        try:
-            os.unlink(temporary)
-        except OSError:
-            pass
+        delete_owned(
+            Path(temporary), root=path.parent,
+            ownership_authenticated=True,
+            lifecycle_stage="RECOVERY_METADATA_WRITE",
+            artifact_type="metadata_temporary")
         raise
 
 
 def cleanup_temporary_files(root: Path) -> tuple[Path, ...]:
+    root = Path(root).resolve()
+    cleanup_tombstones(
+        root, ownership_authenticated=True,
+        lifecycle_stage="RECOVERY_START", recursive=True)
     removed = []
     try:
-        candidates = tuple(Path(root).glob(".*.tmp"))
+        candidates = tuple(root.glob(".*.tmp"))
     except OSError:
         return ()
     for path in candidates:
-        try:
-            path.unlink()
+        outcome = delete_owned(
+            path, root=root, ownership_authenticated=True,
+            lifecycle_stage="RECOVERY_START",
+            artifact_type="metadata_temporary")
+        if outcome.success:
             removed.append(path)
-        except OSError:
-            pass
     return tuple(removed)
 
 
@@ -465,10 +473,11 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
         owned = owned_checkpoint_path(path, published, item)
         if owned is None:
             continue
-        try:
-            owned.unlink()
-        except OSError:
-            pass
+        delete_owned(
+            owned, root=Path(published.project_root),
+            ownership_authenticated=True,
+            lifecycle_stage="RECOVERY_RETENTION",
+            artifact_type="checkpoint")
     return published
 
 
@@ -640,22 +649,33 @@ def clear_checkpoints(path: Path) -> tuple[Path, ...]:
     record = load_project(path)
     records = record.checkpoints if record is not None else load_records(path)
     removed = []
+    retained = []
     for item in records:
         file_path = (owned_checkpoint_path(path, record, item)
                      if record is not None else None)
         if file_path is None:
+            if record is not None:
+                retained.append(item)
             continue
-        try:
-            file_path.unlink()
+        outcome = delete_owned(
+            file_path, root=Path(record.project_root),
+            ownership_authenticated=True,
+            lifecycle_stage="RECOVERY_CLEAR",
+            artifact_type="checkpoint")
+        if outcome.success:
             removed.append(file_path)
-        except OSError:
-            pass
+        else:
+            retained.append(item)
     if record is not None:
-        transition(path, record, ProjectState.ABANDONED, checkpoints=(),
-                   error="Checkpoints cleared by user")
+        transition(
+            path, record, ProjectState.ABANDONED,
+            checkpoints=tuple(retained),
+            error=("Checkpoint cleanup remains pending"
+                   if retained else "Checkpoints cleared by user"))
     else:
-        try:
-            Path(path).unlink()
-        except OSError:
-            pass
+        delete_owned(
+            Path(path), root=Path(path).resolve().parent,
+            ownership_authenticated=True,
+            lifecycle_stage="RECOVERY_CLEAR",
+            artifact_type="legacy_recovery_metadata")
     return tuple(removed)

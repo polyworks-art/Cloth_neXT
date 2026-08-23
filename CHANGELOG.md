@@ -1,5 +1,52 @@
 # Changelog
 
+## 2.3.1 - 2026-08-24
+
+### Added
+
+- A single ownership-authenticated safe-delete service now handles Cloth NeXt
+  cache, PC2, metadata, recovery, export, updater, solver-work, and temporary
+  artifacts with bounded Windows retry/backoff and same-root tombstones.
+- Cache scans and safe lifecycle points remove authenticated
+  `.clothnext-delete-*` tombstones left by short-lived file locks.
+- The public error catalogue now has dedicated codes for animated Collider
+  capture (`CNX-E128`), invalid recovery checkpoints (`CNX-E129`), and occupied
+  local solver ports (`CNX-E136`).
+- The canonical error registry now generates both the public Markdown catalogue
+  and GitHub Pages `errors/errors.json` feed during Dev and tagged publication.
+
+### Fixed
+
+- Playback readers, cache modifiers, PC2 writers, worker threads, the Bake
+  Companion, and owned solver processes are released before their files are
+  removed, preventing recurring `CNX-E193` cleanup failures on Windows.
+- Sharing violations, antivirus scans, and delayed handle release no longer
+  invalidate an otherwise completed Bake when an obsolete owned artifact can
+  be safely tombstoned for later cleanup.
+- Cache cleanup retains strict owned-root authentication, protects legacy or
+  unowned caches, rejects out-of-root paths, and never terminates foreign
+  processes or deletes unknown user files.
+- Solver readiness, native-worker quarantine, stage-specific process exits,
+  recovery mismatch, animated Collider topology, result-transfer, playback,
+  Rod Curve, multi-object cache, cleanup permission, intersection, convergence,
+  instability, and memory failures now resolve to their accurate public codes.
+- Structured `failure_kind`, `crash_kind`, and active-operation diagnostics now
+  take precedence over fragile generic error text without hiding unknown
+  failures behind broad exception handling.
+
+### Validation
+
+- The focused cleanup lifecycle suite covers immediate/missing deletion,
+  transient Windows sharing failures, bounded exhaustion, tombstoning and later
+  removal, unsafe and legacy paths, completed-cache preservation, cancellation,
+  finalization, metadata integrity, and idempotency.
+- The error audit adds positive coverage for every specific classifier,
+  historical negative cases, structured crash diagnostics, stable-code
+  compatibility, and exact runtime/Markdown/Pages-feed synchronization.
+- The normal non-integration repository suite passes with 1,637 tests; source
+  compilation and extension validation also pass.
+- The external PPF Contact Solver remains separate, unmodified, and unbundled.
+
 ## 2.3.0 - 2026-08-22
 
 ### Added

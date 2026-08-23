@@ -16,12 +16,12 @@ version. No ``bpy`` access happens here.
 
 from __future__ import annotations
 
-import shutil
 import threading
 from pathlib import Path
 from typing import Callable
 
 from ..core.errors import ErrorCategory, ErrorRecord
+from ..core.safe_delete import DeleteFailedError, delete_owned
 from ..ppf.bootstrap import (atomic_replace_directory, find_single_executable,
                              normalize_bundle_root)
 from ..ppf.layout import EXECUTABLE_NAME
@@ -245,7 +245,11 @@ class ManagedSolverInstaller:
             self._set_state(InstallerState.READY)
         except download_module.DownloadCancelled:
             self._state = InstallerState.CANCELLING
-            archive_path.unlink(missing_ok=True)
+            delete_owned(
+                archive_path, root=self._paths.downloads_dir,
+                ownership_authenticated=True,
+                lifecycle_stage="SOLVER_DOWNLOAD_CANCEL",
+                artifact_type="solver_download_partial")
             self._restore_after_failure(previous)
             self._set_state(self._resolve_local_state(previous)
                             if previous else InstallerState.DOWNLOAD_AVAILABLE)
@@ -265,7 +269,11 @@ class ManagedSolverInstaller:
             self._restore_after_failure(previous)
         finally:
             if staging is not None and staging.exists():
-                shutil.rmtree(staging, ignore_errors=True)
+                delete_owned(
+                    staging, root=self._paths.staging_dir,
+                    ownership_authenticated=True,
+                    lifecycle_stage="SOLVER_INSTALL_FINALIZE",
+                    artifact_type="solver_install_staging", recursive=True)
         return self._state
 
     def _restore_after_failure(self, previous: ActiveInstallation | None) -> None:
@@ -294,7 +302,14 @@ class ManagedSolverInstaller:
             raise ValueError("refusing to remove a directory outside the managed root")
         active = read_current(self._paths)
         if version_dir.exists():
-            shutil.rmtree(version_dir)
+            outcome = delete_owned(
+                version_dir, root=self._paths.versions_dir,
+                ownership_authenticated=True,
+                lifecycle_stage="SOLVER_VERSION_REMOVE",
+                artifact_type="managed_solver_version", recursive=True,
+                tombstone=False)
+            if not outcome.success:
+                raise DeleteFailedError(outcome)
         if active is not None and active.installation_id == installation_id:
             clear_current(self._paths)
             self._state = InstallerState.NOT_INSTALLED

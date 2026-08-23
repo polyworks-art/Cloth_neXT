@@ -15,6 +15,8 @@ from typing import Sequence
 
 import numpy as np
 
+from ..core.safe_delete import delete_owned
+
 PC2_MAGIC = b"POINTCACHE2\0"
 PC2_VERSION = 1
 PC2_HEADER_SIZE = 32
@@ -157,7 +159,9 @@ class StreamingPc2Writer:
             self.validation_seconds = time.monotonic() - step
             if verified != self.header:
                 raise Pc2Error("published PC2 header validation failed")
-            backup.unlink(missing_ok=True)
+            delete_owned(
+                backup, root=backup.parent, ownership_authenticated=True,
+                lifecycle_stage="PC2_FINALIZE", artifact_type="pc2_backup")
             self._finished = True
             return verified
         except Exception:
@@ -167,7 +171,11 @@ class StreamingPc2Writer:
                 except OSError:
                     pass
             elif self.final_path.exists() and not self.temporary_path.exists():
-                self.final_path.unlink(missing_ok=True)
+                delete_owned(
+                    self.final_path, root=self.final_path.parent,
+                    ownership_authenticated=True,
+                    lifecycle_stage="PC2_FINALIZE_ROLLBACK",
+                    artifact_type="invalid_pc2")
             self.abort()
             raise
 
@@ -192,10 +200,10 @@ class StreamingPc2Writer:
                 pass
         temporary = getattr(self, "temporary_path", None)
         if temporary is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
+            delete_owned(
+                temporary, root=temporary.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="PC2_ABORT", artifact_type="partial_pc2")
         self._finished = True
 
     def __enter__(self) -> "StreamingPc2Writer":
