@@ -8,8 +8,27 @@ const expandButton = document.querySelector('.expand-all');
 const toast = document.querySelector('.toast');
 let toastTimer;
 
+const stageColors = {
+  'Scene validation': '#7ee8b7',
+  'Companion startup': '#82d8ff',
+  'Bake preparation': '#b1f07a',
+  'Solver startup': '#ffd166',
+  'Solver connection': '#72ddf7',
+  'Scene upload': '#67c7ff',
+  'Project build': '#c6a8ff',
+  'Simulation': '#ff8c69',
+  'Result transfer': '#79b8ff',
+  'Playback cache': '#f7a8d8',
+  'Cleanup': '#ffb35c',
+  'Internal': '#ff6b78'
+};
+
 function slug(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function colorFor(stage) {
+  return stageColors[stage] || '#65f5c9';
 }
 
 function showToast(message) {
@@ -26,10 +45,26 @@ function matches(error) {
   return state.query.split(/\s+/).every((part) => haystack.includes(part));
 }
 
+async function copyText(value, success) {
+  try { await navigator.clipboard.writeText(value); }
+  catch (_error) {
+    const field = document.createElement('textarea');
+    field.value = value;
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.appendChild(field);
+    field.select();
+    document.execCommand('copy');
+    field.remove();
+  }
+  showToast(success);
+}
+
 function errorCard(error) {
   const details = document.createElement('details');
   details.className = 'error-item';
   details.id = error.code;
+  details.style.setProperty('--stage-color', colorFor(error.stage));
   details.innerHTML = `
     <summary>
       <span class="error-code">${error.code}</span>
@@ -39,17 +74,16 @@ function errorCard(error) {
     <div class="error-detail">
       <span class="action-label">First action</span>
       <div class="error-action">${error.action}</div>
+      <button class="copy-code" type="button">Copy code</button>
       <button class="copy-link" type="button">Copy link</button>
     </div>`;
-  details.querySelector('.copy-link').addEventListener('click', async () => {
+
+  details.querySelector('.copy-code').addEventListener('click', () => {
+    copyText(error.code, `${error.code} copied`);
+  });
+  details.querySelector('.copy-link').addEventListener('click', () => {
     const url = `${location.origin}${location.pathname}#${error.code}`;
-    try { await navigator.clipboard.writeText(url); }
-    catch (_error) {
-      const field = document.createElement('textarea');
-      field.value = url; document.body.appendChild(field); field.select();
-      document.execCommand('copy'); field.remove();
-    }
-    showToast(`${error.code} link copied`);
+    copyText(url, `${error.code} link copied`);
   });
   return details;
 }
@@ -58,15 +92,18 @@ function render() {
   groupsRoot.replaceChildren();
   const visible = state.errors.filter(matches);
   resultCount.textContent = visible.length;
+
   const byStage = new Map();
   visible.forEach((error) => {
     if (!byStage.has(error.stage)) byStage.set(error.stage, []);
     byStage.get(error.stage).push(error);
   });
+
   byStage.forEach((errors, stage) => {
     const section = document.createElement('section');
     section.className = 'error-group';
     section.dataset.stage = slug(stage);
+    section.style.setProperty('--stage-color', colorFor(stage));
     section.innerHTML = `<div class="error-group-heading"><h3>${stage}</h3><span>${errors.length} ${errors.length === 1 ? 'code' : 'codes'}</span></div>`;
     const items = document.createElement('div');
     items.className = 'error-items';
@@ -74,6 +111,7 @@ function render() {
     section.appendChild(items);
     groupsRoot.appendChild(section);
   });
+
   emptyState.hidden = visible.length !== 0;
   groupsRoot.hidden = visible.length === 0;
   openTarget();
@@ -93,7 +131,10 @@ function openTarget() {
 function buildFilters(stages) {
   stages.forEach((stage) => {
     const button = document.createElement('button');
-    button.type = 'button'; button.dataset.stage = stage; button.textContent = stage;
+    button.type = 'button';
+    button.dataset.stage = stage;
+    button.textContent = stage;
+    button.style.setProperty('--stage-color', colorFor(stage));
     filtersRoot.appendChild(button);
   });
   filtersRoot.addEventListener('click', (event) => {
@@ -105,14 +146,31 @@ function buildFilters(stages) {
   });
 }
 
-search.addEventListener('input', () => { state.query = search.value.trim().toLowerCase(); render(); });
+search.addEventListener('input', () => {
+  state.query = search.value.trim().toLowerCase();
+  render();
+});
 search.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') { search.value = ''; state.query = ''; render(); search.blur(); }
+  if (event.key === 'Escape') {
+    search.value = '';
+    state.query = '';
+    render();
+    search.blur();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && document.activeElement !== search) {
+    event.preventDefault();
+    search.focus();
+  }
 });
 emptyState.querySelector('button').addEventListener('click', () => {
-  search.value = ''; state.query = ''; state.stage = 'all';
+  search.value = '';
+  state.query = '';
+  state.stage = 'all';
   filtersRoot.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item.dataset.stage === 'all'));
-  render(); search.focus();
+  render();
+  search.focus();
 });
 expandButton.addEventListener('click', () => {
   const items = [...groupsRoot.querySelectorAll('details')];
@@ -123,17 +181,21 @@ expandButton.addEventListener('click', () => {
 window.addEventListener('hashchange', openTarget);
 
 fetch('errors.json', { cache: 'no-store' })
-  .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+  .then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  })
   .then((payload) => {
     state.errors = payload.errors;
     const stages = [...new Set(state.errors.map((error) => error.stage))];
     document.querySelector('#code-count').textContent = state.errors.length;
     document.querySelector('#stage-count').textContent = stages.length;
-    buildFilters(stages); render();
+    buildFilters(stages);
+    render();
     const requested = new URLSearchParams(location.search).get('code');
     if (requested && !location.hash) location.hash = requested.toUpperCase();
   })
   .catch(() => {
-    groupsRoot.innerHTML = '<p class="error-action">The error directory could not be loaded. Open the source documentation on GitHub and retry later.</p>';
+    groupsRoot.innerHTML = '<p class="error-action">The error directory could not be loaded. Use the recovery guidance bundled with your installed Cloth NeXt build and retry later.</p>';
     resultCount.textContent = '0';
   });
