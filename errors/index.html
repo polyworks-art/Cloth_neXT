@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#09110f">
+  <meta name="theme-color" content="#070a09">
   <meta name="description" content="Search and resolve Cloth NeXt CNX Bake error codes.">
-  <title>Error codes — Cloth NeXt</title>
+  <title>Error Reference — Cloth NeXt</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="errors.css">
@@ -21,25 +21,48 @@
     <nav aria-label="Error documentation navigation">
       <a href="../">Overview</a>
       <a href="../releases/">Release Notes</a>
-      <a href="#diagnostics">Diagnostic files</a>
+      <a href="#diagnostics">Diagnostics</a>
       <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
     </nav>
   </header>
 
   <main>
     <section class="error-hero">
-      <div class="eyebrow"><span></span> CLOTH NEXT DIAGNOSTICS</div>
-      <h1>Turn an error code<br><em>into a next step.</em></h1>
-      <p>Enter the code shown in the Bake window to find the verified cause and the first recovery action. Diagnostics stay on your machine.</p>
-      <label class="search-box" for="error-search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
-        <input id="error-search" type="search" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Search CNX-E161, topology, cache…">
-        <kbd>ESC</kbd>
-      </label>
-      <div class="error-stats" aria-label="Error code documentation summary">
-        <div><strong id="code-count">75</strong><span>Stable codes</span></div>
-        <div><strong id="stage-count">12</strong><span>Workflow stages</span></div>
-        <div><strong>Local</strong><span>Private diagnostics</span></div>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> CLOTH NEXT DIAGNOSTICS</div>
+          <h1>Errors should point<br><em>forward.</em></h1>
+          <p>Enter the code shown in the Bake window. Cloth NeXt translates it into a verified cause and the first recovery step worth trying — without turning your scene into a support ticket.</p>
+          <label class="search-box" for="error-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+            <input id="error-search" type="search" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Search CNX-E162, cache, topology, solver…">
+            <kbd>/</kbd>
+          </label>
+          <div class="hero-tags" aria-label="Diagnostics properties">
+            <span><i></i><strong id="code-count">78</strong> stable codes</span>
+            <span><i></i><strong id="stage-count">12</strong> workflow stages</span>
+            <span><i></i>local-first diagnostics</span>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-render"></div>
+          <div class="diagnostic-orbit orbit-a"></div>
+          <div class="diagnostic-orbit orbit-b"></div>
+          <div class="diagnostic-core">
+            <img src="../assets/cloth-next-white.svg" alt="" width="72" height="56">
+            <span>CNX</span>
+          </div>
+          <div class="signal signal-a">CNX-E162 <b>INTERSECTION</b></div>
+          <div class="signal signal-b">CNX-E166 <b>MEMORY</b></div>
+          <div class="signal signal-c">CNX-E193 <b>CLEANUP</b></div>
+          <div class="hero-grid-lines"></div>
+        </div>
+      </div>
+      <div class="hero-changelog">
+        <span class="live-dot"></span>
+        <strong>Current catalogue</strong>
+        <span>Animated Collider capture, recovery checkpoints and conflicting solver ports now have dedicated codes.</span>
       </div>
     </section>
 
@@ -47,52 +70,52 @@
       <div class="browser-toolbar">
         <div>
           <span class="kicker">ERROR DIRECTORY</span>
-          <h2><span id="result-count">75</span> documented codes</h2>
+          <h2><span id="result-count">78</span> documented codes</h2>
         </div>
         <button class="expand-all" type="button">Expand all</button>
       </div>
-      <div class="stage-filters" role="group" aria-label="Filter by workflow stage">
-        <button class="active" type="button" data-stage="all">All codes</button>
-      </div>
-      <div class="error-groups" aria-live="polite"></div>
-      <div class="empty-state" hidden>
-        <img src="../assets/error.svg" alt="" width="38" height="38">
-        <h3>No matching error code</h3>
-        <p>Check the spelling or search for a broader term such as “cache” or “solver”.</p>
-        <button type="button">Clear search</button>
+      <div class="browser-surface">
+        <div class="stage-filters" role="group" aria-label="Filter by workflow stage">
+          <button class="active" type="button" data-stage="all">All codes</button>
+        </div>
+        <div class="error-groups" aria-live="polite"></div>
+        <div class="empty-state" hidden>
+          <img src="../assets/error.svg" alt="" width="38" height="38">
+          <h3>No matching error code</h3>
+          <p>Check the spelling or search for a broader term such as “cache” or “solver”.</p>
+          <button type="button">Clear search</button>
+        </div>
       </div>
     </section>
 
     <section class="diagnostics" id="diagnostics">
       <div class="diagnostics-heading">
-        <span class="kicker">WHEN YOU NEED MORE CONTEXT</span>
-        <h2>The code is the index.<br>The log tells the story.</h2>
-        <p>Cloth NeXt never uploads scene data or diagnostics automatically. These files remain local until you choose to share them.</p>
+        <span class="kicker">WHEN THE CODE ISN'T ENOUGH</span>
+        <h2>The code is the index.<br><em>The log tells the story.</em></h2>
+        <p>Cloth NeXt keeps detailed diagnostics local. Nothing here uploads your mesh, project names, textures, or scene files automatically.</p>
       </div>
       <div class="log-grid">
         <article>
-          <span>01</span>
+          <div class="log-top"><span>01</span><b>JSONL</b></div>
           <h3>Bake failures</h3>
           <code>cloth_next/logs/bake-errors.log</code>
-          <p>Code, frame, stage, solver cause and recommended action for recent failures.</p>
+          <p>Error code, state, stage, activity and the detailed cause for recent failed Bakes.</p>
         </article>
         <article>
-          <span>02</span>
+          <div class="log-top"><span>02</span><b>LOCAL</b></div>
           <h3>Companion lifecycle</h3>
           <code>cloth_next/logs/companion-startup.log</code>
-          <p>Window startup, authentication, readiness and shutdown events.</p>
+          <p>Window startup, authentication, readiness, transport and shutdown events.</p>
         </article>
         <article>
-          <span>03</span>
+          <div class="log-top"><span>03</span><b>RUN</b></div>
           <h3>Per-run diagnostics</h3>
           <code>Diagnostic log: …/failure.log</code>
-          <p>The exact solver or worker tail for one failed Bake attempt.</p>
+          <p>The bounded solver or worker diagnostic tail for one specific failed Bake attempt.</p>
         </article>
       </div>
       <div class="report-note">
-        <svg class="info-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <circle cx="12" cy="12" r="8"/><path d="M12 10.5v5M12 7.6h.01"/>
-        </svg>
+        <svg class="info-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 10.5v5M12 7.6h.01"/></svg>
         <p><strong>Reporting a repeatable bug?</strong> Include the exact CNX code, its matching line from <code>bake-errors.log</code>, and the per-run <code>failure.log</code>. Remove project-sensitive names if needed.</p>
         <a href="https://github.com/polyworks-art/Cloth_neXT/issues">Open GitHub Issues <span aria-hidden="true">↗</span></a>
       </div>
