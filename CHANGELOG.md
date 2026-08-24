@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.3.2 - 2026-08-24
+
+### Fixed
+
+- Rebake authenticates stale recovery partials against their durable project
+  metadata when the current run has a newer recovery identity, avoiding a false
+  `CNX-E100` cache-ownership failure.
+- Clear Cache scans all scene objects when invoked from a Collider and removes
+  authenticated recovery partials belonging to Cloth objects without weakening
+  protection for foreign or unauthenticated files.
+
+### Validation
+
+- Regression coverage verifies both cross-generation recovery ownership and
+  scene-wide cleanup from a non-Cloth active object.
+- The normal non-integration repository suite passes with 1,640 tests.
+
 ## 2.3.1 - 2026-08-24
 
 ### Added

@@ -1,8 +1,17 @@
-# Cloth NeXt 2.3.1 Dev
+# Cloth NeXt 2.3.2 Dev
 
-Cloth NeXt 2.3.1 hardens cache cleanup and updates the public error catalogue to
+Cloth NeXt 2.3.2 hardens cache cleanup and updates the public error catalogue to
 match the modern Bake, solver, recovery, playback, and Companion lifecycle.
 This is a Dev release for validation before the next Beta.
+
+## Recovery cache rebakes
+
+- Rebake now recognizes an older recovery partial through its durable project
+  metadata even when the current run has already created a new recovery
+  identity, preventing a false `CNX-E100` ownership rejection.
+- Clear Cache removes authenticated recovery partials for every Cloth object in
+  the scene even when a Collider is active, while foreign and unauthenticated
+  files remain protected.
 
 ## Reliable cache cleanup
 
@@ -46,7 +55,7 @@ terminates foreign processes.
 - Error tests cover every specific classifier, cross-stage negative cases,
   structured crash diagnostics, stable identifiers, and exact public-data
   synchronization.
-- The normal repository suite passes 1,637 tests. Source compilation and
+- The normal repository suite passes 1,640 tests. Source compilation and
   extension validation pass.
 
 The external PPF Contact Solver is unchanged, remains a separate installation,
