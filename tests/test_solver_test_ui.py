@@ -1258,6 +1258,75 @@ def test_resume_accepts_only_its_authenticated_recovery_partial(
     module.prepare_cache_for_new_run(plan)
 
 
+def _stale_recovery_partial(tmp_path, *, uuid="cloth-uuid"):
+    old_cache = tmp_path / "old-cache"
+    metadata = recovery.metadata_path(old_cache, "old-scene")
+    partial = metadata.parent / "partials" / f"{uuid}.pc2.partial"
+    partial.parent.mkdir(parents=True)
+    partial.write_bytes(b"partial")
+    project_root = tmp_path / "old-server" / "project"
+    project_root.mkdir(parents=True)
+    identity = recovery.RecoveryIdentity(
+        scene_key="old-scene", param_key="old-param",
+        export_uuids=(uuid,), geometry_fingerprint="old-geometry",
+        topology_fingerprint="old-topology", frame_start=1, frame_end=60,
+        fps=24.0, collider_sampling=(), solver_version="0.1.0",
+        protocol_version="0.11", solver_schema_version="1",
+        solver_installation_id="unregistered")
+    recovery.create_project(
+        metadata, project_id="old-project", identity=identity,
+        server_data_root=tmp_path / "old-server",
+        project_root=project_root,
+        partial_pc2=((uuid, str(partial)),))
+    return partial
+
+
+def test_rebake_accepts_authenticated_partial_from_previous_recovery_identity(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    old_partial = _stale_recovery_partial(tmp_path)
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(old_partial)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    new_cache = tmp_path / "new-cache"
+    new_partial = (new_cache / ".cloth_next_recovery" / "new-scene" /
+                   "partials" / "cloth-uuid.pc2.partial")
+    options = SimpleNamespace(
+        partial_pc2=(("cloth-uuid", str(new_partial)),))
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        obj.name, tmp_path, new_cache / "cn_test_cloth_new.pc2", 1,
+        recovery_options=options)
+
+    module.prepare_cache_for_new_run(plan)
+
+
+def test_rebake_rejects_unauthenticated_foreign_recovery_partial(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    foreign = (tmp_path / "foreign" / ".cloth_next_recovery" / "scene" /
+               "partials" / "cloth-uuid.pc2.partial")
+    foreign.parent.mkdir(parents=True)
+    foreign.write_bytes(b"artist data")
+    modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(foreign)
+    module.mark_owned_playback(obj, modifier, modifier.filepath)
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+        ((1, 0, 0, 0), (0, 1, 0, 0),
+         (0, 0, 1, 0), (0, 0, 0, 1)),
+        obj.name, tmp_path, tmp_path / "cache" / "cn_test_cloth_new.pc2", 1)
+
+    with pytest.raises(module.SceneValidationError):
+        module.prepare_cache_for_new_run(plan)
+
+
 def test_finished_cache_is_exposed_as_timeline_strip(blender_env):
     module = blender_env.solver_test
 
@@ -2002,6 +2071,33 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
     assert not owned_path.exists()
     assert reports[-1][0] == {"INFO"}
     assert "nothing else was touched" in reports[-1][1]
+
+
+def test_clear_from_active_collider_removes_scene_deformable_recovery_partial(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    cloth = blender_env.bpy.types.Object(name="Plane", type="MESH")
+    collider = blender_env.bpy.types.Object(name="Retopo_Curve", type="MESH")
+    blender_env.bpy.data.objects[cloth.name] = cloth
+    blender_env.bpy.data.objects[collider.name] = collider
+    partial = _stale_recovery_partial(tmp_path)
+    modifier = cloth.modifiers.new(
+        module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    modifier.filepath = str(partial)
+    module.mark_owned_playback(cloth, modifier, modifier.filepath)
+    operator = module.CLOTHNEXT_OT_solver_test_clear()
+    reports = []
+    operator.report = lambda level, message: reports.append((level, message))
+    context = SimpleNamespace(
+        object=collider, scene=SimpleNamespace(objects=(cloth, collider)))
+
+    assert operator.execute(context) == {"FINISHED"}
+
+    assert list(cloth.modifiers) == []
+    assert not partial.exists()
+    assert list(collider.modifiers) == []
+    assert "Removed 1 Cloth NeXt test cache modifier(s)" in reports[-1][1]
+    assert "1 cache file(s)" in reports[-1][1]
 
 
 def test_attach_rolls_back_when_authoritative_ownership_commit_fails(

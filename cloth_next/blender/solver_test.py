@@ -6295,6 +6295,31 @@ def _is_owned_playback_cache_path(path: Path, cache_root: Path) -> bool:
             or (".pc2." in name and name.endswith(".tmp")))
 
 
+def _owned_recovery_partial(path: Path) -> Path | None:
+    """Authenticate a recovery PC2 partial against its project metadata.
+
+    A failed or cancelled run can leave Blender's owned Mesh Cache modifier
+    attached to ``<recovery-root>/partials/<uuid>.pc2.partial``.  A later
+    scene preparation may produce a different recovery identity, so checking
+    only the *current* RunPlan's partial list incorrectly rejects the still
+    owned playback path with CNX-E100.  The durable project metadata is the
+    authority for these older generations.
+    """
+    candidate = Path(path).resolve()
+    if (candidate.parent.name != "partials"
+            or candidate.parent.parent.name == ""):
+        return None
+    metadata = candidate.parent.parent / recovery.METADATA_NAME
+    record = recovery.load_project(metadata, verify_checkpoints=False)
+    if record is None:
+        return None
+    for uuid, value in record.partial_pc2:
+        owned = recovery.owned_partial_path(metadata, uuid, value)
+        if owned is not None and owned == candidate:
+            return candidate
+    return None
+
+
 def prepare_cache_for_new_run(plan: RunPlan) -> None:
     """Validate old ownership; preserve the old result until attach succeeds."""
     if getattr(plan, "deformables", ()):
@@ -6340,16 +6365,22 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
         if not value:
             continue
         path = Path(bpy.path.abspath(value)).resolve()
+        authenticated_recovery = _owned_recovery_partial(path)
         if (path not in recovery_partials
+                and authenticated_recovery is None
                 and not _is_owned_playback_cache_path(path, cache_root)):
             raise SceneValidationError(
                 "The previous Cloth NeXt cache could not be removed. "
                 "Rebake was not started.")
+        if authenticated_recovery is not None:
+            recovery_partials.add(authenticated_recovery)
         targets.extend((path, path.with_suffix(".meta.json")))
     # Validate every target without mutating Blender or disk. The old cache
     # remains active until the new transactional cache is attached.
     for target in targets:
-        if not _is_within(target, cache_root):
+        if (not _is_within(target, cache_root)
+                and not any(_is_within(target, partial.parent)
+                            for partial in recovery_partials)):
             raise SceneValidationError(
                 "The previous Cloth NeXt cache could not be removed. "
                 "Rebake was not started.")
@@ -9762,8 +9793,15 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         removed_modifiers = 0
         removed_files = 0
         cleanup_paths: set[Path] = set()
-        target = getattr(context, "object", None)
-        objects = (target,) if target is not None else bpy.data.objects
+        scene = getattr(context, "scene", None)
+        scene_objects = getattr(scene, "objects", None)
+        if scene_objects is not None:
+            objects = tuple(scene_objects)
+        else:
+            data_objects = bpy.data.objects
+            values = getattr(data_objects, "values", None)
+            objects = (tuple(values()) if callable(values)
+                       else tuple(data_objects))
         for obj in objects:
             settings = getattr(obj, "cloth_next", None)
             owned_paths = []
@@ -9791,9 +9829,11 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     if filepath:
                         owned_paths.append(Path(bpy.path.abspath(filepath)))
             for path in set(owned_paths):
-                if not path.name.startswith("cn_test_cloth_"):
+                resolved = path.resolve()
+                if (not path.name.startswith("cn_test_cloth_")
+                        and _owned_recovery_partial(resolved) is None):
                     continue
-                cleanup_paths.add(path.resolve())
+                cleanup_paths.add(resolved)
             if owned_paths:
                 for key in _PLAYBACK_OBJECT_FIELDS:
                     try:
@@ -9803,7 +9843,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                             delattr(obj, key)
                         except AttributeError:
                             pass
-            if settings is not None and (owned_paths or removed_modifiers):
+            if settings is not None and owned_paths:
                 settings.baked_settings_fingerprint = ""
                 settings.baked_geometry_fingerprint = ""
                 settings.baked_fingerprint_version = 0
@@ -9820,7 +9860,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                        or cache_metadata.sidecar_path(path).exists())
             outcomes = tuple(_delete_cache_artifact(
                 artifact, root=path.parent, stage="MANUAL_CACHE_CLEAR",
-                artifact_type=("pc2" if artifact.suffix == ".pc2"
+                artifact_type=("pc2" if artifact == path
                                else "cache_metadata"))
                 for artifact in (path, cache_metadata.sidecar_path(path)))
             if all(outcome.success for outcome in outcomes):
