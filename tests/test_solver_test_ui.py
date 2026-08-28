@@ -1503,6 +1503,15 @@ def test_attach_places_cache_after_armature_and_before_later_modifiers(
     assert obj.modifiers[0] is armature
     assert module.has_cloth_next_playback_marker(obj, obj.modifiers[1])
     assert obj.modifiers[2] is subdivision
+    # The cache contains the evaluated Armature result. Playback must not
+    # apply the same 90-degree rig rotation again as an apparent 180 degrees.
+    assert not armature.show_viewport
+    assert not armature.show_render
+    with module.without_owned_playback(obj):
+        assert armature.show_viewport
+        assert armature.show_render
+    assert not armature.show_viewport
+    assert not armature.show_render
 
 
 def test_playback_index_is_after_corrective_smooth(blender_env):
@@ -1518,6 +1527,58 @@ def test_playback_index_is_after_corrective_smooth(blender_env):
 
     assert module._playback_stack_index(obj, cache) == 2
     assert [armature, smooth, subdivision, solidify] == list(obj.modifiers[:4])
+
+
+def test_rebake_keeps_cache_after_muted_armature(blender_env, monkeypatch,
+                                                  tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Rebaked Cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
+    header = SimpleNamespace(vertex_count=1, frame_count=1)
+    monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
+
+    def attach(generation):
+        path = tmp_path / f"cn_test_cloth_{generation}.pc2"
+        plan = module.RunPlan(
+            SimpleNamespace(), SimpleNamespace(), ((0, 0, 0),),
+            ((1, 0, 0, 0), (0, 1, 0, 0),
+             (0, 0, 1, 0), (0, 0, 0, 1)),
+            obj.name, tmp_path, path, 1)
+        module._attach_playback(plan, header)
+
+    attach("first")
+    attach("second")
+
+    assert obj.modifiers[0] is armature
+    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[1])
+    assert obj.modifiers[2] is subdivision
+    assert not armature.show_viewport
+    assert not armature.show_render
+
+
+def test_existing_pre_234_cache_is_migrated_on_registration(blender_env,
+                                                             monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Legacy Cached Cloth", type="MESH")
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    cache = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+    cache.filepath = "cn_test_cloth_legacy.pc2"
+    module.mark_owned_playback(obj, cache, cache.filepath)
+    blender_env.bpy.data.objects[obj.name] = obj
+    updates = []
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: updates.append(True))
+
+    module.synchronize_playback_input_deformers()
+
+    assert not armature.show_viewport
+    assert not armature.show_render
+    assert updates == [True]
+    module.restore_playback_input_deformers(obj, clear=True)
+    assert armature.show_viewport
+    assert armature.show_render
 
 
 def test_animated_collider_capture_cache_round_trip(
@@ -2049,7 +2110,10 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
     owned = obj.modifiers.new(
         module.import_result.MODIFIER_NAME, "MESH_CACHE")
     owned.filepath = str(owned_path)
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    obj.modifiers.move(1, 0)
     module.mark_owned_playback(obj, owned, owned.filepath)
+    module.mute_playback_input_deformers(obj, owned)
     artist = obj.modifiers.new("Artist Cache", "MESH_CACHE")
     artist.filepath = str(tmp_path / "artist.pc2")
     original_unlink = Path.unlink
@@ -2066,7 +2130,9 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
 
     assert operator.execute(SimpleNamespace(object=obj)) == {"FINISHED"}
 
-    assert list(obj.modifiers) == [artist]
+    assert list(obj.modifiers) == [armature, artist]
+    assert armature.show_viewport
+    assert armature.show_render
     assert artist.filepath.endswith("artist.pc2")
     assert not owned_path.exists()
     assert reports[-1][0] == {"INFO"}

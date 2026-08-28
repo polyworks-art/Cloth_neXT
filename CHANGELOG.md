@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.3 - 2026-08-28
+## 2.3.4 - 2026-08-28
 
 ### Fixed
 
@@ -13,13 +13,18 @@
 - Persistent transport loss retains `CNX-E140` with precise connect/read/reset
   classification, bounded latency counters, process-tree evidence, and solver
   log tails.
+- Absolute PC2 playback now mutes Armature and Corrective Smooth inputs whose
+  evaluated deformation is already baked into the cache, preventing a 90° body
+  rotation from becoming an apparent 180° skirt rotation and position offset.
+- Re-Bake, animated Pin capture, rollback, and Clear Cache temporarily restore
+  or permanently recover the artist's original modifier visibility states.
 
 ### Validation
 
 - Regression coverage verifies transient and persistent transport failures,
   cancellation while reconnecting, exactly-once simulation start, malformed
   responses, heavy solver output, invalid UTF-8, and log lifecycle cleanup.
-- The normal repository suite passes with 1,647 tests; 10 configured external
+- The normal repository suite passes with 1,649 tests; 10 configured external
   integration cases skip honestly and 3 built-artifact cases are deselected.
 - Real official PPF 0.18/schema 2 health, ownership, single-object, and
   multi-object integration tests pass. A measured run completed 75 status

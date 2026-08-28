@@ -76,6 +76,8 @@ def _steps() -> list[tuple]:
     steps.append((validation_state.register, validation_state.unregister))
     steps.append((solver_test.install_recovery_ui_handler,
                   solver_test.uninstall_recovery_ui_handler))
+    steps.append((solver_test.synchronize_playback_input_deformers,
+                  lambda: None))
     steps.append((solver_test.install_validator,
                   lambda: validation_state.set_validator(None)))
     return steps

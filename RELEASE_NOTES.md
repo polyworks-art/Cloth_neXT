@@ -1,8 +1,13 @@
-# Cloth NeXt 2.3.3 Dev
+# Cloth NeXt 2.3.4 Dev
 
-Cloth NeXt 2.3.3 fixes the recurring CNX-E140 failure where the solver process
+Cloth NeXt 2.3.4 fixes the recurring CNX-E140 failure where the solver process
 remained alive but its control connection stopped responding. This is a Dev
 release for validation before the next Beta.
+
+It also fixes rigged-cloth PC2 playback applying the Armature deformation a
+second time. A 90° animated body rotation now remains a 90° skirt rotation,
+without the rotation-origin position offset that previously looked like an
+FPS/export mismatch.
 
 ## Solver transport reliability
 
@@ -29,7 +34,7 @@ release for validation before the next Beta.
 
 ## Included validation
 
-- The normal repository suite passes 1,647 tests, with external prerequisites
+- The normal repository suite passes 1,649 tests, with external prerequisites
   skipped honestly and built-artifact tests reserved for the publication job.
 - Focused tests cover one and three transient failures, persistent loss,
   exactly-once simulation start, cancellation, process exit classification,

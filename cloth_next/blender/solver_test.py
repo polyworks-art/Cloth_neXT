@@ -145,10 +145,13 @@ from ..updater.solver_registry import load_registry
 from . import (collider_proxy, companion_manager, modal_lock,
                object_properties, validation_state)
 from .playback_cache import (
+    INPUT_DEFORMER_STATE_KEY,
     OBJECT_OWNERSHIP_KEY,
     has_cloth_next_playback_marker,
     is_cloth_next_playback_modifier,
     mark_owned_playback,
+    mute_playback_input_deformers,
+    restore_playback_input_deformers,
     without_owned_playback,
     forget_pending_cleanup,
     pending_cleanup_paths,
@@ -5208,13 +5211,16 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         scene.frame_set(bake_range.start)
         for entry in snapshot.deformables:
             obj = entry.obj
-            precomputed = (animated_pin_samples.get(obj.name)
-                           if isinstance(animated_pin_samples, dict) else None)
-            pin_snapshot = _capture_animated_pin(
-                context, obj, bake_range, entry.pin_membership, precomputed)
-            _validate_deformable_modifier_path(obj, pin_snapshot)
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
+                # A previous absolute cache mutes its already-baked Armature
+                # inputs during playback. Restore them for both Pin sampling
+                # and mesh export so a Re-Bake uses the authored rig pose.
+                precomputed = (animated_pin_samples.get(obj.name)
+                               if isinstance(animated_pin_samples, dict) else None)
+                pin_snapshot = _capture_animated_pin(
+                    context, obj, bake_range, entry.pin_membership, precomputed)
+                _validate_deformable_modifier_path(obj, pin_snapshot)
                 if entry.role == "ROD":
                     vertices, edges, _splines = sample_curve(obj)
                     triangles = ()
@@ -7167,9 +7173,10 @@ def _modifier_index(obj, modifier) -> int:
 def _playback_stack_index(obj, playback_modifier) -> int:
     """Return the slot immediately after the solver-input modifier prefix.
 
-    The cache must never precede the rig: doing so lets the Armature deform the
-    simulated result a second time. Other modifier types keep their relative
-    ordering.
+    Playback mutes that prefix because its evaluated deformation is already in
+    the absolute PC2. Keeping the cache in the same semantic stack position
+    preserves the artist's ordering when playback is cleared or suspended for
+    a Re-Bake. Other modifier types retain their relative ordering.
     """
     stack_without_playback = [modifier for modifier in obj.modifiers
                               if not _same_modifier(modifier,
@@ -7275,7 +7282,8 @@ _PLAYBACK_MODIFIER_FIELDS = (
     "name", "filepath", "cache_format", "frame_start", "interpolation",
     "deform_mode", "play_mode", "forward_axis", "up_axis",
     "show_viewport", "show_render")
-_PLAYBACK_OBJECT_FIELDS = (OBJECT_OWNERSHIP_KEY, "cloth_next_cache_path")
+_PLAYBACK_OBJECT_FIELDS = (
+    OBJECT_OWNERSHIP_KEY, "cloth_next_cache_path", INPUT_DEFORMER_STATE_KEY)
 _PLAYBACK_SETTINGS_FIELDS = (
     "baked_settings_fingerprint", "baked_geometry_fingerprint",
     "baked_fingerprint_version", "baked_cache_condition",
@@ -7323,6 +7331,7 @@ class _PlaybackRecord:
     previous_paths: set
     new_path: Path
     object_fields: dict
+    input_modifier_fields: tuple
     settings: object | None
     settings_fields: dict
 
@@ -7342,6 +7351,9 @@ def _rollback_playback(records) -> None:
                     obj.modifiers.move(current_index, record.original_index)
             for name, snapshot in record.object_fields.items():
                 _restore_value(obj, name, snapshot)
+            for input_modifier, viewport, render in record.input_modifier_fields:
+                input_modifier.show_viewport = viewport
+                input_modifier.show_render = render
             if record.settings is not None:
                 for name, snapshot in record.settings_fields.items():
                     _restore_value(record.settings, name, snapshot)
@@ -7522,11 +7534,19 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
     fields = {name: getattr(modifier, name) for name in
               _PLAYBACK_MODIFIER_FIELDS if hasattr(modifier, name)}
     settings = getattr(obj, "cloth_next", None)
+    input_modifier_fields = tuple(
+        (input_modifier,
+         bool(getattr(input_modifier, "show_viewport", True)),
+         bool(getattr(input_modifier, "show_render", True)))
+        for input_modifier in obj.modifiers
+        if str(getattr(input_modifier, "type", "")) in
+        _SOLVER_INPUT_MODIFIER_TYPES)
     record = _PlaybackRecord(
         obj, modifier, created, original_index, fields, tuple(extras), previous_paths,
         plan.pc2_path,
         {name: _snapshot_value(obj, name) for name in
          _PLAYBACK_OBJECT_FIELDS},
+        input_modifier_fields,
         settings,
         ({name: _snapshot_value(settings, name) for name in
           _PLAYBACK_SETTINGS_FIELDS} if settings is not None else {}))
@@ -7536,6 +7556,11 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         modifier.show_viewport = False
         modifier.show_render = False
         _depsgraph_update(bpy.context)
+        # Re-Bake starts with the previous cache active and its input rig
+        # muted. Restore the authored flags while the cache is hidden so the
+        # semantic stack slot is computed from the real solver-input prefix.
+        if restore_playback_input_deformers(obj):
+            _depsgraph_update(bpy.context)
         modifier.name = import_result.MODIFIER_NAME
         _configure_playback_modifier(modifier, plan.frame_start)
         current_index = _modifier_index(obj, modifier)
@@ -7548,6 +7573,10 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         # This unique finalized filepath assignment is the N -> N+1 handoff.
         modifier.filepath = str(plan.pc2_path)
         mark_owned_playback(obj, modifier, str(plan.pc2_path))
+        # PC2 stores the fully armature-deformed solver result in object-local
+        # coordinates. Leaving the input rig enabled applies that rotation a
+        # second time (for example 90 degrees becomes roughly 180 degrees).
+        mute_playback_input_deformers(obj, modifier)
         settings = getattr(obj, "cloth_next", None)
         if settings is not None and plan.settings_fingerprint:
             settings.baked_settings_fingerprint = plan.settings_fingerprint
@@ -7651,6 +7680,7 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
             obj.modifiers.move(current_index, target_index)
         modifier.filepath = str(path)
         mark_owned_playback(obj, modifier, str(path))
+        mute_playback_input_deformers(obj, modifier)
 
 
 def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
@@ -7973,6 +8003,7 @@ def _on_load_post_refresh_recovery(*_args) -> None:
     _recovery_refresh_generation += 1
     _recovery_refresh_attempt = 0
     _cancel_delayed_recovery_refresh()
+    synchronize_playback_input_deformers()
     scene = getattr(getattr(bpy, "context", None), "scene", None)
     settings = getattr(scene, "cloth_next_recovery", None)
     if settings is not None:
@@ -8014,6 +8045,29 @@ _RECOVERY_HANDLER_SLOTS = (
 )
 
 _recovery_ui_handler_registered = False
+
+
+def synchronize_playback_input_deformers() -> None:
+    """Migrate loaded absolute caches to single-deformation playback.
+
+    Caches created before 2.3.4 have ownership metadata but no saved input
+    modifier snapshot. Discovering them at registration/load time makes the
+    fix effective for existing blend files without requiring another Bake.
+    """
+    changed = False
+    data_objects = getattr(getattr(bpy, "data", None), "objects", ())
+    values = getattr(data_objects, "values", None)
+    objects = tuple(values()) if callable(values) else tuple(data_objects)
+    for obj in objects:
+        playback = next((
+            modifier for modifier in getattr(obj, "modifiers", ())
+            if has_cloth_next_playback_marker(obj, modifier)), None)
+        if playback is not None:
+            changed |= mute_playback_input_deformers(obj, playback)
+    if changed:
+        context = getattr(bpy, "context", None)
+        if context is not None:
+            _depsgraph_update(context)
 
 
 def install_recovery_ui_handler() -> None:
@@ -8950,12 +9004,15 @@ def _suspend_pin_capture_playback(state) -> None:
     capture and restore it afterwards.
     """
     saved = []
+    restored_inputs = []
     try:
         for object_name, _membership in state["targets"]:
             obj = bpy.data.objects.get(object_name)
             if obj is None:
                 raise SceneValidationError(
                     f"The Cloth object {object_name!r} no longer exists.")
+            if restore_playback_input_deformers(obj):
+                restored_inputs.append(obj)
             modifiers = tuple(getattr(obj, "modifiers", ()))
             cutoff = _solver_input_modifier_cutoff(obj)
             for index, modifier in enumerate(modifiers):
@@ -8971,12 +9028,15 @@ def _suspend_pin_capture_playback(state) -> None:
                 modifier.show_viewport = False
                 modifier.show_render = False
         state["playback_states"] = saved
+        state["playback_input_objects"] = restored_inputs
         if saved:
             _depsgraph_update(state["context"])
     except Exception:
         for modifier, viewport, render in reversed(saved):
             modifier.show_viewport = viewport
             modifier.show_render = render
+        for obj in reversed(restored_inputs):
+            mute_playback_input_deformers(obj)
         raise
 
 
@@ -8988,6 +9048,11 @@ def _restore_pin_capture_state(state) -> None:
             modifier.show_viewport = viewport
             modifier.show_render = render
         except (ReferenceError, AttributeError):
+            pass
+    for obj in reversed(state.pop("playback_input_objects", ())):
+        try:
+            mute_playback_input_deformers(obj)
+        except (ReferenceError, AttributeError, TypeError):
             pass
     context = state["context"]
     context.scene.frame_set(
@@ -9828,6 +9893,8 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                     removed_modifiers += 1
                     if filepath:
                         owned_paths.append(Path(bpy.path.abspath(filepath)))
+            if owned_paths:
+                restore_playback_input_deformers(obj, clear=True)
             for path in set(owned_paths):
                 resolved = path.resolve()
                 if (not path.name.startswith("cn_test_cloth_")
