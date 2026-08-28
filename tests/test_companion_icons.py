@@ -3,7 +3,10 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
-from companion.build_assets import (APP_ICON_SIZE, PARTICLE_ASSETS, STATUS_ASSETS,
+from companion.build_assets import (APP_ICON_SIZE, PARTICLE_ASSETS,
+                                    PARTICLE_SUBPIXEL_ASSETS,
+                                    PARTICLE_SUBPIXEL_PHASES,
+                                    PARTICLE_VISUAL_SCALE, STATUS_ASSETS,
                                     STATUS_SIZE)
 from companion.app import error_activity_label
 from cloth_next.bake.status import BakeSnapshot,BakeState
@@ -61,15 +64,22 @@ def test_generated_companion_executable_is_not_committed():
 
 def test_particle_assets_are_deterministic_translucent_icons():
     build(); target=ROOT/"companion"/"assets"
-    before={name:(target/name).read_bytes() for name in PARTICLE_ASSETS}; build()
-    assert before == {name:(target/name).read_bytes() for name in PARTICLE_ASSETS}
-    for name,size in PARTICLE_ASSETS.items():
+    all_particles={**PARTICLE_ASSETS,**PARTICLE_SUBPIXEL_ASSETS}
+    before={name:(target/name).read_bytes() for name in all_particles}; build()
+    assert before == {name:(target/name).read_bytes() for name in all_particles}
+    assert PARTICLE_SUBPIXEL_PHASES == 4
+    assert PARTICLE_VISUAL_SCALE == 1.05
+    assert len(PARTICLE_SUBPIXEL_ASSETS) == len(PARTICLE_ASSETS)*16
+    for name,size in all_particles.items():
         assert (target/name).stat().st_size < 16*1024
         with Image.open(target/name) as image:
             rgba=image.convert("RGBA")
             assert image.mode=="RGBA" and image.size==size
             visible=[pixel for pixel in rgba.get_flattened_data() if pixel[3]]
             assert visible and max(pixel[3] for pixel in visible) <= 184
+    phases=[(target/name).read_bytes() for name in PARTICLE_SUBPIXEL_ASSETS
+            if name.startswith("particle_bake_12.subpixel-")]
+    assert len(set(phases)) == 16
 
 
 def test_solver_status_assets_are_deterministic_opaque_white_icons():

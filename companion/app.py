@@ -27,7 +27,8 @@ from cloth_next.veyra.model import (CompanionMode, RepairArtifact, VeyraStep,
                                     VEYRA_STEP_LABELS)
 from cloth_next.veyra.solver import VeyraCancelled, solve_repair_plan
 from companion.particle_motion import (advance_particle,
-                                       advance_veyra_particle, smooth_rate)
+                                       advance_veyra_particle, smooth_rate,
+                                       subpixel_coordinate)
 from companion.frame_progress import CurrentFrameProgressEstimator, FrameProgress
 from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
 
@@ -233,6 +234,12 @@ PARTICLE_ASSETS=("particle_bake_12.png","particle_cloth_16.png",
     "particle_collider_12.png","particle_collision_16.png",
     "particle_pinning_12.png","particle_solver_16.png",
     "particle_quality_12.png","particle_timer_12.png")
+PARTICLE_SUBPIXEL_PHASES=4
+
+
+def _particle_phase_asset(name,phase_x,phase_y):
+    path=Path(name)
+    return f"{path.stem}.subpixel-{phase_x}-{phase_y}{path.suffix}"
 
 class IconParticleField:
     """Small Houdini-inspired icon flow with smooth path noise."""
@@ -250,7 +257,12 @@ class IconParticleField:
                 self.WIDTH/2,7,self.WIDTH/2,self.HEIGHT-7,
                 fill=AMBER,width=1,dash=(2,3),state="hidden"))
         try:
-            self._images=[tk.PhotoImage(file=str(_asset(name))) for name in PARTICLE_ASSETS]
+            self._images=[[
+                tk.PhotoImage(file=str(_asset(_particle_phase_asset(
+                    name,phase_x,phase_y))))
+                for phase_y in range(PARTICLE_SUBPIXEL_PHASES)
+                for phase_x in range(PARTICLE_SUBPIXEL_PHASES)]
+                for name in PARTICLE_ASSETS]
             rng=random.Random()
             for index in range(self.COUNT):
                 angle=rng.uniform(0,math.tau)
@@ -268,9 +280,16 @@ class IconParticleField:
                     start_y=8.0+(index*7.0)%(self.HEIGHT-16.0),
                     seam_offset=side*(1.5+(index%3)),vertical_arc=side*(index%4-1.5),
                     duration=1.8+(index%4)*.25,veyra_time=(index/self.COUNT)*2.2)
+                particle["asset_index"]=index%len(self._images)
+                pixel_x,phase_x=subpixel_coordinate(
+                    particle["base_x"],PARTICLE_SUBPIXEL_PHASES)
+                pixel_y,phase_y=subpixel_coordinate(
+                    particle["base_y"],PARTICLE_SUBPIXEL_PHASES)
+                particle["image_phase"]=phase_y*PARTICLE_SUBPIXEL_PHASES+phase_x
                 particle["item"]=self.canvas.create_image(
-                    particle["base_x"],particle["base_y"],
-                    image=self._images[index%len(self._images)])
+                    pixel_x,pixel_y,
+                    image=self._images[particle["asset_index"]][
+                        particle["image_phase"]])
                 self._particles.append(particle)
             self.available=True
         except Exception:
@@ -308,7 +327,15 @@ class IconParticleField:
                         particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
                 else:
                     x,y=advance_particle(particle,elapsed,self._rate,self.WIDTH,self.HEIGHT)
-                self.canvas.coords(particle["item"],x,y)
+                pixel_x,phase_x=subpixel_coordinate(x,PARTICLE_SUBPIXEL_PHASES)
+                pixel_y,phase_y=subpixel_coordinate(y,PARTICLE_SUBPIXEL_PHASES)
+                image_phase=phase_y*PARTICLE_SUBPIXEL_PHASES+phase_x
+                if image_phase!=particle["image_phase"]:
+                    particle["image_phase"]=image_phase
+                    self.canvas.itemconfigure(
+                        particle["item"],image=self._images[
+                            particle["asset_index"]][image_phase])
+                self.canvas.coords(particle["item"],pixel_x,pixel_y)
         try:self._after=self.canvas.after(self.FRAME_MS,self._tick)
         except tk.TclError:self._running=False
     def close(self):

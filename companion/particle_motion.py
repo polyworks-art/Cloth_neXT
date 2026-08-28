@@ -4,6 +4,19 @@ from __future__ import annotations
 import math
 
 
+def subpixel_coordinate(value: float, phases: int = 4) -> tuple[int, int]:
+    """Split a position into an integer Canvas coordinate and image phase.
+
+    Tk places bitmap images on device pixels even when Canvas coordinates are
+    floats. A pre-rendered fractional image phase carries the remaining offset
+    so slow particles do not pause for many frames and then jump by one pixel.
+    """
+    phases = max(1, int(phases))
+    quantized = math.floor(float(value) * phases + 0.5)
+    coordinate, phase = divmod(quantized, phases)
+    return coordinate, phase
+
+
 def smooth_rate(current: float, target: float, elapsed: float,
                 response: float = 5.0) -> float:
     """Approach *target* with the same response at every display frame rate."""

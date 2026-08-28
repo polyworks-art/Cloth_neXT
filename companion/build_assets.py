@@ -19,6 +19,8 @@ PARTICLE_SOURCES={"bake":(12,-18),"cloth":(16,12),"collider":(12,-11),
                   "quality":(12,-14),"timer":(12,23)}
 PARTICLE_ASSETS={f"particle_{name}_{size}.png":(size,size)
                  for name,(size,_angle) in PARTICLE_SOURCES.items()}
+PARTICLE_SUBPIXEL_PHASES=4
+PARTICLE_VISUAL_SCALE=1.05
 STATUS_ASSETS={
     "status_contacts_16.png":"contacts.svg",
     "status_newton_16.png":"newton.svg",
@@ -26,6 +28,44 @@ STATUS_ASSETS={
 }
 STATUS_SIZE=(16,16)
 APP_ICON_SIZE=(256,256)
+
+
+def _subpixel_name(name: str, phase_x: int, phase_y: int) -> str:
+    path=Path(name)
+    return f"{path.stem}.subpixel-{phase_x}-{phase_y}{path.suffix}"
+
+
+PARTICLE_SUBPIXEL_ASSETS={
+    _subpixel_name(name,phase_x,phase_y):size
+    for name,size in PARTICLE_ASSETS.items()
+    for phase_y in range(PARTICLE_SUBPIXEL_PHASES)
+    for phase_x in range(PARTICLE_SUBPIXEL_PHASES)}
+
+
+def _subpixel_variant(icon: Image.Image, phase_x: int,
+                      phase_y: int) -> Image.Image:
+    fraction_x=phase_x/PARTICLE_SUBPIXEL_PHASES
+    fraction_y=phase_y/PARTICLE_SUBPIXEL_PHASES
+    variant=icon.transform(
+        icon.size,Image.Transform.AFFINE,
+        (1.0,0.0,-fraction_x,0.0,1.0,-fraction_y),
+        resample=Image.Resampling.BICUBIC)
+    # Bicubic interpolation can overshoot a channel by one value. Preserve the
+    # established 72% particle-opacity ceiling for every fractional phase.
+    alpha=variant.getchannel("A").point(lambda value:min(184,value))
+    variant.putalpha(alpha)
+    return variant
+
+
+def _scale_about_center(icon: Image.Image, scale: float) -> Image.Image:
+    inverse=1.0/max(0.01,float(scale))
+    center_x=(icon.width-1)/2.0
+    center_y=(icon.height-1)/2.0
+    return icon.transform(
+        icon.size,Image.Transform.AFFINE,
+        (inverse,0.0,center_x*(1.0-inverse),
+         0.0,inverse,center_y*(1.0-inverse)),
+        resample=Image.Resampling.BICUBIC)
 
 def _build_app_icon(source: Image.Image) -> Image.Image:
     rgba=source.convert("RGBA")
@@ -88,10 +128,18 @@ def build() -> None:
             icon.alpha_composite(content,(inset,inset))
             icon=icon.rotate(angle,resample=Image.Resampling.BICUBIC,
                              expand=False)
+            icon=_scale_about_center(icon,PARTICLE_VISUAL_SCALE)
             alpha=icon.getchannel("A").point(lambda value:int(value*.72))
             icon.putalpha(alpha)
-            icon.save(TARGET/f"particle_{name}_{size}.png",format="PNG",
+            particle_name=f"particle_{name}_{size}.png"
+            icon.save(TARGET/particle_name,format="PNG",
                       optimize=False,compress_level=9)
+            for phase_y in range(PARTICLE_SUBPIXEL_PHASES):
+                for phase_x in range(PARTICLE_SUBPIXEL_PHASES):
+                    _subpixel_variant(icon,phase_x,phase_y).save(
+                        TARGET/_subpixel_name(
+                            particle_name,phase_x,phase_y),format="PNG",
+                        optimize=False,compress_level=9)
     for target_name,source_name in STATUS_ASSETS.items():
         source=STATUS_SOURCE/source_name
         if not source.is_file():
@@ -104,7 +152,7 @@ def build() -> None:
 
 def validate() -> None:
     for name in ("cloth_next.png", "bake.png", "cloth_next.ico",
-                 *PARTICLE_ASSETS,*STATUS_ASSETS):
+                 *PARTICLE_ASSETS,*PARTICLE_SUBPIXEL_ASSETS,*STATUS_ASSETS):
         path = TARGET / name
         if not path.is_file():
             raise FileNotFoundError(f"missing companion icon asset: {path}")
@@ -112,9 +160,11 @@ def validate() -> None:
             if name == "cloth_next.ico" and set(image.info.get("sizes", ())) != set(ICO_SIZES):
                 raise ValueError("companion ICO does not contain every required size")
             image.verify()
-        if name in PARTICLE_ASSETS:
+        if name in PARTICLE_ASSETS or name in PARTICLE_SUBPIXEL_ASSETS:
             with Image.open(path) as image:
-                if image.mode!="RGBA" or image.size!=PARTICLE_ASSETS[name]: raise ValueError(f"invalid particle asset: {name}")
+                expected=PARTICLE_ASSETS.get(
+                    name,PARTICLE_SUBPIXEL_ASSETS.get(name))
+                if image.mode!="RGBA" or image.size!=expected: raise ValueError(f"invalid particle asset: {name}")
                 if path.stat().st_size>16*1024: raise ValueError(f"oversized particle asset: {name}")
         if name in STATUS_ASSETS:
             with Image.open(path) as image:

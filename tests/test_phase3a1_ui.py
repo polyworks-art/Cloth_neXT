@@ -36,7 +36,7 @@ def test_hud_uses_public_website_palette(blender_env):
     assert hud.HUD_DANGER == (1.0,.420,.443,.96)
 
 
-def test_hud_redraw_timer_updates_idle_viewport_without_mouse_input(
+def test_hud_redraw_timer_updates_active_viewport_without_mouse_input(
         blender_env, monkeypatch):
     hud=__import__("cloth_next.blender.hud",fromlist=["x"])
     redraws=[]
@@ -46,10 +46,40 @@ def test_hud_redraw_timer_updates_idle_viewport_without_mouse_input(
     monkeypatch.setattr(hud,"_preferences",lambda:SimpleNamespace(
         show_bake_hud=True,telemetry_refresh_seconds=.5))
     monkeypatch.setattr(hud.shared_controller,"snapshot",lambda:
-        SimpleNamespace(state=hud.BakeState.PREPARING))
+        SimpleNamespace(active=True,state=hud.BakeState.PREPARING))
 
     assert hud._redraw_pulse() == .5
     assert redraws == [True]
+
+
+def test_hud_redraw_timer_stops_for_finished_bake(blender_env, monkeypatch):
+    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
+    redraws=[]
+    area=SimpleNamespace(type="VIEW_3D",tag_redraw=lambda:redraws.append(True))
+    blender_env.bpy.context.window_manager=SimpleNamespace(windows=(
+        SimpleNamespace(screen=SimpleNamespace(areas=(area,))),))
+    monkeypatch.setattr(hud,"_preferences",lambda:SimpleNamespace(
+        show_bake_hud=True,telemetry_refresh_seconds=2.0))
+    monkeypatch.setattr(hud.shared_controller,"snapshot",lambda:
+        SimpleNamespace(active=False,state=hud.BakeState.FINISHED))
+
+    assert hud._redraw_pulse() == 2.0
+    assert redraws == []
+
+
+def test_hud_terminal_transition_pauses_telemetry_after_one_redraw(
+        blender_env, monkeypatch):
+    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
+    enabled=[]
+    monkeypatch.setattr(hud.shared_telemetry,"set_enabled",enabled.append)
+    hud._last_active=True
+    hud._terminal_redraw_pending=False
+
+    hud._on_bake_snapshot(SimpleNamespace(active=False))
+
+    assert enabled == [False]
+    assert hud._terminal_redraw_pending is True
+    assert hud._last_active is False
 
 def test_release_versions_remain_consistent_and_channel_encoded():
     package=Path(__file__).parents[1]/"cloth_next"

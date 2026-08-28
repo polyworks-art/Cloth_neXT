@@ -14,6 +14,9 @@ from .addon_identity import addon_preferences
 _handle = None
 _draw_failed = False
 _history = ResourceHistory()
+_unsubscribe = None
+_last_active = False
+_terminal_redraw_pending = False
 
 # Public website palette, mirrored in the viewport overlay.
 HUD_BG = (.027, .063, .055, .96)          # #07100e
@@ -29,15 +32,13 @@ HUD_DANGER = (1.0, .420, .443, .96)       # #ff6b71
 
 def _redraw_pulse():
     """Refresh active resource graphs independently of viewport input."""
+    global _terminal_redraw_pending
     prefs = _preferences()
-    if (shared_controller.snapshot().state is not BakeState.IDLE
+    active = shared_controller.snapshot().active
+    if ((active or _terminal_redraw_pending)
             and (prefs is None or getattr(prefs, "show_bake_hud", True))):
-        windows = getattr(
-            getattr(bpy.context, "window_manager", None), "windows", ())
-        for window in windows:
-            for area in getattr(getattr(window, "screen", None), "areas", ()):
-                if getattr(area, "type", "") == "VIEW_3D":
-                    area.tag_redraw()
+        _tag_view3d_redraw()
+    _terminal_redraw_pending = False
     return max(.25, min(10.0, float(getattr(
         prefs, "telemetry_refresh_seconds", 1.0))))
 
@@ -47,6 +48,27 @@ def _preferences():
         return addon_preferences(bpy.context, __package__)
     except (KeyError, AttributeError):
         return None
+
+
+def _tag_view3d_redraw():
+    windows = getattr(
+        getattr(bpy.context, "window_manager", None), "windows", ())
+    for window in windows:
+        for area in getattr(getattr(window, "screen", None), "areas", ()):
+            if getattr(area, "type", "") == "VIEW_3D":
+                area.tag_redraw()
+
+
+def _on_bake_snapshot(snapshot):
+    """Gate expensive telemetry/redraw work on a genuinely active Bake."""
+    global _last_active, _terminal_redraw_pending
+    active = bool(getattr(snapshot, "active", False))
+    shared_telemetry.set_enabled(active)
+    if _last_active and not active:
+        # The timer performs one final main-thread redraw; controller listeners
+        # are not guaranteed to run on Blender's main thread.
+        _terminal_redraw_pending = True
+    _last_active = active
 
 
 def _draw():
@@ -149,8 +171,15 @@ def _draw():
 
 
 def register():
-    global _handle, _draw_failed
+    global _handle, _draw_failed, _unsubscribe, _last_active
+    global _terminal_redraw_pending
+    initial = shared_controller.snapshot()
+    _last_active = initial.active
+    _terminal_redraw_pending = False
+    shared_telemetry.set_enabled(initial.active)
     shared_telemetry.start()
+    if _unsubscribe is None:
+        _unsubscribe = shared_controller.subscribe(_on_bake_snapshot)
     if _handle is not None or not hasattr(bpy.types, "SpaceView3D"):
         return
     _draw_failed = False
@@ -162,7 +191,13 @@ def register():
 
 
 def unregister():
-    global _handle
+    global _handle, _unsubscribe, _last_active, _terminal_redraw_pending
+    if _unsubscribe is not None:
+        _unsubscribe()
+        _unsubscribe = None
+    _last_active = False
+    _terminal_redraw_pending = False
+    shared_telemetry.set_enabled(False)
     shared_telemetry.stop()
     _history.clear()
     if bpy.app.timers.is_registered(_redraw_pulse):

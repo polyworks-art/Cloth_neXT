@@ -13,11 +13,16 @@ class TelemetryService:
         self._refresh=max(.25,min(10.0,float(refresh_seconds))); self._stale=stale_seconds
         self._gpu=gpu_provider; self._system=system_provider or WindowsSystemProvider()
         self._lock=threading.RLock(); self._stop=threading.Event(); self._thread=None
+        self._enabled=threading.Event(); self._enabled.set()
         self._pid=None; self._snapshot=SystemTelemetrySnapshot()
     def configure(self, refresh_seconds: float):
         with self._lock: self._refresh=max(.25,min(10.0,float(refresh_seconds)))
     def set_solver_pid(self, pid: int | None):
         with self._lock: self._pid=pid if pid and pid > 0 else None
+    def set_enabled(self, enabled: bool):
+        """Pause hardware queries without tearing down the worker thread."""
+        if enabled:self._enabled.set()
+        else:self._enabled.clear()
     def snapshot(self):
         with self._lock: return self._snapshot
     def start(self):
@@ -66,6 +71,8 @@ class TelemetryService:
                                                     "; ".join(errors) if errors else "")
     def _run(self):
         while not self._stop.is_set():
+            if not self._enabled.wait(0.25):
+                continue
             self._sample()
             with self._lock: interval=self._refresh
             self._stop.wait(interval)

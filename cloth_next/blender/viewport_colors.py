@@ -74,7 +74,7 @@ def _view3d_spaces():
                     yield area, space
 
 
-def refresh_viewports() -> None:
+def refresh_viewports() -> bool:
     """Keep every live Solid viewport in Object Color mode and redraw it.
 
     Blender can create new VIEW_3D spaces after add-on registration (workspace
@@ -82,6 +82,7 @@ def refresh_viewports() -> None:
     ``register`` is not sufficient.
     """
     known = {id(shading) for shading, _color_type in _shading_states}
+    changed_any = False
     for area, space in _view3d_spaces():
         shading = getattr(space, "shading", None)
         if shading is None or getattr(shading, "type", "") != "SOLID":
@@ -92,12 +93,14 @@ def refresh_viewports() -> None:
                 known.add(id(shading))
             try:
                 shading.color_type = "OBJECT"
+                changed_any = True
             except (AttributeError, ReferenceError, RuntimeError):
                 continue
-        try:
-            area.tag_redraw()
-        except (AttributeError, ReferenceError, RuntimeError):
-            pass
+            try:
+                area.tag_redraw()
+            except (AttributeError, ReferenceError, RuntimeError):
+                pass
+    return changed_any
 
 
 def _refresh_timer():

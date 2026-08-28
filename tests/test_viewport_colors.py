@@ -50,3 +50,16 @@ def test_refresh_forces_solid_viewport_to_object_color(monkeypatch):
     assert shading.color_type == "OBJECT"
     assert redraws == [1]
     assert viewport_colors._shading_states == [(shading, "MATERIAL")]
+
+
+def test_refresh_does_not_redraw_unchanged_object_color_viewport(monkeypatch):
+    viewport_colors = _module(monkeypatch)
+    redraws = []
+    shading = SimpleNamespace(type="SOLID", color_type="OBJECT")
+    space = SimpleNamespace(shading=shading)
+    area = SimpleNamespace(tag_redraw=lambda: redraws.append(1))
+    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
+                        lambda: iter(((area, space),)))
+
+    assert viewport_colors.refresh_viewports() is False
+    assert redraws == []

@@ -6,7 +6,7 @@ import math
 import pytest
 
 from companion.particle_motion import (advance_particle, advance_veyra_particle,
-                                       smooth_rate)
+                                       smooth_rate, subpixel_coordinate)
 
 
 def particle():
@@ -26,6 +26,21 @@ def test_particle_path_is_frame_rate_independent():
     assert fast_position == pytest.approx(slow_position)
     assert fast["base_x"] == pytest.approx(slow["base_x"])
     assert fast["base_y"] == pytest.approx(slow["base_y"])
+
+
+def test_subpixel_coordinate_advances_in_quarter_pixel_phases():
+    assert [subpixel_coordinate(value) for value in
+            (10.00, 10.24, 10.49, 10.74, 10.99)] == [
+                (10, 0), (10, 1), (10, 2), (10, 3), (11, 0)]
+
+
+def test_subpixel_coordinate_is_continuous_across_negative_canvas_margin():
+    samples=[subpixel_coordinate(value) for value in
+             (-0.51, -0.26, -0.01, 0.24)]
+    reconstructed=[coordinate+phase/4 for coordinate,phase in samples]
+    assert reconstructed == sorted(reconstructed)
+    assert all(abs(actual-source) <= 0.125 for actual,source in zip(
+        reconstructed,(-0.51,-0.26,-0.01,0.24)))
 
 
 def test_path_noise_stays_bounded_instead_of_accumulating():

@@ -8,7 +8,8 @@ import PyInstaller.__main__
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from companion.build_assets import (PARTICLE_ASSETS, STATUS_ASSETS,
+from companion.build_assets import (PARTICLE_ASSETS,
+                                    PARTICLE_SUBPIXEL_ASSETS, STATUS_ASSETS,
                                     build as build_assets)
 def main():
     build_assets()
@@ -20,6 +21,8 @@ def main():
         f"--add-data={assets/'veyra.png'};companion_assets",
         f"--add-data={assets/'bake.png'};companion_assets",
         *[f"--add-data={assets/name};companion_assets" for name in PARTICLE_ASSETS],
+        *[f"--add-data={assets/name};companion_assets"
+          for name in PARTICLE_SUBPIXEL_ASSETS],
         *[f"--add-data={assets/name};companion_assets" for name in STATUS_ASSETS],
         f"--distpath={ROOT/'companion/dist'}",f"--workpath={ROOT/'companion/build/app_icon'}",
         f"--specpath={ROOT/'companion'}",f"--paths={ROOT}"])

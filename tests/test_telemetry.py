@@ -49,3 +49,25 @@ def test_stop_timeout_keeps_live_worker_registered_and_blocks_duplicate_start():
     release.set()
     assert service.stop(timeout=1) is True
     assert service._thread is None
+
+
+def test_disabled_service_pauses_hardware_queries_without_stopping_thread():
+    calls=0
+    def gpu():
+        nonlocal calls; calls+=1; return ()
+    service=TelemetryService(refresh_seconds=.25,gpu_provider=gpu,
+                             system_provider=System())
+    service.set_enabled(False)
+    assert service.start() is True
+    time.sleep(.35)
+    assert calls == 0
+    service.set_enabled(True)
+    deadline=time.monotonic()+1.0
+    while calls == 0 and time.monotonic() < deadline:
+        time.sleep(.02)
+    assert calls > 0
+    service.set_enabled(False)
+    paused_calls=calls
+    time.sleep(.35)
+    assert calls == paused_calls
+    assert service.stop() is True

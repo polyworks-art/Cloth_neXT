@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.3.5 - 2026-08-28
+
+### Fixed
+
+- Bake Companion particles now use four subpixel image phases per axis, so
+  their slow motion remains smooth instead of jumping between whole pixels.
+- Particle artwork is 5% larger while preserving its existing layout and
+  opacity limits.
+- Completed bakes no longer keep Blender's 3D view in a periodic redraw loop.
+  Hardware telemetry pauses outside an active bake, and viewport-color refresh
+  only redraws when it actually changes a viewport.
+
+### Validation
+
+- The normal repository suite passes with 1,655 tests; 10 configured external
+  integration cases skip honestly and 3 built-artifact cases are deselected.
+- Regression coverage verifies subpixel motion and assets, terminal HUD redraw
+  behavior, telemetry pause/resume, and no-op viewport-color refreshes.
+
 ## 2.3.4 - 2026-08-28
 
 ### Fixed

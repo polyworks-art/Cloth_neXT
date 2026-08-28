@@ -1,48 +1,33 @@
-# Cloth NeXt 2.3.4 Dev
+# Cloth NeXt 2.3.5 Dev
 
-Cloth NeXt 2.3.4 fixes the recurring CNX-E140 failure where the solver process
-remained alive but its control connection stopped responding. This is a Dev
-release for validation before the next Beta.
+Cloth NeXt 2.3.5 makes the Bake Companion animation smoother and removes the
+periodic Blender stutter that could continue after a bake had finished. This is
+a Dev release for validation before the next Beta.
 
-It also fixes rigged-cloth PC2 playback applying the Armature deformation a
-second time. A 90° animated body rotation now remains a 90° skirt rotation,
-without the rotation-origin position offset that previously looked like an
-FPS/export mismatch.
+## Smoother Bake Companion
 
-## Solver transport reliability
+- Every particle icon now has four subpixel phases on each axis. Slow movement
+  therefore advances in quarter-pixel visual steps instead of visibly jumping
+  between integer Canvas positions.
+- The particle artwork is 5% larger without changing its motion bounds or
+  exceeding the established opacity limit.
 
-- Owned local PPF servers now write stdout and stderr to unique real log files
-  instead of Python-owned Windows pipes. This removes a documented source of
-  Tokio worker backpressure while preserving bounded live activity and contact
-  diagnostics.
-- Log tails use robust UTF-8 replacement, bounded line and memory limits, and
-  safe Cloth NeXt-owned cleanup after the complete process tree is reaped.
-- Connect timeouts, read timeouts, refused connections, resets, malformed
-  responses, and other transport phases are reported separately.
+## No recurring work after a bake
 
-## Bounded reconnect behavior
-
-- A transient status interruption during build or simulation enters a bounded
-  reconnect state with three retries and increasing delays.
-- Recovery continues the same project, process, and simulation. Cloth NeXt does
-  not resend `start`, duplicate frame imports, restart the solver, or discard an
-  active project because of a single failed status request.
-- Cancellation interrupts reconnect backoff immediately. A known process exit
-  and malformed server response remain fatal without misleading retries.
-- Persistent loss still reports CNX-E140 with request counts, latency, failure
-  phase, last-valid-status age, process/job PIDs, and bounded server-log tails.
+- The HUD redraw timer follows the controller's active state. A terminal bake
+  transition receives one final redraw, then stops invalidating 3D views.
+- GPU and system telemetry pauses while no bake is active and resumes for the
+  next bake without recreating the service thread.
+- The viewport-color timer only requests a redraw when it actually changes a
+  viewport to Object Color mode.
 
 ## Included validation
 
-- The normal repository suite passes 1,649 tests, with external prerequisites
-  skipped honestly and built-artifact tests reserved for the publication job.
-- Focused tests cover one and three transient failures, persistent loss,
-  exactly-once simulation start, cancellation, process exit classification,
-  malformed transport data, heavy output bursts, invalid UTF-8, handles, files,
-  sockets, and thread cleanup.
-- Real official PPF 0.18/schema 2 health, ownership, single-object, and
-  multi-object simulations pass. A measured run completed 75 status requests
-  with zero failures and 141 ms maximum observed latency.
+- The normal repository suite passes 1,655 tests, with 10 configured external
+  integration cases skipped honestly and 3 built-artifact cases reserved for
+  the publication build.
+- Focused regression tests cover subpixel motion and generated assets, terminal
+  HUD behavior, telemetry pause/resume, and no-op viewport-color refreshes.
 
 The external PPF Contact Solver is unchanged, remains a separate installation,
 and is not bundled with Cloth NeXt.
