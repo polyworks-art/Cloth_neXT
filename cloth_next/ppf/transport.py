@@ -37,14 +37,17 @@ def status_request_bytes(project_name: str) -> bytes:
     return TCMD_HEADER + len(payload).to_bytes(4, "big") + payload
 
 
-def _transport_error(message: str, technical: str, exc: BaseException | None = None) -> ClothNextError:
+def _transport_error(message: str, technical: str,
+                     exc: BaseException | None = None, *,
+                     failure_phase: str = "INVALID_RESPONSE") -> ClothNextError:
     return ClothNextError(ErrorRecord.create(
         category=ErrorCategory.SOLVER_CONNECTION,
         user_message=message,
-        technical_message=technical,
+        technical_message=(
+            f"transport_failure_phase={failure_phase}; {technical}"),
         recommended_action="Check the solver address, port, logs, and firewall, then retry.",
         recoverable=True,
-        exception=exc,
+        context={"transport_failure_phase": failure_phase}, exception=exc,
     ))
 
 
@@ -52,8 +55,10 @@ def query_status(host: str, port: int, project_name: str, config: TransportConfi
     request = status_request_bytes(project_name)
     chunks: list[bytes] = []
     total = 0
+    phase = "CONNECT"
     try:
         with socket.create_connection((host, port), timeout=config.connect_timeout) as connection:
+            phase = "READ"
             connection.settimeout(config.read_timeout)
             connection.sendall(request)
             while True:
@@ -67,9 +72,14 @@ def query_status(host: str, port: int, project_name: str, config: TransportConfi
     except ClothNextError:
         raise
     except (TimeoutError, socket.timeout) as exc:
-        raise _transport_error("The solver did not respond in time.", f"PPF status timeout at {host}:{port}", exc) from exc
+        failure_phase = "CONNECT_TIMEOUT" if phase == "CONNECT" else "READ_TIMEOUT"
+        raise _transport_error("The solver did not respond in time.", f"PPF status timeout at {host}:{port}", exc, failure_phase=failure_phase) from exc
     except OSError as exc:
-        raise _transport_error("Could not connect to the solver.", f"PPF connection failed at {host}:{port}: {exc}", exc) from exc
+        code = getattr(exc, "winerror", None) or getattr(exc, "errno", None)
+        failure_phase = ("CONNECTION_REFUSED" if code in {111, 10061}
+                         else "CONNECTION_RESET" if code in {104, 10054}
+                         else "CONNECT_ERROR" if phase == "CONNECT" else "READ_ERROR")
+        raise _transport_error("Could not connect to the solver.", f"PPF connection failed at {host}:{port}: {exc}", exc, failure_phase=failure_phase) from exc
     raw = b"".join(chunks).rstrip(b"\r\n")
     try:
         text = raw.decode("utf-8")

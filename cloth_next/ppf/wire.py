@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import errno
 from pathlib import Path
 import socket
 from dataclasses import dataclass
@@ -66,15 +67,17 @@ class WireProtocolError(ClothNextError):
 
 
 def _error(message: str, technical: str,
-           exc: BaseException | None = None) -> WireProtocolError:
+           exc: BaseException | None = None, *,
+           failure_phase: str = "INVALID_RESPONSE") -> WireProtocolError:
     return WireProtocolError(ErrorRecord.create(
         category=ErrorCategory.SOLVER_CONNECTION,
         user_message=message,
-        technical_message=technical,
+        technical_message=(
+            f"transport_failure_phase={failure_phase}; {technical}"),
         recommended_action="Check the solver process, its logs, and the "
                            "connection, then retry.",
         recoverable=True,
-        exception=exc,
+        context={"transport_failure_phase": failure_phase}, exception=exc,
     ))
 
 
@@ -117,10 +120,22 @@ def _connect(address: ServerAddress, config: TransportConfig) -> socket.socket:
     try:
         connection = socket.create_connection(
             (address.host, address.port), timeout=config.connect_timeout)
+    except (TimeoutError, socket.timeout) as exc:
+        raise _error(
+            "The solver did not accept a connection in time.",
+            f"connect timed out at {address.host}:{address.port}", exc,
+            failure_phase="CONNECT_TIMEOUT") from exc
     except OSError as exc:
+        code = getattr(exc, "winerror", None) or getattr(exc, "errno", None)
+        if code in {errno.ECONNREFUSED, 10061}:
+            phase = "CONNECTION_REFUSED"
+        elif code in {errno.ECONNRESET, 10054}:
+            phase = "CONNECTION_RESET"
+        else:
+            phase = "CONNECT_ERROR"
         raise _error("Could not connect to the solver.",
                      f"connect failed at {address.host}:{address.port}: {exc}",
-                     exc) from exc
+                     exc, failure_phase=phase) from exc
     connection.settimeout(config.read_timeout)
     return connection
 
@@ -129,8 +144,13 @@ def _send_all(connection: socket.socket, data: bytes) -> None:
     try:
         connection.sendall(data)
     except OSError as exc:
+        phase = ("CONNECTION_RESET" if (
+            getattr(exc, "winerror", None) == 10054
+            or getattr(exc, "errno", None) == errno.ECONNRESET)
+            else "SEND_ERROR")
         raise _error("The connection to the solver broke while sending.",
-                     f"sendall failed: {exc}", exc) from exc
+                     f"sendall failed: {exc}", exc,
+                     failure_phase=phase) from exc
 
 
 def _read_line(connection: socket.socket, *, max_bytes: int = MAX_JSON_LINE,
@@ -145,13 +165,20 @@ def _read_line(connection: socket.socket, *, max_bytes: int = MAX_JSON_LINE,
             chunk = connection.recv(4096)
         except (TimeoutError, socket.timeout) as exc:
             raise _error("The solver did not respond in time.",
-                         "timed out waiting for a response line", exc) from exc
+                         "timed out waiting for a response line", exc,
+                         failure_phase="READ_TIMEOUT") from exc
         except OSError as exc:
+            phase = ("CONNECTION_RESET" if (
+                getattr(exc, "winerror", None) == 10054
+                or getattr(exc, "errno", None) == errno.ECONNRESET)
+                else "READ_ERROR")
             raise _error("The connection to the solver broke.",
-                         f"recv failed: {exc}", exc) from exc
+                         f"recv failed: {exc}", exc,
+                         failure_phase=phase) from exc
         if not chunk:
             raise _error("The solver closed the connection unexpectedly.",
-                         "connection closed before the response line completed")
+                         "connection closed before the response line completed",
+                         failure_phase="CONNECTION_RESET")
         buffer.extend(chunk)
     position = buffer.find(b"\n")
     return bytes(buffer[:position]), bytes(buffer[position + 1:])
@@ -163,7 +190,7 @@ def _parse_json_line(line: bytes) -> dict:
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise _error("The solver returned an invalid response.",
                      f"malformed JSON response line: {line[:120]!r}",
-                     exc) from exc
+                     exc, failure_phase="INVALID_RESPONSE") from exc
     if not isinstance(parsed, dict):
         raise _error("The solver returned an invalid response.",
                      "JSON response is not an object")
@@ -313,11 +340,12 @@ def data_receive(address: ServerAddress, config: TransportConfig, *,
             except (TimeoutError, socket.timeout) as exc:
                 raise _error("The solver did not respond in time.",
                              f"timed out mid-transfer of {path} "
-                             f"({received}/{size} bytes)", exc) from exc
+                             f"({received}/{size} bytes)", exc,
+                             failure_phase="READ_TIMEOUT") from exc
             except OSError as exc:
                 raise _error("The connection to the solver broke.",
                              f"recv failed mid-transfer of {path}: {exc}",
-                             exc) from exc
+                             exc, failure_phase="CONNECTION_RESET") from exc
             if not count:
                 raise _error("The solver closed the connection mid-transfer.",
                              f"truncated transfer of {path}: "

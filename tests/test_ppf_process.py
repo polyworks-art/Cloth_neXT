@@ -21,6 +21,13 @@ def config(tmp_path, ownership=ConnectionOwnership.OWNED_PROCESS):
     return SolverProcessConfig(Path(sys.executable), tmp_path, ownership_mode=ownership)
 
 
+def append_log(manager, label, data):
+    path = (manager.config.stdout_log_file if label == "stdout"
+            else manager.config.stderr_log_file)
+    with open(path, "ab") as stream:
+        stream.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+
+
 def test_config_normalizes_paths_and_builds_argument_list(tmp_path):
     cfg = config(tmp_path)
     assert cfg.executable_path.is_absolute()
@@ -33,6 +40,8 @@ def test_caller_owned_progress_file_is_preserved(tmp_path):
     progress = tmp_path / "diagnostics" / "progress.log"
     cfg = SolverProcessConfig(Path(sys.executable), tmp_path, progress_file=progress)
     assert cfg.cleanup_progress_file is False
+    assert cfg.stdout_log_file.parent != progress.parent
+    assert cfg.stderr_log_file.parent != progress.parent
 
 
 def test_generated_progress_file_is_removed_after_owned_process_stops(tmp_path):
@@ -86,6 +95,8 @@ def test_windows_access_denied_is_not_collapsed_into_generic_launch_failure(
         "Windows denied access while starting the solver.")
     assert ("WINDOWS_ACCESS_DENIED" in
             caught.value.record.technical_message)
+    assert not manager.config.stdout_log_file.exists()
+    assert not manager.config.stderr_log_file.exists()
 
 
 @pytest.mark.parametrize(("error", "message", "failure_kind"), [
@@ -132,6 +143,7 @@ def test_unrequested_exit_classification_preserves_lifetime(
     manager._exit_code = exit_code
 
     error = manager.early_exit_error(manager.poll())
+    manager.stop()
 
     assert error.record.user_message.startswith(message)
     assert failure_kind in error.record.technical_message
@@ -164,8 +176,8 @@ def test_new_launch_generation_clears_stale_output_and_activity(tmp_path):
                side_effect=processes):
         manager.start()
         first_launch = manager.poll().launch_id
-        manager._lines.put(("stderr", "old crash"))
-        manager._lines.put(("stdout", "* iter: 99"))
+        append_log(manager, "stderr", "old crash\n")
+        append_log(manager, "stdout", "* iter: 99\n")
         manager.poll()
         processes[0].poll.return_value = 0
         manager.stop()
@@ -188,12 +200,13 @@ def test_early_exit_drains_final_stderr_before_classification(tmp_path):
     manager = SolverProcessManager(config(tmp_path))
     manager._process = process
     manager._launch_id = "launch-final-output"
-    manager._lines.put(("stderr", "CUDA initialization failed"))
+    append_log(manager, "stderr", "CUDA initialization failed\n")
 
     error = manager.early_exit_error(manager.poll())
 
     assert "CUDA initialization failed" in error.record.technical_message
     assert "launch-final-output" in error.record.technical_message
+    manager.stop()
 
 
 def test_external_server_cannot_start_stop_or_restart(tmp_path):
@@ -225,9 +238,10 @@ def test_contact_metric_parser_supports_scalar_and_ppf_series():
 
 def test_process_poll_aggregates_contact_peak(tmp_path):
     manager = SolverProcessManager(config(tmp_path))
-    manager._lines.put(("stdout", "num-contact: 120"))
-    manager._lines.put(("stderr", "num-contact: 85"))
+    append_log(manager, "stdout", "num-contact: 120\n")
+    append_log(manager, "stderr", "num-contact: 85\n")
     poll = manager.poll()
+    manager.stop()
     assert (poll.contact_last, poll.contact_peak, poll.contact_samples) == (85, 120, 2)
 
 
@@ -300,8 +314,44 @@ def test_windows_job_close_terminates_spawned_descendant():
 
 def test_process_poll_exposes_latest_curated_activity(tmp_path):
     manager = SolverProcessManager(config(tmp_path))
-    manager._lines.put(("stdout", "> linsolve...6 msec"))
-    manager._lines.put(("stdout", "* iter: 44"))
+    append_log(manager, "stdout", "> linsolve...6 msec\n")
+    append_log(manager, "stdout", "* iter: 44\n")
     poll = manager.poll()
+    manager.stop()
     assert poll.activity_code == "SOLVING_CONSTRAINTS"
     assert poll.activity_message == "Solving linear system · 44 iterations"
+
+
+def test_file_tail_replaces_malformed_output_and_bounds_large_burst(tmp_path):
+    manager = SolverProcessManager(config(tmp_path))
+    burst = b"noise\n" * 20_000 + b"bad-utf8:\xff\nnum-contact: 321\n"
+    append_log(manager, "stdout", burst)
+
+    poll = manager.poll()
+
+    assert len(poll.stdout_tail) <= 40
+    assert "bad-utf8:\ufffd" in poll.stdout_tail
+    assert poll.contact_last == 321
+    assert manager._log_pending["stdout"] == b""
+    manager.stop()
+
+
+def test_owned_launch_uses_real_files_and_no_reader_threads(tmp_path):
+    process = MagicMock()
+    process.poll.side_effect = [None, 0]
+    process.pid = 123
+    with patch("cloth_next.ppf.process.subprocess.Popen",
+               return_value=process) as popen:
+        manager = SolverProcessManager(config(tmp_path))
+        manager.start()
+        stdout_target = popen.call_args.kwargs["stdout"]
+        stderr_target = popen.call_args.kwargs["stderr"]
+        assert stdout_target is not subprocess.PIPE
+        assert stderr_target is not subprocess.PIPE
+        assert stdout_target.closed and stderr_target.closed
+        assert not any(thread.name.startswith("cloth-next-ppf-")
+                       for thread in __import__("threading").enumerate())
+        manager.stop()
+
+    assert not manager.config.stdout_log_file.exists()
+    assert not manager.config.stderr_log_file.exists()

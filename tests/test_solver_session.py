@@ -138,6 +138,16 @@ def _run_session(monkeypatch, scripted=None, **kwargs):
     return session, scripted, frames, events
 
 
+def _transport_failure(phase="READ_TIMEOUT"):
+    return ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SOLVER_CONNECTION,
+        user_message="The solver did not respond in time.",
+        technical_message=(
+            f"transport_failure_phase={phase}; injected status failure"),
+        recommended_action="retry", recoverable=True,
+        context={"transport_failure_phase": phase}))
+
+
 def test_full_lifecycle_order_and_frames(monkeypatch):
     session, scripted, frames, events = _run_session(monkeypatch)
     diagnostics = session.run()
@@ -163,6 +173,114 @@ def test_full_lifecycle_order_and_frames(monkeypatch):
     assert any(event.phase == "UPLOADING"
                and "MiB" in event.message for event in events)
     assert "FETCHING" in phases
+
+
+@pytest.mark.parametrize("failures", [1, 3])
+def test_simulation_status_transport_recovers_without_duplicate_start(
+        monkeypatch, failures):
+    scripted = ScriptedWire(monkeypatch, frames_per_poll=2)
+    original = scripted._send_tcmd
+    remaining = failures
+
+    def flaky(address, config, project, request=None, **kwargs):
+        nonlocal remaining
+        if (request is None and remaining
+                and any(entry[2] == "start" for entry in scripted.log)):
+            scripted.log.append(("tcmd", project, request))
+            remaining -= 1
+            raise _transport_failure()
+        return original(address, config, project, request, **kwargs)
+
+    monkeypatch.setattr(wire, "send_tcmd", flaky)
+    session, _scripted, frames, events = _run_session(
+        monkeypatch, scripted=scripted, status_reconnect_grace=1.0,
+        status_reconnect_retries=3)
+
+    diagnostics = session.run()
+
+    assert sum(entry[2] == "start" for entry in scripted.log
+               if entry[0] == "tcmd") == 1
+    assert diagnostics.status_failure_count == failures
+    assert diagnostics.consecutive_status_failures == 0
+    assert [frame.solver_frame for frame in frames] == list(range(1, 8))
+    assert diagnostics.last_completed_logical_frame == 7
+    assert any(event.phase == "RECONNECTING" for event in events)
+
+
+def test_persistent_simulation_transport_loss_remains_fatal(monkeypatch):
+    scripted = ScriptedWire(monkeypatch)
+    original = scripted._send_tcmd
+
+    def unavailable(address, config, project, request=None, **kwargs):
+        if (request is None
+                and any(entry[2] == "start" for entry in scripted.log)):
+            scripted.log.append(("tcmd", project, request))
+            raise _transport_failure("CONNECTION_REFUSED")
+        return original(address, config, project, request, **kwargs)
+
+    monkeypatch.setattr(wire, "send_tcmd", unavailable)
+    session, _scripted, frames, _events = _run_session(
+        monkeypatch, scripted=scripted, status_reconnect_grace=1.0,
+        status_reconnect_retries=2)
+
+    with pytest.raises(ClothNextError) as caught:
+        session.run()
+
+    assert "EXTERNAL_TRANSPORT_LOST" in caught.value.record.technical_message
+    assert "consecutive_transport_failures=3" in (
+        caught.value.record.technical_message)
+    assert sum(entry[2] == "start" for entry in scripted.log
+               if entry[0] == "tcmd") == 1
+    assert frames == []
+
+
+def test_malformed_status_is_not_retried(monkeypatch):
+    calls = 0
+
+    def malformed(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise _transport_failure("INVALID_RESPONSE")
+
+    monkeypatch.setattr(wire, "send_tcmd", malformed)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=Path("."),
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        poll_interval=0.001)
+
+    with pytest.raises(ClothNextError):
+        session._poll_status()
+
+    assert calls == 1
+
+
+def test_cancellation_interrupts_reconnect_backoff(monkeypatch):
+    cancel = threading.Event()
+    scripted = ScriptedWire(monkeypatch)
+    original = scripted._send_tcmd
+
+    def unavailable(address, config, project, request=None, **kwargs):
+        if (request is None
+                and any(entry[2] == "start" for entry in scripted.log)):
+            scripted.log.append(("tcmd", project, request))
+            cancel.set()
+            raise _transport_failure()
+        return original(address, config, project, request, **kwargs)
+
+    monkeypatch.setattr(wire, "send_tcmd", unavailable)
+    session = SolverSession(
+        resolved=_external_resolved(), scene=_scene(),
+        work_directory=Path("."),
+        external_address=wire.ServerAddress("127.0.0.1", 9999),
+        cancel_event=cancel, poll_interval=0.5,
+        status_reconnect_grace=10.0)
+
+    with pytest.raises(SessionCancelled):
+        session.run()
+
+    assert sum(entry[2] == "start" for entry in scripted.log
+               if entry[0] == "tcmd") == 1
 
 
 def test_contact_validation_stops_after_build_without_frames_or_recovery(

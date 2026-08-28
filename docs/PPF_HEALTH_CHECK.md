@@ -14,6 +14,40 @@ The response is one UTF-8 JSON document followed by newline and EOF. Cloth NeXt 
 separate connect/read timeouts, partial-read accumulation, a 1 MiB default response cap
 (hard maximum 16 MiB), and a socket context manager.
 
+## Runtime status ownership and reconnect policy
+
+One production Bake has exactly one status owner: the `SolverSession` worker.
+Its BUILD and SIMULATE loops call the same synchronous `_status()` method; the
+next poll cannot begin until the previous socket context has closed. The UI and
+Companion consume `SessionEvent`/`BakeSnapshot` data and never contact PPF.
+Cancellation uses the same session worker after the polling loop unwinds. The
+startup health runner polls only before `SolverSession` enters upload/build, and
+the preferences health runner is a separate explicitly requested installation
+test protected by the process-wide workflow reservation. Recovery and frame
+fetching also run serially in the session worker. There is therefore no second
+timer, diagnostics thread, or independent health loop sharing a Bake server.
+
+Every status poll opens one short-lived TCP connection. The production session
+uses a 5 second connect timeout and 30 second read timeout; the 2/2 second
+`TransportConfig` defaults remain for standalone probes and tests. Failures are
+classified as `CONNECT_TIMEOUT`, `READ_TIMEOUT`, `CONNECTION_REFUSED`,
+`CONNECTION_RESET`, `CONNECT_ERROR`, `READ_ERROR`, `SEND_ERROR`, or
+`INVALID_RESPONSE`.
+
+During BUILDING or SIMULATING only, timeout/reset/refusal failures enter a
+bounded reconnect state. At most three retries use 0.25, 1, and 2 second delays
+(scaled from the configured polling interval and capped at 2 seconds), and all
+attempts must remain within a 60 second grace window. A successful status resets
+the failure streak. Cancellation interrupts backoff immediately. A known-owned
+process exit bypasses retries. `build`, `start`, `resume`, `terminate`, and all
+other lifecycle commands are outside this policy, so a reconnect never resends
+`start` or creates a second simulation.
+
+Metrics are bounded counters/scalars: request/success/failure counts,
+consecutive failures, current/max latency, failure phase, and age of the last
+valid status. Persistent loss still maps to CNX-E140 with owned process/job and
+log-tail evidence.
+
 Always-present successful fields are `status`, `data`, `frame`, `initialized`, `error`,
 `violations`, `root`, `upload_id`, `data_hash`, `param_hash`, `protocol_version`,
 `hardware`, and `git_branch`. Protocol 0.18 also supplies optional structured

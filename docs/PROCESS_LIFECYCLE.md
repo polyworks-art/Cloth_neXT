@@ -32,12 +32,13 @@ validate executable -> probe port
                          |          -> invalid: PORT CONFLICT
                          v free (advisory only)
 run executable --version -> Popen argument list, shell=False
-                         -> bounded stdout/stderr readers
+                         -> stdout/stderr redirected to owned real files
+                         -> bounded incremental file-tail parsing
                          -> poll child and unique absolute progress file
                          -> SERVER_READY marker AND compatible TCMD status
                          -> OWNED ready
                          -> terminate -> timed wait -> kill fallback
-                         -> wait/reap -> join readers
+                         -> wait/reap -> final tail -> safe-delete log files
 ```
 
 `SERVER_STARTING` and `SERVER_READY` are the only verified progress markers. Files are
@@ -55,12 +56,18 @@ start, stop, or restart through an external-mode manager raise `PermissionError`
 The audited server has no separate verified administrative server-shutdown request for
 the pre-simulation health state. The owned child therefore uses `Popen.terminate()`,
 waits, then uses `kill()` only after timeout. It never uses `taskkill` or a shell.
-Reader threads are non-daemon, close streams, and must join before cleanup returns.
+The control server never writes to a Python-owned anonymous pipe. This follows
+the official Windows launcher safeguard: a full Windows pipe can block a Rust
+log write on Tokio workers and leave the process alive while its control socket
+stalls. Cloth NeXt instead tails two real files incrementally with UTF-8
+replacement, 64 KiB line bounds, and 100-line in-memory tails. No output-reader
+thread exists or can leak; generated files are safe-deleted only after the owned
+process tree is reaped and final diagnostic tails are captured.
 On Windows, every owned control server is assigned immediately to a private Job
 Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The job owns the server and
 every solver process it launches. Shutdown first terminates and waits for the
 server, then closes the job to terminate any surviving descendant before
-joining pipe readers. External servers are never assigned to or controlled by
+the final file-tail read. External servers are never assigned to or controlled by
 this job.
 
 If IPC fails after the control server exits, the session records the server

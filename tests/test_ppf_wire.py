@@ -138,9 +138,15 @@ def test_send_tcmd_rejects_server_error(make_server):
 
 @pytest.mark.parametrize("payload", [b"not json\n", b'["array"]\n', b"\xff\xfe\n"])
 def test_send_tcmd_rejects_malformed_responses(make_server, payload):
-    server = make_server(lambda c, r, p=payload: c.sendall(p))
-    with pytest.raises(ClothNextError):
+    def handler(connection, received):
+        received.append(_read_tcmd(connection))
+        connection.sendall(payload)
+
+    server = make_server(handler)
+    with pytest.raises(ClothNextError) as caught:
         wire.send_tcmd(server.address, CONFIG, "proj")
+    assert "transport_failure_phase=INVALID_RESPONSE" in (
+        caught.value.record.technical_message)
 
 
 def test_send_tcmd_rejects_truncated_response(make_server):
@@ -149,8 +155,10 @@ def test_send_tcmd_rejects_truncated_response(make_server):
         connection.sendall(b'{"status": "READY"')  # no newline, then close
 
     server = make_server(handler)
-    with pytest.raises(ClothNextError, match="closed"):
+    with pytest.raises(ClothNextError, match="closed") as caught:
         wire.send_tcmd(server.address, CONFIG, "proj")
+    assert "transport_failure_phase=CONNECTION_RESET" in (
+        caught.value.record.technical_message)
 
 
 def test_send_tcmd_rejects_oversized_response(make_server):

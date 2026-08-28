@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-import queue
 import os
 import re
 import subprocess
 import sys
-import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -208,6 +206,8 @@ class SolverProcessConfig:
     ownership_mode: ConnectionOwnership = ConnectionOwnership.OWNED_PROCESS
     environment: tuple[tuple[str, str], ...] = ()
     cleanup_progress_file: bool = field(init=False, repr=False, compare=False)
+    stdout_log_file: Path = field(init=False, repr=False, compare=False)
+    stderr_log_file: Path = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         executable = self.executable_path.expanduser().resolve()
@@ -219,6 +219,12 @@ class SolverProcessConfig:
         object.__setattr__(self, "working_directory", workdir)
         object.__setattr__(self, "progress_file", progress)
         object.__setattr__(self, "cleanup_progress_file", generated_progress)
+        log_root = Path(gettempdir()).resolve() / "cloth-next"
+        log_id = uuid.uuid4().hex
+        object.__setattr__(
+            self, "stdout_log_file", log_root / f"solver-{log_id}.stdout.log")
+        object.__setattr__(
+            self, "stderr_log_file", log_root / f"solver-{log_id}.stderr.log")
         if not executable.is_file():
             raise ValueError(f"solver executable is not a file: {executable}")
         if not workdir.is_dir():
@@ -269,10 +275,10 @@ class SolverProcessManager:
     def __init__(self, config: SolverProcessConfig) -> None:
         self.config = config
         self._process: subprocess.Popen[str] | None = None
-        self._lines: queue.Queue[tuple[str, str]] = queue.Queue()
         self._stdout: list[str] = []
         self._stderr: list[str] = []
-        self._threads: list[threading.Thread] = []
+        self._log_offsets = {"stdout": 0, "stderr": 0}
+        self._log_pending = {"stdout": b"", "stderr": b""}
         self._job: _WindowsJob | None = None
         self._contact_peak = 0
         self._contact_last = 0
@@ -325,12 +331,10 @@ class SolverProcessManager:
         self._stderr.clear()
         self._contact_peak = self._contact_last = self._contact_samples = 0
         self._activity_code = self._activity_message = ""
-        while not self._lines.empty():
-            try:
-                self._lines.get_nowait()
-            except queue.Empty:
-                break
+        self._log_offsets = {"stdout": 0, "stderr": 0}
+        self._log_pending = {"stdout": b"", "stderr": b""}
         self.config.progress_file.parent.mkdir(parents=True, exist_ok=True)
+        self.config.stdout_log_file.parent.mkdir(parents=True, exist_ok=True)
         sanitized = [self.config.executable_path.name, "--host", self.config.host,
                      "--port", str(self.config.port), "--progress-file", "<instance-progress-file>"]
         if self.config.debug:
@@ -347,11 +351,26 @@ class SolverProcessManager:
                               key for key, _value in self.config.environment)})
         try:
             job = _WindowsJob()
-            self._process = subprocess.Popen(
-                self.config.arguments(), cwd=self.config.working_directory,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                bufsize=1, shell=False, env=self.config.subprocess_environment(),
-            )
+            # A real file is essential here. On Windows a full anonymous pipe
+            # blocks the Rust logger's Tokio worker in WriteFile; enough blocked
+            # workers leave ppf-cts-server alive while its status endpoint stops
+            # responding. File output cannot backpressure on Python scheduling.
+            stdout_log = open(self.config.stdout_log_file, "wb")
+            stderr_log = open(self.config.stderr_log_file, "wb")
+            try:
+                try:
+                    self._process = subprocess.Popen(
+                        self.config.arguments(), cwd=self.config.working_directory,
+                        stdout=stdout_log, stderr=stderr_log, shell=False,
+                        env=self.config.subprocess_environment(),
+                    )
+                finally:
+                    stdout_log.close()
+                    stderr_log.close()
+            except BaseException:
+                job.close()
+                self._cleanup_log_files()
+                raise
             try:
                 job.assign(self._process)
             except BaseException:
@@ -365,6 +384,7 @@ class SolverProcessManager:
                 finally:
                     job.close()
                     self._process = None
+                    self._cleanup_log_files()
                 raise
             self._job = job
         except OSError as exc:
@@ -403,36 +423,57 @@ class SolverProcessManager:
         log_with_context(self._logger, 20, "process started",
                          {"launch_id": self._launch_id,
                           "process_id": self._process.pid})
-        self._threads = []
-        for label, stream in (("stdout", self._process.stdout), ("stderr", self._process.stderr)):
-            assert stream is not None
-            thread = threading.Thread(target=self._read_stream, args=(label, stream), name=f"cloth-next-ppf-{label}", daemon=False)
-            thread.start()
-            self._threads.append(thread)
+    def _consume_log_line(self, label: str, raw: bytes) -> None:
+        # Solver logs are diagnostic input, never trusted protocol text. A bad
+        # byte must not terminate consumption or resurrect pipe backpressure.
+        line = raw.decode("utf-8", errors="replace").rstrip("\r")
+        target = self._stdout if label == "stdout" else self._stderr
+        target.append(line)
+        del target[:-100]
+        for count in _contact_counts(line):
+            self._contact_last = count
+            self._contact_peak = max(self._contact_peak, count)
+            self._contact_samples += 1
+        activity = _solver_activity(line)
+        if activity is not None:
+            self._activity_code, self._activity_message = activity
 
-    def _read_stream(self, label: str, stream: object) -> None:
+    def _tail_log(self, label: str, path: Path, *, final: bool = False) -> None:
         try:
-            for line in stream:  # type: ignore[union-attr]
-                self._lines.put((label, line.rstrip()))
-        finally:
-            stream.close()  # type: ignore[union-attr]
+            with open(path, "rb") as stream:
+                stream.seek(self._log_offsets[label])
+                while chunk := stream.read(64 * 1024):
+                    self._log_offsets[label] += len(chunk)
+                    data = self._log_pending[label] + chunk
+                    parts = data.split(b"\n")
+                    self._log_pending[label] = parts.pop()
+                    for raw in parts:
+                        self._consume_log_line(label, raw[-64 * 1024:])
+        except FileNotFoundError:
+            return
+        if final and self._log_pending[label]:
+            self._consume_log_line(
+                label, self._log_pending[label][-64 * 1024:])
+            self._log_pending[label] = b""
 
-    def _drain(self) -> None:
-        while True:
-            try:
-                label, line = self._lines.get_nowait()
-            except queue.Empty:
-                break
-            target = self._stdout if label == "stdout" else self._stderr
-            target.append(line)
-            del target[:-100]
-            for count in _contact_counts(line):
-                self._contact_last = count
-                self._contact_peak = max(self._contact_peak, count)
-                self._contact_samples += 1
-            activity = _solver_activity(line)
-            if activity is not None:
-                self._activity_code, self._activity_message = activity
+    def _drain(self, *, final: bool = False) -> None:
+        self._tail_log("stdout", self.config.stdout_log_file, final=final)
+        self._tail_log("stderr", self.config.stderr_log_file, final=final)
+
+    def _cleanup_log_files(self) -> None:
+        for artifact, artifact_type in (
+                (self.config.stdout_log_file, "solver_stdout_log"),
+                (self.config.stderr_log_file, "solver_stderr_log")):
+            outcome = delete_owned(
+                artifact, root=self.config.stdout_log_file.parent,
+                ownership_authenticated=True,
+                lifecycle_stage="SOLVER_PROCESS_STOP",
+                artifact_type=artifact_type)
+            if not outcome.success:
+                log_with_context(
+                    self._logger, 30,
+                    "Owned solver diagnostic cleanup remains pending", {
+                        "diagnostic": outcome.technical_diagnostic()})
 
     def poll(self) -> ProcessPoll:
         self._drain()
@@ -467,10 +508,12 @@ class SolverProcessManager:
             return initial
         deadline = time.monotonic() + min(
             1.0, self.config.shutdown_timeout)
-        for thread in tuple(self._threads):
-            remaining = max(0.0, deadline - time.monotonic())
-            thread.join(timeout=remaining)
-        self._drain()
+        while time.monotonic() < deadline:
+            before = tuple(self._log_offsets.values())
+            self._drain()
+            if before == tuple(self._log_offsets.values()):
+                break
+        self._drain(final=True)
         return self.poll()
 
     def stop(self) -> ProcessPoll:
@@ -478,7 +521,9 @@ class SolverProcessManager:
             raise PermissionError("external server must never be stopped by Cloth NeXt")
         process = self._process
         if process is None:
-            return self.poll()
+            result = self.poll()
+            self._cleanup_log_files()
+            return result
         log_with_context(self._logger, 20, "shutdown attempt", {"process_id": process.pid})
         owned_process_ids = (
             self._job.process_ids() if self._job is not None else ())
@@ -497,23 +542,14 @@ class SolverProcessManager:
             process.wait()
         # The server may already be gone while its solver child remains alive.
         # Closing the kill-on-close job terminates every still-owned descendant
-        # before pipe readers are joined.
+        # before final log consumption.
         if self._job is not None:
             self._job.close()
-        for thread in self._threads:
-            thread.join(timeout=self.config.shutdown_timeout)
-        if any(thread.is_alive() for thread in self._threads):
-            raise RuntimeError(
-                "process reader thread did not stop after owned process-tree "
-                f"shutdown; owned_process_ids={owned_process_ids}")
         result = self.final_poll()
         log_with_context(self._logger, 20, "shutdown result", {"exit_code": result.exit_code})
         self._process = None
         self._job = None
-        self._threads.clear()
         if self.config.cleanup_progress_file:
-            # The owned process is reaped and every pipe reader is joined
-            # above. Only now can the generated progress file be unlinked.
             outcome = delete_owned(
                 self.config.progress_file,
                 root=self.config.progress_file.parent,
@@ -523,8 +559,11 @@ class SolverProcessManager:
             if not outcome.success:
                 log_with_context(
                     self._logger, 30,
-                    "Owned solver progress cleanup remains pending", {
+                    "Owned solver diagnostic cleanup remains pending", {
                         "diagnostic": outcome.technical_diagnostic()})
+        # The owned process tree is reaped and final tails are retained in
+        # ProcessPoll. Only now may generated diagnostic files be removed.
+        self._cleanup_log_files()
         return result
 
     def restart(self) -> None:

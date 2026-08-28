@@ -4,6 +4,7 @@
 import socket
 import threading
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -77,6 +78,19 @@ def test_read_timeout_is_categorized():
         query_status("127.0.0.1", server.port, "demo", TransportConfig(read_timeout=0.01))
     server.close()
     assert "timeout" in caught.value.record.technical_message.lower()
+    assert "transport_failure_phase=READ_TIMEOUT" in (
+        caught.value.record.technical_message)
+
+
+def test_connection_refused_is_categorized():
+    with patch("cloth_next.ppf.transport.socket.create_connection",
+               side_effect=ConnectionRefusedError(10061,
+                                                   "connection refused")):
+        with pytest.raises(ClothNextError) as caught:
+            query_status("127.0.0.1", 49152, "demo", TransportConfig())
+
+    assert "transport_failure_phase=CONNECTION_REFUSED" in (
+        caught.value.record.technical_message)
 
 
 def test_upload_write_timeout_must_be_positive():

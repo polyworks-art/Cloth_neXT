@@ -54,6 +54,11 @@ STATUS_BUSY = "BUSY"
 STATUS_SAVE_AND_QUIT = "SAVE_AND_QUIT"
 
 _POLL_INTERVAL = 0.25
+# The ordinary session read allowance is 30 seconds. Two such windows cover a
+# server worker that is briefly monopolized by a difficult GPU frame, while a
+# three-retry ceiling prevents fast connection refusals from hammering accept().
+_STATUS_RECONNECT_GRACE = 60.0
+_STATUS_RECONNECT_RETRIES = 3
 _MAX_VIOLATION_SIDECAR_BYTES = 4 * 1024 * 1024
 _VIOLATION_SIDECAR_CONFIRM_TIMEOUT = 1.0
 
@@ -393,6 +398,14 @@ class SessionDiagnostics:
     termination_requested: bool = False
     last_valid_health_response: dict[str, object] = field(
         default_factory=dict)
+    status_request_count: int = 0
+    status_success_count: int = 0
+    status_failure_count: int = 0
+    consecutive_status_failures: int = 0
+    status_latency_ms: float = 0.0
+    max_status_latency_ms: float = 0.0
+    last_status_success_monotonic: float | None = None
+    transport_failure_phase: str = ""
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -422,7 +435,10 @@ class SolverSession:
                  poll_interval: float = _POLL_INTERVAL,
                  build_timeout: float = 600.0,
                  simulate_timeout: float = 600.0,
-                 recovery_options: RecoveryOptions | None = None) -> None:
+                 recovery_options: RecoveryOptions | None = None,
+                 status_reconnect_grace: float = _STATUS_RECONNECT_GRACE,
+                 status_reconnect_retries: int =
+                 _STATUS_RECONNECT_RETRIES) -> None:
         self.resolved = resolved
         self.scene = scene
         self.work_directory = work_directory
@@ -434,6 +450,10 @@ class SolverSession:
         self._poll_interval = poll_interval
         self._build_timeout = build_timeout
         self._simulate_timeout = simulate_timeout
+        if status_reconnect_grace < 0 or status_reconnect_retries < 0:
+            raise ValueError("status reconnect bounds must be non-negative")
+        self._status_reconnect_grace = status_reconnect_grace
+        self._status_reconnect_retries = status_reconnect_retries
         self._recovery = recovery_options
         self._recovery_record: recovery.ProjectRecord | None = None
         self._known_saved_states: tuple[int, ...] = ()
@@ -482,22 +502,46 @@ class SolverSession:
 
     def _status(self, *, allow_server_error: bool = False) -> dict:
         assert self._address is not None
+        started = time.monotonic()
+        self.diagnostics.status_request_count += 1
         self.diagnostics.command_in_flight = "status"
-        if allow_server_error:
-            try:
-                response = wire.send_tcmd(
-                    self._address, self.transport, self.scene.project_name,
-                    allow_server_error=True)
-            except TypeError as exc:
-                # Compatibility for injected transports implementing the
-                # historical send_tcmd signature.
-                if "allow_server_error" not in str(exc):
-                    raise
+        try:
+            if allow_server_error:
+                try:
+                    response = wire.send_tcmd(
+                        self._address, self.transport, self.scene.project_name,
+                        allow_server_error=True)
+                except TypeError as exc:
+                    # Compatibility for injected transports implementing the
+                    # historical send_tcmd signature.
+                    if "allow_server_error" not in str(exc):
+                        raise
+                    response = wire.send_tcmd(
+                        self._address, self.transport, self.scene.project_name)
+            else:
                 response = wire.send_tcmd(
                     self._address, self.transport, self.scene.project_name)
-        else:
-            response = wire.send_tcmd(
-                self._address, self.transport, self.scene.project_name)
+        except ClothNextError as exc:
+            latency = (time.monotonic() - started) * 1000.0
+            self.diagnostics.status_latency_ms = latency
+            self.diagnostics.max_status_latency_ms = max(
+                self.diagnostics.max_status_latency_ms, latency)
+            self.diagnostics.status_failure_count += 1
+            self.diagnostics.consecutive_status_failures += 1
+            match = re.search(
+                r"transport_failure_phase=([A-Z_]+)",
+                exc.record.technical_message)
+            self.diagnostics.transport_failure_phase = (
+                match.group(1) if match else "UNCLASSIFIED")
+            raise
+        latency = (time.monotonic() - started) * 1000.0
+        self.diagnostics.status_latency_ms = latency
+        self.diagnostics.max_status_latency_ms = max(
+            self.diagnostics.max_status_latency_ms, latency)
+        self.diagnostics.status_success_count += 1
+        self.diagnostics.consecutive_status_failures = 0
+        self.diagnostics.last_status_success_monotonic = time.monotonic()
+        self.diagnostics.transport_failure_phase = ""
         self.diagnostics.last_successful_command = "status"
         self.diagnostics.command_in_flight = ""
         status = str(response.get("status", ""))
@@ -541,6 +585,63 @@ class SolverSession:
                                   if self._recovery is not None else ""),
             })
         return response
+
+    def _poll_status(self) -> dict:
+        """Poll with bounded reconnect grace; lifecycle commands are untouched."""
+        poll_started = time.monotonic()
+        degraded_at: float | None = None
+        retries = 0
+        while True:
+            try:
+                response = self._status()
+                if degraded_at is not None:
+                    log_with_context(self._logger, logging.INFO,
+                        "Solver status transport recovered", {
+                            "run_id": self.diagnostics.run_id,
+                            "retries": retries,
+                            "degraded_seconds": round(
+                                time.monotonic() - degraded_at, 3),
+                            "status_latency_ms": round(
+                                self.diagnostics.status_latency_ms, 3),
+                        })
+                return response
+            except ClothNextError as exc:
+                if exc.record.category is not ErrorCategory.SOLVER_CONNECTION:
+                    raise
+                now = time.monotonic()
+                degraded_at = (poll_started if degraded_at is None
+                               else degraded_at)
+                if self._manager is not None and not self._manager.poll().running:
+                    raise
+                if self.diagnostics.transport_failure_phase not in {
+                        "CONNECT_TIMEOUT", "READ_TIMEOUT",
+                        "CONNECTION_REFUSED", "CONNECTION_RESET",
+                        "CONNECT_ERROR", "READ_ERROR", "SEND_ERROR",
+                        "UNCLASSIFIED"}:
+                    raise
+                elapsed = now - degraded_at
+                if (retries >= self._status_reconnect_retries
+                        or elapsed >= self._status_reconnect_grace):
+                    raise
+                retries += 1
+                delay = min(2.0, self._poll_interval * (4 ** (retries - 1)))
+                self._emit(SessionEvent(
+                    phase="RECONNECTING",
+                    message="Solver connection interrupted; reconnecting",
+                    indeterminate=True))
+                log_with_context(self._logger, logging.WARNING,
+                    "Solver status transport degraded", {
+                        "run_id": self.diagnostics.run_id,
+                        "failure_phase":
+                            self.diagnostics.transport_failure_phase,
+                        "consecutive_status_failures":
+                            self.diagnostics.consecutive_status_failures,
+                        "retry": retries,
+                        "retry_delay_seconds": delay,
+                        "grace_seconds": self._status_reconnect_grace,
+                    })
+                if self._cancel.wait(delay):
+                    raise SessionCancelled()
 
     def _runtime_activity(self) -> tuple[str, str]:
         server_root = self._server_data_root()
@@ -762,6 +863,10 @@ class SolverSession:
                 solver_total_count=solver_total_count)
         record = exc.record
         frame = self.diagnostics.current_logical_frame
+        status_age = (None if self.diagnostics.last_status_success_monotonic
+                      is None else max(
+                          0.0, time.monotonic()
+                          - self.diagnostics.last_status_success_monotonic))
         return ClothNextError(ErrorRecord.create(
             category=record.category,
             user_message=(
@@ -777,6 +882,21 @@ class SolverSession:
                 f"last_successful_command="
                 f"{self.diagnostics.last_successful_command}; "
                 f"command_in_flight={self.diagnostics.command_in_flight}; "
+                f"transport_failure_phase="
+                f"{self.diagnostics.transport_failure_phase}; "
+                f"status_request_count="
+                f"{self.diagnostics.status_request_count}; "
+                f"status_success_count="
+                f"{self.diagnostics.status_success_count}; "
+                f"status_failure_count="
+                f"{self.diagnostics.status_failure_count}; "
+                f"consecutive_transport_failures="
+                f"{self.diagnostics.consecutive_status_failures}; "
+                f"seconds_since_last_valid_status={status_age}; "
+                f"status_latency_ms="
+                f"{self.diagnostics.status_latency_ms:.3f}; "
+                f"max_status_latency_ms="
+                f"{self.diagnostics.max_status_latency_ms:.3f}; "
                 f"{record.technical_message}; "
                 f"owned_process_id={poll.process_id}; "
                 f"stdout_tail={poll.stdout_tail}; "
@@ -787,6 +907,13 @@ class SolverSession:
             context={"process_id": poll.process_id,
                      "exit_code": poll.exit_code,
                      "failure_kind": "TRANSPORT_LOST_PROCESS_ALIVE",
+                     "transport_failure_phase":
+                         self.diagnostics.transport_failure_phase,
+                     "consecutive_transport_failures":
+                         self.diagnostics.consecutive_status_failures,
+                     "seconds_since_last_valid_status": status_age,
+                     "control_server_alive": poll.running,
+                     "owned_process_ids": poll.owned_process_ids,
                      "active_operation": operation,
                      "current_logical_frame": frame}),
             violations=build_violations,
@@ -797,6 +924,10 @@ class SolverSession:
         """Add endpoint/mode evidence without claiming ownership or cleanup."""
         assert self._address is not None
         record = exc.record
+        status_age = (None if self.diagnostics.last_status_success_monotonic
+                      is None else max(
+                          0.0, time.monotonic()
+                          - self.diagnostics.last_status_success_monotonic))
         if ("invalid response" in record.user_message.casefold()
                 or "response was too large" in record.user_message.casefold()):
             message = record.user_message
@@ -821,12 +952,22 @@ class SolverSession:
                 f"last_successful_command="
                 f"{self.diagnostics.last_successful_command}; "
                 f"command_in_flight={self.diagnostics.command_in_flight}; "
+                f"transport_failure_phase="
+                f"{self.diagnostics.transport_failure_phase}; "
+                f"consecutive_transport_failures="
+                f"{self.diagnostics.consecutive_status_failures}; "
+                f"seconds_since_last_valid_status={status_age}; "
                 f"endpoint={self._address.host}:{self._address.port}; "
                 f"original_error={record.technical_message}"),
             recommended_action=record.recommended_action,
             recoverable=record.recoverable,
             context={"failure_kind": failure_kind,
                      "ownership": "EXTERNAL_SERVER",
+                     "transport_failure_phase":
+                         self.diagnostics.transport_failure_phase,
+                     "consecutive_transport_failures":
+                         self.diagnostics.consecutive_status_failures,
+                     "seconds_since_last_valid_status": status_age,
                      "host": self._address.host,
                      "port": self._address.port},
             exception=exc))
@@ -1323,7 +1464,7 @@ class SolverSession:
         deadline = time.monotonic() + self._build_timeout
         while True:
             self._check_cancel()
-            response = self._status()
+            response = self._poll_status()
             status = str(response.get("status", ""))
             if status == STATUS_READY:
                 self.diagnostics.last_successful_stage = "PROJECT_BUILD"
@@ -1476,7 +1617,7 @@ class SolverSession:
         while len(fetched) < total:
             self._check_cancel()
             wait_step = time.monotonic()
-            response = self._status()
+            response = self._poll_status()
             self.diagnostics.timings["simulation_wait"] = (
                 self.diagnostics.timings.get("simulation_wait", 0.0)
                 + time.monotonic() - wait_step)

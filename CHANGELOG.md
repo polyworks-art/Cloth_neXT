@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.3.3 - 2026-08-28
+
+### Fixed
+
+- Owned PPF server output is redirected to Cloth NeXt-owned real log files
+  instead of Windows anonymous pipes, preventing solver logging from blocking
+  Tokio control-server workers while the process remains alive.
+- Transient status timeouts, resets, and connection refusals during build or
+  simulation now enter a bounded reconnect state instead of immediately
+  surfacing `CNX-E140`. Lifecycle commands remain exactly-once.
+- Persistent transport loss retains `CNX-E140` with precise connect/read/reset
+  classification, bounded latency counters, process-tree evidence, and solver
+  log tails.
+
+### Validation
+
+- Regression coverage verifies transient and persistent transport failures,
+  cancellation while reconnecting, exactly-once simulation start, malformed
+  responses, heavy solver output, invalid UTF-8, and log lifecycle cleanup.
+- The normal repository suite passes with 1,647 tests; 10 configured external
+  integration cases skip honestly and 3 built-artifact cases are deselected.
+- Real official PPF 0.18/schema 2 health, ownership, single-object, and
+  multi-object integration tests pass. A measured run completed 75 status
+  requests with no failures and 141 ms maximum observed latency.
+
 ## 2.3.2 - 2026-08-24
 
 ### Fixed
