@@ -34,7 +34,7 @@ validation before the next Beta.
   preventing stale RNA access during file-open lifecycle changes.
 - The Companion build embeds only the hash-pinned TrustMark Q encoder and decoder,
   includes the Adobe MIT notice, and performs no runtime download.
-- The normal repository suite passes 1,725 tests, with 10 configured external
+- The normal repository suite passes 1,726 tests, with 10 configured external
   solver integration cases skipped honestly and 3 built-artifact cases reserved
   for the publication build. Blender 5.2.1 runtime tests cover every supported
   format, two-frame worker reuse, Eevee, Cycles, headless execution, EXR skip,

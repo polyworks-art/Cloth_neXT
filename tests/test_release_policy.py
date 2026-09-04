@@ -146,6 +146,14 @@ def test_zip_name_must_match_version(tmp_path):
     check_zip(make_zip(tmp_path, "0.2.0"), version)
 
 
+def test_zip_rejects_github_blob_limit_overflow(tmp_path, monkeypatch):
+    path = make_zip(tmp_path, "1.2.3")
+    monkeypatch.setattr(
+        "tools.validate_release_policy.MAX_GITHUB_BLOB_BYTES", 1)
+    with pytest.raises(ValueError, match="100 MiB"):
+        check_zip(path, parse_version("1.2.3"))
+
+
 def test_zip_manifest_version_mismatch_rejected(tmp_path):
     path = tmp_path / expected_zip_name(parse_version("0.2.0"))
     with zipfile.ZipFile(path, "w") as bundle:

@@ -32,6 +32,7 @@ from cloth_next.updater.channel_policy import (allowed_release_channels,
 from cloth_next.updater.addon_versions import parse_version as parse_addon_version
 
 RELEASE_PLATFORM = "windows-x64"
+MAX_GITHUB_BLOB_BYTES = 100 * 1024 * 1024
 TRUSTMARK_NOTICE = "THIRD_PARTY_NOTICES.md"
 TRUSTMARK_NOTICE_TOKENS = (
     "Adobe TrustMark", "Copyright 2023 Adobe", "MIT License",
@@ -149,6 +150,9 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
     expected = expected_zip_name(version)
     if zip_path.name != expected:
         raise ValueError(f"ZIP name {zip_path.name!r} must be {expected!r}")
+    if zip_path.stat().st_size > MAX_GITHUB_BLOB_BYTES:
+        raise ValueError(
+            "extension ZIP exceeds GitHub's 100 MiB git-blob limit")
     with zipfile.ZipFile(zip_path) as bundle:
         names = bundle.namelist()
         if "dev_build.json" in names and version.channel != "dev":

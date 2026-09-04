@@ -22,7 +22,7 @@
 
 ### Validation
 
-- The normal repository suite passes with 1,725 tests; 10 configured external
+- The normal repository suite passes with 1,726 tests; 10 configured external
   solver integration cases skip honestly and 3 built-artifact cases are deselected.
 - Blender 5.2.1 verifies exact ThreadMark detection for PNG/JPG/JPEG/WebP/TIF/TIFF,
   two animation frames sharing one worker PID, Eevee, CPU Cycles, and headless

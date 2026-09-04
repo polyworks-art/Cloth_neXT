@@ -132,6 +132,7 @@ This directory is the authoritative repair source for that version.
 Requirements:
 
 - The ZIP is byte-identical to the tested release candidate.
+- The ZIP is at most 100 MiB so GitHub can accept it as a `gh-pages` git blob.
 - The manifest records the exact source tag, commit, channel, platform, companion,
   solver protocol requirements, ZIP name, and ZIP SHA-256.
 - `SHA256SUMS.txt` matches the archive bytes.
