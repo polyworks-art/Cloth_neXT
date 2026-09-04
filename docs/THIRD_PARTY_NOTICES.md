@@ -41,3 +41,16 @@ photographs, or videos.
 ## Croissant icon
 
 Croissant icon by [Noun Project](https://thenounproject.com/browse/icons/term/croissant/).
+# Adobe TrustMark (evaluation integration)
+
+ThreadMark's optional ONNX backend interoperates with Adobe TrustMark.
+Copyright 2023-2025 Adobe. TrustMark source is licensed under the MIT License:
+https://github.com/adobe/trustmark/blob/main/LICENSE
+
+The production build path embeds the hash-pinned Q encoder and decoder in the owned
+Companion executable; no runtime download occurs. Adobe's official FAQ describes
+TrustMark as MIT-licensed, explicitly permits application integration and commercial
+use, identifies the models as part of TrustMark's deployment, and states that they
+were trained on licensed Adobe Stock images. The complete Adobe copyright and MIT
+permission notice is shipped as `cloth_next/THIRD_PARTY_NOTICES.md` and is enforced
+by source and packaged-artifact release gates.

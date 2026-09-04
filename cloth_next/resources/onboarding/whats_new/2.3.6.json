@@ -1,0 +1,31 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.3.6",
+  "title": "What's New in Cloth NeXt 2.3.6",
+  "subtitle": "Automatic render provenance and a clearer first-run experience.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/shield.png",
+      "title": "ThreadMarked Renders",
+      "description": "Eligible automatic SDR renders now carry an invisible Cloth NeXt provenance signal."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Welcome and What's New",
+      "description": "Compact Companion screens introduce the workflow and each new build without interrupting Blender."
+    }
+  ],
+  "improvements": [
+    {"icon": "icons/check.png", "text": "PNG, JPEG, WebP, and TIFF stills and animation frames are processed fail-open after Blender writes them."},
+    {"icon": "icons/docs.png", "text": "Preferences now provide direct access to Welcome, What's New, and the full changelog."}
+  ],
+  "fixes": [
+    {"icon": "icons/refresh.png", "text": "Opening another Blender file no longer leaves stale viewport-shading references behind."}
+  ],
+  "actions": [
+    {"label": "Start Creating", "kind": "close"},
+    {"label": "Full Changelog", "kind": "url", "url": "https://github.com/polyworks-art/Cloth_neXT/blob/main/CHANGELOG.md"},
+    {"label": "Documentation", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"}
+  ]
+}

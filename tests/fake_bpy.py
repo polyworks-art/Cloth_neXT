@@ -298,7 +298,8 @@ def make_module() -> types.ModuleType:
     # (and therefore duplicate-handler bugs) are reproduced exactly.
     handlers_module = types.SimpleNamespace(
         frame_change_post=[], depsgraph_update_post=[], load_pre=[], load_post=[],
-        undo_post=[], redo_post=[])
+        undo_post=[], redo_post=[], render_pre=[], render_write=[],
+        render_complete=[], render_cancel=[])
 
     app_module = types.SimpleNamespace(
         online_access=True,

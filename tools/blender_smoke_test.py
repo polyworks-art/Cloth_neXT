@@ -81,6 +81,7 @@ def _assert_no_runtime_timers(bpy, module_name: str) -> None:
         ("bake_preview", "_tick"),
         ("companion_manager", "_pulse"),
         ("hud", "_redraw_pulse"),
+        ("onboarding_manager", "_startup_pulse"),
         ("preferences", "_ui_refresh_pulse"),
         ("solver_test", "_delayed_recovery_refresh"),
         ("solver_test", "_pump"),

@@ -122,6 +122,17 @@ stops the preview, authenticates companion shutdown, closes IPC, then terminates
 only that exact child if graceful exit fails. Panel, HUD and companion always
 observe one controller.
 
+Welcome and What's New reuse that exact executable in independent informational
+modes. Registration schedules one module-level, one-shot Blender timer; it captures
+no context or RNA value, never runs during module import, and unregister removes it
+if it has not fired. The hidden AddonPreferences string stores a bounded JSON seen
+history. A blank state shows Welcome and marks the current version at successful
+process creation, so What's New is not stacked on top. A higher unseen
+`STABLE.BETA.DEV` version shows What's New once. Same versions and lower versions do
+not repeat; this also keeps channel switches and downgrades monotonic. Manual
+Preferences actions do not alter the automatic seen state. Missing Companion or
+invalid content is non-fatal to Blender and all Bake/solver state.
+
 ## Phase 3A.1 live presentation
 
 The pure `telemetry` package owns one stoppable worker. At a throttled one-second

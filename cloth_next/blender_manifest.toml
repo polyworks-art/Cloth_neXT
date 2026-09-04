@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "cloth_next"
-version = "2.3.5"
+version = "2.3.6"
 name = "Cloth NeXt"
 tagline = "High-fidelity cloth simulation with the PPF solver"
 maintainer = "Tim Christmann"

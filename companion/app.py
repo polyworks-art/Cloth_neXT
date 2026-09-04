@@ -207,13 +207,14 @@ def _windows_identity():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Polyworks.ClothNeXt.Bake")
         except (AttributeError,OSError): pass
 
-def _match_windows_title_bar(root):
+def _match_windows_title_bar(root, light=False):
     if sys.platform!="win32": return
     try:
         root.update_idletasks(); hwnd=ctypes.windll.user32.GetParent(root.winfo_id()) or root.winfo_id()
-        color=ctypes.c_int(0x00303030); light=ctypes.c_int(0x00F0F0F0)
+        color=ctypes.c_int(0x00F3F3F3 if light else 0x00303030)
+        caption=ctypes.c_int(0x00202326 if light else 0x00F0F0F0)
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,35,ctypes.byref(color),ctypes.sizeof(color))
-        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(light),ctypes.sizeof(light))
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(caption),ctypes.sizeof(caption))
     except (AttributeError,OSError): pass
 
 def _set_bake_window_topmost(root, enabled):
@@ -975,8 +976,39 @@ class BakeWindow:
 
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
-    parser.add_argument("--mode",choices=("bake","veyra"),default="bake")
-    args=parser.parse_args(argv); transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
+    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","threadmark-worker"),default="bake")
+    parser.add_argument("--host",default="127.0.0.1")
+    parser.add_argument("--version")
+    parser.add_argument("--content-root")
+    args=parser.parse_args(argv)
+    if args.mode == "threadmark-worker":
+        if (args.host != "127.0.0.1" or not args.port or not args.token
+                or args.session_root or args.version or args.content_root):
+            parser.error("ThreadMark worker requires only loopback port and token")
+        from verifier.worker import run_worker
+        bundled=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parents[1]))/"threadmark_models"
+        models=Path(os.environ.get("THREADMARK_MODEL_DIR",bundled))
+        raise SystemExit(run_worker(host=args.host,port=args.port,
+                                    token=args.token,model_dir=models))
+    if args.mode in {"welcome","whats-new"}:
+        if args.port or args.token or args.session_root:
+            parser.error("informational modes do not accept Bake transport arguments")
+        if not args.content_root:
+            parser.error("informational modes require --content-root")
+        if args.mode == "whats-new" and not args.version:
+            parser.error("--mode whats-new requires --version")
+        from companion.onboarding_window import run_info_window
+        try:
+            run_info_window(args.mode,args.version,Path(args.content_root))
+        except (OSError,ValueError,json.JSONDecodeError):
+            LOG.error("informational companion failed\n%s",traceback.format_exc())
+            raise SystemExit(2)
+        return
+    if args.version:
+        parser.error("--version is only valid with --mode whats-new")
+    if args.content_root:
+        parser.error("--content-root is only valid with informational modes")
+    transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
     try: BakeWindow(transport,session_root=args.session_root,
                     initial_mode=CompanionMode(args.mode.upper())).run()
     except Exception:

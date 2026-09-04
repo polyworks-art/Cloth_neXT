@@ -33,6 +33,7 @@ jobs:
         with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
       - run: pip install -r requirements-build.txt
       - run: python tools/prepare_dev_build.py --version "${{ inputs.version }}" --commit "${{ inputs.ref }}" --run-id "${{ github.run_id }}"
+      - run: python tools/validate_release_policy.py --phase pre-build --tag "${{ inputs.version }}"
       - name: Mandatory source and secret checks
         shell: pwsh
         run: |
@@ -42,8 +43,10 @@ jobs:
           $hits=Get-ChildItem cloth_next,companion -Recurse -File | Where-Object {$_.Extension -in '.py','.json','.toml'} | Select-String -Pattern '(ghp_|github_pat_|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' -CaseSensitive
           if ($hits) { throw 'potential secret found in source' }
       - run: python tools/build_icons.py
-      - run: python companion/build_companion.py
+      - run: python tools/fetch_threadmark_models.py --output "${{ runner.temp }}/threadmark-models"
+      - run: python companion/build_companion.py --threadmark-models "${{ runner.temp }}/threadmark-models"
       - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/verify_companion.py
       - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
       - shell: pwsh
         run: |
@@ -55,6 +58,7 @@ jobs:
       - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: python tools/validate_extension.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip" --phase packaged
       - run: python tools/scan_release_artifact.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
+      - run: python tools/validate_release_policy.py --phase post-build --tag "${{ inputs.version }}" --zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - shell: pwsh
         run: '& "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"'
       - name: Publish isolated Dev repository

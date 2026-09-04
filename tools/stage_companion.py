@@ -17,9 +17,10 @@ def stage(source: Path, extension: Path=ROOT/"cloth_next") -> Path:
     version=tomllib.loads((extension/"blender_manifest.toml").read_text("utf-8"))["version"]
     target=extension/"bin"/FILENAME; target.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(source,target); data=target.read_bytes()
-    payload={"schema_version":1,"cloth_next_version":version,"filename":FILENAME,
+    payload={"schema_version":2,"cloth_next_version":version,"filename":FILENAME,
              "platform":"windows-x64","file_size":len(data),
-             "sha256":hashlib.sha256(data).hexdigest()}
+             "sha256":hashlib.sha256(data).hexdigest(),
+             "modes":["bake","veyra","welcome","whats-new","threadmark-worker"]}
     manifest=extension/"companion_manifest.json"
     manifest.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     return target

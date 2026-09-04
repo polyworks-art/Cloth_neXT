@@ -729,6 +729,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Require the visible topmost Bake window before locking "
                     "Blender. When disabled, Bake runs in Blender without a "
                     "global modal workflow lock")
+    onboarding_state: bpy.props.StringProperty(
+        name="Onboarding State", default="",
+        description="Internal persistent Welcome and What's-New seen state",
+        options={"HIDDEN"})
     auto_frame_bake: bpy.props.BoolProperty(
         name="Auto-Frame Cloth During Bake", default=True,
         description="Keep all live-baked deformables comfortably visible in "
@@ -762,6 +766,12 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     def draw(self, context) -> None:
         layout = self.layout
         self._draw_addon_update_section(layout, context)
+        welcome = layout.box()
+        welcome.label(text="Learn Cloth NeXt")
+        actions = welcome.row()
+        actions.operator("clothnext.open_welcome", text="Open Welcome")
+        actions.operator("clothnext.open_whats_new", text="What's New")
+        actions.operator("clothnext.addon_open_release_notes", text="View Changelog")
         self._draw_solver_section(layout)
         if is_dev_build():
             layout.prop(self, "developer_tools")

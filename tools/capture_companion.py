@@ -14,9 +14,14 @@ from cloth_next.veyra.model import CompanionMode, VeyraStep
 from companion.app import BakeWindow
 
 parser=argparse.ArgumentParser(); parser.add_argument(
-    "--mode",choices=("bake","veyra"),default="bake")
+    "--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
 args=parser.parse_args()
-window=BakeWindow()
+if args.mode in {"welcome","whats-new"}:
+    from companion.onboarding_window import InfoWindow, load_content
+    version="2.3.5" if args.mode=="whats-new" else None
+    window=InfoWindow(args.mode,load_content(args.mode,version))
+else:
+    window=BakeWindow()
 snapshot=(BakeSnapshot(state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,
     companion_mode=CompanionMode.VEYRA,
     veyra_step=VeyraStep.SOLVING_REPAIR_PLAN,veyra_step_index=2,
@@ -28,7 +33,7 @@ snapshot=(BakeSnapshot(state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,
     status_title="Simulating cloth",status_message="Simulating frame 7 of 240",
     activity_code=BakeActivity.SOLVING_CONSTRAINTS,
     elapsed_seconds=2,estimated_remaining_seconds=66,can_cancel=True))
-window.show(snapshot)
+if args.mode in {"bake","veyra"}: window.show(snapshot)
 window.root.update_idletasks(); window.root.update(); window.root.lift(); window.root.attributes("-topmost",True)
 for _ in range(6):
     window.root.update_idletasks(); window.root.update(); time.sleep(.2)
@@ -38,5 +43,7 @@ if sys.platform=="win32":
     rect=(ctypes.c_long*4)(); ctypes.windll.user32.GetWindowRect(hwnd,rect)
     x,y,right,bottom=rect; w,h=right-x,bottom-y
 output=ROOT/f"dist/companion-ui-{args.mode}.png"; output.parent.mkdir(exist_ok=True)
-ImageGrab.grab((x,y,x+w,y+h),all_screens=True).save(output)
+image = (ImageGrab.grab(window=hwnd) if sys.platform == "win32"
+         else ImageGrab.grab((x,y,x+w,y+h),all_screens=True))
+image.save(output)
 window.close(); print(output)

@@ -23,14 +23,20 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from cloth_next.ppf.bootstrap import sha256_file
+from cloth_next.onboarding import (load_welcome, validate_release_content,
+                                    validate_whats_new_payload)
 from cloth_next.updater.solver_manifest import parse_manifest
 from tools.scan_release_artifact import scan_names
-from cloth_next.bake.companion_bundle import validate_bundle
 from cloth_next.updater.channel_policy import (allowed_release_channels,
                                                  publication_targets)
 from cloth_next.updater.addon_versions import parse_version as parse_addon_version
 
 RELEASE_PLATFORM = "windows-x64"
+TRUSTMARK_NOTICE = "THIRD_PARTY_NOTICES.md"
+TRUSTMARK_NOTICE_TOKENS = (
+    "Adobe TrustMark", "Copyright 2023 Adobe", "MIT License",
+    "Permission is hereby granted",
+)
 SEMVER_RE = re.compile(
     r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
     r"(?:-(?P<kind>beta|rc)\.(?P<pre>0|[1-9]\d*))?$")
@@ -73,7 +79,7 @@ def tag_to_version(tag: str) -> ReleaseVersion:
 
 
 def check_channel(version: ReleaseVersion, channel: str) -> None:
-    if channel not in ("stable", "beta"):
+    if channel not in ("stable", "beta", "dev"):
         raise ValueError(f"unknown release channel {channel!r}")
     if version.channel != channel:
         raise ValueError(f"{version.text} encodes channel {version.channel}, not {channel}")
@@ -109,13 +115,43 @@ def check_solver_manifest(repository_root: Path) -> None:
                    expected_cloth_next_version=read_manifest_version(repository_root))
 
 
+def check_onboarding_content(repository_root: Path, version: str) -> None:
+    """Every public channel uses the same mandatory offline content gate."""
+    validate_release_content(
+        repository_root / "cloth_next" / "resources" / "onboarding", version)
+    app_source = (repository_root / "companion" / "app.py").read_text(
+        encoding="utf-8")
+    for token in ('"welcome"', '"whats-new"', '"--version"', '"--content-root"'):
+        if token not in app_source:
+            raise ValueError(f"Companion CLI does not declare required token {token}")
+    notes = repository_root / "RELEASE_NOTES.md"
+    if notes.is_file() and version not in notes.read_text(encoding="utf-8")[:256]:
+        raise ValueError("RELEASE_NOTES.md heading does not match release version")
+    changelog = repository_root / "CHANGELOG.md"
+    if changelog.is_file() and f"## {version}" not in changelog.read_text(
+            encoding="utf-8"):
+        raise ValueError("CHANGELOG.md has no entry for release version")
+
+
+def check_trustmark_notice(data: bytes) -> None:
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Adobe TrustMark notice is not valid UTF-8") from exc
+    missing = [token for token in TRUSTMARK_NOTICE_TOKENS if token not in text]
+    if missing:
+        raise ValueError(
+            "Adobe TrustMark notice misses required license text: "
+            + ", ".join(missing))
+
+
 def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
     expected = expected_zip_name(version)
     if zip_path.name != expected:
         raise ValueError(f"ZIP name {zip_path.name!r} must be {expected!r}")
     with zipfile.ZipFile(zip_path) as bundle:
         names = bundle.namelist()
-        if "dev_build.json" in names:
+        if "dev_build.json" in names and version.channel != "dev":
             raise ValueError(
                 "Beta/stable extension ZIP must never contain Dev build metadata "
                 "or enable Developer Tools")
@@ -135,6 +171,33 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             raise ValueError("extension ZIP misses solver_compatibility.json")
         solver_manifest = json.loads(bundle.read("solver_compatibility.json"))
         parse_manifest(solver_manifest, expected_cloth_next_version=version.text)
+        if TRUSTMARK_NOTICE not in names:
+            raise ValueError(f"extension ZIP misses required {TRUSTMARK_NOTICE}")
+        check_trustmark_notice(bundle.read(TRUSTMARK_NOTICE))
+        whats_new_name = f"resources/onboarding/whats_new/{version.text}.json"
+        packaged_versions = {
+            name for name in names
+            if name.startswith("resources/onboarding/whats_new/")
+            and name.endswith(".json")}
+        if whats_new_name not in packaged_versions:
+            raise ValueError(f"extension ZIP misses required {whats_new_name}")
+        if packaged_versions != {whats_new_name}:
+            raise ValueError(
+                "extension ZIP must contain only the exact release What's-New JSON")
+        if "resources/onboarding/welcome.json" in names:
+            raise ValueError("Welcome is invariant Companion content, not release JSON")
+        if whats_new_name not in names:
+            raise ValueError(f"extension ZIP misses required {whats_new_name}")
+        resource_root = Path("resources/onboarding")
+        try:
+            whats_new = json.loads(bundle.read(whats_new_name).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("packaged onboarding resource is not valid UTF-8 JSON") from exc
+        def asset_exists(value):
+            return f"resources/onboarding/{value}" in names
+        load_welcome(resource_root, asset_exists)
+        validate_whats_new_payload(whats_new, version.text, resource_root,
+                                    asset_exists)
         if "bin/cloth-next-bake.exe" not in names or "companion_manifest.json" not in names:
             raise ValueError("extension ZIP misses the approved bundled companion")
         companion = json.loads(bundle.read("companion_manifest.json"))
@@ -143,6 +206,9 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             raise ValueError("companion manifest version mismatch")
         if companion.get("filename") != "cloth-next-bake.exe" or companion.get("platform") != "windows-x64":
             raise ValueError("invalid bundled companion identity")
+        if companion.get("schema_version") != 2 or companion.get("modes") != [
+                "bake", "veyra", "welcome", "whats-new", "threadmark-worker"]:
+            raise ValueError("bundled companion misses required Welcome/What's-New modes")
         if companion.get("file_size") != len(binary) or companion.get("sha256") != __import__("hashlib").sha256(binary).hexdigest():
             raise ValueError("bundled companion size/hash mismatch")
 
@@ -262,6 +328,11 @@ def main() -> int:
         version = check_tag_matches_manifest(args.tag, args.repository_root)
         check_channel(version, version.channel)
         check_solver_manifest(args.repository_root)
+        check_onboarding_content(args.repository_root, version.text)
+        notice = args.repository_root / "cloth_next" / TRUSTMARK_NOTICE
+        if not notice.is_file():
+            raise ValueError(f"source misses required cloth_next/{TRUSTMARK_NOTICE}")
+        check_trustmark_notice(notice.read_bytes())
         if args.phase in ("post-build", "pre-publish"):
             if args.zip is None:
                 raise ValueError(f"--zip is required for phase {args.phase}")

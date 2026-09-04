@@ -10,10 +10,12 @@ FILENAME="cloth-next-bake.exe"
 def validate_bundle(extension_root: Path, expected_version: str) -> Path:
     manifest=extension_root/"companion_manifest.json"
     payload=json.loads(manifest.read_text("utf-8"))
-    required={"schema_version","cloth_next_version","filename","platform","file_size","sha256"}
-    if set(payload)!=required or payload["schema_version"]!=1: raise ValueError("invalid companion manifest schema")
+    required={"schema_version","cloth_next_version","filename","platform","file_size","sha256","modes"}
+    if set(payload)!=required or payload["schema_version"]!=2: raise ValueError("invalid companion manifest schema")
     if payload["cloth_next_version"]!=expected_version: raise ValueError("companion version mismatch")
     if payload["filename"]!=FILENAME or payload["platform"]!="windows-x64": raise ValueError("invalid companion identity")
+    if payload["modes"] != ["bake","veyra","welcome","whats-new","threadmark-worker"]:
+        raise ValueError("bundled companion does not support every required mode")
     binary=extension_root/"bin"/FILENAME
     data=binary.read_bytes()
     if len(data)!=payload["file_size"]: raise ValueError("companion size mismatch")

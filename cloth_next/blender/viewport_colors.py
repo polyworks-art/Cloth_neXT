@@ -5,6 +5,13 @@ from __future__ import annotations
 
 import bpy
 
+try:
+    from bpy.app.handlers import persistent
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - lightweight stubs
+    def persistent(function):
+        function._bpy_persistent = None
+        return function
+
 
 ROLE_COLORS = {
     "CLOTH": (0.08, 0.32, 0.80, 1.0),
@@ -108,8 +115,35 @@ def _refresh_timer():
     return _REFRESH_INTERVAL_SECONDS
 
 
+@persistent
+def _on_load_pre_clear_shading_states(*_args) -> None:
+    """Drop RNA pointers before Blender replaces the current file database.
+
+    ``SpaceView3D.shading`` objects belong to the current screen data.  They
+    cannot be dereferenced after ``open_mainfile``; even an exception guard is
+    too late because the invalid RNA access can crash in Blender's native code.
+    """
+    _shading_states.clear()
+
+
+_on_load_pre_clear_shading_states._clothnext_viewport_handler = True
+
+
+def _purge_stale_load_handlers(container) -> None:
+    for callback in list(container):
+        if (getattr(callback, "_clothnext_viewport_handler", False)
+                and callback is not _on_load_pre_clear_shading_states):
+            container.remove(callback)
+
+
 def register() -> None:
     _shading_states.clear()
+    load_pre = getattr(getattr(getattr(bpy, "app", None), "handlers", None),
+                       "load_pre", None)
+    if load_pre is not None:
+        _purge_stale_load_handlers(load_pre)
+        if _on_load_pre_clear_shading_states not in load_pre:
+            load_pre.append(_on_load_pre_clear_shading_states)
     refresh_viewports()
     for obj in getattr(getattr(bpy, "data", None), "objects", ()):
         apply_object(obj)
@@ -124,6 +158,12 @@ def register() -> None:
 
 
 def unregister() -> None:
+    load_pre = getattr(getattr(getattr(bpy, "app", None), "handlers", None),
+                       "load_pre", None)
+    if load_pre is not None:
+        while _on_load_pre_clear_shading_states in load_pre:
+            load_pre.remove(_on_load_pre_clear_shading_states)
+        _purge_stale_load_handlers(load_pre)
     timers = getattr(getattr(bpy, "app", None), "timers", None)
     if timers is not None and timers.is_registered(_refresh_timer):
         timers.unregister(_refresh_timer)

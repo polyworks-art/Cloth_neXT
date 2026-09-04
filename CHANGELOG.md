@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.3.6 - 2026-09-04
+
+### Added
+
+- Automatic ThreadMark V1 provenance for cache-authenticated PNG, JPEG, WebP, and
+  TIFF stills and animation frames through Blender's `render_write` boundary.
+- A bounded authenticated Companion worker that retains the TrustMark Q/0.80 ONNX
+  runtime across an animation and exits on every terminal add-on lifecycle path.
+- Offline Welcome and exact-version What's New screens, persistent monotonic seen
+  state, manual Preferences actions, validated content, and shared packaged assets.
+
+### Fixed
+
+- ThreadMark failures now preserve Blender's original output through verified
+  sibling writes and atomic replacement, including Windows TIFF handle behavior.
+- Explicit `.jpeg` and `.tiff` aliases resolve to Blender's actual final path rather
+  than being confused with canonical `.jpg` and `.tif` extensions.
+- Viewport shading state is discarded at `load_pre`, avoiding stale Blender RNA
+  references after opening another file.
+
+### Validation
+
+- The normal repository suite passes with 1,725 tests; 10 configured external
+  solver integration cases skip honestly and 3 built-artifact cases are deselected.
+- Blender 5.2.1 verifies exact ThreadMark detection for PNG/JPG/JPEG/WebP/TIF/TIFF,
+  two animation frames sharing one worker PID, Eevee, CPU Cycles, and headless
+  rendering. EXR and ineligible renders remain unmarked, every child exits cleanly,
+  and unregister leaves no handler or process.
+- The one-file Companion build passes Bake, Welcome, What's New, invalid-version,
+  ThreadMark encode/verification, and authenticated shutdown checks.
+
 ## 2.3.5 - 2026-08-28
 
 ### Fixed

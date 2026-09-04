@@ -63,3 +63,41 @@ def test_refresh_does_not_redraw_unchanged_object_color_viewport(monkeypatch):
 
     assert viewport_colors.refresh_viewports() is False
     assert redraws == []
+
+
+def test_file_load_discards_shading_rna_before_database_replacement(monkeypatch):
+    viewport_colors = _module(monkeypatch)
+    shading = SimpleNamespace(type="SOLID", color_type="MATERIAL")
+    space = SimpleNamespace(shading=shading)
+    area = SimpleNamespace(tag_redraw=lambda: None)
+    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
+                        lambda: iter(((area, space),)))
+
+    viewport_colors.register()
+    assert viewport_colors._shading_states == [(shading, "MATERIAL")]
+    assert viewport_colors._on_load_pre_clear_shading_states in (
+        viewport_colors.bpy.app.handlers.load_pre)
+
+    viewport_colors._on_load_pre_clear_shading_states(None)
+
+    assert viewport_colors._shading_states == []
+    viewport_colors.unregister()
+    assert viewport_colors._on_load_pre_clear_shading_states not in (
+        viewport_colors.bpy.app.handlers.load_pre)
+
+
+def test_register_purges_stale_viewport_load_handler(monkeypatch):
+    viewport_colors = _module(monkeypatch)
+
+    def stale_handler(*_args):
+        return None
+
+    stale_handler._clothnext_viewport_handler = True
+    viewport_colors.bpy.app.handlers.load_pre.append(stale_handler)
+
+    viewport_colors.register()
+    viewport_colors.register()
+
+    assert viewport_colors.bpy.app.handlers.load_pre == [
+        viewport_colors._on_load_pre_clear_shading_states]
+    viewport_colors.unregister()

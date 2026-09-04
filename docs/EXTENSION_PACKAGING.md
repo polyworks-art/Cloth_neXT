@@ -25,6 +25,18 @@ python tools\build_extension.py `
 Both modes validate the ZIP layout and scan the finished artifact. Release CI
 additionally builds and stages the Cloth NeXt-owned Windows Bake companion at
 `bin/cloth-next-bake.exe`; that executable is UI software, not the solver.
+The Companion also contains the pinned ThreadMark Q encoder/decoder and exposes the
+owned, non-UI `threadmark-worker` mode. Models are fetched and hash-verified only in
+the build job; the installed extension performs no model or code download.
+
+The package also contains validated offline onboarding resources under
+`resources/onboarding/`: the manifest-version `whats_new/<version>.json` plus the
+shared hero and icon pool. Welcome is invariant Companion content and therefore has
+no release JSON. Blender passes
+that installed resource directory through `--content-root`; release-specific copy
+and icon choices are not compiled into the Companion EXE. Release policy rejects invalid UTF-8 or
+JSON, version mismatches, missing assets, absolute paths, unsafe URLs, missing
+Companion modes, or an archive without these resources for Dev, Beta, and Stable.
 
 The installed extension directory is treated as read-only. Managed solver files,
 downloads, logs, and runtime state live under `%LOCALAPPDATA%\ClothNeXt\solver\`.

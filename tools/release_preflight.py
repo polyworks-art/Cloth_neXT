@@ -17,6 +17,7 @@ def run(*args: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--blender", required=True)
+    parser.add_argument("--threadmark-models", required=True)
     args = parser.parse_args()
     if sys.platform != "win32":
         parser.error("complete preflight requires Windows to build the real companion EXE")
@@ -28,7 +29,8 @@ def main() -> int:
     run(py, "-m", "pytest", "-m", "not integration and not built_artifact")
     run(py, "tools/validate_extension.py", "cloth_next", "--phase", "source")
     run(py, "tools/build_icons.py")
-    run(py, "companion/build_companion.py")
+    run(py, "companion/build_companion.py", "--threadmark-models",
+        args.threadmark_models)
     companion = ROOT/"companion/dist/Cloth NeXt Bake.exe"
     run(py, "tools/scan_companion.py", str(companion))
     run(py, "tools/stage_companion.py", str(companion))

@@ -40,15 +40,43 @@ demo view. Blender launches source mode explicitly with a random authenticated
 `127.0.0.1` endpoint and publishes the active preview snapshots. Cancel sends a
 request to Blender's shared controller; it never kills a process or touches files.
 
-For a local development EXE, install `companion/requirements-build.txt`, then run
-`python companion/build_companion.py`. Output is
+For a local development EXE, install `companion/requirements-build.txt`, provision
+the pinned Q models with `python tools/fetch_threadmark_models.py --output DIR`,
+then run `python companion/build_companion.py --threadmark-models DIR`. Output is
 `companion/dist/Cloth NeXt Bake.exe`, which is ignored and excluded from the
 extension package for development. Release CI independently rebuilds it and stages
 the validated result as the sole allowed executable inside the Windows extension.
 No solver or PPF files are included.
+
+The same owned executable serves the hidden `threadmark-worker` mode. Blender starts
+one authenticated loopback child lazily for an eligible automatic render, reuses it
+across animation frames, and shuts it down on complete, cancel, file load, or
+unregister. The Q models are embedded at build time; runtime never downloads them.
 
 The executable, taskbar, title bar, and Tk window use the approved `cloth_next`
 project identity icon. The approved croissant remains distinct and appears only
 as the Bake/progress symbol inside the window. Deterministic PNG/ICO derivatives
 are produced by `python companion/build_assets.py` during the development build;
 normal startup performs no conversion.
+
+## Welcome and What's New
+
+The same Companion executable also owns two compact, light product-information
+windows. No second executable or background service exists:
+
+```text
+Cloth NeXt Bake.exe --mode welcome
+  --content-root <installed-extension>/resources/onboarding
+Cloth NeXt Bake.exe --mode whats-new --version <STABLE.BETA.DEV>
+  --content-root <installed-extension>/resources/onboarding
+```
+
+Welcome uses invariant product copy and fixed icons from the shared packaged pool.
+What's New alone loads validated UTF-8 JSON from the installed update's
+`cloth_next/resources/onboarding/` directory. Release content is deliberately not
+compiled into the EXE: each add-on update supplies its own exact-version JSON and
+icon selection. The screens require no network access to render and terminate when their window
+closes. URL actions are explicit HTTPS links. A missing or invalid resource exits
+the informational process without affecting Blender, Bake, authentication, or the
+external solver. The approved character render is cropped at runtime and shared by
+both screens; `© Tim Christmann` remains visible in the Hero.

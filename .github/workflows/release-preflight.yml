@@ -14,6 +14,8 @@ on:
       - "companion/**"
       - "cloth_next/blender_manifest.toml"
       - "cloth_next/solver_compatibility.json"
+      - "cloth_next/onboarding.py"
+      - "cloth_next/resources/onboarding/**"
       - "tools/**"
       - "tests/**"
       - "requirements-build.txt"

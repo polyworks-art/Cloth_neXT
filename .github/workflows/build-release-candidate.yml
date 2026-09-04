@@ -67,8 +67,10 @@ jobs:
         with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
       - run: pip install -r requirements-build.txt
       - run: python tools/build_icons.py
-      - run: python companion/build_companion.py
+      - run: python tools/fetch_threadmark_models.py --output "${{ runner.temp }}/threadmark-models"
+      - run: python companion/build_companion.py --threadmark-models "${{ runner.temp }}/threadmark-models"
       - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/verify_companion.py
       - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
       - shell: pwsh
         run: |

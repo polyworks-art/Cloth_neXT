@@ -26,10 +26,14 @@ def main() -> None:
     sys.path.insert(0, str(args.repo))
     from cloth_next import export_identity
     from cloth_next.bake import pc2
-    from cloth_next.blender import registration, solver_test, validation_state
+    from cloth_next.blender import (registration, solver_test, validation_state,
+                                    viewport_colors)
 
     registration.register()
     try:
+        viewport_load_handler = (
+            viewport_colors._on_load_pre_clear_shading_states)
+        assert bpy.app.handlers.load_pre.count(viewport_load_handler) == 1
         bpy.ops.object.select_all(action="SELECT")
         bpy.ops.object.delete(use_global=False)
         bpy.ops.mesh.primitive_plane_add()
@@ -65,6 +69,7 @@ def main() -> None:
             bpy.ops.wm.save_as_mainfile(filepath=str(blend), check_existing=False)
             assert blend.is_file()
             bpy.ops.wm.open_mainfile(filepath=str(blend))
+            assert bpy.app.handlers.load_pre.count(viewport_load_handler) == 1
             cloth = bpy.data.objects["Cloth ä ö 한글 ! #"]
             collider = bpy.data.objects["Collider ü spaces (test)"]
             assert export_identity.export_uuid(cloth) == cloth_uuid
@@ -75,6 +80,7 @@ def main() -> None:
             bpy.context.view_layer.update()
             bpy.ops.wm.save_as_mainfile(filepath=str(blend), check_existing=False)
             bpy.ops.wm.open_mainfile(filepath=str(blend))
+            assert bpy.app.handlers.load_pre.count(viewport_load_handler) == 1
             assert "Renamed Cloth ä" in bpy.data.objects
             assert "Renamed Collider 한글" not in bpy.data.objects
             assert export_identity.export_uuid(
@@ -164,6 +170,7 @@ def main() -> None:
     finally:
         registration.unregister()
         assert validation_state.handler_count() == 0
+        assert viewport_load_handler not in bpy.app.handlers.load_pre
 
 
 if __name__ == "__main__":

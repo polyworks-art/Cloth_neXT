@@ -173,6 +173,20 @@ and SHA-256.
 Beta and Stable archives must not contain `dev_build.json` or enable Developer Tools.
 Dev-only UI is permitted only in explicitly prepared Dev snapshots.
 
+Every Dev, Beta, and Stable archive must also contain:
+
+```text
+resources/onboarding/whats_new/<version>.json
+resources/onboarding/assets/hero-panel.png
+resources/onboarding/icons/<welcome-and-release-icon>.png
+```
+
+Welcome is invariant product-level content in the Companion and has no release JSON.
+Its packaged hero and three fixed icons are nevertheless mandatory.
+What's New is release-level content and must match the manifest version exactly.
+Both are rendered by the single approved Companion executable; a second UI
+executable is forbidden.
+
 ## 9. External PPF Solver policy
 
 The PPF Contact Solver is external software developed and distributed by ST Tech / ZOZO.
@@ -193,23 +207,25 @@ schema compatibility.
 
 ## 10. Required release checks
 
-A Stable or Beta release must pass, in order:
+A Dev, Beta, or Stable release must pass the applicable pipeline. Stable and Beta
+pass, in order:
 
 1. manifest, tag, and channel policy validation;
 2. unit tests;
 3. configured integration tests, with external prerequisites skipped honestly;
 4. source structure validation;
 5. solver compatibility manifest validation;
-6. Companion build and integrity scan;
-7. extension build through official Blender tooling;
-8. built-artifact tests;
-9. forbidden solver-material scan;
-10. packaged ZIP validation;
-11. canonical metadata generation;
-12. canonical Pages artifact validation;
-13. Blender repository generation through official Blender tooling;
-14. cumulative channel separation validation;
-15. atomic `gh-pages` publication.
+6. Welcome mode/asset and exact-version What's-New schema/content validation;
+7. Companion build, mode smoke tests, clean-exit test, and integrity scan;
+8. extension build through official Blender tooling;
+9. built-artifact tests;
+10. forbidden solver-material scan;
+11. packaged ZIP validation, including onboarding resources and Companion modes;
+12. canonical metadata generation;
+13. canonical Pages artifact validation;
+14. Blender repository generation through official Blender tooling;
+15. cumulative channel separation validation;
+16. atomic `gh-pages` publication.
 
 A failing check publishes nothing.
 
@@ -257,9 +273,45 @@ Dev is published only through `.github/workflows/publish-dev.yml` with:
 - `PUBLISH_DEV` confirmation;
 - isolated version metadata preparation;
 - mandatory packaging, secret, Companion, Blender, and artifact checks.
+- mandatory Welcome and exact Dev-version What's-New validation before build and
+  again against the packaged archive;
+- real Companion smoke tests for Bake, Welcome, What's New, invalid versions, and
+  clean process exit.
 
 Dev modifies only `gh-pages/dev/`, creates no tag, creates no GitHub Release, and does
 not modify Stable or Beta.
+
+## 13.1 Mandatory onboarding checklist for every channel
+
+Before any Dev, Beta, or Stable publication, the release manager verifies:
+
+- create and curate `resources/onboarding/whats_new/<version>.json` for the exact
+  intended public version before starting the release build; automation must not
+  generate or silently rewrite this editorial content from `CHANGELOG.md` or
+  `RELEASE_NOTES.md`;
+- Welcome mode and its fixed product assets are present, valid, offline-capable,
+  and packaged; Welcome has no per-release JSON to curate;
+- `whats_new/<version>.json` exists and its version equals the manifest, requested
+  release version, package name, release notes, and changelog entry;
+- titles, two to four highlights, optional improvement/fix lists, action kinds,
+  package-relative asset paths, and HTTPS URLs are valid;
+- the Companion manifest declares `bake`, `veyra`, `welcome`, `whats-new`, and
+  `threadmark-worker`, and the built EXE accepts the matching CLI parameters;
+- the hash-pinned ThreadMark Q models are provisioned at build time, embedded only
+  in the owned Companion, and the worker's authenticated encode/shutdown smoke test
+  passes without a runtime download;
+- Fresh Install shows Welcome once without stacking What's New; Update shows What's
+  New once; Same Version, re-enable, restart, and file-open do not repeat it;
+- downgrade and channel-switch state remains monotonic and does not loop;
+- manual Open Welcome / What's New / View Changelog actions work without mutating
+  automatic seen state;
+- register, file open, unregister, and Companion close leave no timer, Blender RNA
+  reference, or process behind.
+
+Any failure is a release-policy violation and publishes nothing. Because every
+three-position Dev counter is an immutable public build in this repository, Dev
+also requires exact-version What's-New content; the persisted seen-state prevents
+the same build from producing repeat popups.
 
 ## 14. Blender extension repositories
 

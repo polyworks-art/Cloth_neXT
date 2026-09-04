@@ -11,6 +11,7 @@ import pytest
 from tools.release_metadata import write_metadata
 from tools.scan_release_artifact import scan_names, scan_zip
 from tools.validate_release_policy import (check_channel, check_channel_separation,
+                                           check_onboarding_content,
                                            check_pages_artifact_store,
                                            check_release_manifest, check_sha256sums,
                                            check_tag_matches_manifest, check_zip,
@@ -19,6 +20,8 @@ from tools.validate_release_policy import (check_channel, check_channel_separati
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOLVER_MANIFEST = (REPO_ROOT / "cloth_next" / "solver_compatibility.json").read_text(
+    encoding="utf-8")
+TRUSTMARK_NOTICE = (REPO_ROOT / "cloth_next" / "THIRD_PARTY_NOTICES.md").read_text(
     encoding="utf-8")
 
 
@@ -31,6 +34,8 @@ def make_repo(tmp_path, version="0.2.0"):
     manifest["cloth_next_version"] = version
     (tmp_path / "cloth_next" / "solver_compatibility.json").write_text(
         json.dumps(manifest), encoding="utf-8")
+    (tmp_path / "cloth_next" / "THIRD_PARTY_NOTICES.md").write_text(
+        TRUSTMARK_NOTICE, encoding="utf-8")
     return tmp_path
 
 
@@ -40,9 +45,19 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
     path = tmp_path / (name or expected_zip_name(parse_version(version)))
     companion = b"MZcloth-next-companion"
     import hashlib
-    companion_manifest = {"schema_version": 1, "cloth_next_version": version,
+    companion_manifest = {"schema_version": 2, "cloth_next_version": version,
         "filename": "cloth-next-bake.exe", "platform": "windows-x64",
-        "file_size": len(companion), "sha256": hashlib.sha256(companion).hexdigest()}
+        "file_size": len(companion), "sha256": hashlib.sha256(companion).hexdigest(),
+        "modes": ["bake", "veyra", "welcome", "whats-new", "threadmark-worker"]}
+    whats_new = {"schema": "cnx.whats-new.v1", "version": version,
+        "title": f"What's New {version}", "subtitle": "A better build.",
+        "highlights": [
+            {"title": "Faster", "description": "Less waiting.",
+             "icon": "icons/rocket.png"},
+            {"title": "Safer", "description": "More reliable.",
+             "icon": "icons/shield.png"}],
+        "improvements": [], "fixes": [],
+        "actions": [{"label": "Continue", "kind": "close"}]}
     with zipfile.ZipFile(path, "w") as bundle:
         bundle.writestr("blender_manifest.toml",
                         f'id = "cloth_next"\nversion = "{version}"\n')
@@ -50,9 +65,26 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
         bundle.writestr("solver_compatibility.json", json.dumps(manifest))
         bundle.writestr("bin/cloth-next-bake.exe", companion)
         bundle.writestr("companion_manifest.json", json.dumps(companion_manifest))
+        bundle.writestr("THIRD_PARTY_NOTICES.md", TRUSTMARK_NOTICE)
+        bundle.writestr(f"resources/onboarding/whats_new/{version}.json",
+                        json.dumps(whats_new))
+        bundle.writestr("resources/onboarding/assets/hero-panel.png", b"png")
+        for icon in ("rocket", "shield", "link", "cloth", "play"):
+            bundle.writestr(f"resources/onboarding/icons/{icon}.png", b"png")
         for member in extra:
             bundle.writestr(member, b"data")
     return path
+
+
+def rewrite_zip_member(path, member, value=None):
+    with zipfile.ZipFile(path) as source:
+        entries = {name: source.read(name) for name in source.namelist()
+                   if name != member}
+    if value is not None:
+        entries[member] = (value.encode("utf-8") if isinstance(value, str) else value)
+    with zipfile.ZipFile(path, "w") as target:
+        for name, data in entries.items():
+            target.writestr(name, data)
 
 
 def stage_pages_artifact(tmp_path, version="0.2.0", tag="v0.2.0"):
@@ -121,6 +153,122 @@ def test_zip_manifest_version_mismatch_rejected(tmp_path):
         bundle.writestr("solver_compatibility.json", SOLVER_MANIFEST)
     with pytest.raises(ValueError, match="manifest version"):
         check_zip(path, parse_version("0.2.0"))
+
+
+def test_release_rejects_missing_trustmark_notice(tmp_path):
+    path = make_zip(tmp_path, "1.2.3")
+    rewrite_zip_member(path, "THIRD_PARTY_NOTICES.md")
+    with pytest.raises(ValueError, match="THIRD_PARTY_NOTICES"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.2.0", "1.2.3"])
+def test_every_public_channel_accepts_matching_onboarding_content(tmp_path, version):
+    check_zip(make_zip(tmp_path, version), parse_version(version))
+
+
+def test_release_rejects_missing_whats_new(tmp_path):
+    path = make_zip(tmp_path, "1.2.3")
+    rewrite_zip_member(path, "resources/onboarding/whats_new/1.2.3.json")
+    with pytest.raises(ValueError, match="misses required"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_extra_future_whats_new(tmp_path):
+    path = make_zip(tmp_path, "1.2.3", extra=(
+        "resources/onboarding/whats_new/1.2.4.json",))
+    with pytest.raises(ValueError, match="only the exact release"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_wrong_whats_new_version(tmp_path):
+    path = make_zip(tmp_path, "1.2.3")
+    name = "resources/onboarding/whats_new/1.2.3.json"
+    with zipfile.ZipFile(path) as bundle:
+        payload = json.loads(bundle.read(name))
+    payload["version"] = "1.2.2"
+    rewrite_zip_member(path, name, json.dumps(payload))
+    with pytest.raises(ValueError, match="version mismatch"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_invalid_json_and_missing_welcome_asset(tmp_path):
+    path = make_zip(tmp_path, "1.2.3")
+    rewrite_zip_member(path, "resources/onboarding/whats_new/1.2.3.json", "{")
+    with pytest.raises(ValueError, match="UTF-8 JSON"):
+        check_zip(path, parse_version("1.2.3"))
+    path = make_zip(tmp_path, "1.2.3")
+    rewrite_zip_member(path, "resources/onboarding/icons/link.png")
+    with pytest.raises(ValueError, match="does not exist"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_obsolete_welcome_json(tmp_path):
+    path = make_zip(tmp_path, "1.2.3", extra=(
+        "resources/onboarding/welcome.json",))
+    with pytest.raises(ValueError, match="not release JSON"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_icon_outside_approved_sheet_pool(tmp_path):
+    path = make_zip(tmp_path, "1.2.3", extra=(
+        "resources/onboarding/icons/custom.png",))
+    name = "resources/onboarding/whats_new/1.2.3.json"
+    with zipfile.ZipFile(path) as bundle:
+        payload = json.loads(bundle.read(name))
+    payload["highlights"][0]["icon"] = "icons/custom.png"
+    rewrite_zip_member(path, name, json.dumps(payload))
+    with pytest.raises(ValueError, match="approved onboarding icon pool"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_missing_asset_and_absolute_asset_path(tmp_path):
+    for asset, match in (("art/missing.png", "does not exist"),
+                         ("C:/private/hero.png", "package-relative")):
+        path = make_zip(tmp_path, "1.2.3")
+        name = "resources/onboarding/whats_new/1.2.3.json"
+        with zipfile.ZipFile(path) as bundle:
+            payload = json.loads(bundle.read(name))
+        payload["hero_asset"] = asset
+        rewrite_zip_member(path, name, json.dumps(payload))
+        with pytest.raises(ValueError, match=match):
+            check_zip(path, parse_version("1.2.3"))
+
+
+def test_release_rejects_missing_change_icon(tmp_path):
+    path = make_zip(tmp_path, "1.2.3")
+    name = "resources/onboarding/whats_new/1.2.3.json"
+    with zipfile.ZipFile(path) as bundle:
+        payload = json.loads(bundle.read(name))
+    payload["highlights"][0]["icon"] = "icons/missing.png"
+    rewrite_zip_member(path, name, json.dumps(payload))
+    with pytest.raises(ValueError, match="does not exist"):
+        check_zip(path, parse_version("1.2.3"))
+
+
+def test_source_gate_rejects_release_notes_version_contradiction(tmp_path):
+    repo = make_repo(tmp_path, "1.2.3")
+    resources = repo / "cloth_next" / "resources" / "onboarding"
+    resources.mkdir(parents=True)
+    with zipfile.ZipFile(make_zip(tmp_path, "1.2.3")) as bundle:
+        (resources / "whats_new").mkdir()
+        (resources / "whats_new" / "1.2.3.json").write_bytes(
+            bundle.read("resources/onboarding/whats_new/1.2.3.json"))
+        (resources / "icons").mkdir()
+        for name in ("rocket.png", "shield.png", "link.png", "cloth.png", "play.png"):
+            (resources / "icons" / name).write_bytes(
+                bundle.read(f"resources/onboarding/icons/{name}"))
+        (resources / "assets").mkdir()
+        (resources / "assets" / "hero-panel.png").write_bytes(
+            bundle.read("resources/onboarding/assets/hero-panel.png"))
+    (repo / "companion").mkdir()
+    (repo / "companion" / "app.py").write_text(
+        'MODES=("welcome","whats-new")\nARGS=("--version","--content-root")\n',
+        encoding="utf-8")
+    (repo / "RELEASE_NOTES.md").write_text("# Cloth NeXt 1.2.2\n", encoding="utf-8")
+    (repo / "CHANGELOG.md").write_text("## 1.2.3\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="RELEASE_NOTES"):
+        check_onboarding_content(repo, "1.2.3")
 
 
 @pytest.mark.parametrize("member", [
