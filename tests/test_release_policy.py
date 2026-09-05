@@ -21,8 +21,6 @@ from tools.validate_release_policy import (check_channel, check_channel_separati
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOLVER_MANIFEST = (REPO_ROOT / "cloth_next" / "solver_compatibility.json").read_text(
     encoding="utf-8")
-TRUSTMARK_NOTICE = (REPO_ROOT / "cloth_next" / "THIRD_PARTY_NOTICES.md").read_text(
-    encoding="utf-8")
 
 
 def make_repo(tmp_path, version="0.2.0"):
@@ -34,8 +32,6 @@ def make_repo(tmp_path, version="0.2.0"):
     manifest["cloth_next_version"] = version
     (tmp_path / "cloth_next" / "solver_compatibility.json").write_text(
         json.dumps(manifest), encoding="utf-8")
-    (tmp_path / "cloth_next" / "THIRD_PARTY_NOTICES.md").write_text(
-        TRUSTMARK_NOTICE, encoding="utf-8")
     return tmp_path
 
 
@@ -48,7 +44,7 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
     companion_manifest = {"schema_version": 2, "cloth_next_version": version,
         "filename": "cloth-next-bake.exe", "platform": "windows-x64",
         "file_size": len(companion), "sha256": hashlib.sha256(companion).hexdigest(),
-        "modes": ["bake", "veyra", "welcome", "whats-new", "threadmark-worker"]}
+        "modes": ["bake", "veyra", "welcome", "whats-new"]}
     whats_new = {"schema": "cnx.whats-new.v1", "version": version,
         "title": f"What's New {version}", "subtitle": "A better build.",
         "highlights": [
@@ -65,7 +61,6 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
         bundle.writestr("solver_compatibility.json", json.dumps(manifest))
         bundle.writestr("bin/cloth-next-bake.exe", companion)
         bundle.writestr("companion_manifest.json", json.dumps(companion_manifest))
-        bundle.writestr("THIRD_PARTY_NOTICES.md", TRUSTMARK_NOTICE)
         bundle.writestr(f"resources/onboarding/whats_new/{version}.json",
                         json.dumps(whats_new))
         bundle.writestr("resources/onboarding/assets/hero-panel.png", b"png")
@@ -154,6 +149,17 @@ def test_zip_rejects_github_blob_limit_overflow(tmp_path, monkeypatch):
         check_zip(path, parse_version("1.2.3"))
 
 
+@pytest.mark.parametrize("member", [
+    "threadmark_models/encoder_Q.onnx",
+    "trustmark/decoder_Q.onnx",
+    "blender/threadmark_render.py",
+])
+def test_zip_rejects_removed_watermark_material(tmp_path, member):
+    path = make_zip(tmp_path, "1.2.3", extra=(member,))
+    with pytest.raises(ValueError, match="removed watermark material"):
+        check_zip(path, parse_version("1.2.3"))
+
+
 def test_zip_manifest_version_mismatch_rejected(tmp_path):
     path = tmp_path / expected_zip_name(parse_version("0.2.0"))
     with zipfile.ZipFile(path, "w") as bundle:
@@ -161,13 +167,6 @@ def test_zip_manifest_version_mismatch_rejected(tmp_path):
         bundle.writestr("solver_compatibility.json", SOLVER_MANIFEST)
     with pytest.raises(ValueError, match="manifest version"):
         check_zip(path, parse_version("0.2.0"))
-
-
-def test_release_rejects_missing_trustmark_notice(tmp_path):
-    path = make_zip(tmp_path, "1.2.3")
-    rewrite_zip_member(path, "THIRD_PARTY_NOTICES.md")
-    with pytest.raises(ValueError, match="THIRD_PARTY_NOTICES"):
-        check_zip(path, parse_version("1.2.3"))
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.2.0", "1.2.3"])

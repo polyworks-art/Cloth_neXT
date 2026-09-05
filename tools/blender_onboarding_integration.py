@@ -48,7 +48,10 @@ def main() -> None:
     if expected:
         ok, message = onboarding_manager.launch_screen(expected, manual=False)
         assert ok, message
-        time.sleep(0.8)
+        deadline = time.monotonic() + 20
+        while onboarding_manager._pending and time.monotonic() < deadline:
+            onboarding_manager._poll_startup()
+            time.sleep(0.1)
     else:
         onboarding_manager._startup_pulse()
     after = SeenState.from_json(preferences.onboarding_state)

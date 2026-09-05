@@ -9,6 +9,9 @@ import logging
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import time
+import secrets
 
 import bpy
 
@@ -19,6 +22,10 @@ from .addon_identity import addon_preferences
 
 _START_DELAY_SECONDS = 1.25
 LOG = logging.getLogger(__name__)
+_stale_timers = globals().get("_stale_timers", []) + [
+    callback for name in ("_startup_pulse", "_poll_startup")
+    if callable(callback := globals().get(name))]
+_pending = globals().get("_pending", [])
 
 
 def _preferences():
@@ -57,6 +64,7 @@ def companion_info_command(mode: str, version: str | None = None) -> list[str]:
 def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
     """Start one independent informational window; never block Blender."""
     version = manifest_version()
+    temporary = None
     try:
         if mode == "welcome":
             load_welcome()
@@ -66,21 +74,51 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
             raise ValueError(f"unknown Companion screen: {mode}")
         command = companion_info_command(
             mode, version if mode == "whats-new" else None)
+        temporary = tempfile.TemporaryDirectory(prefix="clothnext-onboarding-")
+        ready = Path(temporary.name) / "ready"
+        token = secrets.token_hex(16)
+        env = dict(os.environ, CLOTH_NEXT_INFO_READY_PATH=str(ready),
+                   CLOTH_NEXT_INFO_READY_TOKEN=token)
         process = subprocess.Popen(
-            command, cwd=Path(__file__).resolve().parents[2], shell=False)
+            command, cwd=Path(__file__).resolve().parents[2], shell=False, env=env)
     except (OSError, ValueError, KeyError) as exc:
+        if temporary is not None:
+            temporary.cleanup()
         return False, f"Could not open Cloth NeXt {mode}: {exc}"
     if process.poll() is not None:
+        temporary.cleanup()
         return False, f"Cloth NeXt {mode} exited during startup."
-    if not manual:
-        preferences = _preferences()
-        _write_state(_state(preferences).mark_seen(mode, version), preferences)
+    _pending.append((process, temporary, ready, token, mode, version, manual,
+                     time.monotonic() + 20))
+    if not bpy.app.timers.is_registered(_poll_startup):
+        bpy.app.timers.register(_poll_startup, first_interval=0.1)
     return True, "Welcome opened" if mode == "welcome" else "What's New opened"
+
+
+def _poll_startup():
+    for item in tuple(_pending):
+        process, temporary, ready, token, mode, version, manual, deadline = item
+        try:
+            acknowledged = ready.is_file() and ready.read_text(encoding="utf-8") == token
+        except OSError:
+            acknowledged = False
+        if acknowledged or process.poll() is not None or time.monotonic() >= deadline:
+            try:
+                if acknowledged and not manual:
+                    preferences = _preferences()
+                    _write_state(_state(preferences).mark_seen(mode, version), preferences)
+                elif not acknowledged and process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=2)
+            finally:
+                temporary.cleanup()
+                _pending.remove(item)
+    return 0.1 if _pending else None
 
 
 def _startup_pulse() -> None:
     """One-shot callback holding no Blender context or RNA references."""
-    if getattr(bpy.app, "background", False):
+    if getattr(bpy.app, "background", False) or _pending:
         return None
     try:
         screen = _state().next_screen(manifest_version())
@@ -96,14 +134,31 @@ def _startup_pulse() -> None:
 
 
 def register() -> None:
+    for callback in _stale_timers:
+        if bpy.app.timers.is_registered(callback):
+            bpy.app.timers.unregister(callback)
+    _stale_timers.clear()
+    if _pending and not bpy.app.timers.is_registered(_poll_startup):
+        bpy.app.timers.register(_poll_startup, first_interval=0.1)
     if not getattr(bpy.app, "background", False) and not bpy.app.timers.is_registered(
             _startup_pulse):
         bpy.app.timers.register(_startup_pulse, first_interval=_START_DELAY_SECONDS)
 
 
 def unregister() -> None:
-    if bpy.app.timers.is_registered(_startup_pulse):
-        bpy.app.timers.unregister(_startup_pulse)
+    for callback in (*_stale_timers, _startup_pulse, _poll_startup):
+        if bpy.app.timers.is_registered(callback):
+            bpy.app.timers.unregister(callback)
+    _stale_timers.clear()
+    for item in tuple(_pending):
+        process, temporary = item[:2]
+        try:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=2)
+        finally:
+            temporary.cleanup()
+            _pending.remove(item)
 
 
 class CLOTHNEXT_OT_open_welcome(bpy.types.Operator):

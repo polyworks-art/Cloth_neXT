@@ -255,13 +255,31 @@ def cleanup_tombstones(root: Path, *, ownership_authenticated: bool,
         raise UnsafeDeleteError(
             "refusing to scan tombstones in an unauthenticated root")
     owned_root = Path(root).expanduser().resolve()
-    try:
-        iterator = (owned_root.rglob(f"{TOMBSTONE_PREFIX}*")
-                    if recursive else owned_root.glob(f"{TOMBSTONE_PREFIX}*"))
-        candidates = tuple(sorted(iterator, key=lambda item: str(item)))[:
-            max(0, int(max_entries))]
-    except OSError:
+    limit = max(0, int(max_entries))
+    if not limit:
         return ()
+    candidates = []
+    pending = [(owned_root, 0)]
+    remaining = max(128, limit * 8)
+    # Bound directory entries examined, not just deletions after a full scan.
+    while pending and remaining and len(candidates) < limit:
+        directory, depth = pending.pop()
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    remaining -= 1
+                    if not entry.is_symlink():
+                        candidate = Path(entry.path)
+                        # Junctions must not redirect cleanup into another tree.
+                        if candidate.resolve() == candidate.absolute():
+                            if entry.name.startswith(TOMBSTONE_PREFIX):
+                                candidates.append(candidate)
+                            elif recursive and depth < 32 and entry.is_dir(follow_symlinks=False):
+                                pending.append((candidate, depth + 1))
+                    if not remaining or len(candidates) >= limit:
+                        break
+        except OSError:
+            continue
     results = []
     for candidate in candidates:
         results.append(delete_owned(

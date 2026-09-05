@@ -1430,7 +1430,7 @@ def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
     assert blender_env.bpy.context.scene.frame_current == 11
 
 
-def test_rebake_live_progress_never_retargets_successful_generation(
+def test_rebake_live_progress_preserves_and_restores_successful_generation(
         blender_env, tmp_path):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
@@ -1457,6 +1457,9 @@ def test_rebake_live_progress_never_retargets_successful_generation(
     module._attach_live_playback(plan, {target.uuid: str(live)})
 
     assert len(obj.modifiers) == 1
+    assert modifier.filepath == str(live)
+    assert old.read_bytes() == b"successful generation"
+    module._restore_live_playback()
     assert modifier.filepath == str(old)
     assert old.read_bytes() == b"successful generation"
 
@@ -1927,6 +1930,10 @@ def test_multi_attach_rolls_back_first_modifier_if_second_attach_fails(
         settings_fingerprint="settings", geometry_fingerprint="geometry",
         material_meta=first.material_meta, deformables=tuple(targets))
 
+    live = tmp_path / '.cn_test_cloth_new_0.pc2.live.tmp'
+    live.write_bytes(b'new live frame')
+    module._attach_live_playback(plan, {first.uuid: str(live)})
+    assert old.filepath == str(live)
     with pytest.raises(RuntimeError, match="second modifier failed"):
         module._attach_playback(plan, headers)
 
@@ -1962,8 +1969,17 @@ def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
     assert first.filepath == str(path)
 
 
+@pytest.fixture
+def windows_cache_locks(blender_env, monkeypatch):
+    """Exercise Windows lock recovery even on the Linux CI runner."""
+    module = blender_env.solver_test
+    original = module.delete_owned
+    monkeypatch.setattr(module, "delete_owned", lambda *a, **k:
+                        original(*a, **dict(k, windows=True)))
+
+
 def test_repeated_generation_swap_reclaims_old_cache_when_unlink_is_locked(
-        blender_env, monkeypatch, tmp_path):
+        blender_env, monkeypatch, tmp_path, windows_cache_locks):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="Kleid Überwurf", type="MESH")
     blender_env.bpy.data.objects[obj.name] = obj
@@ -2004,7 +2020,7 @@ def test_repeated_generation_swap_reclaims_old_cache_when_unlink_is_locked(
 
 
 def test_twelve_rebakes_reclaim_transiently_locked_obsolete_generations(
-        blender_env, monkeypatch, tmp_path):
+        blender_env, monkeypatch, tmp_path, windows_cache_locks):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="Repeated Cloth", type="MESH")
     blender_env.bpy.data.objects[obj.name] = obj
@@ -2100,7 +2116,7 @@ def test_playback_reader_is_released_before_obsolete_pc2_cleanup(
 
 
 def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
-        blender_env, monkeypatch, tmp_path):
+        blender_env, monkeypatch, tmp_path, windows_cache_locks):
     module = blender_env.solver_test
     obj = blender_env.bpy.types.Object(name="披風 München", type="MESH")
     blender_env.bpy.data.objects[obj.name] = obj

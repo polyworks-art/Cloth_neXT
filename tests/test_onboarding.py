@@ -11,10 +11,10 @@ from cloth_next.onboarding import (SeenState, load_welcome, load_whats_new,
 
 def test_repository_welcome_and_current_whats_new_are_valid():
     welcome = load_welcome()
-    current = load_whats_new("2.3.6")
+    current = load_whats_new("2.3.7")
     assert len(welcome["steps"]) == 3
     assert welcome["title"] == "Welcome to Cloth NeXt"
-    assert current["version"] == "2.3.6"
+    assert current["version"] == "2.3.7"
     assert 2 <= len(current["highlights"]) <= 4
 
 

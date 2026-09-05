@@ -36,7 +36,3 @@ downloads/
 managed_solver/
 staging/
 *.partial
-# ThreadMark verifier outputs are development artifacts, never extension input.
-verifier/build/
-verifier/dist/
-verifier/*.spec

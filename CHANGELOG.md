@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.3.7 - 2026-09-05
+
+### Fixed
+
+- Rebake and Recovery preview now display the current run while preserving the
+  previous cache for rollback on cancellation, failure, and add-on shutdown.
+- Cache cleanup bounds directory enumeration before deleting obsolete files.
+- Onboarding removes stale timers on reload and records seen state only after
+  the Companion acknowledges a successfully initialized window.
+- Onboarding assets reject Windows backslash traversal and external symlinks.
+- Windows cache-lock regression tests explicitly emulate Windows on Linux CI.
+
+### Removed
+
+- Removed ThreadMark render watermarking, its Blender handlers, provenance payload
+  and detection modules, authenticated encoder worker, bundled ONNX models, and
+  standalone verifier sources.
+- Removed Adobe TrustMark, ONNX Runtime, and BCH build dependencies and their
+  watermark-specific release gates, tests, tooling, and documentation.
+
+### Changed
+
+- The bundled Companion again contains only Bake, Veyra, Welcome, and What's New
+  modes. Cloth NeXt no longer modifies automatic render output files.
+- Retained the 2.3.6 onboarding experience and Blender file-load viewport safety
+  improvements independently of the removed watermark feature.
+
 ## 2.3.6 - 2026-09-04
 
 ### Added

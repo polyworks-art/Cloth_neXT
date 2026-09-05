@@ -33,11 +33,6 @@ from cloth_next.updater.addon_versions import parse_version as parse_addon_versi
 
 RELEASE_PLATFORM = "windows-x64"
 MAX_GITHUB_BLOB_BYTES = 100 * 1024 * 1024
-TRUSTMARK_NOTICE = "THIRD_PARTY_NOTICES.md"
-TRUSTMARK_NOTICE_TOKENS = (
-    "Adobe TrustMark", "Copyright 2023 Adobe", "MIT License",
-    "Permission is hereby granted",
-)
 SEMVER_RE = re.compile(
     r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
     r"(?:-(?P<kind>beta|rc)\.(?P<pre>0|[1-9]\d*))?$")
@@ -134,18 +129,6 @@ def check_onboarding_content(repository_root: Path, version: str) -> None:
         raise ValueError("CHANGELOG.md has no entry for release version")
 
 
-def check_trustmark_notice(data: bytes) -> None:
-    try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise ValueError("Adobe TrustMark notice is not valid UTF-8") from exc
-    missing = [token for token in TRUSTMARK_NOTICE_TOKENS if token not in text]
-    if missing:
-        raise ValueError(
-            "Adobe TrustMark notice misses required license text: "
-            + ", ".join(missing))
-
-
 def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
     expected = expected_zip_name(version)
     if zip_path.name != expected:
@@ -155,6 +138,17 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             "extension ZIP exceeds GitHub's 100 MiB git-blob limit")
     with zipfile.ZipFile(zip_path) as bundle:
         names = bundle.namelist()
+        watermark_artifacts = [
+            name for name in names
+            if any(token in name.casefold() for token in (
+                "threadmark", "trustmark", "encoder_q.onnx", "decoder_q.onnx"
+            ))
+        ]
+        if watermark_artifacts:
+            raise ValueError(
+                "extension ZIP contains removed watermark material: "
+                + ", ".join(watermark_artifacts)
+            )
         if "dev_build.json" in names and version.channel != "dev":
             raise ValueError(
                 "Beta/stable extension ZIP must never contain Dev build metadata "
@@ -175,9 +169,6 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             raise ValueError("extension ZIP misses solver_compatibility.json")
         solver_manifest = json.loads(bundle.read("solver_compatibility.json"))
         parse_manifest(solver_manifest, expected_cloth_next_version=version.text)
-        if TRUSTMARK_NOTICE not in names:
-            raise ValueError(f"extension ZIP misses required {TRUSTMARK_NOTICE}")
-        check_trustmark_notice(bundle.read(TRUSTMARK_NOTICE))
         whats_new_name = f"resources/onboarding/whats_new/{version.text}.json"
         packaged_versions = {
             name for name in names
@@ -211,7 +202,7 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
         if companion.get("filename") != "cloth-next-bake.exe" or companion.get("platform") != "windows-x64":
             raise ValueError("invalid bundled companion identity")
         if companion.get("schema_version") != 2 or companion.get("modes") != [
-                "bake", "veyra", "welcome", "whats-new", "threadmark-worker"]:
+                "bake", "veyra", "welcome", "whats-new"]:
             raise ValueError("bundled companion misses required Welcome/What's-New modes")
         if companion.get("file_size") != len(binary) or companion.get("sha256") != __import__("hashlib").sha256(binary).hexdigest():
             raise ValueError("bundled companion size/hash mismatch")
@@ -333,10 +324,6 @@ def main() -> int:
         check_channel(version, version.channel)
         check_solver_manifest(args.repository_root)
         check_onboarding_content(args.repository_root, version.text)
-        notice = args.repository_root / "cloth_next" / TRUSTMARK_NOTICE
-        if not notice.is_file():
-            raise ValueError(f"source misses required cloth_next/{TRUSTMARK_NOTICE}")
-        check_trustmark_notice(notice.read_bytes())
         if args.phase in ("post-build", "pre-publish"):
             if args.zip is None:
                 raise ValueError(f"--zip is required for phase {args.phase}")

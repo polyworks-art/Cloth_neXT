@@ -296,11 +296,8 @@ Before any Dev, Beta, or Stable publication, the release manager verifies:
   release version, package name, release notes, and changelog entry;
 - titles, two to four highlights, optional improvement/fix lists, action kinds,
   package-relative asset paths, and HTTPS URLs are valid;
-- the Companion manifest declares `bake`, `veyra`, `welcome`, `whats-new`, and
-  `threadmark-worker`, and the built EXE accepts the matching CLI parameters;
-- the hash-pinned ThreadMark Q models are provisioned at build time, embedded only
-  in the owned Companion, and the worker's authenticated encode/shutdown smoke test
-  passes without a runtime download;
+- the Companion manifest declares `bake`, `veyra`, `welcome`, and `whats-new`, and
+  the built EXE accepts the matching CLI parameters;
 - Fresh Install shows Welcome once without stacking What's New; Update shows What's
   New once; Same Version, re-enable, restart, and file-open do not repeat it;
 - downgrade and channel-switch state remains monotonic and does not loop;

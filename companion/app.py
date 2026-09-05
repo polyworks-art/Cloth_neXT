@@ -976,20 +976,10 @@ class BakeWindow:
 
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
-    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","threadmark-worker"),default="bake")
-    parser.add_argument("--host",default="127.0.0.1")
+    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
     parser.add_argument("--version")
     parser.add_argument("--content-root")
     args=parser.parse_args(argv)
-    if args.mode == "threadmark-worker":
-        if (args.host != "127.0.0.1" or not args.port or not args.token
-                or args.session_root or args.version or args.content_root):
-            parser.error("ThreadMark worker requires only loopback port and token")
-        from verifier.worker import run_worker
-        bundled=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parents[1]))/"threadmark_models"
-        models=Path(os.environ.get("THREADMARK_MODEL_DIR",bundled))
-        raise SystemExit(run_worker(host=args.host,port=args.port,
-                                    token=args.token,model_dir=models))
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:
             parser.error("informational modes do not accept Bake transport arguments")

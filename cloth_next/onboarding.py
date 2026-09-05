@@ -40,7 +40,10 @@ def _safe_url(value: str) -> str:
 
 def _safe_asset(root: Path, value: str, asset_exists=None) -> str:
     path = PurePosixPath(value)
-    if path.is_absolute() or ".." in path.parts or re.match(r"^[A-Za-z]:", value):
+    if (not value or "\\" in value or ":" in value or path.is_absolute()
+            or ".." in path.parts):
+        raise ValueError(f"asset path must be package-relative: {value!r}")
+    if asset_exists is None and not (root / Path(*path.parts)).resolve().is_relative_to(root.resolve()):
         raise ValueError(f"asset path must be package-relative: {value!r}")
     exists = (asset_exists(value) if asset_exists is not None
               else (root / Path(*path.parts)).is_file())

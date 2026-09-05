@@ -43,8 +43,7 @@ jobs:
           $hits=Get-ChildItem cloth_next,companion -Recurse -File | Where-Object {$_.Extension -in '.py','.json','.toml'} | Select-String -Pattern '(ghp_|github_pat_|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' -CaseSensitive
           if ($hits) { throw 'potential secret found in source' }
       - run: python tools/build_icons.py
-      - run: python tools/fetch_threadmark_models.py --output "${{ runner.temp }}/threadmark-models"
-      - run: python companion/build_companion.py --threadmark-models "${{ runner.temp }}/threadmark-models"
+      - run: python companion/build_companion.py
       - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
       - run: python tools/verify_companion.py
       - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
@@ -54,6 +53,7 @@ jobs:
           Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
           $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
           "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_live_cache_regression.py'
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: python tools/validate_extension.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip" --phase packaged

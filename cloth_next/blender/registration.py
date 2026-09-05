@@ -23,7 +23,6 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                object_properties, physics_operators, physics_ui,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
-               threadmark_render,
                timeline_overlay, validation_state, viewport_autoframe,
                viewport_colors)
 
@@ -73,7 +72,6 @@ def _steps() -> list[tuple]:
     steps.append((timeline_overlay.register, timeline_overlay.unregister))
     steps.append((hud.register, hud.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
-    steps.append((threadmark_render.register, threadmark_render.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
     # last and detached first, and idempotent, so a reload cannot leave a
     # duplicate behind.

@@ -14,7 +14,7 @@ def validate_bundle(extension_root: Path, expected_version: str) -> Path:
     if set(payload)!=required or payload["schema_version"]!=2: raise ValueError("invalid companion manifest schema")
     if payload["cloth_next_version"]!=expected_version: raise ValueError("companion version mismatch")
     if payload["filename"]!=FILENAME or payload["platform"]!="windows-x64": raise ValueError("invalid companion identity")
-    if payload["modes"] != ["bake","veyra","welcome","whats-new","threadmark-worker"]:
+    if payload["modes"] != ["bake","veyra","welcome","whats-new"]:
         raise ValueError("bundled companion does not support every required mode")
     binary=extension_root/"bin"/FILENAME
     data=binary.read_bytes()

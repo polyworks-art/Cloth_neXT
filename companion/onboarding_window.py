@@ -69,9 +69,19 @@ class InfoWindow:
         self._center()
         self.root.deiconify()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
+        self.root.after_idle(self._acknowledge_ready)
         auto_close = os.environ.get("CLOTH_NEXT_COMPANION_AUTO_CLOSE_MS", "")
         if auto_close.isdigit() and int(auto_close) > 0:
             self.root.after(int(auto_close), self.close)
+
+    def _acknowledge_ready(self):
+        path = os.environ.get("CLOTH_NEXT_INFO_READY_PATH")
+        token = os.environ.get("CLOTH_NEXT_INFO_READY_TOKEN")
+        if path and token:
+            try:
+                Path(path).write_text(token, encoding="utf-8")
+            except OSError:
+                pass
 
     def _center(self):
         width = max(self.WIDTH, self.root.winfo_width())

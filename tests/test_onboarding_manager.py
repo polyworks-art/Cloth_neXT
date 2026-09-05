@@ -13,7 +13,7 @@ def test_register_is_one_shot_and_unregister_removes_timer(blender_env):
     assert manager._startup_pulse not in blender_env.bpy.app.timers.functions
 
 
-def test_automatic_launch_marks_seen_only_after_process_starts(blender_env,
+def test_automatic_launch_marks_seen_only_after_window_acknowledges(blender_env,
                                                                 monkeypatch):
     manager = __import__("cloth_next.blender.onboarding_manager", fromlist=["x"])
     preferences = SimpleNamespace(onboarding_state="")
@@ -24,6 +24,10 @@ def test_automatic_launch_marks_seen_only_after_process_starts(blender_env,
                         SimpleNamespace(poll=lambda: None))
     ok, _message = manager.launch_screen("welcome")
     assert ok
+    assert manager._state(preferences).next_screen("2.3.7") == "welcome"
+    pending = manager._pending[-1]
+    pending[2].write_text(pending[3], encoding="utf-8")
+    assert manager._poll_startup() is None
     assert manager._state(preferences).next_screen("2.3.5") is None
 
 
@@ -46,4 +50,7 @@ def test_manual_open_does_not_change_seen_state(blender_env, monkeypatch):
     monkeypatch.setattr(manager.subprocess, "Popen", lambda *_a, **_k:
                         SimpleNamespace(poll=lambda: None))
     assert manager.launch_screen("welcome", manual=True)[0]
+    pending = manager._pending[-1]
+    pending[2].write_text(pending[3], encoding="utf-8")
+    assert manager._poll_startup() is None
     assert preferences.onboarding_state == ""

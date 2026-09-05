@@ -1,44 +1,40 @@
-# Cloth NeXt 2.3.6 Dev
+# Cloth NeXt 2.3.7 Dev
 
-Cloth NeXt 2.3.6 introduces automatic ThreadMark provenance for eligible SDR
-renders, adds lifecycle-safe Welcome and What's New screens, and fixes stale
-viewport-shading references across Blender file loads. This is a Dev release for
-validation before the next Beta.
+Cloth NeXt 2.3.7 removes ThreadMark and restores untouched Blender render output.
+This is a Dev release for validation before the next Beta.
 
-## Automatic ThreadMark provenance
+## Preview and reliability fixes
 
-- Eligible automatic PNG, JPEG, WebP, and TIFF stills and animation frames receive
-  the measured TrustMark Q/0.80 Cloth NeXt V1 payload after Blender finishes each
-  file write. Eevee, Cycles CPU, and background rendering are covered.
-- One authenticated, owned Companion child loads the offline ONNX models lazily and
-  is reused across an animation. Complete, cancel, file load, and unregister all
-  shut it down without a permanent service.
-- Encoding is fail-open: unsupported EXR/HDR, ambiguous paths, ineligible scenes,
-  or any processing failure preserve Blender's original render.
-- Blender's manual Render Result -> Image -> Save As remains intentionally
-  unsupported because Blender 5.2 exposes no reliable post-save callback. F12 is
-  not modified and shows no warning.
+- Rebake and Recovery switch live preview to the current run. Previous caches
+  remain recoverable and are restored on cancellation, failure, or shutdown.
+- Cleanup now bounds directory traversal, avoiding an unbounded scan at Bake start.
+- Onboarding cleans stale reload timers and waits for a real UI-ready confirmation
+  before saving seen state. Windows asset path escapes are rejected.
 
-## Welcome and What's New
+## Watermarking removed
 
-- A first installation opens one compact Welcome screen from the existing
-  Companion; later unseen versions open their curated What's New screen once.
-- Seen state is bounded and monotonic across restarts, downgrades, and channel
-  changes. Manual Preferences actions do not alter automatic state.
-- All copy and artwork is packaged offline, validated against the exact release
-  version, and rendered without adding another executable or background service.
+- Cloth NeXt no longer embeds invisible provenance signals in automatic PNG,
+  JPEG, WebP, or TIFF output.
+- All ThreadMark Blender handlers, payload and detection modules, model files,
+  encoder-worker support, verifier sources, tests, probes, and benchmark artifacts
+  have been removed.
+- Adobe TrustMark, ONNX Runtime, and BCH are no longer build or runtime
+  dependencies.
+- The Companion contains only Bake, Veyra, Welcome, and What's New modes and is
+  substantially smaller.
 
-## Reliability and packaging
+## Retained improvements
 
-- Viewport shading references are cleared before Blender replaces file data,
-  preventing stale RNA access during file-open lifecycle changes.
-- The Companion build embeds only the hash-pinned TrustMark Q encoder and decoder,
-  includes the Adobe MIT notice, and performs no runtime download.
-- The normal repository suite passes 1,726 tests, with 10 configured external
-  solver integration cases skipped honestly and 3 built-artifact cases reserved
-  for the publication build. Blender 5.2.1 runtime tests cover every supported
-  format, two-frame worker reuse, Eevee, Cycles, headless execution, EXR skip,
-  ineligibility, process cleanup, and registration cleanup.
+Validation: 1,699 tests passed; 10 external-solver cases skipped and three
+built-artifact checks run separately. Blender 5.2.1 verifies real preview geometry,
+rollback and final attachment for rebake, cancelled caches and recovery partials.
+
+- First-install Welcome and version-specific What's New screens remain available
+  through the existing Companion.
+- Viewport shading references are still cleared safely before Blender replaces
+  file data.
+- Release policy continues to validate exact-version onboarding content, package
+  integrity, GitHub's blob-size ceiling, and the absence of external solver files.
 
 The external PPF Contact Solver is unchanged, remains a separate installation,
 and is not bundled with Cloth NeXt.

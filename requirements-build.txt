@@ -6,5 +6,3 @@ pyinstaller==6.21.0
 # the add-on actually runs against. Required at import time by the PC2 writer,
 # the PPF coordinate/result decoders, and the mesh topology hash.
 numpy==2.3.4
-onnxruntime==1.23.2
-bchlib==2.1.3

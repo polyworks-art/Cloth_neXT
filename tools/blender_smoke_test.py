@@ -28,6 +28,10 @@ def _load_extension():
     platform-independent and is still fully exercised from the source tree.
     """
     errors: list[str] = []
+    if "--source" in sys.argv:
+        repo_root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(repo_root))
+        return importlib.import_module("cloth_next"), f"source tree {repo_root}"
     for candidate in ("bl_ext.user_default.cloth_next", "cloth_next"):
         try:
             return importlib.import_module(candidate), candidate

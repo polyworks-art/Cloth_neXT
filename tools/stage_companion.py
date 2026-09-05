@@ -20,7 +20,7 @@ def stage(source: Path, extension: Path=ROOT/"cloth_next") -> Path:
     payload={"schema_version":2,"cloth_next_version":version,"filename":FILENAME,
              "platform":"windows-x64","file_size":len(data),
              "sha256":hashlib.sha256(data).hexdigest(),
-             "modes":["bake","veyra","welcome","whats-new","threadmark-worker"]}
+             "modes":["bake","veyra","welcome","whats-new"]}
     manifest=extension/"companion_manifest.json"
     manifest.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     return target

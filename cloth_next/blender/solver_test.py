@@ -7434,6 +7434,8 @@ def _commit_playback_cleanup(records) -> None:
 
 
 def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
+    if _transaction is None:
+        _restore_live_playback()
     targets = _plan_deformables(plan)
     if plan.deformables and len(targets) == 1:
         # The worker deliberately uses the bounded single-cache path for one
@@ -7644,6 +7646,44 @@ def _show_baked_timeline(plan: RunPlan) -> None:
         pass
 
 
+_live_playback_records = []
+
+
+def _remember_live_modifier(obj, modifier, *, created=False):
+    if any(record.modifier == modifier for record in _live_playback_records):
+        return
+    _live_playback_records.append(_PlaybackRecord(
+        obj, modifier, created, _modifier_index(obj, modifier),
+        {name: getattr(modifier, name) for name in _PLAYBACK_MODIFIER_FIELDS
+         if hasattr(modifier, name)}, (), set(), Path(),
+        {name: _snapshot_value(obj, name) for name in _PLAYBACK_OBJECT_FIELDS},
+        tuple((mod, bool(mod.show_viewport), bool(mod.show_render))
+              for mod in obj.modifiers
+              if str(getattr(mod, "type", "")) in _SOLVER_INPUT_MODIFIER_TYPES),
+        None, {}))
+
+
+def _restore_live_playback():
+    if _live_playback_records:
+        records = tuple(_live_playback_records)
+        _live_playback_records.clear()
+        _rollback_playback(records)
+        _release_playback_readers()
+
+
+def _hide_previous_playback(plan):
+    for target in _plan_deformables(plan):
+        obj = bpy.data.objects.get(target.object_name)
+        if obj is None:
+            continue
+        for modifier in obj.modifiers:
+            if has_cloth_next_playback_marker(obj, modifier):
+                _remember_live_modifier(obj, modifier)
+                modifier.show_viewport = False
+                modifier.show_render = False
+        restore_playback_input_deformers(obj)
+
+
 def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
     """Point mesh deformables at the growing PC2 before advancing Timeline.
 
@@ -7660,19 +7700,28 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
         obj = bpy.data.objects.get(target.object_name)
         if obj is None or getattr(obj, "type", "") == "CURVE":
             continue
-        path = Path((live_paths or {}).get(target.uuid, target.pc2_path))
+        value = (live_paths or {}).get(target.uuid)
+        if not value:
+            continue
+        path = Path(value)
         if not path.is_file():
             continue
         modifiers = [mod for mod in obj.modifiers
                      if has_cloth_next_playback_marker(obj, mod)]
-        # Never retarget the currently successful generation to a growing
-        # private PC2 during Re-Bake.  It remains recoverable until the final,
-        # validated generation swap in _attach_playback.
-        if modifiers:
+        if (len(modifiers) == 1 and modifiers[0].filepath == str(path)
+                and modifiers[0].show_viewport):
             continue
+        # Preserve old files and modifier state, but display this run only.
+        for previous in modifiers:
+            _remember_live_modifier(obj, previous)
+            previous.show_viewport = False
+            previous.show_render = False
         modifier = modifiers[0] if modifiers else getattr(
             obj.modifiers, "new")(
                 name=import_result.MODIFIER_NAME, type="MESH_CACHE")
+        if not modifiers:
+            _remember_live_modifier(obj, modifier, created=True)
+        restore_playback_input_deformers(obj)
         _configure_playback_modifier(modifier, target_plan.frame_start)
         current_index = _modifier_index(obj, modifier)
         target_index = _playback_stack_index(obj, modifier)
@@ -7681,6 +7730,8 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
         modifier.filepath = str(path)
         mark_owned_playback(obj, modifier, str(path))
         mute_playback_input_deformers(obj, modifier)
+        modifier.show_viewport = True
+        modifier.show_render = True
 
 
 def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
@@ -8296,6 +8347,7 @@ def _pump_once() -> float | None:
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind == "cancelled":
+            _restore_live_playback()
             resumable = message[1] if len(message) > 1 else False
             recovery_outcome = message[2] if len(message) > 2 else None
             # RECOVERY INVARIANT -- DO NOT DISCARD BEFORE THIS RECONCILIATION.
@@ -8382,6 +8434,7 @@ def _pump_once() -> float | None:
             shared_telemetry.set_solver_pid(None)
             return None
         elif kind in {"error", "contact_error"}:
+            _restore_live_playback()
             code = message[3] if len(message) > 3 else ""
             received = (message[4] if len(message) > 4 else
                         intersection_diagnostics.DiagnosticResult())
@@ -8460,6 +8513,7 @@ def _pump_once() -> float | None:
             shared_telemetry.set_solver_pid(None)
             return None
     if _worker is not None and not _worker.is_alive() and _queue.empty():
+        _restore_live_playback()
         # The worker died without posting a terminal message.
         shared_controller.fail("The solver test worker stopped unexpectedly.",
                                "no terminal message from the worker thread")
@@ -8482,6 +8536,7 @@ def _pump_once() -> float | None:
 def _abort_failed_pump(details: str) -> None:
     """Turn a Blender timer exception into a terminal, visible failure."""
     global _worker, _active_plan
+    _restore_live_playback()
     try:
         shared_controller.fail("Importing the solver result failed.", details)
     except Exception:
@@ -8549,8 +8604,11 @@ def _start_prepared_run(plan: RunPlan) -> None:
     _worker = threading.Thread(target=_worker_main, args=(plan,),
                                name="clothnext-bake-worker", daemon=True)
     try:
+        _restore_live_playback()
+        _hide_previous_playback(plan)
         _worker.start()
     except Exception as exc:
+        _restore_live_playback()
         _worker = None; _active_plan = None; modal_lock.release()
         shared_controller.fail("The Bake worker could not be started.", str(exc))
         raise SceneValidationError(
@@ -9414,6 +9472,7 @@ def shutdown(join_timeout: float = 30.0) -> bool:
     happens inside the session worker.
     """
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
+    _restore_live_playback()
     _clear_intersection_diagnostics()
     if _pending_job_id:
         companion_manager.cancel_startup(_pending_job_id, "Add-on shutdown")

@@ -1,5 +1,0 @@
-pyinstaller==6.21.0
-pillow==12.3.0
-numpy==2.4.6
-onnxruntime==1.23.2
-bchlib==2.1.3

@@ -67,8 +67,7 @@ jobs:
         with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
       - run: pip install -r requirements-build.txt
       - run: python tools/build_icons.py
-      - run: python tools/fetch_threadmark_models.py --output "${{ runner.temp }}/threadmark-models"
-      - run: python companion/build_companion.py --threadmark-models "${{ runner.temp }}/threadmark-models"
+      - run: python companion/build_companion.py
       - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
       - run: python tools/verify_companion.py
       - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
@@ -78,6 +77,7 @@ jobs:
           Expand-Archive blender.zip -DestinationPath "$env:RUNNER_TEMP\blender"
           $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
           "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_live_cache_regression.py'
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: pytest -m built_artifact --extension-zip "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: python tools/validate_extension.py "dist/${{ needs.validate-source.outputs.zip-name }}" --phase packaged
