@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import json
+import tomllib
+from pathlib import Path
 
 import pytest
 
@@ -11,10 +13,12 @@ from cloth_next.onboarding import (SeenState, load_welcome, load_whats_new,
 
 def test_repository_welcome_and_current_whats_new_are_valid():
     welcome = load_welcome()
-    current = load_whats_new("2.3.7")
+    manifest = Path(__file__).resolve().parents[1] / "cloth_next/blender_manifest.toml"
+    version = tomllib.loads(manifest.read_text(encoding="utf-8"))["version"]
+    current = load_whats_new(version)
     assert len(welcome["steps"]) == 3
     assert welcome["title"] == "Welcome to Cloth NeXt"
-    assert current["version"] == "2.3.7"
+    assert current["version"] == version
     assert 2 <= len(current["highlights"]) <= 4
 
 
