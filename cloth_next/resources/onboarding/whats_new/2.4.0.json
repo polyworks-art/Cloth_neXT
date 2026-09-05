@@ -1,0 +1,60 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.0",
+  "title": "What's New in Cloth NeXt 2.4.0",
+  "subtitle": "The next Beta: reliable previews and smoother onboarding.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Reliable Live Preview",
+      "description": "Rebake and Recovery show the current run while keeping your previous cache available for rollback."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Ready When You Are",
+      "description": "Welcome and What's New open through the Companion, with manual access whenever you need it in Preferences."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Safer Cache Handling",
+      "description": "Previous results remain recoverable after cancellation or failure, and obsolete cache cleanup stays bounded."
+    }
+  ],
+  "improvements": [
+    {
+      "icon": "icons/docs.png",
+      "text": "Welcome, What's New, and changelog access remain available in Preferences."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "text": "Viewport state resets safely when opening another Blender file."
+    }
+  ],
+  "fixes": [
+    {
+      "icon": "icons/check.png",
+      "text": "Cache cleanup bounds directory traversal before deleting obsolete files."
+    },
+    {
+      "icon": "icons/check.png",
+      "text": "Onboarding clears stale reload timers and records seen state only after the Companion is ready."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Start Creating",
+      "kind": "close"
+    },
+    {
+      "label": "Full Changelog",
+      "kind": "url",
+      "url": "https://github.com/polyworks-art/Cloth_neXT/blob/main/CHANGELOG.md"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

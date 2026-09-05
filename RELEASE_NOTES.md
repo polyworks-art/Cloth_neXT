@@ -1,40 +1,45 @@
-# Cloth NeXt 2.3.7 Dev
+# Cloth NeXt 2.4.0 Beta
 
-Cloth NeXt 2.3.7 removes ThreadMark and restores untouched Blender render output.
-This is a Dev release for validation before the next Beta.
+Cloth NeXt 2.4.0 promotes the 2.3.7 development baseline to Beta. It brings
+reliable live cache preview, safer lifecycle handling, and the streamlined
+Companion to both the Beta and Dev update channels.
 
-## Preview and reliability fixes
+## Current-run preview and cache safety
 
-- Rebake and Recovery switch live preview to the current run. Previous caches
-  remain recoverable and are restored on cancellation, failure, or shutdown.
-- Cleanup now bounds directory traversal, avoiding an unbounded scan at Bake start.
-- Onboarding cleans stale reload timers and waits for a real UI-ready confirmation
-  before saving seen state. Windows asset path escapes are rejected.
+- Rebake and Recovery show the current simulation while retaining the previous
+  cache for rollback on cancellation, failure, or add-on shutdown.
+- Cache cleanup bounds directory traversal before removing obsolete files.
+- Blender file loading clears old viewport shading references safely.
 
-## Watermarking removed
+## Welcome and What's New
 
-- Cloth NeXt no longer embeds invisible provenance signals in automatic PNG,
-  JPEG, WebP, or TIFF output.
-- All ThreadMark Blender handlers, payload and detection modules, model files,
-  encoder-worker support, verifier sources, tests, probes, and benchmark artifacts
-  have been removed.
-- Adobe TrustMark, ONNX Runtime, and BCH are no longer build or runtime
-  dependencies.
-- The Companion contains only Bake, Veyra, Welcome, and What's New modes and is
-  substantially smaller.
+- First-install Welcome and version-specific What's New remain available in
+  the Companion, with manual access from Preferences.
+- Onboarding clears stale reload timers and saves seen state only after the
+  Companion confirms that its window is ready.
+- Packaged onboarding assets reject unsafe Windows paths and external symlinks.
 
-## Retained improvements
+## Unmodified render output
 
-Validation: 1,699 tests passed; 10 external-solver cases skipped and three
-built-artifact checks run separately. Blender 5.2.1 verifies real preview geometry,
-rollback and final attachment for rebake, cancelled caches and recovery partials.
+ThreadMark watermarking, its encoder and verifier, bundled models, and Adobe
+TrustMark, ONNX Runtime, and BCH dependencies remain removed. Cloth NeXt does
+not modify automatic Blender render output files. The bundled Companion
+contains Bake, Veyra, Welcome, and What's New modes.
 
-- First-install Welcome and version-specific What's New screens remain available
-  through the existing Companion.
-- Viewport shading references are still cleared safely before Blender replaces
-  file data.
-- Release policy continues to validate exact-version onboarding content, package
-  integrity, GitHub's blob-size ceiling, and the absence of external solver files.
+## Release scope
 
-The external PPF Contact Solver is unchanged, remains a separate installation,
-and is not bundled with Cloth NeXt.
+This Beta introduces no new solver functionality compared with 2.3.7. The
+external PPF Contact Solver remains unchanged, separately installed, and is
+not bundled. Beta packages do not include Dev-only Developer Tools.
+
+## Validation
+
+- Source suite: 1,699 passed; 10 unavailable external-solver cases skipped.
+- Local Windows package: all three built-artifact checks, release policy,
+  packaged structure, and forbidden solver-material scan passed.
+- Blender 5.2.1 LTS: registration, current-run preview, cache rollback and final
+  attachment, Unicode file save/reopen, scene/object lifecycle, and Windows
+  locked-cache preservation passed in background regression runs.
+- Rebuilt Companion: Bake, Welcome, exact-version What's New, invalid-version
+  rejection, readiness acknowledgement, and clean process exit passed.
+- Interactive undo/redo is outside the background Blender checks.

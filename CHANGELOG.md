@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.4.0 - 2026-09-05
+
+### Changed
+
+- Promoted the 2.3.7 development baseline to the Beta channel, also available
+  through the Dev repository. This release adds no new solver functionality.
+- Added curated 2.4.0 What's New content for the Beta release.
+
+### Included improvements
+
+- Rebake and Recovery preview display the current run while preserving the
+  previous cache for rollback on cancellation, failure, and add-on shutdown.
+- Cache cleanup bounds directory traversal; onboarding clears stale reload
+  timers, waits for Companion readiness, and rejects unsafe asset paths.
+- Welcome, version-specific What's New, and file-load viewport safety remain
+  available with the smaller Bake, Veyra, Welcome, and What's New Companion.
+- ThreadMark watermarking and its model/runtime dependencies remain removed;
+  Cloth NeXt leaves automatic Blender render output unmodified.
+
 ## 2.3.7 - 2026-09-05
 
 ### Fixed
