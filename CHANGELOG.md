@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.4.1 - 2026-09-06
+
+### Fixed
+
+- Viewport shading no longer resets to Object every second. Random, Material,
+  and all other color modes remain under user control.
+
+### Added
+
+- Optional Cloth NeXt role colors in Preferences, disabled by default.
+  Disabling restores original object colors; the UI explains that role colors
+  are visible only in Solid shading with Color set to Object.
+- Curated 2.4.1 What's New content for the Dev channel.
+
 ## 2.4.0 - 2026-09-05
 
 ### Changed

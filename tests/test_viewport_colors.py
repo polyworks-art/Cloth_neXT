@@ -28,7 +28,7 @@ def test_apply_and_restore_preserve_artist_color(monkeypatch):
 
     obj = Object()
     obj.cloth_next = SimpleNamespace(enabled=True, role="CLOTH")
-    viewport_colors.apply_object(obj)
+    viewport_colors.apply_object(obj, use_role_colors=True)
     assert obj.color == viewport_colors.ROLE_COLORS["CLOTH"]
     obj.cloth_next.enabled = False
     viewport_colors.apply_object(obj)
@@ -36,68 +36,69 @@ def test_apply_and_restore_preserve_artist_color(monkeypatch):
     assert viewport_colors._ORIGINAL_COLOR not in obj
 
 
-def test_refresh_forces_solid_viewport_to_object_color(monkeypatch):
+def test_role_colors_default_off(monkeypatch):
     viewport_colors = _module(monkeypatch)
-    redraws = []
-    shading = SimpleNamespace(type="SOLID", color_type="MATERIAL")
-    space = SimpleNamespace(shading=shading)
-    area = SimpleNamespace(tag_redraw=lambda: redraws.append(1))
-    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
-                        lambda: iter(((area, space),)))
-
-    viewport_colors.refresh_viewports()
-
-    assert shading.color_type == "OBJECT"
-    assert redraws == [1]
-    assert viewport_colors._shading_states == [(shading, "MATERIAL")]
+    class Object(dict):
+        color = (0.2, 0.3, 0.4, 0.5)
+    obj = Object()
+    obj.cloth_next = SimpleNamespace(enabled=True, role="CLOTH")
+    viewport_colors.apply_object(obj)
+    assert obj.color == (0.2, 0.3, 0.4, 0.5)
+    assert viewport_colors._ORIGINAL_COLOR not in obj
 
 
-def test_refresh_does_not_redraw_unchanged_object_color_viewport(monkeypatch):
+def test_preference_toggle_restores_original_color(monkeypatch):
     viewport_colors = _module(monkeypatch)
-    redraws = []
-    shading = SimpleNamespace(type="SOLID", color_type="OBJECT")
-    space = SimpleNamespace(shading=shading)
-    area = SimpleNamespace(tag_redraw=lambda: redraws.append(1))
-    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
-                        lambda: iter(((area, space),)))
+    class Object(dict):
+        color = (0.2, 0.3, 0.4, 0.5)
+    obj = Object()
+    obj.cloth_next = SimpleNamespace(enabled=True, role="CLOTH")
+    viewport_colors.bpy.data.objects = [obj]
+    for _ in range(2):
+        viewport_colors.update_role_colors(SimpleNamespace(show_role_colors=True), None)
+        assert obj.color == viewport_colors.ROLE_COLORS["CLOTH"]
+        viewport_colors.update_role_colors(SimpleNamespace(show_role_colors=False), None)
+        assert obj.color == (0.2, 0.3, 0.4, 0.5)
+        assert viewport_colors._ORIGINAL_COLOR not in obj
 
-    assert viewport_colors.refresh_viewports() is False
-    assert redraws == []
 
-
-def test_file_load_discards_shading_rna_before_database_replacement(monkeypatch):
+def test_all_shading_modes_survive_lifecycle_and_preference_changes(monkeypatch):
     viewport_colors = _module(monkeypatch)
-    shading = SimpleNamespace(type="SOLID", color_type="MATERIAL")
-    space = SimpleNamespace(shading=shading)
-    area = SimpleNamespace(tag_redraw=lambda: None)
-    monkeypatch.setattr(viewport_colors, "_view3d_spaces",
-                        lambda: iter(((area, space),)))
-
-    viewport_colors.register()
-    assert viewport_colors._shading_states == [(shading, "MATERIAL")]
-    assert viewport_colors._on_load_pre_clear_shading_states in (
-        viewport_colors.bpy.app.handlers.load_pre)
-
-    viewport_colors._on_load_pre_clear_shading_states(None)
-
-    assert viewport_colors._shading_states == []
-    viewport_colors.unregister()
-    assert viewport_colors._on_load_pre_clear_shading_states not in (
-        viewport_colors.bpy.app.handlers.load_pre)
+    for mode in ("OBJECT", "RANDOM", "MATERIAL", "SINGLE", "TEXTURE", "VERTEX"):
+        shading = SimpleNamespace(type="SOLID", color_type=mode)
+        monkeypatch.setattr(viewport_colors, "_view3d_spaces", lambda: iter((
+            (SimpleNamespace(tag_redraw=lambda: None), SimpleNamespace(shading=shading)),)))
+        viewport_colors.register()
+        viewport_colors.update_role_colors(SimpleNamespace(show_role_colors=True), None)
+        viewport_colors._on_load_post()
+        viewport_colors.update_role_colors(SimpleNamespace(show_role_colors=False), None)
+        viewport_colors.unregister()
+        assert shading.color_type == mode
+        assert not viewport_colors.bpy.app.timers.functions
 
 
-def test_register_purges_stale_viewport_load_handler(monkeypatch):
+def test_file_load_restores_saved_role_colors_when_disabled(monkeypatch):
     viewport_colors = _module(monkeypatch)
+    class Object(dict):
+        color = (0.2, 0.3, 0.4, 0.5)
+    obj = Object()
+    obj.cloth_next = SimpleNamespace(enabled=True, role="CLOTH")
+    viewport_colors.apply_object(obj, use_role_colors=True)
+    viewport_colors.bpy.data.objects = [obj]
+    viewport_colors._on_load_post()
+    assert obj.color == (0.2, 0.3, 0.4, 0.5)
 
+
+def test_register_replaces_stale_handlers_without_duplicates(monkeypatch):
+    viewport_colors = _module(monkeypatch)
     def stale_handler(*_args):
-        return None
-
+        pass
     stale_handler._clothnext_viewport_handler = True
     viewport_colors.bpy.app.handlers.load_pre.append(stale_handler)
-
+    viewport_colors.bpy.app.handlers.load_post.append(stale_handler)
     viewport_colors.register()
     viewport_colors.register()
-
-    assert viewport_colors.bpy.app.handlers.load_pre == [
-        viewport_colors._on_load_pre_clear_shading_states]
+    assert not viewport_colors.bpy.app.handlers.load_pre
+    assert viewport_colors.bpy.app.handlers.load_post == [viewport_colors._on_load_post]
     viewport_colors.unregister()
+    assert not viewport_colors.bpy.app.handlers.load_post

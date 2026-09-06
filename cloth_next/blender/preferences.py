@@ -25,7 +25,7 @@ from ..ppf.compatibility import parse_executable_version
 from ..ppf.layout import BundledSolverLayout
 from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
-from . import addon_update_operators, icon_registry
+from . import addon_update_operators, icon_registry, viewport_colors
 from .addon_identity import addon_preferences, package_addon_id
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
@@ -733,6 +733,11 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Onboarding State", default="",
         description="Internal persistent Welcome and What's-New seen state",
         options={"HIDDEN"})
+    show_role_colors: bpy.props.BoolProperty(
+        name="Show Cloth NeXt Role Colors", default=False,
+        description="Color Cloth NeXt objects by role. Visible in Solid shading "
+                    "with Color > Object; Random and other color modes remain available",
+        update=viewport_colors.update_role_colors)
     auto_frame_bake: bpy.props.BoolProperty(
         name="Auto-Frame Cloth During Bake", default=True,
         description="Keep all live-baked deformables comfortably visible in "
@@ -776,6 +781,12 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         if is_dev_build():
             layout.prop(self, "developer_tools")
         layout.prop(self, "auto_launch_bake_window")
+        colors = layout.box()
+        colors.label(text="Viewport Colors")
+        colors.prop(self, "show_role_colors")
+        if getattr(self, "show_role_colors", False):
+            colors.label(text="Role colors require Solid shading > Color > Object.", icon="INFO")
+            colors.label(text="Random and other color modes remain available.")
         framing = layout.box()
         framing.label(text="Live Bake Viewport")
         framing.prop(self, "auto_frame_bake")

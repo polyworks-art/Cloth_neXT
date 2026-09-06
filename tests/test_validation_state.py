@@ -256,8 +256,10 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    # Validation and the recovery snapshot each install one load_post callback.
-    assert len(handlers.load_post) == 2
+    # Validation, role colors, and recovery each install one load_post callback.
+    assert len(handlers.load_post) == 3
+    assert len([f for f in handlers.load_post
+                if getattr(f, "_clothnext_viewport_handler", False)]) == 1
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_validation_handler", False)]) == 1
     assert len([f for f in handlers.load_post
@@ -317,7 +319,8 @@ def test_file_load_clears_the_runtime_state(env):
     _validated(env, scene)
     assert _state(env).record_for(scene.cloth).state is _states(env).VALID
 
-    env.bpy.app.handlers.load_post[0](None)
+    for callback in list(env.bpy.app.handlers.load_post):
+        callback(None)
 
     # A fresh file starts at UNKNOWN — never at a stale "VALID".
     assert _state(env).record_for(scene.cloth).state is _states(env).UNKNOWN
