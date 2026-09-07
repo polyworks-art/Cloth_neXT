@@ -6068,7 +6068,13 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         return plan
     targets = _plan_deformables(plan)
     cache_root = targets[0].pc2_path.parent
-    root = recovery.recovery_root(cache_root, scene_key)
+    # Recovery identity describes compatible solver inputs, not a Bake
+    # generation. A fresh solver starts at frame 1 even for identical inputs;
+    # give it private checkpoint and PC2 paths so it cannot append to an older
+    # partial. Keep the old project/playback intact until attach succeeds.
+    # Resume below explicitly selects its existing project directory.
+    root = recovery.recovery_root(
+        cache_root, f"{scene_key}-{uuid_module.uuid4().hex}")
     metadata = root / recovery.METADATA_NAME
     collider_sampling = tuple(sorted(
         (export_identity.export_uuid(obj),

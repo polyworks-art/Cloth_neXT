@@ -1,0 +1,46 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.2",
+  "title": "What's New in Cloth NeXt 2.4.2",
+  "subtitle": "Fresh Bakes stay fresh and resumable runs stay safe.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Reliable Fresh Bakes",
+      "description": "A new Bake never appends to a stale partial from an earlier run, preventing intermittent cache overflows."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Resume When You Need It",
+      "description": "Explicit Resume still continues from the matching authenticated partial and keeps completed frames available."
+    }
+  ],
+  "improvements": [
+    {
+      "icon": "icons/docs.png",
+      "text": "Each new Bake keeps its recovery files separate, preserving earlier playback while the new cache is created."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "text": "Viewport role colors and unrestricted shading choices from 2.4.1 remain available."
+    }
+  ],
+  "fixes": [
+    {
+      "icon": "icons/check.png",
+      "text": "Fresh Bakes no longer trigger “more frames than declared were written” after a previous failed or cancelled run."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Start Creating",
+      "kind": "close"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

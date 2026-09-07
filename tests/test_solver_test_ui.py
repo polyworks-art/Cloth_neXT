@@ -649,6 +649,124 @@ def test_worker_failure_is_printed_persisted_and_sent_to_ui(
     assert "solver exploded at frame 42" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("object_count", [1, 2])
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_fresh_bake_isolates_old_partials_and_keeps_resume_working(
+        blender_env, monkeypatch, tmp_path, object_count, cancel_first):
+    """Exercise preparation and real PC2 writers with deterministic frames."""
+    module = blender_env.solver_test
+    metadata, _identity = _verified_recovery(tmp_path)
+    stale_partial = metadata.parent / "partials" / "target-a.pc2.partial"
+    points = np.zeros((1, 3), dtype=np.float32)
+    stale = pc2.StreamingPc2Writer(
+        tmp_path / "stale.pc2", vertex_count=1, frame_count=3,
+        resume_path=stale_partial)
+    stale.write_frame(points)
+    stale.write_frame(points + 99.0)
+    stale.preserve()
+    old_bytes = stale_partial.read_bytes()
+    old_metadata = metadata.read_bytes()
+
+    values = _recovery_plan(tmp_path)
+    values["frame_count"] = 3
+    values["scene"] = replace(values["scene"], frame_count=3)
+    plan = module.RunPlan(**values)
+    if object_count == 2:
+        targets = tuple(
+            module.DeformablePlan(
+                plan.initial_local, plan.world_matrix, f"cloth-{suffix}",
+                f"target-{suffix}", tmp_path / "cache" / f"{suffix}.pc2",
+                "topology", None, "CLOTH")
+            for suffix in ("a", "b"))
+        plan = replace(plan, deformables=targets)
+    settings = _recovery_settings(recovery_directory=str(metadata.parent))
+    context = SimpleNamespace(scene=SimpleNamespace(cloth_next_recovery=settings))
+    snapshot = SimpleNamespace(collider_objs=())
+    fresh = module._configure_recovery(context, snapshot, plan)
+    options = fresh.recovery_options
+    assert options.resume is False
+    assert options.metadata_path != metadata
+    assert options.identity.scene_key == "scene"
+    # Even two preparations before either writer opens must be isolated.
+    other = module._configure_recovery(context, snapshot, plan)
+    assert other.recovery_options.metadata_path != options.metadata_path
+    assert options.metadata_path.parent.parent == metadata.parent.parent
+    for target in module._plan_deformables(fresh):
+        obj = blender_env.bpy.types.Object(name=target.object_name, type="MESH")
+        blender_env.bpy.data.objects[obj.name] = obj
+    module.prepare_cache_for_new_run(fresh)
+    assert stale_partial.read_bytes() == old_bytes
+    assert metadata.read_bytes() == old_metadata
+
+    class Session:
+        def __init__(self, **kwargs):
+            self.sink = kwargs["frame_sink"]
+            self.options = kwargs["recovery_options"]
+            self.scene = kwargs["scene"]
+
+        def run(self):
+            opts = self.options
+            if not opts.resume:
+                project_root = opts.server_data_root / self.scene.project_name
+                record = recovery.create_project(
+                    opts.metadata_path, project_id=self.scene.project_name,
+                    identity=opts.identity, server_data_root=opts.server_data_root,
+                    project_root=project_root, partial_pc2=opts.partial_pc2)
+                record = recovery.transition(
+                    opts.metadata_path, record, recovery.ProjectState.RUNNING)
+            for frame in (1, 2):
+                if frame in opts.completed_solver_frames:
+                    continue
+                positions = {
+                    target.uuid: points + frame
+                    for target in module._plan_deformables(fresh)}
+                self.sink(module.SolverFrame(
+                    frame, positions["target-a"], positions))
+                if cancel_first and not opts.resume:
+                    checkpoint = recovery.checkpoint_path(project_root, frame)
+                    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+                    checkpoint.write_bytes(gzip.compress(b"saved-state"))
+                    record = recovery.confirm_saved_states(
+                        opts.metadata_path, record, (frame,), keep=3)
+                    recovery.transition(
+                        opts.metadata_path, record, recovery.ProjectState.RESUMABLE)
+                    raise module.SessionCancelled(resumable=True)
+            return SimpleNamespace(timings={}, bytes_transferred=0)
+
+    def run_worker(current):
+        module._worker_main(current)
+        messages = []
+        while not module._queue.empty():
+            messages.append(module._queue.get_nowait())
+        return messages[-1]
+
+    monkeypatch.setattr(module, "SolverSession", Session)
+    result = run_worker(fresh)
+    if cancel_first:
+        assert result[0] == "cancelled"
+        for uuid, path in options.partial_pc2:
+            assert recovery.owned_partial_path(options.metadata_path, uuid, path)
+            assert pc2.partial_frame_count(
+                Path(path), pc2.Pc2Header(1, 0.0, 1.0, 3)) == 2
+        settings.resume_requested = True
+        settings.recovery_directory = str(options.metadata_path.parent)
+        resumed = module._configure_recovery(context, snapshot, plan)
+        assert resumed.recovery_options.resume is True
+        assert resumed.recovery_options.partial_pc2 == options.partial_pc2
+        assert resumed.recovery_options.completed_solver_frames == (1,)
+        result = run_worker(resumed)
+    assert result[0] == "finished"
+    for target in module._plan_deformables(fresh):
+        frames = list(pc2.iter_frames(target.pc2_path))
+        assert len(frames) == 3
+        for number, frame in enumerate(frames):
+            # Solver Y-up coordinates map to Blender Z-up coordinates.
+            np.testing.assert_array_equal(
+                frame, np.asarray(((number, -number, number),)))
+    assert stale_partial.read_bytes() == old_bytes
+    assert metadata.read_bytes() == old_metadata
+
+
 def test_worker_publishes_authenticated_phase4_pair(blender_env, monkeypatch,
                                                     tmp_path):
     module = blender_env.solver_test
@@ -1256,6 +1374,8 @@ def test_resume_accepts_only_its_authenticated_recovery_partial(
         obj.name, tmp_path, final, 1, recovery_options=options)
 
     module.prepare_cache_for_new_run(plan)
+
+
 
 
 def _stale_recovery_partial(tmp_path, *, uuid="cloth-uuid"):
@@ -3008,7 +3128,7 @@ def test_recovery_uses_wire_scene_hash_when_export_cache_is_unsafe(
     assert result.recovery_options is not None
     assert result.recovery_options.identity.scene_key == "wire-scene"
     assert result.recovery_options.auto_save_interval == 5
-    assert settings.recovery_directory.endswith("wire-scene")
+    assert Path(settings.recovery_directory).name.startswith("wire-scene-")
 
 
 def test_configure_recovery_missing_selected_metadata_never_starts_fresh(

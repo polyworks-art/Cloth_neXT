@@ -1,6 +1,13 @@
-# Cloth NeXt 2.4.1 Dev
+# Cloth NeXt 2.4.2 Dev
 
-Cloth NeXt 2.4.1 restores free selection of viewport shading colors.
+Cloth NeXt 2.4.2 prevents stale Recovery partials from breaking fresh Bakes.
+
+## Bake reliability
+
+- Fresh Bakes never append to a partial from an earlier run.
+- Explicit Resume still continues from the matching authenticated partial.
+- The intermittent `more frames than declared were written` cache failure is
+  prevented before the solver worker starts writing the new cache.
 
 ## Viewport shading
 
@@ -14,5 +21,5 @@ Cloth NeXt 2.4.1 restores free selection of viewport shading colors.
 
 ## Release scope
 
-2.4.1 is a Dev-channel release. The external PPF Contact Solver is unchanged,
+2.4.2 is a Dev-channel release. The external PPF Contact Solver is unchanged,
 separately installed, and never bundled. Beta and Stable remain unchanged.

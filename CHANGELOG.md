@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.2 - 2026-09-07
+
+### Fixed
+
+- A fresh Bake no longer appends to a stale Recovery partial from an earlier
+  failed or cancelled run. This removes the intermittent `more frames than
+  declared were written` failure that surfaced as “The solver test failed
+  unexpectedly”.
+- Explicit Resume continues to reuse only its matching authenticated partial;
+  resumable prefixes remain available after a recoverable failure.
+
 ## 2.4.1 - 2026-09-06
 
 ### Fixed
