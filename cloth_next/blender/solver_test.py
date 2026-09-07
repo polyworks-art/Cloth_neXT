@@ -6343,7 +6343,6 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
         raise SceneValidationError("The Cloth object no longer exists.")
     owned = [mod for mod in obj.modifiers
              if is_cloth_next_playback_modifier(obj,mod)]
-    targets: list[Path] = []
     cache_root = plan.pc2_path.parent.resolve()
     cleanup_tombstones(
         cache_root, ownership_authenticated=True,
@@ -6367,11 +6366,10 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
                                lambda *_: "")("cloth_next_rod_cache", "") or "")
         if recorded:
             path = Path(recorded).resolve()
-            if not _is_owned_playback_cache_path(path, cache_root):
+            if not _is_owned_playback_cache_path(path, path.parent):
                 raise SceneValidationError(
                     "The previous Cable / Rope cache could not be replaced. "
                     "Rebake was not started.")
-            targets.extend((path, path.with_suffix(".meta.json")))
     for mod in owned:
         value = str(getattr(mod, "filepath", "") or "")
         if not value:
@@ -6380,22 +6378,15 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
         authenticated_recovery = _owned_recovery_partial(path)
         if (path not in recovery_partials
                 and authenticated_recovery is None
-                and not _is_owned_playback_cache_path(path, cache_root)):
+                and not _is_owned_playback_cache_path(path, path.parent)):
             raise SceneValidationError(
-                "The previous Cloth NeXt cache could not be removed. "
+                "The previous Cloth NeXt cache path could not be authenticated. "
                 "Rebake was not started.")
-        if authenticated_recovery is not None:
-            recovery_partials.add(authenticated_recovery)
-        targets.extend((path, path.with_suffix(".meta.json")))
-    # Validate every target without mutating Blender or disk. The old cache
-    # remains active until the new transactional cache is attached.
-    for target in targets:
-        if (not _is_within(target, cache_root)
-                and not any(_is_within(target, partial.parent)
-                            for partial in recovery_partials)):
-            raise SceneValidationError(
-                "The previous Cloth NeXt cache could not be removed. "
-                "Rebake was not started.")
+    # Ownership comes from the recorded playback path and generated filename,
+    # not the next Bake's destination. Changing folders must also work when the
+    # old file is missing. This validation never deletes old caches or grants
+    # cleanup access to their parents: post-attach cleanup remains restricted
+    # to the new cache root, preserving results in previous output folders.
 
 
 def _discard_incomplete(plan: RunPlan | None, *, state: str = "failed",

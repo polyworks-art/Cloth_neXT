@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.3 - 2026-09-07
+
+### Fixed
+
+- Rebake accepts recorded Cloth NeXt caches after changing the output folder,
+  including missing old files and cancelled live previews. This prevents the
+  misleading "previous cache could not be removed" startup error in this case.
+- Unrecognized previous mesh-cache paths now report an authentication failure.
+- Previous output folders remain untouched; recovery authentication and
+  transactional playback rollback remain in effect.
+
 ## 2.4.2 - 2026-09-07
 
 ### Fixed

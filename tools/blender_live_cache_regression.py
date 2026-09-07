@@ -23,14 +23,16 @@ try:
         root = Path(temporary)
         for index, name in enumerate(("cn_test_cloth_old.pc2",
                                      ".cn_test_cloth_old.pc2.cancel.tmp",
-                                     "recovery/partials/old.pc2.partial")):
+                                     "recovery/partials/old.pc2.partial",
+                                     "moved/cn_test_cloth_old.pc2")):
             mesh = bpy.data.meshes.new(f"audit-{index}")
             mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
             obj = bpy.data.objects.new(f"audit-{index}", mesh)
             bpy.context.collection.objects.link(obj)
             old = root / str(index) / name
-            live = old.parent / ".cn_test_cloth_new.pc2.live.tmp"
-            final = old.parent / "cn_test_cloth_new.pc2"
+            destination = root / "new-output" if index == 3 else old.parent
+            live = destination / ".cn_test_cloth_new.pc2.live.tmp"
+            final = destination / "cn_test_cloth_new.pc2"
             def frames(x):
                 return [[(x, 0, 0), (x + 1, 0, 0), (x, 1, 0)]] * 3
             pc2.write_pc2(old, frames(10))
@@ -48,6 +50,9 @@ try:
                 frame_start=1, frame_end=3, deformables=(target,))
             bpy.context.scene.frame_set(1)
             assert coordinate(obj) == 10, coordinate(obj)
+            if index == 3:
+                module.prepare_cache_for_new_run(plan)
+                assert old.is_file()
             module._hide_previous_playback(plan)
             assert coordinate(obj) == 0, coordinate(obj)
             module._advance_bake_timeline(plan, 2, {target.uuid: str(live)})
@@ -59,6 +64,8 @@ try:
             module._attach_playback(plan, header)
             assert coordinate(obj) == 30, coordinate(obj)
             assert not module._live_playback_records
+            if index == 3:
+                assert old.is_file(), "a previous output folder must be preserved"
             bpy.data.objects.remove(obj, do_unlink=True)
             bpy.data.meshes.remove(mesh)
             print(f'LIVE CACHE PASS: {name}')

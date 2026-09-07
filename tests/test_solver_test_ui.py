@@ -1357,6 +1357,46 @@ def test_rebake_accepts_owned_live_preview_left_by_cancel(
     module.prepare_cache_for_new_run(plan)
 
 
+@pytest.mark.parametrize("exists", [True, False])
+@pytest.mark.parametrize("name", [
+    "cn_test_cloth_old.pc2", ".cn_test_cloth_old.pc2.cancel.tmp"])
+@pytest.mark.parametrize("object_type", ["MESH", "CURVE"])
+def test_rebake_accepts_recorded_cache_after_output_folder_change(
+        blender_env, tmp_path, exists, name, object_type, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="cloth", type=object_type)
+    blender_env.bpy.data.objects[obj.name] = obj
+    old = tmp_path / "old-cache" / name
+    old.parent.mkdir()
+    if exists:
+        old.write_bytes(b"previous result")
+    if object_type == "CURVE":
+        obj.data = {"cloth_next_rod_cache": str(old)}
+    else:
+        modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
+        modifier.filepath = str(old)
+        module.mark_owned_playback(obj, modifier, str(old))
+    new_root = tmp_path / "new-cache"
+    cleanup_roots = []
+    monkeypatch.setattr(module, "cleanup_tombstones",
+                        lambda root, **kwargs: cleanup_roots.append(root))
+    plan = SimpleNamespace(cloth_object_name=obj.name,
+                           pc2_path=new_root / "cn_test_cloth_new.pc2")
+
+    module.prepare_cache_for_new_run(plan)
+    module.prepare_cache_for_new_run(plan)
+
+    assert cleanup_roots == [new_root.resolve(), new_root.resolve()]
+    assert old.exists() == exists
+    if exists:
+        assert old.read_bytes() == b"previous result"
+    if object_type == "MESH":
+        assert modifier in obj.modifiers
+        assert modifier.filepath == str(old)
+    else:
+        assert obj.data["cloth_next_rod_cache"] == str(old)
+
+
 def test_resume_accepts_only_its_authenticated_recovery_partial(
         blender_env, tmp_path):
     module = blender_env.solver_test

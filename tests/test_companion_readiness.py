@@ -266,7 +266,7 @@ def test_cache_replacement_rejects_external_path_and_preserves_result(
     module.mark_owned_playback(obj,mod,str(external))
     plan=SimpleNamespace(cloth_object_name="Cloth",
                          pc2_path=tmp_path/"cn_test_cloth_new.pc2")
-    with pytest.raises(module.SceneValidationError,match="could not be removed"):
+    with pytest.raises(module.SceneValidationError,match="could not be authenticated"):
         module.prepare_cache_for_new_run(plan)
     assert external.exists() and mod in obj.modifiers
     env.registration.unregister()

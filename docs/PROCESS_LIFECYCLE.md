@@ -1,6 +1,6 @@
 # Local PPF process lifecycle
 
-For Rebake, Cloth NeXt identifies playback through a Mesh Cache type plus an ownership marker and matching recorded cache path (with result-metadata migration for older owned caches). It disables viewport/render evaluation only while capturing, restores both flags in `finally`, and retains the old cache until scene validation, animated target capture, and companion readiness have succeeded. Only then does the existing object-scoped replacement service remove the prior owned result and start PPF.
+For Rebake, Cloth NeXt identifies playback through a Mesh Cache type plus an ownership marker and matching recorded cache path (with result-metadata migration for older owned caches). It disables viewport/render evaluation only while capturing and restores both flags in `finally`. Startup validates the recorded cache independently of the new output folder, including missing files and cancelled live previews; Recovery partials still require exact plan or durable metadata authentication. The old result remains available for rollback until the new playback transaction commits. Post-attach cleanup is restricted to the new output root, so changing folders never grants deletion access to previous output directories.
 
 The decorative icon Canvas is constructed before readiness, but animation
 success is not part of the matching-job, visibility, mapping, topmost, or
