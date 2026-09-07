@@ -715,10 +715,12 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                ("BETA", "Beta", "Beta and release-candidate prereleases"),
                ("DEV", "Dev", "Unsupported public experimental snapshots")),
         default=addon_update_operators.DEFAULT_CHANNEL.name,
+        update=addon_update_operators.channel_changed,
         description="Which Cloth NeXt release channel to check for add-on "
                     "updates (independent of the PPF solver)")
     dev_channel_acknowledged: bpy.props.BoolProperty(
-        name="I understand the Dev channel risks", default=False)
+        name="I understand the Dev channel risks", default=False,
+        update=addon_update_operators.channel_changed)
 
     developer_tools: bpy.props.BoolProperty(
         name="Developer Tools", default=False,
@@ -812,19 +814,21 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                                                 update_session.latest,
                                                 update_session.message)
         box.label(text="Installed Version: "
-                       f"{addon_update_operators.INSTALLED_VERSION}")
+                       f"{addon_update_operators.INSTALLED_VERSION} "
+                       f"({addon_update_operators.INSTALLED_VERSION.channel_name.capitalize()})")
         box.prop(self, "update_channel")
         channel = addon_updates.UpdateChannel[self.update_channel]
-        repos = context.preferences.extensions.repos
-        if addon_updates.find_channel_repo(repos, channel) is None:
+        if addon_update_operators.owning_repo_index(context) is None:
             box.operator("clothnext.addon_update_repo_setup",
-                         text="Register Update Channel")
+                         text="Retry Repository Migration")
         if self.update_channel == "DEV":
             warning=box.box(); warning.label(text="Development Channel", **icon_registry.icon_kwargs("error", "ERROR"))
             warning.label(text="Experimental public builds; reduced validation.")
             warning.label(text="Back up your files before updating.")
             warning.label(text=addon_updates.UpdateChannel.DEV.index_url)
             warning.prop(self,"dev_channel_acknowledged")
+        if update_session.latest is not None:
+            box.label(text=f"Available Target: {update_session.latest}")
         box.label(text=f"Update Status: {view.status_text}")
         if view.message:
             box.label(text=view.message)
@@ -833,7 +837,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         check.enabled = view.check_enabled
         check.operator("clothnext.addon_update_check")
         if view.show_update_handoff:
-            actions.operator("clothnext.addon_update_through_blender")
+            actions.operator("clothnext.addon_update_through_blender",
+                             text=(f"Switch to {channel.label}" if update_session.state is
+                                   addon_updates.AddonUpdateState.SWITCH_CHANNEL else
+                                   "Update through Blender"))
         elif view.show_open_extensions:
             actions.operator("clothnext.addon_open_extensions")
         actions.operator("clothnext.addon_open_release_notes")

@@ -41,11 +41,7 @@ def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     assert "generate_single_candidate_index" in text
     assert "candidates.Count -ne 1" in text
     assert "LastWriteTimeUtc" not in text
-    assert "Stable=[int]$current.Groups[1].Value" in text
-    assert "Beta=[int]$current.Groups[2].Value" in text
-    assert "Dev=[int]$current.Groups[3].Value" in text
-    assert "Expression='Stable'" in text and "Expression='Dev'" in text
-    assert "$old.File | Remove-Item -Force" in text
+    assert "$old.File | Remove-Item" not in text
     assert "STABLE.BETA.DEV" in text
     assert "^0\\.2\\.0-dev" not in text
 

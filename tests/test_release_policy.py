@@ -362,9 +362,9 @@ def write_index(directory, version):
         encoding="utf-8")
 
 
-def test_beta_release_is_published_to_beta_and_dev(tmp_path):
+def test_beta_release_is_published_only_to_beta(tmp_path):
     site = tmp_path / "site"
-    for channel in ("beta", "dev"):
+    for channel in ("beta",):
         (site / channel).mkdir(parents=True)
         make_zip(site / channel, "0.3.0")
         write_index(site / channel, "0.3.0")
@@ -373,27 +373,29 @@ def test_beta_release_is_published_to_beta_and_dev(tmp_path):
 
 def test_beta_release_is_rejected_from_stable_repository(tmp_path):
     site = tmp_path / "site"
-    for channel in ("beta", "dev"):
+    for channel in ("beta",):
         (site / channel).mkdir(parents=True)
         make_zip(site / channel, "0.3.0")
         write_index(site / channel, "0.3.0")
     (site / "stable").mkdir(parents=True)
     make_zip(site / "stable", "0.3.0")
-    with pytest.raises(ValueError, match="not allowed"):
+    write_index(site / "stable", "0.3.0")
+    with pytest.raises(ValueError, match="disallowed"):
         check_channel_separation(site, parse_version("0.3.0"))
 
 
-def test_stable_release_is_required_in_all_three_repositories(tmp_path):
+def test_stable_release_preserves_historical_archives(tmp_path):
     site = tmp_path / "site"
-    for channel in ("stable", "beta", "dev"):
-        (site / channel).mkdir(parents=True)
-        make_zip(site / channel, "1.0.0")
-        write_index(site / channel, "1.0.0")
-    make_zip(site / "dev", "0.3.0-dev.20",
-             name="cloth_next-0.3.0-dev.20-windows-x64.zip")
+    (site / "stable").mkdir(parents=True)
+    make_zip(site / "stable", "1.0.0")
+    write_index(site / "stable", "1.0.0")
+    (site / "dev").mkdir()
+    make_zip(site / "dev", "1.0.0")  # former cumulative archive stays readable
+    make_zip(site / "dev", "1.2.3")
+    write_index(site / "dev", "1.2.3")
     check_channel_separation(site, parse_version("1.0.0"))
-    (site / "dev" / "index.json").unlink()
-    with pytest.raises(ValueError, match="dev repository has no index"):
+    (site / "stable" / "index.json").unlink()
+    with pytest.raises(ValueError, match="stable repository has no index"):
         check_channel_separation(site, parse_version("1.0.0"))
 
 

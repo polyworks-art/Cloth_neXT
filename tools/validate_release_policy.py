@@ -48,15 +48,7 @@ class ReleaseVersion:
 
     @property
     def channel(self) -> str:
-        if self.prerelease:
-            return "beta"  # legacy tagged release compatibility
-        if self.patch > 0:
-            return "dev"
-        if self.minor > 0:
-            return "beta"
-        if self.major > 0:
-            return "stable"
-        raise ValueError("0.0.0 does not encode a release channel")
+        return parse_addon_version(self.text).channel_name
 
 
 def parse_version(text: str) -> ReleaseVersion:
@@ -258,7 +250,7 @@ def check_pages_artifact_store(site_dir: Path, zip_path: Path,
 
 
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
-    """Enforce cumulative Stable -> Beta -> Dev repository visibility."""
+    """Enforce exact channel targets while retaining historical archives."""
     required = publication_targets(version.channel)
     archive_name = expected_zip_name(version)
     for channel in ("stable", "beta", "dev"):
@@ -269,13 +261,8 @@ def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
         if not channel_dir.is_dir():
             continue
         allowed = allowed_release_channels(channel)
-        for archive in channel_dir.glob("cloth_next-*.zip"):
-            name_version = archive.name.removeprefix(
-                "cloth_next-").removesuffix(f"-{RELEASE_PLATFORM}.zip")
-            archived = parse_addon_version(name_version)
-            if archived.channel_name not in allowed:
-                raise ValueError(f"{archived.channel_name} artifact {archive.name} "
-                                 f"is not allowed in the {channel} repository")
+        # Historical archives remain immutable, including former cumulative
+        # publications. Only the active index target determines channel policy.
         index = channel_dir / "index.json"
         if not index.is_file():
             if channel in required:

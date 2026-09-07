@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.4.4 - 2026-09-07
+
+### Fixed
+
+- Release-channel switches reuse the owning Blender repository and support lower
+  target versions when moving from Dev to Beta or Stable, or Beta to Stable.
+- Existing installations migrate automatically without moving files or losing
+  preferences, repository identity or license state.
+- Dev is available without Developer Tools; experimental risk acknowledgement
+  remains visible when entering the channel.
+- Invalid or unavailable feeds fail visibly and remain retryable.
+
+### Changed
+
+- Feeds expose exactly one target for their own release level. Historical archives
+  remain immutable. Installation stays with Blender's Extension Manager.
+
 ## 2.4.3 - 2026-09-07
 
 ### Fixed

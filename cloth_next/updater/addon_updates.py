@@ -56,6 +56,7 @@ class AddonUpdateState(Enum):
     CHECKING = auto()
     UP_TO_DATE = auto()
     UPDATE_AVAILABLE = auto()
+    SWITCH_CHANNEL = auto()
     REPOSITORY_NOT_CONFIGURED = auto()
     REPOSITORY_DISABLED = auto()
     SYNC_FAILED = auto()
@@ -80,24 +81,48 @@ class AddonUpdateSession:
         self.state = AddonUpdateState.NOT_CHECKED
         self.latest: AddonVersion | None = None
         self.message = ""
+        self.decision = None
+        self.migrated_channel = None
 
 
 def normalized_repo_url(url: str) -> str:
     return url.strip().rstrip("/")
 
 
-def find_channel_repo(repos, channel: UpdateChannel) -> int | None:
-    """Index of the repository whose remote URL is the channel URL, else None.
+def find_owning_repo(repos, package_id: str, package_directory=None) -> int | None:
+    """Resolve installation identity, never the selected remote feed.
 
-    A repository for the *other* channel never counts: Beta must not treat a
-    Stable-only repository as its source, and vice versa.
+    Namespaced installations must match exactly one RNA module. Source/legacy
+    installs can be resolved only by their actual package directory.
     """
-    wanted = normalized_repo_url(channel.index_url)
-    for index, repo in enumerate(repos):
-        remote_url = getattr(repo, "remote_url", "") or ""
-        if normalized_repo_url(remote_url) == wanted:
-            return index
-    return None
+    from pathlib import Path
+    parts = package_id.split(".")
+    if len(parts) == 3 and parts[0] == "bl_ext" and parts[2] == EXTENSION_ID:
+        matches = [i for i, repo in enumerate(repos)
+                   if getattr(repo, "module", None) == parts[1]]
+    elif package_directory is not None:
+        installed = Path(package_directory).resolve()
+        matches = [i for i, repo in enumerate(repos)
+                   if getattr(repo, "directory", "") and
+                   (Path(repo.directory) / EXTENSION_ID).resolve() == installed]
+    else:
+        matches = []
+    return matches[0] if len(matches) == 1 else None
+
+
+def configure_owning_repo(repos, package_id, channel, package_directory=None):
+    """Idempotent bridge migration: change remote configuration only."""
+    index = find_owning_repo(repos, package_id, package_directory)
+    if index is None:
+        raise ValueError("The repository owning this Cloth NeXt installation was not found.")
+    repo = repos[index]
+    if not getattr(repo, "directory", ""):
+        raise ValueError("The owning repository has no local directory.")
+    if not getattr(repo, "enabled", False):
+        raise ValueError("The owning repository is disabled.")
+    if normalized_repo_url(repo.remote_url) != channel.index_url:
+        repo.remote_url = channel.index_url
+    return str(repo.directory)
 
 
 def validate_index_url(url: str) -> None:
@@ -133,9 +158,8 @@ def parse_index_versions(payload: dict,
                          channel: UpdateChannel) -> tuple[AddonVersion, ...]:
     """Extract this extension's versions; enforce channel content rules.
 
-    Repositories are cumulative: Stable accepts Stable; Beta accepts Beta and
-    Stable; Dev accepts Dev, Beta, and Stable. Legacy suffixed versions remain
-    readable. A less-stable entry than the selected repository is rejected.
+    Each feed exposes exactly its own release level. Legacy suffixed versions
+    remain readable; multiple package candidates are rejected.
     """
     data = payload.get("data")
     if not isinstance(data, list):
@@ -165,18 +189,54 @@ def parse_index_versions(payload: dict,
                              f"{version}: {archive_url!r}")
         seen.add(version)
         versions.append(version)
+    if len(versions) > 1:
+        raise ValueError("ambiguous channel index: multiple Cloth NeXt targets")
     return tuple(versions)
 
 
-def evaluate_update(installed: AddonVersion,
-                    available: tuple[AddonVersion, ...],
-                    ) -> tuple[AddonUpdateState, AddonVersion | None]:
-    if not available:
-        return (AddonUpdateState.UNAVAILABLE, None)
-    latest = max(available)
-    if latest > installed:
-        return (AddonUpdateState.UPDATE_AVAILABLE, latest)
-    return (AddonUpdateState.UP_TO_DATE, latest)
+@dataclass(frozen=True, slots=True)
+class UpdateDecision:
+    installed_version: AddonVersion
+    installed_channel: str
+    selected_channel: str
+    target_version: AddonVersion | None
+    target_channel: str | None
+    same_artifact: bool
+    channel_changed: bool
+    version_relationship: str
+    state: AddonUpdateState
+
+
+def decide_update(installed, available, channel=None):
+    selected = channel.name.lower() if channel else (
+        available[0].channel_name if available else installed.channel_name)
+    target = available[0] if len(available) == 1 else None
+    relation = ("unavailable" if target is None else "equal" if target == installed
+                else "newer" if target > installed else "older")
+    changed = installed.channel_name != selected
+    if len(available) > 1 or (target and target.channel_name != selected):
+        state = AddonUpdateState.ERROR
+    elif target is None:
+        state = AddonUpdateState.UNAVAILABLE
+    elif target == installed:
+        state = AddonUpdateState.UP_TO_DATE
+    elif changed:
+        state = AddonUpdateState.SWITCH_CHANNEL
+    elif target > installed:
+        state = AddonUpdateState.UPDATE_AVAILABLE
+    else:
+        state = AddonUpdateState.UP_TO_DATE
+    return UpdateDecision(installed, installed.channel_name, selected, target,
+                          target.channel_name if target else None,
+                          target == installed, changed, relation, state)
+
+
+ACTIONABLE_STATES = {AddonUpdateState.UPDATE_AVAILABLE, AddonUpdateState.SWITCH_CHANNEL}
+
+
+def evaluate_update(installed, available):
+    decision = decide_update(installed, available)
+    return decision.state, decision.target_version
 
 
 def run_update_check(session: AddonUpdateSession, channel: UpdateChannel,
@@ -187,7 +247,8 @@ def run_update_check(session: AddonUpdateSession, channel: UpdateChannel,
     try:
         payload = fetch(channel)
         versions = parse_index_versions(payload, channel)
-        state, latest = evaluate_update(installed, versions)
+        session.decision = decide_update(installed, versions, channel)
+        state, latest = session.decision.state, session.decision.target_version
         session.latest = latest
         session.message = ("The channel index lists no Cloth NeXt entry yet."
                            if state is AddonUpdateState.UNAVAILABLE else "")
@@ -209,6 +270,7 @@ STATUS_LABELS = {
     AddonUpdateState.CHECKING: "Checking…",
     AddonUpdateState.UP_TO_DATE: "Up to date",
     AddonUpdateState.UPDATE_AVAILABLE: "Update available",
+    AddonUpdateState.SWITCH_CHANNEL: "Switch channel",
     AddonUpdateState.REPOSITORY_NOT_CONFIGURED: "Repository not configured",
     AddonUpdateState.REPOSITORY_DISABLED: "Repository disabled",
     AddonUpdateState.SYNC_FAILED: "Repository synchronization failed",
@@ -234,9 +296,9 @@ class UpdateSectionView:
 def build_section_view(state: AddonUpdateState, latest: AddonVersion | None,
                        message: str) -> UpdateSectionView:
     status_text = STATUS_LABELS[state]
-    if state is AddonUpdateState.UPDATE_AVAILABLE and latest is not None:
+    if state in ACTIONABLE_STATES and latest is not None:
         status_text = f"{status_text}: {latest}"
-    show_update_handoff = state is AddonUpdateState.UPDATE_AVAILABLE
+    show_update_handoff = state in ACTIONABLE_STATES
     if show_update_handoff and latest is not None and not message:
         message = (f"Version {latest} is available. Updates are completed "
                    "through Blender's native extension manager to avoid "

@@ -316,11 +316,11 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
             text="",
             **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
         update_session = addon_update_operators.session()
-        if (update_session.state is
-                addon_update_operators.AddonUpdateState.UPDATE_AVAILABLE):
+        if (update_session.state in
+                addon_update_operators.addon_updates.ACTIONABLE_STATES):
             latest = getattr(update_session, "latest", None)
-            text = f"Update available: {latest}" if latest else \
-                "Update available"
+            text = addon_update_operators.addon_updates.build_section_view(
+                update_session.state, latest, "").status_text
             self.layout.label(
                 text=text,
                 **icon_registry.icon_kwargs("warning", "ERROR"))
@@ -353,8 +353,8 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         version.label(
             text=f"Version: {addon_update_operators.INSTALLED_VERSION}",
             icon="PACKAGE")
-        update_icon = ("ERROR" if update_session.state is
-                       addon_update_operators.AddonUpdateState.UPDATE_AVAILABLE
+        update_icon = ("ERROR" if update_session.state in
+                       addon_update_operators.addon_updates.ACTIONABLE_STATES
                        else "CHECKMARK" if update_session.state is
                        addon_update_operators.AddonUpdateState.UP_TO_DATE
                        else "INFO")

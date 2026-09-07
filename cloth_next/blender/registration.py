@@ -99,6 +99,7 @@ def register() -> None:
             revert_step()
         raise
     _registered = True
+    addon_update_operators.initialize_updates()
 
 
 def unregister() -> None:

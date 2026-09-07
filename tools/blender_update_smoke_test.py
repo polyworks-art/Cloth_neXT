@@ -104,12 +104,13 @@ def main() -> None:
     state_cls = from_module.AddonUpdateState
     channel = updates.DEFAULT_CHANNEL
     channel_url = channel.index_url
-    session = updates.session()
     if channel is updates.UpdateChannel.DEV:
         # This build intentionally encodes the Dev channel. Exercise the real
         # acknowledgement property instead of bypassing the production gate.
         preferences = updates.addon_preferences(bpy.context, updates.__package__)
         preferences.dev_channel_acknowledged = True
+
+    session = updates.session()
 
     # The unsafe self-install helper must stay deleted.
     assert not hasattr(updates, "_blender_package_install"), \
@@ -153,7 +154,7 @@ def main() -> None:
 
     # --- 1. no repository configured: distinct state, nothing raised ---------
     repos = bpy.context.preferences.extensions.repos
-    assert from_module.find_channel_repo(repos, channel) is None, \
+    assert updates.owning_repo_index(bpy.context) is None, \
         "test requires a profile without a preconfigured Cloth NeXt repository"
     run_handoff()
     assert session.state is state_cls.REPOSITORY_NOT_CONFIGURED, session.state
@@ -169,7 +170,8 @@ def main() -> None:
     bpy.ops.preferences.extension_repo_add(
         name=f"Cloth NeXt {channel.label} Smoke",
         remote_url=channel_url, type="REMOTE")
-    index = from_module.find_channel_repo(repos, channel)
+    updates._ADDON_ID = f"bl_ext.{repos[-1].module}.cloth_next"
+    index = updates.owning_repo_index(bpy.context)
     assert index is not None, "channel repository was not found after adding it"
     channel_directory = repos[index].directory
     assert channel_directory, "repository directory RNA is empty"
@@ -263,6 +265,43 @@ def main() -> None:
         updates._blender_show_update_view = original_view
         updates._blender_repo_sync = original_sync
         updates.refresh_update_session = original_refresh
+
+    # All directions use the same real RNA repository, with no Developer Tools.
+    # The sync boundary writes an official-format local fixture; production
+    # refresh reads that repository's cache and computes the real decision.
+    import json
+    versions = {"STABLE": "2.0.0", "BETA": "2.3.0", "DEV": "2.3.5"}
+    preferences = updates.addon_preferences(bpy.context, updates.__package__)
+    preferences.developer_tools = False
+    preferences.dev_channel_acknowledged = True
+    identity = (repos[index].directory, repos[index].module)
+    original_installed = updates.INSTALLED_VERSION
+    try:
+        for source in versions:
+            for destination, target in versions.items():
+                if source == destination:
+                    continue
+                updates.INSTALLED_VERSION = updates.parse_version(versions[source])
+                preferences.update_channel = destination
+                chosen = updates.UpdateChannel[destination]
+                def cached_sync(directory):
+                    assert directory == channel_directory
+                    assert repos[index].remote_url == chosen.index_url
+                    cache = Path(directory, ".blender_ext")
+                    cache.mkdir(parents=True, exist_ok=True)
+                    (cache / "index.json").write_text(json.dumps({"data": [
+                        {"id": "cloth_next", "version": target}]}))
+                updates._blender_repo_sync = cached_sync
+                updates._blender_show_update_view = lambda: None
+                assert updates.synchronize_selected(bpy.context, chosen)
+                assert updates.session().state is state_cls.SWITCH_CHANNEL
+                assert bpy.ops.clothnext.addon_update_through_blender() == {"FINISHED"}
+                assert (repos[index].directory, repos[index].module) == identity
+        print("All six channel handoffs preserve real Blender repository RNA identity")
+    finally:
+        updates.INSTALLED_VERSION = original_installed
+        updates._blender_repo_sync = original_sync
+        updates._blender_show_update_view = original_view
 
     _disable_active_extension()
     print("Cloth NeXt add-on update smoke test passed "

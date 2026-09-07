@@ -87,9 +87,9 @@ def validate_index(channel_dir: Path, extension_id: str, version: str) -> None:
     entries = payload.get("data")
     if not isinstance(entries, list):
         raise ValueError("index.json has no data list")
-    for entry in entries:
-        if entry.get("id") == extension_id and entry.get("version") == version:
-            return
+    candidates = [entry for entry in entries if entry.get("id") == extension_id]
+    if len(candidates) == 1 and candidates[0].get("version") == version:
+        return
     raise ValueError(f"index.json lists no entry for {extension_id} {version}")
 
 

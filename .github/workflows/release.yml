@@ -74,12 +74,12 @@ jobs:
           mkdir -p "$ARTIFACT_DIR"
           cp "dist/${{ needs.candidate.outputs.zip-name }}" "$ARTIFACT_DIR/"
           cp dist/release-manifest.json dist/SHA256SUMS.txt RELEASE_NOTES.md "$ARTIFACT_DIR/"
-      - name: Build every cumulative channel repository
+      - name: Build the exact channel repository
         shell: bash
         run: |
           case "${{ needs.candidate.outputs.channel }}" in
-            stable) TARGETS="stable beta dev" ;;
-            beta) TARGETS="beta dev" ;;
+            stable) TARGETS="stable" ;;
+            beta) TARGETS="beta" ;;
             *) echo "unsupported tagged release channel" >&2; exit 1 ;;
           esac
           for TARGET in $TARGETS; do
@@ -92,7 +92,7 @@ jobs:
         run: |
           VERSION="${{ needs.candidate.outputs.version }}"
           CHANNEL="${{ needs.candidate.outputs.channel }}"
-          if [ "$CHANNEL" = stable ]; then TARGETS="stable beta dev"; else TARGETS="beta dev"; fi
+          if [ "$CHANNEL" = stable ]; then TARGETS="stable"; else TARGETS="beta"; fi
           if [ ! -d site-publish ]; then
             git worktree add --detach site-publish
             git -C site-publish checkout --orphan gh-pages

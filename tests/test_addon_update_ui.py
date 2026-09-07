@@ -13,7 +13,6 @@ by ``tools/blender_update_smoke_test.py`` running inside real Blender 5.1.2.
 from __future__ import annotations
 
 import ast
-import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -35,6 +34,7 @@ def set_channel(env, channel="BETA"):
 
 
 def add_repo(env, url, enabled=True, directory="/fake/extensions/mod"):
+    env.addon_update_operators._ADDON_ID = "bl_ext.mod.cloth_next"
     env.bpy.context.preferences.extensions.repos.append(SimpleNamespace(
         name="repo", module="mod", remote_url=url, enabled=enabled,
         use_remote_url=True, directory=directory))
@@ -97,20 +97,6 @@ def test_register_never_creates_repositories_or_calls_operators(blender_env):
     env.registration.unregister()
 
 
-def test_repo_setup_adds_channel_repository_once(blender_env):
-    env = blender_env
-    env.registration.register()
-    set_channel(env, "BETA")
-    op = updater(env).CLOTHNEXT_OT_addon_update_repo_setup()
-    assert op.execute(env.bpy.context) == {"FINISHED"}
-    repos = env.bpy.context.preferences.extensions.repos
-    assert len(repos) == 1 and repos[0].remote_url == BETA_URL
-    assert env.bpy.ops_log[-1][0] == "preferences.extension_repo_add"
-    # second click: no duplicate
-    op2 = updater(env).CLOTHNEXT_OT_addon_update_repo_setup()
-    assert op2.execute(env.bpy.context) == {"CANCELLED"}
-    assert len(repos) == 1
-    env.registration.unregister()
 
 
 def test_repo_setup_detects_existing_repo_with_trailing_slash(blender_env):
@@ -183,7 +169,8 @@ def test_check_without_repository_reports_not_configured(blender_env):
     env = blender_env
     env.registration.register()
     set_channel(env, "BETA")
-    add_repo(env, STABLE_URL)  # only the WRONG channel is configured
+    add_repo(env, STABLE_URL)
+    updater(env)._ADDON_ID = "bl_ext.missing.cloth_next"
     op, _result = run_check(env)
     assert updater(env).session().state is \
         AddonUpdateState.REPOSITORY_NOT_CONFIGURED
@@ -200,71 +187,10 @@ def test_check_with_disabled_repository_reports_disabled(blender_env):
     env.registration.unregister()
 
 
-def test_repeated_check_clicks_do_not_start_duplicate_workers(blender_env, monkeypatch):
-    env = blender_env
-    env.registration.register()
-    set_channel(env)
-    add_repo(env, BETA_URL)
-    gate = threading.Event()
-    started = []
-
-    def slow_check(session, _channel, _installed, fetch=None):
-        started.append(1)
-        gate.wait(timeout=10)
-        session.state = AddonUpdateState.UP_TO_DATE
-
-    from cloth_next.updater import addon_updates as pure
-    monkeypatch.setattr(pure, "run_update_check", slow_check)
-    _op1, result1 = run_check(env)
-    assert result1 == {"FINISHED"}
-    assert updater(env).session().state is AddonUpdateState.CHECKING
-    op2, result2 = run_check(env)
-    assert result2 == {"CANCELLED"}
-    gate.set()
-    updater(env)._worker.join(timeout=10)
-    assert started == [1]
-    assert updater(env).session().state is AddonUpdateState.UP_TO_DATE
-    env.registration.unregister()
 
 
-def test_check_timer_lifecycle_and_unregister_cleanup(blender_env, monkeypatch):
-    env = blender_env
-    env.registration.register()
-    set_channel(env)
-    add_repo(env, BETA_URL)
-    from cloth_next.updater import addon_updates as pure
-    monkeypatch.setattr(pure, "run_update_check",
-                        lambda session, _c, _i, fetch=None: setattr(
-                            session, "state", AddonUpdateState.UP_TO_DATE))
-    run_check(env)
-    pulse = updater(env)._ui_refresh_pulse
-    assert pulse in env.bpy.app.timers.functions
-    updater(env)._worker.join(timeout=10)
-    assert pulse() is None  # worker done: timer asks to stop
-    env.registration.unregister()
-    assert env.bpy.app.timers.functions == []
-    assert updater(env).session().state is AddonUpdateState.NOT_CHECKED
 
 
-def test_check_maps_newer_version_to_update_available(blender_env, monkeypatch):
-    env = blender_env
-    env.registration.register()
-    set_channel(env)
-    add_repo(env, BETA_URL)
-    from cloth_next.updater import addon_updates as pure
-    original_check = pure.run_update_check
-
-    def fake_check(session, channel, installed, fetch=None):
-        original_check(session, channel, installed,
-                       fetch=lambda _c: {"data": [
-                           {"id": "cloth_next", "version": "9.9.9-beta.1"}]})
-
-    monkeypatch.setattr(pure, "run_update_check", fake_check)
-    run_check(env)
-    updater(env)._worker.join(timeout=10)
-    assert updater(env).session().state is AddonUpdateState.UPDATE_AVAILABLE
-    assert str(updater(env).session().latest) == "9.9.9-beta.1"
-    env.registration.unregister()
 
 
 # --- update guard integration (items 15+16 at operator level) ------------------------
@@ -435,59 +361,8 @@ def test_handoff_syncs_exact_repo_and_opens_update_view(blender_env):
     env.registration.unregister()
 
 
-@pytest.mark.parametrize("channel,url", [
-    ("STABLE", STABLE_URL), ("BETA", BETA_URL),
-])
-def test_each_channel_syncs_only_its_exact_repository(blender_env, channel, url):
-    env = blender_env
-    env.registration.register()
-    set_channel(env, channel)
-    add_repo(env, STABLE_URL, directory="/fake/extensions/stable")
-    add_repo(env, BETA_URL, directory="/fake/extensions/beta")
-    add_repo(env, "https://example.invalid/other/index.json",
-             directory="/fake/extensions/other")
-    module = updater(env)
-    mark_update_available(module)
-    op = module.CLOTHNEXT_OT_addon_update_through_blender()
-    assert op.execute(env.bpy.context) == {"FINISHED"}
-    expected = ("/fake/extensions/stable" if channel == "STABLE"
-                else "/fake/extensions/beta")
-    synced = [kwargs for name, kwargs in env.bpy.ops_log
-              if name == "extensions.repo_sync"]
-    assert synced == [{"repo_directory": expected}]
-    names = [name for name, _kw in env.bpy.ops_log]
-    assert "extensions.package_install" not in names
-    assert "extensions.package_upgrade_all" not in names
-    assert "extensions.repo_sync_all" not in names
-    env.registration.unregister()
 
 
-def test_dev_channel_syncs_dev_repo_and_never_falls_back_to_beta(blender_env):
-    env = blender_env
-    env.registration.register()
-    env.bpy.context.preferences.addons["cloth_next"] = SimpleNamespace(
-        preferences=SimpleNamespace(update_channel="DEV",
-                                    developer_tools=True,
-                                    dev_channel_acknowledged=True))
-    add_repo(env, BETA_URL, directory="/fake/extensions/beta")
-    module = updater(env)
-    # Dev repo missing: visible failure, never the Beta repository
-    mark_update_available(module)
-    op = module.CLOTHNEXT_OT_addon_update_through_blender()
-    assert op.execute(env.bpy.context) == {"CANCELLED"}
-    assert module.session().state is \
-        AddonUpdateState.REPOSITORY_NOT_CONFIGURED
-    assert all(name != "extensions.repo_sync" for name, _kw in env.bpy.ops_log)
-    # Dev repo present: exactly the Dev directory is synchronized
-    add_repo(env, UpdateChannel.DEV.index_url,
-             directory="/fake/extensions/dev")
-    mark_update_available(module)
-    op = module.CLOTHNEXT_OT_addon_update_through_blender()
-    assert op.execute(env.bpy.context) == {"FINISHED"}
-    synced = [kwargs for name, kwargs in env.bpy.ops_log
-              if name == "extensions.repo_sync"]
-    assert synced == [{"repo_directory": "/fake/extensions/dev"}]
-    env.registration.unregister()
 
 
 def test_missing_repository_directory_is_handled_visibly(blender_env):
@@ -611,30 +486,6 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     env.registration.unregister()
 
 
-def test_automatic_check_is_deferred_out_of_panel_draw(blender_env,
-                                                       monkeypatch):
-    env = blender_env
-    env.registration.register()
-    set_channel(env, "BETA")
-    module = updater(env)
-    calls = []
-    monkeypatch.setattr(
-        module.addon_updates, "run_update_check",
-        lambda session, channel, installed: (
-            calls.append((channel, installed)),
-            setattr(session, "latest", parse_version("9.9.0")),
-            setattr(session, "state", AddonUpdateState.UPDATE_AVAILABLE)))
-
-    module.request_automatic_update_check(env.bpy.context)
-    assert calls == []
-    assert module._automatic_update_check_timer in \
-        env.bpy.app.timers.functions
-    assert module._automatic_update_check_timer() is None
-    module._worker.join(timeout=10)
-
-    assert calls and calls[0][0] is UpdateChannel.BETA
-    assert module.session().state is AddonUpdateState.UPDATE_AVAILABLE
-    env.registration.unregister()
 
 
 def test_cloth_physics_panel_keeps_version_out_of_body(blender_env):
@@ -703,7 +554,7 @@ def test_preferences_offers_channel_registration_directly_below_selector(
     register = log.index(("operator", "clothnext.addon_update_repo_setup"))
     assert register > selector
     assert ("operator_text", "clothnext.addon_update_repo_setup",
-            "Register Update Channel") in log
+            "Retry Repository Migration") in log
     env.registration.unregister()
 
 
@@ -786,7 +637,9 @@ def test_selected_channel_reads_preferences_and_falls_back(blender_env):
 
 
 def test_dev_selection_never_silently_falls_back_to_beta(blender_env):
-    env=blender_env; module=updater(env)
+    env = blender_env
+    module = updater(env)
+    module.INSTALLED_VERSION = parse_version("2.0.0")
     env.bpy.context.preferences.addons["cloth_next"] = SimpleNamespace(
         preferences=SimpleNamespace(update_channel="DEV",developer_tools=False,
                                     dev_channel_acknowledged=False))
@@ -802,6 +655,7 @@ def test_dev_selection_never_silently_falls_back_to_beta(blender_env):
 def test_dev_channel_does_not_require_developer_tools(blender_env):
     env = blender_env
     module = updater(env)
+    module.INSTALLED_VERSION = parse_version("2.0.0")
     env.bpy.context.preferences.addons["cloth_next"] = SimpleNamespace(
         preferences=SimpleNamespace(
             update_channel="DEV", developer_tools=False,

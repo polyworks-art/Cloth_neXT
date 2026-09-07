@@ -16,7 +16,7 @@ from cloth_next.updater.addon_update_guard import (UPDATE_SAFE_STATES,
 from cloth_next.updater.addon_updates import (AddonUpdateState, UpdateChannel,
                                               build_section_view,
                                               default_channel, evaluate_update,
-                                              find_channel_repo,
+                                              find_owning_repo,
                                               parse_index_versions,
                                               release_notes_url,
                                               run_update_check,
@@ -65,29 +65,19 @@ def test_validate_index_url_rejects_foreign_hosts_and_http():
 
 # --- repository lookup -----------------------------------------------------------
 
-def test_find_channel_repo_matches_only_its_own_channel():
-    repos = [repo("https://polyworks-art.github.io/Cloth_neXT/stable/index.json")]
-    assert find_channel_repo(repos, UpdateChannel.BETA) is None
-    assert find_channel_repo(repos, UpdateChannel.STABLE) == 0
-
-
-def test_find_channel_repo_normalizes_trailing_slash():
-    repos = [repo("https://polyworks-art.github.io/Cloth_neXT/beta/index.json/")]
-    assert find_channel_repo(repos, UpdateChannel.BETA) == 0
-
-
-def test_find_channel_repo_ignores_unrelated_repos():
-    repos = [repo("https://extensions.blender.org/api/v1/extensions/"),
-             repo(""), SimpleNamespace(enabled=True)]
-    assert find_channel_repo(repos, UpdateChannel.BETA) is None
+def test_owner_is_namespace_not_feed():
+    repos = [SimpleNamespace(module="active", remote_url=UpdateChannel.STABLE.index_url),
+             SimpleNamespace(module="old", remote_url=UpdateChannel.DEV.index_url)]
+    assert find_owning_repo(repos, "bl_ext.active.cloth_next") == 0
+    assert find_owning_repo(repos, "bl_ext.missing.cloth_next") is None
 
 
 # --- index parsing and channel content rules --------------------------------------
 
 def test_parse_index_versions_reads_cloth_next_entries():
-    payload = index_payload("0.2.0-beta.1", "0.2.0-rc.1")
+    payload = index_payload("0.2.0-beta.1")
     versions = parse_index_versions(payload, UpdateChannel.BETA)
-    assert [str(v) for v in versions] == ["0.2.0-beta.1", "0.2.0-rc.1"]
+    assert [str(v) for v in versions] == ["0.2.0-beta.1"]
 
 
 def test_stable_channel_never_accepts_prereleases():
@@ -96,17 +86,11 @@ def test_stable_channel_never_accepts_prereleases():
         parse_index_versions(payload, UpdateChannel.STABLE)
 
 
-def test_beta_channel_accepts_stable_releases():
-    payload = index_payload("1.0.0")
-    versions = parse_index_versions(payload, UpdateChannel.BETA)
-    assert tuple(map(str, versions)) == ("1.0.0",)
-
-
-def test_dev_channel_accepts_dev_beta_and_stable_versions():
-    for value in ("0.3.21", "0.3.0", "0.2.0-beta.7",
-                  "0.2.0-rc.1", "1.0.0"):
-        versions = parse_index_versions(index_payload(value), UpdateChannel.DEV)
-        assert str(versions[0]) == value
+@pytest.mark.parametrize("channel,value", [(UpdateChannel.BETA, "1.0.0"),
+    (UpdateChannel.DEV, "0.3.0"), (UpdateChannel.DEV, "1.0.0")])
+def test_channel_rejects_other_levels(channel, value):
+    with pytest.raises(ValueError):
+        parse_index_versions(index_payload(value), channel)
 
 
 def test_beta_rejects_dev_versions():
@@ -134,8 +118,7 @@ def test_evaluate_update_states():
     installed = parse_version("0.2.0-beta.1")
     assert evaluate_update(installed, ()) == (AddonUpdateState.UNAVAILABLE, None)
     state, latest = evaluate_update(installed,
-                                    (parse_version("0.2.0-beta.2"),
-                                     parse_version("0.2.0-beta.1")))
+                                    (parse_version("0.2.0-beta.2"),))
     assert state is AddonUpdateState.UPDATE_AVAILABLE
     assert str(latest) == "0.2.0-beta.2"
     state, latest = evaluate_update(installed, (parse_version("0.2.0-beta.1"),))
@@ -147,8 +130,8 @@ def test_no_downgrade_across_required_beta_and_dev_regressions():
         ("0.3.0-beta.1", ("0.2.0-beta.5",), AddonUpdateState.UP_TO_DATE),
         ("0.3.0-beta.1", ("0.3.0-beta.2",), AddonUpdateState.UPDATE_AVAILABLE),
         ("0.3.0-beta.2", ("0.3.0-beta.1",), AddonUpdateState.UP_TO_DATE),
-        ("0.3.0-dev.9", ("0.2.0-beta.5", "0.3.0-dev.1"),
-         AddonUpdateState.UP_TO_DATE),
+        ("0.3.0-dev.9", ("0.2.0-beta.5",),
+         AddonUpdateState.SWITCH_CHANNEL),
     ]
     for installed, available, expected in cases:
         state, _latest = evaluate_update(

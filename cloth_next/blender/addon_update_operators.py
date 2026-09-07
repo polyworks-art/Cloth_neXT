@@ -1,54 +1,20 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Add-on update operators: status from the policy-defined channel index,
-package replacement exclusively inside Blender's own extension manager.
+"""Reuse the installed extension's owning repository for all release channels.
 
-SELF-UPDATE SAFETY (the Phase-3B hotfix invariant): Cloth NeXt never
-installs, replaces, disables, reloads, or unregisters its own running
-extension package from its own Python stack. Invoking
-``bpy.ops.extensions.package_install(pkg_id="cloth_next")`` from a Cloth
-NeXt operator makes Blender disable/replace/re-enable the very extension
-whose code is still executing — a native-level module-lifetime hazard that
-can crash Blender and cannot be caught with try/except. Deferring the call
-through ``bpy.app.timers`` does not help: the extension is still enabled
-and loaded when the timer fires. The update action here is therefore a
-*handoff*: synchronize the exact channel repository, then open Blender's
-native extension update view where the user clicks Blender's own Update
-button. A structural policy test fails the suite if any production Cloth
-NeXt code calls ``package_install`` again.
-
-Public Blender 5.1.2 API used (verified by runtime introspection; see
-docs/LIMITATIONS.md for what is *not* public):
-
-- ``bpy.ops.preferences.extension_repo_add(name=, remote_url=, type='REMOTE')``
-- ``bpy.ops.extensions.repo_sync(repo_directory=)``
-- ``bpy.ops.extensions.userpref_show_for_update()`` (the native update view)
-- ``bpy.context.preferences.extensions.repos`` RNA
-  (name/module/remote_url/enabled/directory)
-- ``bpy.app.online_access``
-
-The repository is always identified by its resolved ``directory`` (public
-RNA), never by an index: the ``repo_index`` operator parameters count only
-enabled repositories with valid settings, so an index into
-``preferences.extensions.repos`` silently shifts as soon as any earlier
-repository is disabled — in real Blender 5.1.2 that raised
-"Repository not set". The directory string is copied out of the RNA before
-any Blender operator runs; no RNA reference is retained across operator
-calls. ``active_repo`` is UI state and is not touched.
-
-Blender exposes no public operator or RNA to ask "does package X have an
-update?", so the Check action reads the channel ``index.json`` (official
-Blender-generated format, fixed project URL) in a worker thread.
-
-Never touched here: the separately installed PPF solver, its files, and its
-installation metadata. Add-on updates and solver updates stay separate.
+RNA remote_url is mutable; directory/module and running files are never changed.
+Blender synchronizes that directory; its cached index supplies the decision.
+The native update view completes installation outside this add-on's stack.
+Never invoke package_install or any self-replacement from production code.
 """
 
 from __future__ import annotations
 
+import json
 import threading
 import webbrowser
+from pathlib import Path
 
 import bpy
 
@@ -103,7 +69,58 @@ def _default_application_state() -> ApplicationState:
 
 # Replaceable provider so the future session state machine can plug in.
 application_state_provider = _default_application_state
-refresh_update_session = addon_updates.run_update_check
+def refresh_update_session(session, channel, installed):
+    directory = prepare_repository(bpy.context, channel)
+    payload = json.loads((Path(directory) / ".blender_ext" / "index.json").read_text(encoding="utf-8"))
+    addon_updates.run_update_check(session, channel, installed, fetch=lambda _: payload)
+    if session.state not in {AddonUpdateState.ERROR, AddonUpdateState.UNAVAILABLE}:
+        session.migrated_channel = channel
+
+
+def owning_repo_index(context):
+    return addon_updates.find_owning_repo(
+        context.preferences.extensions.repos, _ADDON_ID,
+        Path(__file__).resolve().parents[1])
+
+
+def prepare_repository(context, channel):
+    return addon_updates.configure_owning_repo(
+        context.preferences.extensions.repos, _ADDON_ID, channel,
+        Path(__file__).resolve().parents[1])
+
+
+def channel_changed(_preferences, context):
+    global _session, _automatic_checked_channel, _automatic_requested_channel
+    # Workers retain their old session, so a stale response cannot overwrite
+    # the newly selected channel's state.
+    _session = addon_updates.AddonUpdateSession()
+    _automatic_checked_channel = None
+    _automatic_requested_channel = None
+    request_automatic_update_check(context)
+
+
+def initialize_updates():
+    request_automatic_update_check(bpy.context)
+
+
+def synchronize_selected(context, channel):
+    _session.migrated_channel = None
+    _session.decision = None
+    try:
+        directory = prepare_repository(context, channel)
+        _blender_repo_sync(directory)
+        refresh_update_session(_session, channel, INSTALLED_VERSION)
+        return _session.state not in {AddonUpdateState.ERROR, AddonUpdateState.UNAVAILABLE}
+    except Exception as exc:
+        _session.state = (AddonUpdateState.REPOSITORY_NOT_CONFIGURED
+                          if owning_repo_index(context) is None else AddonUpdateState.SYNC_FAILED)
+        index = owning_repo_index(context)
+        if index is not None and not context.preferences.extensions.repos[index].enabled:
+            _session.state = AddonUpdateState.REPOSITORY_DISABLED
+        _session.latest = None
+        _session.message = f"{exc} Installed files are unchanged; retry Check for Updates."
+        return False
+
 
 
 def _shutdown_owned_solvers() -> bool:
@@ -137,7 +154,7 @@ def dev_access_error(context, channel: UpdateChannel) -> str:
     Developer Tools control internal diagnostic UI and are intentionally
     independent from a user's update-channel choice.
     """
-    if channel is not UpdateChannel.DEV:
+    if channel is not UpdateChannel.DEV or INSTALLED_VERSION.channel_name == "dev":
         return ""
     try:
         preferences = addon_preferences(context, __package__)
@@ -145,7 +162,7 @@ def dev_access_error(context, channel: UpdateChannel) -> str:
         return "Dev channel preferences are unavailable."
     if not getattr(preferences, "dev_channel_acknowledged", False):
         return ("Acknowledge the Development Channel warning before checking, "
-                "adding, or installing Dev updates.")
+                "synchronizing, or installing Dev updates.")
     return ""
 
 
@@ -173,7 +190,7 @@ def _online_access_enabled() -> bool:
 
 
 def request_automatic_update_check(context) -> None:
-    """Schedule one background channel check without networking in draw()."""
+    """Schedule one deferred repository sync without networking in draw()."""
     global _automatic_requested_channel
     channel = selected_channel(context)
     if (_automatic_checked_channel is channel
@@ -186,7 +203,7 @@ def request_automatic_update_check(context) -> None:
 
 
 def _automatic_update_check_timer() -> float | None:
-    """Start the deferred worker after Blender has completed panel drawing."""
+    """Sync through Blender on its main thread after panel drawing completes."""
     global _worker, _automatic_requested_channel, _automatic_checked_channel
     channel = _automatic_requested_channel
     if channel is None:
@@ -194,6 +211,7 @@ def _automatic_update_check_timer() -> float | None:
     if _worker is not None and _worker.is_alive():
         return 0.5
     context = bpy.context
+    channel = selected_channel(context)
     if not _online_access_enabled():
         _session.state = AddonUpdateState.ONLINE_ACCESS_DISABLED
         _session.latest = None
@@ -208,26 +226,18 @@ def _automatic_update_check_timer() -> float | None:
         _automatic_checked_channel = channel
         _automatic_requested_channel = None
         return None
-    _session.state = AddonUpdateState.CHECKING
-    _session.message = ""
-
-    def check() -> None:
-        global _automatic_checked_channel
-        addon_updates.run_update_check(_session, channel, INSTALLED_VERSION)
-        _automatic_checked_channel = channel
-
-    _worker = threading.Thread(
-        target=check, daemon=True, name="clothnext-auto-update-check")
-    _worker.start()
+    synchronize_selected(context, channel)
+    _automatic_checked_channel = channel
     _automatic_requested_channel = None
-    if not bpy.app.timers.is_registered(_ui_refresh_pulse):
-        bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
+    _tag_redraw_preferences()
     return None
 
 
 def _blender_repo_sync(directory: str) -> None:
     """Synchronize exactly one repository, identified by its directory."""
-    bpy.ops.extensions.repo_sync(repo_directory=directory)
+    result = bpy.ops.extensions.repo_sync(repo_directory=directory)
+    if result != {"FINISHED"}:
+        raise RuntimeError(f"Repository synchronization did not finish: {result}")
 
 
 def _blender_show_update_view() -> None:
@@ -259,41 +269,17 @@ class CLOTHNEXT_OT_addon_update_check(bpy.types.Operator):
             _session.message = error
             self.report({"WARNING"}, error)
             return {"CANCELLED"}
-        repos = context.preferences.extensions.repos
-        index = addon_updates.find_channel_repo(repos, channel)
-        if index is None:
-            _session.state = AddonUpdateState.REPOSITORY_NOT_CONFIGURED
-            _session.latest = None
-            _session.message = (f"The {channel.label} repository is not "
-                                "configured in Blender.")
+        if not synchronize_selected(context, channel):
             self.report({"WARNING"}, _session.message)
-            return {"FINISHED"}
-        if not getattr(repos[index], "enabled", False):
-            _session.state = AddonUpdateState.REPOSITORY_DISABLED
-            _session.latest = None
-            _session.message = (f"The {channel.label} repository is disabled "
-                                "in Blender; enable it under Preferences > "
-                                "Get Extensions > Repositories.")
-            self.report({"WARNING"}, _session.message)
-            return {"FINISHED"}
-        _session.state = AddonUpdateState.CHECKING
-        _session.message = ""
-        _worker = threading.Thread(
-            target=lambda: addon_updates.run_update_check(
-                _session, channel, INSTALLED_VERSION),
-            daemon=True, name="clothnext-addon-update-check")
-        _worker.start()
-        if not bpy.app.timers.is_registered(_ui_refresh_pulse):
-            bpy.app.timers.register(_ui_refresh_pulse, first_interval=0.25)
-        self.report({"INFO"}, f"Checking the {channel.label} channel for updates.")
+            return {"CANCELLED"}
         return {"FINISHED"}
 
 
 class CLOTHNEXT_OT_addon_update_repo_setup(bpy.types.Operator):
-    """Add the selected Cloth NeXt channel as a Blender extension repository"""
+    """Retry configuration and sync of the installation's owning repository"""
 
     bl_idname = "clothnext.addon_update_repo_setup"
-    bl_label = "Add Channel Repository"
+    bl_label = "Retry Repository Migration"
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
@@ -301,28 +287,10 @@ class CLOTHNEXT_OT_addon_update_repo_setup(bpy.types.Operator):
         if error := dev_access_error(context, channel):
             self.report({"WARNING"}, error)
             return {"CANCELLED"}
-        repos = context.preferences.extensions.repos
-        if addon_updates.find_channel_repo(repos, channel) is not None:
-            self.report({"INFO"}, f"The {channel.label} repository is already "
-                        "configured; no duplicate was created.")
-            return {"CANCELLED"}
-        try:
-            bpy.ops.preferences.extension_repo_add(
-                name=f"Cloth NeXt {channel.label}",
-                remote_url=channel.index_url, type="REMOTE")
-        except Exception as exc:  # noqa: BLE001 — tell the user the manual path
-            self.report({"ERROR"},
-                        f"Could not add the repository automatically ({exc}). "
-                        "Add it manually: Preferences > Get Extensions > "
-                        f"Repositories > + > Add Remote Repository, URL: "
-                        f"{channel.index_url}")
-            return {"CANCELLED"}
-        if _session.state is AddonUpdateState.REPOSITORY_NOT_CONFIGURED:
-            _session.state = AddonUpdateState.NOT_CHECKED
-            _session.message = ""
-        self.report({"INFO"}, f"Added the Cloth NeXt {channel.label} repository. "
-                    "Click 'Check for Updates' next.")
-        return {"FINISHED"}
+        if synchronize_selected(context, channel):
+            return {"FINISHED"}
+        self.report({"WARNING"}, _session.message)
+        return {"CANCELLED"}
 
 
 class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
@@ -334,14 +302,16 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (_session.state is AddonUpdateState.UPDATE_AVAILABLE
+        return (_session.state in addon_updates.ACTIONABLE_STATES
                 and _session.latest is not None
-                and _session.latest > INSTALLED_VERSION)
+                and addon_updates.decide_update(
+                    INSTALLED_VERSION, (_session.latest,), selected_channel(context)
+                ).state in addon_updates.ACTIONABLE_STATES)
 
     def execute(self, context):
         if not self.poll(context):
             _session.state = AddonUpdateState.UP_TO_DATE
-            _session.message = ("No version newer than the installed "
+            _session.message = ("No actionable target for the installed "
                                 f"{INSTALLED_VERSION} is available; Blender's "
                                 "update view was not opened.")
             self.report({"INFO"}, _session.message)
@@ -387,9 +357,9 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
             _session.message = error
             self.report({"WARNING"}, error)
             return {"CANCELLED"}
-        # 6-7: the exact selected channel repository, never a substitute.
+        # 6-7: resolve installation ownership independently of the feed URL.
         repos = context.preferences.extensions.repos
-        index = addon_updates.find_channel_repo(repos, channel)
+        index = owning_repo_index(context)
         if index is None:
             _session.state = AddonUpdateState.REPOSITORY_NOT_CONFIGURED
             _session.message = (f"The {channel.label} repository is not "
@@ -415,6 +385,7 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
             return {"CANCELLED"}
         # 8: synchronize exactly this repository through Blender.
         try:
+            directory = prepare_repository(context, channel)
             _blender_repo_sync(directory)
         except Exception as exc:  # noqa: BLE001 — a distinct, honest state
             _session.state = AddonUpdateState.SYNC_FAILED
@@ -426,11 +397,13 @@ class CLOTHNEXT_OT_addon_update_through_blender(bpy.types.Operator):
             return {"CANCELLED"}
         # The repository may have changed since the asynchronous status check.
         # Re-read its authoritative index after sync and refuse a stale,
-        # equal, older, invalid, or ambiguous candidate before native handoff.
-        refresh_update_session(_session, channel, INSTALLED_VERSION)
-        if (_session.state is not AddonUpdateState.UPDATE_AVAILABLE
-                or _session.latest is None
-                or _session.latest <= INSTALLED_VERSION):
+        # equal, invalid, or ambiguous candidate before native handoff.
+        try:
+            refresh_update_session(_session, channel, INSTALLED_VERSION)
+        except Exception as exc:
+            _session.state = AddonUpdateState.ERROR
+            _session.message = str(exc)
+        if not self.poll(context):
             if _session.state is AddonUpdateState.UP_TO_DATE:
                 _session.message = ("Repository synchronized; it contains no "
                                     "version newer than the installed "

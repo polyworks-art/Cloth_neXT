@@ -1,25 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Single source of truth for cumulative release-channel visibility."""
+"""Single source of truth for exact release-channel targets."""
 
 from __future__ import annotations
 
 
 CHANNELS = ("stable", "beta", "dev")
 
-# A selected repository may expose releases at its own stability level or any
-# more stable level.  It still exposes exactly one active package candidate.
-_ALLOWED_RELEASES = {
-    "stable": frozenset(("stable",)),
-    "beta": frozenset(("stable", "beta")),
-    "dev": frozenset(("stable", "beta", "dev")),
-}
-
-_PUBLICATION_TARGETS = {
-    "stable": ("stable", "beta", "dev"),
-    "beta": ("beta", "dev"),
-    "dev": ("dev",),
-}
+_ALLOWED_RELEASES = {channel: frozenset((channel,)) for channel in CHANNELS}
+_PUBLICATION_TARGETS = {channel: (channel,) for channel in CHANNELS}
 
 
 def _channel(value: str) -> str:
