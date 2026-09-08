@@ -34,15 +34,21 @@ def probe():
     for repo in repos:
         repo.enabled = False
     repo = repos.new(name="Channel regression", module="channel_regression",
-                     remote_url=f"{base}/stable/index.json", source="USER")
+                     remote_url="", source="USER")
     repo.enabled = True
     identity = (repo.module, repo.directory)
     package_id = f"bl_ext.{repo.module}.cloth_next"
+    fixture = Path(sys.argv[sys.argv.index("--fixture-root") + 1])
+    assert not repo.use_remote_url
+    assert bpy.ops.extensions.package_install_files(
+        filepath=str(fixture / "stable" / "cloth_next-2.0.0.zip"),
+        repo=repo.module) == {"FINISHED"}
 
     def select(channel):
         choice = SimpleNamespace(name=channel.upper(), label=channel.capitalize(),
                                  index_url=f"{base}/{channel}/index.json")
         directory = configure_owning_repo(repos, package_id, choice)
+        assert repo.use_remote_url
         assert bpy.ops.extensions.repo_sync(repo_directory=directory) == {"FINISHED"}
         payload = json.loads(Path(directory, ".blender_ext", "index.json").read_text())
         return choice, parse_index_versions(payload, choice)
@@ -108,7 +114,8 @@ license = ["SPDX:GPL-3.0-or-later"]
             result = subprocess.run([
                 str(blender), "--factory-startup", "--background", "--online-mode",
                 "--python-exit-code", "1", "--python", str(Path(__file__).resolve()),
-                "--", "--probe", f"http://127.0.0.1:{server.server_port}"],
+                "--", "--probe", f"http://127.0.0.1:{server.server_port}",
+                "--fixture-root", str(root)],
                 env=env, cwd=ROOT, capture_output=True, text=True, timeout=120)
             print(result.stdout)
             print(result.stderr)

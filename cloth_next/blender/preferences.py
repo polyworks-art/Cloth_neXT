@@ -712,8 +712,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     update_channel: bpy.props.EnumProperty(
         name="Update Channel",
         items=(("STABLE", "Stable", "Official stable releases only"),
-               ("BETA", "Beta", "Beta and release-candidate prereleases"),
-               ("DEV", "Dev", "Unsupported public experimental snapshots")),
+               ("BETA", "Beta", "Public preview releases"),
+               ("DEV", "Dev", "Experimental development builds")),
         default=addon_update_operators.DEFAULT_CHANNEL.name,
         update=addon_update_operators.channel_changed,
         description="Which Cloth NeXt release channel to check for add-on "
@@ -820,18 +820,24 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         channel = addon_updates.UpdateChannel[self.update_channel]
         if addon_update_operators.owning_repo_index(context) is None:
             box.operator("clothnext.addon_update_repo_setup",
-                         text="Retry Repository Migration")
+                         text="Retry Update Setup")
         if self.update_channel == "DEV":
             warning=box.box(); warning.label(text="Development Channel", **icon_registry.icon_kwargs("error", "ERROR"))
             warning.label(text="Experimental public builds; reduced validation.")
             warning.label(text="Back up your files before updating.")
-            warning.label(text=addon_updates.UpdateChannel.DEV.index_url)
-            warning.prop(self,"dev_channel_acknowledged")
+            if addon_update_operators.INSTALLED_VERSION.channel_name != "dev":
+                warning.prop(self, "dev_channel_acknowledged")
         if update_session.latest is not None:
             box.label(text=f"Available Target: {update_session.latest}")
         box.label(text=f"Update Status: {view.status_text}")
         if view.message:
-            box.label(text=view.message)
+            import textwrap
+            for line in textwrap.wrap(view.message, width=72):
+                box.label(text=line)
+        elif update_session.state is addon_updates.AddonUpdateState.NOT_CHECKED:
+            box.label(text="Updates are checked automatically after startup.")
+        elif update_session.state is addon_updates.AddonUpdateState.UP_TO_DATE:
+            box.label(text="No newer version is available for this channel.")
         actions = box.column()
         check = actions.row()
         check.enabled = view.check_enabled

@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- ZIP installations activate their owning repository's remote feed automatically.
+- Initial update checks wait for onboarding startup and do not run in background
+  Blender sessions. Update hints explain the next step without redundant Dev controls.
 - Release-channel switches reuse the owning Blender repository and support lower
   target versions when moving from Dev to Beta or Stable, or Beta to Stable.
 - Existing installations migrate automatically without moving files or losing

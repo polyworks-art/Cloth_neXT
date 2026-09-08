@@ -100,6 +100,8 @@ def channel_changed(_preferences, context):
 
 
 def initialize_updates():
+    if getattr(bpy.app, "background", False):
+        return
     request_automatic_update_check(bpy.context)
 
 
@@ -192,6 +194,8 @@ def _online_access_enabled() -> bool:
 def request_automatic_update_check(context) -> None:
     """Schedule one deferred repository sync without networking in draw()."""
     global _automatic_requested_channel
+    if getattr(bpy.app, "background", False):
+        return
     channel = selected_channel(context)
     if (_automatic_checked_channel is channel
             or _automatic_requested_channel is channel):
@@ -199,7 +203,7 @@ def request_automatic_update_check(context) -> None:
     _automatic_requested_channel = channel
     if not bpy.app.timers.is_registered(_automatic_update_check_timer):
         bpy.app.timers.register(_automatic_update_check_timer,
-                                first_interval=0.25)
+                                first_interval=5.0)
 
 
 def _automatic_update_check_timer() -> float | None:
@@ -211,6 +215,14 @@ def _automatic_update_check_timer() -> float | None:
     if _worker is not None and _worker.is_alive():
         return 0.5
     context = bpy.context
+    # Let Welcome/What's New finish starting before Blender's blocking sync.
+    from . import onboarding_manager
+    if onboarding_manager._pending:
+        return 0.5
+    try:
+        addon_preferences(context, __package__)
+    except (KeyError, AttributeError):
+        return 0.5
     channel = selected_channel(context)
     if not _online_access_enabled():
         _session.state = AddonUpdateState.ONLINE_ACCESS_DISABLED
@@ -279,7 +291,7 @@ class CLOTHNEXT_OT_addon_update_repo_setup(bpy.types.Operator):
     """Retry configuration and sync of the installation's owning repository"""
 
     bl_idname = "clothnext.addon_update_repo_setup"
-    bl_label = "Retry Repository Migration"
+    bl_label = "Retry Update Setup"
     bl_options = {"INTERNAL"}
 
     def execute(self, context):

@@ -554,7 +554,7 @@ def test_preferences_offers_channel_registration_directly_below_selector(
     register = log.index(("operator", "clothnext.addon_update_repo_setup"))
     assert register > selector
     assert ("operator_text", "clothnext.addon_update_repo_setup",
-            "Retry Repository Migration") in log
+            "Retry Update Setup") in log
     env.registration.unregister()
 
 

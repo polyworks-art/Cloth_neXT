@@ -122,6 +122,10 @@ def configure_owning_repo(repos, package_id, channel, package_directory=None):
         raise ValueError("The owning repository is disabled.")
     if normalized_repo_url(repo.remote_url) != channel.index_url:
         repo.remote_url = channel.index_url
+    # Install from Disk uses Blender's local user repository. Supplying a URL
+    # alone does not turn on its remote feed; retain the same local identity.
+    if hasattr(repo, "use_remote_url") and not repo.use_remote_url:
+        repo.use_remote_url = True
     return str(repo.directory)
 
 
@@ -300,9 +304,8 @@ def build_section_view(state: AddonUpdateState, latest: AddonVersion | None,
         status_text = f"{status_text}: {latest}"
     show_update_handoff = state in ACTIONABLE_STATES
     if show_update_handoff and latest is not None and not message:
-        message = (f"Version {latest} is available. Updates are completed "
-                   "through Blender's native extension manager to avoid "
-                   "replacing the running add-on.")
+        message = (f"Version {latest} is available. Continue to Blender's native "
+                   "extension manager, then click Update on Cloth NeXt.")
     return UpdateSectionView(
         status_text=status_text,
         message=message,

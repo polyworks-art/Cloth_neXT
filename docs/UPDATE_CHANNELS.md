@@ -25,6 +25,14 @@ to Blender, outside the running Cloth NeXt stack.
 
 ## Automatic bridge migration
 
+After Install from Disk, Blender may store Cloth NeXt in a local repository.
+Cloth NeXt enables that same repository's remote feed automatically; its module
+and directory remain unchanged. Welcome appears once on a fresh installation;
+What's New appears after an update. The initial update check is delayed until
+onboarding has finished starting, and automatic checks do not run in headless
+Blender sessions. Already-installed Dev builds keep a visible experimental warning
+without asking users to acknowledge the channel they already installed.
+
 A bridge build delivered through any existing feed resolves the active package's
 `bl_ext.<repo-module>.cloth_next` namespace to its owning repository. On a deferred
 startup callback it selects the saved channel's URL, synchronizes the same

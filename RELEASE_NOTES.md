@@ -12,6 +12,9 @@ Blender repository, including switches to a lower Stable or Beta version.
   offer Update. Blender's Extension Manager still completes installation.
 - Dev remains experimental and available without Developer Tools.
 - Failed checks can be retried without replacing installed files.
+- ZIP installations connect their existing local repository to updates automatically.
+- The first update check waits for Welcome or What's New to finish starting;
+  clearer next-step text guides the handoff to Blender's Update button.
 - Release feeds expose one exact target for their own channel and retain
   immutable historical archives.
 

@@ -148,3 +148,32 @@ def test_source_identity_uses_actual_directory(tmp_path):
     repo = SimpleNamespace(module="local", directory=str(tmp_path))
     assert model.find_owning_repo([repo], "cloth_next", tmp_path / "cloth_next") == 0
     assert model.find_owning_repo([repo], "cloth_next", tmp_path / "other") is None
+
+
+def test_zip_install_enables_remote_feed_without_moving_package(blender_env, tmp_path):
+    module, owner, _, _ = installation(blender_env, tmp_path, "DEV", "DEV")
+    owner.remote_url = ""
+    owner.use_remote_url = False
+    identity = (owner.module, owner.directory)
+    assert module.synchronize_selected(blender_env.bpy.context, model.UpdateChannel.DEV)
+    assert owner.use_remote_url
+    assert (owner.module, owner.directory) == identity
+
+
+def test_first_check_waits_for_welcome_startup(blender_env, tmp_path, monkeypatch):
+    module, _, _, _ = installation(blender_env, tmp_path, "DEV", "DEV")
+    from cloth_next.blender import onboarding_manager
+    monkeypatch.setattr(onboarding_manager, "_pending", [object()])
+    module.initialize_updates()
+    assert module._automatic_update_check_timer() == 0.5
+    assert module.session().migrated_channel is None
+    onboarding_manager._pending.clear()
+    assert module._automatic_update_check_timer() is None
+    assert module.session().migrated_channel is model.UpdateChannel.DEV
+
+
+def test_headless_registration_does_not_start_online_checks(blender_env, monkeypatch):
+    monkeypatch.setattr(blender_env.bpy.app, "background", True, raising=False)
+    module = blender_env.addon_update_operators
+    module.initialize_updates()
+    assert module._automatic_update_check_timer not in blender_env.bpy.app.timers.functions
