@@ -33,7 +33,7 @@ If the request fails, the guidance bundled with the installed build remains.
 | `CNX-E120` | Bake preparation | Unclassified preparation or export failure | Check evaluated geometry and the cache folder, then retry. |
 | `CNX-E121` | Bake preparation | Cache/work directory is missing or not writable | Choose a writable cache location and check free disk space. |
 | `CNX-E122` | Bake preparation | Evaluated geometry export failed | Check modifiers, transforms, and evaluated object geometry. |
-| `CNX-E123` | Bake preparation | PPF scene or parameter encoding failed | Check geometry, materials, Pins, Forces, and finite numeric values. |
+| `CNX-E123` | Bake preparation | simulation scene or parameter encoding failed | Check geometry, materials, Pins, Forces, and finite numeric values. |
 | `CNX-E124` | Bake preparation | Animated Pin target capture failed | Keep pinned topology and objects unchanged throughout the Bake range. |
 | `CNX-E125` | Bake preparation | Insufficient disk space | Free disk space or move the cache to a larger writable volume. |
 | `CNX-E126` | Bake preparation | Bake worker could not start | Retry after other heavy jobs finish; restart Blender if thread creation keeps failing. |
@@ -53,7 +53,7 @@ If the request fails, the guidance bundled with the installed build remains.
 | `CNX-E143` | Scene upload | Solver rejected or did not acknowledge upload | Inspect the diagnostic log and verify the matching solver version. |
 | `CNX-E144` | Scene upload | Uploaded payload hash or identity mismatch | Repair the solver installation and retry with a fresh Bake. |
 | `CNX-E145` | Scene upload | Malformed or oversized solver response | Repair or update the solver to the supported protocol version. |
-| `CNX-E146` | Solver connection | PPF control server exited while an owned solver descendant remained active | Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup. |
+| `CNX-E146` | Solver connection | solver control server exited while an owned solver descendant remained active | Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup. |
 | `CNX-E150` | Project build | Unclassified solver project build failure | Inspect scene geometry and the solver diagnostic log. |
 | `CNX-E151` | Project build | Solver rejected project build | Inspect geometry, materials, Pins, and Forces in the diagnostic log. |
 | `CNX-E152` | Project build | Project build timed out | Simplify the scene or increase stability/performance headroom, then retry. |
