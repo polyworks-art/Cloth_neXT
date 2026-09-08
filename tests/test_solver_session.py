@@ -1928,7 +1928,7 @@ def test_cleanup_failure_does_not_replace_primary_connection_error(
         def early_exit_error(self, _poll):
             return ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_CONNECTION,
-                user_message="The PPF control server exited unexpectedly.",
+                user_message="The solver control server exited unexpectedly.",
                 technical_message="control server exited",
                 recommended_action="retry", recoverable=True))
 

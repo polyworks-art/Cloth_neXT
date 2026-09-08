@@ -60,7 +60,7 @@ _A = InstallerAction
 
 DESCRIPTORS: Mapping[InstallerState, StateDescriptor] = MappingProxyType({
     InstallerState.NOT_INSTALLED: StateDescriptor(
-        "No PPF Contact Solver is installed. The solver is external software by "
+        "No Simulation Solver is installed. The solver is external software by "
         "ST Tech / ZOZO and is downloaded separately after your confirmation.",
         (_A.DOWNLOAD_OFFICIAL_SOLVER, _A.SELECT_EXISTING_INSTALLATION,
          _A.OPEN_OFFICIAL_DOWNLOAD_PAGE),
@@ -94,7 +94,7 @@ DESCRIPTORS: Mapping[InstallerState, StateDescriptor] = MappingProxyType({
         "Running the real solver health check before activation…",
         (), None, "Wait for the health check to finish."),
     InstallerState.READY: StateDescriptor(
-        "The PPF Contact Solver is installed and healthy.",
+        "The Simulation Solver is installed and healthy.",
         (_A.RUN_HEALTH_CHECK, _A.CHECK_FOR_COMPATIBLE_UPDATE,
          _A.REPAIR_MANAGED_INSTALLATION, _A.REMOVE_MANAGED_INSTALLATION,
          _A.OPEN_INSTALLATION_FOLDER),

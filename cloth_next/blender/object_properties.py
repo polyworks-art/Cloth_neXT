@@ -257,20 +257,20 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
     model: bpy.props.EnumProperty(
         name="Solver Model",
         items=((MODEL_FABRIC, "Fabric (Baraff-Witkin)",
-                "Calibrated model used by the bundled PPF fabric presets"),
+                "Calibrated model used by the bundled fabric presets"),
                (MODEL_SHAPE_PRESERVING, "Shape Preserving (ARAP)",
                 "Advanced shape-preserving alternative")),
         default=MODEL_FABRIC, update=_on_material_value_update,
         description="Choose how the surface behaves. Fabric (Baraff-Witkin) is "
                     "recommended for cloth; Shape Preserving (ARAP) retains the "
-                    "original form more strongly. Technical PPF parameter: model")
+                    "original form more strongly. Solver parameter: model")
     surface_weight: bpy.props.FloatProperty(
         name="Surface Weight", default=1.0, min=0.01, soft_max=10.0,
         max=10000.0, precision=3, update=_on_material_value_update,
         description="Mass of the fabric per square meter. Higher values "
                     "give the cloth more inertia and make it react more "
                     "heavily, but do not directly make it stiffer. Unit: kg/m². "
-                    "Technical PPF parameter: density")
+                    "Solver parameter: density")
     stretch_resistance: bpy.props.FloatProperty(
         name="Stretch Resistance", default=1000.0, min=0.0,
         soft_max=100000.0, max=1e9, precision=1,
@@ -278,7 +278,7 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
         description="Controls how strongly the fabric resists being pulled "
                     "longer. Lower values create softer, more stretchable "
                     "cloth. Higher values preserve its original size more strongly. "
-                    "Technical PPF parameter: density-normalized young-mod")
+                    "Solver parameter: density-normalized young-mod")
     sideways_response: bpy.props.FloatProperty(
         name="Sideways Response", default=0.35, min=0.0, max=0.4999,
         precision=4, update=_on_material_value_update,
@@ -286,14 +286,14 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
                     "affects the fabric sideways. Lower values allow the "
                     "directions to stretch more independently. Higher "
                     "values make the fabric contract sideways more strongly. "
-                    "Technical PPF parameter: poiss-rat")
+                    "Solver parameter: poiss-rat")
     bend_resistance: bpy.props.FloatProperty(
         name="Bend Resistance", default=10.0, min=0.0, soft_max=100.0,
         precision=2, update=_on_material_value_update,
         description="Controls how easily the fabric bends and forms folds. "
                     "Lower values create soft, flowing folds. Higher "
                     "values create broader, stiffer folds and stronger shape retention. "
-                    "Technical PPF parameter: bend")
+                    "Solver parameter: bend")
     stretch_plasticity_enabled: bpy.props.BoolProperty(
         name="Permanent Stretch", default=False,
         update=_on_material_value_update,
@@ -303,12 +303,12 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
         name="Stretch Creep Rate", default=1.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_material_value_update,
         description="Speed per second at which overstretched Cloth adopts its "
-                    "current shape. Technical PPF parameter: plasticity")
+                    "current shape. Solver parameter: plasticity")
     stretch_plasticity_threshold_percent: bpy.props.FloatProperty(
         name="Stretch Threshold", default=5.0, min=0.0, soft_max=25.0,
         precision=2, subtype="PERCENTAGE", update=_on_material_value_update,
         description="Stretch or compression required before permanent "
-                    "deformation begins. Technical PPF parameter: "
+                    "deformation begins. Solver parameter: "
                     "plasticity-threshold")
     bend_plasticity_enabled: bpy.props.BoolProperty(
         name="Permanent Bends", default=False,
@@ -319,13 +319,13 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
         name="Bend Creep Rate", default=1.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_material_value_update,
         description="Speed per second at which folds become permanent. "
-                    "Technical PPF parameter: bend-plasticity")
+                    "Solver parameter: bend-plasticity")
     bend_plasticity_threshold_degrees: bpy.props.FloatProperty(
         name="Bend Threshold", default=10.0, min=0.0, max=180.0,
         soft_max=90.0, precision=2,
         update=_on_material_value_update,
         description="Angular deviation required before a fold becomes "
-                    "permanent. Technical PPF parameter: "
+                    "permanent. Solver parameter: "
                     "bend-plasticity-threshold")
     bend_rest_from_geometry: bpy.props.BoolProperty(
         name="Use Initial Bend Shape", default=True,
@@ -337,14 +337,14 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
         update=_on_material_value_update,
         description="Prevents the fabric from stretching beyond the "
                     "specified percentage. Disable it for unrestricted stretch. "
-                    "Technical PPF parameter: strain-limit")
+                    "Solver parameter: strain-limit")
     maximum_stretch_percent: bpy.props.FloatProperty(
         name="Maximum Stretch", default=5.0, min=0.01, soft_max=20.0,
         max=100.0, precision=2, subtype="PERCENTAGE",
         update=_on_material_value_update,
         description="Maximum permitted extension beyond the original size. "
                     "A value of 5% allows approximately five percent stretch. "
-                    "Technical PPF parameter: strain-limit")
+                    "Solver parameter: strain-limit")
 
 
 class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
@@ -356,13 +356,13 @@ class CLOTHNEXT_PG_damping_settings(bpy.types.PropertyGroup):
         description="Reduces oscillation caused by stretching and in-plane "
                     "deformation. Small values can calm jitter without "
                     "making the fabric visibly sluggish. Unit: seconds. "
-                    "Technical PPF parameter: deformation-damping")
+                    "Solver parameter: deformation-damping")
     fold_damping: bpy.props.FloatProperty(
         name="Fold Damping", default=0.0, min=0.0, soft_max=0.1,
         precision=4, update=_on_material_value_update,
         description="Reduces oscillation and flutter in folds and bending "
                     "motion. Small values can calm unstable folds. Unit: seconds. "
-                    "Technical PPF parameter: bending-damping")
+                    "Solver parameter: bending-damping")
 
 
 class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
@@ -389,7 +389,7 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
     sewing_stiffness: bpy.props.FloatProperty(
         name="Sewing Strength", default=1.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_settings_update,
-        description="PPF stiffness for Sewing edges. Higher values close "
+        description="Sewing stiffness for Sewing edges. Higher values close "
                     "seams more strongly against gravity and collisions")
 
 
@@ -426,63 +426,63 @@ class CLOTHNEXT_PG_solver_quality_settings(bpy.types.PropertyGroup):
         min=1e-6, max=1.0, precision=4, update=_on_settings_update,
         description="How much safe collision progress is required before a "
                     "contact step may finish. Lower is more conservative. "
-                    "Technical PPF parameter: target-toi")
+                    "Solver parameter: target-toi")
     line_search_max_t: bpy.props.FloatProperty(
         name="Motion Safety Margin", default=DEFAULT_LINE_SEARCH_MAX_T,
         min=1.0, max=10.0, precision=3, update=_on_settings_update,
         description="Extra motion range checked to keep fast contact stable. "
-                    "Technical PPF parameter: line-search-max-t")
+                    "Solver parameter: line-search-max-t")
     ccd_max_iter: bpy.props.IntProperty(
         name="Collision Search Limit", default=DEFAULT_CCD_MAX_ITER,
         min=1, max=100000, update=_on_settings_update,
         description="Maximum collision-search effort for difficult or fast "
-                    "contact. Technical PPF parameter: ccd-max-iter")
+                    "contact. Solver parameter: ccd-max-iter")
     constraint_ghat: bpy.props.FloatProperty(
         name="Constraint Contact Distance", default=DEFAULT_CONSTRAINT_GHAT,
         min=1e-8, soft_max=0.01, max=1.0, precision=6,
         update=_on_settings_update,
         description="Distance at which animated Pins and other moving "
-                    "constraints begin avoiding contact. Technical PPF "
+                    "constraints begin avoiding contact. Solver "
                     "parameter: constraint-ghat")
     constraint_tol: bpy.props.FloatProperty(
         name="Moving Constraint Precision", default=DEFAULT_CONSTRAINT_TOL,
         min=1e-6, max=1.0, precision=5, update=_on_settings_update,
         description="Collision precision for moving constraints as a fraction "
                     "of Constraint Contact Distance. Lower is stricter. "
-                    "Technical PPF parameter: constraint-tol")
+                    "Solver parameter: constraint-tol")
     ccd_reduction: bpy.props.FloatProperty(
         name="Collision Detection Threshold", default=DEFAULT_CCD_REDUCTION,
         min=1e-6, max=1.0, precision=5, update=_on_settings_update,
         description="Fraction of the initial surface gap used to detect an "
                     "approaching collision. Lower is more conservative. "
-                    "Technical PPF parameter: ccd-reduction")
+                    "Solver parameter: ccd-reduction")
     max_newton_steps: bpy.props.IntProperty(
         name="Contact Iteration Limit", default=DEFAULT_MAX_NEWTON_STEPS,
         min=1, max=100000, update=_on_settings_update,
-        description="Maximum nonlinear correction passes before a difficult contact is reported as failed. Technical PPF parameter: max-newton-steps")
+        description="Maximum nonlinear correction passes before a difficult contact is reported as failed. Solver parameter: max-newton-steps")
     max_dx: bpy.props.FloatProperty(
         name="Maximum Contact Correction", default=DEFAULT_MAX_DX,
         min=1e-6, max=1000.0, precision=5, update=_on_settings_update,
-        description="Largest correction distance allowed during one contact solve. Technical PPF parameter: max-dx")
+        description="Largest correction distance allowed during one contact solve. Solver parameter: max-dx")
     eigenanalysis_eps: bpy.props.FloatProperty(
         name="Contact Stability Threshold", default=DEFAULT_EIGENANALYSIS_EPS,
         min=1e-10, max=1.0, precision=7, update=_on_settings_update,
-        description="Numerical threshold used to stabilize nearly singular contact directions. Technical PPF parameter: eiganalysis-eps")
+        description="Numerical threshold used to stabilize nearly singular contact directions. Solver parameter: eiganalysis-eps")
     friction_eps: bpy.props.FloatProperty(
         name="Friction Stability Threshold", default=DEFAULT_FRICTION_EPS,
         min=1e-10, max=1.0, precision=8, update=_on_settings_update,
-        description="Numerical threshold that stabilizes very slow friction motion. Technical PPF parameter: friction-eps")
+        description="Numerical threshold that stabilizes very slow friction motion. Solver parameter: friction-eps")
     csrmat_max_nnz: bpy.props.IntProperty(
         name="Contact Capacity", default=DEFAULT_CSRMAT_MAX_NNZ,
         min=1000, max=1_000_000_000, update=_on_settings_update,
-        description="Preallocated GPU contact entries. Too low can stop dense contact; too high consumes GPU memory. Technical PPF parameter: csrmat-max-nnz")
+        description="Preallocated GPU contact entries. Too low can stop dense contact; too high consumes GPU memory. Solver parameter: csrmat-max-nnz")
     contact_barrier: bpy.props.EnumProperty(
         name="Contact Response Model", default=DEFAULT_CONTACT_BARRIER,
         update=_on_settings_update,
         items=(("cubic", "Smooth", "Cubic contact barrier; recommended default"),
                ("quad", "Firm", "Quadratic contact barrier"),
                ("log", "Sharp", "Logarithmic contact barrier")),
-        description="Mathematical response used as surfaces approach contact. Technical PPF parameter: barrier")
+        description="Mathematical response used as surfaces approach contact. Solver parameter: barrier")
 
 
 class CLOTHNEXT_PG_recovery_settings(bpy.types.PropertyGroup):
@@ -534,21 +534,21 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
         description="Controls how easily touching surfaces slide. Lower values "
                     "are slippery; higher values resist sliding. Minimum mode "
                     "uses the lower Friction value of the two touching objects. "
-                    "Technical PPF parameter: friction")
+                    "Solver parameter: friction")
     collision_gap: bpy.props.FloatProperty(
         name="Collision Gap", default=0.001, min=0.0, soft_max=0.01,
         precision=4, update=_on_material_value_update,
         description="Distance at which collision response begins. Larger values "
                     "keep surfaces farther apart. "
                     "Excessive values can make the cloth appear to float. "
-                    "Unit: Blender world units. Technical PPF parameter: contact-gap")
+                    "Unit: Blender world units. Solver parameter: contact-gap")
     surface_offset: bpy.props.FloatProperty(
         name="Surface Offset", default=0.0, min=0.0, soft_max=0.03,
         precision=4, update=_on_material_value_update,
         description="Adds a collision skin around the surface. Use small "
                     "values to represent surface thickness without changing "
                     "the simulated mesh. Excessive values create visible "
-                    "separation. Unit: Blender world units. Technical PPF parameter: "
+                    "separation. Unit: Blender world units. Solver parameter: "
                     "contact-offset")
 
 
@@ -696,14 +696,14 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     force_type: bpy.props.EnumProperty(
         name="Force Type", default="GRAVITY", update=_on_settings_update,
         items=(("GRAVITY", "Gravity", "Acceleration along the Empty's local -Z axis"),
-               ("WIND", "Wind", "PPF wind vector along the Empty's local +Z axis"),
-               ("AIR_DENSITY", "Air Density", "PPF air density used for aerodynamic forces"),
-               ("AIR_FRICTION", "Air Friction", "PPF tangential air friction used for drag and lift"),
-               ("VERTEX_AIR_DAMP", "Vertex Air Damping", "PPF isotropic per-vertex air damping")))
+               ("WIND", "Wind", "Wind vector along the Empty's local +Z axis"),
+               ("AIR_DENSITY", "Air Density", "Air density used for aerodynamic forces"),
+               ("AIR_FRICTION", "Air Friction", "Tangential air friction used for drag and lift"),
+               ("VERTEX_AIR_DAMP", "Vertex Air Damping", "Isotropic per-vertex air damping")))
     strength: bpy.props.FloatProperty(
         name="Strength", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="PPF vector magnitude in Blender-space units; rotate the Empty to set direction")
+        description="Force vector magnitude in Blender-space units; rotate the Empty to set direction")
     gravity_strength: bpy.props.FloatProperty(
         name="Gravity", default=9.81, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
@@ -736,11 +736,11 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     air_friction: bpy.props.FloatProperty(
         name="Air Friction", default=0.2, min=0.0, soft_max=2.0,
         precision=4, update=_on_settings_update,
-        description="PPF tangential air-friction ratio")
+        description="Tangential air-friction ratio")
     vertex_air_damp: bpy.props.FloatProperty(
         name="Vertex Air Damping", default=0.0, min=0.0, soft_max=2.0,
         precision=4, update=_on_settings_update,
-        description="PPF isotropic-air-friction coefficient applied per vertex")
+        description="Isotropic-air-friction coefficient applied per vertex")
 
 
 class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from functools import lru_cache
+import re
 
 from ..updater.solver_manifest import load_bundled_manifest
 from ..updater.solver_registry import SolverRegistry
@@ -55,7 +56,10 @@ def _entry_for_installation(installation):
 def release_name(installation) -> str:
     """Return a verified codename, or preserve the stored fallback name."""
     entry = _entry_for_installation(installation)
-    return entry.release_name if entry is not None else installation.display_name
+    if entry is not None:
+        return entry.release_name
+    name = installation.display_name.replace("PPF Contact Solver", "Simulation Solver")
+    return re.sub(r"\bPPF\b", "Solver", name, flags=re.IGNORECASE)
 
 
 def _read_registry_with_release_names() -> tuple[SolverRegistry, str | None]:

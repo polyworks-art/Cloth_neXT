@@ -32,7 +32,7 @@ class TransportConfig:
 
 def status_request_bytes(project_name: str) -> bytes:
     if not project_name or any(ch.isspace() for ch in project_name):
-        raise ValueError("PPF project name must be non-empty and contain no whitespace")
+        raise ValueError("solver project name must be non-empty and contain no whitespace")
     payload = f"--name {project_name}".encode("utf-8")
     return TCMD_HEADER + len(payload).to_bytes(4, "big") + payload
 
@@ -73,23 +73,23 @@ def query_status(host: str, port: int, project_name: str, config: TransportConfi
         raise
     except (TimeoutError, socket.timeout) as exc:
         failure_phase = "CONNECT_TIMEOUT" if phase == "CONNECT" else "READ_TIMEOUT"
-        raise _transport_error("The solver did not respond in time.", f"PPF status timeout at {host}:{port}", exc, failure_phase=failure_phase) from exc
+        raise _transport_error("The solver did not respond in time.", f"solver status timeout at {host}:{port}", exc, failure_phase=failure_phase) from exc
     except OSError as exc:
         code = getattr(exc, "winerror", None) or getattr(exc, "errno", None)
         failure_phase = ("CONNECTION_REFUSED" if code in {111, 10061}
                          else "CONNECTION_RESET" if code in {104, 10054}
                          else "CONNECT_ERROR" if phase == "CONNECT" else "READ_ERROR")
-        raise _transport_error("Could not connect to the solver.", f"PPF connection failed at {host}:{port}: {exc}", exc, failure_phase=failure_phase) from exc
+        raise _transport_error("Could not connect to the solver.", f"solver connection failed at {host}:{port}: {exc}", exc, failure_phase=failure_phase) from exc
     raw = b"".join(chunks).rstrip(b"\r\n")
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise _transport_error("The service returned an invalid response.", "PPF status response is not UTF-8", exc) from exc
+        raise _transport_error("The service returned an invalid response.", "solver status response is not UTF-8", exc) from exc
     try:
         result = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise _transport_error("The service returned an invalid response.", "PPF status response is not JSON", exc) from exc
+        raise _transport_error("The service returned an invalid response.", "solver status response is not JSON", exc) from exc
     if not isinstance(result, dict):
-        raise _transport_error("The service returned an invalid response.", "PPF status response is not a JSON object")
+        raise _transport_error("The service returned an invalid response.", "solver status response is not a JSON object")
     return result
 

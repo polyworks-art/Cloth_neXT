@@ -138,7 +138,7 @@ def parse_entry(platform: str, payload: Mapping[str, Any], *,
         raise ValueError(f"{platform}: health_check_required must be true")
 
     display_name = (
-        f"PPF Contact Solver {tag}" if legacy
+        f"Simulation Solver {tag}" if legacy
         else _require_text(payload, "display_name", platform))
     raw_codename = payload.get("codename")
     codename = (

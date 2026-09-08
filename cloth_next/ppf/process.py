@@ -308,7 +308,7 @@ class SolverProcessManager:
         except (subprocess.SubprocessError, OSError, ValueError) as exc:
             raise ClothNextError(ErrorRecord.create(
                 category=ErrorCategory.SOLVER_INSTALLATION,
-                user_message="The configured executable is not the required PPF solver build.",
+                user_message="The configured executable is not the required simulation solver build.",
                 technical_message=f"ppf-cts-server --version failed: {exc}",
                 recommended_action="Configure ppf-cts-server.exe built from pinned commit 7193f158.",
                 recoverable=True,

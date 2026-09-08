@@ -145,7 +145,7 @@ def details_status(snapshot: BakeSnapshot) -> str:
         return "\n".join(concise[:3])
     if snapshot.state is BakeState.SIMULATING:
         return ""
-    return snapshot.status_message or "No PPF simulation is running."
+    return snapshot.status_message or "No simulation is running."
 
 
 def run_stats(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
@@ -364,7 +364,7 @@ class BakeWindow:
         self._veyra_icon=tk.PhotoImage(file=str(_asset("veyra.png")))
         self.root.iconphoto(True,self._app_icon)
         self.primary=tk.StringVar(value="Ready")
-        self.secondary=tk.StringVar(value="No PPF simulation is running.")
+        self.secondary=tk.StringVar(value="No simulation is running.")
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")

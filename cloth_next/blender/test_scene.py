@@ -47,10 +47,10 @@ def _create_mesh_object(mesh_fixture: fixture.FixtureMesh, role: str,
 
 
 class CLOTHNEXT_OT_create_test_scene(bpy.types.Operator):
-    """Create the deterministic Cloth NeXt PPF test scene (developer tool)"""
+    """Create the deterministic Cloth NeXt simulation test scene (developer tool)"""
 
     bl_idname = "clothnext.create_test_scene"
-    bl_label = "Create PPF Test Scene"
+    bl_label = "Create Solver Test Scene"
     bl_options = {"INTERNAL", "UNDO"}
 
     replace_existing: bpy.props.BoolProperty(

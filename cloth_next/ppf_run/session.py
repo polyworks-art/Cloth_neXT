@@ -2132,7 +2132,7 @@ class SolverSession:
                 self._recovery_start()
             self._check_cancel()
             if owned:
-                self._event("STARTING_SOLVER", "Starting PPF solver",
+                self._event("STARTING_SOLVER", "Starting simulation solver",
                             indeterminate=True)
                 step = time.monotonic()
                 try:
@@ -2145,7 +2145,7 @@ class SolverSession:
                 assert self._address is not None
                 self.diagnostics.host = self._address.host
                 self.diagnostics.port = self._address.port
-                self._event("STARTING_SOLVER", "Connecting to the PPF server",
+                self._event("STARTING_SOLVER", "Connecting to the simulation service",
                             indeterminate=True)
                 self._status()
                 self._metadata_event()

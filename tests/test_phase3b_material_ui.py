@@ -130,7 +130,7 @@ def test_tooltips_disclose_effect_unit_and_ppf_parameter(blender_env):
     collisions = fake_bpy._resolved_props(
         env.object_properties.CLOTHNEXT_PG_collision_settings)
     expectations = {
-        props["surface_weight"]: ("kg/m²", "Technical PPF parameter: density"),
+        props["surface_weight"]: ("kg/m²", "Solver parameter: density"),
         props["stretch_resistance"]: ("density-normalized", "young-mod"),
         props["sideways_response"]: ("poiss-rat",),
         props["bend_resistance"]: ("bend",),
@@ -1171,8 +1171,8 @@ def test_parameter_inspection_shows_artist_and_wire_names(blender_env):
     context = _scene_context(env, cloth_obj, collider_obj)
     lines, payload = env.solver_test.build_parameter_inspection(context)
     text = "\n".join(lines)
-    assert "Stretch Resistance — PPF young-mod: 5500" in text
-    assert "Maximum Stretch — PPF strain-limit: 0.05" in text
+    assert "Stretch Resistance — solver young-mod: 5500" in text
+    assert "Maximum Stretch — solver strain-limit: 0.05" in text
     assert "disable-contact: False" in text
     assert payload["group"][0][0]["young-mod"] == 5500.0
     assert payload["group"][0][0]["density"] == 1.0

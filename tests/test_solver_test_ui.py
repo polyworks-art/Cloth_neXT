@@ -2456,7 +2456,7 @@ def test_stale_ppf_startup_pump_cannot_fail_new_bake_job(
     monkeypatch.setattr(
         module.companion_manager, "startup_status",
         lambda _job: (_ for _ in ()).throw(
-            AssertionError("stale PPF startup queried Companion state")))
+            AssertionError("stale solver startup queried Companion state")))
 
     assert module._startup_pump() is None
 

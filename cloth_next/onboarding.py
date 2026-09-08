@@ -97,7 +97,7 @@ WELCOME_CONTENT = {
     "hero_asset": WELCOME_ASSETS[0],
     "steps": (
         {"title": "Connect your solver", "description":
-         "Install or select the external PPF Contact Solver in Cloth NeXt Preferences. "
+         "Install or select the external Simulation Solver in Cloth NeXt Preferences. "
          "It is separate software and is never bundled with Cloth NeXt."},
         {"title": "Prepare your cloth", "description":
          "Choose your cloth and collider objects, then tune material, collision, and "

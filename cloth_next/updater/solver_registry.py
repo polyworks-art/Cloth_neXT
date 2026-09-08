@@ -244,7 +244,7 @@ def migrate_legacy_current(paths, manifest, *,
         installation = SolverInstallation(
             installation_id=installation_id,
             display_name=(release.display_name if known and release
-                          else "Legacy PPF Contact Solver"),
+                          else "Legacy Simulation Solver"),
             source="official" if known else "legacy",
             root_path=str(root.resolve()),
             executable_path=str(executable.resolve()),

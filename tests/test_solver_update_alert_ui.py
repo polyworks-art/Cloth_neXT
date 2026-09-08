@@ -88,7 +88,7 @@ def draw_preferences(env, monkeypatch, active, valid=True):
     else:
         installation = SolverInstallation(
             installation_id=active.installation_id,
-            display_name="PPF Contact Solver",
+            display_name="Simulation Solver",
             source="official", root_path="C:/solver",
             executable_path="C:/solver/ppf-cts-server.exe",
             frontend_path="C:/solver/frontend",

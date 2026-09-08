@@ -74,7 +74,7 @@ def query_health(
         if parsed.error:
             crash = (f"; crash_kind={parsed.crash_kind!r}"
                      if parsed.crash_kind else "")
-            raise ValueError(f"PPF error response: {parsed.error}{crash}")
+            raise ValueError(f"solver error response: {parsed.error}{crash}")
         error = compatibility.error
         if compatibility.schema_compatible is None:
             error = ErrorRecord.create(
@@ -94,7 +94,7 @@ def query_health(
     except (ClothNextError, ValueError) as exc:
         error = exc.record if isinstance(exc, ClothNextError) else ErrorRecord.create(
             category=ErrorCategory.SOLVER_CONNECTION,
-            user_message="The service on the configured port is not a valid supported PPF server.",
+            user_message="The service on the configured port is not a valid supported simulation service.",
             technical_message=str(exc),
             recommended_action="Stop the conflicting service or choose another port.",
             recoverable=True,

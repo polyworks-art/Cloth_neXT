@@ -88,7 +88,7 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     old = make_installation(
         tmp_path,
         installation_id="old",
-        display_name="PPF Contact Solver 2026-07-13",
+        display_name="Simulation Solver 2026-07-13",
         protocol="0.11",
         schema="1",
         release_tag="old-tag",
@@ -96,7 +96,7 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     current = make_installation(
         tmp_path,
         installation_id="current",
-        display_name="PPF Contact Solver 2026-07-26",
+        display_name="Simulation Solver 2026-07-26",
         protocol="0.13",
         schema="2",
         release_tag="current-tag",
@@ -114,7 +114,7 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     assert old.display_name not in labels
     assert current.display_name not in labels
     assert "No Solver Selected" in labels
-    assert "PPF Contact Solver" not in labels
+    assert "Simulation Solver" not in labels
     assert "Solver Installations" not in labels
     assert "Installed" not in labels
     assert "Available Downloads" not in labels

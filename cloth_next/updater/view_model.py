@@ -146,7 +146,7 @@ def build_update_alert(installed_release: str,
     return UpdateAlert(
         title="Solver Update Available",
         lines=(
-            "A newer verified PPF Contact Solver is available for Cloth NeXt.",
+            "A newer verified Simulation Solver is available for Cloth NeXt.",
             f"Installed: {installed_release}",
             f"Available: {entry.official_release_tag}",
             "The new version will be installed alongside the current one.",
@@ -162,13 +162,13 @@ def confirmation_lines(entry: SolverCompatibilityEntry,
     """The confirmation the user must see before any download starts."""
     size_mib = entry.download_size / (1024 * 1024)
     return (
-        "Cloth NeXt requires the external PPF Contact Solver.",
+        "Cloth NeXt requires the external Simulation Solver.",
         "",
         "The solver is developed and distributed by ST Tech / ZOZO.",
         "It is not included in or owned by Cloth NeXt.",
         "Cloth NeXt only provides the Blender integration.",
         "",
-        f"Source: Official {entry.official_repository} release "
+        "Source: Official upstream release "
         f"{entry.official_release_tag}",
         f"Version: {entry.solver_package_version} "
         f"(protocol {entry.protocol_version}, schema {entry.schema_version})",

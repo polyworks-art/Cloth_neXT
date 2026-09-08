@@ -21,7 +21,7 @@ def _tick():
         elif snap.state is BakeState.SIMULATING:
             if snap.progress_current < 120: shared_controller.update(progress_current=snap.progress_current + 4, current_frame=snap.progress_current + 4)
             else: shared_controller.transition(BakeState.IMPORTING, status_message="Previewing import UI")
-        elif snap.state is BakeState.IMPORTING: shared_controller.transition(BakeState.FINISHED, status_message="UI preview finished — PPF was not run")
+        elif snap.state is BakeState.IMPORTING: shared_controller.transition(BakeState.FINISHED, status_message="UI preview finished — no simulation was run")
         elif snap.state is BakeState.CANCELLING: shared_controller.transition(BakeState.CANCELLED, status_message="UI preview cancelled")
         else: _running = False; return None
     except InvalidTransition:
@@ -34,7 +34,7 @@ def start(object_name=""):
     if _running: return
     snap = shared_controller.snapshot()
     if snap.state is not BakeState.IDLE: shared_controller.reset()
-    shared_controller.transition(BakeState.PREPARING, preview=True, active_object_name=object_name, status_message="UI PREVIEW — no PPF simulation")
+    shared_controller.transition(BakeState.PREPARING, preview=True, active_object_name=object_name, status_message="UI PREVIEW — no simulation")
     _running = True
     if not bpy.app.timers.is_registered(_tick): bpy.app.timers.register(_tick, first_interval=0.1)
 

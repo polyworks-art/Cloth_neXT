@@ -83,7 +83,7 @@ def _error(message: str, technical: str,
 
 def _validate_project_name(project_name: str) -> str:
     if not project_name or any(ch.isspace() for ch in project_name):
-        raise ValueError("PPF project name must be non-empty without whitespace")
+        raise ValueError("solver project name must be non-empty without whitespace")
     return project_name
 
 

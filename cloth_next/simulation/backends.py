@@ -58,14 +58,14 @@ class SolverBackendSpec:
 
 
 _EXACT_PPF = FieldMapping(
-    MappingKind.EXACT, "Mapped directly to the verified PPF parameter.")
+    MappingKind.EXACT, "Mapped directly to the verified solver parameter.")
 _CANONICAL_FIELDS = (
     "surface_weight", "stretch_resistance", "sideways_response",
     "bend_resistance", "stretch_limit", "shape_damping", "fold_damping",
     "surface_grip", "collision_gap", "surface_offset")
 
 PPF_BACKEND = SolverBackendSpec(
-    BackendId.PPF, "PPF", "High-fidelity contact-focused solver",
+    BackendId.PPF, "Simulation Solver", "High-fidelity contact-focused solver",
     SolverCapabilities(
         recovery=True, cloth=True, rods=True, soft_bodies=True,
         rigid_bodies=True, mixed_simulation=True, pressure=True, sewing=True,

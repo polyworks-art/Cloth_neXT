@@ -31,7 +31,7 @@ class BakeFrameRange:
         # The pinned PPF path requires at least one simulated step.
         if self.end <= self.start:
             raise BakeRangeError(
-                "Bake End must be greater than Bake Start; zero-step PPF "
+                "Bake End must be greater than Bake Start; zero-step solver "
                 "runs are not supported.")
         if self.output_count > MAX_OUTPUT_FRAMES:
             raise BakeRangeError(

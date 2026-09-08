@@ -105,7 +105,7 @@ def _encode_item(value: Any, out, depth: int, progress=None) -> None:
             _encode_item(item, out, depth + 1, progress)
     else:
         raise CborError(f"unsupported type {type(value).__name__} "
-                        "(outside the verified PPF wire subset)")
+                        "(outside the verified solver wire subset)")
 
 
 def _is_numpy_array(value: Any) -> bool:

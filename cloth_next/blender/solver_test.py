@@ -806,7 +806,7 @@ def resolve_solver(context) -> ResolvedSolver:
         development_executable=development_executable_from_environment()))
     if resolved is None or resolved.executable_path is None:
         raise SceneValidationError(
-            "No compatible PPF solver installation is configured. Select or "
+            "No compatible simulation solver installation is configured. Select or "
             "install one in the Cloth NeXt add-on preferences.")
     return resolved
 
@@ -2346,7 +2346,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         if len(contacts) != 1:
             raise SceneValidationError(
                 "All enabled deformables must use the same Enable Contact "
-                "setting because contact is scene-wide in PPF.")
+                "setting because contact is scene-wide in solver.")
         contact_enabled = contacts.pop()
         materials = []
         presets = []
@@ -9569,7 +9569,7 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
                         f"Cloth: {cloth_obj.name} (SHELL)"]
     for artist_label, ppf_key, value in \
             material_formatting.shell_wire_rows(shell):
-        lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
+        lines.append(f"{artist_label} — solver {ppf_key}: {value}")
     if collider_obj is None:
         lines.append("Colliders: None (optional)")
         static_rows = ()
@@ -9577,9 +9577,9 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
         lines.append(f"Collider: {collider_obj.name} (STATIC)")
         static_rows = material_formatting.static_wire_rows(static)
     for artist_label, ppf_key, value in static_rows:
-        lines.append(f"{artist_label} — PPF {ppf_key}: {value}")
+        lines.append(f"{artist_label} — solver {ppf_key}: {value}")
     wire_scene = payload["scene"]
-    lines.append(f"Solver Quality — PPF dt: {wire_scene['dt']}, "
+    lines.append(f"Solver Quality — solver dt: {wire_scene['dt']}, "
                  f"min-newton-steps: {wire_scene['min-newton-steps']}, "
                  f"cg-max-iter: {wire_scene['cg-max-iter']}, "
                  f"cg-tol: {wire_scene['cg-tol']}")
@@ -9603,7 +9603,7 @@ def build_parameter_inspection(context) -> tuple[tuple[str, ...], dict]:
 
 
 class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
-    """Show the exact encoded PPF parameters without starting the solver"""
+    """Show the exact encoded simulation parameters without starting the solver"""
 
     bl_idname = "clothnext.inspect_parameters"
     bl_label = "Inspect Encoded Parameters"
@@ -9629,7 +9629,7 @@ class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
                 for line in _lines:
                     menu.layout.label(text=line)
             window_manager.popup_menu(draw_popup,
-                                      title="Encoded PPF Parameters",
+                                      title="Encoded Solver Parameters",
                                       icon="INFO")
         suffix = (" JSON diagnostics copied to the clipboard."
                   if copied else "")
@@ -9642,7 +9642,7 @@ class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
 # Operators
 
 class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
-    """Run the real PPF solver diagnostic on the current scene"""
+    """Run the simulation solver diagnostic on the current scene"""
 
     bl_idname = "clothnext.solver_test_run"
     bl_label = "Run Real Solver Test"
@@ -9880,7 +9880,7 @@ class CLOTHNEXT_OT_open_preferences(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_solver_test_cancel(bpy.types.Operator):
-    """Cancel the running PPF solver test"""
+    """Cancel the running simulation solver test"""
 
     bl_idname = "clothnext.solver_test_cancel"
     bl_label = "Cancel Solver Test"

@@ -305,7 +305,7 @@ def _scene_wire_params(settings: SimulationSettings,
         scene["ccd-max-iter"] = int(settings.quality.ccd_max_iter)
     elif protocol_version != "0.18":
         raise ParamEncodeError(
-            f"unsupported PPF protocol {protocol_version!r}")
+            f"unsupported solver protocol {protocol_version!r}")
     if settings.auto_save_interval:
         scene["auto-save"] = int(settings.auto_save_interval)
     if settings.keep_saved_states:

@@ -383,7 +383,7 @@ class _SolverInstallDialog:
 
 
 class CLOTHNEXT_OT_solver_download(_SolverInstallDialog, bpy.types.Operator):
-    """Download the official PPF Contact Solver after explicit confirmation"""
+    """Download the compatible simulation solver after explicit confirmation"""
     bl_idname = "clothnext.solver_download"
     bl_label = "Download Official Solver"
     bl_options = {"REGISTER", "INTERNAL"}
@@ -483,7 +483,7 @@ class CLOTHNEXT_OT_solver_select_existing(bpy.types.Operator):
                 return
             installation = SolverInstallation(
                 installation_id=external_installation_id(),
-                display_name=f"Custom PPF {result.package_version}",
+                display_name=f"Custom solver {result.package_version}",
                 source="external", root_path=str(result.root),
                 executable_path=str(result.executable),
                 frontend_path=str(result.root / "frontend"),
@@ -503,7 +503,7 @@ class CLOTHNEXT_OT_solver_select_existing(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_solver_open_download_page(bpy.types.Operator):
-    """Open the official st-tech/ppf-contact-solver release page"""
+    """Open the official upstream solver release page"""
     bl_idname = "clothnext.solver_open_download_page"
     bl_label = "Open Official Download Page"
     bl_description = "Open the immutable official release page for this solver"
@@ -701,7 +701,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
     external_solver_path: bpy.props.StringProperty(
         name="External Solver Path", subtype="DIR_PATH", default="",
-        description="Existing PPF Contact Solver installation selected by you; "
+        description="Existing Simulation Solver installation selected by you; "
                     "Cloth NeXt never modifies it")
     selected_solver_installation_id: bpy.props.EnumProperty(
         name="Active Solver",
@@ -717,7 +717,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         default=addon_update_operators.DEFAULT_CHANNEL.name,
         update=addon_update_operators.channel_changed,
         description="Which Cloth NeXt release channel to check for add-on "
-                    "updates (independent of the PPF solver)")
+                    "updates (independent of the simulation solver)")
     dev_channel_acknowledged: bpy.props.BoolProperty(
         name="I understand the Dev channel risks", default=False,
         update=addon_update_operators.channel_changed)
@@ -853,7 +853,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
-        box.label(text="PPF Contact Solver")
+        box.label(text="Simulation Solver")
         box.label(text="Solver Installations")
         _session.load()
         registry, registry_error = _read_registry()

@@ -27,13 +27,13 @@ an independent project; the external PPF Contact Solver is separate
 software installed by the user and is never bundled with Cloth NeXt."""
 research_dataset = "MIT Fabric Properties Dataset (Bouman et al., ICCV 2013)"
 research_citation = "Bouman et al., Estimating the Material Properties of Fabric from Video, ICCV 2013"
-research_method = "Area weight is converted exactly from oz/yd^2 to kg/m^2. PPF bend = mean measured bending in lbf-in^2 * 14.3491 / area weight in kg/m^2. Stretch, Poisson response, friction and stretch limit are category-calibrated because the dataset does not measure compatible PPF values."
+research_method = "Area weight is converted exactly from oz/yd^2 to kg/m^2. solver bend = mean measured bending in lbf-in^2 * 14.3491 / area weight in kg/m^2. Stretch, Poisson response, friction and stretch limit are category-calibrated because the dataset does not measure compatible solver values."
 
 [[preset]]
 id = "DEFAULT_CLOTH"
 label = "Default Cloth"
 category = "ESSENTIALS"
-description = "Neutral starting cloth using the PPF shell defaults"
+description = "Neutral starting cloth using the solver shell defaults"
 upstream_calibrated = false
 model = "FABRIC"
 surface_weight = 1.0

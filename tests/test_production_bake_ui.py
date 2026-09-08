@@ -146,7 +146,7 @@ def test_solver_panel_contains_large_main_bake_action(blender_env, monkeypatch):
     split_index = panel.layout.containers.index("split")
     assert panel.layout.containers[split_index:split_index + 3] == [
         "split", "column", "column"]
-    assert "PPF Contact Solver" in panel.layout.labels
+    assert "Simulation Solver" in panel.layout.labels
     assert "Ready · Protocol 0.11" not in panel.layout.labels
     assert "Schema 1" not in panel.layout.labels
     env.registration.unregister()
@@ -161,7 +161,7 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
     assert ("clothnext.bake", "BAKE", False) in panel.layout.operators
-    assert "PPF is not configured." in panel.layout.labels
+    assert "The simulation solver is not configured." in panel.layout.labels
     assert any(item[0] == "clothnext.open_preferences"
                for item in panel.layout.operators)
     env.registration.unregister()
@@ -347,7 +347,7 @@ def test_selected_registry_solver_enables_bake(blender_env, monkeypatch,
     executable.write_bytes(b"solver")
     installation = SolverInstallation(
         installation_id="official-013",
-        display_name="PPF 0.13",
+        display_name="solver 0.13",
         source="official",
         root_path=str(root),
         executable_path=str(executable),

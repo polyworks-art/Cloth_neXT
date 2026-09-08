@@ -86,7 +86,7 @@ def test_selected_installation_routes_executable_and_protocol_together(tmp_path)
     frontend = root / "frontend"
     frontend.mkdir()
     installation = SolverInstallation(
-        "official-013-win64", "PPF 0.13", "official",
+        "official-013-win64", "solver 0.13", "official",
         str(root), str(executable), str(frontend), "0.1.0", "0.13", "2",
         "2026-07-26-22-53", True, True, True, "current")
 

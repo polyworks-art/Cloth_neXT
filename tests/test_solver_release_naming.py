@@ -53,7 +53,7 @@ def test_retired_installation_is_preserved_but_supported_release_is_renamed(
     lunelle = installation(
         tmp_path,
         installation_id="old",
-        display_name="PPF Contact Solver 2026-07-13",
+        display_name="Simulation Solver 2026-07-13",
         protocol="0.11",
         schema="1",
         release_tag="2026-07-13-21-05",
@@ -61,7 +61,7 @@ def test_retired_installation_is_preserved_but_supported_release_is_renamed(
     velune = installation(
         tmp_path,
         installation_id="current",
-        display_name="PPF Contact Solver 2026-07-26",
+        display_name="Simulation Solver 2026-07-26",
         protocol="0.13",
         schema="2",
         release_tag="2026-07-26-22-53",
@@ -74,7 +74,7 @@ def test_retired_installation_is_preserved_but_supported_release_is_renamed(
 
     assert error is None
     assert [item.display_name for item in renamed.installations] == [
-        "PPF Contact Solver 2026-07-13", "Velune"]
+        "Simulation Solver 2026-07-13", "Velune"]
     assert renamed.selected_installation_id == velune.installation_id
     assert renamed.installations[1].executable_path == velune.executable_path
 
@@ -86,7 +86,7 @@ def test_external_compatible_solver_uses_protocol_codename(
     external = installation(
         tmp_path,
         installation_id="external",
-        display_name="Custom PPF 0.1.0",
+        display_name="Custom solver 0.1.0",
         protocol="0.13",
         schema="2",
         release_tag=None,

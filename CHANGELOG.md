@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.5 - 2026-09-08
+
+### Improved
+
+- Refined setup, compatibility and health-check guidance.
+- Consistent panel labels, material tooltips, preview and progress messages in
+  Blender and the Bake companion.
+- This update changes presentation only; simulation behavior, material values,
+  downloads and existing settings are unchanged.
+
 ## 2.4.4 - 2026-09-07
 
 ### Fixed

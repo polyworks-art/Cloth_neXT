@@ -27,9 +27,9 @@ class ProtocolProfile:
 
 PROTOCOL_PROFILES = MappingProxyType({
     ("0.13", "2"): ProtocolProfile(
-        "0.13", "2", "0.1.0", "PPF Protocol 0.13 / Schema 2"),
+        "0.13", "2", "0.1.0", "Solver Protocol 0.13 / Schema 2"),
     ("0.18", "2"): ProtocolProfile(
-        "0.18", "2", "0.1.0", "PPF Protocol 0.18 / Schema 2"),
+        "0.18", "2", "0.1.0", "Solver Protocol 0.18 / Schema 2"),
 })
 DEFAULT_PROTOCOL_PROFILE = PROTOCOL_PROFILES[(EXPECTED_PROTOCOL, EXPECTED_SCHEMA)]
 
@@ -73,7 +73,7 @@ def validate_versions(protocol: str | None, schema: str | None,
     if not protocol_ok or schema_ok is False or package_ok is False:
         error = ErrorRecord.create(
             category=ErrorCategory.PROTOCOL_COMPATIBILITY,
-            user_message="The PPF solver is not compatible with this Cloth NeXt build.",
+            user_message="The simulation solver is not compatible with this Cloth NeXt build.",
             technical_message=(f"expected protocol={profile.protocol_version}, "
                                f"schema={profile.schema_version}; "
                                f"found protocol={protocol!r}, schema={schema!r}, package={package!r}"),

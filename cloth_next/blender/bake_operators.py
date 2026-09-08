@@ -20,7 +20,7 @@ class CLOTHNEXT_OT_preview_cancel(bpy.types.Operator):
 class CLOTHNEXT_OT_preview_error(bpy.types.Operator):
     bl_idname="clothnext.preview_error"; bl_label="Trigger Preview Error"
     def execute(self, _context):
-        shared_controller.fail("UI preview error", "Synthetic display test; PPF was not run."); return {"FINISHED"}
+        shared_controller.fail("UI preview error", "Synthetic display test; no simulation was run."); return {"FINISHED"}
 
 class CLOTHNEXT_OT_companion_launch(bpy.types.Operator):
     bl_idname="clothnext.companion_launch"; bl_label="Launch Bake Window"

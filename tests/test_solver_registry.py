@@ -17,7 +17,7 @@ def installation(tmp_path, installation_id, protocol, schema, *,
     executable.write_bytes(b"solver")
     (root / "frontend").mkdir()
     return SolverInstallation(
-        installation_id, f"PPF {protocol}", "official" if managed else "external",
+        installation_id, f"solver {protocol}", "official" if managed else "external",
         str(root), str(executable), str(root / "frontend"), "0.1.0",
         protocol, schema, "tag" if managed else None, managed, True, healthy,
         "stable")

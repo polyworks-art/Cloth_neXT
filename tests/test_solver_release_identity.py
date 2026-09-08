@@ -389,7 +389,7 @@ def test_update_available_section_carries_the_alert(tmp_path):
     alert = section.update_alert
     assert alert is not None
     assert alert.title == "Solver Update Available"
-    assert any("newer verified PPF Contact Solver" in line for line in alert.lines)
+    assert any("newer verified Simulation Solver" in line for line in alert.lines)
     assert any(line == f"Available: {TAG}" for line in alert.lines)
     assert any("Legacy installation" in line for line in alert.lines)
     assert any("remains active until" in line for line in alert.lines)

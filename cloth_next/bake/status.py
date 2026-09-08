@@ -57,7 +57,7 @@ class BakeActivity(str, Enum):
 ACTIVITY_LABELS = {
     BakeActivity.IDLE:"Waiting for a Bake", BakeActivity.VALIDATING:"Validating Blender scene",
     BakeActivity.CAPTURING_GEOMETRY:"Preparing evaluated geometry",
-    BakeActivity.ENCODING_SCENE:"Encoding PPF scene", BakeActivity.STARTING_SOLVER:"Initializing solver",
+    BakeActivity.ENCODING_SCENE:"Encoding simulation scene", BakeActivity.STARTING_SOLVER:"Initializing solver",
     BakeActivity.BUILDING_CONTACTS:"Building contact constraints",
     BakeActivity.DETECTING_COLLISIONS:"Detecting collision candidates",
     BakeActivity.SOLVING_CONSTRAINTS:"Solving constraints", BakeActivity.UPDATING_PINS:"Updating pinned vertices",

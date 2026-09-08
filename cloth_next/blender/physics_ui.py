@@ -51,7 +51,7 @@ UNAVAILABLE_OBJECT_TYPES = (
 
 
 class CLOTHNEXT_OT_unavailable_object_type(bpy.types.Operator):
-    """Coming soon. This PPF object type is not supported by Cloth NeXt yet."""
+    """Coming soon. This object type is not supported by Cloth NeXt yet."""
 
     bl_idname = "clothnext.unavailable_object_type"
     bl_label = "Coming Soon"
@@ -371,7 +371,7 @@ class CLOTHNEXT_PT_physics(bpy.types.Panel):
         col.label(text=f"Bake: {snapshot.status_title}",
                   **icon_registry.icon_kwargs(state_icon,"INFO"))
         if snapshot.preview:
-            col.label(text="UI PREVIEW — no PPF simulation", **icon_registry.icon_kwargs("info", "INFO"))
+            col.label(text="UI PREVIEW — no simulation", **icon_registry.icon_kwargs("info", "INFO"))
         if snapshot.error_summary:
             col.label(text=snapshot.error_summary, **icon_registry.icon_kwargs("error", "ERROR"))
         layout.operator(physics_operators.CLOTHNEXT_OT_remove_physics.bl_idname,
@@ -462,7 +462,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         layout = self.layout
         status = _solver_status(context)
         header = layout.column(align=True)
-        header.label(text="PPF Contact Solver",
+        header.label(text="Simulation Solver",
                      **icon_registry.icon_kwargs("solver", "SETTINGS"))
         if not status.ready:
             header.label(text=status.title)
@@ -589,7 +589,7 @@ def _draw_solver_quality(layout, context, bake_active: bool) -> None:
         advanced.enabled = not bake_active
         advanced.use_property_split = True
         advanced.use_property_decorate = False
-        advanced.label(text="PPF Advanced")
+        advanced.label(text="Advanced Solver")
         advanced.prop(quality, "time_step")
         advanced.prop(quality, "min_newton_steps")
         advanced.prop(quality, "cg_max_iter")
@@ -812,7 +812,7 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     if not status.ready:
         from ..simulation.backends import BackendId
         from . import solver_backends
-        reason = ("PPF is not configured."
+        reason = ("The simulation solver is not configured."
                   if solver_backends.active_backend_id(context.scene)
                   is BackendId.PPF else status.title)
     elif not cloths:
@@ -1868,7 +1868,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                                 text=(f"Geometry: {estimate.source_vertices:,} → "
                                       f"{estimate.proxy_vertices:,} vertices"))
                         proxy_box.label(
-                            text=(f"Estimated PPF peak: "
+                            text=(f"Estimated solver peak: "
                                   f"{collider_proxy.format_bytes(estimate.source_peak_bytes)} "
                                   f"→ {collider_proxy.format_bytes(estimate.proxy_peak_bytes)}"),
                             icon="MEMORY")
@@ -2419,7 +2419,7 @@ class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):
 
 
 class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Advanced PPF"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
+    bl_label = "Advanced Solver"; bl_idname = "CLOTHNEXT_PT_advanced"; bl_options = {"DEFAULT_CLOSED"}
     header_icon = "advanced"
 
     @classmethod
@@ -2437,7 +2437,7 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
             layout.use_property_decorate = False
             layout.prop(settings.material, "model")
         column = layout.column(align=True)
-        column.label(text="Exact PPF wire values:")
+        column.label(text="Exact solver wire values:")
         try:
             if settings.role == "CLOTH":
                 shell = object_properties.shell_settings_from(settings)
@@ -2454,7 +2454,7 @@ class CLOTHNEXT_PT_advanced(_ClothNextSubpanel, bpy.types.Panel):
         info.label(text="Friction mode: Minimum (fixed) — the lower of the "
                         "two touching surfaces wins")
         if settings.role == "CLOTH":
-            info.label(text="Stiffness basis: density-normalized PPF "
+            info.label(text="Stiffness basis: density-normalized solver "
                             "young-mod (not textbook Pa)")
             contact = ("enabled" if settings.collision.enabled
                        else "DISABLED (disable-contact: true)")

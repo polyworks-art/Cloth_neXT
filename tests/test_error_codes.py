@@ -250,7 +250,7 @@ def test_stage_specific_errors_do_not_false_match_other_subsystems(
 def test_control_server_exit_has_distinct_connection_code():
     assert classify_error(
         "SIMULATING",
-        details=("PPF control server exited unexpectedly; "
+        details=("solver control server exited unexpectedly; "
                  "owned_process_ids=(123, 456)")) == "CNX-E146"
 
 

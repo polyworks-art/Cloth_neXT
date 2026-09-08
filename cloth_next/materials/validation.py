@@ -80,7 +80,7 @@ SHELL_RULES: dict[str, NumericRule] = {
     "surface_weight": NumericRule(0.0, True, 10000.0, "kg/m²",
                                    _MATERIAL_PANEL),
     "stretch_resistance": NumericRule(0.0, False, 1e9,
-                                      "PPF density-normalized young-mod",
+                                      "solver density-normalized young-mod",
                                       _MATERIAL_PANEL),
     "sideways_response": NumericRule(0.0, False, 0.4999, "",
                                      _MATERIAL_PANEL),
@@ -126,7 +126,7 @@ def validate_shell_values(values) -> None:
     if model not in SHELL_MODELS:
         raise MaterialValidationError(
             "model", model, " or ".join(SHELL_MODELS),
-            "Select a solver model in the Advanced PPF panel.")
+            "Select a solver model in the Advanced Solver panel.")
     if not isinstance(values.stretch_limit_enabled, bool):
         raise MaterialValidationError(
             "stretch_limit_enabled", values.stretch_limit_enabled,
