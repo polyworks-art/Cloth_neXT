@@ -125,7 +125,7 @@
     {
       "code": "CNX-E123",
       "stage": "Bake preparation",
-      "cause": "PPF scene or parameter encoding failed",
+      "cause": "simulation scene or parameter encoding failed",
       "action": "Check geometry, materials, Pins, Forces, and finite numeric values."
     },
     {
@@ -245,7 +245,7 @@
     {
       "code": "CNX-E146",
       "stage": "Solver connection",
-      "cause": "PPF control server exited while an owned solver descendant remained active",
+      "cause": "solver control server exited while an owned solver descendant remained active",
       "action": "Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup."
     },
     {
