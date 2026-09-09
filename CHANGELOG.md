@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.6 - 2026-09-09
+
+### Changed
+
+- Hid the Advanced, Collision Timing, and Advanced Contact Distance panels in
+  Beta and Dev builds. Stable UI and all stored simulation settings remain
+  unchanged.
+- Compacted related Preferences controls and removed the View Changelog and
+  Open Release Notes actions from Preferences.
+
 ## 2.4.5 - 2026-09-08
 
 ### Improved

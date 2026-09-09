@@ -772,38 +772,48 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context) -> None:
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
         self._draw_addon_update_section(layout, context)
         welcome = layout.box()
         welcome.label(text="Learn Cloth NeXt")
-        actions = welcome.row()
+        actions = welcome.row(align=True)
         actions.operator("clothnext.open_welcome", text="Open Welcome")
         actions.operator("clothnext.open_whats_new", text="What's New")
-        actions.operator("clothnext.addon_open_release_notes", text="View Changelog")
         self._draw_solver_section(layout)
+
+        general = layout.box()
+        general.label(text="General")
+        general.prop(self, "auto_launch_bake_window")
         if is_dev_build():
-            layout.prop(self, "developer_tools")
-        layout.prop(self, "auto_launch_bake_window")
-        colors = layout.box()
-        colors.label(text="Viewport Colors")
-        colors.prop(self, "show_role_colors")
+            general.prop(self, "developer_tools")
+
+        viewport = layout.box()
+        viewport.label(text="Viewport")
+        viewport.prop(self, "show_role_colors")
         if getattr(self, "show_role_colors", False):
-            colors.label(text="Role colors require Solid shading > Color > Object.", icon="INFO")
-            colors.label(text="Random and other color modes remain available.")
-        framing = layout.box()
-        framing.label(text="Live Bake Viewport")
-        framing.prop(self, "auto_frame_bake")
-        framing_controls = framing.column()
+            viewport.label(
+                text="Role colors require Solid shading > Color > Object.",
+                icon="INFO")
+            viewport.label(text="Random and other color modes remain available.")
+        viewport.prop(self, "auto_frame_bake")
+        framing_controls = viewport.column(align=True)
         framing_controls.enabled = getattr(self, "auto_frame_bake", True)
         for name in ("auto_frame_style", "auto_frame_smoothing",
                      "auto_frame_margin"):
             framing_controls.prop(self, name)
-        hud_box=layout.box(); hud_box.label(text="Bake Resource Monitor")
-        for name in ("show_bake_hud","bake_hud_anchor","bake_hud_scale","telemetry_refresh_seconds"): hud_box.prop(self,name)
-        safety=hud_box.box(); safety.label(text="Memory Safety", **icon_registry.icon_kwargs("monitor", "MEMORY"))
-        safety.prop(self,"auto_cancel_high_ram")
-        threshold=safety.row(); threshold.enabled=getattr(
-            self,"auto_cancel_high_ram",True)
-        threshold.prop(self,"auto_cancel_ram_percent")
+
+        monitor = layout.box()
+        monitor.label(text="Bake Resource Monitor")
+        for name in ("show_bake_hud", "bake_hud_anchor", "bake_hud_scale",
+                     "telemetry_refresh_seconds"):
+            monitor.prop(self, name)
+        monitor.label(text="Memory Safety",
+                      **icon_registry.icon_kwargs("monitor", "MEMORY"))
+        monitor.prop(self, "auto_cancel_high_ram")
+        threshold = monitor.row()
+        threshold.enabled = getattr(self, "auto_cancel_high_ram", True)
+        threshold.prop(self, "auto_cancel_ram_percent")
 
     def _draw_addon_update_section(self, layout, context) -> None:
         """Cloth NeXt's own update status; never performs network work."""
@@ -849,7 +859,6 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                                    "Update through Blender"))
         elif view.show_open_extensions:
             actions.operator("clothnext.addon_open_extensions")
-        actions.operator("clothnext.addon_open_release_notes")
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()

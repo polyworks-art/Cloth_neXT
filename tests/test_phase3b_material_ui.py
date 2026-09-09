@@ -499,8 +499,7 @@ def test_soft_body_workflow_visibility_excludes_role_specific_panels(
             env.physics_ui.CLOTHNEXT_PT_simulation,
             env.physics_ui.CLOTHNEXT_PT_material,
             env.physics_ui.CLOTHNEXT_PT_shape,
-            env.physics_ui.CLOTHNEXT_PT_collision,
-            env.physics_ui.CLOTHNEXT_PT_cloth_advanced):
+            env.physics_ui.CLOTHNEXT_PT_collision):
         assert panel.poll(context), panel.__name__
     for panel in (
             env.physics_ui.CLOTHNEXT_PT_pinning,
@@ -509,6 +508,7 @@ def test_soft_body_workflow_visibility_excludes_role_specific_panels(
             env.physics_ui.CLOTHNEXT_PT_friction_regions,
             env.physics_ui.CLOTHNEXT_PT_collisions,
             env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_advanced):
         assert not panel.poll(context), panel.__name__
     env.registration.unregister()
@@ -583,6 +583,29 @@ def test_rigid_body_uses_only_mapped_material_and_shared_collision(
     env.registration.unregister()
 
 
+@pytest.mark.parametrize(
+    ("version", "visible"),
+    (("3.0.0", True), ("2.4.0", False), ("2.4.6", False)),
+)
+def test_expert_panels_are_stable_only(
+        blender_env, monkeypatch, version, visible):
+    env = blender_env
+    env.registration.register()
+    obj, settings = _settings(env)
+    settings.enabled = True
+    settings.role = "CLOTH"
+    context = _context(obj)
+    monkeypatch.setattr(env.physics_ui, "manifest_version", lambda: version)
+
+    for panel in (
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
+            env.physics_ui.CLOTHNEXT_PT_collision_timing,
+            env.physics_ui.CLOTHNEXT_PT_advanced_contact_distance):
+        assert panel.poll(context) is visible, panel.__name__
+
+    env.registration.unregister()
+
+
 def test_rigid_body_workflow_has_no_shape_or_role_specific_panels(
         blender_env):
     env = blender_env
@@ -595,8 +618,7 @@ def test_rigid_body_workflow_has_no_shape_or_role_specific_panels(
             env.physics_ui.CLOTHNEXT_PT_setup,
             env.physics_ui.CLOTHNEXT_PT_simulation,
             env.physics_ui.CLOTHNEXT_PT_material,
-            env.physics_ui.CLOTHNEXT_PT_collision,
-            env.physics_ui.CLOTHNEXT_PT_cloth_advanced):
+            env.physics_ui.CLOTHNEXT_PT_collision):
         assert panel.poll(context), panel.__name__
     for panel in (
             env.physics_ui.CLOTHNEXT_PT_shape,
@@ -607,6 +629,7 @@ def test_rigid_body_workflow_has_no_shape_or_role_specific_panels(
             env.physics_ui.CLOTHNEXT_PT_friction_regions,
             env.physics_ui.CLOTHNEXT_PT_collisions,
             env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_advanced):
         assert not panel.poll(context), panel.__name__
     env.registration.unregister()
@@ -708,7 +731,6 @@ def test_cable_rope_workflow_excludes_unavailable_and_foreign_panels(
             env.physics_ui.CLOTHNEXT_PT_material,
             env.physics_ui.CLOTHNEXT_PT_shape,
             env.physics_ui.CLOTHNEXT_PT_collision,
-            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape):
         assert panel.poll(context), panel.__name__
     for panel in (
@@ -721,6 +743,7 @@ def test_cable_rope_workflow_excludes_unavailable_and_foreign_panels(
             env.physics_ui.CLOTHNEXT_PT_damping,
             env.physics_ui.CLOTHNEXT_PT_collisions,
             env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_advanced):
         assert not panel.poll(context), panel.__name__
     env.registration.unregister()
@@ -828,7 +851,6 @@ def test_collider_workflow_visibility_and_compact_advanced(blender_env):
             env.physics_ui.CLOTHNEXT_PT_setup,
             env.physics_ui.CLOTHNEXT_PT_simulation,
             env.physics_ui.CLOTHNEXT_PT_collider_collision,
-            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_solver_settings,
             env.physics_ui.CLOTHNEXT_PT_simulation_engine,
             env.physics_ui.CLOTHNEXT_PT_diagnostics,
@@ -841,6 +863,7 @@ def test_collider_workflow_visibility_and_compact_advanced(blender_env):
             env.physics_ui.CLOTHNEXT_PT_result,
             env.physics_ui.CLOTHNEXT_PT_friction_regions,
             env.physics_ui.CLOTHNEXT_PT_collisions,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_advanced):
         assert not panel.poll(context), panel.__name__
     advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()
@@ -909,7 +932,6 @@ def test_force_workflow_has_only_setup_simulation_and_compact_advanced(
     for panel in (
             env.physics_ui.CLOTHNEXT_PT_setup,
             env.physics_ui.CLOTHNEXT_PT_simulation,
-            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_solver_settings,
             env.physics_ui.CLOTHNEXT_PT_simulation_engine,
             env.physics_ui.CLOTHNEXT_PT_diagnostics,
@@ -924,6 +946,7 @@ def test_force_workflow_has_only_setup_simulation_and_compact_advanced(
             env.physics_ui.CLOTHNEXT_PT_simulation_proxy,
             env.physics_ui.CLOTHNEXT_PT_result,
             env.physics_ui.CLOTHNEXT_PT_cache,
+            env.physics_ui.CLOTHNEXT_PT_cloth_advanced,
             env.physics_ui.CLOTHNEXT_PT_advanced):
         assert not panel.poll(context), panel.__name__
     advanced = env.physics_ui.CLOTHNEXT_PT_cloth_advanced()

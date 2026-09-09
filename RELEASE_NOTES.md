@@ -1,12 +1,15 @@
-# Cloth NeXt 2.4.5 Dev
+# Cloth NeXt 2.4.6 Dev
 
-Cloth NeXt 2.4.5 refines the wording throughout the simulation workflow.
+Cloth NeXt 2.4.6 simplifies the Beta and Dev simulation UI.
 
-- Clearer setup, compatibility and health-check messages.
-- Consistent labels and material tooltips across Blender and the Bake window.
-- More direct preview, progress and diagnostic messages.
+- Advanced, Collision Timing, and Advanced Contact Distance are hidden in Beta
+  and Dev builds.
+- Stable builds keep their existing panel visibility.
+- Related Preferences controls are grouped more compactly; View Changelog and
+  Open Release Notes no longer appear there.
 
-This is a cosmetic update. Simulation behavior, material values, downloads,
-saved settings and existing installations remain unchanged.
+This is a visibility-only update. Existing values still load and are used by
+the solver and bake pipeline as before.
 
-2.4.5 is a Dev-channel release. Beta and Stable remain unchanged.
+2.4.6 is a Dev-channel release. Solver behavior remains unchanged across all
+release channels.

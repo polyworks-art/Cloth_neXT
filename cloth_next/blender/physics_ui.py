@@ -37,12 +37,18 @@ from ..solver_quality import (
     QUALITY_PRESETS,
     matching_quality_preset,
 )
+from ..updater.addon_versions import parse_version
 from . import (beta_tools, collider_proxy, icon_registry, object_properties,
                physics_operators, validation_state)
 from .addon_identity import addon_preferences
 from .playback_cache import has_cloth_next_playback_marker
 
 _add_entry_appended = False
+
+
+def _stable_only_panel_visible() -> bool:
+    """Keep expert panels out of Beta and Dev builds."""
+    return parse_version(manifest_version()).channel_name == "stable"
 
 UNAVAILABLE_OBJECT_TYPES = (
     ("SAND", "Sand",
@@ -1458,6 +1464,10 @@ class CLOTHNEXT_PT_collision_timing(_ClothNextSubpanel, bpy.types.Panel):
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
     header_icon = "timer"
 
+    @classmethod
+    def poll(cls, context):
+        return _stable_only_panel_visible() and super().poll(context)
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -1476,6 +1486,10 @@ class CLOTHNEXT_PT_advanced_contact_distance(
     bl_options = {"DEFAULT_CLOSED"}
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}
     header_icon = "collision"
+
+    @classmethod
+    def poll(cls, context):
+        return _stable_only_panel_visible() and super().poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -2193,6 +2207,10 @@ class CLOTHNEXT_PT_cloth_advanced(_ClothNextSubpanel, bpy.types.Panel):
     roles = {
         "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
     header_icon = "advanced"
+
+    @classmethod
+    def poll(cls, context):
+        return _stable_only_panel_visible() and super().poll(context)
 
     def draw(self, context):
         pass

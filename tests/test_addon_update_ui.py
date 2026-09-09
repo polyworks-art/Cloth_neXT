@@ -476,7 +476,7 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     assert any(text.startswith("Update Status:") for text in labels)
     assert ("prop", "update_channel") in log
     assert "clothnext.addon_update_check" in operators
-    assert "clothnext.addon_open_release_notes" in operators
+    assert "clothnext.addon_open_release_notes" not in operators
     # solver operators are never presented inside the Cloth NeXt update block
     boxes = [i for i, entry in enumerate(log) if entry == ("box",)]
     assert len(boxes) >= 2

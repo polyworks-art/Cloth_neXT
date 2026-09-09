@@ -1,0 +1,15 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.6",
+  "title": "What's New in Cloth NeXt 2.4.6",
+  "subtitle": "A cleaner Beta and Dev interface.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {"icon": "icons/check.png", "title": "Focused Simulation UI", "description": "Advanced, Collision Timing and Advanced Contact Distance stay hidden in Beta and Dev builds without changing their saved values or simulation behavior."},
+    {"icon": "icons/docs.png", "title": "Compact Preferences", "description": "Related viewport and bake controls are grouped into a cleaner, more compact Preferences layout."}
+  ],
+  "actions": [
+    {"label": "Start Creating", "kind": "close"},
+    {"label": "Documentation", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"}
+  ]
+}
