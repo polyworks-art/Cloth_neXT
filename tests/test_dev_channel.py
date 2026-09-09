@@ -12,11 +12,15 @@ def test_prepare_dev_build_updates_only_isolated_version_metadata(tmp_path):
     root=tmp_path; package=root/"cloth_next"; package.mkdir()
     (package/"blender_manifest.toml").write_text('id="cloth_next"\nversion = "0.2.0-beta.6"\n')
     (package/"solver_compatibility.json").write_text('{"cloth_next_version":"0.2.0-beta.6"}')
+    whats_new=package/"resources/onboarding/whats_new"; whats_new.mkdir(parents=True)
+    (whats_new/"0.3.20.json").write_text("{}")
+    (whats_new/"0.3.21.json").write_text("{}")
     prepare(root,"0.3.21","a"*40,"123")
     assert '0.3.21' in (package/"blender_manifest.toml").read_text()
     assert json.loads((package/"solver_compatibility.json").read_text())["cloth_next_version"]=="0.3.21"
     metadata=json.loads((package/"dev_build.json").read_text())
     assert metadata["experimental"] is True and metadata["source_commit"]=="a"*40
+    assert [path.name for path in whats_new.glob("*.json")] == ["0.3.21.json"]
 
 
 def test_prepare_accepts_next_release_line(tmp_path):

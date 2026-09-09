@@ -16,6 +16,10 @@ def prepare(root: Path, version: str, commit: str, run_id: str) -> None:
     compat=root/"cloth_next/solver_compatibility.json"
     payload=json.loads(compat.read_text(encoding="utf-8")); payload["cloth_next_version"]=version
     compat.write_text(json.dumps(payload,indent=2)+"\n",encoding="utf-8")
+    whats_new=root/"cloth_next/resources/onboarding/whats_new"
+    for path in whats_new.glob("*.json"):
+        if path.name != f"{version}.json":
+            path.unlink()
     metadata={"dev_version":version,"source_commit":commit,"build_timestamp":datetime.now(timezone.utc).isoformat(),
               "workflow_run_id":run_id,"experimental":True,
               "checks_performed":["source imports","companion build/hash","Blender extension validation","artifact scan"],
