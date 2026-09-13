@@ -1258,6 +1258,15 @@ class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
     roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
     header_icon = "solver"
 
+    @classmethod
+    def poll(cls, context):
+        if not super().poll(context):
+            return False
+        try:
+            return not bool(addon_preferences(context, __package__).new_look)
+        except (KeyError, AttributeError):
+            return True
+
     def draw(self, context):
         layout = self.layout
         snapshot = shared_controller.snapshot()

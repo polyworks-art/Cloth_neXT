@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from __future__ import annotations
 from pathlib import Path
-import inspect
 import json
 import tomllib
 from types import SimpleNamespace
@@ -21,65 +20,19 @@ def test_every_physics_panel_requests_expected_custom_icon(blender_env, monkeypa
         instance=panel(); instance.layout=Layout(); instance.draw_header(None)
         assert requested[-1]==icon
 
-def test_hud_draw_source_has_no_hardware_or_process_calls(blender_env):
-    source=inspect.getsource(__import__("cloth_next.blender.hud",fromlist=["x"])._draw)
-    for forbidden in ("subprocess", "nvidia-smi", "query_nvidia", "Popen(", "open("):
-        assert forbidden not in source
+def test_resource_monitor_is_not_registered(blender_env):
+    assert not any(cls.__name__.startswith("CLOTHNEXT_GT_resource")
+                   for cls in blender_env.registration._CLASSES)
+    assert "hud" not in blender_env.registration.__dict__
 
 
-def test_hud_uses_public_website_palette(blender_env):
-    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
-    assert hud.HUD_BG == (.027,.063,.055,.96)
-    assert hud.HUD_MINT == (.329,.937,.765,1.0)
-    assert hud.HUD_ACCENT == (.42,.50,.47,1.0)
-    assert hud.HUD_GRAPH == (.78,.82,.81,1.0)
-    assert hud.HUD_DANGER == (1.0,.420,.443,.96)
-
-
-def test_hud_redraw_timer_updates_active_viewport_without_mouse_input(
-        blender_env, monkeypatch):
-    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
-    redraws=[]
-    area=SimpleNamespace(type="VIEW_3D",tag_redraw=lambda:redraws.append(True))
-    blender_env.bpy.context.window_manager=SimpleNamespace(windows=(
-        SimpleNamespace(screen=SimpleNamespace(areas=(area,))),))
-    monkeypatch.setattr(hud,"_preferences",lambda:SimpleNamespace(
-        show_bake_hud=True,telemetry_refresh_seconds=.5))
-    monkeypatch.setattr(hud.shared_controller,"snapshot",lambda:
-        SimpleNamespace(active=True,state=hud.BakeState.PREPARING))
-
-    assert hud._redraw_pulse() == .5
-    assert redraws == [True]
-
-
-def test_hud_redraw_timer_stops_for_finished_bake(blender_env, monkeypatch):
-    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
-    redraws=[]
-    area=SimpleNamespace(type="VIEW_3D",tag_redraw=lambda:redraws.append(True))
-    blender_env.bpy.context.window_manager=SimpleNamespace(windows=(
-        SimpleNamespace(screen=SimpleNamespace(areas=(area,))),))
-    monkeypatch.setattr(hud,"_preferences",lambda:SimpleNamespace(
-        show_bake_hud=True,telemetry_refresh_seconds=2.0))
-    monkeypatch.setattr(hud.shared_controller,"snapshot",lambda:
-        SimpleNamespace(active=False,state=hud.BakeState.FINISHED))
-
-    assert hud._redraw_pulse() == 2.0
-    assert redraws == []
-
-
-def test_hud_terminal_transition_pauses_telemetry_after_one_redraw(
-        blender_env, monkeypatch):
-    hud=__import__("cloth_next.blender.hud",fromlist=["x"])
-    enabled=[]
-    monkeypatch.setattr(hud.shared_telemetry,"set_enabled",enabled.append)
-    hud._last_active=True
-    hud._terminal_redraw_pending=False
-
-    hud._on_bake_snapshot(SimpleNamespace(active=False))
-
-    assert enabled == [False]
-    assert hud._terminal_redraw_pending is True
-    assert hud._last_active is False
+def test_telemetry_still_tracks_bake_for_memory_safety(blender_env, monkeypatch):
+    runtime = __import__("cloth_next.blender.telemetry_runtime", fromlist=["x"])
+    enabled = []
+    monkeypatch.setattr(runtime.shared_telemetry, "set_enabled", enabled.append)
+    runtime._on_snapshot(SimpleNamespace(active=True))
+    runtime._on_snapshot(SimpleNamespace(active=False))
+    assert enabled == [True, False]
 
 def test_release_versions_remain_consistent_and_channel_encoded():
     package=Path(__file__).parents[1]/"cloth_next"

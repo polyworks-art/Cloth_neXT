@@ -174,6 +174,18 @@ def make_module() -> types.ModuleType:
     class Menu:
         pass
 
+    class GizmoGroup:
+        pass
+
+    class SpaceView3D:
+        @staticmethod
+        def draw_handler_add(*_args):
+            return object()
+
+        @staticmethod
+        def draw_handler_remove(*_args):
+            pass
+
     class AddonPreferences:
         pass
 
@@ -207,6 +219,7 @@ def make_module() -> types.ModuleType:
 
     types_module = types.SimpleNamespace(
         PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel, Menu=Menu,
+        GizmoGroup=GizmoGroup, SpaceView3D=SpaceView3D,
         AddonPreferences=AddonPreferences, Object=Object, Scene=Scene,
         PHYSICS_PT_add=PHYSICS_PT_add)
 

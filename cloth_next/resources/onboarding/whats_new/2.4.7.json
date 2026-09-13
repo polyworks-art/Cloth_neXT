@@ -1,0 +1,16 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.7",
+  "title": "What's New in Cloth NeXt 2.4.7",
+  "subtitle": "Optional viewport controls for a faster simulation workflow.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {"icon": "icons/sliders.png", "title": "New Look Viewport Bar", "description": "Enable New Look in Add-on Preferences for compact floating Simulation controls. The existing Simulation panel stays available when New Look is off."},
+    {"icon": "icons/play.png", "title": "Familiar Bake Workflow", "description": "Set the cache folder, choose a Quality preset, and Bake from the viewport bar. These controls use the same settings and operators as before."},
+    {"icon": "icons/check.png", "title": "Clear Status", "description": "A small status bubble shows whether the cache folder is valid, while Bake progress and important errors remain visible."}
+  ],
+  "actions": [
+    {"label": "Start Creating", "kind": "close"},
+    {"label": "Documentation", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"}
+  ]
+}

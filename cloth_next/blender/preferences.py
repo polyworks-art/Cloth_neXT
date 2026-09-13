@@ -696,8 +696,18 @@ _ACTION_OPERATORS = {
 }
 
 
+def _new_look_changed(_self, context):
+    from . import floating_simulation
+    floating_simulation.sync(context)
+
+
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
+
+    new_look: bpy.props.BoolProperty(
+        name="New Look", default=False,
+        description="Enable floating Cloth NeXt viewport controls",
+        update=_new_look_changed)
 
     external_solver_path: bpy.props.StringProperty(
         name="External Solver Path", subtype="DIR_PATH", default="",
@@ -757,9 +767,6 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     auto_frame_margin: bpy.props.FloatProperty(
         name="Framing Margin", default=1.25, min=1.02, max=3.0,
         description="Extra space kept around the simulated objects")
-    show_bake_hud: bpy.props.BoolProperty(name="Show Resource Monitor", default=True)
-    bake_hud_anchor: bpy.props.EnumProperty(name="HUD Anchor", items=(("TOP_LEFT", "Top Left", ""),("TOP_RIGHT", "Top Right", ""),("BOTTOM_LEFT", "Bottom Left", ""),("BOTTOM_RIGHT", "Bottom Right", "")), default="BOTTOM_LEFT")
-    bake_hud_scale: bpy.props.FloatProperty(name="HUD Scale", default=1.0, min=0.75, max=2.0)
     telemetry_refresh_seconds: bpy.props.FloatProperty(name="Telemetry Refresh", default=1.0, min=0.25, max=10.0, subtype="TIME")
     auto_cancel_high_ram: bpy.props.BoolProperty(
         name="Auto-Cancel on High RAM", default=True,
@@ -790,6 +797,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
         viewport = layout.box()
         viewport.label(text="Viewport")
+        viewport.prop(self, "new_look")
         viewport.prop(self, "show_role_colors")
         if getattr(self, "show_role_colors", False):
             viewport.label(
@@ -803,15 +811,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                      "auto_frame_margin"):
             framing_controls.prop(self, name)
 
-        monitor = layout.box()
-        monitor.label(text="Bake Resource Monitor")
-        for name in ("show_bake_hud", "bake_hud_anchor", "bake_hud_scale",
-                     "telemetry_refresh_seconds"):
-            monitor.prop(self, name)
-        monitor.label(text="Memory Safety",
-                      **icon_registry.icon_kwargs("monitor", "MEMORY"))
-        monitor.prop(self, "auto_cancel_high_ram")
-        threshold = monitor.row()
+        safety = layout.box()
+        safety.label(text="Memory Safety")
+        safety.prop(self, "auto_cancel_high_ram")
+        threshold = safety.row()
         threshold.enabled = getattr(self, "auto_cancel_high_ram", True)
         threshold.prop(self, "auto_cancel_ram_percent")
 

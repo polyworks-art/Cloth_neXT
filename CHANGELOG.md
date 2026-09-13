@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.4.7 - 2026-09-13
+
+### Added
+
+- Optional New Look preference with a compact floating Simulation bar in the
+  3D Viewport. The legacy Simulation panel remains available when New Look is off.
+- Direct access to the existing cache-directory, Quality, Bake, Cancel and
+  Diagnostics workflows from the floating bar, with directory and Bake status.
+
+### Changed
+
+- The floating controls use a charcoal background, Cloth NeXt icons and
+  cyan/blue accents. Directory status appears as a small red or green bubble.
+- Removed the Bake resource monitor UI while retaining memory-safety telemetry.
+
+Simulation settings, solver behavior and the external PPF solver are unchanged.
+
 ## 2.4.6 - 2026-09-09
 
 ### Changed

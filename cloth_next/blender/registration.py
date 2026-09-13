@@ -19,11 +19,11 @@ from __future__ import annotations
 import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
-               collider_proxy, companion_manager, hud, icon_registry,
+               collider_proxy, companion_manager, floating_simulation, icon_registry,
                object_properties, physics_operators, physics_ui,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
-               timeline_overlay, validation_state, viewport_autoframe,
+               telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
                viewport_colors)
 
 _CLASSES = (
@@ -39,6 +39,7 @@ _CLASSES = (
     + test_scene.CLASSES
     + solver_test.CLASSES
     + physics_ui.CLASSES
+    + floating_simulation.CLASSES
     + pin_constraints.CLASSES
 )
 
@@ -70,7 +71,8 @@ def _steps() -> list[tuple]:
     steps.append((icon_registry.register, icon_registry.unregister))
     steps.append((viewport_colors.register, viewport_colors.unregister))
     steps.append((timeline_overlay.register, timeline_overlay.unregister))
-    steps.append((hud.register, hud.unregister))
+    steps.append((floating_simulation.register, floating_simulation.unregister))
+    steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
     # last and detached first, and idempotent, so a reload cannot leave a

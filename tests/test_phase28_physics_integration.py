@@ -367,7 +367,8 @@ def test_no_n_panel_is_introduced():
         source = path.read_text(encoding="utf-8")
         assert 'bl_region_type = "UI"' not in source, path
         assert "bl_category" not in source, path
-        assert 'bl_space_type = "VIEW_3D"' not in source, path
+        if path.name != "floating_simulation.py":
+            assert 'bl_space_type = "VIEW_3D"' not in source, path
 
 
 # --- 9: draw callback appended and removed exactly once ----------------------------
