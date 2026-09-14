@@ -1,0 +1,16 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.8",
+  "title": "What's New in Cloth NeXt 2.4.8",
+  "subtitle": "A smaller, clearer New Look viewport toolbar.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {"icon": "icons/sliders.png", "title": "Show or Hide with F6", "description": "Use F6 to temporarily hide or restore the New Look toolbar. Edit the shortcut in Cloth NeXt Preferences using Blender's native keymap controls."},
+    {"icon": "icons/check.png", "title": "Reliable Scene Status", "description": "The cache directory stays in sync when you add another deformable, while BAKE clearly shows when the scene is not ready."},
+    {"icon": "icons/docs.png", "title": "Compact and Readable", "description": "The smaller toolbar keeps controls easy to use, shows errors in red, and restores its icons and labels after opening a saved scene."}
+  ],
+  "actions": [
+    {"label": "Start Creating", "kind": "close"},
+    {"label": "Documentation", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"}
+  ]
+}

@@ -107,6 +107,24 @@ def test_force_role_is_empty_only_and_add_defaults_empty_to_force(blender_env):
     env.registration.unregister()
 
 
+def test_new_deformable_inherits_existing_cache_directory(blender_env, tmp_path):
+    env = blender_env
+    env.registration.register()
+    first = make_mesh(env, "First")
+    second = make_mesh(env, "Second")
+    scene = SimpleNamespace(objects=[first, second], frame_start=1, frame_end=20)
+    add = env.physics_operators.CLOTHNEXT_OT_add_physics()
+    assert add.execute(SimpleNamespace(active_object=first, scene=scene)) == {
+        "FINISHED"}
+    first.cloth_next.cache_directory = str(tmp_path)
+    assert add.execute(SimpleNamespace(active_object=second, scene=scene)) == {
+        "FINISHED"}
+    assert second.cloth_next.cache_directory == str(tmp_path)
+    first.cloth_next.cache_directory = ""
+    assert second.cloth_next.cache_directory == str(tmp_path)
+    env.registration.unregister()
+
+
 def test_force_settings_expose_every_dynamic_ppf_environment_parameter(blender_env):
     props = fake_bpy._resolved_props(
         blender_env.object_properties.CLOTHNEXT_PG_force_settings)

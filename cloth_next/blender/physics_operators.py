@@ -184,10 +184,25 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
         obj = context.active_object
         export_identity.ensure_persistent_id(obj)
         settings = obj.cloth_next
+        # Cache directories belong to each deformable. Inherit the existing
+        # scene choice when adding another one so Bake and the toolbar agree.
+        scene = getattr(context, "scene", getattr(bpy.context, "scene", None))
+        if not str(getattr(settings, "cache_directory", "") or "").strip():
+            for other in getattr(scene, "objects", ()):
+                if other is obj:
+                    continue
+                other_settings = getattr(other, "cloth_next", None)
+                if (other_settings is not None and other_settings.enabled
+                        and other_settings.role in {
+                            "CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}):
+                    folder = str(getattr(other_settings,
+                                         "cache_directory", "") or "").strip()
+                    if folder:
+                        settings.cache_directory = folder
+                        break
         settings.enabled = True
         settings.role = ("FORCE" if obj.type == "EMPTY"
                          else object_properties.DEFAULT_ROLE)
-        scene = getattr(context, "scene", getattr(bpy.context, "scene", None))
         if scene is not None:
             settings.bake_start = int(scene.frame_start)
             settings.bake_end = int(scene.frame_end)

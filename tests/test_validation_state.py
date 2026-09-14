@@ -256,8 +256,8 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    # Validation, role colors, and recovery each install one load_post callback.
-    assert len(handlers.load_post) == 3
+    # Validation, role colors, recovery, and New Look image-cache cleanup.
+    assert len(handlers.load_post) == 4
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_viewport_handler", False)]) == 1
     assert len([f for f in handlers.load_post

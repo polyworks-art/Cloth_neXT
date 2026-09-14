@@ -706,7 +706,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
     new_look: bpy.props.BoolProperty(
         name="New Look", default=False,
-        description="Enable floating Cloth NeXt viewport controls",
+        description="Enable floating Cloth NeXt viewport controls; use the viewport shortcut to show or hide the toolbar",
         update=_new_look_changed)
 
     external_solver_path: bpy.props.StringProperty(
@@ -798,6 +798,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         viewport = layout.box()
         viewport.label(text="Viewport")
         viewport.prop(self, "new_look")
+        from . import floating_simulation
+        if floating_simulation._keymap_item is not None:
+            import rna_keymap_ui
+            viewport.label(text="Viewport Toolbar Shortcut")
+            rna_keymap_ui.draw_kmi(
+                [], context.window_manager.keyconfigs.addon,
+                floating_simulation._keymap,
+                floating_simulation._keymap_item, viewport, 0)
         viewport.prop(self, "show_role_colors")
         if getattr(self, "show_role_colors", False):
             viewport.label(

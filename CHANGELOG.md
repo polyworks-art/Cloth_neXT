@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.4.8 - 2026-09-14
+
+### Added
+
+- Editable F6 shortcut in Blender's 3D View keymap to temporarily show or hide
+  the New Look toolbar without changing the New Look preference.
+
+### Fixed
+
+- Opening a scene no longer leaves the floating toolbar without its icons and
+  labels.
+- Newly assigned deformable objects inherit an existing scene cache directory,
+  keeping the directory indicator in sync with the Bake settings.
+- BAKE now looks disabled when the existing simulation validation rejects the
+  scene, including when no deformable object is present.
+- Reduced the toolbar footprint and improved status readability and icon
+  placement. Extreme Quality retains its red state, including on hover.
+
+Simulation state, memory-safety telemetry, and the external PPF solver are
+unchanged.
+
 ## 2.4.7 - 2026-09-13
 
 ### Added

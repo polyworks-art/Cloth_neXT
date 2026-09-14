@@ -1,15 +1,14 @@
-# Cloth NeXt 2.4.7 Dev
+# Cloth NeXt 2.4.8 Dev
 
-Cloth NeXt 2.4.7 adds an optional New Look for the primary Simulation workflow.
-Enable it in Add-on Preferences to show a compact floating bar near the bottom
-of each compatible 3D Viewport. Leave it off to keep the existing Simulation
-panel. The preference defaults to off and can be changed without restarting
-Blender.
+Cloth NeXt 2.4.8 refines the optional New Look viewport toolbar. Press F6 to
+hide or restore it without changing the New Look preference. The shortcut can
+be edited in Blender's native 3D View keymap from Cloth NeXt Preferences.
 
-The bar uses Cloth NeXt's existing Set Cache Directory, Quality preset, Bake,
-Cancel and Diagnostics paths. Its directory bubble reflects the configured
-folder, and Bake availability and progress use the existing run state. The
-resource monitor UI has been removed; memory-safety telemetry remains active.
+The toolbar is more compact, with clearer status and error text. BAKE now looks
+disabled when the existing simulation validation rejects the scene, and the
+Extreme Quality control stays red. A newly assigned deformable inherits an
+existing scene cache directory, and opening a saved scene no longer leaves the
+toolbar missing its icons and labels.
 
-This is a presentation update. Existing simulation settings and Bake behavior
-are preserved. The external PPF solver is not part of this release.
+The Bake pipeline and memory-safety telemetry are unchanged. The external PPF
+solver is not included.

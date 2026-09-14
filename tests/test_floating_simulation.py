@@ -43,3 +43,73 @@ def test_handler_tracks_preference_without_duplicates(blender_env, monkeypatch):
     floating.sync(context)
     assert removed == [1]
     floating.unregister()
+
+
+def test_visibility_toggle_is_runtime_only_and_resets_on_reenable(
+        blender_env, monkeypatch):
+    floating = __import__("cloth_next.blender.floating_simulation",
+                          fromlist=["sync"])
+    prefs = SimpleNamespace(new_look=False)
+    context = SimpleNamespace(window_manager=SimpleNamespace(windows=()))
+    monkeypatch.setattr(floating, "_prefs", lambda _context: prefs)
+    monkeypatch.setattr(floating, "_tag_redraw", lambda _context: None)
+    floating.register()
+    prefs.new_look = True
+    floating.sync(context)
+    toggle = floating.CLOTHNEXT_OT_toggle_floating_ui()
+    assert floating.visible(context)
+    assert toggle.execute(context) == {"FINISHED"}
+    assert not floating.visible(context)
+    assert prefs.new_look
+    assert toggle.execute(context) == {"FINISHED"}
+    assert floating.visible(context)
+    toggle.execute(context)
+    prefs.new_look = False
+    floating.sync(context)
+    assert toggle.execute(context) == {"CANCELLED"}
+    prefs.new_look = True
+    floating.sync(context)
+    assert floating.visible(context)
+    floating.unregister()
+
+
+def test_scene_load_clears_stale_image_references(blender_env):
+    floating = __import__("cloth_next.blender.floating_simulation",
+                          fromlist=["_scene_loaded"])
+    floating._images["cloth_next"] = object()
+    floating._scene_loaded(None)
+    assert floating._images == {}
+
+
+def test_f6_keymap_registers_once_and_cleans_up(blender_env, monkeypatch):
+    floating = __import__("cloth_next.blender.floating_simulation",
+                          fromlist=["register"])
+
+    class Items(list):
+        def new(self, idname, key, value):
+            item = SimpleNamespace(idname=idname, type=key, value=value)
+            self.append(item)
+            return item
+
+    class Keymaps:
+        def __init__(self):
+            self.km = SimpleNamespace(keymap_items=Items())
+
+        def new(self, *, name, space_type):
+            assert (name, space_type) == ("3D View", "VIEW_3D")
+            return self.km
+
+    keymaps = Keymaps()
+    wm = SimpleNamespace(
+        windows=(), keyconfigs=SimpleNamespace(
+            addon=SimpleNamespace(keymaps=keymaps)))
+    monkeypatch.setattr(blender_env.bpy.context, "window_manager", wm)
+    floating.register()
+    floating.register()
+    assert len(keymaps.km.keymap_items) == 1
+    assert keymaps.km.keymap_items[0].type == "F6"
+    floating.unregister()
+    assert keymaps.km.keymap_items == []
+    floating.register()
+    assert len(keymaps.km.keymap_items) == 1
+    floating.unregister()

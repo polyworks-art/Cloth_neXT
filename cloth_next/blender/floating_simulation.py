@@ -20,6 +20,13 @@ from .addon_identity import addon_preferences
 _handle = None
 _registered = False
 _images = {}
+_toolbar_visible = True
+_last_enabled = False
+_keymap = None
+_keymap_item = None
+_LAYOUT_SCALE = 0.65
+_persistent = getattr(getattr(bpy.app, "handlers", None),
+                      "persistent", lambda fn: fn)
 _BG = (0.105, 0.119, 0.130, 0.94)  # charcoal
 _SURFACE = (0.17, 0.19, 0.21, 0.97)
 _CYAN = (0.06, 0.66, 0.85, 1.0)
@@ -42,8 +49,12 @@ def enabled(context):
     return bool(prefs and getattr(prefs, "new_look", False))
 
 
+def visible(context):
+    return enabled(context) and _toolbar_visible
+
+
 def _scale(context):
-    return max(0.75, float(context.preferences.system.ui_scale))
+    return max(0.75, float(context.preferences.system.ui_scale)) * _LAYOUT_SCALE
 
 
 def _quality_width(context):
@@ -138,6 +149,11 @@ def _centered_glyph(blf, text, cx, cy, size, color):
 
 def _asset_icon(gpu, batch_for_shader, name, x, y, size):
     image = _images.get(name)
+    try:
+        if image is not None and image.name not in bpy.data.images:
+            image = None
+    except ReferenceError:
+        image = None
     if image is None:
         path = Path(__file__).resolve().parent.parent / "assets" / "icons" / f"{name}.png"
         if not path.is_file():
@@ -155,9 +171,17 @@ def _asset_icon(gpu, batch_for_shader, name, x, y, size):
     batch.draw(shader)
 
 
+@_persistent
+def _scene_loaded(_dummy):
+    # Loading a .blend frees images from the old Main, invalidating RNA refs.
+    _images.clear()
+    if _registered:
+        _tag_redraw(bpy.context)
+
+
 def _draw():
     context = bpy.context
-    if not enabled(context):
+    if not visible(context):
         return
     bounds = _bounds(context)
     if bounds is None:
@@ -182,10 +206,12 @@ def _draw():
                  17*s, _SURFACE)
         _rounded(shader, batch_for_shader, x+126*s, y+8*s,
                  quality_width*s, h-16*s,
-                 17*s, _SURFACE)
+                 17*s, _DIR_MISSING if quality and
+                 quality.identifier == "EXTREME" else _SURFACE)
+        bake_ready = bool((snapshot.active and snapshot.can_cancel) or
+                          (not snapshot.active and model and model.enabled))
         _rounded(shader, batch_for_shader, x+bake_x*s, y+8*s, 82*s, h-16*s,
-                 17*s, _BLUE if model and model.enabled and not snapshot.active
-                 else _SURFACE)
+                 17*s, _BLUE if bake_ready else (0.12, 0.13, 0.14, 0.88))
         _rounded(shader, batch_for_shader, x+105*s, y+37*s, 18*s, 18*s,
                  9*s, _DIR_READY if directory_ok else _DIR_MISSING)
         _asset_icon(gpu, batch_for_shader, "cloth_next", x+14*s, y+10*s, 34*s)
@@ -200,8 +226,23 @@ def _draw():
             _TEXT if (snapshot.active and snapshot.can_cancel) or
             (model and model.enabled) else _MUTED)
         if message:
-            _label(blf, str(message)[:int(w / (6*s))], x+12*s, y+h+8*s,
-                   round(11*s), _MUTED)
+            recovery = getattr(getattr(context, "scene", None),
+                               "cloth_next_recovery", None)
+            error = bool(snapshot.error_summary or (model and model.reason))
+            error |= str(getattr(recovery, "status", "") or "") in {
+                "Recovery Check Failed", "Recovery Metadata Invalid",
+                "Recovery Incompatible", "Recovery Project Missing"}
+            ui = s / _LAYOUT_SCALE
+            ix, iy = x + 9*ui, y+h+13*ui
+            color = _DIR_MISSING if error else (1.0, 1.0, 1.0, 1.0)
+            _rounded(shader, batch_for_shader,
+                     ix-7*ui, iy-7*ui, 14*ui, 14*ui, 7*ui,
+                     _DIR_MISSING if error else _BLUE)
+            _centered_glyph(blf, "!" if error else "i", ix, iy,
+                            round(10*ui), (1.0, 1.0, 1.0, 1.0))
+            available = max(1, context.region.width - (ix+27*ui))
+            _label(blf, str(message)[:int(available / (6*ui))],
+                   ix+15*ui, iy-4*ui, round(11*ui), color)
     finally:
         gpu.state.blend_set("NONE")
 
@@ -221,6 +262,20 @@ class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):
                 row.operator(ids[key], text=key.title())
 
 
+class CLOTHNEXT_OT_toggle_floating_ui(bpy.types.Operator):
+    bl_idname = "clothnext.toggle_floating_ui"
+    bl_label = "Show/Hide Cloth NeXt Toolbar"
+    bl_description = "Temporarily show or hide the New Look viewport toolbar"
+
+    def execute(self, context):
+        global _toolbar_visible
+        if not enabled(context):
+            return {"CANCELLED"}
+        _toolbar_visible = not _toolbar_visible
+        _tag_redraw(context)
+        return {"FINISHED"}
+
+
 class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
     bl_idname = "CLOTHNEXT_GT_floating_simulation"
     bl_label = "Cloth NeXt New Look"
@@ -230,7 +285,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
 
     @classmethod
     def poll(cls, context):
-        return enabled(context) and _bounds(context) is not None
+        return visible(context) and _bounds(context) is not None
 
     def setup(self, context):
         self._buttons = []
@@ -238,7 +293,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                          "clothnext.bake", "clothnext.bake_cancel",
                          "clothnext.companion_open_logs"):
             gizmo = self.gizmos.new("GIZMO_GT_button_2d")
-            gizmo.icon = "INFO" if operator == "clothnext.companion_open_logs" else "BLANK1"
+            gizmo.icon = "BLANK1"
             gizmo.draw_options = set()
             gizmo.color = _SURFACE[:3]
             gizmo.alpha = 0.01
@@ -252,27 +307,37 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
 
     def refresh(self, context):
         from mathutils import Matrix
+        if not visible(context):
+            for gizmo in self._buttons:
+                gizmo.hide = True
+            return
         bounds = _bounds(context)
         if bounds is None:
             return
         x, y, _w, _h, s = bounds
         quality_width = _quality_width(context)
-        model, snapshot, _quality, _directory_ok, message = _state(context)
+        model, snapshot, quality, _directory_ok, message = _state(context)
+        ui = s / _LAYOUT_SCALE
         positions = ((91, 27), (126 + quality_width/2, 27),
                      (177 + quality_width, 27),
                      (177 + quality_width, 27),
-                     (213 + quality_width, 71))
+                     (9*ui/s, 54 + 13*ui/s))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
-            gizmo.scale_basis = 18*s
+            gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
+                                 else max(16*ui, 19*s))
         self._buttons[0].hide = snapshot.active
         self._buttons[1].hide = snapshot.active
+        self._buttons[1].color_highlight = (
+            _DIR_MISSING if quality and quality.identifier == "EXTREME"
+            else _CYAN)[:3]
         self._buttons[2].hide = snapshot.active or not (model and model.enabled)
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
         self._buttons[4].hide = not bool(message)
 
 
-CLASSES = (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_GT_floating_simulation)
+CLASSES = (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+           CLOTHNEXT_GT_floating_simulation)
 
 
 def _tag_redraw(context):
@@ -290,16 +355,20 @@ def _pulse():
 
 
 def sync(context=None):
-    global _handle
+    global _handle, _toolbar_visible, _last_enabled
     if not _registered:
         return
     context = context or bpy.context
-    if enabled(context) and _handle is None:
+    active = enabled(context)
+    if active and not _last_enabled:
+        _toolbar_visible = True
+    _last_enabled = active
+    if active and _handle is None:
         _handle = bpy.types.SpaceView3D.draw_handler_add(
             _draw, (), "WINDOW", "POST_PIXEL")
         if not bpy.app.timers.is_registered(_pulse):
             bpy.app.timers.register(_pulse, first_interval=0.5)
-    elif not enabled(context) and _handle is not None:
+    elif not active and _handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_handle, "WINDOW")
         _handle = None
         if bpy.app.timers.is_registered(_pulse):
@@ -308,21 +377,40 @@ def sync(context=None):
 
 
 def register():
-    global _registered
+    global _registered, _keymap, _keymap_item
     _registered = True
+    handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
+    if handlers is not None and _scene_loaded not in handlers:
+        handlers.append(_scene_loaded)
+    kc = getattr(getattr(bpy.context.window_manager, "keyconfigs", None),
+                 "addon", None)
+    if kc is not None and _keymap_item is None:
+        _keymap = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        _keymap_item = _keymap.keymap_items.new(
+            CLOTHNEXT_OT_toggle_floating_ui.bl_idname, "F6", "PRESS")
     sync()
 
 
 def unregister():
-    global _registered, _handle
+    global _registered, _handle, _keymap, _keymap_item, _last_enabled
     _registered = False
+    handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
+    if handlers is not None and _scene_loaded in handlers:
+        handlers.remove(_scene_loaded)
+    if _keymap is not None and _keymap_item is not None:
+        _keymap.keymap_items.remove(_keymap_item)
+    _keymap = _keymap_item = None
+    _last_enabled = False
     if _handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_handle, "WINDOW")
         _handle = None
     if bpy.app.timers.is_registered(_pulse):
         bpy.app.timers.unregister(_pulse)
     for image in _images.values():
-        if image.name in bpy.data.images:
-            bpy.data.images.remove(image)
+        try:
+            if image.name in bpy.data.images:
+                bpy.data.images.remove(image)
+        except ReferenceError:
+            pass
     _images.clear()
     _tag_redraw(bpy.context)
