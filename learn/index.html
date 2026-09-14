@@ -1,237 +1,92 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101714">
-  <meta name="description" content="Learn Cloth NeXt with guided learning paths, focused tutorials, reference material and troubleshooting guides.">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Learn Cloth NeXt">
-  <meta property="og:description" content="Official Cloth NeXt learning library for Blender artists.">
-  <meta property="og:url" content="https://polyworks-art.github.io/Cloth_neXT/learn/">
-  <meta property="og:image" content="https://polyworks-art.github.io/Cloth_neXT/assets/media/WP_Hero2.webp">
-  <meta name="twitter:card" content="summary_large_image">
-  <title>Learn Cloth NeXt</title>
-  <link rel="canonical" href="https://polyworks-art.github.io/Cloth_neXT/learn/">
-  <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles.css">
-  <link rel="stylesheet" href="learn.css?v=20260914-3">
-  <link rel="stylesheet" href="design.css?v=20260914-1">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="#101714" name="theme-color"/>
+<meta content="Learn Cloth NeXt with guided learning paths, focused tutorials, reference material and troubleshooting guides." name="description"/>
+<meta content="website" property="og:type"/>
+<meta content="Learn Cloth NeXt" property="og:title"/>
+<meta content="Official Cloth NeXt learning library for Blender artists." property="og:description"/>
+<meta content="https://polyworks-art.github.io/Cloth_neXT/learn/" property="og:url"/>
+<meta content="https://polyworks-art.github.io/Cloth_neXT/assets/media/WP_Hero2.webp" property="og:image"/>
+<meta content="summary_large_image" name="twitter:card"/>
+<title>Learn Cloth NeXt</title>
+<link href="https://polyworks-art.github.io/Cloth_neXT/learn/" rel="canonical"/>
+<link href="../assets/cloth-next-white.svg" rel="icon" type="image/svg+xml"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="../styles.css" rel="stylesheet"/>
+<link href="learn.css?v=20260914-3" rel="stylesheet"/>
+<link href="design.css?v=20260914-1" rel="stylesheet"/>
+<link href="route.css?v=20260914-1" rel="stylesheet"/>
 </head>
 <body class="learn-page">
-  <a class="skip-link" href="#library">Skip to learning library</a>
+<a class="skip-link" href="library/">Skip to learning library</a>
+<header class="site-header learn-header" data-header="">
+<a aria-label="Cloth NeXt home" class="brand" href="../">
+<img alt="" height="34" src="../assets/cloth-next-white.svg" width="44"/>
+<span>Cloth NeXt</span>
+</a>
+<nav aria-label="Learn navigation">
+<a class="nav-current" href="./">Learn</a>
+<a href="../releases/">Releases</a>
+<a href="../errors/">Errors</a>
+<a href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+</nav>
+<a class="nav-cta" href="https://superhivemarket.com/products/cloth-next" rel="noreferrer" target="_blank">Get Cloth NeXt</a>
+</header>
+<main>
+<section aria-labelledby="learn-title" class="learn-hero">
+<div class="learn-hero-inner">
+<div class="learn-hero-copy">
+<div class="learn-kicker"><span></span> THE CLOTH NEXT LEARNING CENTER</div>
+<h1 id="learn-title">Make the<br/><em>impossible</em> move.</h1>
+<p>From your first cloth bake to complex character setups. Learn the workflow, understand the controls, and get back to creating.</p>
+<div class="hero-actions">
+<a class="button button-primary" href="#paths">Start learning <span aria-hidden="true">↗</span></a>
+<a class="button button-secondary" href="library/">Explore the library <span aria-hidden="true">↓</span></a>
+</div>
+<div aria-label="Learning center highlights" class="hero-stats"><div><strong>03</strong><span>learning paths</span></div><div><strong>12</strong><span>focused tutorials</span></div><div><strong>01</strong><span>creative workflow</span></div></div>
+</div>
+<div class="learn-hero-visual"><img alt="Simulated garment created with Cloth NeXt" fetchpriority="high" src="../assets/media/WP_Hero2.webp"/><div class="hero-image-shade"></div><span class="hero-image-tag">SIMULATION IN MOTION <b>↗</b></span><span class="hero-image-index">01 / CREATE</span></div>
+</div>
+<div class="learn-hero-foot"><span>DISCOVER YOUR NEXT MOVE</span><span aria-hidden="true">↓</span><span>BLENDER × CLOTH NEXT</span></div>
+</section>
+<div aria-label="Learning center sections" class="learn-quick-nav"><a href="#paths"><span>01</span> Learning paths</a><a href="library/"><span>02</span> Tutorial library</a><a href="tutorials/installation/"><span>03</span> First tutorial</a><a href="../superhive/docs/"><span>04</span> Documentation</a></div>
+<section class="paths-section" id="paths">
+<div class="section-copy">
+<span class="eyebrow">LEARNING PATHS</span>
+<h2>Start with a goal.</h2>
+<p>Each path groups the tutorials that matter for a specific workflow, so you do not have to read the whole manual before getting useful results.</p>
+</div>
+<div class="path-grid">
+<a class="path-card" href="paths/getting-started/">
+<div class="path-art path-art-start"><img alt="Cloth NeXt inside Blender" loading="lazy" src="../assets/media/Screenshot%202026-07-30%20233624.png"/></div>
+<div class="path-body"><span>BEGINNER PATH</span><h3>Getting Started</h3><p>Install Cloth NeXt, connect PPF, create your first Cloth and Collider setup, then complete a short Bake.</p><small>5 tutorials</small></div>
+</a>
+<a class="path-card" href="paths/character-cloth/">
+<div class="path-art"><img alt="Character collision cage" loading="lazy" src="../assets/media/Screenshot%202026-07-30%20233904.png"/></div>
+<div class="path-body"><span>INTERMEDIATE PATH</span><h3>Character Cloth</h3><p>Build collision around animation, pin garments, tune contact and move from test shots to stable character simulation.</p><small>5 tutorials</small></div>
+</a>
+<a class="path-card" href="paths/production/">
+<div class="path-art"><img alt="Cloth NeXt Bake feedback" loading="lazy" src="../assets/media/Bake.png"/></div>
+<div class="path-body"><span>ADVANCED PATH</span><h3>Production and Recovery</h3><p>Understand caches, Live View, scene validation, update channels, diagnostics and safe recovery after interrupted solves.</p><small>4 tutorials</small></div>
+</a>
+</div>
+</section><div class="hub-cta"><div><span class="eyebrow">EXPLORE YOUR WAY</span><h2>Looking for something specific?</h2><p>Search all twelve focused tutorials by topic and level.</p></div><a class="button button-primary" href="library/">Browse all tutorials ↗</a></div>
 
-  <header class="site-header learn-header" data-header>
-    <a class="brand" href="../" aria-label="Cloth NeXt home">
-      <img src="../assets/cloth-next-white.svg" alt="" width="44" height="34">
-      <span>Cloth NeXt</span>
-    </a>
-    <nav aria-label="Learn navigation">
-      <a class="nav-current" href="./">Learn</a>
-      <a href="../releases/">Releases</a>
-      <a href="../errors/">Errors</a>
-      <a href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
-    </nav>
-    <a class="nav-cta" href="https://superhivemarket.com/products/cloth-next" target="_blank" rel="noreferrer">Get Cloth NeXt</a>
-  </header>
 
-  <main>
-    <section class="learn-hero" aria-labelledby="learn-title">
-      <div class="learn-hero-inner">
-        <div class="learn-hero-copy">
-          <div class="learn-kicker"><span></span> THE CLOTH NEXT LEARNING CENTER</div>
-          <h1 id="learn-title">Make the<br><em>impossible</em> move.</h1>
-          <p>From your first cloth bake to complex character setups. Learn the workflow, understand the controls, and get back to creating.</p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="#paths">Start learning <span aria-hidden="true">↗</span></a>
-            <a class="button button-secondary" href="#library">Explore the library <span aria-hidden="true">↓</span></a>
-          </div>
-          <div class="hero-stats" aria-label="Learning center highlights"><div><strong>03</strong><span>learning paths</span></div><div><strong>12</strong><span>focused tutorials</span></div><div><strong>01</strong><span>creative workflow</span></div></div>
-        </div>
-        <div class="learn-hero-visual"><img src="../assets/media/WP_Hero2.webp" alt="Simulated garment created with Cloth NeXt" fetchpriority="high"><div class="hero-image-shade"></div><span class="hero-image-tag">SIMULATION IN MOTION <b>↗</b></span><span class="hero-image-index">01 / CREATE</span></div>
-      </div>
-      <div class="learn-hero-foot"><span>DISCOVER YOUR NEXT MOVE</span><span aria-hidden="true">↓</span><span>BLENDER × CLOTH NEXT</span></div>
-    </section>
 
-    <div class="learn-quick-nav" aria-label="Learning center sections"><a href="#paths"><span>01</span> Learning paths</a><a href="#library"><span>02</span> Tutorial library</a><a href="#guides"><span>03</span> In-depth guides</a><a href="#reference"><span>04</span> Reference</a></div>
-
-    <section class="paths-section" id="paths">
-      <div class="section-copy">
-        <span class="eyebrow">LEARNING PATHS</span>
-        <h2>Start with a goal.</h2>
-        <p>Each path groups the tutorials that matter for a specific workflow, so you do not have to read the whole manual before getting useful results.</p>
-      </div>
-      <div class="path-grid">
-        <a class="path-card" href="#library" data-path-filter="getting-started">
-          <div class="path-art path-art-start"><img src="../assets/media/Screenshot%202026-07-30%20233624.png" alt="Cloth NeXt inside Blender" loading="lazy"></div>
-          <div class="path-body"><span>BEGINNER PATH</span><h3>Getting Started</h3><p>Install Cloth NeXt, connect PPF, create your first Cloth and Collider setup, then complete a short Bake.</p><small>5 lessons</small></div>
-        </a>
-        <a class="path-card" href="#library" data-path-filter="character-cloth">
-          <div class="path-art"><img src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character collision cage" loading="lazy"></div>
-          <div class="path-body"><span>INTERMEDIATE PATH</span><h3>Character Cloth</h3><p>Build collision around animation, pin garments, tune contact and move from test shots to stable character simulation.</p><small>6 lessons</small></div>
-        </a>
-        <a class="path-card" href="#library" data-path-filter="production">
-          <div class="path-art"><img src="../assets/media/Bake.png" alt="Cloth NeXt Bake feedback" loading="lazy"></div>
-          <div class="path-body"><span>ADVANCED PATH</span><h3>Production and Recovery</h3><p>Understand caches, Live View, scene validation, update channels, diagnostics and safe recovery after interrupted solves.</p><small>6 lessons</small></div>
-        </a>
-      </div>
-    </section>
-
-    <section class="library-section" id="library">
-      <div class="library-heading">
-        <div><span class="eyebrow">LEARNING LIBRARY</span><h2>Find the lesson you need.</h2></div>
-        <p>Search by workflow, filter by level or topic, then jump directly into the relevant guide.</p>
-      </div>
-
-      <div class="library-layout">
-        <aside class="filter-panel" aria-label="Tutorial filters">
-          <div class="filter-search">
-            <label for="tutorial-search">Search</label>
-            <input id="tutorial-search" type="search" placeholder="Try pinning, shrink, cache..." data-library-search>
-          </div>
-
-          <fieldset>
-            <legend>Level</legend>
-            <label><input type="checkbox" value="beginner" data-filter="level"> Beginner</label>
-            <label><input type="checkbox" value="intermediate" data-filter="level"> Intermediate</label>
-            <label><input type="checkbox" value="advanced" data-filter="level"> Advanced</label>
-          </fieldset>
-
-          <fieldset>
-            <legend>Topic</legend>
-            <label><input type="checkbox" value="setup" data-filter="topic"> Setup</label>
-            <label><input type="checkbox" value="materials" data-filter="topic"> Materials</label>
-            <label><input type="checkbox" value="characters" data-filter="topic"> Characters</label>
-            <label><input type="checkbox" value="simulation" data-filter="topic"> Simulation</label>
-            <label><input type="checkbox" value="cache" data-filter="topic"> Cache and Recovery</label>
-            <label><input type="checkbox" value="troubleshooting" data-filter="topic"> Troubleshooting</label>
-          </fieldset>
-
-          <button class="clear-filters" type="button" data-clear-filters>Clear filters</button>
-        </aside>
-
-        <div class="library-results">
-          <div class="library-toolbar">
-            <span data-result-count>12 tutorials</span>
-            <div class="sort-control"><label for="tutorial-sort">Sort</label><select id="tutorial-sort" data-library-sort><option value="featured">Featured</option><option value="beginner">Beginner first</option><option value="advanced">Advanced first</option><option value="title">A to Z</option></select></div>
-          </div>
-
-          <div class="tutorial-grid" data-tutorial-grid>
-            <a class="tutorial-card" href="#tutorial-first-sim" data-level="beginner" data-topic="setup simulation" data-path="getting-started" data-title="Your First Simulation">
-              <div class="tutorial-thumb"><img src="../assets/media/WP_Hero2.webp" alt="Simulated Cloth NeXt garment" loading="lazy"><span>QUICK START</span></div>
-              <div class="tutorial-body"><h3>Your First Simulation</h3><p>Build a tiny Cloth and Collider scene, set a cache directory and complete a short test Bake.</p><div class="tutorial-meta"><strong>BEGINNER</strong><span>Setup</span><span>10 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-install" data-level="beginner" data-topic="setup troubleshooting" data-path="getting-started" data-title="Install Cloth NeXt and Connect PPF">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/solver.svg" alt="" loading="lazy"><span>SETUP</span></div>
-              <div class="tutorial-body"><h3>Install Cloth NeXt and Connect PPF</h3><p>Understand the extension, managed solver setup, external installations and the health check.</p><div class="tutorial-meta"><strong>BEGINNER</strong><span>Setup</span><span>8 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-new-look" data-level="beginner" data-topic="setup simulation" data-path="getting-started" data-title="Use the New Look Toolbar">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/bake.svg" alt="" loading="lazy"><span>WORKFLOW</span></div>
-              <div class="tutorial-body"><h3>Use the New Look Toolbar</h3><p>Set the cache directory, choose quality, Bake from the viewport and use F6 to show or hide the toolbar.</p><div class="tutorial-meta"><strong>BEGINNER</strong><span>Workflow</span><span>6 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-materials" data-level="beginner" data-topic="materials simulation" data-path="getting-started character-cloth" data-title="Tune Cloth Materials">
-              <div class="tutorial-thumb"><img src="../assets/media/SH_IF_new.webp" alt="Cloth material simulation result" loading="lazy"><span>MATERIALS</span></div>
-              <div class="tutorial-body"><h3>Tune Cloth Materials</h3><p>Learn Surface Weight, Stretch Resistance, Bend Resistance, friction, pressure and Shrink without guesswork.</p><div class="tutorial-meta"><strong>BEGINNER</strong><span>Materials</span><span>14 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-pinning" data-level="intermediate" data-topic="characters simulation" data-path="character-cloth" data-title="Pin Cloth to Animation">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/pinning.svg" alt="" loading="lazy"><span>PINNING</span></div>
-              <div class="tutorial-body"><h3>Pin Cloth to Animation</h3><p>Use Blender vertex groups with Static or Follow Animation pins and understand what the solver actually receives.</p><div class="tutorial-meta"><strong>INTERMEDIATE</strong><span>Characters</span><span>12 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-colliders" data-level="intermediate" data-topic="characters simulation" data-path="character-cloth" data-title="Animated Colliders and Character Cages">
-              <div class="tutorial-thumb"><img src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character collision cage" loading="lazy"><span>CHARACTERS</span></div>
-              <div class="tutorial-body"><h3>Animated Colliders and Character Cages</h3><p>Choose collider motion, build character proxies and keep animated topology stable during Bake.</p><div class="tutorial-meta"><strong>INTERMEDIATE</strong><span>Characters</span><span>15 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-forces" data-level="intermediate" data-topic="simulation" data-path="character-cloth" data-title="Gravity Wind and Air">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/force.svg" alt="" loading="lazy"><span>FORCES</span></div>
-              <div class="tutorial-body"><h3>Gravity, Wind and Air</h3><p>Use Force objects for directional gravity, wind and aerodynamic settings with animation support.</p><div class="tutorial-meta"><strong>INTERMEDIATE</strong><span>Simulation</span><span>9 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-live-view" data-level="intermediate" data-topic="simulation cache" data-path="production" data-title="Bake and Live View">
-              <div class="tutorial-thumb"><img src="../assets/media/Bake.png" alt="Bake feedback window" loading="lazy"><span>BAKE</span></div>
-              <div class="tutorial-body"><h3>Bake and Live View</h3><p>Understand validation, solver startup, confirmed live frames, progress, Cancel and the final playback handoff.</p><div class="tutorial-meta"><strong>INTERMEDIATE</strong><span>Simulation</span><span>11 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-cache" data-level="advanced" data-topic="cache troubleshooting" data-path="production" data-title="Caches Rebake and Recovery">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/cache.svg" alt="" loading="lazy"><span>CACHE</span></div>
-              <div class="tutorial-body"><h3>Caches, Rebake and Recovery</h3><p>Know when a result is valid, what invalidates it and how Cloth NeXt protects previous caches during replacement.</p><div class="tutorial-meta"><strong>ADVANCED</strong><span>Cache</span><span>14 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-troubleshooting" data-level="advanced" data-topic="troubleshooting setup" data-path="production" data-title="Troubleshoot a Failed Bake">
-              <div class="tutorial-thumb tutorial-icon danger"><img src="../assets/diagnostics.svg" alt="" loading="lazy"><span>TROUBLESHOOTING</span></div>
-              <div class="tutorial-body"><h3>Troubleshoot a Failed Bake</h3><p>Read CNX errors, separate solver problems from scene problems and use diagnostics without random parameter changes.</p><div class="tutorial-meta"><strong>ADVANCED</strong><span>Troubleshooting</span><span>12 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-roles" data-level="intermediate" data-topic="setup simulation" data-path="getting-started character-cloth" data-title="Choose the Right Simulation Role">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/cloth.svg" alt="" loading="lazy"><span>REFERENCE</span></div>
-              <div class="tutorial-body"><h3>Choose the Right Simulation Role</h3><p>Cloth, Rod, Soft Body, Rigid Body, Collider and Force each have a different job in the same scene.</p><div class="tutorial-meta"><strong>INTERMEDIATE</strong><span>Setup</span><span>7 min</span></div></div>
-            </a>
-
-            <a class="tutorial-card" href="#tutorial-updates" data-level="advanced" data-topic="setup troubleshooting" data-path="production" data-title="Stable Beta and Dev Channels">
-              <div class="tutorial-thumb tutorial-icon"><img src="../assets/setup.svg" alt="" loading="lazy"><span>UPDATES</span></div>
-              <div class="tutorial-body"><h3>Stable, Beta and Dev Channels</h3><p>Pick the right confidence level, switch channels through Blender and understand what belongs in production.</p><div class="tutorial-meta"><strong>ADVANCED</strong><span>Setup</span><span>6 min</span></div></div>
-            </a>
-          </div>
-
-          <div class="empty-state" data-empty-state hidden><strong>No tutorials found.</strong><p>Try removing a filter or using a broader search term.</p></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="guide-section" id="guides">
-      <div class="guide-heading"><span class="eyebrow">GUIDE CHAPTERS</span><h2>Read the workflow in detail.</h2><p>The library gets you to the right topic. These chapters keep the full reference on one page for fast lookup.</p></div>
-
-      <article class="guide-chapter" id="tutorial-first-sim"><div class="chapter-label">01 · BEGINNER</div><div><h2>Your First Simulation</h2><p>Use one subdivided plane as Cloth and one simple mesh as Collider. Enable Cloth NeXt on both objects, assign the roles, choose a valid cache directory and keep the first Bake short. A 20 to 50 frame test is enough to verify the complete pipeline before you add animation or extra contact.</p><ol><li>Apply sensible object scale and start from clean geometry.</li><li>Choose Cloth for the deforming object and Collider for the obstacle.</li><li>Set the cache directory with Set Dir.</li><li>Choose a material preset close to your target fabric.</li><li>Bake a short range and inspect contact, stretch and settling.</li></ol><div class="chapter-note">If the tiny test fails, fix the setup first. Do not compensate for a broken pipeline by changing random material values.</div></div></article>
-
-      <article class="guide-chapter" id="tutorial-install"><div class="chapter-label">02 · BEGINNER</div><div><h2>Install Cloth NeXt and Connect PPF</h2><p>Cloth NeXt is the Blender integration layer. The PPF Contact Solver is separate software maintained by ST Tech / ZOZO. Cloth NeXt can work with a managed installation, a solver you installed yourself, or an already-running external server.</p><div class="chapter-grid"><div><strong>Managed</strong><span>Cloth NeXt downloads an explicitly approved compatible release from the official source, verifies it and installs it side by side.</span></div><div><strong>External installation</strong><span>Select a solver you already own. Cloth NeXt validates it but does not modify or update its files.</span></div><div><strong>External server</strong><span>Connect to a server that is already running. Cloth NeXt does not take over its process lifecycle.</span></div></div><div class="chapter-note">Run Solver Health Check before the first production Bake.</div></div></article>
-
-      <article class="guide-chapter" id="tutorial-new-look"><div class="chapter-label">03 · BEGINNER</div><div><h2>Use the New Look Toolbar</h2><p>New Look is the optional compact viewport interface. Set Dir chooses the production cache location. Quality changes the same solver quality presets used elsewhere. BAKE starts the canonical Bake workflow and stays unavailable when the scene does not meet the real Bake requirements.</p><div class="mini-toolbar"><span>CNX</span><b>Set Dir</b><b>Low ▾</b><strong>BAKE</strong></div><p>F6 temporarily slides the toolbar below the Viewport edge. Press F6 again to bring it back. The shortcut is editable through Blender's native keymap system. Extreme quality remains red so it is easy to recognize.</p></div></article>
-
-      <article class="guide-chapter" id="tutorial-materials"><div class="chapter-label">04 · BEGINNER</div><div><h2>Tune Cloth Materials</h2><p>Start from a preset, then change the few properties that describe the problem you actually see. Surface Weight changes inertia. Stretch Resistance controls in-plane stretch. Bend Resistance changes how readily folds form. Friction affects sliding contact. Pressure pushes outward. Shrink changes the rest shape.</p><table><thead><tr><th>Control</th><th>Use it when</th></tr></thead><tbody><tr><td>Surface Weight</td><td>The fabric feels too light or too heavy in motion.</td></tr><tr><td>Stretch Resistance</td><td>The cloth elongates too easily or feels too rigid in-plane.</td></tr><tr><td>Bend Resistance</td><td>Folds are too sharp, too soft or too broad.</td></tr><tr><td>Surface Grip</td><td>Contact slides too freely or sticks too strongly.</td></tr><tr><td>Shrink</td><td>You want a smaller or larger rest shape. Positive values contract, negative values expand.</td></tr></tbody></table><div class="chapter-note">Shrink and an enabled non-zero Stretch Limit cannot be combined. Cloth NeXt reports that conflict before Bake.</div></div></article>
-
-      <article class="guide-chapter" id="tutorial-pinning"><div class="chapter-label">05 · INTERMEDIATE</div><div><h2>Pin Cloth to Animation</h2><p>Pinning uses an ordinary Blender vertex group. Static pins hold the evaluated Bake Start positions. Follow Animation samples the evaluated Blender positions across the Bake range and sends those positions to the solver. Keep the pin group focused around attachment regions rather than painting half the garment at full weight.</p><ol><li>Create a vertex group on the Cloth object.</li><li>Paint only the vertices that should be constrained.</li><li>Choose Static for a fixed attachment or Follow Animation for animated targets.</li><li>Test the attachment with a short range before running the full shot.</li></ol></div></article>
-
-      <article class="guide-chapter" id="tutorial-colliders"><div class="chapter-label">06 · INTERMEDIATE</div><div><h2>Animated Colliders and Character Cages</h2><p>Static Colliders are ideal for fixed obstacles. Animated Colliders capture evaluated Blender transforms and supported topology-preserving deformation. For characters, collision cages reduce the amount of geometry sent into the contact solve while following the animated body.</p><figure><img src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character collision cage in Blender" loading="lazy"><figcaption>Character collision cages keep the contact setup visible and editable in Blender.</figcaption></figure><div class="chapter-note">Topology changes during the Bake range are rejected. Armatures, shape keys and supported deforming modifiers are useful only while the evaluated topology remains stable.</div></div></article>
-
-      <article class="guide-chapter" id="tutorial-forces"><div class="chapter-label">07 · INTERMEDIATE</div><div><h2>Gravity, Wind and Air</h2><p>Force objects use Blender Empties as artist-friendly controls. Gravity points along local negative Z. Wind points along local positive Z. Rotate the Empty to aim the force. Multiple supported force contributions can participate in the same scene and animated values are sampled for the solve.</p><div class="chapter-grid"><div><strong>Gravity</strong><span>Use direction and magnitude to define the scene acceleration.</span></div><div><strong>Wind</strong><span>Use direction and strength for animated environmental motion.</span></div><div><strong>Air</strong><span>Use Air Density, Air Friction and Vertex Air Damping to shape aerodynamic response.</span></div></div></div></article>
-
-      <article class="guide-chapter" id="tutorial-live-view"><div class="chapter-label">08 · INTERMEDIATE</div><div><h2>Bake and Live View</h2><p>BAKE first validates the scene, prepares evaluated inputs and starts the external solver. Live View is progress feedback while the result is still being written. Cloth NeXt only exposes confirmed complete PC2 frames and holds the last confirmed frame until the next one is fully available. Finalized playback uses the normal final cache behavior.</p><figure><img src="../assets/media/Bake.png" alt="Cloth NeXt Bake progress" loading="lazy"><figcaption>Use Live View to follow progress. Judge the finished result from the finalized playback cache.</figcaption></figure><div class="chapter-note">Cancel uses the existing solver cancellation path. A cancelled or failed Bake should not destroy the previous valid playback result.</div></div></article>
-
-      <article class="guide-chapter" id="tutorial-cache"><div class="chapter-label">09 · ADVANCED</div><div><h2>Caches, Rebake and Recovery</h2><p>Cloth NeXt treats playback caches as versioned production data. A successful Bake records the geometry and settings identity used to create the result. Changing solver-visible settings or geometry invalidates that relationship and a Rebake is required.</p><ol><li>The old valid result remains authoritative while a replacement Bake starts.</li><li>The new cache is verified before Cloth NeXt hands playback over to it.</li><li>Obsolete owned cache generations are cleaned only after the successor is committed.</li><li>Recovery data is accepted only when it matches the expected solver and scene identity.</li></ol></div></article>
-
-      <article class="guide-chapter" id="tutorial-troubleshooting"><div class="chapter-label">10 · ADVANCED</div><div><h2>Troubleshoot a Failed Bake</h2><p>Start with the first clear CNX error instead of changing several settings at once. Separate installation failures, geometry failures, contact failures, storage failures and cache failures. The Errors page gives stable guidance for public CNX error codes.</p><div class="trouble-list"><div><span>1</span><strong>Read the first error</strong><p>Use the exact CNX code and message.</p></div><div><span>2</span><strong>Check solver health</strong><p>If the solver cannot pass its health check, stop there.</p></div><div><span>3</span><strong>Reduce the scene</strong><p>Use a short range and remove unrelated objects until the failure is isolated.</p></div><div><span>4</span><strong>Use Diagnostics</strong><p>Export a privacy-safe report when you need support.</p></div></div><a class="text-link" href="../errors/">Open error guidance <span aria-hidden="true">→</span></a></div></article>
-
-      <article class="guide-chapter" id="tutorial-roles"><div class="chapter-label">11 · INTERMEDIATE</div><div><h2>Choose the Right Simulation Role</h2><div class="role-reference"><div><img src="../assets/cloth.svg" alt=""><strong>Cloth</strong><span>Triangle shell deformation and garment simulation.</span></div><div><img src="../assets/rod.svg" alt=""><strong>Rod / Cable</strong><span>One-dimensional curve simulation for cables and ropes.</span></div><div><img src="../assets/physical.svg" alt=""><strong>Soft Body</strong><span>Volumetric deformation from a closed manifold mesh.</span></div><div><img src="../assets/physical.svg" alt=""><strong>Rigid Body</strong><span>Solid moving body behavior for supported scenes.</span></div><div><img src="../assets/collider.svg" alt=""><strong>Collider</strong><span>Static or animated collision geometry.</span></div><div><img src="../assets/force.svg" alt=""><strong>Force</strong><span>Scene gravity, wind and aerodynamic controls.</span></div></div></div></article>
-
-      <article class="guide-chapter" id="tutorial-updates"><div class="chapter-label">12 · ADVANCED</div><div><h2>Stable, Beta and Dev Channels</h2><p>Stable is the production promise. Beta is for release candidates and newer fixes that still need broader validation. Dev is for active testing and may contain experimental work. Cloth NeXt uses Blender's Extension system for add-on updates rather than replacing its own files while running.</p><div class="chapter-grid"><div><strong>Stable</strong><span>Use this for normal production work.</span></div><div><strong>Beta</strong><span>Use this when you intentionally want to test upcoming releases.</span></div><div><strong>Dev</strong><span>Use this only when you understand that the build may be experimental.</span></div></div><a class="text-link" href="../releases/">View current channel builds <span aria-hidden="true">→</span></a></div></article>
-    </section>
-
-    <section class="reference-section" id="reference">
-      <div><span class="eyebrow">REFERENCE</span><h2>Go deeper when you need it.</h2><p>The artist guides above stay focused on workflow. The technical documents explain the solver mapping, cache contract, installation model and implementation boundaries.</p></div>
-      <div class="reference-links">
-        <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/PPF_PARAMETER_MAPPING.md"><strong>PPF parameter mapping</strong><span>Exact artist control to solver parameter mapping.</span></a>
-        <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/MATERIAL_LIBRARY.md"><strong>Material library</strong><span>Preset categories, sources and calibration notes.</span></a>
-        <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/SOLVER_INSTALLATION.md"><strong>Solver installation</strong><span>Managed, external and server installation behavior.</span></a>
-        <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/CACHE_FORMAT.md"><strong>Cache format</strong><span>Playback metadata and cache integrity details.</span></a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <a class="brand" href="../"><img src="../assets/cloth-next-white.svg" alt="" width="40" height="31"><span>Cloth NeXt</span></a>
-    <div class="footer-links"><a href="./">Learn</a><a href="../releases/">Releases</a><a href="../errors/">Errors</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a></div>
-    <small>PolyWorks · Cloth NeXt</small>
-  </footer>
-
-  <script src="../app.js" defer></script>
-  <script src="learn.js?v=20260914-3" defer></script>
+</main>
+<footer>
+<a class="brand" href="../"><img alt="" height="31" src="../assets/cloth-next-white.svg" width="40"/><span>Cloth NeXt</span></a>
+<div class="footer-links"><a href="./">Learn</a><a href="../releases/">Releases</a><a href="../errors/">Errors</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a></div>
+<small>PolyWorks · Cloth NeXt</small>
+</footer>
+<script defer="" src="../app.js"></script>
+<script defer="" src="learn.js?v=20260914-3"></script>
 </body>
 </html>
