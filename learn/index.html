@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080a09">
+  <meta name="description" content="Learn Cloth NeXt from first installation to materials, pinning, colliders, forces, baking, recovery and troubleshooting.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Learn Cloth NeXt">
+  <meta property="og:description" content="A complete artist-focused guide to Cloth NeXt for Blender.">
+  <meta property="og:url" content="https://polyworks-art.github.io/Cloth_neXT/learn/">
+  <meta property="og:image" content="https://polyworks-art.github.io/Cloth_neXT/assets/media/WP_Hero2.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>Learn Cloth NeXt</title>
+  <link rel="canonical" href="https://polyworks-art.github.io/Cloth_neXT/learn/">
+  <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="learn.css?v=20260914-1">
+</head>
+<body class="learn-page">
+  <a class="skip-link" href="#learn-main">Skip to guide</a>
+
+  <header class="site-header learn-header" data-header>
+    <a class="brand" href="../" aria-label="Cloth NeXt home">
+      <img src="../assets/cloth-next-white.svg" alt="" width="44" height="34">
+      <span>Cloth NeXt</span>
+    </a>
+    <nav aria-label="Learn navigation">
+      <a class="nav-current" href="./">Learn</a>
+      <a href="../releases/">Releases</a>
+      <a href="../errors/">Errors</a>
+      <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+    <a class="nav-cta" href="https://superhivemarket.com/products/cloth-next" target="_blank" rel="noreferrer">Get Cloth NeXt</a>
+  </header>
+
+  <main id="learn-main">
+    <section class="learn-hero" id="top">
+      <div class="learn-hero-grid">
+        <div class="learn-hero-copy reveal">
+          <div class="learn-kicker"><span></span> OFFICIAL GUIDE</div>
+          <h1>Learn Cloth NeXt.</h1>
+          <p class="learn-lead">From your first Cloth object to character collision, material tuning, Live View, recovery and final playback. This guide focuses on the artist workflow and explains what the controls actually change.</p>
+          <div class="learn-hero-actions">
+            <a class="button button-primary" href="#quick-start">Start with a first simulation</a>
+            <a class="button button-secondary" href="#reference">Open the reference</a>
+          </div>
+          <ul class="learn-meta" aria-label="Guide scope">
+            <li>Cloth NeXt 2.4.x</li>
+            <li>Blender 5.0+</li>
+            <li>Windows x64</li>
+          </ul>
+        </div>
+        <aside class="learn-hero-card reveal" aria-label="The Cloth NeXt workflow">
+          <span class="mini-label">THE CORE LOOP</span>
+          <ol>
+            <li><span>01</span><div><strong>Assign a role</strong><small>Cloth, Collider, Rod, Soft Body, Rigid Body or Force</small></div></li>
+            <li><span>02</span><div><strong>Tune the physical setup</strong><small>Material, collision, pins, forces and quality</small></div></li>
+            <li><span>03</span><div><strong>Validate before the expensive part</strong><small>Catch geometry and setup problems early</small></div></li>
+            <li><span>04</span><div><strong>Bake and watch Live View</strong><small>Follow the solve while confirmed frames become available</small></div></li>
+            <li><span>05</span><div><strong>Review the cache</strong><small>Use Blender playback, rebake when inputs change</small></div></li>
+          </ol>
+        </aside>
+      </div>
+    </section>
+
+    <section class="learn-shell">
+      <aside class="learn-sidebar" aria-label="Guide contents">
+        <div class="learn-search-wrap">
+          <label for="learn-search">Search this guide</label>
+          <input id="learn-search" type="search" autocomplete="off" placeholder="Try pinning, shrink, collider..." data-learn-search>
+          <span class="learn-search-status" data-search-status aria-live="polite"></span>
+        </div>
+        <nav class="learn-toc" aria-label="Table of contents">
+          <a href="#quick-start">Quick start</a>
+          <a href="#installation">Installation</a>
+          <a href="#mental-model">How Cloth NeXt works</a>
+          <a href="#new-look">New Look toolbar</a>
+          <a href="#roles">Simulation roles</a>
+          <a href="#materials">Cloth materials</a>
+          <a href="#pinning">Pinning</a>
+          <a href="#colliders">Colliders</a>
+          <a href="#forces">Forces</a>
+          <a href="#bake">Bake and Live View</a>
+          <a href="#cache">Cache and recovery</a>
+          <a href="#troubleshooting">Troubleshooting</a>
+          <a href="#updates">Updates</a>
+          <a href="#reference">Reference</a>
+        </nav>
+      </aside>
+
+      <div class="learn-content">
+        <section class="doc-section searchable-section" id="quick-start" data-searchable data-search-text="quick start first simulation cloth collider bake material cache folder directory">
+          <div class="section-heading">
+            <span class="section-number">01</span>
+            <div><span class="eyebrow">QUICK START</span><h2>Your first simulation.</h2></div>
+          </div>
+          <p class="section-lead">The fastest useful test is one Cloth object falling onto one Collider. Keep the scene tiny until the full pipeline works, then scale up.</p>
+
+          <div class="step-stack">
+            <article class="step-card">
+              <span class="step-index">1</span>
+              <div><h3>Prepare simple geometry</h3><p>Start with a subdivided plane or simple garment panel and a second mesh that will act as the collision object. Apply sensible object scale before you start tuning physics.</p></div>
+            </article>
+            <article class="step-card">
+              <span class="step-index">2</span>
+              <div><h3>Enable Cloth NeXt on both objects</h3><p>Open Blender Physics Properties, enable Cloth NeXt and assign the deforming mesh the <strong>Cloth</strong> role. Set the collision object to <strong>Collider</strong>.</p></div>
+            </article>
+            <article class="step-card">
+              <span class="step-index">3</span>
+              <div><h3>Choose a cache directory</h3><p>Use <strong>Set Dir</strong> in the Simulation controls. Keep enough free disk space for the frame range and geometry you plan to simulate.</p></div>
+            </article>
+            <article class="step-card">
+              <span class="step-index">4</span>
+              <div><h3>Pick a material preset</h3><p>Choose a fabric preset that roughly matches the result you want. Treat presets as starting points. Stretch, bend, weight and friction still need shot-specific tuning.</p></div>
+            </article>
+            <article class="step-card">
+              <span class="step-index">5</span>
+              <div><h3>Use a short Bake range</h3><p>Test 20 to 50 frames before committing to a full animation. Short tests make collision, material and scale problems much faster to diagnose.</p></div>
+            </article>
+            <article class="step-card">
+              <span class="step-index">6</span>
+              <div><h3>Bake and inspect</h3><p>Press <strong>BAKE</strong>. Cloth NeXt validates the scene, hands the solve to the external PPF Contact Solver and attaches the resulting playback cache back in Blender.</p></div>
+            </article>
+          </div>
+
+          <div class="callout callout-success">
+            <strong>Good first result</strong>
+            <p>The cloth falls, collides, settles and plays back without exploding, tunneling or stretching far beyond the intended material response. Once that works, add animation, pins and more complex contact one step at a time.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="installation" data-searchable data-search-text="installation install extension blender solver ppf managed external health check requirements windows nvidia">
+          <div class="section-heading">
+            <span class="section-number">02</span>
+            <div><span class="eyebrow">INSTALLATION</span><h2>Two pieces, one workflow.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt is the Blender integration. The PPF Contact Solver is separate software maintained by ST Tech / ZOZO and is never bundled inside the extension.</p>
+
+          <div class="two-col-cards">
+            <article class="info-card">
+              <img src="../assets/cloth-next-white.svg" alt="" width="52" height="40">
+              <span class="mini-label">PART 1</span>
+              <h3>Install Cloth NeXt</h3>
+              <p>Install the Cloth NeXt ZIP through Blender's Extension system, then enable the extension. Normal add-on updates also use Blender's native extension workflow.</p>
+            </article>
+            <article class="info-card">
+              <img src="../assets/solver.svg" alt="" width="42" height="42">
+              <span class="mini-label">PART 2</span>
+              <h3>Connect PPF</h3>
+              <p>Use a managed solver installation, select an external installation, or connect to an already-running external server. Cloth NeXt verifies compatibility before simulation.</p>
+            </article>
+          </div>
+
+          <div class="doc-grid doc-grid-3">
+            <article class="learn-topic" data-searchable data-search-text="managed solver install download official health check side by side">
+              <h3>Managed installation</h3>
+              <p>Cloth NeXt can download an explicitly approved compatible solver release from its official source, verify it and install releases side by side in the Cloth NeXt solver directory.</p>
+            </article>
+            <article class="learn-topic" data-searchable data-search-text="external installation executable select validate">
+              <h3>External installation</h3>
+              <p>Select a solver you already installed. Cloth NeXt may validate and start it, but it does not modify, delete or update files that belong to your external installation.</p>
+            </article>
+            <article class="learn-topic" data-searchable data-search-text="external server remote running ppf connect">
+              <h3>External server</h3>
+              <p>Connect to an already-running PPF server. Cloth NeXt treats that process as externally owned and does not take over its lifecycle.</p>
+            </article>
+          </div>
+
+          <div class="callout">
+            <strong>Run the Solver Health Check before your first real Bake.</strong>
+            <p>If the health check fails, fix that first. Material tweaking cannot compensate for a solver installation or compatibility problem.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="mental-model" data-searchable data-search-text="how it works workflow blender ppf external solver simulation scene validation pc2 cache">
+          <div class="section-heading">
+            <span class="section-number">03</span>
+            <div><span class="eyebrow">MENTAL MODEL</span><h2>Blender stays the stage. PPF does the solve.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt does not replace Blender. It prepares evaluated scene data, validates the setup, sends supported simulation data to PPF, receives solved frames and returns them as Blender playback.</p>
+
+          <div class="pipeline" aria-label="Cloth NeXt simulation pipeline">
+            <div><span>1</span><strong>Blender scene</strong><small>Roles, animation, materials, pins, forces</small></div>
+            <i aria-hidden="true">→</i>
+            <div><span>2</span><strong>Cloth NeXt</strong><small>Validation, export, compatibility, orchestration</small></div>
+            <i aria-hidden="true">→</i>
+            <div><span>3</span><strong>PPF</strong><small>GPU simulation and contact solve</small></div>
+            <i aria-hidden="true">→</i>
+            <div><span>4</span><strong>Playback cache</strong><small>Verified result returned to Blender</small></div>
+          </div>
+
+          <div class="concept-list">
+            <article><strong>Object roles tell Cloth NeXt what participates.</strong><p>Every enabled object has a specific job in the solve. The role controls which settings are relevant and how data is exported.</p></article>
+            <article><strong>Scene-wide settings must agree.</strong><p>Objects that participate in the same interacting solve share the simulation range and scene-level quality/contact context.</p></article>
+            <article><strong>Validation is part of the workflow.</strong><p>Topology, compatibility, cache and geometry problems are much cheaper to catch before the solver has spent minutes on a shot.</p></article>
+            <article><strong>The final cache is authoritative.</strong><p>Live View is for feedback while solving. The finalized playback cache is what you should judge and render from.</p></article>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="new-look" data-searchable data-search-text="new look floating toolbar f6 set dir quality bake cancel live view hide show viewport extreme red">
+          <div class="section-heading">
+            <span class="section-number">04</span>
+            <div><span class="eyebrow">NEW LOOK</span><h2>The compact viewport workflow.</h2></div>
+          </div>
+          <p class="section-lead">New Look is the optional floating simulation interface. Enable it in Cloth NeXt preferences when you want the core Bake controls close to the viewport instead of the legacy Simulation block.</p>
+
+          <div class="toolbar-demo" aria-label="New Look toolbar diagram">
+            <div class="toolbar-logo"><img src="../assets/cloth-next-white.svg" alt="" width="34" height="26"></div>
+            <div class="toolbar-divider"></div>
+            <div class="toolbar-control">Set Dir <span class="status-dot"></span></div>
+            <div class="toolbar-control">Low <small>▼</small></div>
+            <div class="toolbar-bake">BAKE</div>
+          </div>
+
+          <div class="doc-grid doc-grid-2">
+            <article class="learn-topic" data-searchable data-search-text="set dir cache directory folder">
+              <h3>Set Dir</h3>
+              <p>Chooses the cache location used by the production Bake workflow. The status reflects the actual configured directory rather than a separate UI-only state.</p>
+            </article>
+            <article class="learn-topic" data-searchable data-search-text="quality low medium high extreme red preset">
+              <h3>Quality</h3>
+              <p>Switch solver-quality presets from the toolbar. Extreme is intentionally highlighted in red to communicate that it is the expensive end of the preset range.</p>
+            </article>
+            <article class="learn-topic" data-searchable data-search-text="bake button validation disabled no deformable">
+              <h3>BAKE</h3>
+              <p>Starts the same canonical Bake workflow as the legacy UI. If the scene is not ready to simulate, the button remains unavailable instead of bypassing validation.</p>
+            </article>
+            <article class="learn-topic" data-searchable data-search-text="f6 hide show shortcut keymap slide animation toolbar">
+              <h3>F6 show and hide</h3>
+              <p>F6 temporarily slides the toolbar below the viewport edge and brings it back. The shortcut can be changed through Blender's native keymap UI. Hiding the toolbar does not switch New Look off.</p>
+            </article>
+          </div>
+
+          <div class="callout">
+            <strong>New Look changes presentation, not simulation logic.</strong>
+            <p>Cache state, Bake eligibility, progress, diagnostics, quality and recovery still come from the same underlying Cloth NeXt systems.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="roles" data-searchable data-search-text="roles cloth collider rod cable soft body rigid body force simulation types">
+          <div class="section-heading">
+            <span class="section-number">05</span>
+            <div><span class="eyebrow">SIMULATION ROLES</span><h2>Give every object one clear job.</h2></div>
+          </div>
+          <p class="section-lead">The role is the first major decision. It determines what gets simulated, what stays authored in Blender and which settings are shown.</p>
+
+          <div class="role-grid">
+            <article class="role-card" data-searchable data-search-text="cloth garment fabric shell deformable"><img src="../assets/cloth.svg" alt=""><div><span>Cloth</span><h3>Surface fabric</h3><p>Use for garments, flags, sheets and other triangle-shell fabric surfaces. Cloth supports material presets, collision, pressure, shrink, sewing and vertex-group pinning.</p></div></article>
+            <article class="role-card" data-searchable data-search-text="collider collision obstacle static animated deforming"><img src="../assets/collider.svg" alt=""><div><span>Collider</span><h3>Collision geometry</h3><p>Use for bodies, props, floors and other obstacles. Colliders can remain static or capture supported Blender animation and topology-preserving deformation.</p></div></article>
+            <article class="role-card" data-searchable data-search-text="rod cable rope curve bezier poly"><img src="../assets/rod.svg" alt=""><div><span>Rod / Cable</span><h3>One-dimensional centerlines</h3><p>Use supported Curve splines for ropes, cables and similar linear elements. The solver acts on the centerline while Blender bevel and visual radius remain presentation.</p></div></article>
+            <article class="role-card" data-searchable data-search-text="soft body volumetric tet tetrahedral closed manifold"><img src="../assets/physical.svg" alt=""><div><span>Soft Body</span><h3>Volumetric deformation</h3><p>Use a closed manifold mesh when you need volume deformation rather than a thin shell. Cloth NeXt requests internal tetrahedralization for the solve.</p></div></article>
+            <article class="role-card" data-searchable data-search-text="rigid body pdrd solid exact rigid motion"><img src="../assets/physical.svg" alt=""><div><span>Rigid Body</span><h3>Solver-driven rigid motion</h3><p>Use for solid objects that should participate in the shared solve but preserve rigid shape. Contact and mass-related settings remain relevant while elastic deformation does not.</p></div></article>
+            <article class="role-card" data-searchable data-search-text="force gravity wind air density air friction empty"><img src="../assets/force.svg" alt=""><div><span>Force</span><h3>Scene forces</h3><p>Use Blender Empties for supported scene forces such as gravity and wind. Orientation gives the force direction and multiple forces can contribute to the same solve.</p></div></article>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="materials" data-searchable data-search-text="materials preset fabric surface weight stretch resistance sideways response bend resistance damping friction collision gap surface offset pressure shrink sewing plasticity stretch limit">
+          <div class="section-heading">
+            <span class="section-number">06</span>
+            <div><span class="eyebrow">CLOTH MATERIALS</span><h2>Tune behavior, not mystery numbers.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt maps artist-facing controls to real PPF parameters. Start with a preset, then change only the behavior you can identify in the result.</p>
+
+          <div class="callout callout-accent">
+            <strong>37 material presets</strong>
+            <p>The library includes seven Essentials and 30 research-derived starting points based on measurements from the MIT Fabric Properties Dataset. Research presets are grounded starting points, not exact digital certificates for a commercial textile.</p>
+          </div>
+
+          <div class="parameter-table-wrap">
+            <table class="parameter-table">
+              <thead><tr><th>Control</th><th>What it changes</th><th>What you will usually notice</th></tr></thead>
+              <tbody>
+                <tr data-searchable data-search-text="surface weight density mass inertia"><td><strong>Surface Weight</strong></td><td>Mass per surface area</td><td>Higher values feel heavier and carry more inertia.</td></tr>
+                <tr data-searchable data-search-text="stretch resistance young mod stiffness"><td><strong>Stretch Resistance</strong></td><td>Resistance to in-plane extension</td><td>Higher values preserve fabric dimensions more strongly.</td></tr>
+                <tr data-searchable data-search-text="sideways response poisson"><td><strong>Sideways Response</strong></td><td>Coupling between perpendicular stretch directions</td><td>Changes how pulling one direction affects the fabric sideways.</td></tr>
+                <tr data-searchable data-search-text="bend resistance fold stiffness"><td><strong>Bend Resistance</strong></td><td>Resistance to folding and curvature</td><td>Low values create soft folds. High values create broader, stiffer folds.</td></tr>
+                <tr data-searchable data-search-text="shape damping deformation damping jitter"><td><strong>Shape Damping</strong></td><td>Damps stretch and in-plane oscillation</td><td>Useful for calming high-frequency motion without directly changing stiffness.</td></tr>
+                <tr data-searchable data-search-text="fold damping bending damping"><td><strong>Fold Damping</strong></td><td>Damps bending motion</td><td>Reduces fold oscillation and flutter.</td></tr>
+                <tr data-searchable data-search-text="friction surface grip"><td><strong>Surface Grip</strong></td><td>Contact friction</td><td>Higher values make layers and colliders slide less easily.</td></tr>
+                <tr data-searchable data-search-text="collision gap barrier distance"><td><strong>Collision Gap</strong></td><td>Contact barrier distance</td><td>Controls how early contact resistance begins.</td></tr>
+                <tr data-searchable data-search-text="surface offset thickness cable radius"><td><strong>Surface Offset</strong></td><td>Physical collision offset</td><td>Adds spacing around the simulated surface or centerline.</td></tr>
+                <tr data-searchable data-search-text="pressure inflate balloon"><td><strong>Pressure</strong></td><td>Uniform outward shell pressure</td><td>Useful for inflated fabric and closed shell behavior.</td></tr>
+                <tr data-searchable data-search-text="shrink negative expand prestretch rest shape"><td><strong>Shrink</strong></td><td>Uniform rest-shape scale</td><td>Positive values contract. Negative values expand or pre-stretch.</td></tr>
+                <tr data-searchable data-search-text="sewing stitch edges seam"><td><strong>Sewing</strong></td><td>Stitch constraints on supported loose edges</td><td>Pulls designated open garment edges together during simulation.</td></tr>
+                <tr data-searchable data-search-text="plasticity permanent stretch permanent bends creep"><td><strong>Plasticity</strong></td><td>Permanent rest-shape change after sufficient deformation</td><td>Lets stretched areas or folds retain part of their changed shape.</td></tr>
+                <tr data-searchable data-search-text="stretch limit strain limit maximum stretch"><td><strong>Stretch Limit</strong></td><td>Maximum permitted extension</td><td>Hardens the upper bound on stretch when enabled.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="doc-grid doc-grid-2">
+            <article class="learn-topic" data-searchable data-search-text="shrink positive negative expansion prestretch 10 percent">
+              <h3>Shrink can also expand</h3>
+              <p><strong>+10%</strong> means a 90% rest scale. <strong>-10%</strong> means a 110% rest scale. This changes the cloth rest shape, not the Blender object scale.</p>
+            </article>
+            <article class="learn-topic warning-topic" data-searchable data-search-text="shrink stretch limit incompatible conflict validation">
+              <h3>Shrink and Stretch Limit conflict</h3>
+              <p>Non-zero Shrink cannot be combined with an enabled non-zero Stretch Limit for the same shell setup. Cloth NeXt reports this before Bake instead of silently changing either setting.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="pinning" data-searchable data-search-text="pinning vertex group static follow animation hard pin cloth attachment weights">
+          <div class="section-heading">
+            <span class="section-number">07</span>
+            <div><span class="eyebrow">PINNING</span><h2>Attach cloth to the performance.</h2></div>
+          </div>
+          <p class="section-lead">Pinning uses an ordinary Blender vertex group. Vertices above the supported weight threshold become constrained by the selected pin mode.</p>
+
+          <div class="two-col-cards">
+            <article class="info-card">
+              <img src="../assets/pinning.svg" alt="" width="42" height="42">
+              <span class="mini-label">STATIC</span>
+              <h3>Hold the starting position</h3>
+              <p>Pinned vertices stay at their evaluated Bake Start positions. Use this for fixed anchors such as a flag edge, curtain rail or static garment attachment.</p>
+            </article>
+            <article class="info-card">
+              <img src="../assets/pinning.svg" alt="" width="42" height="42">
+              <span class="mini-label">FOLLOW ANIMATION</span>
+              <h3>Follow Blender motion</h3>
+              <p>Pinned vertices follow evaluated Blender positions across the Bake range. Use this when attachment points need to move with a rig or other supported animation.</p>
+            </article>
+          </div>
+
+          <div class="best-practice">
+            <span>BEST PRACTICE</span>
+            <p>Keep pin groups as small as the design allows. Over-pinning can remove natural secondary motion and can create impossible contact situations if the constrained vertices are driven through collision geometry.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="colliders" data-searchable data-search-text="collider static animated deforming character collision cage armature shape keys motion samples topology">
+          <div class="section-heading">
+            <span class="section-number">08</span>
+            <div><span class="eyebrow">COLLIDERS</span><h2>Build contact the solver can trust.</h2></div>
+          </div>
+          <p class="section-lead">Collider quality matters as much as cloth quality. Clean, conservative collision geometry usually beats a dense production mesh.</p>
+
+          <div class="doc-grid doc-grid-3">
+            <article class="learn-topic" data-searchable data-search-text="static collider fixed obstacle"><h3>Static</h3><p>Use when the obstacle does not move or deform during the Bake. It is the cheapest and simplest collision case.</p></article>
+            <article class="learn-topic" data-searchable data-search-text="animated collider rigid transform parent constraint driver"><h3>Animated transform</h3><p>Use for objects moving through Blender transforms, parenting, constraints or other supported evaluated motion without topology changes.</p></article>
+            <article class="learn-topic" data-searchable data-search-text="deforming animated collider armature shape key modifier topology preserving"><h3>Deforming animation</h3><p>Use supported topology-preserving deformation such as armatures, shape keys and compatible deforming modifiers. Topology changes are rejected before solving.</p></article>
+          </div>
+
+          <figure class="learn-figure">
+            <img src="../assets/media/Screenshot%202026-07-30%20233904.png" alt="Character wearing simulated cloth with collision cage geometry visible" loading="lazy" decoding="async">
+            <figcaption><strong>Character collision cages</strong><span>Use simplified animation-aware collision geometry when a dense character mesh is unnecessary or expensive for contact.</span></figcaption>
+          </figure>
+
+          <div class="callout">
+            <strong>Character Collision Cage</strong>
+            <p>Cloth NeXt can create conservative proxy collision around a rig so character motion can be represented with simpler collision geometry. Always inspect the cage through the full motion range before committing to a long Bake.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="forces" data-searchable data-search-text="force empty gravity wind air density air friction vertex air damping animation direction">
+          <div class="section-heading">
+            <span class="section-number">09</span>
+            <div><span class="eyebrow">FORCES</span><h2>Drive the scene with Blender objects.</h2></div>
+          </div>
+          <p class="section-lead">Force roles use Blender Empties so direction and animation stay visible in the scene rather than disappearing into an abstract solver dialog.</p>
+
+          <div class="parameter-table-wrap">
+            <table class="parameter-table compact-table">
+              <thead><tr><th>Force</th><th>Artist control</th><th>Typical use</th></tr></thead>
+              <tbody>
+                <tr data-searchable data-search-text="gravity force local z"><td><strong>Gravity</strong></td><td>Direction from Empty orientation</td><td>Scene gravity or stylized directional pull.</td></tr>
+                <tr data-searchable data-search-text="wind force local z"><td><strong>Wind</strong></td><td>Direction and animated strength</td><td>Flags, garments, gusts and environmental motion.</td></tr>
+                <tr data-searchable data-search-text="air density drag lift"><td><strong>Air Density</strong></td><td>Scene aerodynamic medium</td><td>Changes how strongly aerodynamic forces act.</td></tr>
+                <tr data-searchable data-search-text="air friction tangential drag"><td><strong>Air Friction</strong></td><td>Aerodynamic tangential response</td><td>Controls part of the drag and lift behavior.</td></tr>
+                <tr data-searchable data-search-text="vertex air damping isotropic"><td><strong>Vertex Air Damping</strong></td><td>Per-vertex isotropic air drag</td><td>Useful for damping motion through the surrounding medium.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="best-practice">
+            <span>BEST PRACTICE</span>
+            <p>Animate one force at a time while tuning. When several animated forces overlap, it becomes much harder to tell which parameter is responsible for unwanted motion.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="bake" data-searchable data-search-text="bake rebake cancel live view quality low medium high extreme progress confirmed frame pc2 interpolation">
+          <div class="section-heading">
+            <span class="section-number">10</span>
+            <div><span class="eyebrow">BAKE AND LIVE VIEW</span><h2>Watch the solve without confusing preview with final data.</h2></div>
+          </div>
+          <p class="section-lead">Bake is a staged process. Cloth NeXt validates the scene, prepares solver input, runs PPF, streams confirmed frames for Live View, then publishes a finalized playback cache.</p>
+
+          <ol class="bake-phases">
+            <li><span>01</span><div><strong>Validate</strong><p>Check scene state, supported geometry, cache destination, solver compatibility and relevant preconditions.</p></div></li>
+            <li><span>02</span><div><strong>Prepare</strong><p>Capture the evaluated Blender data needed for the solve, including supported collider and pin animation.</p></div></li>
+            <li><span>03</span><div><strong>Simulate</strong><p>PPF advances the physical solve and Cloth NeXt receives completed frame data.</p></div></li>
+            <li><span>04</span><div><strong>Live View</strong><p>Blender advances only to a frame that is completely available. While a cache is still growing, the viewport holds the last confirmed frame instead of interpolating toward unwritten data.</p></div></li>
+            <li><span>05</span><div><strong>Finalize</strong><p>The completed cache is validated and attached for normal Blender playback.</p></div></li>
+          </ol>
+
+          <div class="doc-grid doc-grid-2">
+            <article class="learn-topic" data-searchable data-search-text="quality preset low medium high extreme"><h3>Use quality intentionally</h3><p>Start low enough to iterate quickly. Increase quality when the motion and material setup are already correct. Extreme should be a deliberate choice, not the default troubleshooting button.</p></article>
+            <article class="learn-topic" data-searchable data-search-text="cancel safe bake previous cache rebake"><h3>Cancel when the setup is wrong</h3><p>If you spot a bad collider, material response or animation issue, cancel early. Fix the source problem and Rebake instead of waiting for a cache you already know you will discard.</p></article>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="cache" data-searchable data-search-text="cache pc2 playback recovery checkpoint rebake invalidation metadata sha256 crash resume">
+          <div class="section-heading">
+            <span class="section-number">11</span>
+            <div><span class="eyebrow">CACHE AND RECOVERY</span><h2>Treat playback as versioned simulation output.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt uses transactional playback caches so an incomplete new Bake does not casually replace a valid previous result.</p>
+
+          <div class="concept-list">
+            <article><strong>Rebake when solver-visible inputs change.</strong><p>Material, geometry, relevant modifiers, collision, pins, forces and simulation settings can invalidate the relationship between the scene and the existing cache.</p></article>
+            <article><strong>Keep cache storage stable.</strong><p>A cache directory is part of the production workflow. Avoid moving or deleting active cache files behind Blender while the result is attached.</p></article>
+            <article><strong>Recovery is verified, not guessed.</strong><p>When resumable solver state is available, Cloth NeXt checks that it belongs to the correct simulation and compatible solver context before offering recovery.</p></article>
+            <article><strong>Do not judge a crash from the viewport alone.</strong><p>Use the visible error code and Diagnostics details. Recovery and cache cleanup depend on the actual failure stage.</p></article>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="troubleshooting" data-searchable data-search-text="troubleshooting error code diagnostics scene health auto fix intersections veyra report support crash solver failure cache">
+          <div class="section-heading">
+            <span class="section-number">12</span>
+            <div><span class="eyebrow">TROUBLESHOOTING</span><h2>Fix the first real failure, not the loudest symptom.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt errors are designed to be actionable. Start with the visible CNX code and the stage that failed, then change one thing at a time.</p>
+
+          <div class="troubleshoot-flow">
+            <article><span>1</span><div><h3>Read the visible message</h3><p>Errors are shown as errors, not normal status. Record the CNX code if one is provided.</p></div></article>
+            <article><span>2</span><div><h3>Open Diagnostics</h3><p>Use the existing diagnostics action to see the technical context without guessing from a single viewport symptom.</p></div></article>
+            <article><span>3</span><div><h3>Check scene health</h3><p>Resolve invalid geometry, unsupported topology changes, missing cache storage and incompatible solver state before retesting.</p></div></article>
+            <article><span>4</span><div><h3>Reduce the scene</h3><p>Shorten the frame range, isolate one garment or simplify contact until the failure becomes reproducible and understandable.</p></div></article>
+            <article><span>5</span><div><h3>Use the public error reference</h3><p>Look up the CNX code for the maintained explanation and suggested action.</p></div></article>
+          </div>
+
+          <div class="support-strip">
+            <div><img src="../assets/error.svg" alt="" width="38" height="38"><span><strong>Error code reference</strong><small>Search all published CNX errors and guidance.</small></span></div>
+            <a class="button button-primary" href="../errors/">Open error codes</a>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="updates" data-searchable data-search-text="updates stable beta dev channel blender extensions new version release notes">
+          <div class="section-heading">
+            <span class="section-number">13</span>
+            <div><span class="eyebrow">UPDATES</span><h2>Choose how much change you want.</h2></div>
+          </div>
+          <p class="section-lead">Cloth NeXt uses Blender's Extension system for add-on updates. The solver has its own separate lifecycle and is never silently replaced by an add-on update.</p>
+
+          <div class="channel-grid">
+            <article class="channel-card stable"><span>Stable</span><h3>Production first</h3><p>Use for normal work and releases that have passed the Stable release gates.</p></article>
+            <article class="channel-card beta"><span>Beta</span><h3>Earlier fixes and features</h3><p>Use when you want release candidates and newer functionality before it reaches Stable.</p></article>
+            <article class="channel-card dev"><span>Dev</span><h3>Active testing</h3><p>Use for experimental snapshots when you intentionally want the newest development state and accept additional risk.</p></article>
+          </div>
+
+          <div class="callout">
+            <strong>For production, default to Stable.</strong>
+            <p>Change channels because you need a specific fix or feature, not simply because a higher version number exists.</p>
+          </div>
+        </section>
+
+        <section class="doc-section searchable-section" id="reference" data-searchable data-search-text="reference docs material library parameter mapping solver install limitations updates error releases github">
+          <div class="section-heading">
+            <span class="section-number">14</span>
+            <div><span class="eyebrow">REFERENCE</span><h2>Go deeper when you need the exact contract.</h2></div>
+          </div>
+          <p class="section-lead">The learning guide explains the workflow. These references cover the more technical contracts and current release state.</p>
+
+          <div class="reference-grid">
+            <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/PPF_PARAMETER_MAPPING.md" target="_blank" rel="noreferrer"><span>Physics</span><strong>PPF Parameter Mapping</strong><small>Exact artist control to solver parameter mapping.</small></a>
+            <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/MATERIAL_LIBRARY.md" target="_blank" rel="noreferrer"><span>Materials</span><strong>Material Library</strong><small>Preset categories, measurements and calibration notes.</small></a>
+            <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/SOLVER_INSTALLATION.md" target="_blank" rel="noreferrer"><span>Setup</span><strong>Solver Installation</strong><small>Managed, external and server installation modes.</small></a>
+            <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/UPDATE_CHANNELS.md" target="_blank" rel="noreferrer"><span>Updates</span><strong>Update Channels</strong><small>Stable, Beta and Dev behavior inside Blender.</small></a>
+            <a href="https://github.com/polyworks-art/Cloth_neXT/blob/main/docs/LIMITATIONS.md" target="_blank" rel="noreferrer"><span>Scope</span><strong>Current Limitations</strong><small>Known support boundaries and intentionally unsupported cases.</small></a>
+            <a href="../releases/"><span>Versions</span><strong>Release Notes</strong><small>Current channel builds and what changed.</small></a>
+            <a href="../errors/"><span>Support</span><strong>Error Codes</strong><small>Public CNX error guidance.</small></a>
+            <a href="https://github.com/polyworks-art/Cloth_neXT" target="_blank" rel="noreferrer"><span>Source</span><strong>GitHub Repository</strong><small>Source, issues and technical documentation.</small></a>
+          </div>
+
+          <div class="learn-endcap">
+            <img src="../assets/cloth-next-white.svg" alt="" width="82" height="63">
+            <div><span class="eyebrow">THE SHORT VERSION</span><h2>Start simple. Validate early. Tune one behavior at a time.</h2><p>Most cloth problems get easier when you separate material behavior, collision quality, animation and solver quality instead of changing all four at once.</p></div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="learn-footer">
+    <a class="brand" href="../"><img src="../assets/cloth-next-white.svg" alt="" width="40" height="31"><span>Cloth NeXt</span></a>
+    <div class="footer-links">
+      <a href="./">Learn</a>
+      <a href="../releases/">Release notes</a>
+      <a href="../errors/">Error codes</a>
+      <a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a>
+    </div>
+    <small>© <span data-year></span> PolyWorks</small>
+  </footer>
+
+  <script src="../app.js" defer></script>
+  <script src="learn.js?v=20260914-1" defer></script>
+</body>
+</html>
