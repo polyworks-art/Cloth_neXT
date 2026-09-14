@@ -17,8 +17,6 @@ env:
 
 jobs:
   publish:
-    # Public Pages add-on distribution is disabled; releases are sold through Superhive.
-    if: ${{ false }}
     runs-on: windows-latest
     steps:
       - name: Require explicit confirmation and immutable SHA

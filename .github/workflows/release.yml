@@ -23,8 +23,6 @@ jobs:
 
   publish:
     needs: candidate
-    # Public Pages add-on distribution is disabled; releases are sold through Superhive.
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

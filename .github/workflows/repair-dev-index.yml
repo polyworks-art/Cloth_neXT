@@ -15,8 +15,6 @@ env:
 
 jobs:
   repair:
-    # Public Pages add-on distribution is disabled.
-    if: ${{ false }}
     runs-on: windows-latest
     steps:
       - name: Require exact repair request
