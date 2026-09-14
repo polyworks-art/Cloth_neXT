@@ -63,12 +63,56 @@ try:
             module._advance_bake_timeline(plan, 3, {target.uuid: str(live)})
             module._attach_playback(plan, header)
             assert coordinate(obj) == 30, coordinate(obj)
+            assert mod.play_mode == 'SCENE'
+            assert mod.interpolation == 'LINEAR'
             assert not module._live_playback_records
             if index == 3:
                 assert old.is_file(), "a previous output folder must be preserved"
             bpy.data.objects.remove(obj, do_unlink=True)
             bpy.data.meshes.remove(mesh)
             print(f'LIVE CACHE PASS: {name}')
+
+        mesh = bpy.data.meshes.new('growing-live-mesh')
+        mesh.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)],
+                         [], [(0, 1, 2)])
+        obj = bpy.data.objects.new('growing-live-cloth', mesh)
+        bpy.context.collection.objects.link(obj)
+        final = root / 'growing-final.pc2'
+        live = root / '.growing-final.pc2.live.tmp'
+        pc2.write_pc2(final, [
+            [(float(frame), 0, 0), (float(frame) + 1, 0, 0),
+             (float(frame), 1, 0)] for frame in (0, 10, 20)])
+        data = final.read_bytes()
+        frame_bytes = 3 * 12
+        live.write_bytes(data[:pc2.PC2_HEADER_SIZE + frame_bytes])
+        identity = tuple(tuple(row) for row in obj.matrix_world)
+        target = module.DeformablePlan(
+            tuple(tuple(v.co) for v in mesh.vertices), identity,
+            obj.name, 'growing-live-uuid', final, '', {}, 'CLOTH')
+        plan = module.RunPlan(SimpleNamespace(), SimpleNamespace(),
+            target.initial_local, identity, obj.name, root, final, 3,
+            frame_start=1, frame_end=3, deformables=(target,))
+        paths = {target.uuid: str(live)}
+        bpy.context.scene.frame_set(1)
+        module._advance_bake_timeline(plan, 2, paths)
+        assert coordinate(obj) == 0
+        live.write_bytes(data[:pc2.PC2_HEADER_SIZE + frame_bytes + 8])
+        module._advance_bake_timeline(plan, 2, paths)
+        assert coordinate(obj) == 0, 'partial frame was exposed'
+        live.write_bytes(data[:pc2.PC2_HEADER_SIZE + 2 * frame_bytes])
+        module._advance_bake_timeline(plan, 2, paths)
+        assert coordinate(obj) == 10, 'complete live frame did not appear'
+        live.write_bytes(data[:pc2.PC2_HEADER_SIZE + 2 * frame_bytes + 8])
+        module._advance_bake_timeline(plan, 3, paths)
+        assert coordinate(obj) == 10, 'new partial frame was exposed'
+        live.write_bytes(data)
+        module._advance_bake_timeline(plan, 3, paths)
+        assert coordinate(obj) == 20, 'latest complete frame did not appear'
+        assert obj.modifiers[0].interpolation == 'NONE'
+        module._restore_live_playback()
+        bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.data.meshes.remove(mesh)
+        print('LIVE CACHE PASS: growing PC2 holds complete frames')
 finally:
     registration.unregister()
 print('Live cache regression passed: rebake, cancelled cache, recovery partial')

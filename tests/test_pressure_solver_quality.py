@@ -59,11 +59,17 @@ def test_pressure_is_object_local_and_rejects_invalid_values():
 def test_shrink_defaults_validation_and_fingerprint():
     assert DEFAULT_SHELL_SETTINGS.shrink_percent == 0.0
     shrunk = replace(DEFAULT_SHELL_SETTINGS, shrink_percent=5.0)
+    expanded = replace(DEFAULT_SHELL_SETTINGS, shrink_percent=-10.0)
     assert settings_fingerprint(shrunk, DEFAULT_STATIC_SETTINGS, True,
                                 "DEFAULT", quality=DEFAULT_SOLVER_QUALITY) != \
         settings_fingerprint(DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS,
                              True, "DEFAULT", quality=DEFAULT_SOLVER_QUALITY)
-    for invalid in (-0.01, 90.01, float("nan"), float("inf")):
+    assert settings_fingerprint(
+        expanded, DEFAULT_STATIC_SETTINGS, True, "DEFAULT",
+        quality=DEFAULT_SOLVER_QUALITY) != settings_fingerprint(
+            DEFAULT_SHELL_SETTINGS, DEFAULT_STATIC_SETTINGS, True,
+            "DEFAULT", quality=DEFAULT_SOLVER_QUALITY)
+    for invalid in (-100.01, 90.01, float("nan"), float("inf")):
         with pytest.raises(ValueError):
             ShellMaterialSettings(shrink_percent=invalid)
 

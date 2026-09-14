@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from cloth_next.bake import pc2
 from cloth_next.onboarding import _safe_asset
 from cloth_next.core.safe_delete import cleanup_tombstones
 import os
@@ -78,7 +79,10 @@ def test_new_live_frame_does_not_evaluate_previous_cache(
     previous.parent.mkdir(parents=True, exist_ok=True)
     previous.write_bytes(b'previous run must remain recoverable')
     live = tmp_path / '.cn_test_cloth_new.pc2.live.tmp'
-    live.write_bytes(b'new run')
+    pc2.write_pc2(
+        live, [[(float(frame), 0, 0)] for frame in range(3)],
+        start_frame=module.import_result.PC2_START_FRAME,
+        sample_rate=module.import_result.PC2_SAMPLE_RATE)
     final = tmp_path / 'cn_test_cloth_new.pc2'
     modifier = obj.modifiers.new(module.import_result.MODIFIER_NAME, 'MESH_CACHE')
     modifier.filepath = str(previous)

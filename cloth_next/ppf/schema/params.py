@@ -96,10 +96,7 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
     division (see the module docstring).
     """
     validate_shell_values(shell)
-    # Shell shrink is intentionally disabled until upstream PPF can combine
-    # changing rest lengths with its strain limiter.  Keep the legacy setting
-    # readable so old .blend files and presets remain compatible.
-    shrink_factor = 1.0
+    shrink_factor = 1.0 - shell.shrink_percent / 100.0
     strain_limit = (shell.maximum_stretch_percent / 100.0
                     if shell.stretch_limit_enabled else 0.0)
     return {

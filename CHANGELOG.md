@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.4.9 - 2026-09-14
+
+### Added
+
+- Negative Cloth Shrink values expand the rest shape. Shell Shrink now maps
+  isotropically to `1 - Shrink% / 100` on the solver wire.
+- F6 smoothly slides the New Look toolbar below the VIEW_3D edge and back.
+  Gizmo hit areas follow the toolbar and become inactive when hidden.
+
+### Fixed
+
+- Live View holds the last confirmed-good cloth frame until every growing PC2
+  has a complete, flushed payload for the next frame. Live Mesh Cache sampling
+  does not interpolate into an unwritten frame; finalized playback retains its
+  normal interpolation.
+- Set Dir and normal Quality controls use a slightly lighter gray, and the
+  BAKE/CANCEL label sits a little lower in the compact toolbar.
+- Shrink combined with an enabled non-zero Stretch Limit now reports a clear
+  material validation error before Bake.
+
+The external PPF solver and final baked frame data are unchanged.
+
 ## 2.4.8 - 2026-09-14
 
 ### Added

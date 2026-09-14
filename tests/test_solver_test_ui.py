@@ -1506,7 +1506,7 @@ def test_finished_cache_is_exposed_as_timeline_strip(blender_env):
     assert scene.frame_current == 12
 
 
-def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env):
+def test_live_bake_timeline_holds_without_a_flushed_pc2(blender_env):
     module = blender_env.solver_test
 
     class Scene:
@@ -1520,17 +1520,13 @@ def test_live_bake_timeline_advances_only_to_latest_completed_frame(blender_env)
     plan = SimpleNamespace(frame_start=10, frame_end=50)
 
     module._advance_bake_timeline(plan, 23)
-    from cloth_next.blender import timeline_overlay
-    assert scene.frame_current == 23
-    assert not scene.use_preview_range
-    assert timeline_overlay.baked_range() == (10, 23, 50)
+    assert scene.frame_current == 10
 
     module._advance_bake_timeline(plan, 999)
-    assert scene.frame_current == 50
-    assert timeline_overlay.baked_range() == (10, 50, 50)
+    assert scene.frame_current == 10
 
 
-def test_solver_progress_moves_timeline_before_live_pc2_is_available(
+def test_verified_live_progress_updates_timeline_without_attaching_again(
         blender_env, monkeypatch):
     module = blender_env.solver_test
 
@@ -1564,7 +1560,11 @@ def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
     blender_env.bpy.data.objects[obj.name] = obj
     final = tmp_path / "cloth.pc2"
     live = tmp_path / ".cloth.pc2.live.tmp"
-    live.write_bytes(b"growing pc2")
+    pc2.write_pc2(final, [[(float(index), 0, 0)]
+                          for index in range(3)],
+                  start_frame=module.import_result.PC2_START_FRAME,
+                  sample_rate=module.import_result.PC2_SAMPLE_RATE)
+    live.write_bytes(final.read_bytes()[:pc2.PC2_HEADER_SIZE + 2 * 12])
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
                 (0, 0, 1, 0), (0, 0, 0, 1))
     target = module.DeformablePlan(
@@ -1588,6 +1588,118 @@ def test_live_bake_attaches_private_growing_cache_before_timeline_advances(
 
     assert obj.modifiers[0].filepath == str(live)
     assert blender_env.bpy.context.scene.frame_current == 11
+    assert obj.modifiers[0].play_mode == "CUSTOM"
+    assert obj.modifiers[0].interpolation == "NONE"
+    assert obj.modifiers[0].eval_frame == 1.0
+
+
+def test_growing_pc2_never_exposes_an_incomplete_or_unflushed_frame(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="growing_cloth", type="MESH")
+    blender_env.bpy.data.objects[obj.name] = obj
+    final = tmp_path / "growing.pc2"
+    live = tmp_path / ".growing.pc2.live.tmp"
+    pc2.write_pc2(final, [[(float(index), 0, 0)]
+                          for index in range(3)],
+                  start_frame=module.import_result.PC2_START_FRAME,
+                  sample_rate=module.import_result.PC2_SAMPLE_RATE)
+    data = final.read_bytes()
+    frame_bytes = 12
+    live.write_bytes(data[:pc2.PC2_HEADER_SIZE + frame_bytes])
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    target = module.DeformablePlan(
+        ((0, 0, 0),), identity, obj.name, "growing-uuid", final,
+        "topology", {}, "CLOTH")
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), target.initial_local, identity,
+        obj.name, tmp_path, final, 3, frame_start=10, frame_end=12,
+        deformables=(target,))
+
+    class Scene:
+        frame_current = 10
+
+        def frame_set(self, frame):
+            self.frame_current = frame
+
+    scene = Scene()
+    blender_env.bpy.context.scene = scene
+    paths = {target.uuid: str(live)}
+    module._advance_bake_timeline(plan, 11, paths)
+    modifier = obj.modifiers[0]
+    assert (scene.frame_current, modifier.eval_frame) == (10, 0.0)
+    assert modifier.play_mode == "CUSTOM"
+    assert modifier.interpolation == "NONE"
+
+    # An event may claim the next frame while only part of its payload is
+    # visible. Size, not the event alone, determines Blender's safe boundary.
+    live.write_bytes(data[:pc2.PC2_HEADER_SIZE + frame_bytes + 6])
+    module._advance_bake_timeline(plan, 11, paths)
+    assert (scene.frame_current, modifier.eval_frame) == (10, 0.0)
+    live.write_bytes(data[:pc2.PC2_HEADER_SIZE + 2 * frame_bytes])
+    module._advance_bake_timeline(plan, 11, paths)
+    assert (scene.frame_current, modifier.eval_frame) == (11, 1.0)
+
+    # File bytes can run ahead of a queued flush event. Do not expose them
+    # until that specific complete-frame event is processed.
+    live.write_bytes(data)
+    module._advance_bake_timeline(plan, 11, paths)
+    assert (scene.frame_current, modifier.eval_frame) == (11, 1.0)
+    module._advance_bake_timeline(plan, 12, paths)
+    assert (scene.frame_current, modifier.eval_frame) == (12, 2.0)
+
+
+def test_multi_object_live_frame_waits_for_the_slowest_pc2(
+        blender_env, tmp_path):
+    module = blender_env.solver_test
+    identity = ((1, 0, 0, 0), (0, 1, 0, 0),
+                (0, 0, 1, 0), (0, 0, 0, 1))
+    targets = []
+    paths = {}
+    full = {}
+    for index in range(2):
+        obj = blender_env.bpy.types.Object(
+            name=f"multi_cloth_{index}", type="MESH")
+        blender_env.bpy.data.objects[obj.name] = obj
+        final = tmp_path / f"multi_{index}.pc2"
+        live = tmp_path / f".multi_{index}.pc2.live.tmp"
+        pc2.write_pc2(final, [[(float(frame + index), 0, 0)]
+                              for frame in range(2)],
+                      start_frame=module.import_result.PC2_START_FRAME,
+                      sample_rate=module.import_result.PC2_SAMPLE_RATE)
+        full[index] = final.read_bytes()
+        live.write_bytes(full[index][:pc2.PC2_HEADER_SIZE + 12])
+        target = module.DeformablePlan(
+            ((0, 0, 0),), identity, obj.name, f"multi-{index}", final,
+            "topology", {}, "CLOTH")
+        targets.append(target)
+        paths[target.uuid] = str(live)
+    plan = module.RunPlan(
+        SimpleNamespace(), SimpleNamespace(), targets[0].initial_local,
+        identity, targets[0].object_name, tmp_path, targets[0].pc2_path, 2,
+        frame_start=10, frame_end=11, deformables=tuple(targets))
+
+    class Scene:
+        frame_current = 10
+
+        def frame_set(self, frame):
+            self.frame_current = frame
+
+    scene = Scene()
+    blender_env.bpy.context.scene = scene
+    Path(paths[targets[0].uuid]).write_bytes(full[0])
+    Path(paths[targets[1].uuid]).write_bytes(
+        full[1][:pc2.PC2_HEADER_SIZE + 12 + 4])
+    module._advance_bake_timeline(plan, 11, paths)
+    assert scene.frame_current == 10
+    assert all(blender_env.bpy.data.objects[target.object_name]
+               .modifiers[0].eval_frame == 0.0 for target in targets)
+    Path(paths[targets[1].uuid]).write_bytes(full[1])
+    module._advance_bake_timeline(plan, 11, paths)
+    assert scene.frame_current == 11
+    assert all(blender_env.bpy.data.objects[target.object_name]
+               .modifiers[0].eval_frame == 1.0 for target in targets)
 
 
 def test_rebake_live_progress_preserves_and_restores_successful_generation(

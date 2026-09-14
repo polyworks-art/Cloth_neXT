@@ -90,6 +90,8 @@ def shell_wire_rows(shell: ShellMaterialSettings) \
             value = float(value) / 100.0
         elif info.field == "bend_plasticity_threshold_degrees":
             value = math.radians(float(value))
+        elif info.field == "shrink_percent":
+            value = 1.0 - float(value) / 100.0
         if info.field == "model":
             display = WIRE_MODEL_NAMES[shell.model]
         else:

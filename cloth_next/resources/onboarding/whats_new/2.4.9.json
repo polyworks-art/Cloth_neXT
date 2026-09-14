@@ -1,0 +1,17 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.4.9",
+  "title": "What's New in Cloth NeXt 2.4.9",
+  "subtitle": "Steadier Live View and expanded Cloth rest shapes.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {"icon": "icons/play.png", "title": "Reliable Live View", "description": "Live playback holds the last complete cloth frame until the next PC2 frame is fully available, avoiding occasional one-frame jumps."},
+    {"icon": "icons/check.png", "title": "Final Playback Preserved", "description": "Completed Bakes keep their normal playback interpolation, while live and multi-object previews stay synchronized to confirmed frames."},
+    {"icon": "icons/sliders.png", "title": "Negative Shrink", "description": "Negative Cloth Shrink expands the rest shape for pre-stretch. Cloth NeXt flags a conflicting Stretch Limit before Bake."},
+    {"icon": "icons/play.png", "title": "Smooth Toolbar", "description": "F6 slides the New Look toolbar below the viewport edge and brings it back smoothly."}
+  ],
+  "actions": [
+    {"label": "Start Creating", "kind": "close"},
+    {"label": "Documentation", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"}
+  ]
+}

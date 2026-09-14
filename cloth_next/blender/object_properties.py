@@ -376,12 +376,13 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
         update=_on_settings_update,
         description="Uniform outward pressure along the Cloth surface normals")
     shrink_percent: bpy.props.FloatProperty(
-        name="Shrink", default=0.0, min=0.0, max=90.0, soft_max=25.0,
+        name="Shrink", default=0.0, min=-100.0, max=90.0,
+        soft_min=-50.0, soft_max=25.0,
         precision=2, subtype="PERCENTAGE", update=_on_settings_update,
-        description="Physically contract the Cloth rest shape uniformly. "
-                    "For example, 5% sets both warp and weft rest lengths "
-                    "to 95%. This is not object or geometry scaling. The "
-                    "solver applies the target from the start of the Bake")
+        description="Positive values contract the Cloth rest shape; negative "
+                    "values expand/pre-stretch it. +10% gives 90% rest size; "
+                    "-10% gives 110% rest size. Cannot be combined with an "
+                    "enabled non-zero Stretch Limit")
     sewing_enabled: bpy.props.BoolProperty(
         name="Sewing", default=False, update=_on_settings_update,
         description="Treat edges that are not used by any face as Sewing "

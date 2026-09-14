@@ -273,6 +273,25 @@ def partial_frame_count(path: Path, expected: Pc2Header) -> int:
     return frames
 
 
+def live_complete_frame_count(path: Path, expected: Pc2Header) -> int:
+    """Count full frames visible in a growing PC2, ignoring a partial tail.
+
+    Unlike resumable-partial validation, a live writer may be in the middle of
+    the next frame. The caller must also cap this count to a flushed worker
+    event before exposing a frame to Blender.
+    """
+    with Path(path).open("rb") as stream:
+        raw = stream.read(PC2_HEADER_SIZE)
+        stream.seek(0, 2)
+        size = stream.tell()
+    if raw != _header_bytes(expected):
+        raise Pc2Error("live PC2 header does not match")
+    payload = size - PC2_HEADER_SIZE
+    if payload < 0 or payload > expected.frame_count * expected.vertex_count * 12:
+        raise Pc2Error("live PC2 payload size is invalid")
+    return payload // (expected.vertex_count * 12)
+
+
 def iter_frames(path: Path):
     """Yield validated PC2 frames one at a time as ``(N, 3)`` float arrays."""
     header = read_header(path)

@@ -7277,7 +7277,7 @@ def _attach_curve_rod_playback(obj, plan: RunPlan,
 
 _PLAYBACK_MODIFIER_FIELDS = (
     "name", "filepath", "cache_format", "frame_start", "interpolation",
-    "deform_mode", "play_mode", "forward_axis", "up_axis",
+    "deform_mode", "play_mode", "eval_frame", "forward_axis", "up_axis",
     "show_viewport", "show_render")
 _PLAYBACK_OBJECT_FIELDS = (
     OBJECT_OWNERSHIP_KEY, "cloth_next_cache_path", INPUT_DEFORMER_STATE_KEY)
@@ -7681,7 +7681,8 @@ def _hide_previous_playback(plan):
         restore_playback_input_deformers(obj)
 
 
-def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
+def _attach_live_playback(plan: RunPlan, live_paths=None,
+                          *, frame_index: int = 0) -> None:
     """Point mesh deformables at the growing PC2 before advancing Timeline.
 
     The worker writes complete transformed frames sequentially. This main-thread
@@ -7707,6 +7708,7 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
                      if has_cloth_next_playback_marker(obj, mod)]
         if (len(modifiers) == 1 and modifiers[0].filepath == str(path)
                 and modifiers[0].show_viewport):
+            modifiers[0].eval_frame = float(frame_index)
             continue
         # Preserve old files and modifier state, but display this run only.
         for previous in modifiers:
@@ -7720,6 +7722,12 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
             _remember_live_modifier(obj, modifier, created=True)
         restore_playback_input_deformers(obj)
         _configure_playback_modifier(modifier, target_plan.frame_start)
+        # A growing cache must never interpolate toward a not-yet-written
+        # sample. CUSTOM also prevents a manual scene scrub from reading past
+        # the last worker-confirmed frame.
+        modifier.interpolation = "NONE"
+        modifier.play_mode = "CUSTOM"
+        modifier.eval_frame = float(frame_index)
         current_index = _modifier_index(obj, modifier)
         target_index = _playback_stack_index(obj, modifier)
         if current_index >= 0 and current_index != target_index:
@@ -7731,26 +7739,50 @@ def _attach_live_playback(plan: RunPlan, live_paths=None) -> None:
         modifier.show_render = True
 
 
+def _live_complete_frame(plan: RunPlan, blender_frame: int,
+                         live_paths) -> int | None:
+    """Bound a flushed worker event by every growing PC2's actual payload."""
+    if not live_paths:
+        return None
+    counts = []
+    for target in _plan_deformables(plan):
+        path = live_paths.get(target.uuid)
+        if not path:
+            return None
+        expected = pc2.Pc2Header(
+            len(target.initial_local), import_result.PC2_START_FRAME,
+            import_result.PC2_SAMPLE_RATE, plan.frame_count)
+        try:
+            counts.append(pc2.live_complete_frame_count(Path(path), expected))
+        except (OSError, pc2.Pc2Error):
+            return None
+    if not counts or min(counts) == 0:
+        return None
+    return min(int(blender_frame), int(plan.frame_end),
+               int(plan.frame_start) + min(counts) - 1)
+
+
 def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
                            live_paths=None) -> None:
-    """Move Blender's blocked UI to the newest solver frame on main thread."""
+    """Evaluate only a flushed, complete frame shared by all live PC2s."""
+    frame = _live_complete_frame(plan, blender_frame, live_paths)
+    if frame is None:
+        return
+    scene = getattr(getattr(bpy, "context", None), "scene", None)
     try:
-        # Preserve the live-loading handoff invariant: the growing PC2 must be
-        # attached before frame_set evaluates the dependency graph.
-        _attach_live_playback(plan, live_paths)
+        # Move a previously advanced scene back to safety before making the
+        # growing cache visible; filepath/show_viewport can evaluate at once.
+        if scene is not None and int(getattr(scene, "frame_current", frame)) > frame:
+            scene.frame_set(frame)
+        _attach_live_playback(
+            plan, live_paths, frame_index=frame - int(plan.frame_start))
     except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
-        pass
-    _advance_bake_progress(plan, blender_frame)
+        return
+    _advance_bake_progress(plan, frame)
 
 
 def _advance_bake_progress(plan: RunPlan, blender_frame: int) -> None:
-    """Keep Timeline marker/strip synchronized before frames are fetched.
-
-    During PPF simulation checkpoints advance long before transformed PC2
-    frames become available.  Live playback attachment therefore remains in
-    ``_advance_bake_timeline`` while this lightweight path follows every
-    SIMULATING/FETCHING progress event.
-    """
+    """Keep the displayed Timeline at the last verified live PC2 frame."""
     scene = getattr(getattr(bpy, "context", None), "scene", None)
     if scene is None:
         return
@@ -8241,8 +8273,8 @@ def _pump_once() -> float | None:
                     if event.phase == "TRANSFORMING_FRAME":
                         _advance_bake_timeline(
                             plan, current, getattr(event, "live_paths", None))
-                    else:
-                        _advance_bake_progress(plan, current)
+                    # SIMULATING/FETCHING are solver progress only. They can
+                    # run ahead of the flushed PC2 and must not frame_set.
                 activity_code = None
                 if getattr(event, "activity_code", ""):
                     try:

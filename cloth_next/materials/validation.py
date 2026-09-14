@@ -105,7 +105,7 @@ SHELL_RULES: dict[str, NumericRule] = {
                                            _MATERIAL_PANEL),
     "inflate_pressure": NumericRule(0.0, False, None, "solver pressure",
                                      _MATERIAL_PANEL),
-    "shrink_percent": NumericRule(0.0, False, 90.0, "%",
+    "shrink_percent": NumericRule(-100.0, False, 90.0, "%",
                                   _MATERIAL_PANEL),
     "sewing_stiffness": NumericRule(0.0, False, None, "",
                                      _MATERIAL_PANEL),
@@ -145,6 +145,13 @@ def validate_shell_values(values) -> None:
             _MATERIAL_PANEL)
     for name, rule in SHELL_RULES.items():
         rule.check(name, getattr(values, name))
+    if (values.shrink_percent != 0.0 and values.stretch_limit_enabled
+            and values.maximum_stretch_percent != 0.0):
+        raise MaterialValidationError(
+            "shrink_percent", values.shrink_percent,
+            "0% when Stretch Limit is enabled",
+            "Shrink cannot be combined with Stretch Limit. Disable Stretch "
+            "Limit or set Shrink to 0%.")
 
 
 def validate_static_values(values) -> None:

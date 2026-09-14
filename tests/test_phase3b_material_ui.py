@@ -162,6 +162,17 @@ def test_property_ranges_match_the_pinned_upstream_ui(blender_env):
     assert props["maximum_stretch_percent"].keywords["min"] > 0.0
 
 
+def test_shrink_property_supports_negative_rest_expansion(blender_env):
+    props = fake_bpy._resolved_props(
+        blender_env.object_properties.CLOTHNEXT_PG_pressure_settings)
+    shrink = props["shrink_percent"].keywords
+    assert (shrink["default"], shrink["min"], shrink["max"]) == (
+        0.0, -100.0, 90.0)
+    assert (shrink["soft_min"], shrink["soft_max"]) == (-50.0, 25.0)
+    assert shrink["subtype"] == "PERCENTAGE"
+    assert "-10% gives 110% rest size" in shrink["description"]
+
+
 # --- preset behavior ----------------------------------------------------------
 
 def test_preset_items_are_builtin_order_plus_custom(blender_env):

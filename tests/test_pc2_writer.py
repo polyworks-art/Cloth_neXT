@@ -87,6 +87,19 @@ def test_streaming_writer_exposes_complete_frames_without_publishing(tmp_path):
     writer.abort()
 
 
+def test_live_complete_frame_count_ignores_partial_tail(tmp_path):
+    final = tmp_path / "complete.pc2"
+    header = pc2.write_pc2(final, _frames(frame_count=3, vertex_count=1))
+    data = final.read_bytes()
+    live = tmp_path / ".growing.pc2.live.tmp"
+    live.write_bytes(data[:pc2.PC2_HEADER_SIZE + 12 + 5])
+    assert pc2.live_complete_frame_count(live, header) == 1
+    with pytest.raises(pc2.Pc2Error, match="inside a frame"):
+        pc2.partial_frame_count(live, header)
+    live.write_bytes(data[:pc2.PC2_HEADER_SIZE + 24])
+    assert pc2.live_complete_frame_count(live, header) == 2
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_streaming_writer_rejects_nonfinite_and_preserves_old_cache(tmp_path, value):
     path = tmp_path / "cache.pc2"

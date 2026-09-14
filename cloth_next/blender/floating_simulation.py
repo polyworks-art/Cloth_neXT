@@ -8,6 +8,7 @@ No modal event handler or simulation state is stored here.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import bpy
@@ -21,6 +22,10 @@ _handle = None
 _registered = False
 _images = {}
 _toolbar_visible = True
+_slide = 1.0
+_animation_from = 1.0
+_animation_start_time = None
+_ANIMATION_DURATION = 0.135
 _last_enabled = False
 _keymap = None
 _keymap_item = None
@@ -28,7 +33,7 @@ _LAYOUT_SCALE = 0.65
 _persistent = getattr(getattr(bpy.app, "handlers", None),
                       "persistent", lambda fn: fn)
 _BG = (0.105, 0.119, 0.130, 0.94)  # charcoal
-_SURFACE = (0.17, 0.19, 0.21, 0.97)
+_SURFACE = (0.225, 0.245, 0.265, 0.97)
 _CYAN = (0.06, 0.66, 0.85, 1.0)
 _BLUE = (0.07, 0.43, 0.72, 1.0)
 _TEXT = (0.93, 0.96, 0.98, 1.0)
@@ -50,7 +55,38 @@ def enabled(context):
 
 
 def visible(context):
-    return enabled(context) and _toolbar_visible
+    return enabled(context) and _slide_fraction() > 0.0
+
+
+def _slide_fraction(now=None):
+    """Current visible fraction; reversing F6 starts at this exact position."""
+    global _slide, _animation_start_time
+    if _animation_start_time is None:
+        return _slide
+    elapsed = max(0.0, (time.monotonic() if now is None else now)
+                  - _animation_start_time)
+    target = float(_toolbar_visible)
+    duration = _ANIMATION_DURATION * abs(target - _animation_from)
+    t = min(1.0, elapsed / duration) if duration else 1.0
+    eased = 1.0 - (1.0 - t)**2 if target else t**2
+    _slide = _animation_from + (target - _animation_from) * eased
+    if t >= 1.0:
+        _slide = target
+        _animation_start_time = None
+    return _slide
+
+
+def _stop_animation():
+    global _animation_start_time
+    _animation_start_time = None
+    if bpy.app.timers.is_registered(_animation_tick):
+        bpy.app.timers.unregister(_animation_tick)
+
+
+def _animation_tick():
+    _slide_fraction()
+    _tag_redraw(bpy.context)
+    return 1.0 / 60.0 if _animation_start_time is not None else None
 
 
 def _scale(context):
@@ -78,6 +114,18 @@ def _bounds(context):
     if region.width < width + 24 * scale or region.height < height + 48 * scale:
         return None
     return ((region.width - width) / 2, 28 * scale, width, height, scale)
+
+
+def _animated_bounds(context):
+    bounds = _bounds(context)
+    if bounds is None:
+        return None
+    x, shown_y, width, height, scale = bounds
+    # The WINDOW region clips the toolbar as it passes below its own edge.
+    # Include the diagnostic badge above the bar in the fully clipped extent.
+    hidden_y = -height - 24 * (scale / _LAYOUT_SCALE)
+    y = hidden_y + (shown_y - hidden_y) * _slide_fraction()
+    return x, y, width, height, scale
 
 
 def _state(context):
@@ -183,7 +231,7 @@ def _draw():
     context = bpy.context
     if not visible(context):
         return
-    bounds = _bounds(context)
+    bounds = _animated_bounds(context)
     if bounds is None:
         return
     import blf
@@ -222,7 +270,8 @@ def _draw():
                         x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
         _centered_label(
             blf, "BAKE" if not snapshot.active else "CANCEL",
-            x+bake_x*s, y+23*s, 82*s, round(14*s),
+            x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
+            82*s, round(14*s),
             _TEXT if (snapshot.active and snapshot.can_cancel) or
             (model and model.enabled) else _MUTED)
         if message:
@@ -268,10 +317,14 @@ class CLOTHNEXT_OT_toggle_floating_ui(bpy.types.Operator):
     bl_description = "Temporarily show or hide the New Look viewport toolbar"
 
     def execute(self, context):
-        global _toolbar_visible
+        global _toolbar_visible, _animation_from, _animation_start_time
         if not enabled(context):
             return {"CANCELLED"}
+        _animation_from = _slide_fraction()
         _toolbar_visible = not _toolbar_visible
+        _animation_start_time = time.monotonic()
+        if not bpy.app.timers.is_registered(_animation_tick):
+            bpy.app.timers.register(_animation_tick, first_interval=1.0 / 60.0)
         _tag_redraw(context)
         return {"FINISHED"}
 
@@ -311,7 +364,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
             for gizmo in self._buttons:
                 gizmo.hide = True
             return
-        bounds = _bounds(context)
+        bounds = _animated_bounds(context)
         if bounds is None:
             return
         x, y, _w, _h, s = bounds
@@ -334,6 +387,14 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons[2].hide = snapshot.active or not (model and model.enabled)
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
         self._buttons[4].hide = not bool(message)
+        # Blender does not guarantee refresh() for each timer-driven redraw.
+        # Keep hit targets at the same translated position as the painted bar.
+        for gizmo in self._buttons:
+            if gizmo.matrix_basis.translation.y + gizmo.scale_basis < 0:
+                gizmo.hide = True
+
+    def draw_prepare(self, context):
+        self.refresh(context)
 
 
 CLASSES = (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
@@ -355,13 +416,17 @@ def _pulse():
 
 
 def sync(context=None):
-    global _handle, _toolbar_visible, _last_enabled
+    global _handle, _toolbar_visible, _last_enabled, _slide
     if not _registered:
         return
     context = context or bpy.context
     active = enabled(context)
     if active and not _last_enabled:
+        _stop_animation()
         _toolbar_visible = True
+        _slide = 1.0
+    elif not active:
+        _stop_animation()
     _last_enabled = active
     if active and _handle is None:
         _handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -394,6 +459,7 @@ def register():
 def unregister():
     global _registered, _handle, _keymap, _keymap_item, _last_enabled
     _registered = False
+    _stop_animation()
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
     if handlers is not None and _scene_loaded in handlers:
         handlers.remove(_scene_loaded)

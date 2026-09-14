@@ -593,14 +593,26 @@ def test_strain_limit_percent_conversion_and_disable():
     assert shell_wire_params(disabled)["strain-limit"] == 0.0
 
 
-def test_legacy_cloth_shrink_is_ignored_and_keeps_strain_limit():
-    shrunk = ShellMaterialSettings(
-        shrink_percent=5.0, stretch_limit_enabled=True,
-        maximum_stretch_percent=5.0)
-    wire = shell_wire_params(shrunk)
-    assert wire["shrink-x"] == float32_wire(1.0)
-    assert wire["shrink-y"] == float32_wire(1.0)
-    assert wire["strain-limit"] == float32_wire(0.05)
+@pytest.mark.parametrize("percent, factor", [
+    (0.0, 1.0), (10.0, 0.9), (-10.0, 1.1), (-100.0, 2.0)])
+def test_cloth_shrink_maps_to_isotropic_positive_rest_scale(percent, factor):
+    wire = shell_wire_params(ShellMaterialSettings(shrink_percent=percent))
+    assert wire["shrink-x"] == float32_wire(factor)
+    assert wire["shrink-y"] == float32_wire(factor)
+    assert wire["shrink-x"] > 0
+
+
+@pytest.mark.parametrize("shrink_percent", [-10.0, 10.0])
+def test_shrink_and_nonzero_stretch_limit_conflict_is_rejected(shrink_percent):
+    with pytest.raises(MaterialValidationError,
+                       match="Shrink cannot be combined with Stretch Limit"):
+        ShellMaterialSettings(shrink_percent=shrink_percent,
+                              stretch_limit_enabled=True,
+                              maximum_stretch_percent=5.0)
+    limited = ShellMaterialSettings(shrink_percent=0.0,
+                                    stretch_limit_enabled=True,
+                                    maximum_stretch_percent=5.0)
+    assert shell_wire_params(limited)["strain-limit"] == float32_wire(0.05)
 
 
 def test_permanent_deformation_maps_rates_and_artist_threshold_units():

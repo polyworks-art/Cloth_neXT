@@ -59,9 +59,12 @@ def test_visibility_toggle_is_runtime_only_and_resets_on_reenable(
     toggle = floating.CLOTHNEXT_OT_toggle_floating_ui()
     assert floating.visible(context)
     assert toggle.execute(context) == {"FINISHED"}
+    assert floating.visible(context)  # slides out before becoming non-interactive
+    floating._slide_fraction(floating._animation_start_time + .2)
     assert not floating.visible(context)
     assert prefs.new_look
     assert toggle.execute(context) == {"FINISHED"}
+    floating._slide_fraction(floating._animation_start_time + .2)
     assert floating.visible(context)
     toggle.execute(context)
     prefs.new_look = False
@@ -71,6 +74,56 @@ def test_visibility_toggle_is_runtime_only_and_resets_on_reenable(
     floating.sync(context)
     assert floating.visible(context)
     floating.unregister()
+
+
+def test_f6_slide_reverses_and_timer_stops(blender_env, monkeypatch):
+    floating = __import__("cloth_next.blender.floating_simulation",
+                          fromlist=["sync"])
+    prefs = SimpleNamespace(new_look=True)
+    context = SimpleNamespace(window_manager=SimpleNamespace(windows=()))
+    monkeypatch.setattr(floating, "_prefs", lambda _context: prefs)
+    monkeypatch.setattr(floating, "_tag_redraw", lambda _context: None)
+    clock = [100.0]
+    monkeypatch.setattr(floating.time, "monotonic", lambda: clock[0])
+    floating.register()
+    toggle = floating.CLOTHNEXT_OT_toggle_floating_ui()
+    timers = blender_env.bpy.app.timers
+    assert toggle.execute(context) == {"FINISHED"}
+    assert timers.is_registered(floating._animation_tick)
+    clock[0] += .06
+    assert 0 < floating._slide_fraction() < 1
+    assert toggle.execute(context) == {"FINISHED"}
+    assert 0 < floating._animation_from < 1
+    floating._slide_fraction(floating._animation_start_time + .2)
+    assert floating.visible(context)
+    assert floating._slide == 1
+    assert toggle.execute(context) == {"FINISHED"}
+    floating._slide_fraction(floating._animation_start_time + .2)
+    assert floating._slide == 0
+    assert not floating.visible(context)
+    assert not floating.CLOTHNEXT_GT_floating_simulation.poll(context)
+    assert floating._animation_tick() is None
+    floating.unregister()
+    assert not timers.is_registered(floating._animation_tick)
+
+
+def test_slide_uses_each_viewport_region_bounds(blender_env, monkeypatch):
+    floating = __import__("cloth_next.blender.floating_simulation",
+                          fromlist=["_animated_bounds"])
+    monkeypatch.setattr(floating, "_quality_width", lambda _context: 66)
+    context = SimpleNamespace(
+        preferences=SimpleNamespace(system=SimpleNamespace(ui_scale=1)),
+        region=SimpleNamespace(type="WINDOW", width=600, height=400))
+    floating._stop_animation()
+    floating._slide = 1.0
+    shown = floating._animated_bounds(context)
+    context.region.width = 900
+    wider = floating._animated_bounds(context)
+    assert wider[0] - shown[0] == 150
+    floating._slide = 0.0
+    hidden = floating._animated_bounds(context)
+    assert hidden[1] + hidden[3] + 13 + 7 < 0
+    floating._slide = 1.0
 
 
 def test_scene_load_clears_stale_image_references(blender_env):
