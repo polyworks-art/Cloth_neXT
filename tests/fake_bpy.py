@@ -298,7 +298,7 @@ def make_module() -> types.ModuleType:
 
     timer_functions: list = []
 
-    def timers_register(func, first_interval=0.0, persistent=False):
+    def timers_register(func, first_interval=0.0):
         timer_functions.append(func)
 
     def timers_unregister(func):

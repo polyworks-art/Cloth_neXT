@@ -1,18 +1,15 @@
-# Cloth NeXt 2.4.10 Dev
+# Cloth NeXt 2.5.0 Beta
 
-Cloth NeXt now includes a persistent Superhive Username field in Preferences
-and a simple first-run prompt. Any reasonable non-empty username is accepted;
-the add-on does not check accounts or purchases and shows no purchase status.
+Cloth NeXt 2.5.0 removes the Superhive Username preference and first-run username
+prompt introduced in 2.4.10. Installation identity storage, its background
+worker, and periodic installation-presence requests have also been removed.
 
-A best-effort background HTTPS heartbeat sends the configured username, random
-Installation ID, installed version, and selected release channel approximately
-every 120 seconds. The server observes the source IP through the connection.
-Network failures are silent and do not block startup, Preferences, or simulation.
+The add-on no longer reads or writes the previous username or Installation ID
+files and makes no requests to the installation heartbeat endpoint. There is
+no account prompt, purchase matching, or client-side license enforcement.
 
-Identity persists across Blender restarts and add-on updates. The installed
-runtime copy is excluded from distributed packages. No hardware fingerprint,
-credentials, purchaser list, scene data, or unrelated analytics are included.
-See docs/PRIVACY.md for the data collection description.
+This Beta retains the existing simulation, Live View, negative Shrink, and
+toolbar improvements. Update-channel handling and explicit external-solver
+downloads continue through the existing workflows.
 
-This is an experimental Dev build. The external PPF Contact Solver remains
-separate and is not modified or bundled.
+The external PPF Contact Solver remains separate and is not modified or bundled.

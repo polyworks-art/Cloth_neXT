@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.5.0 - 2026-09-16
+
+### Removed
+
+- Superhive Username preference and first-run username prompt introduced in 2.4.10.
+- Installation identity storage and all periodic installation-presence requests.
+  Cloth NeXt no longer sends a username, Installation ID, version, or release
+  channel to the heartbeat endpoint.
+
+This Beta retains the simulation, Live View, negative Shrink, and toolbar
+improvements from earlier versions. The external PPF Contact Solver is separate
+and is not modified or bundled.
+
 ## 2.4.10 - 2026-09-16
 
 ### Added
