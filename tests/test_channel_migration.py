@@ -1,4 +1,8 @@
-"""Bridge migration and all six channel handoffs against fake Blender RNA."""
+"""Current-client feed visibility and channel handoffs against fake Blender RNA.
+
+An old installed version number does not exercise an old client implementation.
+Validate release bootstrap compatibility separately with the shipped old source.
+"""
 import json
 from types import SimpleNamespace
 
@@ -15,7 +19,7 @@ VERSIONS = {"STABLE": "2.0.0", "BETA": "2.3.0", "DEV": "2.3.5"}
     ("2.5.0", "3.0.0", "BETA"),
     ("2.4.10", "3.0.0", "DEV"),
 ])
-def test_inherited_update_requires_no_feed_switch(installed, target, feed):
+def test_current_client_inherited_update_requires_no_feed_switch(installed, target, feed):
     channel = model.UpdateChannel[feed]
     available = model.parse_index_versions({"data": [
         {"id": "cloth_next", "version": target}]}, channel)
@@ -25,7 +29,7 @@ def test_inherited_update_requires_no_feed_switch(installed, target, feed):
     assert decision.target_version == parse_version(target)
 
 
-def test_dev_owner_accepts_beta_update_without_changing_preferences(blender_env, tmp_path):
+def test_current_dev_owner_accepts_beta_without_changing_preferences(blender_env, tmp_path):
     module, owner, duplicate, prefs = installation(blender_env, tmp_path, "DEV", "DEV")
     module.INSTALLED_VERSION = parse_version("2.4.10")
     def sync(directory):

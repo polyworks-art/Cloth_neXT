@@ -1,19 +1,18 @@
-# Cloth NeXt 2.5.0 Beta
+# Cloth NeXt 2.5.1 Dev
 
-Cloth NeXt 2.5.0 removes the Superhive Username preference and first-run username
-prompt introduced in 2.4.10. Installation identity storage, its background
-worker, and periodic installation-presence requests have also been removed.
+This repair delivers the corrected update-channel rules as a Dev release. The
+shipped 2.4.10 Dev updater rejects the Beta 2.5.0 target, even when that target
+is offered through the Dev feed. It accepts 2.5.1 through the same Dev feed,
+without changing the selected channel or repository identity.
 
-The add-on no longer reads or writes the previous username or Installation ID
-files and makes no requests to the installation heartbeat endpoint. There is
-no account prompt, purchase matching, or client-side license enforcement.
+After installing 2.5.1, Dev accepts Stable, Beta, and Dev releases; Beta accepts
+Stable and Beta; Stable accepts only Stable. Update installation continues
+through Blender's native Extension Manager.
 
-This Beta retains the existing simulation, Live View, negative Shrink, and
-toolbar improvements. Update-channel handling and explicit external-solver
-downloads continue through the existing workflows.
+The username preference, first-run prompt, installation identity storage, and
+periodic installation heartbeats remain removed. The external PPF Contact Solver
+remains separate and is not modified or bundled.
 
-Update feeds now follow cumulative visibility: Dev receives all release levels,
-Beta receives Stable and Beta, and Stable receives only Stable. This Beta is
-offered through both Beta and Dev without requiring Dev users to switch feeds.
-
-The external PPF Contact Solver remains separate and is not modified or bundled.
+The candidate Dev index is checked using the actual shipped 2.4.10 updater before
+publication. Testing new updater code with an old installed version number does
+not establish bootstrap compatibility.

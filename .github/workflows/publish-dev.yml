@@ -82,6 +82,14 @@ jobs:
           if ($candidates.Count -ne 1) { throw 'Dev index must expose exactly one cloth_next candidate' }
           if ($candidates[0].version -cne '${{ inputs.version }}') { throw 'Dev index candidate version mismatch' }
           python tools/scan_release_artifact.py $destination
+          # Exercise the updater actually shipped with 2.4.10.
+          $legacyZip=Join-Path "$env:RUNNER_TEMP" "legacy-dev-2.4.10.zip"
+          $legacySource=Join-Path "$env:RUNNER_TEMP" "legacy-dev-2.4.10"
+          git archive --format=zip --output="$legacyZip" ec084d82fbb805e26d718ea34016faf4c3e4fa6f
+          if ($LASTEXITCODE -ne 0) { throw 'failed to extract shipped 2.4.10 source' }
+          Expand-Archive -LiteralPath $legacyZip -DestinationPath $legacySource
+          python tools/check_legacy_dev_bootstrap.py --legacy-source "$legacySource" --candidate-index (Join-Path $dev 'index.json')
+          if ($LASTEXITCODE -ne 0) { throw 'shipped Dev updater rejected the candidate' }
           git -C "$env:RUNNER_TEMP\pages" add dev errors/errors.json
           $changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only
           if ($changed | Where-Object {$_ -notlike 'dev/*' -and $_ -ne 'errors/errors.json'}) { throw 'attempted non-Dev Pages modification' }

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.5.1 - 2026-09-16
+
+### Fixed
+
+- Deliver the corrected cumulative channel rules as a Dev build so the shipped
+  2.4.10 Dev updater accepts the repair through its existing Dev feed.
+- Validate the candidate index with the actual shipped 2.4.10 updater before Dev
+  publication, rather than testing new updater code with an old version number.
+
+This Dev repair retains the removal of username prompts, installation identity
+storage, and installation heartbeats from 2.5.0. Dev receives all release levels;
+Beta receives Stable and Beta; Stable receives only Stable.
+
 ## 2.5.0 - 2026-09-16
 
 ### Removed
@@ -17,7 +30,8 @@ and is not modified or bundled.
 
 - Cumulative update visibility: Dev receives Stable, Beta, and Dev releases;
   Beta receives Stable and Beta; Stable receives only Stable. Beta 2.5.0 is
-  offered through the Beta and Dev feeds without changing users' selected channel.
+  offered through the Beta and Dev feeds. The shipped 2.4.10 Dev updater still
+  rejects this Beta target; 2.5.1 supplies the compatible Dev repair.
 
 ## 2.4.10 - 2026-09-16
 
