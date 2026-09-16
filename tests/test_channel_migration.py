@@ -10,6 +10,36 @@ from cloth_next.updater.addon_versions import parse_version
 VERSIONS = {"STABLE": "2.0.0", "BETA": "2.3.0", "DEV": "2.3.5"}
 
 
+@pytest.mark.parametrize("installed,target,feed", [
+    ("2.4.10", "2.5.0", "DEV"),
+    ("2.5.0", "3.0.0", "BETA"),
+    ("2.4.10", "3.0.0", "DEV"),
+])
+def test_inherited_update_requires_no_feed_switch(installed, target, feed):
+    channel = model.UpdateChannel[feed]
+    available = model.parse_index_versions({"data": [
+        {"id": "cloth_next", "version": target}]}, channel)
+    decision = model.decide_update(parse_version(installed), available, channel)
+    assert decision.state is model.AddonUpdateState.UPDATE_AVAILABLE
+    assert decision.selected_channel == feed.lower()
+    assert decision.target_version == parse_version(target)
+
+
+def test_dev_owner_accepts_beta_update_without_changing_preferences(blender_env, tmp_path):
+    module, owner, duplicate, prefs = installation(blender_env, tmp_path, "DEV", "DEV")
+    module.INSTALLED_VERSION = parse_version("2.4.10")
+    def sync(directory):
+        assert directory == str(tmp_path)
+        (tmp_path / ".blender_ext" / "index.json").write_text(json.dumps({"data": [
+            {"id": "cloth_next", "version": "2.5.0"}]}))
+    module._blender_repo_sync = sync
+    assert module.synchronize_selected(blender_env.bpy.context, model.UpdateChannel.DEV)
+    assert module.session().state is model.AddonUpdateState.UPDATE_AVAILABLE
+    assert prefs.update_channel == "DEV"
+    assert owner.remote_url == model.UpdateChannel.DEV.index_url
+    assert module.CLOTHNEXT_OT_addon_update_through_blender.poll(blender_env.bpy.context)
+
+
 @pytest.mark.parametrize("source", VERSIONS)
 @pytest.mark.parametrize("destination", VERSIONS)
 def test_channel_decision_matrix(source, destination):

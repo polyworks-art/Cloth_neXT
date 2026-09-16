@@ -12,4 +12,8 @@ This Beta retains the existing simulation, Live View, negative Shrink, and
 toolbar improvements. Update-channel handling and explicit external-solver
 downloads continue through the existing workflows.
 
+Update feeds now follow cumulative visibility: Dev receives all release levels,
+Beta receives Stable and Beta, and Stable receives only Stable. This Beta is
+offered through both Beta and Dev without requiring Dev users to switch feeds.
+
 The external PPF Contact Solver remains separate and is not modified or bundled.

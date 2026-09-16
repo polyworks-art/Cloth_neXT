@@ -1,14 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Single source of truth for exact release-channel targets."""
+"""Single source of truth for cumulative release-channel visibility."""
 
 from __future__ import annotations
 
 
 CHANNELS = ("stable", "beta", "dev")
 
-_ALLOWED_RELEASES = {channel: frozenset((channel,)) for channel in CHANNELS}
-_PUBLICATION_TARGETS = {channel: (channel,) for channel in CHANNELS}
+_ALLOWED_RELEASES = {
+    "stable": frozenset(("stable",)),
+    "beta": frozenset(("stable", "beta")),
+    "dev": frozenset(CHANNELS),
+}
+_PUBLICATION_TARGETS = {
+    release: tuple(feed for feed in CHANNELS if release in _ALLOWED_RELEASES[feed])
+    for release in CHANNELS
+}
 
 
 def _channel(value: str) -> str:

@@ -77,11 +77,9 @@ jobs:
       - name: Build the exact channel repository
         shell: bash
         run: |
-          case "${{ needs.candidate.outputs.channel }}" in
-            stable) TARGETS="stable" ;;
-            beta) TARGETS="beta" ;;
-            *) echo "unsupported tagged release channel" >&2; exit 1 ;;
-          esac
+          CHANNEL="${{ needs.candidate.outputs.channel }}"
+          case "$CHANNEL" in stable|beta) ;; *) echo "unsupported tagged release channel" >&2; exit 1 ;; esac
+          TARGETS="$(python -c 'import sys; from cloth_next.updater.channel_policy import publication_targets; print(" ".join(publication_targets(sys.argv[1])))' "$CHANNEL")"
           for TARGET in $TARGETS; do
             python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "$TARGET" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
           done
@@ -92,7 +90,7 @@ jobs:
         run: |
           VERSION="${{ needs.candidate.outputs.version }}"
           CHANNEL="${{ needs.candidate.outputs.channel }}"
-          if [ "$CHANNEL" = stable ]; then TARGETS="stable"; else TARGETS="beta"; fi
+          TARGETS="$(python -c 'import sys; from cloth_next.updater.channel_policy import publication_targets; print(" ".join(publication_targets(sys.argv[1])))' "$CHANNEL")"
           if [ ! -d site-publish ]; then
             git worktree add --detach site-publish
             git -C site-publish checkout --orphan gh-pages
@@ -116,7 +114,7 @@ jobs:
               "artifacts/$VERSION/"*|.nojekyll) ;;
               stable/*) [ "$CHANNEL" = stable ] || { echo "unexpected Stable path: $path" >&2; exit 1; } ;;
               beta/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Beta path: $path" >&2; exit 1; } ;;
-              dev/*) ;;
+              dev/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Dev path: $path" >&2; exit 1; } ;;
               errors/errors.json) ;;
               *) echo "attempted non-release Pages modification: $path" >&2; exit 1 ;;
             esac

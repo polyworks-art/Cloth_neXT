@@ -250,7 +250,7 @@ def check_pages_artifact_store(site_dir: Path, zip_path: Path,
 
 
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
-    """Enforce exact channel targets while retaining historical archives."""
+    """Enforce cumulative channel targets while retaining historical archives."""
     required = publication_targets(version.channel)
     archive_name = expected_zip_name(version)
     for channel in ("stable", "beta", "dev"):

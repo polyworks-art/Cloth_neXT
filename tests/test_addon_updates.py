@@ -88,9 +88,8 @@ def test_stable_channel_never_accepts_prereleases():
 
 @pytest.mark.parametrize("channel,value", [(UpdateChannel.BETA, "1.0.0"),
     (UpdateChannel.DEV, "0.3.0"), (UpdateChannel.DEV, "1.0.0")])
-def test_channel_rejects_other_levels(channel, value):
-    with pytest.raises(ValueError):
-        parse_index_versions(index_payload(value), channel)
+def test_channel_accepts_inherited_levels(channel, value):
+    assert parse_index_versions(index_payload(value), channel) == (parse_version(value),)
 
 
 def test_beta_rejects_dev_versions():

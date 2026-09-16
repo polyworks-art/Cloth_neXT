@@ -7,7 +7,8 @@
   "highlights": [
     {"icon": "icons/settings.png", "title": "Simpler Preferences", "description": "The Superhive Username preference and first-run username prompt from 2.4.10 have been removed."},
     {"icon": "icons/shield.png", "title": "No Installation Heartbeat", "description": "Cloth NeXt no longer reads or writes installation identity files or sends periodic installation-presence requests."},
-    {"icon": "icons/play.png", "title": "Existing Workflow Preserved", "description": "Continue using the existing Bake, Live View, negative Shrink, and toolbar improvements. The external solver remains separate."}
+    {"icon": "icons/play.png", "title": "Existing Workflow Preserved", "description": "Continue using the existing Bake, Live View, negative Shrink, and toolbar improvements. The external solver remains separate."},
+    {"icon": "icons/refresh.png", "title": "Cumulative Update Feeds", "description": "Dev receives all release levels; Beta receives Stable and Beta; Stable receives only Stable. Dev users receive this Beta through their existing feed."}
   ],
   "actions": [
     {"label": "Continue", "kind": "close"},

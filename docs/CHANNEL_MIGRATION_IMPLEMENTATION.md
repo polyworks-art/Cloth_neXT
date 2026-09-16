@@ -1,5 +1,11 @@
 # Channel migration implementation report
 
+The owner clarified cumulative visibility for release 2.5.0: Dev receives all
+release levels, Beta receives Stable and Beta, and Stable receives Stable only.
+The channel policy, update parser, publication workflow, and regression checks
+now implement that matrix while retaining one current candidate per feed.
+Earlier implementation details below describe the original migration baseline.
+
 Implemented on 2026-09-07. No release, tag, version change, solver change or
 publication was performed. The existing manifest remains 2.4.3; 2.3.5 is used
 only as a requested regression example, not as a newly selected release version.

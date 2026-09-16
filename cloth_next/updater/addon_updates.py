@@ -162,7 +162,7 @@ def parse_index_versions(payload: dict,
                          channel: UpdateChannel) -> tuple[AddonVersion, ...]:
     """Extract this extension's versions; enforce channel content rules.
 
-    Each feed exposes exactly its own release level. Legacy suffixed versions
+    Each feed exposes one target from its permitted release levels. Legacy suffixed versions
     remain readable; multiple package candidates are rejected.
     """
     data = payload.get("data")
@@ -218,7 +218,8 @@ def decide_update(installed, available, channel=None):
     relation = ("unavailable" if target is None else "equal" if target == installed
                 else "newer" if target > installed else "older")
     changed = installed.channel_name != selected
-    if len(available) > 1 or (target and target.channel_name != selected):
+    if len(available) > 1 or (target and target.channel_name not in
+                             allowed_release_channels(selected)):
         state = AddonUpdateState.ERROR
     elif target is None:
         state = AddonUpdateState.UNAVAILABLE

@@ -362,9 +362,9 @@ def write_index(directory, version):
         encoding="utf-8")
 
 
-def test_beta_release_is_published_only_to_beta(tmp_path):
+def test_beta_release_is_published_to_beta_and_dev(tmp_path):
     site = tmp_path / "site"
-    for channel in ("beta",):
+    for channel in ("beta", "dev"):
         (site / channel).mkdir(parents=True)
         make_zip(site / channel, "0.3.0")
         write_index(site / channel, "0.3.0")
@@ -373,7 +373,7 @@ def test_beta_release_is_published_only_to_beta(tmp_path):
 
 def test_beta_release_is_rejected_from_stable_repository(tmp_path):
     site = tmp_path / "site"
-    for channel in ("beta",):
+    for channel in ("beta", "dev"):
         (site / channel).mkdir(parents=True)
         make_zip(site / channel, "0.3.0")
         write_index(site / channel, "0.3.0")
@@ -389,10 +389,12 @@ def test_stable_release_preserves_historical_archives(tmp_path):
     (site / "stable").mkdir(parents=True)
     make_zip(site / "stable", "1.0.0")
     write_index(site / "stable", "1.0.0")
-    (site / "dev").mkdir()
-    make_zip(site / "dev", "1.0.0")  # former cumulative archive stays readable
+    for channel in ("beta", "dev"):
+        (site / channel).mkdir()
+        make_zip(site / channel, "1.0.0")
+        write_index(site / channel, "1.0.0")
     make_zip(site / "dev", "1.2.3")
-    write_index(site / "dev", "1.2.3")
+    # An older Dev archive is retained but is not the active target.
     check_channel_separation(site, parse_version("1.0.0"))
     (site / "stable" / "index.json").unlink()
     with pytest.raises(ValueError, match="stable repository has no index"):

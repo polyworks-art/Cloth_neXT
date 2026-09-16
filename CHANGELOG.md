@@ -13,6 +13,12 @@ This Beta retains the simulation, Live View, negative Shrink, and toolbar
 improvements from earlier versions. The external PPF Contact Solver is separate
 and is not modified or bundled.
 
+### Fixed
+
+- Cumulative update visibility: Dev receives Stable, Beta, and Dev releases;
+  Beta receives Stable and Beta; Stable receives only Stable. Beta 2.5.0 is
+  offered through the Beta and Dev feeds without changing users' selected channel.
+
 ## 2.4.10 - 2026-09-16
 
 ### Added

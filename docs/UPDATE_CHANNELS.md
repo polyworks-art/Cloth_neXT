@@ -2,11 +2,11 @@
 
 Cloth NeXt uses one local Blender repository entry and three public feeds:
 
-| Channel | Exact target | Feed |
+| Channel | Permitted release levels | Feed |
 |---|---|---|
-| Stable | X.0.0 | https://polyworks-art.github.io/Cloth_neXT/stable/index.json |
-| Beta | X.Y.0 | https://polyworks-art.github.io/Cloth_neXT/beta/index.json |
-| Dev | X.Y.Z | https://polyworks-art.github.io/Cloth_neXT/dev/index.json |
+| Stable | Stable only | https://polyworks-art.github.io/Cloth_neXT/stable/index.json |
+| Beta | Stable and Beta | https://polyworks-art.github.io/Cloth_neXT/beta/index.json |
+| Dev | Stable, Beta, and Dev | https://polyworks-art.github.io/Cloth_neXT/dev/index.json |
 
 The authoritative rules live in [RELEASE_POLICY.md](RELEASE_POLICY.md).
 
@@ -46,11 +46,12 @@ sync leaves Cloth NeXt usable; retry with **Check for Updates** or next startup.
 
 ## Publication and repair
 
-Each feed exposes exactly one current target for its own release level. Publish
-only to the release's channel; preserve immutable archives, including former
-cumulative publications. All three public paths remain available for bridge builds.
-Bridge distribution requires an appropriate numeric build for each release level;
-a Dev build is never inserted as a Stable or Beta target.
+Each feed exposes exactly one current target from its permitted release levels.
+Stable releases are published to all three feeds, Beta releases to Beta and Dev,
+and Dev releases to Dev only. For example, Beta 2.5.0 is offered through both
+Beta and Dev; Dev users do not need to change their selected feed. Preserve
+immutable archives. All three public paths remain available for bridge builds.
+A Dev build is never inserted as a Stable or Beta target.
 
 Indexes are generated exclusively with official Blender tooling:
 
