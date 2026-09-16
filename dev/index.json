@@ -7,7 +7,7 @@
       "id": "cloth_next",
       "name": "Cloth NeXt",
       "tagline": "High-fidelity cloth and soft-body simulation",
-      "version": "2.4.10",
+      "version": "2.5.0",
       "type": "add-on",
       "maintainer": "Tim Christmann",
       "license": [
@@ -19,8 +19,8 @@
         "2026 Tim Christmann and Cloth NeXt contributors"
       ],
       "permissions": {
-        "network": "Download selected solvers and send installation presence",
-        "files": "Manage external solvers and installation presence configuration"
+        "network": "Download explicitly selected external solver dependencies",
+        "files": "Manage the separate solver installation outside the extension"
       },
       "tags": [
         "Physics"
@@ -28,9 +28,9 @@
       "platforms": [
         "windows-x64"
       ],
-      "archive_url": "./cloth_next-2.4.10-windows-x64.zip",
-      "archive_size": 27268828,
-      "archive_hash": "sha256:9deddf6ac54a66f4b4fd8086599a8c98f65d23097284231bfa8b646faf45eb6e"
+      "archive_url": "./cloth_next-2.5.0-windows-x64.zip",
+      "archive_size": 27259222,
+      "archive_hash": "sha256:9d8e485c4fe618132e63172f086706422b2d312185a364ca4701f63ca911b929"
     }
   ]
 }
