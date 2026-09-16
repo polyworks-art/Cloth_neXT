@@ -26,7 +26,7 @@ from tools.scan_release_artifact import scan_zip
 from tools.validate_extension import validate_zip
 from tools.build_icons import build as build_icons, validate as validate_icons
 
-_EXCLUDED_DIRECTORIES = frozenset({"__pycache__", "solver", "downloads",
+_EXCLUDED_DIRECTORIES = frozenset({"__pycache__", ".state", "solver", "downloads",
                                    "managed_solver", "staging", "logs"})
 
 

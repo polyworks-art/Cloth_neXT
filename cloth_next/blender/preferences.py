@@ -27,6 +27,7 @@ from ..ppf.solver_overlay import apply_solver_overlay
 from ..updater import addon_updates, view_model
 from . import addon_update_operators, icon_registry, viewport_colors
 from .addon_identity import addon_preferences, package_addon_id
+from . import presence_runtime
 from ..updater.install_paths import ManagedSolverPaths, read_current
 from ..updater.managed import ManagedSolverInstaller
 from ..updater.modes import InstallationMode
@@ -704,6 +705,11 @@ def _new_look_changed(_self, context):
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
 
+    superhive_username: bpy.props.StringProperty(
+        name="Superhive Username", maxlen=128,
+        get=presence_runtime.username_get, set=presence_runtime.username_set,
+        description="Your claimed Superhive username for installation presence")
+
     new_look: bpy.props.BoolProperty(
         name="New Look", default=False,
         description="Enable floating Cloth NeXt viewport controls; use the viewport shortcut to show or hide the toolbar",
@@ -791,6 +797,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
         general = layout.box()
         general.label(text="General")
+        general.prop(self, "superhive_username")
         general.prop(self, "auto_launch_bake_window")
         if is_dev_build():
             general.prop(self, "developer_tools")

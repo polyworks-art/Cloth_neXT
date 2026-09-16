@@ -39,7 +39,7 @@ def test_build_is_always_solver_free(tmp_path):
 
 def test_build_excludes_runtime_state_directories(tmp_path):
     source = extension_source(tmp_path)
-    for directory in ("downloads", "managed_solver", "staging", "logs", "__pycache__"):
+    for directory in ("downloads", "managed_solver", "staging", "logs", "__pycache__", ".state"):
         (source / directory).mkdir()
         (source / directory / "data.bin").write_bytes(b"x")
     output = tmp_path / "clean.zip"

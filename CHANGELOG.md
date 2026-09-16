@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.4.10 - 2026-09-16
+
+### Added
+
+- Persistent Superhive Username in Add-on Preferences and a simple first-run
+  username prompt. Unknown usernames are accepted without account or purchase checks.
+- Best-effort installation presence every 120 seconds using a random persistent
+  UUID4, installed version, and selected release channel. HTTPS runs in one
+  background worker; failures are silent and never restrict functionality.
+- Transparent installation-presence privacy documentation. No hardware
+  fingerprint, purchaser list, credentials, or project data is collected.
+
+### Fixed
+
+- Reload-safe presence scheduling and exclusion of per-installation state from
+  extension builds.
+
+The external PPF Contact Solver is not modified or bundled.
+
 ## 2.4.9 - 2026-09-14
 
 ### Added

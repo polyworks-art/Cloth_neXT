@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "cloth_next"
-version = "2.4.9"
+version = "2.4.10"
 name = "Cloth NeXt"
 tagline = "High-fidelity cloth and soft-body simulation"
 maintainer = "Tim Christmann"
@@ -13,5 +13,8 @@ copyright = ["2026 Tim Christmann and Cloth NeXt contributors"]
 platforms = ["windows-x64"]
 
 [permissions]
-network = "Download explicitly selected external solver dependencies"
-files = "Manage the separate solver installation outside the extension"
+network = "Download selected solvers and send installation presence"
+files = "Manage external solvers and installation presence configuration"
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc", ".*", "/*.zip", "*.blend[1-9]", "resources/.state/"]

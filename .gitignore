@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .tmp_verify/
+cloth_next/resources/.state/
 .tmp_face_friction_diag/
 progress.log
 graphify-out

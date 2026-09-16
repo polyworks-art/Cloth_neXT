@@ -17,6 +17,7 @@ reverts everything in strict reverse order.
 from __future__ import annotations
 
 import bpy
+from . import presence_runtime
 
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, floating_simulation, icon_registry,
@@ -28,6 +29,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
 
 _CLASSES = (
     preferences.CLASSES
+    + presence_runtime.CLASSES
     + onboarding_manager.CLASSES
     + solver_preferences_ui.CLASSES
     + addon_update_operators.CLASSES
@@ -74,6 +76,7 @@ def _steps() -> list[tuple]:
     steps.append((floating_simulation.register, floating_simulation.unregister))
     steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
+    steps.append((presence_runtime.register, presence_runtime.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
     # last and detached first, and idempotent, so a reload cannot leave a
     # duplicate behind.
