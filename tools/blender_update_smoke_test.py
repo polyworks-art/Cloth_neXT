@@ -275,7 +275,11 @@ def main() -> None:
     assert "dev_channel_acknowledged" not in preferences.bl_rna.properties
     identity = (repos[index].directory, repos[index].module, repos[index].remote_url)
     try:
-        for target in ("2.7.1", "2.8.0", "3.0.0"):
+        installed = updates.INSTALLED_VERSION
+        targets = (f"{installed.major}.{installed.minor}.{installed.patch + 1}",
+                   f"{installed.major}.{installed.minor + 1}.0",
+                   f"{installed.major + 1}.0.0")
+        for target in targets:
             chosen = updates.selected_channel(bpy.context)
             def cached_sync(directory):
                 assert directory == channel_directory
