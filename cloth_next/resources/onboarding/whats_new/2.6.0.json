@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.6.0",
+  "title": "Cloth NeXt has moved to Superhive",
+  "subtitle": "The final GitHub Beta release. Your installation keeps working.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Updates are moving to Superhive",
+      "description": "Cloth NeXt 2.6.0 is the final release delivered through the GitHub Beta channel."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Your installation keeps working",
+      "description": "Nothing is being deactivated. Your installation, projects, caches and solver setup continue to work."
+    },
+    {
+      "icon": "icons/settings.png",
+      "title": "Get future releases through Superhive",
+      "description": "Connect the Superhive Blender Extension Repository to receive Cloth NeXt 2.7.0 and future releases. GitHub Dev remains available for internal development."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Set up Superhive",
+      "kind": "url",
+      "url": "https://support.superhivemarket.com/article/335-connecting-superhive-as-a-remote-repository-in-blender"
+    },
+    {
+      "label": "Continue",
+      "kind": "close"
+    }
+  ]
+}

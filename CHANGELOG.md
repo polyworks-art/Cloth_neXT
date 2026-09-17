@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0 - 2026-09-17
+
+- Final GitHub Beta migration release; existing Companion guides users to Superhive.
+- Current installations keep working; no automatic repository migration occurs.
+- Beta stays at 2.6.0; customer releases from 2.7.0 move to Superhive. GitHub Dev remains active and Stable is unchanged.
+- Development QuickAdd / Quick Assign is intentionally excluded; existing functionality is preserved.
+
 ## 2.5.1 - 2026-09-16
 
 ### Fixed

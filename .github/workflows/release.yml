@@ -16,10 +16,35 @@ env:
 
 jobs:
   candidate:
-    uses: ./.github/workflows/build-release-candidate.yml
-    with:
-      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.metadata.outputs.commit }}
+      version: ${{ steps.metadata.outputs.version }}
+      channel: ${{ steps.metadata.outputs.channel }}
+      zip-name: ${{ steps.metadata.outputs.zip-name }}
+      zip-sha256: ${{ steps.metadata.outputs.zip-sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Reuse the exact tested preflight artifact
+        id: metadata
+        env: {GH_TOKEN: "${{ github.token }}"}
+        shell: bash
+        run: |
+          COMMIT="$(git rev-parse HEAD)"
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("cloth_next/blender_manifest.toml", "rb"))["version"])')"
+          python tools/check_release_preflight.py --commit "$COMMIT" --version "$VERSION" --output-dir dist
+          ZIP="cloth_next-$VERSION-windows-x64.zip"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$(python tools/validate_release_policy.py --phase pre-build --tag "$VERSION" --print-channel)" >> "$GITHUB_OUTPUT"
+          echo "zip-name=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "zip-sha256=$(sha256sum "dist/$ZIP" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: {name: cloth-next-release-candidate, path: "dist/*.zip", if-no-files-found: error}
 
   publish:
     needs: candidate
@@ -36,14 +61,14 @@ jobs:
         with: {name: cloth-next-release-candidate, path: dist}
       - name: Require matching unpublished preflight
         env: {GH_TOKEN: "${{ github.token }}"}
-        run: python tools/check_release_preflight.py --commit "$GITHUB_SHA" --version "${{ needs.candidate.outputs.version }}"
+        run: python tools/check_release_preflight.py --commit "${{ needs.candidate.outputs.commit }}" --version "${{ needs.candidate.outputs.version }}"
       - name: Enforce immutable source tag
         shell: bash
         run: |
           TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          test "$(git rev-list -n 1 "$TAG")" = "${{ needs.candidate.outputs.commit }}"
       - name: Generate canonical release metadata
-        run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "$GITHUB_SHA" --output-dir dist
+        run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "${{ needs.candidate.outputs.commit }}" --output-dir dist
       - run: python tools/validate_release_policy.py --phase post-build --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}"
       - name: Download Blender
         shell: bash

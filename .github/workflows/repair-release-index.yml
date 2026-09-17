@@ -25,7 +25,7 @@ jobs:
           REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
           if ('${{ inputs.confirmation }}' -cne 'REPAIR_RELEASE_INDEX') { throw 'confirmation mismatch' }
-          python -c "import os; from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version(os.environ['REPAIR_VERSION']); assert release_visible_in(v.channel_name, os.environ['REPAIR_CHANNEL']), 'release is not visible in requested repository'"
+          python -c "import os; from tools.validate_release_policy import check_beta_bridge_target; check_beta_bridge_target(os.environ['REPAIR_VERSION'], os.environ['REPAIR_CHANNEL']); from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version(os.environ['REPAIR_VERSION']); assert release_visible_in(v.channel_name, os.environ['REPAIR_CHANNEL']), 'release is not visible in requested repository'"
       - name: Download Blender 5.1.2
         shell: pwsh
         run: |

@@ -84,7 +84,8 @@ def _assert_no_runtime_timers(bpy, module_name: str) -> None:
         ("addon_update_operators", "_automatic_update_check_timer"),
         ("bake_preview", "_tick"),
         ("companion_manager", "_pulse"),
-        ("hud", "_redraw_pulse"),
+        ("floating_simulation", "_pulse"),
+        ("floating_simulation", "_animation_tick"),
         ("onboarding_manager", "_startup_pulse"),
         ("preferences", "_ui_refresh_pulse"),
         ("solver_test", "_delayed_recovery_refresh"),
@@ -198,6 +199,11 @@ def _phase3b_material_roundtrip(bpy, obj) -> None:
 def main() -> None:
     import bpy
 
+    def registered(cls):
+        if issubclass(cls, bpy.types.GizmoGroup):
+            return bpy.types.GizmoGroup.bl_rna_get_subclass_py(cls.__name__) is cls
+        return cls.is_registered
+
     extension, import_origin = _load_extension()
     module_name = extension.__name__
     print(f"Cloth NeXt smoke test: importing via {import_origin}")
@@ -207,7 +213,8 @@ def main() -> None:
     blender_package = importlib.import_module(module_name + ".blender")
     classes = []
     for submodule in ("preferences", "addon_update_operators", "object_properties",
-                      "physics_operators", "bake_operators", "physics_ui"):
+                      "physics_operators", "bake_operators", "physics_ui",
+                      "floating_simulation"):
         loaded = importlib.import_module(f"{blender_package.__name__}.{submodule}")
         classes.extend(loaded.CLASSES)
 
@@ -215,7 +222,7 @@ def main() -> None:
         extension.register()
         extension.register()  # idempotency guard
         for cls in classes:
-            assert cls.is_registered, f"{cls.__name__} is not registered"
+            assert registered(cls), f"{cls.__name__} is not registered"
         assert "cloth_next" in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 1
         assert _clothnext_handler_count(bpy) > 0
@@ -223,11 +230,23 @@ def main() -> None:
         _addon_update_section_check(bpy, module_name)
         _phase28_roundtrip(bpy)
         icons = importlib.import_module(module_name + ".blender.icon_registry")
-        hud = importlib.import_module(module_name + ".blender.hud")
+        floating = importlib.import_module(module_name + ".blender.floating_simulation")
         physics_ui = importlib.import_module(module_name + ".blender.physics_ui")
         assert icons._collection is not None and "bake" in icons._collection, \
             "croissant runtime preview was not loaded"
-        assert hud._handle is not None, "HUD handler was not installed"
+        addon = bpy.context.preferences.addons.get(module_name)
+        created_preferences = addon is None
+        if created_preferences:
+            addon = bpy.context.preferences.addons.new()
+            addon.module = module_name
+        original_new_look = addon.preferences.new_look
+        addon.preferences.new_look = True
+        floating.sync()
+        assert floating._handle is not None, "floating UI handler was not installed"
+        addon.preferences.new_look = False
+        floating.sync()
+        assert floating._handle is None, "disabled floating UI handler leaked"
+        addon.preferences.new_look = original_new_look
         obj = bpy.context.active_object
         obj.cloth_next.enabled = True
         # Damping is intentionally part of the role-aware Material panel.
@@ -246,11 +265,13 @@ def main() -> None:
         extension.unregister()
         extension.unregister()
         for cls in classes:
-            assert not cls.is_registered, f"{cls.__name__} survived unregister"
+            assert not registered(cls), f"{cls.__name__} survived unregister"
         assert "cloth_next" not in bpy.types.Object.bl_rna.properties
         assert _clothnext_draw_callback_count(bpy) == 0
         assert _clothnext_handler_count(bpy) == 0
-        assert icons._collection is None and hud._handle is None
+        assert icons._collection is None and floating._handle is None
+        if created_preferences:
+            bpy.context.preferences.addons.remove(addon)
         updates = importlib.import_module(
             module_name + ".blender.addon_update_operators")
         assert not bpy.app.timers.is_registered(updates._ui_refresh_pulse)

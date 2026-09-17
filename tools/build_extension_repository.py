@@ -23,6 +23,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tools.validate_release_policy import check_beta_bridge_target
 from cloth_next.ppf.bootstrap import sha256_file
 from cloth_next.updater.addon_versions import parse_version
 from cloth_next.updater.channel_policy import release_visible_in
@@ -112,6 +113,7 @@ def main() -> int:
         if not release_visible_in(release_channel, args.channel):
             raise ValueError(f"{release_channel} release {manifest['version']} "
                              f"is not eligible for the {args.channel} repository")
+        check_beta_bridge_target(manifest["version"], args.channel)
         channel_dir = args.site_dir / args.channel
         archive = assemble_channel(args.zip, channel_dir, args.sha256)
         generate_single_candidate_index(

@@ -58,7 +58,9 @@ def test_preflight_cannot_publish_and_release_reuses_candidate():
     preflight=workflow("release-preflight.yml")
     release=workflow("release.yml")
     assert "uses: ./.github/workflows/build-release-candidate.yml" in preflight
-    assert "uses: ./.github/workflows/build-release-candidate.yml" in release
+    assert "build-release-candidate.yml" not in release
+    assert '--output-dir dist' in release
+    assert '--commit "$COMMIT"' in release
     for forbidden in ("gh release create", "gh-pages", "release upload"):
         assert forbidden not in preflight
     assert "needs: candidate" in release

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import tempfile
 import tomllib
@@ -15,7 +16,7 @@ def candidate_version(path: Path) -> str:
         return tomllib.loads(bundle.read("blender_manifest.toml").decode())["version"]
 
 
-def matching_run(commit: str, version: str) -> int:
+def matching_run(commit: str, version: str, output_dir: Path | None = None) -> int:
     result = subprocess.run(
         ["gh", "run", "list", "--workflow", "release-preflight.yml", "--limit", "100",
          "--json", "databaseId,headSha,conclusion"], check=True, capture_output=True,
@@ -31,6 +32,9 @@ def matching_run(commit: str, version: str) -> int:
             if len(archives) != 1:
                 continue
             if candidate_version(archives[0]) == version:
+                if output_dir is not None:
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(archives[0], output_dir / archives[0].name)
                 return int(run["databaseId"])
     raise RuntimeError(f"no successful release-preflight for commit {commit} and version {version}")
 
@@ -39,8 +43,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit", required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    print(f"matching release-preflight run: {matching_run(args.commit, args.version)}")
+    print(f"matching release-preflight run: {matching_run(args.commit, args.version, args.output_dir)}")
     return 0
 
 

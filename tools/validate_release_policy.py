@@ -73,6 +73,12 @@ def check_channel(version: ReleaseVersion, channel: str) -> None:
         raise ValueError(f"{version.text} encodes channel {version.channel}, not {channel}")
 
 
+def check_beta_bridge_target(version: str, channel: str) -> None:
+    """Keep the final customer Beta bridge from being advanced or downgraded."""
+    if channel == "beta" and version != "2.6.0":
+        raise ValueError("GitHub Beta is frozen at 2.6.0; customer releases move to Superhive")
+
+
 def expected_zip_name(version: ReleaseVersion) -> str:
     return f"cloth_next-{version.text}-{RELEASE_PLATFORM}.zip"
 
@@ -145,6 +151,16 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
             raise ValueError(
                 "Beta/stable extension ZIP must never contain Dev build metadata "
                 "or enable Developer Tools")
+        if version.text == "2.6.0":
+            forbidden = ("quick_assign", "quickadd", "quick_add", "quickassign")
+            for name in names:
+                lowered = name.lower()
+                if any(token in lowered for token in forbidden) or Path(name).name.startswith("quick_"):
+                    raise ValueError(f"2.6.0 contains excluded QuickAdd resource: {name}")
+                if name.endswith((".py", ".json", ".toml", ".md")):
+                    content = bundle.read(name).decode("utf-8").lower()
+                    if any(token in content for token in forbidden):
+                        raise ValueError(f"2.6.0 contains excluded QuickAdd hook/content: {name}")
         violations = scan_names(names)
         if violations:
             raise ValueError("extension ZIP contains forbidden solver material: "

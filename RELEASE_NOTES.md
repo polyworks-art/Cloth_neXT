@@ -1,18 +1,20 @@
-# Cloth NeXt 2.5.1 Dev
+# Cloth NeXt 2.6.0 Beta
 
-This repair delivers the corrected update-channel rules as a Dev release. The
-shipped 2.4.10 Dev updater rejects the Beta 2.5.0 target, even when that target
-is offered through the Dev feed. It accepts 2.5.1 through the same Dev feed,
-without changing the selected channel or repository identity.
+Cloth NeXt 2.6.0 is the final GitHub Beta customer release. The existing
+What's New Companion explains the move and offers Set up Superhive and Continue.
+Your current installation, projects, caches, settings and external solver keep
+working. No repository is redirected and nothing is deactivated or deleted.
 
-After installing 2.5.1, Dev accepts Stable, Beta, and Dev releases; Beta accepts
-Stable and Beta; Stable accepts only Stable. Update installation continues
-through Blender's native Extension Manager.
+Customer releases starting with 2.7.0 will be distributed through Superhive.
+Connect Superhive using Blender's native Extension Repository setup:
+https://support.superhivemarket.com/article/335-connecting-superhive-as-a-remote-repository-in-blender
 
-The username preference, first-run prompt, installation identity storage, and
-periodic installation heartbeats remain removed. The external PPF Contact Solver
-remains separate and is not modified or bundled.
+GitHub Beta remains frozen at 2.6.0 as a permanent migration bridge. GitHub Dev
+remains available for internal builds at its existing URL and owning repository.
+This Beta also reaches Dev under the existing cumulative publication policy;
+Stable is unchanged. Version 2.7.0 is not part of this release.
 
-The candidate Dev index is checked using the actual shipped 2.4.10 updater before
-publication. Testing new updater code with an old installed version number does
-not establish bootstrap compatibility.
+No new features are included. The development QuickAdd / Quick Assign UI,
+operators, shortcuts, preferences, modules, icons and documentation are excluded.
+The existing floating simulation toolbar is preserved. PPF Contact Solver remains
+external and is not bundled.

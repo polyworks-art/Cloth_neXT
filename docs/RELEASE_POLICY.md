@@ -262,7 +262,7 @@ A Stable or Beta tag triggers `.github/workflows/release.yml`.
 
 The workflow:
 
-1. rebuilds the release candidate through the reusable candidate workflow;
+1. downloads the byte-identical candidate from the successful exact-commit preflight;
 2. requires the matching successful preflight;
 3. verifies the tag resolves to the exact checked-out commit;
 4. generates and validates release metadata;
@@ -429,3 +429,22 @@ Changes to this policy require explicit human approval and a reviewed commit tha
 updates technical validators and workflows in the same change. The Pages-only policy
 was explicitly approved to reduce casual package discovery while preserving Blender
 repository updates and release traceability.
+
+## Final GitHub Beta migration bridge (2.6.0)
+
+The owner-approved final GitHub Beta customer release is 2.6.0. Keep its index
+and immutable archive available indefinitely for older Beta installations.
+Customer releases starting with 2.7.0 are distributed through Superhive; do not
+publish them to GitHub Beta. Repository generation and repair accept only 2.6.0 as the Beta target. This publication restriction does not change installed channel semantics.
+
+GitHub Dev remains an internal development channel at
+https://polyworks-art.github.io/Cloth_neXT/dev/index.json with its existing owning
+repository and publish-dev workflow. The 2.6.0 Beta publication still targets
+Beta and Dev under the existing cumulative policy; Stable is unchanged. Future
+Stable publication needs an explicitly reviewed policy update if it would also
+advance the frozen Beta feed. No automatic Superhive migration is performed.
+
+The 2.6.0 package excludes all development QuickAdd / Quick Assign components.
+Only the existing What's New Companion announces migration, with the official
+Superhive setup link and Continue. Existing installations remain functional.
+Superhive 2.7.0 packaging and customer repository setup are separate future work.

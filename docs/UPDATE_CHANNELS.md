@@ -72,3 +72,22 @@ serialized across channels and repair workflows. Pages is public hosting, not DR
 Channels distribute Cloth NeXt only, never the external PPF Contact Solver.
 
 This implementation does not publish, tag or select an official release version.
+
+## Final GitHub Beta migration bridge (2.6.0)
+
+The owner-approved final GitHub Beta customer release is 2.6.0. Keep its index
+and immutable archive available indefinitely for older Beta installations.
+Customer releases starting with 2.7.0 are distributed through Superhive; do not
+publish them to GitHub Beta. Repository generation and repair accept only 2.6.0 as the Beta target. This publication restriction does not change installed channel semantics.
+
+GitHub Dev remains an internal development channel at
+https://polyworks-art.github.io/Cloth_neXT/dev/index.json with its existing owning
+repository and publish-dev workflow. The 2.6.0 Beta publication still targets
+Beta and Dev under the existing cumulative policy; Stable is unchanged. Future
+Stable publication needs an explicitly reviewed policy update if it would also
+advance the frozen Beta feed. No automatic Superhive migration is performed.
+
+The 2.6.0 package excludes all development QuickAdd / Quick Assign components.
+Only the existing What's New Companion announces migration, with the official
+Superhive setup link and Continue. Existing installations remain functional.
+Superhive 2.7.0 packaging and customer repository setup are separate future work.
