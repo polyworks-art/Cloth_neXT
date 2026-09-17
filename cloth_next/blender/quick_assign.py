@@ -273,7 +273,7 @@ def draw(context, blf, gpu, batch, shader):
     if opened and gesture.target:
         _draw_sector(gesture, fade, gpu, batch)
     floating._rounded(shader, batch, cx-radius, cy-radius, radius*2, radius*2,
-                      radius, floating._SURFACE)
+                      radius, floating._BG)
     floating._asset_icon(gpu, batch, "add", cx-14*scale, cy-14*scale, 28*scale)
     if not opened:
         return
