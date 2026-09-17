@@ -94,7 +94,7 @@
   };
   const request=()=>{if(!ticking){ticking=true;requestAnimationFrame(render)}};addEventListener('scroll',request,{passive:true});addEventListener('resize',()=>{setTrackHeight();request()},{passive:true});addEventListener('visibilitychange',request);render();
 })();
-(() => {const target=document.querySelector('[data-release-version]');const wrap=target?.closest('.release');if(!target)return;fetch('../index.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text()}).then(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const label=doc.querySelector('.release-label')?.textContent||'';const m=label.match(/\b(\d+)\.(\d+)(?:\.(\d+))?\b/);if(!m)throw 0;target.textContent=`${m[1]}.${m[2]}.${m[3]??'0'}`}).catch(()=>{if(wrap)wrap.hidden=true})})();
+(() => {const target=document.querySelector('[data-release-version]');const wrap=target?.closest('.release');if(!target)return;fetch('../beta/index.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(index=>{const entry=Array.isArray(index?.data)?index.data.find(item=>item?.id==='cloth_next'):null;const version=entry?.version;if(typeof version!=='string'||!/^\d+\.\d+\.\d+$/.test(version))throw 0;target.textContent=version}).catch(()=>{if(wrap)wrap.hidden=true})})();
 </script>
 </body>
 </html>
