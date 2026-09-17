@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import bpy
 
 from ..bake.controller import shared_controller
-from . import character_collision_cage
+from . import character_collision_cage, object_properties
 
 PROXY_COLLECTION = "Cloth NeXt Proxies"
 PROXY_MARKER = "cloth_next_experimental_collider_proxy"
@@ -164,7 +164,7 @@ def _copy_collider_settings(source, proxy) -> None:
     target.bake_start = int(source_settings.bake_start)
     target.bake_end = int(source_settings.bake_end)
     for name in ("surface_grip", "collision_gap", "surface_offset"):
-        setattr(target.collision, name, getattr(source_settings.collision, name))
+        setattr(target.collision, name, getattr(object_properties.effective_collider_settings(source), name))
     target.collider_proxy_source = source
 
 
@@ -237,7 +237,7 @@ def generate_proxy(context, source):
     settings = source.cloth_next
     if (getattr(source, "type", "") != "MESH" or
             not settings.enabled or settings.role != "COLLIDER" or
-            settings.collider_motion != "ANIMATED"):
+            object_properties.collider_motion_from(settings) != "ANIMATED"):
         raise ColliderProxyError(
             "Experimental Collider Proxies require an enabled, animated "
             "Mesh Collider.")
@@ -334,7 +334,7 @@ class CLOTHNEXT_OT_generate_collider_proxy(bpy.types.Operator):
         settings = getattr(obj, "cloth_next", None) if obj else None
         return bool(obj is not None and obj.type == "MESH" and settings and
                     settings.enabled and settings.role == "COLLIDER" and
-                    settings.collider_motion == "ANIMATED" and
+                    object_properties.collider_motion_from(settings) == "ANIMATED" and
                     not is_proxy_implementation_object(obj) and
                     not shared_controller.snapshot().active)
 

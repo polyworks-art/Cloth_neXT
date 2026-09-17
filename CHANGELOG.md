@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.7.3 - 2026-09-18
+
+- Share Collider Motion, Friction, Collision Gap and Surface Offset through scene-owned UUID groups.
+- Add a one-shot eyedropper with cyan/amber temporary GPU outlines, hover emphasis and move confirmation.
+- Preserve active object and selection; invalid/empty clicks keep picking active.
+- Unlink retains current shared values; singleton/orphan groups dissolve with load/undo/deletion repair.
+- Resolve shared contact and motion settings in bake/export, recovery, diagnostics and generated proxies.
+- Place the detach caption inside the red bar, right of the trash icon.
+
+
 ## 2.7.2 - 2026-09-18
 
 - Restore Quick Assign by making Pull to Detach an independent Blender operator.

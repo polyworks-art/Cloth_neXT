@@ -553,6 +553,33 @@ class CLOTHNEXT_PG_collision_settings(bpy.types.PropertyGroup):
                     "contact-offset")
 
 
+def _on_shared_contact_update(self, context):
+    _mark_dirty(self)
+    from . import linked_colliders
+    scene = getattr(self, "id_data", None)
+    if scene is not None:
+        for obj in linked_colliders.members(scene, self):
+            mark_custom(obj.cloth_next)
+
+
+class CLOTHNEXT_PG_shared_collision(bpy.types.PropertyGroup):
+    """A scene-owned Collision datablock; unrelated object state stays local."""
+    uuid: bpy.props.StringProperty(options={"HIDDEN"})
+    collider_motion: bpy.props.EnumProperty(
+        name="Collider Motion", default="STATIC", update=_on_settings_update,
+        items=(("STATIC", "Static", "Use evaluated shape at Bake Start"),
+               ("ANIMATED", "Animated", "Follow evaluated Blender animation")))
+    surface_grip: bpy.props.FloatProperty(
+        name="Friction", default=.5, min=0., max=1., precision=2, update=_on_shared_contact_update,
+        description="Shared collision friction between linked Colliders")
+    collision_gap: bpy.props.FloatProperty(
+        name="Collision Gap", default=.001, min=0., soft_max=.01, precision=4,
+        update=_on_shared_contact_update, description="Shared contact-gap in Blender world units")
+    surface_offset: bpy.props.FloatProperty(
+        name="Surface Offset", default=0., min=0., soft_max=.03, precision=4,
+        update=_on_shared_contact_update, description="Shared contact-offset in Blender world units")
+
+
 class CLOTHNEXT_PG_friction_region(bpy.types.PropertyGroup):
     vertex_group: bpy.props.StringProperty(
         name="Vertex Group", default="", update=_on_settings_update,
@@ -769,6 +796,8 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
         update=_on_settings_update,
         description="How Cloth NeXt treats this object in a simulation")
+    collision_settings_group_id: bpy.props.StringProperty(
+        default="", options={"HIDDEN"}, update=_on_settings_update)
     collider_motion: bpy.props.EnumProperty(
         name="Collider Motion", default="STATIC", update=_on_settings_update,
         items=(
@@ -998,9 +1027,20 @@ def solver_quality_from(scene) -> SolverQualitySettings:
             quality, "ccd_max_iter", DEFAULT_CCD_MAX_ITER)))
 
 
+def effective_collider_settings(obj, scene=None):
+    from .linked_colliders import effective_collider_settings as resolve
+    return resolve(obj, scene)
+
+
+def collider_motion_from(settings, scene=None):
+    from .linked_colliders import effective_from_settings
+    return effective_from_settings(settings, scene).collider_motion
+
+
 def static_settings_from(settings) -> StaticMaterialSettings:
     """Freeze the collider object's contact properties."""
-    collision = settings.collision
+    from .linked_colliders import effective_from_settings
+    collision = effective_from_settings(settings)
     return StaticMaterialSettings(
         surface_grip=float(collision.surface_grip),
         collision_gap=float(collision.collision_gap),
@@ -1061,6 +1101,12 @@ def reset_settings(settings) -> None:
     Touches only Cloth NeXt state; never modifiers, vertex groups,
     materials, caches, or files.
     """
+    owner = getattr(settings, "id_data", None)
+    if owner is not None:
+        from . import linked_colliders
+        for scene in getattr(owner, "users_scene", ()):
+            linked_colliders.unlink(scene, owner)
+    settings.collision_settings_group_id = ""
     settings.enabled = False
     settings.role = DEFAULT_ROLE
     settings.collider_motion = "STATIC"
@@ -1080,6 +1126,7 @@ def reset_settings(settings) -> None:
 
 def attach_to_object() -> None:
     """Attach the settings to every object; requires the class registered."""
+    bpy.types.Scene.cloth_next_collision_groups = bpy.props.CollectionProperty(type=CLOTHNEXT_PG_shared_collision)
     bpy.types.Object.cloth_next = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_object_settings)
     bpy.types.Scene.cloth_next_quality = bpy.props.PointerProperty(
@@ -1091,6 +1138,8 @@ def attach_to_object() -> None:
 
 
 def detach_from_object() -> None:
+    if hasattr(bpy.types.Scene, "cloth_next_collision_groups"):
+        del bpy.types.Scene.cloth_next_collision_groups
     if hasattr(bpy.types.Scene, "cloth_next_solver"):
         del bpy.types.Scene.cloth_next_solver
     if hasattr(bpy.types.Scene, "cloth_next_recovery"):
@@ -1103,7 +1152,7 @@ def detach_from_object() -> None:
 
 CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
-           CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
+           CLOTHNEXT_PG_shared_collision, CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
            CLOTHNEXT_PG_soft_constraint,
            CLOTHNEXT_PG_advanced_pin_target,
            CLOTHNEXT_PG_motion_override,

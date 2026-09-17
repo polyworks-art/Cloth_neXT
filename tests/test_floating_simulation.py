@@ -204,3 +204,18 @@ def test_pull_fade_preserves_rounded_shape_and_transparent_origin(blender_env):
     assert colors[0][3] == .5
     assert all(color[:3] == (1, .1, .1) for color in colors)
     assert len(triangles) == len(vertices)-1
+
+
+def test_armed_caption_stays_inside_tab_to_right_of_trash(blender_env, monkeypatch):
+    from cloth_next.blender import floating_simulation as floating
+    key = (1, 2)
+    monkeypatch.setattr(floating.quick_assign, "region_key", lambda context: key)
+    monkeypatch.setitem(floating._pull_sessions, key, SimpleNamespace(
+        gesture=SimpleNamespace(state="ARMED", progress=1), targets=(object(),)))
+    monkeypatch.setattr(floating, "_pull_fade", lambda *args: None)
+    monkeypatch.setattr(floating, "_rounded", lambda *args: None)
+    monkeypatch.setattr(floating, "_fit_label", lambda blf, text, available, size: text)
+    labels = []
+    monkeypatch.setattr(floating, "_label", lambda blf, text, x, y, size, color: labels.append((text, x, y)))
+    floating._draw_pull(None, (300, 20, 200, 54, 1), None, None, None)
+    assert labels == [("Release to detach", 300-198+35, 20+23)]

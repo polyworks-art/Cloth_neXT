@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 import bpy
+from . import object_properties
 import numpy as np
 
 CAGE_SEGMENT_MARKER = "cloth_next_character_cage_segment"
@@ -136,7 +137,7 @@ def sync_character_cage_settings(source) -> None:
         target.collider_proxy_source = source
         for name in ("surface_grip", "collision_gap", "surface_offset"):
             setattr(target.collision, name,
-                    getattr(source_settings.collision, name))
+                    getattr(object_properties.effective_collider_settings(source), name))
 
 
 def _find_armature(source):
@@ -393,7 +394,7 @@ def _create_segment(context, source, armature, bone_name: str,
     settings.collider_proxy_source = source
     for field in ("surface_grip", "collision_gap", "surface_offset"):
         setattr(settings.collision, field,
-                getattr(source.cloth_next.collision, field))
+                getattr(object_properties.effective_collider_settings(source), field))
     return obj
 
 
@@ -401,7 +402,7 @@ def generate_character_cage(context, source) -> CharacterCageResult:
     settings = source.cloth_next
     if (getattr(source, "type", "") != "MESH" or not settings.enabled or
             settings.role != "COLLIDER" or
-            settings.collider_motion != "ANIMATED"):
+            object_properties.collider_motion_from(settings) != "ANIMATED"):
         raise CharacterCageError(
             "Character Collision Cage requires an enabled, animated Mesh "
             "Collider.")

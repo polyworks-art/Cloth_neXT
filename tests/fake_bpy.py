@@ -57,6 +57,11 @@ class _PropDef:
     def __get__(self, obj, owner):
         if obj is None:
             return self
+        if self.kind == "COLLECTION":
+            name = self._name_on(owner)
+            instance = self.default_value(id_data=obj)
+            obj.__dict__[name] = instance
+            return instance
         if self.kind != "POINTER":
             return self.default_value()
         name = self._name_on(owner)

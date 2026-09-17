@@ -157,6 +157,9 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             return {"CANCELLED"}
         scene = getattr(context, "scene", None)
         previous_has_pdrd = _scene_has_pdrd(scene)
+        if obj.cloth_next.role == "COLLIDER" and self.role != "COLLIDER":
+            from . import linked_colliders
+            linked_colliders.unlink(scene, obj)
         obj.cloth_next.role = self.role
         _remap_quality_after_pdrd_change(
             scene, previous_has_pdrd=previous_has_pdrd)

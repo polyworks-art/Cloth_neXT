@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.3",
+  "title": "What's New in Cloth NeXt 2.7.3",
+  "subtitle": "Shared Collider Collision Settings with a highlighted picker.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/cloth.png",
+      "title": "Linked Collider settings",
+      "description": "Use the eyedropper in Collider Collision to share Motion, Friction, Collision Gap and Surface Offset. Other settings stay local. Unlink keeps current shared values."
+    },
+    {
+      "icon": "icons/settings.png",
+      "title": "Viewport picker highlights",
+      "description": "Temporary cyan outlines show available Colliders and emphasize the hovered target. Amber outlines distinguish another shared group; moving requires confirmation. Picking preserves selection and the active object."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Detach caption inside the tab",
+      "description": "Release to detach now appears inside the fading red tab, directly to the right of the trash icon. Baked playback and cache preservation remain unchanged."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

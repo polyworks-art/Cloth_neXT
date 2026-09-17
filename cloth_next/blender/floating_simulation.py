@@ -468,7 +468,9 @@ def _draw_pull(context, bounds, blf, shader, batch):
     _rounded(shader, batch, ix+4*s, iy+20*s, 4*s, 2*s, s, _TEXT)
     if armed:
         text = "Release to detach" if len(operator.targets) == 1 else f"Release to detach {len(operator.targets)} objects"
-        _label(blf, text, left, y+h+10*s, round(13*s), _TEXT)
+        size = round(13*s)
+        text = _fit_label(blf, text, max(0., extension-42*s), size)
+        _label(blf, text, left+35*s, y+23*s, size, _TEXT)
 
 
 class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):

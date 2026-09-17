@@ -1969,7 +1969,7 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         collider_settings.append(json.dumps({
             "object_key": validation_state.object_key(obj),
             "role": str(obj.cloth_next.role),
-            "motion": str(getattr(obj.cloth_next, "collider_motion", "STATIC")),
+            "motion": str(object_properties.collider_motion_from(obj.cloth_next)),
             "motion_samples_per_frame": int(getattr(
                 obj.cloth_next, "collider_samples_per_frame",
                 COLLIDER_SAMPLES_PER_FRAME)),
@@ -2119,7 +2119,7 @@ def static_collider_has_animation(obj, _visited=None) -> bool:
 
 def _reject_animated_static_colliders(collider_objs) -> None:
     offenders = [str(getattr(obj, "name", "Collider")) for obj in collider_objs
-                 if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
+                 if str(object_properties.collider_motion_from(obj.cloth_next))
                  == "STATIC" and static_collider_has_animation(obj)]
     if offenders:
         names = ", ".join(offenders)
@@ -3056,8 +3056,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
             "uuid": export_identity.export_uuid(obj),
             "role": role,
             "source": dependencies,
-            "motion": str(getattr(
-                obj.cloth_next, "collider_motion", "STATIC")),
+            "motion": str(object_properties.collider_motion_from(obj.cloth_next)),
             "capture_mode": str(getattr(
                 obj.cloth_next, "collider_capture_mode", "AUTO")),
             "samples": int(getattr(
@@ -3664,7 +3663,7 @@ def animated_collider_capture_warning(
     rows = []
     total = 0
     for obj in collider_objs:
-        if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) != "ANIMATED":
+        if str(object_properties.collider_motion_from(obj.cloth_next)) != "ANIMATED":
             continue
         vertex_count = len(getattr(getattr(obj, "data", None), "vertices", ()))
         samples = int(getattr(obj.cloth_next, "collider_samples_per_frame",
@@ -5270,7 +5269,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                  stitch_pairs, uv_faces, face_friction))
         animated = tuple(
             obj for obj in snapshot.collider_objs
-            if str(getattr(obj.cloth_next, "collider_motion", "STATIC"))
+            if str(object_properties.collider_motion_from(obj.cloth_next))
             == "ANIMATED")
         animated_captures = (collider_captures or
             _capture_animated_colliders_shared(
@@ -5282,7 +5281,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             scene.frame_set(bake_range.start)
             static_depsgraph = context.evaluated_depsgraph_get()
         for obj in snapshot.collider_objs:
-            if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) == "ANIMATED":
+            if str(object_properties.collider_motion_from(obj.cloth_next)) == "ANIMATED":
                 capture = animated_captures[obj.name]
                 collider_records.append((obj, capture.vertices,
                     capture.triangles, None, capture))
@@ -5663,7 +5662,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                                                pin_membership,animated_pin_samples)
         animated = tuple(
             current for current in collider_objs
-            if str(getattr(current.cloth_next, "collider_motion", "STATIC"))
+            if str(object_properties.collider_motion_from(current.cloth_next))
             == "ANIMATED")
         animated_captures = (collider_captures or
             _capture_animated_colliders_shared(
@@ -5675,8 +5674,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             scene.frame_set(bake_range.start)
             static_depsgraph = context.evaluated_depsgraph_get()
         for current in collider_objs:
-            if str(getattr(current.cloth_next, "collider_motion",
-                           "STATIC")) == "ANIMATED":
+            if str(object_properties.collider_motion_from(current.cloth_next)) == "ANIMATED":
                 capture = animated_captures[current.name]
                 collider_records.append((current, capture.vertices,
                                          capture.triangles, None, capture))
@@ -8981,7 +8979,7 @@ def begin_production_bake(context) -> tuple[str, bool]:
             animated_colliders = tuple(
                 obj for obj in snapshot.collider_objs
                 if
-                str(getattr(obj.cloth_next, "collider_motion", "STATIC")) ==
+                str(object_properties.collider_motion_from(obj.cloth_next)) ==
                 "ANIMATED")
             cached_colliders, colliders_to_capture, collider_cache_keys, \
                 collider_cache = _load_cached_animated_colliders(
@@ -11178,8 +11176,8 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             if show_progress:
                 progress_update(25)
             desired = max(
-                2.0 * float(value[0].cloth_next.collision.collision_gap)
-                + float(value[0].cloth_next.collision.surface_offset)
+                2.0 * float(object_properties.effective_collider_settings(value[0]).collision_gap)
+                + float(object_properties.effective_collider_settings(value[0]).surface_offset)
                 for value in objects.values())
             validation_triangles = _auto_fix_validation_triangles(
                 snapshot, pairs, degenerate_faces)
@@ -11318,8 +11316,8 @@ class CLOTHNEXT_OT_intersection_auto_fix(bpy.types.Operator):
             pairs, objects = _auto_fix_snapshot_pairs(
                 context, violations, snapshot, degenerate_faces)
             desired = max(
-                2.0 * float(value[0].cloth_next.collision.collision_gap)
-                + float(value[0].cloth_next.collision.surface_offset)
+                2.0 * float(object_properties.effective_collider_settings(value[0]).collision_gap)
+                + float(object_properties.effective_collider_settings(value[0]).surface_offset)
                 for value in objects.values())
             validation = _auto_fix_validation_triangles(
                 snapshot, pairs, degenerate_faces)
