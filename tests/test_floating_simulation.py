@@ -175,3 +175,32 @@ def test_f6_keymap_registers_once_and_cleans_up(blender_env, monkeypatch):
     floating.register()
     assert len(keymaps.km.keymap_items) == 1
     floating.unregister()
+
+
+def test_detach_has_independent_operator_registration(blender_env):
+    from cloth_next.blender import floating_simulation as floating, quick_assign
+    assert quick_assign.CLOTHNEXT_OT_quick_assign not in floating.CLOTHNEXT_OT_pull_detach.__mro__
+    assert floating.CLOTHNEXT_OT_pull_detach.__bases__ == (blender_env.bpy.types.Operator,)
+
+
+def test_label_restores_alpha_for_following_png_icons(blender_env, monkeypatch):
+    import sys
+    from cloth_next.blender import floating_simulation as floating
+    calls = []
+    gpu = SimpleNamespace(state=SimpleNamespace(blend_set=lambda value: calls.append(value)))
+    monkeypatch.setitem(sys.modules, "gpu", gpu)
+    blf = SimpleNamespace(size=lambda *args: None, color=lambda *args: None,
+                          position=lambda *args: None, draw=lambda *args: calls.append("NONE"))
+    floating._label(blf, "Release to detach", 0, 0, 12, (1, 1, 1, 1))
+    assert calls == ["ALPHA", "NONE", "ALPHA"]
+
+
+def test_pull_fade_preserves_rounded_shape_and_transparent_origin(blender_env):
+    from cloth_next.blender import floating_simulation as floating
+    vertices, colors, triangles = floating._pull_fade_mesh(10, 20, 200, 34, 17, (1, .1, .1, 1))
+    ordered = sorted(zip(vertices, colors), key=lambda pair: pair[0][0])
+    assert ordered[0][1][3] == 1
+    assert ordered[-1][1][3] == 0
+    assert colors[0][3] == .5
+    assert all(color[:3] == (1, .1, .1) for color in colors)
+    assert len(triangles) == len(vertices)-1

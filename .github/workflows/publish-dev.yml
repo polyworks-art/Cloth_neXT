@@ -58,6 +58,18 @@ jobs:
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_live_cache_regression.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_viewport_colors_regression.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_pull_detach_smoke.py'
+      - name: Real floating UI press, drag, release and undo checks
+        shell: pwsh
+        run: |
+          foreach ($script in @('tools/blender_quick_assign_smoke.py', 'tools/blender_pull_detach_smoke.py')) {
+            $out=Join-Path $env:RUNNER_TEMP ((Split-Path $script -Leaf) + '.out.log')
+            $err=Join-Path $env:RUNNER_TEMP ((Split-Path $script -Leaf) + '.err.log')
+            $process=Start-Process -FilePath $env:CLOTH_NEXT_BLENDER -ArgumentList '--factory-startup','--enable-event-simulate','--python-exit-code','1','--python',$script,'--','--events' -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+            if (-not $process.WaitForExit(90000)) { $process.Kill(); throw "Floating UI event smoke timed out: $script" }
+            Get-Content -LiteralPath $out
+            Get-Content -LiteralPath $err
+            if ($process.ExitCode -ne 0) { throw "Floating UI event smoke failed: $script" }
+          }
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: python tools/validate_extension.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip" --phase packaged

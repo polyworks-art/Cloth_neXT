@@ -177,6 +177,32 @@ def _rounded(shader, batch_for_shader, x, y, w, h, r, color):
     batch_for_shader(shader, "TRIS", {"pos": verts}, indices=indices).draw(shader)
 
 
+def _pull_fade_mesh(x, y, w, h, radius, color):
+    """Rounded pill with horizontal opacity fading beneath the fixed logo."""
+    import math
+    points = []
+    for cx, cy, start in ((x+w-radius, y+radius, -90),
+                          (x+w-radius, y+h-radius, 0),
+                          (x+radius, y+h-radius, 90),
+                          (x+radius, y+radius, 180)):
+        for i in range(7):
+            angle = math.radians(start + i*15)
+            points.append((cx+radius*math.cos(angle), cy+radius*math.sin(angle)))
+    vertices = [(x+w/2, y+h/2)] + points
+    colors = [(*color[:3], color[3]*max(0., min(1., 1.-(vx-x)/w)))
+              for vx, _ in vertices]
+    indices = [(0, i+1, (i+1) % len(points)+1) for i in range(len(points))]
+    return vertices, colors, indices
+
+
+def _pull_fade(batch, x, y, w, h, radius, color):
+    import gpu
+    vertices, colors, indices = _pull_fade_mesh(x, y, w, h, radius, color)
+    shader = gpu.shader.from_builtin("SMOOTH_COLOR")
+    shader.bind()
+    batch(shader, "TRIS", {"pos": vertices, "color": colors}, indices=indices).draw(shader)
+
+
 def _label(blf, text, x, y, size, color):
     import gpu
     blf.size(0, size)
@@ -184,6 +210,8 @@ def _label(blf, text, x, y, size, color):
     blf.color(0, *color)
     blf.position(0, x, y, 0)
     blf.draw(0, text)
+    # BLF may disable blending; subsequent PNGs need their alpha channel.
+    gpu.state.blend_set("ALPHA")
 
 
 def _centered_label(blf, text, x, y, width, size, color):
@@ -331,7 +359,7 @@ def _cancel_pulls():
         operator.finish()
 
 
-class CLOTHNEXT_OT_pull_detach(quick_assign.CLOTHNEXT_OT_quick_assign):
+class CLOTHNEXT_OT_pull_detach(bpy.types.Operator):
     bl_idname = "clothnext.pull_detach"
     bl_label = "Remove Cloth NeXt Physics"
     bl_description = "Hold and pull left to remove Cloth NeXt Physics. Baked playback is preserved."
@@ -411,7 +439,15 @@ class CLOTHNEXT_OT_pull_detach(quick_assign.CLOTHNEXT_OT_quick_assign):
         if _pull_sessions.get(getattr(self, "key", None)) is self:
             del _pull_sessions[self.key]
         self.targets = ()
-        super().finish()
+        if hasattr(self, "gesture"):
+            self.gesture.cancel()
+        try:
+            self.area.tag_redraw()
+        except (ReferenceError, AttributeError):
+            pass
+
+    def cancel(self, context):
+        self.finish()
 
 
 def _draw_pull(context, bounds, blf, shader, batch):
@@ -424,7 +460,7 @@ def _draw_pull(context, bounds, blf, shader, batch):
     extension = (38 + 160*gesture.progress)*s
     left = x-extension
     color = (1.0, .12, .15, 1.0) if armed else (.80, .06, .09, .96)
-    _rounded(shader, batch, left, y+10*s, extension+27*s, h-20*s, 17*s, color)
+    _pull_fade(batch, left, y+10*s, extension+27*s, h-20*s, 17*s, color)
     # White silhouette matching the supplied trash SVG, painted beneath the pill.
     ix, iy = left+14*s, y+18*s
     _rounded(shader, batch, ix, iy, 12*s, 15*s, 2*s, _TEXT)

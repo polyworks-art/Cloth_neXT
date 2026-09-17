@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.2 - 2026-09-18
+
+- Restore Quick Assign by making Pull to Detach an independent Blender operator.
+- Restore alpha blending after captions so the armed toolbar does not show white PNG rectangles.
+- Fade the rounded red detach bar to transparent beneath the fixed logo.
+- Add registration, alpha-state and gradient regressions plus real Blender event checks.
+
+
 ## 2.7.1 - 2026-09-18
 
 - Add hidden pull-left detach with 95% arm and 80% disarm hysteresis.

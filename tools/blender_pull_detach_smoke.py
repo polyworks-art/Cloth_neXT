@@ -56,6 +56,8 @@ def main():
             send("MOUSEMOVE", "NOTHING", target)
             yield .2
             assert next(iter(floating._pull_sessions.values())).gesture.state == "ARMED"
+            if "--screenshot" in sys.argv:
+                bpy.ops.screen.screenshot(filepath=sys.argv[sys.argv.index("--screenshot")+1])
             if cancel:
                 send("MOUSEMOVE", "NOTHING", center)
                 yield .2

@@ -1,16 +1,16 @@
-# Cloth NeXt 2.7.1
+# Cloth NeXt 2.7.2
 
-Hold the floating Cloth NeXt logo and pull left to reveal the hidden red trash tab.
-At 95% extension the gesture arms and shows "Release to detach". Pull back to
-80% to disarm. An unarmed release, Escape or right-click cancels.
+Restore the floating Quick Assign button after Pull to Detach accidentally
+inherited from a registered Blender operator and invalidated its RNA class.
+Both gestures now register independently.
 
-Release while armed removes Cloth NeXt Physics from the eligible selected objects
-captured at mouse-down in one undo step. Selection changes do not change this scope.
-Active Bake or an invalid captured object cancels the entire operation.
+Restore alpha blending after drawing text. The logo and folder icons remain
+transparent when the release-to-detach caption is visible, instead of becoming
+white rectangles.
 
-Removal uses the existing state-only reset. Baked Mesh Cache playback, PC2 files,
-cache directories, animation and unrelated modifiers remain intact. The idle
-floating toolbar and Quick Assign layout are unchanged.
+The red detach bar now fades from red on the left to transparent beneath the
+fixed logo, matching the supplied visual reference. Pull thresholds, captured
+selection, undo, and baked playback/cache preservation are unchanged.
 
-Published only to the configured private repository; historical feeds remain unchanged.
+Published only to the configured private repository. Historical feeds are unchanged.
 The external PPF Contact Solver is not bundled.
