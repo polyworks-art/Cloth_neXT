@@ -122,9 +122,11 @@ def main() -> None:
     # bpy.ops raised, run_handoff() swallowed it as CANCELLED, and every
     # assertion below then read back the very state this fixture had just
     # written — the operator was never entered at all.
+    counter = {"STABLE": "major", "BETA": "minor", "DEV": "patch"}[channel.name]
     newer_than_installed = replace(
         updates.INSTALLED_VERSION,
-        patch=updates.INSTALLED_VERSION.patch + 1, stage=None, stage_number=0)
+        **{counter: getattr(updates.INSTALLED_VERSION, counter) + 1},
+        stage=None, stage_number=0)
 
     def run_handoff():
         session.state = state_cls.UPDATE_AVAILABLE

@@ -92,7 +92,8 @@ def probe(config, phase):
         session = model.AddonUpdateSession()
         model.run_update_check(session, model.UpdateChannel.DEV,
             model.parse_version("2.6.0"), fetch=lambda _: {"data": [{"id": "cloth_next", "version": "2.6.1"}]})
-        assert session.state is model.AddonUpdateState.UPDATE_AVAILABLE
+        assert session.state in model.ACTIONABLE_STATES, (session.state, session.message)
+        assert str(session.latest) == "2.6.1"
         repo.remote_url = model.UpdateChannel.BETA.index_url
         obj = bpy.context.active_object
         assert bpy.ops.clothnext.add_physics() == {"FINISHED"}
