@@ -18,6 +18,7 @@ Read-only library objects and objects used in multiple scenes are not picker tar
 
 Release to detach now appears inside the red bar, right of the trash icon.
 The Add button uses the same charcoal background as the main floating toolbar.
+Its role bubbles fan out from the button with a short staggered, eased reveal.
 
 Published only to the configured private repository; historical feeds are unchanged.
 The external PPF Contact Solver is not bundled.
