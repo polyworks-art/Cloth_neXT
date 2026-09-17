@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.1",
+  "title": "What's New in Cloth NeXt 2.7.1",
+  "subtitle": "Pull to detach physics while keeping baked playback.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/cloth.png",
+      "title": "Pull to Detach",
+      "description": "Hold the floating Cloth NeXt logo and pull left until armed. Release to remove physics from the eligible selection captured when you pressed."
+    },
+    {
+      "icon": "icons/settings.png",
+      "title": "Deliberate and cancellable",
+      "description": "Pull back, press Escape or right-click to cancel. Active Bake blocks the gesture. The toolbar stays unchanged when idle."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Baked playback stays",
+      "description": "Detach resets only Cloth NeXt physics settings. Mesh Cache modifiers, baked PC2 files and other object data remain intact."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

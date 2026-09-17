@@ -14,6 +14,7 @@ from pathlib import Path
 import bpy
 
 from ..bake.controller import shared_controller
+from ..pull_detach import PullGesture, logo_hit
 from ..solver_quality import matching_quality_preset
 from . import object_properties, physics_operators, physics_ui, quick_assign
 from .addon_identity import addon_preferences
@@ -21,6 +22,7 @@ from .addon_identity import addon_preferences
 _handle = None
 _registered = False
 _images = {}
+_pull_sessions = {}
 _toolbar_visible = True
 _slide = 1.0
 _animation_from = 1.0
@@ -223,6 +225,7 @@ def _asset_icon(gpu, batch_for_shader, name, x, y, size):
 @_persistent
 def _scene_loading(_dummy):
     quick_assign.cancel_all()
+    _cancel_pulls()
 
 
 @_persistent
@@ -268,6 +271,7 @@ def _draw():
     shader = gpu.shader.from_builtin("UNIFORM_COLOR")
     gpu.state.blend_set("ALPHA")
     try:
+        _draw_pull(context, bounds, blf, shader, batch_for_shader)
         _rounded(shader, batch_for_shader, x, y, w, h, 25*s, _BG)
         shader.bind()
         shader.uniform_float("color", (0.56, 0.63, 0.68, 0.38))
@@ -322,6 +326,115 @@ def _draw():
         gpu.state.blend_set("NONE")
 
 
+def _cancel_pulls():
+    for operator in tuple(_pull_sessions.values()):
+        operator.finish()
+
+
+class CLOTHNEXT_OT_pull_detach(quick_assign.CLOTHNEXT_OT_quick_assign):
+    bl_idname = "clothnext.pull_detach"
+    bl_label = "Remove Cloth NeXt Physics"
+    bl_description = "Hold and pull left to remove Cloth NeXt Physics. Baked playback is preserved."
+    bl_options = {"REGISTER", "UNDO", "BLOCKING"}
+
+    @classmethod
+    def poll(cls, context):
+        return (getattr(context.area, "type", None) == "VIEW_3D"
+                and getattr(context.region, "type", None) == "WINDOW"
+                and visible(context) and not shared_controller.snapshot().active)
+
+    def invoke(self, context, event):
+        bounds = _animated_bounds(context)
+        if (event.type != "LEFTMOUSE" or event.value != "PRESS"
+                or not self.poll(context) or _animation_start_time is not None
+                or not logo_hit(bounds, event.mouse_region_x, event.mouse_region_y)):
+            return {"CANCELLED"}
+        targets = tuple(obj for obj in context.selected_objects
+                        if getattr(getattr(obj, "cloth_next", None), "enabled", False))
+        if not physics_operators.removal_targets_valid(targets):
+            return {"CANCELLED"}
+        self.key = quick_assign.region_key(context)
+        if self.key in _pull_sessions:
+            return {"CANCELLED"}
+        self.window, self.area, self.region = context.window, context.area, context.region
+        self.screen, self.workspace = self.window.screen, self.window.workspace
+        self.scene, self.view_layer = context.scene, context.view_layer
+        self.wm = context.window_manager
+        self.bounds = bounds
+        self.targets = targets
+        self.gesture = PullGesture(event.mouse_region_x, 160*bounds[4])
+        self.timer = None
+        _pull_sessions[self.key] = self
+        try:
+            self.wm.modal_handler_add(self)
+        except Exception:
+            self.finish()
+            raise
+        self.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def valid_context(self, context):
+        try:
+            return (_registered and visible(context) and _animation_start_time is None
+                    and context.window == self.window and self.window in tuple(self.wm.windows)
+                    and self.window.screen == self.screen and self.window.workspace == self.workspace
+                    and self.area in tuple(self.screen.areas) and self.region in tuple(self.area.regions)
+                    and context.area == self.area and context.region == self.region
+                    and context.scene == self.scene and context.view_layer == self.view_layer
+                    and _animated_bounds(context) == self.bounds
+                    and all(any(obj is candidate for candidate in self.scene.objects)
+                            for obj in self.targets)
+                    and physics_operators.removal_targets_valid(self.targets))
+        except (ReferenceError, AttributeError):
+            return False
+
+    def modal(self, context, event):
+        if _pull_sessions.get(getattr(self, "key", None)) is not self:
+            return {"CANCELLED"}
+        if (not self.valid_context(context) or event.type == "WINDOW_DEACTIVATE"
+                or (event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS")):
+            self.finish()
+            return {"CANCELLED"}
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "LEFTMOUSE"}:
+            self.gesture.update(event.mouse_x - self.region.x)
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE":
+            armed = self.gesture.release(event.mouse_x - self.region.x)
+            targets = self.targets
+            self.finish()
+            if armed and physics_operators.remove_physics_targets(context.scene, targets):
+                return {"FINISHED"}
+            return {"CANCELLED"}
+        self.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def finish(self):
+        if _pull_sessions.get(getattr(self, "key", None)) is self:
+            del _pull_sessions[self.key]
+        self.targets = ()
+        super().finish()
+
+
+def _draw_pull(context, bounds, blf, shader, batch):
+    operator = _pull_sessions.get(quick_assign.region_key(context))
+    if operator is None:
+        return
+    x, y, _, h, s = bounds
+    gesture = operator.gesture
+    armed = gesture.state == "ARMED"
+    extension = (38 + 160*gesture.progress)*s
+    left = x-extension
+    color = (1.0, .12, .15, 1.0) if armed else (.80, .06, .09, .96)
+    _rounded(shader, batch, left, y+10*s, extension+27*s, h-20*s, 17*s, color)
+    # White silhouette matching the supplied trash SVG, painted beneath the pill.
+    ix, iy = left+14*s, y+18*s
+    _rounded(shader, batch, ix, iy, 12*s, 15*s, 2*s, _TEXT)
+    _rounded(shader, batch, ix-2*s, iy+17*s, 16*s, 2*s, s, _TEXT)
+    _rounded(shader, batch, ix+4*s, iy+20*s, 4*s, 2*s, s, _TEXT)
+    if armed:
+        text = "Release to detach" if len(operator.targets) == 1 else f"Release to detach {len(operator.targets)} objects"
+        _label(blf, text, left, y+h+10*s, round(13*s), _TEXT)
+
+
 class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):
     bl_idname = "CLOTHNEXT_MT_floating_quality"
     bl_label = "Quality"
@@ -349,6 +462,7 @@ class CLOTHNEXT_OT_toggle_floating_ui(bpy.types.Operator):
         _animation_from = _slide_fraction()
         _toolbar_visible = not _toolbar_visible
         quick_assign.cancel_all()
+        _cancel_pulls()
         _animation_start_time = time.monotonic()
         if not bpy.app.timers.is_registered(_animation_tick):
             bpy.app.timers.register(_animation_tick, first_interval=1.0 / 60.0)
@@ -371,7 +485,8 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons = []
         for operator in ("clothnext.set_cache_directory", "wm.call_menu",
                          "clothnext.bake", "clothnext.bake_cancel",
-                         "clothnext.companion_open_logs", "clothnext.quick_assign"):
+                         "clothnext.companion_open_logs", "clothnext.quick_assign",
+                         "clothnext.pull_detach"):
             gizmo = self.gizmos.new("GIZMO_GT_button_2d")
             gizmo.icon = "BLANK1"
             gizmo.draw_options = set()
@@ -402,11 +517,13 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                      (177 + quality_width, 27),
                      (177 + quality_width, 27),
                      ((_w+18*ui)/s, 27),
-                     ((230 + quality_width)/2, 54 + 31*ui/s))
+                     ((230 + quality_width)/2, 54 + 31*ui/s), (27, 27))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
             gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
                                  else max(16*ui, 19*s))
+        self._buttons[6].hide = snapshot.active
+        self._buttons[6].alpha_highlight = 0.0
         self._buttons[0].hide = snapshot.active
         self._buttons[1].hide = snapshot.active
         self._buttons[1].color_highlight = (
@@ -426,7 +543,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self.refresh(context)
 
 
-CLASSES = quick_assign.CLASSES + (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
            CLOTHNEXT_GT_floating_simulation)
 
 
@@ -440,6 +557,14 @@ def _tag_redraw(context):
 
 def _pulse():
     quick_assign.prune_sessions()
+    for operator in tuple(_pull_sessions.values()):
+        try:
+            with bpy.context.temp_override(window=operator.window, area=operator.area, region=operator.region):
+                alive = operator.valid_context(bpy.context)
+        except (ReferenceError, RuntimeError, AttributeError):
+            alive = False
+        if not alive:
+            operator.finish()
     if enabled(bpy.context):
         _tag_redraw(bpy.context)
     return 0.5
@@ -458,6 +583,7 @@ def sync(context=None):
     elif not active:
         _stop_animation()
         quick_assign.cancel_all()
+        _cancel_pulls()
     _last_enabled = active
     if active and _handle is None:
         _handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -494,6 +620,7 @@ def unregister():
     global _registered, _handle, _keymap, _keymap_item, _last_enabled
     _registered = False
     quick_assign.cancel_all()
+    _cancel_pulls()
     _stop_animation()
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
     if handlers is not None and _scene_loaded in handlers:

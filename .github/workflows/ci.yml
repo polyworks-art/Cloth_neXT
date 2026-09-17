@@ -85,6 +85,9 @@ jobs:
       - name: Quick Assign registration and role dispatch
         run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_quick_assign_smoke.py'
 
+      - name: Pull detach registration and playback smoke
+        run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_pull_detach_smoke.py'
+
       - name: Rod and Soft Body workflow smoke test
         run: |
           set -euo pipefail

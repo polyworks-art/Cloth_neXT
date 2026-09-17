@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.1 - 2026-09-18
+
+- Add hidden pull-left detach with 95% arm and 80% disarm hysteresis.
+- Capture eligible selection at press; validate the entire batch and block active Bake.
+- Reuse state-only removal, preserving baked playback and cache files.
+- Keep idle toolbar and Quick Assign unchanged.
+
 ## 2.7.0 - 2026-09-17
 
 - Add the Quick Assign radial UI with supplied role icons, blue selection and labeled sector.
