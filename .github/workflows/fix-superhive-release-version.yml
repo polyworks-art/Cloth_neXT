@@ -1,0 +1,62 @@
+name: fix-superhive-release-version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fix-superhive-release-version.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-channels
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Patch Superhive A release source
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('superhive-a/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          old = """(() => {const target=document.querySelector('[data-release-version]');const wrap=target?.closest('.release');if(!target)return;fetch('../index.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text()}).then(html=>{const doc=new DOMParser().parseFromString(html,'text/html');const label=doc.querySelector('.release-label')?.textContent||'';const m=label.match(/\\b(\\d+)\\.(\\d+)(?:\\.(\\d+))?\\b/);if(!m)throw 0;target.textContent=`${m[1]}.${m[2]}.${m[3]??'0'}`}).catch(()=>{if(wrap)wrap.hidden=true})})();"""
+
+          new = """(() => {const target=document.querySelector('[data-release-version]');const wrap=target?.closest('.release');if(!target)return;fetch('../beta/index.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(index=>{const entry=Array.isArray(index?.data)?index.data.find(item=>item?.id==='cloth_next'):null;const version=entry?.version;if(typeof version!=='string'||!/^\\d+\\.\\d+\\.\\d+$/.test(version))throw 0;target.textContent=version}).catch(()=>{if(wrap)wrap.hidden=true})})();"""
+
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one legacy release-version loader, found {count}')
+
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+      - name: Verify page now follows public Beta feed
+        shell: bash
+        run: |
+          grep -F "fetch('../beta/index.json',{cache:'no-store'})" superhive-a/index.html
+          ! grep -F "fetch('../index.html',{cache:'no-store'})" superhive-a/index.html
+
+      - name: Commit and publish gh-pages patch
+        shell: bash
+        run: |
+          if git diff --quiet -- superhive-a/index.html; then
+            echo "No change required."
+            exit 0
+          fi
+          git add superhive-a/index.html
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Fix Superhive release version source"
+          git push origin HEAD:gh-pages
