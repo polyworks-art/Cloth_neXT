@@ -35,7 +35,7 @@ def probe(config, phase):
     if phase == "update":
         old_updates = importlib.import_module("bl_ext.migration_test.cloth_next.updater.addon_updates")
         session = old_updates.AddonUpdateSession()
-        old_updates.run_update_check(session, old_updates.UpdateChannel.BETA,
+        old_updates.run_update_check(session, old_updates.UpdateChannel[config["channel"]],
             old_updates.parse_version(config["older_version"]), fetch=lambda _: index)
         assert session.state is old_updates.AddonUpdateState.UPDATE_AVAILABLE, session
     enabled = [r for r in repos if r.enabled and r.remote_url]
@@ -47,6 +47,8 @@ def probe(config, phase):
     module.register()
     manager = importlib.import_module(module.__name__ + ".blender.onboarding_manager")
     preferences = manager._preferences()
+    model = importlib.import_module(module.__name__ + ".updater.addon_updates")
+    repo.remote_url = model.UpdateChannel[config["channel"]].index_url
     marker = Path(repo.directory) / "migration-preserved-cache.txt"
     if phase == "older":
         preferences.onboarding_state = manager.SeenState(True, (expected,), expected).to_json()
@@ -55,6 +57,12 @@ def probe(config, phase):
     else:
         updates = importlib.import_module(module.__name__ + ".blender.addon_update_operators")
         assert str(updates.INSTALLED_VERSION) == "2.6.0"
+        assert updates.selected_channel(bpy.context).name == config["channel"]
+        if config["channel"] == "DEV":
+            assert not preferences.dev_channel_acknowledged
+            assert not updates.dev_access_error(bpy.context, updates.UpdateChannel.DEV)
+        updates.prepare_repository(bpy.context, updates.selected_channel(bpy.context))
+        assert repo.remote_url == model.UpdateChannel[config["channel"]].index_url
         if phase == "update":
             assert marker.read_text(encoding="utf-8") == "preserve user data"
             assert manager._state().next_screen("2.6.0") == "whats-new"
@@ -94,7 +102,7 @@ def probe(config, phase):
             model.parse_version("2.6.0"), fetch=lambda _: {"data": [{"id": "cloth_next", "version": "2.6.1"}]})
         assert session.state in model.ACTIONABLE_STATES, (session.state, session.message)
         assert str(session.latest) == "2.6.1"
-        repo.remote_url = model.UpdateChannel.BETA.index_url
+        repo.remote_url = model.UpdateChannel[config["channel"]].index_url
         obj = bpy.context.active_object
         assert bpy.ops.clothnext.add_physics() == {"FINISHED"}
         assert obj.cloth_next.enabled
@@ -115,6 +123,7 @@ def main():
     parser.add_argument("--older", type=Path, required=True)
     parser.add_argument("--zip", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--channel", choices=("BETA", "DEV"), default="BETA")
     args = parser.parse_args()
     import tomllib
     import zipfile
@@ -137,7 +146,7 @@ def main():
                 shutil.copyfile(archive, served / archive.name)
                 shutil.copyfile(staging / "index.json", served / "index.json")
                 config = {"url": f"http://127.0.0.1:{server.server_address[1]}/index.json",
-                          "older_version": older_version, "result": str(root / f"{phase}.json")}
+                          "older_version": older_version, "channel": args.channel, "result": str(root / f"{phase}.json")}
                 config_path = root / "config.json"
                 config_path.write_text(json.dumps(config), encoding="utf-8")
                 env = dict(os.environ, BLENDER_USER_RESOURCES=str(root / ("fresh-profile" if phase == "fresh" else "update-profile")))

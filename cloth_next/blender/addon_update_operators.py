@@ -139,11 +139,26 @@ def _shutdown_owned_solvers() -> bool:
     return all_exited
 
 
+def owning_repository_channel(context) -> UpdateChannel | None:
+    index = owning_repo_index(context)
+    if index is None:
+        return None
+    url = addon_updates.normalized_repo_url(
+        context.preferences.extensions.repos[index].remote_url)
+    return next((channel for channel in UpdateChannel if channel.index_url == url), None)
+
+
 def selected_channel(context) -> UpdateChannel:
     try:
         preferences = addon_preferences(context, __package__)
     except (KeyError, AttributeError):
         return DEFAULT_CHANNEL
+    # RNA defaults change with the installed release level. Preserve the
+    # actual feed when the user has never explicitly stored a channel choice.
+    is_set = getattr(preferences, "is_property_set", None)
+    if callable(is_set) and not is_set("update_channel"):
+        if channel := owning_repository_channel(context):
+            return channel
     name = getattr(preferences, "update_channel", None)
     if name in UpdateChannel.__members__:
         return UpdateChannel[name]
@@ -156,7 +171,8 @@ def dev_access_error(context, channel: UpdateChannel) -> str:
     Developer Tools control internal diagnostic UI and are intentionally
     independent from a user's update-channel choice.
     """
-    if channel is not UpdateChannel.DEV or INSTALLED_VERSION.channel_name == "dev":
+    if (channel is not UpdateChannel.DEV or INSTALLED_VERSION.channel_name == "dev"
+            or owning_repository_channel(context) is UpdateChannel.DEV):
         return ""
     try:
         preferences = addon_preferences(context, __package__)

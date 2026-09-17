@@ -41,3 +41,18 @@ def test_migration_source_contains_no_development_ui():
         assert not path.name.startswith("quick_"), path
         if path.suffix in (".py", ".json", ".toml", ".md"):
             assert not any(token in path.read_text(encoding="utf-8").lower() for token in tokens), path
+
+
+def test_default_channel_preserves_existing_dev_owner(blender_env, monkeypatch):
+    from types import SimpleNamespace
+    module = blender_env.addon_update_operators
+    prefs = SimpleNamespace(update_channel="BETA", dev_channel_acknowledged=False,
+                            is_property_set=lambda name: False)
+    monkeypatch.setattr(module, "addon_preferences", lambda *_: prefs)
+    monkeypatch.setattr(module, "owning_repository_channel", lambda _: module.UpdateChannel.DEV)
+    monkeypatch.setattr(module, "INSTALLED_VERSION", module.parse_version("2.6.0"))
+    assert module.selected_channel(blender_env.bpy.context) is module.UpdateChannel.DEV
+    assert module.dev_access_error(blender_env.bpy.context, module.UpdateChannel.DEV) == ""
+    # An explicit user-selected channel still takes precedence over the owner.
+    prefs.is_property_set = lambda name: True
+    assert module.selected_channel(blender_env.bpy.context) is module.UpdateChannel.BETA
