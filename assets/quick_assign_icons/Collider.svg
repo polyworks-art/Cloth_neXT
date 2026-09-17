@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 1000 1000" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1.190789,0,0,1.190789,-209.376369,-179.64203)">
+        <path d="M686.088,390.012C735.964,390.012 776.457,430.505 776.457,480.38L776.457,661.118C776.457,710.994 735.964,751.486 686.088,751.486L505.351,751.486C455.475,751.486 414.982,710.994 414.982,661.118L414.982,480.38C414.982,430.505 455.475,390.012 505.351,390.012L686.088,390.012Z" style="fill:rgb(235,235,235);fill-opacity:0;stroke:black;stroke-width:26.24px;"/>
+    </g>
+    <g transform="matrix(1.370294,0,0,1.370294,-165.141314,-198.071202)">
+        <text x="386.445px" y="627.663px" style="font-family:'ArialRoundedMTBold', 'Arial Rounded MT Bold', sans-serif;font-size:330.337px;">X</text>
+    </g>
+</svg>

@@ -26,7 +26,7 @@ class RadialLayout:
 
     @property
     def outer_radius(self):
-        return 101 * self.scale
+        return 112 * self.scale
 
     @property
     def bubble_radius(self):
@@ -45,7 +45,7 @@ class RadialLayout:
         return angle
 
     def point(self, index, radius=None):
-        radius = 73.645 * self.scale if radius is None else radius
+        radius = 84.69175 * self.scale if radius is None else radius
         a = self.angle(index)
         return (self.center[0] + radius * math.cos(a),
                 self.center[1] + radius * math.sin(a))
@@ -111,8 +111,8 @@ def make_layout(center, width, height, scale=1., roles=ROLE_ORDER):
         cx, cy = center
         factors = [1.]
         for i in range(len(roles)):
-            dx = 73.645*math.cos(layout.angle(i))
-            dy = 73.645*math.sin(layout.angle(i))
+            dx = 84.69175*math.cos(layout.angle(i))
+            dy = 84.69175*math.sin(layout.angle(i))
             for space, extent in ((cx, 24-dx), (width-cx, 24+dx),
                                   (cy, 24-dy), (height-cy, 24+dy)):
                 if extent > 0:

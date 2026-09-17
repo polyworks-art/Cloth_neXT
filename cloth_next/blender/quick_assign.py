@@ -231,13 +231,13 @@ def _draw_sector_label(gesture, label, blf, gpu):
     layout = gesture.layout
     index = layout.roles.index(gesture.target)
     angle = layout.label_angle(index)
-    size = max(1, round(8*layout.scale))
+    size = max(1, round(10*layout.scale))
     blf.size(0, size)
     width, height = blf.dimensions(0, label)
-    if width > 29*layout.scale:
-        blf.size(0, max(1, size*29*layout.scale/width))
+    if width > 40*layout.scale:
+        blf.size(0, max(1, size*40*layout.scale/width))
         width, height = blf.dimensions(0, label)
-    x, y = layout.point(index, 33*layout.scale)
+    x, y = layout.point(index, 42*layout.scale)
     # Rotate the baseline offset together with the text, not just its origin.
     x += -width/2*math.cos(angle) + height/2*math.sin(angle)
     y += -width/2*math.sin(angle) - height/2*math.cos(angle)

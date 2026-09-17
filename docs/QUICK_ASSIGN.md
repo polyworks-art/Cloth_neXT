@@ -28,7 +28,7 @@ before either operator is invoked.
 | --- | --- | --- |
 | Cloth | `CLOTH` | Mesh |
 | Cable / Rope | `ROD` | Curve |
-| Rigid Body | `RIGID_BODY` | Mesh |
+| RBD | `RIGID_BODY` | Mesh |
 | Soft Body | `SOFT_BODY` | Mesh |
 | Collider | `COLLIDER` | Mesh |
 
@@ -46,9 +46,9 @@ sector from its actual position and returns a role once (`COMMIT`) or cancels
 on press or on cancellation.
 
 Five equal angular wedges occupy an upward half-circle. The ordered roles run
-counterclockwise from the right. Selection requires a radius of 42–160 UI pixels;
+counterclockwise from the right. Selection requires a radius of 30–112 UI pixels;
 the center and the opposite half-circle are neutral. Visible bubbles sit at
-radius 103 with an independent radius of 18. Releasing at radius 65 therefore
+radius 84.7 with an independent radius of 18. Releasing at radius 35 therefore
 selects a wedge without touching its bubble. The active bubble grows 12% and
 uses the toolbar cyan accent. The five supplied SVGs are preserved unchanged in
 `assets/quick_assign_icons`; `tools/build_quick_assign_icons.py` renders dedicated
@@ -59,7 +59,8 @@ to use the existing Add icon. Other UI role icons remain unchanged.
 
 The selected wedge fades from blue near the center toward the outer radius,
 using exactly the same angular boundaries as hit testing. Its uppercase role
-caption is rotated along the wedge. Diagnostic/error messages and their clickable
+caption is rotated along the wedge and flipped on the left to remain upright;
+Rigid Body uses the compact caption RBD. Diagnostic/error messages and their clickable
 log icon sit to the right of Bake, outside the toolbar pill.
 
 Layout prefers upward, then downward, rightward or leftward orientations according
@@ -77,12 +78,10 @@ operators on its next event. The feature adds no idle timer or draw handler.
 
 ## Validation
 
-Results on 2026-09-17: full pytest finished with **1,780 passed, 1 failed,
-10 skipped and 3 deselected**. The failure and skips are described below; skips
-require external solver fixtures and deselections are the repository's default
-built-artifact exclusion. The focused geometry/floating-UI run passed all 31 tests
-(24 new Quick Assign cases). Compile checks and `git diff --check` passed. The
-real Blender smoke and live-event runs both passed.
+The 2.7.0 full suite passed with 1,825 tests before the final caption checks;
+the final focused Quick Assign run passed all 32 cases. External solver tests
+require separately configured fixtures. Real Blender 5.2.2 registration and
+live-event checks passed with the compact geometry and upright captions.
 
 Run pure/adapter regressions:
 
@@ -124,14 +123,4 @@ physical HiDPI displays and subjective hold/drag feel. Edge rotation and scaling
 have automated geometry coverage; not every orientation was exercised in the live
 viewport.
 
-The initial implementation checks exposed two pre-existing checkout issues:
-
-- Full pytest's package-structure test rejects the existing generated
-  `cloth_next/bin/cloth-next-bake.exe` and `cloth_next/companion_manifest.json`.
-- `tools/run_blender_smoke.py` used a stale import of the absent
-  `cloth_next.blender.hud` module. For release 2.5.2 this test now verifies the
-  actual floating UI, its registered classes, draw-handler lifecycle and timers;
-  the real Blender registration smoke passes.
-
-Release 2.5.2 is prepared from a clean checkout without generated source artifacts.
 The external solver is not modified or bundled.
