@@ -49,6 +49,8 @@ jobs:
   publish:
     needs: candidate
     runs-on: ubuntu-latest
+    env:
+      CLOTH_NEXT_RELEASE_REPOSITORY_URL: ${{ secrets.CLOTH_NEXT_RELEASE_REPOSITORY_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +69,8 @@ jobs:
         run: |
           TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           test "$(git rev-list -n 1 "$TAG")" = "${{ needs.candidate.outputs.commit }}"
+      - name: Resolve publication destination without recording its URL
+        run: python tools/release_routing.py --version "${{ needs.candidate.outputs.version }}" --github-env
       - name: Generate canonical release metadata
         run: python tools/release_metadata.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --commit "${{ needs.candidate.outputs.commit }}" --output-dir dist
       - run: python tools/validate_release_policy.py --phase post-build --tag "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" --zip "dist/${{ needs.candidate.outputs.zip-name }}"
@@ -104,7 +108,7 @@ jobs:
         run: |
           CHANNEL="${{ needs.candidate.outputs.channel }}"
           case "$CHANNEL" in stable|beta) ;; *) echo "unsupported tagged release channel" >&2; exit 1 ;; esac
-          TARGETS="$(python -c 'import sys; from cloth_next.updater.channel_policy import publication_targets; print(" ".join(publication_targets(sys.argv[1])))' "$CHANNEL")"
+          TARGETS="$CLOTH_NEXT_PUBLICATION_TARGETS"
           for TARGET in $TARGETS; do
             python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "$TARGET" --site-dir site --blender "$CLOTH_NEXT_BLENDER"
           done
@@ -115,7 +119,7 @@ jobs:
         run: |
           VERSION="${{ needs.candidate.outputs.version }}"
           CHANNEL="${{ needs.candidate.outputs.channel }}"
-          TARGETS="$(python -c 'import sys; from cloth_next.updater.channel_policy import publication_targets; print(" ".join(publication_targets(sys.argv[1])))' "$CHANNEL")"
+          TARGETS="$CLOTH_NEXT_PUBLICATION_TARGETS"
           if [ ! -d site-publish ]; then
             git worktree add --detach site-publish
             git -C site-publish checkout --orphan gh-pages
@@ -137,11 +141,14 @@ jobs:
           while IFS= read -r path; do
             case "$path" in
               "artifacts/$VERSION/"*|.nojekyll) ;;
-              stable/*) [ "$CHANNEL" = stable ] || { echo "unexpected Stable path: $path" >&2; exit 1; } ;;
-              beta/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Beta path: $path" >&2; exit 1; } ;;
-              dev/*) [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || { echo "unexpected Dev path: $path" >&2; exit 1; } ;;
               errors/errors.json) ;;
-              *) echo "attempted non-release Pages modification: $path" >&2; exit 1 ;;
+              *)
+                ALLOWED=false
+                for TARGET in $TARGETS; do
+                  case "$path" in "$TARGET/"*) ALLOWED=true ;; esac
+                done
+                $ALLOWED || { echo "attempted modification outside the configured publication target" >&2; exit 1; }
+                ;;
             esac
           done < <(git -C site-publish diff --cached --name-only)
           git -C site-publish -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish $CHANNEL $VERSION through Pages"

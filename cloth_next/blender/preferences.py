@@ -20,6 +20,7 @@ from pathlib import Path
 import bpy
 
 from ..developer import is_dev_build
+from ..superhive_status import repository_status
 
 from ..ppf.compatibility import parse_executable_version
 from ..ppf.layout import BundledSolverLayout
@@ -719,19 +720,6 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         description="Select the exact installed solver used by future Bakes; "
                     "selection is locked while a session is active")
 
-    update_channel: bpy.props.EnumProperty(
-        name="Update Channel",
-        items=(("STABLE", "Stable", "Official stable releases only"),
-               ("BETA", "Beta", "Public preview releases"),
-               ("DEV", "Dev", "Experimental development builds")),
-        default=addon_update_operators.DEFAULT_CHANNEL.name,
-        update=addon_update_operators.channel_changed,
-        description="Which Cloth NeXt release channel to check for add-on "
-                    "updates (independent of the simulation solver)")
-    dev_channel_acknowledged: bpy.props.BoolProperty(
-        name="I understand the Dev channel risks", default=False,
-        update=addon_update_operators.channel_changed)
-
     developer_tools: bpy.props.BoolProperty(
         name="Developer Tools", default=False,
         description="Show internal solver tests and UI diagnostics in the "
@@ -781,7 +769,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        self._draw_addon_update_section(layout, context)
+        self._draw_superhive_status(layout, context)
         welcome = layout.box()
         welcome.label(text="Learn Cloth NeXt")
         actions = welcome.row(align=True)
@@ -826,50 +814,13 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         threshold.enabled = getattr(self, "auto_cancel_high_ram", True)
         threshold.prop(self, "auto_cancel_ram_percent")
 
-    def _draw_addon_update_section(self, layout, context) -> None:
-        """Cloth NeXt's own update status; never performs network work."""
+    def _draw_superhive_status(self, layout, context) -> None:
+        """Two informational states; never contacts a service or reads credentials."""
+        status = repository_status(context.preferences.extensions.repos)
         box = layout.box()
-        box.label(text="Cloth NeXt")
-        update_session = addon_update_operators.session()
-        view = addon_updates.build_section_view(update_session.state,
-                                                update_session.latest,
-                                                update_session.message)
-        box.label(text="Installed Version: "
-                       f"{addon_update_operators.INSTALLED_VERSION} "
-                       f"({addon_update_operators.INSTALLED_VERSION.channel_name.capitalize()})")
-        box.prop(self, "update_channel")
-        channel = addon_updates.UpdateChannel[self.update_channel]
-        if addon_update_operators.owning_repo_index(context) is None:
-            box.operator("clothnext.addon_update_repo_setup",
-                         text="Retry Update Setup")
-        if self.update_channel == "DEV":
-            warning=box.box(); warning.label(text="Development Channel", **icon_registry.icon_kwargs("error", "ERROR"))
-            warning.label(text="Experimental public builds; reduced validation.")
-            warning.label(text="Back up your files before updating.")
-            if addon_update_operators.INSTALLED_VERSION.channel_name != "dev":
-                warning.prop(self, "dev_channel_acknowledged")
-        if update_session.latest is not None:
-            box.label(text=f"Available Target: {update_session.latest}")
-        box.label(text=f"Update Status: {view.status_text}")
-        if view.message:
-            import textwrap
-            for line in textwrap.wrap(view.message, width=72):
-                box.label(text=line)
-        elif update_session.state is addon_updates.AddonUpdateState.NOT_CHECKED:
-            box.label(text="Updates are checked automatically after startup.")
-        elif update_session.state is addon_updates.AddonUpdateState.UP_TO_DATE:
-            box.label(text="No newer version is available for this channel.")
-        actions = box.column()
-        check = actions.row()
-        check.enabled = view.check_enabled
-        check.operator("clothnext.addon_update_check")
-        if view.show_update_handoff:
-            actions.operator("clothnext.addon_update_through_blender",
-                             text=(f"Switch to {channel.label}" if update_session.state is
-                                   addon_updates.AddonUpdateState.SWITCH_CHANNEL else
-                                   "Update through Blender"))
-        elif view.show_open_extensions:
-            actions.operator("clothnext.addon_open_extensions")
+        box.label(text="Superhive")
+        box.label(text="Superhive connected", icon="CHECKMARK" if status.connected else "X")
+        box.label(text="Purchase validated", icon="CHECKMARK" if status.purchase_validated else "X")
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()

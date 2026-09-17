@@ -46,6 +46,19 @@ class UpdateChannel(Enum):
         return self.name.capitalize()
 
 
+@dataclass(frozen=True, slots=True)
+class RepositoryChannel:
+    """A native Blender repository, independent of release level and hardcoded URLs."""
+    index_url: str
+    name: str = "RELEASE"
+    label: str = "Release"
+
+
+def _permitted_levels(channel_name: str):
+    return (("stable", "beta", "dev") if channel_name == "release"
+            else allowed_release_channels(channel_name))
+
+
 def default_channel(installed: AddonVersion) -> UpdateChannel:
     """Derive the channel from STABLE.BETA.DEV or a legacy prerelease."""
     return UpdateChannel[installed.channel_name.upper()]
@@ -180,7 +193,7 @@ def parse_index_versions(payload: dict,
         except ValueError as exc:
             raise ValueError(f"the {channel.label} channel offers invalid "
                              f"version {version}; refusing it") from exc
-        allowed = allowed_release_channels(repository_channel)
+        allowed = _permitted_levels(repository_channel)
         if actual not in allowed:
             raise ValueError(f"the {channel.label} repository cannot offer "
                              f"{actual} version {version}; refusing it")
@@ -217,9 +230,9 @@ def decide_update(installed, available, channel=None):
     target = available[0] if len(available) == 1 else None
     relation = ("unavailable" if target is None else "equal" if target == installed
                 else "newer" if target > installed else "older")
-    changed = installed.channel_name != selected
+    changed = selected != "release" and installed.channel_name != selected
     if len(available) > 1 or (target and target.channel_name not in
-                             allowed_release_channels(selected)):
+                             _permitted_levels(selected)):
         state = AddonUpdateState.ERROR
     elif target is None:
         state = AddonUpdateState.UNAVAILABLE

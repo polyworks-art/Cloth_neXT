@@ -78,6 +78,7 @@ jobs:
           $exe=(Get-ChildItem "$env:RUNNER_TEMP\blender" -Filter blender.exe -Recurse | Select-Object -First 1).FullName
           "CLOTH_NEXT_BLENDER=$exe" >> $env:GITHUB_ENV
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_live_cache_regression.py'
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_quick_assign_smoke.py'
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: pytest -m built_artifact --extension-zip "dist/${{ needs.validate-source.outputs.zip-name }}"
       - run: python tools/validate_extension.py "dist/${{ needs.validate-source.outputs.zip-name }}" --phase packaged

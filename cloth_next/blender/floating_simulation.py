@@ -3,7 +3,7 @@
 """Optional viewport presentation for the existing Simulation workflow.
 
 Blender gizmos own the clickable areas; the draw handler only paints the bar.
-No modal event handler or simulation state is stored here.
+Quick Assign owns a short-lived gesture; simulation state remains elsewhere.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import bpy
 
 from ..bake.controller import shared_controller
 from ..solver_quality import matching_quality_preset
-from . import object_properties, physics_operators, physics_ui
+from . import object_properties, physics_operators, physics_ui, quick_assign
 from .addon_identity import addon_preferences
 
 _handle = None
@@ -35,7 +35,7 @@ _persistent = getattr(getattr(bpy.app, "handlers", None),
 _BG = (0.105, 0.119, 0.130, 0.94)  # charcoal
 _SURFACE = (0.225, 0.245, 0.265, 0.97)
 _CYAN = (0.06, 0.66, 0.85, 1.0)
-_BLUE = (0.07, 0.43, 0.72, 1.0)
+_BLUE = (0.0, 0.60, 0.85, 1.0)
 _TEXT = (0.93, 0.96, 0.98, 1.0)
 _MUTED = (0.57, 0.64, 0.68, 1.0)
 _DIR_READY = (0.37, 0.68, 0.17, 1.0)
@@ -111,7 +111,8 @@ def _bounds(context):
         return None
     scale = _scale(context)
     width, height = (230 + _quality_width(context)) * scale, 54 * scale
-    if region.width < width + 24 * scale or region.height < height + 48 * scale:
+    if (region.width < width + 24 * scale
+            or region.height < height + 78 * (scale / _LAYOUT_SCALE)):
         return None
     return ((region.width - width) / 2, 28 * scale, width, height, scale)
 
@@ -122,8 +123,8 @@ def _animated_bounds(context):
         return None
     x, shown_y, width, height, scale = bounds
     # The WINDOW region clips the toolbar as it passes below its own edge.
-    # Include the diagnostic badge above the bar in the fully clipped extent.
-    hidden_y = -height - 24 * (scale / _LAYOUT_SCALE)
+    # Include the detached Quick Assign button in the fully clipped extent.
+    hidden_y = -height - 50 * (scale / _LAYOUT_SCALE)
     y = hidden_y + (shown_y - hidden_y) * _slide_fraction()
     return x, y, width, height, scale
 
@@ -220,11 +221,33 @@ def _asset_icon(gpu, batch_for_shader, name, x, y, size):
 
 
 @_persistent
+def _scene_loading(_dummy):
+    quick_assign.cancel_all()
+
+
+@_persistent
 def _scene_loaded(_dummy):
     # Loading a .blend frees images from the old Main, invalidating RNA refs.
     _images.clear()
     if _registered:
         _tag_redraw(bpy.context)
+
+
+def _message_anchor(bounds):
+    """Detached diagnostics, aligned beside Bake and outside the pill."""
+    x, y, width, height, scale = bounds
+    return x + width + 18*(scale/_LAYOUT_SCALE), y + height/2
+
+
+def _fit_label(blf, text, available, size):
+    blf.size(0, size)
+    if blf.dimensions(0, text)[0] <= available:
+        return text
+    if blf.dimensions(0, "…")[0] > available:
+        return ""
+    while text and blf.dimensions(0, text + "…")[0] > available:
+        text = text[:-1]
+    return text + "…"
 
 
 def _draw():
@@ -282,16 +305,19 @@ def _draw():
                 "Recovery Check Failed", "Recovery Metadata Invalid",
                 "Recovery Incompatible", "Recovery Project Missing"}
             ui = s / _LAYOUT_SCALE
-            ix, iy = x + 9*ui, y+h+13*ui
+            ix, iy = _message_anchor(bounds)
             color = _DIR_MISSING if error else (1.0, 1.0, 1.0, 1.0)
+            gpu.state.blend_set("ALPHA")
             _rounded(shader, batch_for_shader,
                      ix-7*ui, iy-7*ui, 14*ui, 14*ui, 7*ui,
                      _DIR_MISSING if error else _BLUE)
             _centered_glyph(blf, "!" if error else "i", ix, iy,
                             round(10*ui), (1.0, 1.0, 1.0, 1.0))
-            available = max(1, context.region.width - (ix+27*ui))
-            _label(blf, str(message)[:int(available / (6*ui))],
+            available = max(0, context.region.width - (ix+25*ui))
+            label = _fit_label(blf, str(message), available, round(11*ui))
+            _label(blf, label,
                    ix+15*ui, iy-4*ui, round(11*ui), color)
+        quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
 
@@ -322,6 +348,7 @@ class CLOTHNEXT_OT_toggle_floating_ui(bpy.types.Operator):
             return {"CANCELLED"}
         _animation_from = _slide_fraction()
         _toolbar_visible = not _toolbar_visible
+        quick_assign.cancel_all()
         _animation_start_time = time.monotonic()
         if not bpy.app.timers.is_registered(_animation_tick):
             bpy.app.timers.register(_animation_tick, first_interval=1.0 / 60.0)
@@ -344,7 +371,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons = []
         for operator in ("clothnext.set_cache_directory", "wm.call_menu",
                          "clothnext.bake", "clothnext.bake_cancel",
-                         "clothnext.companion_open_logs"):
+                         "clothnext.companion_open_logs", "clothnext.quick_assign"):
             gizmo = self.gizmos.new("GIZMO_GT_button_2d")
             gizmo.icon = "BLANK1"
             gizmo.draw_options = set()
@@ -374,7 +401,8 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         positions = ((91, 27), (126 + quality_width/2, 27),
                      (177 + quality_width, 27),
                      (177 + quality_width, 27),
-                     (9*ui/s, 54 + 13*ui/s))
+                     ((_w+18*ui)/s, 27),
+                     ((230 + quality_width)/2, 54 + 31*ui/s))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
             gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
@@ -387,6 +415,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons[2].hide = snapshot.active or not (model and model.enabled)
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
         self._buttons[4].hide = not bool(message)
+        self._buttons[5].hide = not bool(quick_assign.valid_roles(context))
         # Blender does not guarantee refresh() for each timer-driven redraw.
         # Keep hit targets at the same translated position as the painted bar.
         for gizmo in self._buttons:
@@ -397,7 +426,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self.refresh(context)
 
 
-CLASSES = (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+CLASSES = quick_assign.CLASSES + (CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
            CLOTHNEXT_GT_floating_simulation)
 
 
@@ -410,6 +439,7 @@ def _tag_redraw(context):
 
 
 def _pulse():
+    quick_assign.prune_sessions()
     if enabled(bpy.context):
         _tag_redraw(bpy.context)
     return 0.5
@@ -427,6 +457,7 @@ def sync(context=None):
         _slide = 1.0
     elif not active:
         _stop_animation()
+        quick_assign.cancel_all()
     _last_enabled = active
     if active and _handle is None:
         _handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -447,6 +478,9 @@ def register():
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
     if handlers is not None and _scene_loaded not in handlers:
         handlers.append(_scene_loaded)
+    handlers = getattr(getattr(bpy.app, "handlers", None), "load_pre", None)
+    if handlers is not None and _scene_loading not in handlers:
+        handlers.append(_scene_loading)
     kc = getattr(getattr(bpy.context.window_manager, "keyconfigs", None),
                  "addon", None)
     if kc is not None and _keymap_item is None:
@@ -459,10 +493,14 @@ def register():
 def unregister():
     global _registered, _handle, _keymap, _keymap_item, _last_enabled
     _registered = False
+    quick_assign.cancel_all()
     _stop_animation()
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
     if handlers is not None and _scene_loaded in handlers:
         handlers.remove(_scene_loaded)
+    handlers = getattr(getattr(bpy.app, "handlers", None), "load_pre", None)
+    if handlers is not None and _scene_loading in handlers:
+        handlers.remove(_scene_loading)
     if _keymap is not None and _keymap_item is not None:
         _keymap.keymap_items.remove(_keymap_item)
     _keymap = _keymap_item = None

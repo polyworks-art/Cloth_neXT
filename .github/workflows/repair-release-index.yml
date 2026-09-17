@@ -3,7 +3,7 @@ name: repair-release-repository
 on:
   workflow_dispatch:
     inputs:
-      channel: {description: "Repository channel to repair", required: true, type: choice, options: [dev, beta, stable]}
+      channel: {description: "Repository channel to repair", required: true, type: choice, options: [release, dev, beta, stable]}
       version: {description: "Existing immutable release version", required: true}
       confirmation: {description: "Type REPAIR_RELEASE_INDEX", required: true}
 
@@ -16,6 +16,8 @@ env:
 jobs:
   repair:
     runs-on: windows-latest
+    env:
+      CLOTH_NEXT_RELEASE_REPOSITORY_URL: ${{ secrets.CLOTH_NEXT_RELEASE_REPOSITORY_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Require exact repair request
@@ -25,7 +27,7 @@ jobs:
           REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
           if ('${{ inputs.confirmation }}' -cne 'REPAIR_RELEASE_INDEX') { throw 'confirmation mismatch' }
-          python -c "import os; from tools.validate_release_policy import check_beta_bridge_target; check_beta_bridge_target(os.environ['REPAIR_VERSION'], os.environ['REPAIR_CHANNEL']); from cloth_next.updater.addon_versions import parse_version; from cloth_next.updater.channel_policy import release_visible_in; v=parse_version(os.environ['REPAIR_VERSION']); assert release_visible_in(v.channel_name, os.environ['REPAIR_CHANNEL']), 'release is not visible in requested repository'"
+          python tools/release_routing.py --version "$env:REPAIR_VERSION" --repair-channel "$env:REPAIR_CHANNEL" --github-env
       - name: Download Blender 5.1.2
         shell: pwsh
         run: |
@@ -65,7 +67,7 @@ jobs:
           REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
           $pages=Join-Path $env:RUNNER_TEMP 'pages'
-          $channel=Join-Path $pages $env:REPAIR_CHANNEL
+          $channel=Join-Path $pages $env:REPAIR_REPOSITORY_DIRECTORY
           $duplicate=Join-Path $env:RUNNER_TEMP 'duplicate-release'
           $repaired=Join-Path $env:RUNNER_TEMP 'repaired-release'
           $existing=Test-Path -LiteralPath $channel
@@ -98,8 +100,8 @@ jobs:
           REPAIR_VERSION: ${{ inputs.version }}
           REPAIR_CHANNEL: ${{ inputs.channel }}
         run: |
-          $indexPath="$env:REPAIR_CHANNEL/index.json"
-          $archivePath="$env:REPAIR_CHANNEL/cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
+          $indexPath="$env:REPAIR_REPOSITORY_DIRECTORY/index.json"
+          $archivePath="$env:REPAIR_REPOSITORY_DIRECTORY/cloth_next-$env:REPAIR_VERSION-windows-x64.zip"
           git -C "$env:RUNNER_TEMP\pages" add $indexPath $archivePath
           $changed=@(git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only)
           $unexpected=@($changed | Where-Object { $_ -cne $indexPath -and $_ -cne $archivePath })

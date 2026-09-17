@@ -23,6 +23,7 @@ jobs:
           if ('${{ inputs.confirmation }}' -cne 'REPAIR_DEV_INDEX') { throw 'confirmation mismatch' }
           if ('${{ inputs.ref }}' -notmatch '^[0-9a-f]{40}$') { throw 'ref must be an exact SHA' }
           if ('${{ inputs.version }}' -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.[1-9][0-9]*$') { throw 'invalid STABLE.BETA.DEV version' }
+          if ([version]"${{ inputs.version }}" -gt [version]"2.6.0") { throw "Use repair-release-index with the release selector for versions after 2.6.0" }
       - uses: actions/checkout@v4
         with: {ref: "${{ inputs.ref }}", fetch-depth: 0}
       - shell: pwsh

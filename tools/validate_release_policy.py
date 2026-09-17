@@ -27,6 +27,7 @@ from cloth_next.onboarding import (load_welcome, validate_release_content,
                                     validate_whats_new_payload)
 from cloth_next.updater.solver_manifest import parse_manifest
 from tools.scan_release_artifact import scan_names
+from tools.release_routing import publication_directories
 from cloth_next.updater.channel_policy import (allowed_release_channels,
                                                  publication_targets)
 from cloth_next.updater.addon_versions import parse_version as parse_addon_version
@@ -267,16 +268,17 @@ def check_pages_artifact_store(site_dir: Path, zip_path: Path,
 
 def check_channel_separation(site_dir: Path, version: ReleaseVersion) -> None:
     """Enforce cumulative channel targets while retaining historical archives."""
-    required = publication_targets(version.channel)
+    required = publication_directories(version.text)
     archive_name = expected_zip_name(version)
-    for channel in ("stable", "beta", "dev"):
+    for channel in dict.fromkeys(("stable", "beta", "dev", *required)):
         channel_dir = site_dir / channel
         if channel in required and not channel_dir.is_dir():
             raise ValueError(f"{channel} repository was not published for "
                              f"{version.channel} release {version.text}")
         if not channel_dir.is_dir():
             continue
-        allowed = allowed_release_channels(channel)
+        allowed = (("stable", "beta", "dev") if channel not in ("stable", "beta", "dev")
+                   else allowed_release_channels(channel))
         # Historical archives remain immutable, including former cumulative
         # publications. Only the active index target determines channel policy.
         index = channel_dir / "index.json"

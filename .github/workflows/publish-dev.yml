@@ -18,6 +18,8 @@ env:
 jobs:
   publish:
     runs-on: windows-latest
+    env:
+      CLOTH_NEXT_RELEASE_REPOSITORY_URL: ${{ secrets.CLOTH_NEXT_RELEASE_REPOSITORY_URL }}
     steps:
       - name: Require explicit confirmation and immutable SHA
         shell: pwsh
@@ -62,13 +64,16 @@ jobs:
       - run: python tools/validate_release_policy.py --phase post-build --tag "${{ inputs.version }}" --zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - shell: pwsh
         run: '& "$env:CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"'
-      - name: Publish isolated Dev repository
+      - name: Resolve publication destination without recording its URL
+        run: python tools/release_routing.py --version "${{ inputs.version }}" --github-env
+      - name: Publish verified development build
         shell: pwsh
         run: |
           git fetch origin gh-pages
           git worktree add "$env:RUNNER_TEMP\pages" origin/gh-pages
           python tools/build_error_guidance.py --output "$env:RUNNER_TEMP\pages\errors\errors.json"
-          $dev=Join-Path "$env:RUNNER_TEMP\pages" dev
+          $target=$env:CLOTH_NEXT_PUBLICATION_TARGETS
+          $dev=Join-Path "$env:RUNNER_TEMP\pages" $target
           New-Item -ItemType Directory -Force $dev | Out-Null
           $zip="dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
           $destination=Join-Path $dev (Split-Path $zip -Leaf)
@@ -90,9 +95,9 @@ jobs:
           Expand-Archive -LiteralPath $legacyZip -DestinationPath $legacySource
           python tools/check_legacy_dev_bootstrap.py --legacy-source "$legacySource" --candidate-index (Join-Path $dev 'index.json')
           if ($LASTEXITCODE -ne 0) { throw 'shipped Dev updater rejected the candidate' }
-          git -C "$env:RUNNER_TEMP\pages" add dev errors/errors.json
+          git -C "$env:RUNNER_TEMP\pages" add -- $target errors/errors.json
           $changed=git -C "$env:RUNNER_TEMP\pages" diff --cached --name-only
-          if ($changed | Where-Object {$_ -notlike 'dev/*' -and $_ -ne 'errors/errors.json'}) { throw 'attempted non-Dev Pages modification' }
+          if ($changed | Where-Object {$_ -notlike "$target/*" -and $_ -ne 'errors/errors.json'}) { throw 'attempted modification outside the configured publication target' }
           git -C "$env:RUNNER_TEMP\pages" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish Dev ${{ inputs.version }}"
           git -C "$env:RUNNER_TEMP\pages" push origin HEAD:gh-pages
       - name: Summary
@@ -102,4 +107,4 @@ jobs:
           "Source commit: ${{ inputs.ref }}" >> $env:GITHUB_STEP_SUMMARY
           "Mandatory packaging, companion, secret, Blender validation, and forbidden-artifact checks passed." >> $env:GITHUB_STEP_SUMMARY
           "Skipped: real PPF integration, interactive Blender acceptance, full release preflight." >> $env:GITHUB_STEP_SUMMARY
-          "No tag or GitHub Release was created. Stable and Beta were not modified." >> $env:GITHUB_STEP_SUMMARY
+          "No tag or GitHub Release was created. Only the resolved publication repository and shared error guidance were updated." >> $env:GITHUB_STEP_SUMMARY

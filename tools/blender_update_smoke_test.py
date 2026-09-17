@@ -102,8 +102,8 @@ def main() -> None:
     extension, updates = _load_updates_module()
     from_module = updates.addon_updates
     state_cls = from_module.AddonUpdateState
-    channel = updates.DEFAULT_CHANNEL
-    channel_url = channel.index_url
+    channel = updates.selected_channel(bpy.context)
+    channel_url = channel.index_url or "https://example.com/release-fixture/index.json"
     if channel is updates.UpdateChannel.DEV:
         # This build intentionally encodes the Dev channel. Exercise the real
         # acknowledgement property instead of bypassing the production gate.
@@ -122,7 +122,7 @@ def main() -> None:
     # bpy.ops raised, run_handoff() swallowed it as CANCELLED, and every
     # assertion below then read back the very state this fixture had just
     # written — the operator was never entered at all.
-    counter = {"STABLE": "major", "BETA": "minor", "DEV": "patch"}[channel.name]
+    counter = {"STABLE": "major", "BETA": "minor", "DEV": "patch", "RELEASE": "patch"}[channel.name]
     newer_than_installed = replace(
         updates.INSTALLED_VERSION,
         **{counter: getattr(updates.INSTALLED_VERSION, counter) + 1},
@@ -268,40 +268,29 @@ def main() -> None:
         updates._blender_repo_sync = original_sync
         updates.refresh_update_session = original_refresh
 
-    # All directions use the same real RNA repository, with no Developer Tools.
-    # The sync boundary writes an official-format local fixture; production
-    # refresh reads that repository's cache and computes the real decision.
+    # All release levels use the same native repository and ordinary version ordering.
     import json
-    versions = {"STABLE": "2.0.0", "BETA": "2.3.0", "DEV": "2.3.5"}
     preferences = updates.addon_preferences(bpy.context, updates.__package__)
-    preferences.developer_tools = False
-    preferences.dev_channel_acknowledged = True
-    identity = (repos[index].directory, repos[index].module)
-    original_installed = updates.INSTALLED_VERSION
+    assert "update_channel" not in preferences.bl_rna.properties
+    assert "dev_channel_acknowledged" not in preferences.bl_rna.properties
+    identity = (repos[index].directory, repos[index].module, repos[index].remote_url)
     try:
-        for source in versions:
-            for destination, target in versions.items():
-                if source == destination:
-                    continue
-                updates.INSTALLED_VERSION = updates.parse_version(versions[source])
-                preferences.update_channel = destination
-                chosen = updates.UpdateChannel[destination]
-                def cached_sync(directory):
-                    assert directory == channel_directory
-                    assert repos[index].remote_url == chosen.index_url
-                    cache = Path(directory, ".blender_ext")
-                    cache.mkdir(parents=True, exist_ok=True)
-                    (cache / "index.json").write_text(json.dumps({"data": [
-                        {"id": "cloth_next", "version": target}]}))
-                updates._blender_repo_sync = cached_sync
-                updates._blender_show_update_view = lambda: None
-                assert updates.synchronize_selected(bpy.context, chosen)
-                assert updates.session().state is state_cls.SWITCH_CHANNEL
-                assert bpy.ops.clothnext.addon_update_through_blender() == {"FINISHED"}
-                assert (repos[index].directory, repos[index].module) == identity
-        print("All six channel handoffs preserve real Blender repository RNA identity")
+        for target in ("2.7.1", "2.8.0", "3.0.0"):
+            chosen = updates.selected_channel(bpy.context)
+            def cached_sync(directory):
+                assert directory == channel_directory
+                cache = Path(directory, ".blender_ext")
+                cache.mkdir(parents=True, exist_ok=True)
+                (cache / "index.json").write_text(json.dumps({"data": [
+                    {"id": "cloth_next", "version": target}]}))
+            updates._blender_repo_sync = cached_sync
+            updates._blender_show_update_view = lambda: None
+            assert updates.synchronize_selected(bpy.context, chosen)
+            assert updates.session().state is state_cls.UPDATE_AVAILABLE
+            assert bpy.ops.clothnext.addon_update_through_blender() == {"FINISHED"}
+            assert (repos[index].directory, repos[index].module, repos[index].remote_url) == identity
+        print("All release levels preserve native Blender repository identity and URL")
     finally:
-        updates.INSTALLED_VERSION = original_installed
         updates._blender_repo_sync = original_sync
         updates._blender_show_update_view = original_view
 

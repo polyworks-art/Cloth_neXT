@@ -82,6 +82,9 @@ jobs:
           "$BLENDER" --background \
             --python-exit-code 1 --python tools/blender_smoke_test.py
 
+      - name: Quick Assign registration and role dispatch
+        run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_quick_assign_smoke.py'
+
       - name: Rod and Soft Body workflow smoke test
         run: |
           set -euo pipefail

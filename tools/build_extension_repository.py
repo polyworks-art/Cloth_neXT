@@ -24,6 +24,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.validate_release_policy import check_beta_bridge_target
+from tools.release_routing import publication_directories, uses_unified_repository
 from cloth_next.ppf.bootstrap import sha256_file
 from cloth_next.updater.addon_versions import parse_version
 from cloth_next.updater.channel_policy import release_visible_in
@@ -99,7 +100,7 @@ def main() -> int:
     parser.add_argument("--zip", type=Path, required=True)
     parser.add_argument("--sha256", required=True,
                         help="SHA-256 of the tested release artifact")
-    parser.add_argument("--channel", required=True, choices=("stable", "beta", "dev"))
+    parser.add_argument("--channel", required=True, help="Resolved publication directory")
     parser.add_argument("--site-dir", type=Path, default=Path("site"))
     parser.add_argument("--blender", default=os.environ.get("CLOTH_NEXT_BLENDER", "blender"))
     parser.add_argument("--repository-root", type=Path,
@@ -110,7 +111,10 @@ def main() -> int:
             (args.repository_root / "cloth_next" / "blender_manifest.toml")
             .read_text(encoding="utf-8"))
         release_channel = parse_version(manifest["version"]).channel_name
-        if not release_visible_in(release_channel, args.channel):
+        if uses_unified_repository(manifest["version"]):
+            if args.channel not in publication_directories(manifest["version"]):
+                raise ValueError("Release must use the configured unified repository")
+        elif not release_visible_in(release_channel, args.channel):
             raise ValueError(f"{release_channel} release {manifest['version']} "
                              f"is not eligible for the {args.channel} repository")
         check_beta_bridge_target(manifest["version"], args.channel)

@@ -469,13 +469,15 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     pairs = [entry for entry in log if len(entry) == 2]
     labels = [text for kind, text in pairs if kind == "label"]
     operators = [text for kind, text in pairs if kind == "operator"]
-    assert "Cloth NeXt" in labels
+    assert "Superhive" in labels
     assert "Solver" in labels
-    assert labels.index("Cloth NeXt") < labels.index("Solver")
-    assert any(text.startswith("Installed Version:") for text in labels)
-    assert any(text.startswith("Update Status:") for text in labels)
-    assert ("prop", "update_channel") in log
-    assert "clothnext.addon_update_check" in operators
+    assert labels.index("Superhive") < labels.index("Solver")
+    assert "Superhive connected" in labels
+    assert "Purchase validated" in labels
+    assert not any(text.startswith("Update Status:") for text in labels)
+    assert ("prop", "update_channel") not in log
+    assert "update_channel" not in preferences.CLOTHNEXT_AddonPreferences.__annotations__
+    assert "clothnext.addon_update_check" not in operators
     assert "clothnext.addon_open_release_notes" not in operators
     # solver operators are never presented inside the Cloth NeXt update block
     boxes = [i for i, entry in enumerate(log) if entry == ("box",)]
@@ -538,7 +540,7 @@ def test_cloth_physics_header_hides_update_hint_when_current(
     env.registration.unregister()
 
 
-def test_preferences_offers_channel_registration_directly_below_selector(
+def test_preferences_offers_native_repository_setup_without_channel_selector(
         blender_env, monkeypatch):
     env = blender_env
     env.registration.register()
@@ -550,11 +552,10 @@ def test_preferences_offers_channel_registration_directly_below_selector(
     prefs.update_channel = "BETA"
     prefs.draw(env.bpy.context)
     log = prefs.layout.log
-    selector = log.index(("prop", "update_channel"))
-    register = log.index(("operator", "clothnext.addon_update_repo_setup"))
-    assert register > selector
-    assert ("operator_text", "clothnext.addon_update_repo_setup",
-            "Retry Update Setup") in log
+    assert ("prop", "update_channel") not in log
+    assert ("label", "Superhive connected") in log
+    assert ("label", "Purchase validated") in log
+    assert ("operator", "clothnext.addon_update_repo_setup") not in log
     env.registration.unregister()
 
 
@@ -625,9 +626,10 @@ def test_repeated_cycles_leave_no_update_state(blender_env):
 
 # --- channel selection at operator level ----------------------------------------------
 
-def test_selected_channel_reads_preferences_and_falls_back(blender_env):
+def test_legacy_selected_channel_reads_preferences_and_falls_back(blender_env):
     env = blender_env
     module = updater(env)
+    module.INSTALLED_VERSION = parse_version("2.6.0")
     set_channel(env, "STABLE")
     assert module.selected_channel(env.bpy.context) is UpdateChannel.STABLE
     set_channel(env, "BETA")

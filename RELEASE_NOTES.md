@@ -1,20 +1,26 @@
-# Cloth NeXt 2.6.0 Beta
+# Cloth NeXt 2.7.0
 
-Cloth NeXt 2.6.0 is the final GitHub Beta customer release. The existing
-What's New Companion explains the move and offers Set up Superhive and Continue.
-Your current installation, projects, caches, settings and external solver keep
-working. No repository is redirected and nothing is deactivated or deleted.
+Quick Assign adds a floating Add bubble above the existing simulation toolbar.
+Hold and drag to choose among Cloth, Cable, Rigid Body, Soft Body and Collider.
+The selected bubble and its labeled radial sector are blue. Releasing assigns
+an eligible role; moving back to the center, outside, Escape or right-click cancels.
+Errors and other messages appear to the right of Bake, outside the toolbar pill.
 
-Customer releases starting with 2.7.0 will be distributed through Superhive.
-Connect Superhive using Blender's native Extension Repository setup:
-https://support.superhivemarket.com/article/335-connecting-superhive-as-a-remote-repository-in-blender
+The Update Channel selector and Dev acknowledgement are removed from Preferences.
+Updates use the installation's owning native Blender repository, without changing
+its URL or applying Stable/Beta/Dev filters. Normal customers update through
+Superhive; no custom authentication is introduced.
 
-GitHub Beta remains frozen at 2.6.0 as a permanent migration bridge. GitHub Dev
-remains available for internal builds at its existing URL and owning repository.
-This Beta also reaches Dev under the existing cumulative publication policy;
-Stable is unchanged. Version 2.7.0 is not part of this release.
+Private GitHub releases with any version greater than 2.6.0 share one configured
+repository. Its URL exists only in the publisher's GitHub Actions secret and is
+not included in source or in the extension ZIP. The old GitHub Beta migration
+bridge remains at 2.6.0; existing legacy feed contents are preserved.
 
-No new features are included. The development QuickAdd / Quick Assign UI,
-operators, shortcuts, preferences, modules, icons and documentation are excluded.
-The existing floating simulation toolbar is preserved. PPF Contact Solver remains
-external and is not bundled.
+The external PPF Contact Solver is not bundled. The release includes the existing
+Companion and exact-version What's New resources.
+
+Preferences show a Superhive status section instead of update controls:
+`Superhive connected` means an enabled official Superhive repository is configured;
+`Purchase validated` means that repository's locally cached Blender index contains
+`cloth_next`. These are informational states only. They read no access tokens,
+perform no network request in drawing, and never enable or disable features.

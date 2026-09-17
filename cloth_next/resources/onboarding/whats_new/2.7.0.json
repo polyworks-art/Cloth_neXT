@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.0",
+  "title": "What's New in Cloth NeXt 2.7.0",
+  "subtitle": "Quick role assignment and one release repository.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/cloth.png",
+      "title": "Quick Assign",
+      "description": "Assign Cloth, Cable, Rigid Body, Soft Body or Collider from the floating Add bubble. The selected role is highlighted in blue with a labeled radial sector."
+    },
+    {
+      "icon": "icons/settings.png",
+      "title": "Clear status messages",
+      "description": "Errors and other messages appear beside the Bake button, outside the floating toolbar pill."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Superhive status",
+      "description": "Preferences now show Superhive connected and Purchase validated using Blender repository data. Customer updates are handled by Superhive through Blender."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

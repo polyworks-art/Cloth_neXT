@@ -78,12 +78,24 @@ def refresh_update_session(session, channel, installed):
 
 
 def owning_repo_index(context):
+    if context is None:
+        return None
     return addon_updates.find_owning_repo(
         context.preferences.extensions.repos, _ADDON_ID,
         Path(__file__).resolve().parents[1])
 
 
 def prepare_repository(context, channel):
+    if isinstance(channel, addon_updates.RepositoryChannel):
+        index = owning_repo_index(context)
+        if index is None:
+            raise ValueError("Configure the Cloth NeXt release repository in Blender's Get Extensions preferences")
+        repo = context.preferences.extensions.repos[index]
+        if not repo.enabled or not repo.remote_url or not getattr(repo, "use_remote_url", True):
+            raise ValueError("Enable the configured remote release repository in Blender")
+        if not repo.directory:
+            raise ValueError("The owning repository has no local directory")
+        return str(repo.directory)
     return addon_updates.configure_owning_repo(
         context.preferences.extensions.repos, _ADDON_ID, channel,
         Path(__file__).resolve().parents[1])
@@ -148,7 +160,16 @@ def owning_repository_channel(context) -> UpdateChannel | None:
     return next((channel for channel in UpdateChannel if channel.index_url == url), None)
 
 
-def selected_channel(context) -> UpdateChannel:
+def uses_native_release_repository() -> bool:
+    return INSTALLED_VERSION > parse_version("2.6.0")
+
+
+def selected_channel(context):
+    if uses_native_release_repository():
+        index = owning_repo_index(context)
+        url = (context.preferences.extensions.repos[index].remote_url
+               if index is not None else "")
+        return addon_updates.RepositoryChannel(index_url=str(url))
     try:
         preferences = addon_preferences(context, __package__)
     except (KeyError, AttributeError):
@@ -213,8 +234,8 @@ def request_automatic_update_check(context) -> None:
     if getattr(bpy.app, "background", False):
         return
     channel = selected_channel(context)
-    if (_automatic_checked_channel is channel
-            or _automatic_requested_channel is channel):
+    if (_automatic_checked_channel == channel
+            or _automatic_requested_channel == channel):
         return
     _automatic_requested_channel = channel
     if not bpy.app.timers.is_registered(_automatic_update_check_timer):

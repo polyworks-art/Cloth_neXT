@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.7.0 - 2026-09-17
+
+- Add the Quick Assign radial UI with supplied role icons, blue selection and labeled sector.
+- Move status/error messages outside the floating toolbar, to the right of Bake.
+- Replace the update section with Superhive connected and Purchase validated status; remove the Update Channel selector and Dev acknowledgement.
+- Preserve the native owning repository for customer Superhive updates; accept all newer versions without channel switching.
+- Route all private GitHub releases after 2.6.0 to one Actions-secret-configured repository, keeping its URL out of source and packages.
+
+
 ## 2.6.0 - 2026-09-17
 
 - Final GitHub Beta migration release; existing Companion guides users to Superhive.

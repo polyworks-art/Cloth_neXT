@@ -123,6 +123,8 @@ def test_slide_uses_each_viewport_region_bounds(blender_env, monkeypatch):
     floating._slide = 0.0
     hidden = floating._animated_bounds(context)
     assert hidden[1] + hidden[3] + 13 + 7 < 0
+    quick = floating.quick_assign.button_bounds(context)
+    assert quick[1] + quick[2] < 0
     floating._slide = 1.0
 
 
@@ -132,6 +134,13 @@ def test_scene_load_clears_stale_image_references(blender_env):
     floating._images["cloth_next"] = object()
     floating._scene_loaded(None)
     assert floating._images == {}
+
+
+def test_diagnostics_are_outside_pill_at_bake_height(blender_env):
+    floating = __import__("cloth_next.blender.floating_simulation", fromlist=["x"])
+    x, y = floating._message_anchor((100, 20, 200, 54*.65, .65))
+    assert x-12 > 300  # clickable icon also stays outside the pill
+    assert y == 20+27*.65
 
 
 def test_f6_keymap_registers_once_and_cleans_up(blender_env, monkeypatch):

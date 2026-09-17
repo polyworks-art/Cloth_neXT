@@ -41,7 +41,7 @@ def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     text=(Path(__file__).parents[1]/".github/workflows/publish-dev.yml").read_text()
     assert "gh release" not in text and "git tag" not in text
     assert "diff --cached --name-only" in text
-    assert "dev/*" in text
+    assert "$target/*" in text
     assert "generate_single_candidate_index" in text
     assert "candidates.Count -ne 1" in text
     assert "LastWriteTimeUtc" not in text
@@ -103,8 +103,9 @@ def test_index_repair_runs_real_blender_and_changes_only_index():
 def test_release_repository_repair_uses_pages_artifact_and_single_candidate():
     root = Path(__file__).parents[1]
     workflow = (root / ".github/workflows/repair-release-index.yml").read_text()
-    assert "options: [dev, beta, stable]" in workflow
-    assert "release_visible_in" in workflow
+    assert "options: [release, dev, beta, stable]" in workflow
+    assert "tools/release_routing.py" in workflow
+    assert "--repair-channel" in workflow
     assert "REPAIR_RELEASE_INDEX" in workflow
     assert "run_blender_dev_repository_regression.py" in workflow
     assert "--source-may-be-single" in workflow
