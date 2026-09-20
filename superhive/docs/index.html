@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#030a0b">
-  <meta name="description" content="Cloth NeXt 2.7 documentation covering installation, Superhive updates, solver setup, Quick Assign, simulation roles, materials, constraints, collision, baking, recovery and troubleshooting.">
+  <meta name="description" content="Cloth NeXt 2.7 documentation covering installation, Superhive updates, solver setup, ARC neXt, simulation roles, materials, constraints, collision, baking, recovery and troubleshooting.">
   <title>Cloth NeXt Documentation</title>
   <link rel="icon" href="../../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="stylesheet" href="docs.css">
@@ -84,15 +84,26 @@
         </div>
       </section>
 
-      <section id="quick-assign">
+      <section id="arc-next">
         <label>06 · VIEWPORT WORKFLOW</label>
-        <h2>New Look and Quick Assign</h2>
-        <p>Enable <b>New Look</b> in Cloth NeXt Preferences to use the compact floating simulation toolbar in the 3D Viewport. The toolbar exposes the existing cache-directory, Quality, Bake, Cancel and Diagnostics workflows without replacing the underlying simulation logic.</p>
+        <h2>New Look and ARC neXt</h2>
+        <p>Enable <b>New Look</b> in Cloth NeXt Preferences to use the compact floating simulation toolbar in the 3D Viewport. ARC neXt sits directly above that toolbar and gives you fast role assignment without leaving the viewport.</p>
+        <div class="split">
+          <figure>
+            <img src="../media/Quick_Add.png" alt="ARC neXt role selector with Rigid Body highlighted above the Cloth NeXt viewport toolbar">
+            <figcaption>ARC neXt · Rigid Body selected</figcaption>
+          </figure>
+          <div>
+            <h3>Assign a role in one gesture</h3>
+            <p>Hold or drag the Add bubble to open ARC neXt. Move toward Cloth, Cable, Rigid Body, Soft Body or Collider; the active role is highlighted in blue with a labeled sector. Release to assign it.</p>
+            <p>Move back to the center, outside the selector, press Escape or right-click to cancel without changing the object.</p>
+          </div>
+        </div>
         <div class="cards two">
-          <article><h3>Quick Assign</h3><p>Hold or drag the floating Add bubble to choose Cloth, Cable, Rigid Body, Soft Body or Collider. Release on a valid sector to assign the role.</p></article>
           <article><h3>F6 visibility</h3><p>The viewport shortcut can slide the floating controls out of view and restore them without changing the New Look preference.</p></article>
           <article><h3>Role Colors</h3><p>Optional role colors can identify Cloth NeXt objects in Solid shading when Blender's Color mode is set to Object.</p></article>
           <article><h3>Auto-Frame</h3><p>Optional live framing keeps active deformables visible during a Bake, with Smooth or Cinematic motion and configurable margin.</p></article>
+          <article><h3>Same simulation workflow</h3><p>ARC neXt only accelerates role assignment. Material, collision, cache, quality and Bake settings remain in the existing Cloth NeXt workflow.</p></article>
         </div>
       </section>
 
