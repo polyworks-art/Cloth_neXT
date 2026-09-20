@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
-  "cloth_next_version": "2.7.4",
+  "cloth_next_version": "2.7.5",
   "platforms": {
     "windows-x86_64": {
-      "default_release_id": "ppf-0.13-stable",
+      "default_release_id": "ppf-0.18-current",
       "releases": [
         {
           "id": "ppf-0.13-stable",

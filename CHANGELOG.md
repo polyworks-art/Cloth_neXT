@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.5 - 2026-09-20
+
+- Add a Learning Center button to the Learn Cloth NeXt preferences section.
+- Open the Learning Center directly at the published Cloth NeXt documentation.
+- Make Lumen the preferred solver for new installations.
+- Offer only Lumen in the compatible-release download list while preserving existing verified Velune installations.
+
 ## 2.7.4 - 2026-09-20
 
 - Enable the floating New Look viewport controls by default for new installations.

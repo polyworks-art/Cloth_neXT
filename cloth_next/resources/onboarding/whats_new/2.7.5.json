@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.5",
+  "title": "What's New in Cloth NeXt 2.7.5",
+  "subtitle": "Direct learning access and Lumen as the preferred solver.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/docs.png",
+      "title": "Learning Center in Preferences",
+      "description": "Open the published Cloth NeXt Learning Center directly from the Learn Cloth NeXt section alongside Welcome and What's New."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Lumen by default",
+      "description": "New solver installations now default to Lumen. Existing verified Velune installations remain usable, while the download list offers only Lumen."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

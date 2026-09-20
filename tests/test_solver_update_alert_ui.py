@@ -184,7 +184,8 @@ def test_installed_and_available_release_rows_are_shown(blender_env, monkeypatch
     shown = labels(log)
     assert "Installed" in shown
     assert "Available Downloads" in shown
-    assert any("Release 2026-07-26-22-53" in text for text in shown)
+    assert any("Release 2026-08-12-15-47" in text for text in shown)
+    assert not any("Release 2026-07-26-22-53" in text for text in shown)
 
 
 def test_download_needs_the_confirmation_dialog_even_from_the_alert(

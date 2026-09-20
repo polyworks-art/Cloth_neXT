@@ -14,21 +14,21 @@ and `tests/test_solver_compatibility_manifest.py`.
   "cloth_next_version": "<must equal blender_manifest.toml version>",
   "platforms": {
     "windows-x86_64": {
-      "default_release_id": "ppf-0.13-stable",
+      "default_release_id": "ppf-0.18-current",
       "releases": [
         {
-          "id": "ppf-0.13-stable",
-          "codename": "Velune",
-          "display_name": "Velune",
-          "channel": "stable",
+          "id": "ppf-0.18-current",
+          "codename": "Lumen",
+          "display_name": "Lumen",
+          "channel": "current",
           "solver_package_version": "0.1.0",
-          "protocol_version": "0.13",
+          "protocol_version": "0.18",
           "schema_version": "2",
           "official_repository": "st-tech/ppf-contact-solver",
-          "official_release_tag": "2026-07-26-22-53",
-          "official_asset_name": "ppf-contact-solver-2026-07-26-22-53-win64.zip",
+          "official_release_tag": "2026-08-12-15-47",
+          "official_asset_name": "ppf-contact-solver-2026-08-12-15-47-win64.zip",
           "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/<tag>/<asset>",
-          "download_size": 448046043,
+          "download_size": 447922058,
           "sha256": "<64 lowercase hex>",
           "archive_layout_version": 1,
           "health_check_required": true
@@ -50,6 +50,10 @@ Current names:
 
 - **Velune** — protocol `0.13`, schema `2`
 - **Lumen** — protocol `0.18`, schema `2`
+
+Lumen is the preferred and only release offered for new installation from the
+Preferences UI. Existing verified Velune installations remain compatible and
+can continue to be used, but Velune is no longer advertised as a download.
 
 A codename stays attached to its protocol generation. Small rebuilds and
 compatible fixes keep the same codename; a new codename requires a deliberate,

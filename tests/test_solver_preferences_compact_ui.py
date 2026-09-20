@@ -188,8 +188,8 @@ def test_registered_release_without_selection_shows_selector_not_install(
     compact_ui.uninstall()
 
 
-def test_manage_menu_only_offers_velune_and_lumen(blender_env, monkeypatch,
-                                                  tmp_path):
+def test_manage_menu_only_offers_default_lumen(blender_env, monkeypatch,
+                                               tmp_path):
     installed = make_installation(
         tmp_path,
         installation_id="old",
@@ -213,6 +213,7 @@ def test_manage_menu_only_offers_velune_and_lumen(blender_env, monkeypatch,
         ),
     )
     preferences._session.entries = entries
+    preferences._session.entry = entries[1]
 
     menu = compact_ui.CLOTHNEXT_MT_solver_manage()
     menu.layout = RecordingLayout()
@@ -223,12 +224,9 @@ def test_manage_menu_only_offers_velune_and_lumen(blender_env, monkeypatch,
         for idname, text, operator, _enabled in menu.layout.operators
         if idname == "clothnext.solver_download"
     }
-    assert set(release_actions) == {"ppf-0.13-stable", "ppf-0.18-current"}
-    velune_text, velune = release_actions["ppf-0.13-stable"]
+    assert set(release_actions) == {"ppf-0.18-current"}
     lumen_text, lumen = release_actions["ppf-0.18-current"]
-    assert velune_text == "Install Velune"
     assert lumen_text == "Install Lumen"
-    assert velune.activate_after_install is True
     assert lumen.activate_after_install is True
 
     compact_ui.uninstall()
@@ -248,3 +246,20 @@ def test_registration_installs_and_restores_compact_renderer(blender_env):
 
     blender_env.registration.unregister()
     assert preferences.CLOTHNEXT_AddonPreferences._draw_solver_section is original
+
+
+def test_learning_section_links_to_learning_center(blender_env):
+    import cloth_next.blender.preferences as preferences
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    layout = RecordingLayout()
+    prefs._draw_learning_section(layout)
+
+    links = [
+        (text, operator.url)
+        for idname, text, operator, _enabled in layout.operators
+        if idname == "wm.url_open"
+    ]
+    assert links == [("Learning Center", preferences.LEARNING_CENTER_URL)]
+    assert preferences.LEARNING_CENTER_URL == (
+        "https://polyworks-art.github.io/Cloth_neXT/docs/")

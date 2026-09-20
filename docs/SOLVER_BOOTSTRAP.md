@@ -15,7 +15,7 @@ whole parent tree because the server is not a standalone EXE. Default target is
 The importer extracts/copies to `solver/.staging-<uuid>`, rejects traversal and
 symlinks, requires exactly one server executable and at least one LICENSE/NOTICE,
 preserves runtime files, runs `--version`, requires a release in the supported
-compatibility matrix (Velune 0.13/schema 2 or Lumen 0.18/schema 2), then starts
+compatibility matrix, and defaults new installations to Lumen 0.18/schema 2 before it starts
 the real server on an ephemeral port. Only after
 `SERVER_READY` plus a compatible TCMD status does it create `SOURCE.json` and atomically
 exchange the target. Failure removes staging; an old target is restored from its

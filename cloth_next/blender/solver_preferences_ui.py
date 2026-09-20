@@ -209,7 +209,11 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             for installation in supported
             if installation.managed and installation.official_release_tag
         }
-        for entry in _preferences._session.entries:
+        # Offer only the manifest's preferred release. Older compatible
+        # installations remain usable, but are no longer advertised for a
+        # new install or reinstall.
+        preferred = _preferences._session.entry
+        for entry in ((preferred,) if preferred is not None else ()):
             installed = installed_by_tag.get(entry.official_release_tag)
             release_row = layout.row()
             release_row.enabled = not busy

@@ -702,6 +702,9 @@ def _new_look_changed(_self, context):
     floating_simulation.sync(context)
 
 
+LEARNING_CENTER_URL = "https://polyworks-art.github.io/Cloth_neXT/docs/"
+
+
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
 
@@ -770,11 +773,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
         layout.use_property_decorate = False
         self._draw_superhive_status(layout, context)
-        welcome = layout.box()
-        welcome.label(text="Learn Cloth NeXt")
-        actions = welcome.row(align=True)
-        actions.operator("clothnext.open_welcome", text="Open Welcome")
-        actions.operator("clothnext.open_whats_new", text="What's New")
+        self._draw_learning_section(layout)
+
         self._draw_solver_section(layout)
 
         general = layout.box()
@@ -813,6 +813,16 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         threshold = safety.row()
         threshold.enabled = getattr(self, "auto_cancel_high_ram", True)
         threshold.prop(self, "auto_cancel_ram_percent")
+
+    def _draw_learning_section(self, layout) -> None:
+        welcome = layout.box()
+        welcome.label(text="Learn Cloth NeXt")
+        actions = welcome.row(align=True)
+        actions.operator("clothnext.open_welcome", text="Open Welcome")
+        actions.operator("clothnext.open_whats_new", text="What's New")
+        learning = actions.operator(
+            "wm.url_open", text="Learning Center", icon="URL")
+        learning.url = LEARNING_CENTER_URL
 
     def _draw_superhive_status(self, layout, context) -> None:
         """Two informational states; never contacts a service or reads credentials."""
@@ -896,7 +906,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         installed_tags = {
             item.official_release_tag for item in registry.installations
             if item.managed}
-        for entry in _session.entries:
+        for entry in ((_session.entry,) if _session.entry is not None else ()):
             row_box = available_box.box()
             row_box.label(text=entry.display_name)
             row_box.label(text=(

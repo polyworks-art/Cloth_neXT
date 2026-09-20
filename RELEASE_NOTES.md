@@ -1,16 +1,11 @@
-# Cloth NeXt 2.7.4
+# Cloth NeXt 2.7.5
 
-The floating New Look viewport controls are now enabled by default for new
-installations. Quick Assign uses the compact captions SBD, COLL and CABLE while
-the normal Physics UI keeps its descriptive role names.
+The Learn Cloth NeXt section in Preferences now includes a Learning Center
+button that opens the published Cloth NeXt documentation directly.
 
-Cloth and Soft Body now present Rest Shape as Shrink. Cable / Rope retains Rest
-Shape, and the Advanced Pin Motion and Soft Constraints panels use distinct
-header icons instead of repeating the Pinning symbol.
-
-Pinning validation is now correctly object-local. An enabled but empty Pin Group
-on one deformable no longer mirrors its error onto another deformable with valid
-pinned vertices.
+Lumen is now the preferred solver for new installations and the only compatible
+release offered in the download list. Existing verified Velune installations
+remain compatible and usable, but Velune is no longer advertised for download.
 
 Published only to the configured private repository; historical feeds are unchanged.
 The external PPF Contact Solver is not bundled.

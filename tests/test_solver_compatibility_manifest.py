@@ -32,7 +32,9 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
     resolved = manifest.entry_for(PLATFORM)
     assert resolved is not None
     assert resolved.official_repository == OFFICIAL_REPOSITORY_SLUG
-    assert resolved.protocol_version == "0.13"
+    assert resolved.release_id == "ppf-0.18-current"
+    assert resolved.display_name == "Lumen"
+    assert resolved.protocol_version == "0.18"
     assert resolved.schema_version == "2"
     assert resolved.download_size > 0
     assert len(resolved.sha256) == 64
@@ -40,7 +42,7 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
 
 def test_valid_manifest_parses():
     manifest = parse_manifest(valid_payload())
-    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-07-26-22-53"
+    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-08-12-15-47"
     releases = manifest.releases_for(PLATFORM)
     assert [(item.protocol_version, item.schema_version) for item in releases] == [
         ("0.13", "2"), ("0.18", "2")]
