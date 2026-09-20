@@ -1,5 +1,4 @@
-/* Only simplify the chrome when this page is actually embedded. */
-.embedded .site-header,.embedded .search-bar,.embedded .docs-nav{display:none}
-.embedded .docs-shell{display:block}
-.embedded .docs-content{border:0}
-.embedded .doc-section{scroll-margin-top:0}
+/* Superhive embeds this as one continuous manual, not a standalone site. */
+.shell{display:block}
+.shell main{border-left:0}
+main>section{scroll-margin-top:0}

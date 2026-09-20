@@ -3,1651 +3,190 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f6f7f3">
-  <meta name="description" content="Cloth NeXt documentation and complete setting reference for Blender.">
-  <title>Documentation · Cloth NeXt</title>
+  <meta name="theme-color" content="#030a0b">
+  <meta name="description" content="Cloth NeXt documentation covering installation, solver setup, scene roles, materials, pins, collision cages, baking, recovery and troubleshooting.">
+  <title>Cloth NeXt Documentation</title>
   <link rel="icon" href="../../assets/cloth-next-white.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="docs.css?v=20260920-1">
-  <link rel="stylesheet" href="embed.css?v=20260920-1">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="embed.css">
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="../../" aria-label="Cloth NeXt home">
-      <span class="brand-mark"><img src="../../assets/cloth-next-white.svg" alt=""></span>
-      <span class="brand-copy"><strong>PolyWorks</strong><small>Cloth NeXt</small></span>
-    </a>
-    <nav class="global-nav" aria-label="Product">
-      <a href="../../#product">Product</a>
-      <a href="../../#features">Features</a>
-      <a href="../../#workflow">Workflow</a>
-      <a class="active" href="./">Documentation</a>
-      <a href="../../errors/">Error Index</a>
-      <a href="https://github.com/polyworks-art/Cloth_neXT/releases">Releases</a>
-    </nav>
-    <div class="header-actions">
-      <a class="quiet-link" href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a>
-      <a class="cta" href="https://superhivemarket.com/products/cloth-next">Get Cloth NeXt</a>
-    </div>
-  </header>
+  <div class="shell">
+    <main>
+      <section class="hero">
+        <label>DOCUMENTATION</label>
+        <h1>From installation<br>to your first production Bake.</h1>
+        <p>Cloth NeXt keeps setup, materials, validation, baking, recovery and playback inside Blender. This guide covers the supported workflow from installation to final cached results.</p>
+      </section>
 
-  <div class="search-bar">
-    <button class="mobile-nav-button" type="button" data-mobile-nav aria-label="Toggle documentation navigation">Contents</button>
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
-      <input id="docs-search" type="search" autocomplete="off" placeholder="Search settings, panels and property names…" aria-label="Search documentation">
-      <kbd>/</kbd>
-    </div>
-    <span class="search-count" data-search-count></span>
-  </div>
+      <section id="requirements">
+        <label>01 · GETTING STARTED</label>
+        <h2>Requirements</h2>
+        <div class="cards three">
+          <article><small>BLENDER</small><strong>5.0+</strong><p>Use a supported Blender 5.x release.</p></article>
+          <article><small>PLATFORM</small><strong>Windows x64</strong><p>The current production workflow targets Windows.</p></article>
+          <article><small>HARDWARE</small><strong>NVIDIA GPU</strong><p>A compatible NVIDIA GPU is required for simulation.</p></article>
+        </div>
+        <div class="notice"><b>Scene capacity</b><p>Practical scene size depends on VRAM, system RAM, topology, contact count, animated samples, quality and frame count.</p></div>
+      </section>
 
-  <div class="docs-shell">
-    <aside class="docs-nav" data-docs-nav aria-label="Documentation sections">
-      <div class="nav-intro"><span>DOCUMENTATION</span><strong>Cloth NeXt Reference</strong><small>Current source reference</small></div>
-      <div class="nav-group"><span>GETTING STARTED</span><a href="#overview" data-nav="overview">Overview</a><a href="#first-bake" data-nav="first-bake">First Bake</a><a href="#roles" data-nav="roles">Scene Roles</a></div><div class="nav-group"><span>CLOTH</span><a href="#cloth-material" data-nav="cloth-material">Material</a><a href="#cloth-damping" data-nav="cloth-damping">Damping</a><a href="#rest-shape" data-nav="rest-shape">Rest Shape</a><a href="#pressure-sewing" data-nav="pressure-sewing">Pressure & Sewing</a><a href="#pinning" data-nav="pinning">Pinning & Constraints</a><a href="#collision" data-nav="collision">Collision & Friction</a></div><div class="nav-group"><span>OTHER ROLES</span><a href="#cable" data-nav="cable">Cable / Rope</a><a href="#soft-body" data-nav="soft-body">Soft Body</a><a href="#rigid-body" data-nav="rigid-body">Rigid Body</a><a href="#collider" data-nav="collider">Animated Colliders</a><a href="#proxy" data-nav="proxy">Simulation Proxy</a><a href="#forces" data-nav="forces">Forces</a></div><div class="nav-group"><span>SIMULATION</span><a href="#solver-quality" data-nav="solver-quality">Solver Quality</a><a href="#collision-timing" data-nav="collision-timing">Collision Timing</a><a href="#advanced-solver" data-nav="advanced-solver">Advanced Solver</a><a href="#motion-overrides" data-nav="motion-overrides">Motion Overrides</a></div><div class="nav-group"><span>WORKFLOW</span><a href="#recovery" data-nav="recovery">Recovery</a><a href="#cache" data-nav="cache">Cache & Results</a><a href="#preferences" data-nav="preferences">Preferences</a><a href="#actions" data-nav="actions">Actions</a></div><div class="nav-group"><span>REFERENCE</span><a href="#troubleshooting" data-nav="troubleshooting">Troubleshooting</a><a href="#limitations" data-nav="limitations">Limitations</a></div>
-    </aside>
-    <main class="docs-content" id="content">
-      <section class="doc-section searchable-section" id="overview" data-section-title="Documentation">
-    <header class="section-head">
-      <span class="eyebrow">REFERENCE</span>
-      <h2>Documentation</h2>
-      <p>A compact reference for the controls you can actually change in Cloth NeXt. The page follows the Blender UI: choose a role, configure only the panels relevant to that role, validate, then Bake.</p>
-    </header>
-    <div class="intro-grid">
-    <div><span>START HERE</span><strong>First Bake</strong><p>Install the solver, assign Cloth and Collider roles, choose a material, validate and Bake.</p><a href="#first-bake">Open quick start →</a></div>
-    <div><span>LOOKING FOR A VALUE?</span><strong>Search every setting</strong><p>Use the search field above or press <kbd>/</kbd>. Search understands setting names, property IDs and descriptions.</p></div>
-  </div>
-  <div class="note"><strong>Scope</strong><p>This reference documents user-editable controls from the current Cloth NeXt source. Internal cache fingerprints, status fields and implementation-only state are intentionally omitted.</p></div>
-  </section><section class="doc-section searchable-section" id="first-bake" data-section-title="First Bake">
-    <header class="section-head">
-      <span class="eyebrow">GETTING STARTED</span>
-      <h2>First Bake</h2>
-      <p>The shortest supported path from an ordinary Blender scene to a cached Cloth NeXt result.</p>
-    </header>
-    <div class="table-wrap"><table><thead><tr><th>Step</th><th>Action</th></tr></thead><tbody><tr><td>01 · Solver</td><td>Open Cloth NeXt Preferences, install or select a compatible solver, then run the health check.</td></tr><tr><td>02 · Cloth</td><td>Add Cloth NeXt physics to the deformable and choose <strong>Cloth</strong>.</td></tr><tr><td>03 · Collider</td><td>Add Cloth NeXt physics to collision geometry and choose <strong>Collider</strong>.</td></tr><tr><td>04 · Material</td><td>Pick a preset, then adjust only the material controls the shot needs.</td></tr><tr><td>05 · Validate</td><td>Resolve Scene Health issues before starting the expensive part.</td></tr><tr><td>06 · Bake</td><td>Set the Bake range, start the Bake and review the versioned playback cache.</td></tr></tbody></table></div>
-  </section><section class="doc-section searchable-section" id="roles" data-section-title="Scene Roles">
-    <header class="section-head">
-      <span class="eyebrow">SETUP</span>
-      <h2>Scene Roles</h2>
-      <p>A role decides which controls appear and how the object participates in the shared solve.</p>
-    </header>
-    <div class="table-wrap"><table><thead><tr><th>Role</th><th>Use</th></tr></thead><tbody><tr><td>Cloth</td><td>Surface deformable for garments and other sheet-like materials.</td></tr><tr><td>Cable / Rope</td><td>Curve-based one-dimensional deformable.</td></tr><tr><td>Soft Body</td><td>Closed volumetric deformable using internal tetrahedralization.</td></tr><tr><td>Rigid Body</td><td>Closed solid object that moves as a rigid participant.</td></tr><tr><td>Collider</td><td>Static or animated collision obstacle.</td></tr><tr><td>Force</td><td>Empty-based scene force controls for gravity, wind and air response.</td></tr></tbody></table></div><div class="settings-list"><article class="setting" data-search="role role how cloth next treats this object in a simulation pick the physical role that matches the object. changing roles changes which panels are relevant; it does not duplicate the object. choice cloth ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Role</h3><code>role</code></div>
-      <p>How Cloth NeXt treats this object in a simulation</p>
-      <p class="guidance"><strong>Practical:</strong> Pick the physical role that matches the object. Changing roles changes which panels are relevant; it does not duplicate the object.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Cloth</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="cloth-material" data-section-title="Material">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Material</h2>
-      <p>These are the primary fabric controls. Presets are starting points; editing a preset-controlled value switches the material to Custom without discarding your values.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="material preset preset choose a fabric starting point. editing a material value switches to custom without resetting your settings  choice default cloth preset ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Material Preset</h3><code>preset</code></div>
-      <p>Choose a fabric starting point. Editing a material value switches to Custom without resetting your settings</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Default Cloth preset</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="solver model model choose how the surface behaves. fabric (baraff-witkin) is recommended for cloth; shape preserving (arap) retains the original form more strongly. solver parameter: model  choice fabric (baraff-witkin) ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Solver Model</h3><code>model</code></div>
-      <p>Choose how the surface behaves. Fabric (Baraff-Witkin) is recommended for cloth; Shape Preserving (ARAP) retains the original form more strongly. Solver parameter: model</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Fabric (Baraff-Witkin)</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="surface weight surface_weight mass of the fabric per square meter. higher values give the cloth more inertia and make it react more heavily, but do not directly make it stiffer. unit: kg/m². solver parameter: density use this for mass, not stiffness. heavier cloth carries more momentum and can need stronger collision and damping settings. number kg/m² 1.0 0.01 – 10000.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Surface Weight</h3><code>surface_weight</code></div>
-      <p>Mass of the fabric per square meter. Higher values give the cloth more inertia and make it react more heavily, but do not directly make it stiffer. Unit: kg/m². Solver parameter: density</p>
-      <p class="guidance"><strong>Practical:</strong> Use this for mass, not stiffness. Heavier cloth carries more momentum and can need stronger collision and damping settings.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10000.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>density</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="stretch resistance stretch_resistance controls how strongly the fabric resists being pulled longer. lower values create softer, more stretchable cloth. higher values preserve its original size more strongly. solver parameter: density-normalized young-mod raise it when the cloth visibly elongates too much. lower it for elastic or loose materials. very high values can make difficult scenes more expensive to converge. number 1000.0 0.0 – 1e9">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Stretch Resistance</h3><code>stretch_resistance</code></div>
-      <p>Controls how strongly the fabric resists being pulled longer. Lower values create softer, more stretchable cloth. Higher values preserve its original size more strongly. Solver parameter: density-normalized young-mod</p>
-      <p class="guidance"><strong>Practical:</strong> Raise it when the cloth visibly elongates too much. Lower it for elastic or loose materials. Very high values can make difficult scenes more expensive to converge.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1000.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1e9</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>young-mod</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="sideways response sideways_response controls how strongly stretching in one direction affects the fabric sideways. lower values allow the directions to stretch more independently. higher values make the fabric contract sideways more strongly. solver parameter: poiss-rat this controls lateral coupling during stretch. keep it below 0.5; values closer to the upper limit behave more incompressibly in-plane. number 0.35 0.0 – 0.4999">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Sideways Response</h3><code>sideways_response</code></div>
-      <p>Controls how strongly stretching in one direction affects the fabric sideways. Lower values allow the directions to stretch more independently. Higher values make the fabric contract sideways more strongly. Solver parameter: poiss-rat</p>
-      <p class="guidance"><strong>Practical:</strong> This controls lateral coupling during stretch. Keep it below 0.5; values closer to the upper limit behave more incompressibly in-plane.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.35</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 0.4999</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>poiss-rat</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="bend resistance bend_resistance controls how easily the fabric bends and forms folds. lower values create soft, flowing folds. higher values create broader, stiffer folds and stronger shape retention. solver parameter: bend one of the main silhouette controls. low values create small, soft folds; higher values create broader, more structured folds. number 10.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Resistance</h3><code>bend_resistance</code></div>
-      <p>Controls how easily the fabric bends and forms folds. Lower values create soft, flowing folds. Higher values create broader, stiffer folds and stronger shape retention. Solver parameter: bend</p>
-      <p class="guidance"><strong>Practical:</strong> One of the main silhouette controls. Low values create small, soft folds; higher values create broader, more structured folds.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>bend</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="stretch limit stretch_limit_enabled prevents the fabric from stretching beyond the specified percentage. disable it for unrestricted stretch. solver parameter: strain-limit  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Stretch Limit</h3><code>stretch_limit_enabled</code></div>
-      <p>Prevents the fabric from stretching beyond the specified percentage. Disable it for unrestricted stretch. Solver parameter: strain-limit</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      <div><dt>Solver</dt><dd><code>strain-limit</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="maximum stretch maximum_stretch_percent maximum permitted extension beyond the original size. a value of 5% allows approximately five percent stretch. solver parameter: strain-limit  number % 5.0 0.01 – 100.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Maximum Stretch</h3><code>maximum_stretch_percent</code></div>
-      <p>Maximum permitted extension beyond the original size. A value of 5% allows approximately five percent stretch. Solver parameter: strain-limit</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>5.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 100.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>strain-limit</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="permanent stretch stretch_plasticity_enabled allow sustained stretching or compression to permanently change the cloth rest shape  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Permanent Stretch</h3><code>stretch_plasticity_enabled</code></div>
-      <p>Allow sustained stretching or compression to permanently change the Cloth rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="stretch creep rate stretch_plasticity_rate speed per second at which overstretched cloth adopts its current shape. solver parameter: plasticity  number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Stretch Creep Rate</h3><code>stretch_plasticity_rate</code></div>
-      <p>Speed per second at which overstretched Cloth adopts its current shape. Solver parameter: plasticity</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>plasticity</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="stretch threshold stretch_plasticity_threshold_percent stretch or compression required before permanent deformation begins. solver parameter: plasticity-threshold  number % 5.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Stretch Threshold</h3><code>stretch_plasticity_threshold_percent</code></div>
-      <p>Stretch or compression required before permanent deformation begins. Solver parameter: plasticity-threshold</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>5.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>plasticity-threshold</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="permanent bends bend_plasticity_enabled allow folds held under load to become part of the cloth rest shape  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Permanent Bends</h3><code>bend_plasticity_enabled</code></div>
-      <p>Allow folds held under load to become part of the Cloth rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bend creep rate bend_plasticity_rate speed per second at which folds become permanent. solver parameter: bend-plasticity  number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Creep Rate</h3><code>bend_plasticity_rate</code></div>
-      <p>Speed per second at which folds become permanent. Solver parameter: bend-plasticity</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>bend-plasticity</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="bend threshold bend_plasticity_threshold_degrees angular deviation required before a fold becomes permanent. solver parameter: bend-plasticity-threshold  number degrees 10.0 0.0 – 180.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Threshold</h3><code>bend_plasticity_threshold_degrees</code></div>
-      <p>Angular deviation required before a fold becomes permanent. Solver parameter: bend-plasticity-threshold</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 180.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>bend-plasticity-threshold</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="use initial bend shape bend_rest_from_geometry use the mesh's starting folds as its bend rest shape. disable for an initially flat rest shape  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Use Initial Bend Shape</h3><code>bend_rest_from_geometry</code></div>
-      <p>Use the mesh's starting folds as its bend rest shape. Disable for an initially flat rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="cloth-damping" data-section-title="Damping">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Damping</h2>
-      <p>Damping removes oscillation without replacing the material stiffness controls.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="shape damping shape_damping reduces oscillation caused by stretching and in-plane deformation. small values can calm jitter without making the fabric visibly sluggish. unit: seconds. solver parameter: deformation-damping use small values to calm in-plane vibration after motion or contact without changing the material stiffness itself. number seconds 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Shape Damping</h3><code>shape_damping</code></div>
-      <p>Reduces oscillation caused by stretching and in-plane deformation. Small values can calm jitter without making the fabric visibly sluggish. Unit: seconds. Solver parameter: deformation-damping</p>
-      <p class="guidance"><strong>Practical:</strong> Use small values to calm in-plane vibration after motion or contact without changing the material stiffness itself.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>deformation-damping</code></dd></div>
-    </dl>
-  </article><article class="setting" data-search="fold damping fold_damping reduces oscillation and flutter in folds and bending motion. small values can calm unstable folds. unit: seconds. solver parameter: bending-damping useful for fluttering hems and unstable folds. increase gradually; too much damping can make motion feel heavy. number seconds 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Fold Damping</h3><code>fold_damping</code></div>
-      <p>Reduces oscillation and flutter in folds and bending motion. Small values can calm unstable folds. Unit: seconds. Solver parameter: bending-damping</p>
-      <p class="guidance"><strong>Practical:</strong> Useful for fluttering hems and unstable folds. Increase gradually; too much damping can make motion feel heavy.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      <div><dt>Solver</dt><dd><code>bending-damping</code></dd></div>
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="rest-shape" data-section-title="Rest Shape">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Rest Shape</h2>
-      <p>Rest-shape controls alter the shape the simulation tries to return to. They are useful for tensioned garments and deliberate pre-stretch.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="shrink shrink_percent positive values contract the cloth rest shape; negative values expand/pre-stretch it. +10% gives 90% rest size; -10% gives 110% rest size. cannot be combined with an enabled non-zero stretch limit positive values shrink the rest shape; negative values expand it. use it for fitted garments, tensioning and pre-stretch. number % 0.0 -100.0 – 90.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Shrink</h3><code>shrink_percent</code></div>
-      <p>Positive values contract the Cloth rest shape; negative values expand/pre-stretch it. +10% gives 90% rest size; -10% gives 110% rest size. Cannot be combined with an enabled non-zero Stretch Limit</p>
-      <p class="guidance"><strong>Practical:</strong> Positive values shrink the rest shape; negative values expand it. Use it for fitted garments, tensioning and pre-stretch.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>-100.0 – 90.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="pressure-sewing" data-section-title="Pressure &amp; Sewing">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Pressure &amp; Sewing</h2>
-      <p>Pressure pushes along surface normals. Sewing treats open edges not used by faces as springs that pull their endpoints together.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="enable pressure enable_inflate apply uniform pressure along the cloth mesh surface normals. consistent normals and a closed mesh are recommended for balloon-like results  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Enable Pressure</h3><code>enable_inflate</code></div>
-      <p>Apply uniform pressure along the Cloth mesh surface normals. Consistent normals and a closed mesh are recommended for balloon-like results</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="pressure inflate_pressure uniform outward pressure along the cloth surface normals requires suitable normals and works best on closed cloth volumes. increase gradually while watching contact stability. number 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Pressure</h3><code>inflate_pressure</code></div>
-      <p>Uniform outward pressure along the Cloth surface normals</p>
-      <p class="guidance"><strong>Practical:</strong> Requires suitable normals and works best on closed cloth volumes. Increase gradually while watching contact stability.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="sewing sewing_enabled treat edges that are not used by any face as sewing springs and pull their endpoints together  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Sewing</h3><code>sewing_enabled</code></div>
-      <p>Treat edges that are not used by any face as Sewing springs and pull their endpoints together</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="sewing strength sewing_stiffness sewing stiffness for sewing edges. higher values close seams more strongly against gravity and collisions controls how aggressively loose sewing edges are pulled together. start low enough that the seam can close without explosive motion. number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Sewing Strength</h3><code>sewing_stiffness</code></div>
-      <p>Sewing stiffness for Sewing edges. Higher values close seams more strongly against gravity and collisions</p>
-      <p class="guidance"><strong>Practical:</strong> Controls how aggressively loose sewing edges are pulled together. Start low enough that the seam can close without explosive motion.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="pinning" data-section-title="Pinning &amp; Constraints">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Pinning &amp; Constraints</h2>
-      <p>Use ordinary Blender vertex groups to attach parts of a deformable while leaving the remaining vertices simulated.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="enable pinning pinning_enabled hold vertices in the selected blender vertex group at their evaluated bake start positions pins constrain selected vertices while the rest of the deformable remains simulated. toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Enable Pinning</h3><code>pinning_enabled</code></div>
-      <p>Hold vertices in the selected Blender vertex group at their evaluated Bake Start positions</p>
-      <p class="guidance"><strong>Practical:</strong> Pins constrain selected vertices while the rest of the deformable remains simulated.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="vertex group pin_group vertex group on this cloth object used for static hard pinning only the selected vertex group participates in pinning. keep the group intentional and verify weights before a long bake. text / path  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Vertex Group</h3><code>pin_group</code></div>
-      <p>Vertex group on this Cloth object used for static hard Pinning</p>
-      <p class="guidance"><strong>Practical:</strong> Only the selected vertex group participates in pinning. Keep the group intentional and verify weights before a long Bake.</p>
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Text / path</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="mode pin_mode this setting is exposed by cloth next and is consumed by the current workflow. static pins stay at their bake start positions. follow animation pins use the evaluated blender motion of the target. choice static ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Mode</h3><code>pin_mode</code></div>
-      <p>This setting is exposed by Cloth NeXt and is consumed by the current workflow.</p>
-      <p class="guidance"><strong>Practical:</strong> Static pins stay at their Bake Start positions. Follow Animation pins use the evaluated Blender motion of the target.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>STATIC</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="target pin_target animated empty or object whose transform drives the pin group  object  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Target</h3><code>pin_target</code></div>
-      <p>Animated Empty or object whose transform drives the Pin group</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Object</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="advanced pin · vertex group vertex_group vertex group whose vertices follow this target  text / path  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Advanced Pin · Vertex Group</h3><code>vertex_group</code></div>
-      <p>Vertex Group whose vertices follow this Target</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Text / path</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="advanced pin · target target animated empty or object followed by this pin group  object  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Advanced Pin · Target</h3><code>target</code></div>
-      <p>Animated Empty or object followed by this Pin Group</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Object</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="advanced pin · strength strength soft pull strength for this pin group  number 1.0 ≥ 1e-6">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Advanced Pin · Strength</h3><code>strength</code></div>
-      <p>Soft Pull strength for this Pin Group</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 1e-6</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="soft constraint · target target animated object that drives this pin motion constraint  object  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Soft Constraint · Target</h3><code>target</code></div>
-      <p>Animated object that drives this Pin motion constraint</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Object</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="soft constraint · type constraint_type this setting is exposed by cloth next and is consumed by the current workflow.  choice location ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Soft Constraint · Type</h3><code>constraint_type</code></div>
-      <p>This setting is exposed by Cloth NeXt and is consumed by the current workflow.</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>LOCATION</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="soft constraint · strength strength how strongly this constraint pulls toward its target  number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Soft Constraint · Strength</h3><code>strength</code></div>
-      <p>How strongly this constraint pulls toward its Target</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="collision" data-section-title="Collision &amp; Friction">
-    <header class="section-head">
-      <span class="eyebrow">CLOTH</span>
-      <h2>Collision &amp; Friction</h2>
-      <p>Collision Gap controls the contact barrier, Surface Offset represents simulated surface thickness, and Surface Grip controls sliding.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="enable collisions enabled enable collisions for the simulation. when disabled, deformable objects can pass through colliders  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Enable Collisions</h3><code>enabled</code></div>
-      <p>Enable collisions for the simulation. When disabled, deformable objects can pass through colliders</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="friction surface_grip controls how easily touching surfaces slide. lower values are slippery; higher values resist sliding. minimum mode uses the lower friction value of the two touching objects. solver parameter: friction controls tangential sliding between surfaces. increase for grippier contact; reduce when garments should slide freely over each other. number 0.5 0.0 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Friction</h3><code>surface_grip</code></div>
-      <p>Controls how easily touching surfaces slide. Lower values are slippery; higher values resist sliding. Minimum mode uses the lower Friction value of the two touching objects. Solver parameter: friction</p>
-      <p class="guidance"><strong>Practical:</strong> Controls tangential sliding between surfaces. Increase for grippier contact; reduce when garments should slide freely over each other.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.5</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="surface offset / collision radius surface_offset adds a collision skin around the surface. use small values to represent surface thickness without changing the simulated mesh. excessive values create visible separation. unit: blender world units. solver parameter: contact-offset treat this as simulated surface thickness / collision radius. on cables it is the main way to represent a physical radius around the centerline. number 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Surface Offset / Collision Radius</h3><code>surface_offset</code></div>
-      <p>Adds a collision skin around the surface. Use small values to represent surface thickness without changing the simulated mesh. Excessive values create visible separation. Unit: Blender world units. Solver parameter: contact-offset</p>
-      <p class="guidance"><strong>Practical:</strong> Treat this as simulated surface thickness / collision radius. On cables it is the main way to represent a physical radius around the centerline.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="collision gap collision_gap distance at which collision response begins. larger values keep surfaces farther apart. excessive values can make the cloth appear to float. unit: blender world units. solver parameter: contact-gap the contact barrier distance. it is not the same thing as physical thickness or cable radius. number 0.001 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Collision Gap</h3><code>collision_gap</code></div>
-      <p>Distance at which collision response begins. Larger values keep surfaces farther apart. Excessive values can make the cloth appear to float. Unit: Blender world units. Solver parameter: contact-gap</p>
-      <p class="guidance"><strong>Practical:</strong> The contact barrier distance. It is not the same thing as physical thickness or cable radius.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.001</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="friction region · vertex group vertex_group vertices whose weights blend from the general friction value to this region's friction  text / path  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Friction Region · Vertex Group</h3><code>vertex_group</code></div>
-      <p>Vertices whose weights blend from the general Friction value to this region's Friction</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Text / path</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="friction region · friction friction target friction at full weight in this vertex group  number 0.5 0.0 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Friction Region · Friction</h3><code>friction</code></div>
-      <p>Target friction at full weight in this Vertex Group</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.5</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="cable" data-section-title="Cable / Rope">
-    <header class="section-head">
-      <span class="eyebrow">CABLE / ROPE</span>
-      <h2>Cable / Rope</h2>
-      <p>Cable / Rope simulates the Curve centerline. Bevel, taper and per-point visual radius remain visual; use collision radius to represent physical thickness.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="linear density linear_density mass per unit length. higher values make the cable feel heavier mass per unit length for cable / rope. increase it for heavier cables without changing their stretch or bend response. number mass / length 1.0 0.01 – 10000.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Linear Density</h3><code>linear_density</code></div>
-      <p>Mass per unit length. Higher values make the cable feel heavier</p>
-      <p class="guidance"><strong>Practical:</strong> Mass per unit length for Cable / Rope. Increase it for heavier cables without changing their stretch or bend response.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10000.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="stretch resistance stretch_resistance resistance to lengthwise stretching. higher values preserve length raise it when the cloth visibly elongates too much. lower it for elastic or loose materials. very high values can make difficult scenes more expensive to converge. number 10000.0 0.0 – 1e9">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Stretch Resistance</h3><code>stretch_resistance</code></div>
-      <p>Resistance to lengthwise stretching. Higher values preserve length</p>
-      <p class="guidance"><strong>Practical:</strong> Raise it when the cloth visibly elongates too much. Lower it for elastic or loose materials. Very high values can make difficult scenes more expensive to converge.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10000.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1e9</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bend resistance bend_resistance resistance to bending. lower values create flexible cables one of the main silhouette controls. low values create small, soft folds; higher values create broader, more structured folds. number 10.0 0.0 – 1e9">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Resistance</h3><code>bend_resistance</code></div>
-      <p>Resistance to bending. Lower values create flexible cables</p>
-      <p class="guidance"><strong>Practical:</strong> One of the main silhouette controls. Low values create small, soft folds; higher values create broader, more structured folds.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1e9</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="rest length scale length_factor scale the cable's resting length. values below 1 contract it; values above 1 make it longer changes the cable rest length. values below 1 shorten and tension the cable; values above 1 introduce slack. number 1.0 0.01 – 10.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Rest Length Scale</h3><code>length_factor</code></div>
-      <p>Scale the cable's resting length. Values below 1 contract it; values above 1 make it longer</p>
-      <p class="guidance"><strong>Practical:</strong> Changes the cable rest length. Values below 1 shorten and tension the cable; values above 1 introduce slack.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="maximum stretch stretch_limit_percent maximum lengthwise stretch. set to 0% to disable the limit caps cable stretch relative to rest length. lower values hold length more strictly. number % 0.0 0.0 – 100.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Maximum Stretch</h3><code>stretch_limit_percent</code></div>
-      <p>Maximum lengthwise stretch. Set to 0% to disable the limit</p>
-      <p class="guidance"><strong>Practical:</strong> Caps cable stretch relative to rest length. Lower values hold length more strictly.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 100.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="permanent bends bend_plasticity_enabled allow bends held under load to become the cable's rest shape  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Permanent Bends</h3><code>bend_plasticity_enabled</code></div>
-      <p>Allow bends held under load to become the cable's rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bend creep rate bend_plasticity_rate speed per second at which cable bends become permanent  number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Creep Rate</h3><code>bend_plasticity_rate</code></div>
-      <p>Speed per second at which cable bends become permanent</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bend threshold bend_plasticity_threshold_degrees angular deviation required before a bend becomes permanent  number degrees 10.0 0.0 – 180.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bend Threshold</h3><code>bend_plasticity_threshold_degrees</code></div>
-      <p>Angular deviation required before a bend becomes permanent</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 180.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="use initial bend shape bend_rest_from_geometry use the cable's starting bends as its rest shape. disable for an initially straight rest shape  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Use Initial Bend Shape</h3><code>bend_rest_from_geometry</code></div>
-      <p>Use the cable's starting bends as its rest shape. Disable for an initially straight rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="soft-body" data-section-title="Soft Body">
-    <header class="section-head">
-      <span class="eyebrow">SOFT BODY</span>
-      <h2>Soft Body</h2>
-      <p>Soft Body uses a closed manifold surface and creates a volumetric simulation representation internally.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="volume density volume_density mass per unit volume. higher values make the object feel heavier mass per unit volume. change this when a solid should carry more or less inertia; it does not directly replace stiffness. number 100.0 0.01 – 10000.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Volume Density</h3><code>volume_density</code></div>
-      <p>Mass per unit volume. Higher values make the object feel heavier</p>
-      <p class="guidance"><strong>Practical:</strong> Mass per unit volume. Change this when a solid should carry more or less inertia; it does not directly replace stiffness.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>100.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10000.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="elastic stiffness stretch_resistance overall resistance to deformation. higher values retain the original shape more strongly raise it when the cloth visibly elongates too much. lower it for elastic or loose materials. very high values can make difficult scenes more expensive to converge. number 500.0 0.0 – 1e9">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Elastic Stiffness</h3><code>stretch_resistance</code></div>
-      <p>Overall resistance to deformation. Higher values retain the original shape more strongly</p>
-      <p class="guidance"><strong>Practical:</strong> Raise it when the cloth visibly elongates too much. Lower it for elastic or loose materials. Very high values can make difficult scenes more expensive to converge.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>500.0</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1e9</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="sideways response poisson_ratio controls how much the object expands sideways when compressed. values near 0.5 preserve volume more strongly  number 0.35 0.0 – 0.4999">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Sideways Response</h3><code>poisson_ratio</code></div>
-      <p>Controls how much the object expands sideways when compressed. Values near 0.5 preserve volume more strongly</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.35</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 0.4999</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="uniform scale volume_scale scale the resting volume. values below 1 shrink the object; values above 1 expand it  number 1.0 0.01 – 10.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Uniform Scale</h3><code>volume_scale</code></div>
-      <p>Scale the resting volume. Values below 1 shrink the object; values above 1 expand it</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="tetrahedralizer tetrahedralizer this setting is exposed by cloth next and is consumed by the current workflow. chooses the internal tetrahedralization path used to turn the closed surface into a volumetric simulation mesh. choice ftetwild ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Tetrahedralizer</h3><code>tetrahedralizer</code></div>
-      <p>This setting is exposed by Cloth NeXt and is consumed by the current workflow.</p>
-      <p class="guidance"><strong>Practical:</strong> Chooses the internal tetrahedralization path used to turn the closed surface into a volumetric simulation mesh.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>FTETWILD</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="permanent deformation stretch_plasticity_enabled allow sustained deformation to change the solid rest shape  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Permanent Deformation</h3><code>stretch_plasticity_enabled</code></div>
-      <p>Allow sustained deformation to change the solid rest shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="creep rate stretch_plasticity_rate speed per second at which the solid adopts its deformed shape  number 1.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Creep Rate</h3><code>stretch_plasticity_rate</code></div>
-      <p>Speed per second at which the solid adopts its deformed shape</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="deformation threshold stretch_plasticity_threshold_percent deformation required before the rest shape starts changing  number % 5.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Deformation Threshold</h3><code>stretch_plasticity_threshold_percent</code></div>
-      <p>Deformation required before the rest shape starts changing</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>5.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="rigid-body" data-section-title="Rigid Body">
-    <header class="section-head">
-      <span class="eyebrow">RIGID BODY</span>
-      <h2>Rigid Body</h2>
-      <p>Rigid Body keeps the object shape rigid while allowing it to participate in the shared contact solve.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="weight density volume_density weight per unit volume. higher values give the object more mass and make impacts feel heavier mass per unit volume. change this when a solid should carry more or less inertia; it does not directly replace stiffness. number 100.0 0.01 – 10000.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Weight Density</h3><code>volume_density</code></div>
-      <p>Weight per unit volume. Higher values give the object more mass and make impacts feel heavier</p>
-      <p class="guidance"><strong>Practical:</strong> Mass per unit volume. Change this when a solid should carry more or less inertia; it does not directly replace stiffness.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>100.0</dd></div>
-      <div><dt>Range</dt><dd>0.01 – 10000.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="collider" data-section-title="Animated Colliders">
-    <header class="section-head">
-      <span class="eyebrow">COLLIDER</span>
-      <h2>Animated Colliders</h2>
-      <p>Static colliders are cheapest. Animated colliders capture evaluated Blender transforms and supported topology-preserving deformation over the Bake range.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="collider motion collider_motion choose whether this collider stays fixed or follows its evaluated blender animation during the bake  choice static ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Collider Motion</h3><code>collider_motion</code></div>
-      <p>Choose whether this Collider stays fixed or follows its evaluated Blender animation during the bake</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>STATIC</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="animation capture collider_capture_mode how animated collider geometry is captured  choice auto ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Animation Capture</h3><code>collider_capture_mode</code></div>
-      <p>How animated Collider geometry is captured</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>AUTO</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="motion samples / frame collider_samples_per_frame animated collider samples per blender frame. increase this for fast or strongly curved motion to prevent the interpolated collider from crossing the cloth higher sampling can better capture fast or strongly deforming animated colliders, at the cost of preparation time and memory. integer 8 1 – 32">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Motion Samples / Frame</h3><code>collider_samples_per_frame</code></div>
-      <p>Animated Collider samples per Blender frame. Increase this for fast or strongly curved motion to prevent the interpolated Collider from crossing the cloth</p>
-      <p class="guidance"><strong>Practical:</strong> Higher sampling can better capture fast or strongly deforming animated colliders, at the cost of preparation time and memory.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>8</dd></div>
-      <div><dt>Range</dt><dd>1 – 32</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="proxy" data-section-title="Simulation Proxy">
-    <header class="section-head">
-      <span class="eyebrow">COLLIDER</span>
-      <h2>Simulation Proxy</h2>
-      <p>Use a proxy when the full collider is unnecessarily expensive. Character Cage creates animation-aware collision geometry; mesh reduction targets a simpler collision surface.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="proxy type collider_proxy_type choose the generated collider proxy strategy  choice simple ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Proxy Type</h3><code>collider_proxy_type</code></div>
-      <p>Choose the generated Collider proxy strategy</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>SIMPLE</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="cage margin collider_cage_margin outward safety margin added to every bone hull in world units expands the generated character cage. increase it when animation pushes outside the proxy; excessive margin reduces collision precision. number 0.003 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Cage Margin</h3><code>collider_cage_margin</code></div>
-      <p>Outward safety margin added to every bone hull in world units</p>
-      <p class="guidance"><strong>Practical:</strong> Expands the generated character cage. Increase it when animation pushes outside the proxy; excessive margin reduces collision precision.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.003</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="joint overlap collider_cage_joint_overlap extend bone hulls along the bone axis so joints overlap  number 0.01 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Joint Overlap</h3><code>collider_cage_joint_overlap</code></div>
-      <p>Extend bone hulls along the bone axis so joints overlap</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.01</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="animation sample step collider_cage_sample_step frames between one-time character evaluations while fitting the cage  integer 1 1 – 32">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Animation Sample Step</h3><code>collider_cage_sample_step</code></div>
-      <p>Frames between one-time Character evaluations while fitting the cage</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1</dd></div>
-      <div><dt>Range</dt><dd>1 – 32</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bone weight threshold collider_cage_weight_threshold minimum skin weight for a character vertex to contribute to a bone hull  number 0.2 0.0 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bone Weight Threshold</h3><code>collider_cage_weight_threshold</code></div>
-      <p>Minimum skin weight for a Character vertex to contribute to a bone hull</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.2</dd></div>
-      <div><dt>Range</dt><dd>0.0 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="minimum bone vertices collider_cage_min_vertices ignore deform bones with fewer weighted character vertices  integer 24 4 – 10000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Minimum Bone Vertices</h3><code>collider_cage_min_vertices</code></div>
-      <p>Ignore deform bones with fewer weighted Character vertices</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>24</dd></div>
-      <div><dt>Range</dt><dd>4 – 10000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="target vertices collider_proxy_target_vertices approximate vertex target for the generated experimental collider proxy lower targets are faster but less faithful. keep enough geometry around silhouettes and contact-critical areas. integer 12000 500 – 250000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Target Vertices</h3><code>collider_proxy_target_vertices</code></div>
-      <p>Approximate vertex target for the generated experimental Collider Proxy</p>
-      <p class="guidance"><strong>Practical:</strong> Lower targets are faster but less faithful. Keep enough geometry around silhouettes and contact-critical areas.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>12000</dd></div>
-      <div><dt>Range</dt><dd>500 – 250000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="use simulation proxy collider_proxy_enabled replace this logical collider with its generated simulation proxy during bake  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Use Simulation Proxy</h3><code>collider_proxy_enabled</code></div>
-      <p>Replace this logical Collider with its generated simulation Proxy during Bake</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="forces" data-section-title="Gravity, Wind &amp; Air">
-    <header class="section-head">
-      <span class="eyebrow">FORCES</span>
-      <h2>Gravity, Wind &amp; Air</h2>
-      <p>Force controls are scene-wide and keyframeable through normal Blender properties.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="gravity gravity_strength gravity acceleration along the independently selected world axis scene gravity magnitude for cloth next force evaluation. number 9.81 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Gravity</h3><code>gravity_strength</code></div>
-      <p>Gravity acceleration along the independently selected world axis</p>
-      <p class="guidance"><strong>Practical:</strong> Scene gravity magnitude for Cloth NeXt force evaluation.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>9.81</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="gravity axis gravity_axis world-space direction of gravity, independent of the force empty rotation  choice z_neg ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Gravity Axis</h3><code>gravity_axis</code></div>
-      <p>World-space direction of Gravity, independent of the Force Empty rotation</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Z_NEG</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="wind wind_strength wind speed along the empty's local +z axis; aerodynamic force also depends on air density base wind magnitude. rotate or configure the force object as documented by the ui to control direction. number 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Wind</h3><code>wind_strength</code></div>
-      <p>Wind speed along the Empty's local +Z axis; aerodynamic force also depends on Air Density</p>
-      <p class="guidance"><strong>Practical:</strong> Base wind magnitude. Rotate or configure the Force object as documented by the UI to control direction.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="strength variation wind_variation maximum additional wind strength during intermittent gusts; zero disables gusts adds variation to wind so motion is less uniform. number 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Strength Variation</h3><code>wind_variation</code></div>
-      <p>Maximum additional Wind strength during intermittent gusts; zero disables gusts</p>
-      <p class="guidance"><strong>Practical:</strong> Adds variation to wind so motion is less uniform.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="noise scale wind_noise_scale time scale of wind variation in seconds; higher values create slower, broader gusts, while lower values create faster changes controls the spatial / temporal scale of wind variation. number time 3.0 ≥ 0.1">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Noise Scale</h3><code>wind_noise_scale</code></div>
-      <p>Time scale of Wind Variation in seconds; higher values create slower, broader gusts, while lower values create faster changes</p>
-      <p class="guidance"><strong>Practical:</strong> Controls the spatial / temporal scale of wind variation.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>3.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.1</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="air density air_density air density used to turn wind speed into aerodynamic drag and lift; zero disables wind force global aerodynamic medium density used by supported air effects. number 0.01 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Air Density</h3><code>air_density</code></div>
-      <p>Air density used to turn Wind speed into aerodynamic drag and lift; zero disables Wind force</p>
-      <p class="guidance"><strong>Practical:</strong> Global aerodynamic medium density used by supported air effects.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.01</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="air friction air_friction tangential air-friction ratio controls aerodynamic drag against motion through the air. number 0.2 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Air Friction</h3><code>air_friction</code></div>
-      <p>Tangential air-friction ratio</p>
-      <p class="guidance"><strong>Practical:</strong> Controls aerodynamic drag against motion through the air.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.2</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="vertex air damping vertex_air_damp isotropic-air-friction coefficient applied per vertex per-vertex air damping contribution used to reduce high-frequency motion. number 0.0 ≥ 0.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Vertex Air Damping</h3><code>vertex_air_damp</code></div>
-      <p>Isotropic-air-friction coefficient applied per vertex</p>
-      <p class="guidance"><strong>Practical:</strong> Per-vertex air damping contribution used to reduce high-frequency motion.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.0</dd></div>
-      <div><dt>Range</dt><dd>≥ 0.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="solver-quality" data-section-title="Solver Quality">
-    <header class="section-head">
-      <span class="eyebrow">SIMULATION</span>
-      <h2>Solver Quality</h2>
-      <p>Quality presets are the normal workflow. Advanced numeric controls are for difficult convergence, fast contact and diagnostic tuning.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="advanced settings show_advanced show the four numeric solver quality controls  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Advanced Settings</h3><code>show_advanced</code></div>
-      <p>Show the four numeric solver quality controls</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="time step time_step simulation step size in seconds. smaller values can improve stability but take longer to calculate smaller time steps are generally more conservative and more expensive. change this only after simpler material/contact fixes are exhausted. number seconds 0.001 min_time_step – max_time_step">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Time Step</h3><code>time_step</code></div>
-      <p>Simulation step size in seconds. Smaller values can improve stability but take longer to calculate</p>
-      <p class="guidance"><strong>Practical:</strong> Smaller time steps are generally more conservative and more expensive. Change this only after simpler material/contact fixes are exhausted.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.001</dd></div>
-      <div><dt>Range</dt><dd>MIN_TIME_STEP – MAX_TIME_STEP</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="minimum newton steps min_newton_steps minimum correction passes per simulation step. increase only when a difficult scene does not converge raises the minimum nonlinear correction work per step. useful for difficult convergence cases, but increases solve cost. integer 1 min_newton_steps – max_newton_steps">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Minimum Newton Steps</h3><code>min_newton_steps</code></div>
-      <p>Minimum correction passes per simulation step. Increase only when a difficult scene does not converge</p>
-      <p class="guidance"><strong>Practical:</strong> Raises the minimum nonlinear correction work per step. Useful for difficult convergence cases, but increases solve cost.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1</dd></div>
-      <div><dt>Range</dt><dd>MIN_NEWTON_STEPS – MAX_NEWTON_STEPS</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="pcg max iterations cg_max_iter maximum internal linear-solver iterations. higher values may help difficult scenes but increase bake time upper limit for the internal linear solve. raise only when the solver cannot converge with the current limit. integer 10000 min_cg_max_iter – max_cg_max_iter">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>PCG Max Iterations</h3><code>cg_max_iter</code></div>
-      <p>Maximum internal linear-solver iterations. Higher values may help difficult scenes but increase bake time</p>
-      <p class="guidance"><strong>Practical:</strong> Upper limit for the internal linear solve. Raise only when the solver cannot converge with the current limit.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>10000</dd></div>
-      <div><dt>Range</dt><dd>MIN_CG_MAX_ITER – MAX_CG_MAX_ITER</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="pcg tolerance cg_tol linear-solver accuracy target. lower values are stricter and may increase bake time lower values are stricter. tightening the tolerance may improve difficult solves but can increase bake time. number 0.001 min_cg_tol – max_cg_tol">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>PCG Tolerance</h3><code>cg_tol</code></div>
-      <p>Linear-solver accuracy target. Lower values are stricter and may increase bake time</p>
-      <p class="guidance"><strong>Practical:</strong> Lower values are stricter. Tightening the tolerance may improve difficult solves but can increase bake time.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.001</dd></div>
-      <div><dt>Range</dt><dd>MIN_CG_TOL – MAX_CG_TOL</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="collision-timing" data-section-title="Collision Timing">
-    <header class="section-head">
-      <span class="eyebrow">SIMULATION</span>
-      <h2>Collision Timing</h2>
-      <p>These controls affect continuous collision handling and moving constraints. Leave them at defaults unless a scene has fast motion or persistent contact failures.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="contact completion target_toi how much safe collision progress is required before a contact step may finish. lower is more conservative. solver parameter: target-toi controls how conservatively a contact step completes. lower values are safer but can increase work. number 0.25 1e-6 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Contact Completion</h3><code>target_toi</code></div>
-      <p>How much safe collision progress is required before a contact step may finish. Lower is more conservative. Solver parameter: target-toi</p>
-      <p class="guidance"><strong>Practical:</strong> Controls how conservatively a contact step completes. Lower values are safer but can increase work.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.25</dd></div>
-      <div><dt>Range</dt><dd>1e-6 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="motion safety margin line_search_max_t extra motion range checked to keep fast contact stable. solver parameter: line-search-max-t expands the motion range checked during contact handling. useful for fast motion and difficult impact cases. number 1.25 1.0 – 10.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Motion Safety Margin</h3><code>line_search_max_t</code></div>
-      <p>Extra motion range checked to keep fast contact stable. Solver parameter: line-search-max-t</p>
-      <p class="guidance"><strong>Practical:</strong> Expands the motion range checked during contact handling. Useful for fast motion and difficult impact cases.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.25</dd></div>
-      <div><dt>Range</dt><dd>1.0 – 10.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="collision search limit ccd_max_iter maximum collision-search effort for difficult or fast contact. solver parameter: ccd-max-iter  integer 4096 1 – 100000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Collision Search Limit</h3><code>ccd_max_iter</code></div>
-      <p>Maximum collision-search effort for difficult or fast contact. Solver parameter: ccd-max-iter</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>4096</dd></div>
-      <div><dt>Range</dt><dd>1 – 100000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="constraint contact distance constraint_ghat distance at which animated pins and other moving constraints begin avoiding contact. solver parameter: constraint-ghat  number 0.001 1e-8 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Constraint Contact Distance</h3><code>constraint_ghat</code></div>
-      <p>Distance at which animated Pins and other moving constraints begin avoiding contact. Solver parameter: constraint-ghat</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.001</dd></div>
-      <div><dt>Range</dt><dd>1e-8 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="moving constraint precision constraint_tol collision precision for moving constraints as a fraction of constraint contact distance. lower is stricter. solver parameter: constraint-tol  number 0.01 1e-6 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Moving Constraint Precision</h3><code>constraint_tol</code></div>
-      <p>Collision precision for moving constraints as a fraction of Constraint Contact Distance. Lower is stricter. Solver parameter: constraint-tol</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.01</dd></div>
-      <div><dt>Range</dt><dd>1e-6 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="collision detection threshold ccd_reduction fraction of the initial surface gap used to detect an approaching collision. lower is more conservative. solver parameter: ccd-reduction  number 0.01 1e-6 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Collision Detection Threshold</h3><code>ccd_reduction</code></div>
-      <p>Fraction of the initial surface gap used to detect an approaching collision. Lower is more conservative. Solver parameter: ccd-reduction</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.01</dd></div>
-      <div><dt>Range</dt><dd>1e-6 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="advanced-solver" data-section-title="Advanced Solver">
-    <header class="section-head">
-      <span class="eyebrow">SIMULATION</span>
-      <h2>Advanced Solver</h2>
-      <p>Low-level solver controls. They can rescue pathological scenes, but they are not the first place to tune ordinary cloth behavior.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="contact iteration limit max_newton_steps maximum nonlinear correction passes before a difficult contact is reported as failed. solver parameter: max-newton-steps  integer 2048 1 – 100000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Contact Iteration Limit</h3><code>max_newton_steps</code></div>
-      <p>Maximum nonlinear correction passes before a difficult contact is reported as failed. Solver parameter: max-newton-steps</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>2048</dd></div>
-      <div><dt>Range</dt><dd>1 – 100000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="maximum contact correction max_dx largest correction distance allowed during one contact solve. solver parameter: max-dx  number 1.0 1e-6 – 1000.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Maximum Contact Correction</h3><code>max_dx</code></div>
-      <p>Largest correction distance allowed during one contact solve. Solver parameter: max-dx</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.0</dd></div>
-      <div><dt>Range</dt><dd>1e-6 – 1000.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="contact stability threshold eigenanalysis_eps numerical threshold used to stabilize nearly singular contact directions. solver parameter: eiganalysis-eps  number 0.01 1e-10 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Contact Stability Threshold</h3><code>eigenanalysis_eps</code></div>
-      <p>Numerical threshold used to stabilize nearly singular contact directions. Solver parameter: eiganalysis-eps</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.01</dd></div>
-      <div><dt>Range</dt><dd>1e-10 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="friction stability threshold friction_eps numerical threshold that stabilizes very slow friction motion. solver parameter: friction-eps  number 0.00001 1e-10 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Friction Stability Threshold</h3><code>friction_eps</code></div>
-      <p>Numerical threshold that stabilizes very slow friction motion. Solver parameter: friction-eps</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.00001</dd></div>
-      <div><dt>Range</dt><dd>1e-10 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="contact capacity csrmat_max_nnz preallocated gpu contact entries. too low can stop dense contact; too high consumes gpu memory. solver parameter: csrmat-max-nnz  integer default_csrmat_max_nnz 1000 – 1_000_000_000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Contact Capacity</h3><code>csrmat_max_nnz</code></div>
-      <p>Preallocated GPU contact entries. Too low can stop dense contact; too high consumes GPU memory. Solver parameter: csrmat-max-nnz</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>DEFAULT_CSRMAT_MAX_NNZ</dd></div>
-      <div><dt>Range</dt><dd>1000 – 1_000_000_000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="contact response model contact_barrier mathematical response used as surfaces approach contact. solver parameter: barrier  choice cubic ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Contact Response Model</h3><code>contact_barrier</code></div>
-      <p>Mathematical response used as surfaces approach contact. Solver parameter: barrier</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>cubic</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="motion-overrides" data-section-title="Motion Overrides">
-    <header class="section-head">
-      <span class="eyebrow">SIMULATION</span>
-      <h2>Motion Overrides</h2>
-      <p>Frame-specific motion entries let you provide explicit velocity or spin where the simulation needs controlled initial or transitional motion.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="frame frame blender frame at which this motion replaces the current velocity  integer 1 -1048574 – 1048574">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Frame</h3><code>frame</code></div>
-      <p>Blender frame at which this motion replaces the current velocity</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1</dd></div>
-      <div><dt>Range</dt><dd>-1048574 – 1048574</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="motion motion_type this setting is exposed by cloth next and is consumed by the current workflow.  choice linear ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Motion</h3><code>motion_type</code></div>
-      <p>This setting is exposed by Cloth NeXt and is consumed by the current workflow.</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>LINEAR</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="velocity velocity world-space speed in blender units per second  vector velocity (0.0 ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Velocity</h3><code>velocity</code></div>
-      <p>World-space speed in Blender units per second</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>(0.0</dd></div>
-      
-      <div><dt>Type</dt><dd>Vector</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="spin angular_velocity world-space spin vector in radians per second  vector euler (0.0 ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Spin</h3><code>angular_velocity</code></div>
-      <p>World-space spin vector in radians per second</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>(0.0</dd></div>
-      
-      <div><dt>Type</dt><dd>Vector</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="recovery" data-section-title="Recovery &amp; Checkpoints">
-    <header class="section-head">
-      <span class="eyebrow">WORKFLOW</span>
-      <h2>Recovery &amp; Checkpoints</h2>
-      <p>Recovery is designed for long Bakes. Cloth NeXt verifies recovery identity and compatibility before presenting a checkpoint as resumable.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="enable recovery enabled keep verified solver checkpoints so an interrupted bake can continue after restarting blender  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Enable Recovery</h3><code>enabled</code></div>
-      <p>Keep verified solver checkpoints so an interrupted Bake can continue after restarting Blender</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="auto save checkpoints auto_save ask the solver to save resumable states periodically  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Auto Save Checkpoints</h3><code>auto_save</code></div>
-      <p>Ask the solver to save resumable states periodically</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="checkpoint interval checkpoint_interval number of solver frames between automatic checkpoints smaller intervals preserve progress more often but create more checkpoint i/o. integer 20 1 – 10000">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Checkpoint Interval</h3><code>checkpoint_interval</code></div>
-      <p>Number of solver frames between automatic checkpoints</p>
-      <p class="guidance"><strong>Practical:</strong> Smaller intervals preserve progress more often but create more checkpoint I/O.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>20</dd></div>
-      <div><dt>Range</dt><dd>1 – 10000</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="keep saved states keep_saved_states maximum number of verified checkpoints retained keep enough states to recover from a bad latest checkpoint without retaining an excessive number of old snapshots. integer 3 1 – 100">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Keep Saved States</h3><code>keep_saved_states</code></div>
-      <p>Maximum number of verified checkpoints retained</p>
-      <p class="guidance"><strong>Practical:</strong> Keep enough states to recover from a bad latest checkpoint without retaining an excessive number of old snapshots.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>3</dd></div>
-      <div><dt>Range</dt><dd>1 – 100</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="save state on cancel save_on_cancel request save_and_quit and preserve the confirmed solver project when cancelling  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Save State on Cancel</h3><code>save_on_cancel</code></div>
-      <p>Request save_and_quit and preserve the confirmed solver project when cancelling</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="save state on finish save_on_finish ask the solver to save a final state before completing  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Save State on Finish</h3><code>save_on_finish</code></div>
-      <p>Ask the solver to save a final state before completing</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="cache" data-section-title="Cache &amp; Results">
-    <header class="section-head">
-      <span class="eyebrow">WORKFLOW</span>
-      <h2>Cache &amp; Results</h2>
-      <p>Bake range and cache location control the on-disk result. Cloth NeXt keeps result playback separate from collider source animation.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="bake start bake_start first blender frame captured into the solver cache  integer 1 -1048574 – 1048574">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bake Start</h3><code>bake_start</code></div>
-      <p>First Blender frame captured into the solver cache</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1</dd></div>
-      <div><dt>Range</dt><dd>-1048574 – 1048574</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="bake end bake_end last blender frame produced by the solver cache  integer 250 -1048574 – 1048574">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Bake End</h3><code>bake_end</code></div>
-      <p>Last Blender frame produced by the solver cache</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>250</dd></div>
-      <div><dt>Range</dt><dd>-1048574 – 1048574</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="cache directory cache_directory optional directory for this object's cloth next result  text / path dir_path  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Cache Directory</h3><code>cache_directory</code></div>
-      <p>Optional directory for this object's Cloth NeXt result</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Text / path</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="preferences" data-section-title="Cloth NeXt Preferences">
-    <header class="section-head">
-      <span class="eyebrow">PREFERENCES</span>
-      <h2>Cloth NeXt Preferences</h2>
-      <p>Global workflow controls live in Blender Preferences. Solver selection is locked while a Bake session is active.</p>
-    </header>
-    <div class="settings-list"><article class="setting" data-search="active solver selected_solver_installation_id select the exact installed solver used by future bakes; selection is locked while a session is active  choice  ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Active Solver</h3><code>selected_solver_installation_id</code></div>
-      <p>Select the exact installed solver used by future Bakes; selection is locked while a session is active</p>
-      
-    </div>
-    <dl class="setting-meta">
-      
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="open bake window automatically auto_launch_bake_window require the visible topmost bake window before locking blender. when disabled, bake runs in blender without a global modal workflow lock  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Open Bake Window Automatically</h3><code>auto_launch_bake_window</code></div>
-      <p>Require the visible topmost Bake window before locking Blender. When disabled, Bake runs in Blender without a global modal workflow lock</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="new look new_look enable floating cloth next viewport controls; use the viewport shortcut to show or hide the toolbar  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>New Look</h3><code>new_look</code></div>
-      <p>Enable floating Cloth NeXt viewport controls; use the viewport shortcut to show or hide the toolbar</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="show cloth next role colors show_role_colors color cloth next objects by role. visible in solid shading with color &gt; object; random and other color modes remain available  toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Show Cloth NeXt Role Colors</h3><code>show_role_colors</code></div>
-      <p>Color Cloth NeXt objects by role. Visible in Solid shading with Color &gt; Object; Random and other color modes remain available</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="auto-frame cloth during bake auto_frame_bake keep all live-baked deformables comfortably visible in open 3d viewports  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Auto-Frame Cloth During Bake</h3><code>auto_frame_bake</code></div>
-      <p>Keep all live-baked deformables comfortably visible in open 3D viewports</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="framing motion auto_frame_style this setting is exposed by cloth next and is consumed by the current workflow.  choice smooth ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Framing Motion</h3><code>auto_frame_style</code></div>
-      <p>This setting is exposed by Cloth NeXt and is consumed by the current workflow.</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>SMOOTH</dd></div>
-      
-      <div><dt>Type</dt><dd>Choice</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="framing response auto_frame_smoothing how quickly the viewport follows changes in cloth position and size lower values respond more slowly; higher values follow the simulated bounds more quickly. number 0.18 0.02 – 1.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Framing Response</h3><code>auto_frame_smoothing</code></div>
-      <p>How quickly the viewport follows changes in cloth position and size</p>
-      <p class="guidance"><strong>Practical:</strong> Lower values respond more slowly; higher values follow the simulated bounds more quickly.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>0.18</dd></div>
-      <div><dt>Range</dt><dd>0.02 – 1.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="framing margin auto_frame_margin extra space kept around the simulated objects controls how much empty viewport space is kept around live simulation. number 1.25 1.02 – 3.0">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Framing Margin</h3><code>auto_frame_margin</code></div>
-      <p>Extra space kept around the simulated objects</p>
-      <p class="guidance"><strong>Practical:</strong> Controls how much empty viewport space is kept around live simulation.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>1.25</dd></div>
-      <div><dt>Range</dt><dd>1.02 – 3.0</dd></div>
-      <div><dt>Type</dt><dd>Number</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="auto-cancel on high ram auto_cancel_high_ram cancel an active bake after ram stays above the safety threshold for two telemetry samples  toggle on ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Auto-Cancel on High RAM</h3><code>auto_cancel_high_ram</code></div>
-      <p>Cancel an active Bake after RAM stays above the safety threshold for two telemetry samples</p>
-      
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>On</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="ram safety threshold auto_cancel_ram_percent total system ram usage that automatically cancels the bake set this below the point where the os begins heavy paging. the default leaves headroom for blender and the solver. integer % 90 50 – 99">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>RAM Safety Threshold</h3><code>auto_cancel_ram_percent</code></div>
-      <p>Total system RAM usage that automatically cancels the Bake</p>
-      <p class="guidance"><strong>Practical:</strong> Set this below the point where the OS begins heavy paging. The default leaves headroom for Blender and the solver.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>90</dd></div>
-      <div><dt>Range</dt><dd>50 – 99</dd></div>
-      <div><dt>Type</dt><dd>Integer</dd></div>
-      
-    </dl>
-  </article><article class="setting" data-search="developer tools developer_tools show internal solver tests and ui diagnostics in the cloth next cache panel. only relevant on builds that expose developer tools. it reveals internal diagnostics; it is not needed for normal production work. toggle off ">
-    <div class="setting-main">
-      <div class="setting-title-row"><h3>Developer Tools</h3><code>developer_tools</code></div>
-      <p>Show internal solver tests and UI diagnostics in the Cloth NeXt Cache panel.</p>
-      <p class="guidance"><strong>Practical:</strong> Only relevant on builds that expose Developer Tools. It reveals internal diagnostics; it is not needed for normal production work.</p>
-    </div>
-    <dl class="setting-meta">
-      <div><dt>Default</dt><dd>Off</dd></div>
-      
-      <div><dt>Type</dt><dd>Toggle</dd></div>
-      
-    </dl>
-  </article></div>
-  </section><section class="doc-section searchable-section" id="actions" data-section-title="Actions">
-    <header class="section-head">
-      <span class="eyebrow">WORKFLOW</span>
-      <h2>Actions</h2>
-      <p>Operators are grouped here instead of taking over the reference. Their job is to perform workflow actions; the editable parameters are documented in the sections above.</p>
-    </header>
-    <div class="table-wrap"><table><thead><tr><th>Action</th><th>Purpose</th></tr></thead><tbody><tr><td>Bake / Rebake</td><td>Validate, prepare and run the current scene through the selected solver.</td></tr><tr><td>Cancel</td><td>Request cancellation of the active Bake and follow the configured recovery policy.</td></tr><tr><td>Clear Result</td><td>Remove Cloth NeXt-owned playback for the selected result without touching unrelated files.</td></tr><tr><td>Generate Character Cage</td><td>Build the configured character collision proxy.</td></tr><tr><td>Generate / Refresh Proxy</td><td>Create or rebuild the selected simulation proxy strategy.</td></tr><tr><td>Scene Health</td><td>Run preflight checks for geometry, solver readiness, storage and known workflow problems.</td></tr><tr><td>Resume from Latest</td><td>Resume only from a checkpoint that passed Cloth NeXt recovery validation.</td></tr><tr><td>Export Privacy-Safe Report</td><td>Create a support report without mesh geometry, object names, file contents or full filesystem paths.</td></tr></tbody></table></div>
-  </section><section class="doc-section searchable-section" id="troubleshooting" data-section-title="Troubleshooting">
-    <header class="section-head">
-      <span class="eyebrow">REFERENCE</span>
-      <h2>Troubleshooting</h2>
-      <p>Start with the visible CNX error code and Scene Health. Fix the reported cause before changing low-level solver values.</p>
-    </header>
-    <div class="trouble-grid">
-    <div><strong>Intersections or tunneling</strong><p>Check collider motion/capture, surface offset, collision gap and scene scale before touching advanced CCD values.</p></div>
-    <div><strong>Flutter or jitter</strong><p>Verify material stiffness and contact first, then add small Shape or Fold Damping values.</p></div>
-    <div><strong>Bake runs out of memory</strong><p>Reduce unnecessary collider density/samples, use proxies where appropriate and keep Memory Safety enabled.</p></div>
-    <div><strong>Result is stale</strong><p>Rebake after solver-visible settings, geometry or solver backend changes. Cloth NeXt fingerprints cached results deliberately.</p></div>
-  </div>
-  <div class="note"><strong>Error reference</strong><p>For a stable CNX code and its recovery steps, use the <a href="../../errors/">Error Index</a>.</p></div>
-  </section><section class="doc-section searchable-section" id="limitations" data-section-title="Current Limitations">
-    <header class="section-head">
-      <span class="eyebrow">REFERENCE</span>
-      <h2>Current Limitations</h2>
-      <p>The integration is intentionally explicit about what is supported.</p>
-    </header>
-    <ul class="plain-list">
-    <li>Current production support targets Windows x64 with a compatible NVIDIA GPU.</li>
-    <li>The PPF Contact Solver is installed separately and is never bundled with Cloth NeXt.</li>
-    <li>Topology-changing animation across a Bake is rejected where constant topology is required.</li>
-    <li>Playback requires stable vertex count and vertex order.</li>
-    <li>Cable / Rope uses a uniform simulated collision radius.</li>
-    <li>Soft Body requires a suitable closed manifold surface.</li>
-    <li>Capacity depends on topology, contact count, animated samples, quality, VRAM, RAM and frame count.</li>
-  </ul>
-  </section>
-      <div class="no-results" hidden data-no-results><strong>No matching setting.</strong><p>Try the Blender label, property name or a broader term such as “collision”, “bend” or “cache”.</p></div>
-      <footer class="docs-footer"><span>Cloth NeXt documentation</span><a href="https://github.com/polyworks-art/Cloth_neXT">View source on GitHub ↗</a></footer>
+      <section id="install">
+        <label>02 · INSTALLATION</label>
+        <h2>Install Cloth NeXt</h2>
+        <ol class="steps">
+          <li><b>1</b><div><strong>Download the product ZIP</strong><p>Keep the extension archive intact. Do not extract it.</p></div></li>
+          <li><b>2</b><div><strong>Open Get Extensions</strong><p>Go to <code>Edit → Preferences → Get Extensions</code>.</p></div></li>
+          <li><b>3</b><div><strong>Install from Disk</strong><p>Open the repository menu, choose <code>Install from Disk</code>, and select the ZIP.</p></div></li>
+          <li><b>4</b><div><strong>Enable Cloth NeXt</strong><p>Enable the extension and restart Blender whenever Blender requests it.</p></div></li>
+        </ol>
+      </section>
+
+      <section id="solver">
+        <label>03 · SOLVER SETUP</label>
+        <h2>Install the solver from Cloth NeXt</h2>
+        <p>The solver is not included in the add-on ZIP, but can be installed directly from the add-on preferences.</p>
+        <ol class="steps">
+          <li><b>1</b><div><strong>Open Cloth NeXt Preferences</strong><p>Find Cloth NeXt under Blender's installed Add-ons.</p></div></li>
+          <li><b>2</b><div><strong>Start the guided installation</strong><p>Choose the managed solver installation option shown in the preferences.</p></div></li>
+          <li><b>3</b><div><strong>Review and confirm</strong><p>Cloth NeXt shows the compatible release and asks for confirmation before installation.</p></div></li>
+          <li><b>4</b><div><strong>Run Solver Health Check</strong><p>A compatible protocol and schema marks the solver Ready.</p></div></li>
+        </ol>
+        <div class="notice"><b>Managed setup</b><p>Cloth NeXt downloads, verifies and configures the selected compatible solver installation from the preferences.</p></div>
+      </section>
+
+      <section id="first-bake">
+        <label>04 · QUICK START</label>
+        <h2>Your first Cloth Bake</h2>
+        <div class="split">
+          <ol class="steps">
+            <li><b>1</b><div><strong>Prepare the mesh</strong><p>Use clean, constant topology and intentional object scale.</p></div></li>
+            <li><b>2</b><div><strong>Add the Cloth role</strong><p>In Physics Properties, add Cloth NeXt and select <code>Cloth</code>.</p></div></li>
+            <li><b>3</b><div><strong>Add a Collider</strong><p>Enable Cloth NeXt on the collision mesh and choose <code>Collider</code>.</p></div></li>
+            <li><b>4</b><div><strong>Choose material and quality</strong><p>Start from a material preset and use a lower quality tier while iterating.</p></div></li>
+            <li><b>5</b><div><strong>Validate and Bake</strong><p>Resolve Scene Health messages, set the frame range, then start the Bake.</p></div></li>
+          </ol>
+          <figure><img src="../media/cloth-next-ui.png" alt="Cloth NeXt interface in Blender"><figcaption>Cloth setup · Physics Properties</figcaption></figure>
+        </div>
+      </section>
+
+      <section id="roles">
+        <label>05 · SCENE ROLES</label>
+        <h2>Build one interacting scene</h2>
+        <div class="cards two">
+          <article><h3>Cloth</h3><p>A surface mesh simulated as fabric. Multiple garments can participate in one solve.</p></article>
+          <article><h3>Collider</h3><p>A static or topology-preserving animated contact surface.</p></article>
+          <article><h3>Rod / Cable</h3><p>A Curve simulated as a one-dimensional deformable with a uniform physical radius.</p></article>
+          <article><h3>Soft Body</h3><p>A closed volumetric deformable using automatic internal tetrahedralization.</p></article>
+          <article><h3>Rigid Body</h3><p>A rigid simulation object that participates in the shared contact scene.</p></article>
+          <article><h3>Force</h3><p>A keyframeable Empty used for gravity, wind and supported air behavior.</p></article>
+        </div>
+      </section>
+
+      <section id="materials">
+        <label>06 · MATERIALS</label>
+        <h2>Start with one of 75 material presets</h2>
+        <p>The material library provides categorized starting points for common fabrics and flexible materials. Presets fill artist-facing controls for surface weight, stretch response, sideways response, bending, friction and stretch protection. Editing a value keeps the preset as a starting point and moves the material into a custom state.</p>
+        <div class="cards two quality">
+          <article><b>LOW</b><p>Fast setup checks and broad motion tests.</p></article>
+          <article><b>MEDIUM</b><p>Balanced iteration with stronger contact handling.</p></article>
+          <article><b>HIGH</b><p>Final-oriented settings for demanding scenes.</p></article>
+          <article><b>EXTREME</b><p>An expensive last-mile profile for difficult shots.</p></article>
+        </div>
+      </section>
+
+      <section id="pins">
+        <label>07 · HARD AND SOFT PINS</label>
+        <h2>Attach cloth without freezing the performance</h2>
+        <p>Create a Blender vertex group on the deformable and assign it as the pin group.</p>
+        <div class="cards two">
+          <article><h3>Hard Pins</h3><p>Keep selected vertices fixed to their static or animated target.</p></article>
+          <article><h3>Soft Pins</h3><p>Maintain attachment while allowing controlled movement and a softer response.</p></article>
+        </div>
+        <p>Animated targets are useful for rig-driven waistbands, cuffs, collars, straps and other attachment areas. Evaluated topology must remain constant throughout the Bake range.</p>
+      </section>
+
+      <section id="contact">
+        <label>08 · CONTACT</label>
+        <h2>Control collisions and surface behavior</h2>
+        <p>Friction controls how easily surfaces slide. Surface Offset represents simulated thickness. Collision Gap controls when contact response begins. Animated colliders are sampled from evaluated Blender geometry.</p>
+        <div class="notice"><b>Use intentional collider topology</b><p>Dense animated colliders multiply preparation time and memory use across captured samples. Use the full character when accuracy matters, or a purpose-built collision cage when faster setup is more useful.</p></div>
+      </section>
+
+      <section id="cages">
+        <label>09 · CHARACTER COLLISION CAGES</label>
+        <h2>Create faster character collision proxies</h2>
+        <p>Character Collision Cages create animation-aware proxy geometry around a rig. The generated structure stays visible and editable in Blender, making it useful for heavy characters where simulating against the full mesh is unnecessary.</p>
+        <ul>
+          <li>Per-bone collision structure</li>
+          <li>Animation-aware proxy generation</li>
+          <li>Reusable evaluated data</li>
+          <li>Optional workflow, not required for every character</li>
+        </ul>
+      </section>
+
+      <section id="forces">
+        <label>10 · FORCES</label>
+        <h2>Animate gravity, wind and air response</h2>
+        <p>Add an Empty, enable Cloth NeXt and choose the Force role. Supported gravity, wind and air controls can be animated through normal Blender properties and are evaluated with the rest of the Bake scene.</p>
+      </section>
+
+      <section id="results">
+        <label>11 · BAKE AND RESULTS</label>
+        <h2>Know what the Bake is doing</h2>
+        <div class="split reverse">
+          <figure class="bake"><img src="../media/cloth-next-bake-window.png" alt="Cloth NeXt Bake Companion"><figcaption>Live frame and solver activity</figcaption></figure>
+          <div>
+            <p>The Bake Companion reports the current frame, total progress, solver activity, estimated timing and system load.</p>
+            <ul>
+              <li>Results are written as versioned object-local playback caches.</li>
+              <li>Incomplete output is never presented as a finished result.</li>
+              <li>A failed Rebake preserves the previous valid result.</li>
+              <li>Clear Result removes only Cloth NeXt-owned files and playback.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="recovery">
+        <label>12 · VERIFIED RECOVERY</label>
+        <h2>Resume instead of starting from frame one</h2>
+        <p>When a valid checkpoint survives an unexpected solver exit, Cloth NeXt verifies that the recovery data belongs to the active scene and compatible solver installation before offering Resume from Latest.</p>
+        <div class="notice"><b>Recovery is verified before use</b><p>Invalid, incomplete or incompatible checkpoints are not presented as resumable results.</p></div>
+      </section>
+
+      <section id="errors">
+        <label>13 · TROUBLESHOOTING</label>
+        <h2>When a Bake fails</h2>
+        <ol class="steps">
+          <li><b>1</b><div><strong>Read the CNX code</strong><p>The Bake Companion and Blender show a stable code such as <code>CNX-E161</code>.</p></div></li>
+          <li><b>2</b><div><strong>Follow the displayed guidance</strong><p>The error state names the likely cause, affected stage and recommended first action.</p></div></li>
+          <li><b>3</b><div><strong>Run Scene Health</strong><p>Check geometry, storage, compatibility, memory and solver readiness.</p></div></li>
+          <li><b>4</b><div><strong>Retry after correction</strong><p>Fix the reported issue, then start a new Bake or resume from a verified checkpoint when available.</p></div></li>
+        </ol>
+      </section>
+
+      <section id="limits">
+        <label>14 · LIMITATIONS</label>
+        <h2>Important limitations</h2>
+        <ul>
+          <li>Windows x64 and a compatible NVIDIA GPU are currently required.</li>
+          <li>The solver is intended for offline production simulation, not real-time playback.</li>
+          <li>Topology-changing deformation across a Bake is rejected.</li>
+          <li>Playback requires constant vertex order and vertex count.</li>
+          <li>Rod / Cable currently uses a uniform simulated collision radius.</li>
+          <li>Soft Body requires a closed manifold mesh.</li>
+          <li>Capacity depends on topology, contacts, samples, quality, VRAM and RAM.</li>
+          <li>The solver is not included in the add-on ZIP and is installed from the add-on preferences.</li>
+        </ul>
+      </section>
+
+      <section id="support">
+        <label>15 · SUPPORT</label>
+        <h2>What to include in a support request</h2>
+        <p>Run Scene Health and choose <b>Export Privacy-Safe Report</b>. Send the report with the visible CNX error code, Blender version, GPU model and short reproduction steps using the support contact on the Superhive product page.</p>
+        <div class="notice"><b>Your scene stays private</b><p>The report excludes mesh geometry, object names, file contents and full filesystem paths.</p></div>
+      </section>
     </main>
   </div>
-  <script src="docs.js?v=20260920-1" defer></script>
 </body>
 </html>
