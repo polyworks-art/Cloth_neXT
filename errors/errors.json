@@ -12,7 +12,7 @@
       "code": "CNX-E101",
       "stage": "Scene validation",
       "cause": "No enabled deformable object",
-      "action": "Enable Cloth NeXt on at least one supported Mesh or Curve."
+      "action": "Enable Cloth NeXt on at least one Cloth, Cable / Rope, Soft Body, or Rigid Body object."
     },
     {
       "code": "CNX-E102",
@@ -29,14 +29,14 @@
     {
       "code": "CNX-E104",
       "stage": "Scene validation",
-      "cause": "Invalid material or solver-quality values",
-      "action": "Correct the highlighted material or quality value."
+      "cause": "Invalid material, rest-shape, or solver-quality values",
+      "action": "Correct the highlighted value. Shrink cannot be combined with an enabled non-zero Stretch Limit."
     },
     {
       "code": "CNX-E105",
       "stage": "Scene validation",
-      "cause": "Invalid Pin group or Pin animation",
-      "action": "Check the Pin vertex group, mode, and animated target topology."
+      "cause": "Invalid Pinning or constraint setup",
+      "action": "Check Pin Groups, Advanced Pin Motion targets, Soft Constraints, target topology, and overlapping Pin Groups."
     },
     {
       "code": "CNX-E106",
@@ -54,7 +54,7 @@
       "code": "CNX-E108",
       "stage": "Scene validation",
       "cause": "Invalid Force configuration",
-      "action": "Use a supported Force on an Empty and verify its animated values."
+      "action": "Use a supported Force on an Empty and verify that its animated values and transform are finite."
     },
     {
       "code": "CNX-E109",
@@ -125,14 +125,14 @@
     {
       "code": "CNX-E123",
       "stage": "Bake preparation",
-      "cause": "simulation scene or parameter encoding failed",
-      "action": "Check geometry, materials, Pins, Forces, and finite numeric values."
+      "cause": "Simulation scene or parameter encoding failed",
+      "action": "Check geometry, materials, Pins, Constraints, Forces, and finite numeric values."
     },
     {
       "code": "CNX-E124",
       "stage": "Bake preparation",
       "cause": "Animated Pin target capture failed",
-      "action": "Keep pinned topology and objects unchanged throughout the Bake range."
+      "action": "Check each animated Pin target, keep evaluated topology stable, and keep target objects available throughout the Bake range."
     },
     {
       "code": "CNX-E125",
@@ -156,7 +156,7 @@
       "code": "CNX-E128",
       "stage": "Bake preparation",
       "cause": "Animated Collider capture failed",
-      "action": "Keep the Collider's evaluated topology stable and repair the reported frame or transform."
+      "action": "Keep the Collider's evaluated topology stable and check the reported frame, transform, and active simulation proxy."
     },
     {
       "code": "CNX-E129",
@@ -168,7 +168,7 @@
       "code": "CNX-E130",
       "stage": "Solver startup",
       "cause": "Unclassified solver startup failure",
-      "action": "Run the solver health check and repair the managed solver."
+      "action": "Run the solver health check, then repair the selected managed installation or choose another compatible solver."
     },
     {
       "code": "CNX-E131",
@@ -258,7 +258,7 @@
       "code": "CNX-E151",
       "stage": "Project build",
       "cause": "Solver rejected project build",
-      "action": "Inspect geometry, materials, Pins, and Forces in the diagnostic log."
+      "action": "Inspect geometry, materials, Pins, Constraints, Friction Regions, and Forces in the diagnostic log."
     },
     {
       "code": "CNX-E152",
@@ -294,7 +294,7 @@
       "code": "CNX-E162",
       "stage": "Simulation",
       "cause": "Intersection blocked the simulation from advancing",
-      "action": "Separate intersecting geometry. If it fails while inflating or self-colliding, lower Pressure, add clearance between layers, or raise solver quality with a smaller Time Step."
+      "action": "Use Intersection Diagnostics and Auto Fix Intersections for mapped initial self-intersections. Otherwise separate the geometry; for inflation or self-contact, lower Pressure, add clearance, or use a smaller Time Step."
     },
     {
       "code": "CNX-E163",
@@ -312,13 +312,13 @@
       "code": "CNX-E165",
       "stage": "Simulation",
       "cause": "Non-finite simulation result",
-      "action": "Reduce Time Step and extreme Forces/stiffness; repair invalid input geometry."
+      "action": "Reduce Time Step and extreme Force, material, constraint, or Motion Override values; repair invalid input geometry."
     },
     {
       "code": "CNX-E166",
       "stage": "Simulation",
       "cause": "RAM safety limit or solver memory exhaustion",
-      "action": "Lower scene complexity; raise the RAM Auto Cancel threshold only when sufficient memory is available."
+      "action": "Lower scene complexity; raise the Auto-Cancel on High RAM threshold only when sufficient system memory is available."
     },
     {
       "code": "CNX-E167",
@@ -336,7 +336,7 @@
       "code": "CNX-E169",
       "stage": "Simulation",
       "cause": "Unexpected solver state",
-      "action": "Stop other solver work and retry with a fresh owned project."
+      "action": "Stop other solver work, run the solver health check, and start a fresh Bake."
     },
     {
       "code": "CNX-E170",
@@ -431,8 +431,8 @@
     {
       "code": "CNX-E188",
       "stage": "Playback cache",
-      "cause": "Rod Curve playback could not be applied",
-      "action": "Restore the original Curve topology and remove conflicting Curve animation."
+      "cause": "Cable / Rope Curve playback could not be applied",
+      "action": "Restore the original Cable / Rope Curve topology and remove conflicting Curve animation."
     },
     {
       "code": "CNX-E190",

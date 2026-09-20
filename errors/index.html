@@ -3,26 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070a09">
+  <meta name="theme-color" content="#f6f7f3">
   <meta name="description" content="Search and resolve Cloth NeXt CNX Bake error codes.">
   <title>Error Reference — Cloth NeXt</title>
   <link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="errors.css">
 </head>
 <body>
   <a class="skip-link" href="#error-list">Skip to error list</a>
-  <div class="ambient ambient-one" aria-hidden="true"></div>
-  <header class="site-header error-header">
-    <a class="brand" href="../" aria-label="Cloth NeXt home">
-      <img src="../assets/cloth-next-white.svg" alt="" width="44" height="34">
-      <span>Cloth NeXt</span>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Cloth NeXt Error Reference">
+      <span class="brand-mark"><img src="../assets/cloth-next-white.svg" alt="" width="17" height="17"></span>
+      <span class="brand-copy"><strong>PolyWorks</strong><small>Cloth NeXt</small></span>
     </a>
-    <nav aria-label="Error documentation navigation">
-      <a href="../">Overview</a>
-      <a href="#diagnostics">Diagnostics</a>
-      <a class="nav-github" href="https://github.com/polyworks-art/Cloth_neXT">GitHub <span aria-hidden="true">↗</span></a>
+    <nav class="global-nav" aria-label="Error documentation navigation">
+      <a href="../docs/">Documentation</a>
+      <a class="active" href="./">Error Index</a>
     </nav>
+    <div class="header-actions">
+      <a class="cta" href="https://superhivemarket.com/products/cloth-next">Get Cloth NeXt</a>
+    </div>
   </header>
 
   <main>
@@ -44,24 +44,16 @@
           </div>
         </div>
 
-        <div class="hero-visual" aria-hidden="true">
-          <div class="hero-render"></div>
-          <div class="diagnostic-orbit orbit-a"></div>
-          <div class="diagnostic-orbit orbit-b"></div>
-          <div class="diagnostic-core">
-            <img src="../assets/cloth-next-white.svg" alt="" width="72" height="56">
-            <span>CNX</span>
-          </div>
-          <div class="signal signal-a">CNX-E162 <b>INTERSECTION</b></div>
-          <div class="signal signal-b">CNX-E166 <b>MEMORY</b></div>
-          <div class="signal signal-c">CNX-E193 <b>CLEANUP</b></div>
-          <div class="hero-grid-lines"></div>
+        <div class="hero-index" aria-label="Error reference summary">
+          <span>REFERENCE</span>
+          <strong>CNX-E000—E999</strong>
+          <p>Search by code, stage, cause or first recovery action.</p>
         </div>
       </div>
       <div class="hero-changelog">
         <span class="live-dot"></span>
         <strong>Current catalogue</strong>
-        <span>Animated Collider capture, recovery checkpoints and conflicting solver ports now have dedicated codes.</span>
+        <span>Guidance is aligned with current Rigid Body, Advanced Pin Motion, Soft Constraints, intersection diagnostics, RAM safety and playback workflows.</span>
       </div>
     </section>
 
@@ -122,9 +114,8 @@
   </main>
 
   <footer>
-    <a class="brand footer-brand" href="../"><img src="../assets/cloth-next-white.svg" alt="" width="42" height="32"><span>Cloth NeXt</span></a>
-    <p>Stable, local-first diagnostics for production Bakes.</p>
-    <div><a href="../">Overview</a><a href="https://github.com/polyworks-art/Cloth_neXT">GitHub</a><a href="#error-list">All codes</a></div>
+    <p><strong>Cloth NeXt</strong> · Stable, local-first diagnostics for production Bakes.</p>
+    <div><a href="../docs/">Documentation</a><a href="./">Error Index</a><a href="#error-list">All codes</a></div>
   </footer>
   <div class="toast" role="status" aria-live="polite"></div>
   <script src="errors.js" defer></script>
