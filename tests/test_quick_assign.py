@@ -125,6 +125,21 @@ def adapter():
     return importlib.import_module("cloth_next.blender.quick_assign")
 
 
+def test_quick_add_uses_compact_role_labels_only(blender_env):
+    quick = adapter()
+    assert quick.QUICK_ROLE_LABELS == {
+        "ROD": "CABLE",
+        "SOFT_BODY": "SBD",
+        "RIGID_BODY": "RBD",
+        "COLLIDER": "COLL",
+    }
+    # The normal role selector keeps its descriptive names.
+    labels = {role: label for role, label, _ in blender_env.object_properties.ROLE_ITEMS}
+    assert labels["ROD"] == "Cable / Rope"
+    assert labels["SOFT_BODY"] == "Soft Body"
+    assert labels["COLLIDER"] == "Collider"
+
+
 def test_role_mapping_and_existing_assignment_dispatch(blender_env, monkeypatch):
     quick = adapter()
     assert set(ROLE_ORDER) <= {item[0] for item in blender_env.object_properties.ROLE_ITEMS}

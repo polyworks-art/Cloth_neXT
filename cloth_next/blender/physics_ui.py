@@ -1321,7 +1321,7 @@ class CLOTHNEXT_PT_advanced_pin_motion(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
-    header_icon = "pinning"
+    header_icon = "timer"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1356,7 +1356,7 @@ class CLOTHNEXT_PT_soft_constraints(_ClothNextSubpanel, bpy.types.Panel):
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
     cloth_only = True
-    header_icon = "pinning"
+    header_icon = "link"
 
     def draw(self, context):
         settings = context.object.cloth_next
@@ -1384,7 +1384,7 @@ class CLOTHNEXT_PT_soft_constraints(_ClothNextSubpanel, bpy.types.Panel):
 
 
 class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Rest Shape"
+    bl_label = "Shrink"
     bl_idname = "CLOTHNEXT_PT_rest_shape"
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}
@@ -1398,7 +1398,7 @@ class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
 
 
 class CLOTHNEXT_PT_soft_body_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
-    bl_label = "Rest Shape"
+    bl_label = "Shrink"
     bl_idname = "CLOTHNEXT_PT_soft_body_rest_shape"
     bl_parent_id = "CLOTHNEXT_PT_shape"
     bl_options = {"DEFAULT_CLOSED"}

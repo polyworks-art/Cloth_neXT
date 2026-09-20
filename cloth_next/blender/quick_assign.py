@@ -14,6 +14,12 @@ _sessions = {}
 ROLE_ICONS = {"CLOTH": "quick_cloth", "ROD": "quick_rod",
               "RIGID_BODY": "quick_rigid_body", "SOFT_BODY": "quick_soft_body",
               "COLLIDER": "quick_collider"}
+QUICK_ROLE_LABELS = {
+    "ROD": "CABLE",
+    "SOFT_BODY": "SBD",
+    "RIGID_BODY": "RBD",
+    "COLLIDER": "COLL",
+}
 
 
 def region_key(context):
@@ -280,7 +286,7 @@ def draw(context, blf, gpu, batch, shader):
         return
     bubble_scale = gesture.layout.scale
     labels = {role: label for role, label, _ in object_properties.ROLE_ITEMS}
-    labels["RIGID_BODY"] = "RBD"
+    labels.update(QUICK_ROLE_LABELS)
     for i, role in enumerate(gesture.layout.roles):
         progress = fan_progress(elapsed, i)
         if progress <= 0.:

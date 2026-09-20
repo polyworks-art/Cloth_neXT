@@ -706,7 +706,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
 
     new_look: bpy.props.BoolProperty(
-        name="New Look", default=False,
+        name="New Look", default=True,
         description="Enable floating Cloth NeXt viewport controls; use the viewport shortcut to show or hide the toolbar",
         update=_new_look_changed)
 

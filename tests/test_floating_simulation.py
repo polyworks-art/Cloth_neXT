@@ -5,11 +5,11 @@ from types import SimpleNamespace
 from tests.fake_bpy import _resolved_props
 
 
-def test_new_look_defaults_off_and_hides_legacy_panel(blender_env, monkeypatch):
+def test_new_look_defaults_on_and_hides_legacy_panel(blender_env, monkeypatch):
     preferences = __import__("cloth_next.blender.preferences", fromlist=["x"])
     prefs = preferences.CLOTHNEXT_AddonPreferences()
     assert _resolved_props(preferences.CLOTHNEXT_AddonPreferences)[
-        "new_look"].keywords["default"] is False
+        "new_look"].keywords["default"] is True
     prefs.new_look = False
     context = SimpleNamespace(object=SimpleNamespace(
         cloth_next=SimpleNamespace(role="CLOTH")))

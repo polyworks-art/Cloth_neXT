@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.4",
+  "title": "What's New in Cloth NeXt 2.7.4",
+  "subtitle": "A cleaner Quick Assign and reliable object-local Pinning feedback.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "New Look by default",
+      "description": "New installations start with the floating viewport controls enabled. The preference remains available if you want to return to the classic presentation."
+    },
+    {
+      "icon": "icons/sliders.png",
+      "title": "Compact Quick Assign",
+      "description": "Quick Assign now labels Soft Body as SBD, Collider as COLL and Cable / Rope as CABLE. The normal Physics UI keeps its full descriptive role names."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Object-local Pinning feedback",
+      "description": "An empty Pin Group on one deformable no longer mirrors its validation error onto another object with valid pinned vertices. Cloth and Soft Body also use the clearer Shrink panel name."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Documentation",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/superhive/docs/"
+    }
+  ]
+}

@@ -130,6 +130,34 @@ def test_full_validation_returns_the_exact_pin_indices(env):
     assert list(indices) == sorted(indices)      # original vertex order
 
 
+def test_one_objects_empty_pins_do_not_leak_error_to_another_object(env):
+    bad = mesh_fixtures.build_cloth_scene(
+        env.bpy, vertex_count=400, pinning=True, pinned_fraction=0.0)
+    good = mesh_fixtures.build_cloth_scene(
+        env.bpy, vertex_count=400, pinning=True, pinned_fraction=0.25)
+    good.cloth.name = "Pinned Cloth"
+    good.cloth.data.name = "Pinned Cloth Mesh"
+
+    state = _state(env)
+    state.store_valid(
+        good.cloth, pin_count=100, pin_group=mesh_fixtures.PIN_GROUP,
+        topology_signature="good-topology",
+        geometry_fingerprint="good-geometry",
+        settings_fingerprint="good-settings")
+    bad.context.scene.objects.insert(1, good.cloth)
+
+    with pytest.raises(env.solver_test.SceneValidationError,
+                       match="contains no pinned vertices"):
+        env.solver_test.validate_scene(bad.context)
+
+    assert state.record_for(bad.cloth).state is _states(env).INVALID
+    assert state.record_for(good.cloth).state is _states(env).VALID
+    bad.context.object = bad.context.active_object = good.cloth
+    labels = _pin_labels(env, bad)
+    assert "Pinned Vertices: 100" in labels
+    assert not any("contains no pinned vertices" in label for label in labels)
+
+
 def test_weight_below_the_threshold_stays_unpinned(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400,
                                             pinning=True, pinned_fraction=0.25)

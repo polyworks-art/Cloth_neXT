@@ -1030,8 +1030,8 @@ def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
         env.physics_ui.CLOTHNEXT_PT_simulation: "solver",
         env.physics_ui.CLOTHNEXT_PT_material: "physical",
         env.physics_ui.CLOTHNEXT_PT_shape: "shape",
-        env.physics_ui.CLOTHNEXT_PT_advanced_pin_motion: "pinning",
-        env.physics_ui.CLOTHNEXT_PT_soft_constraints: "pinning",
+        env.physics_ui.CLOTHNEXT_PT_advanced_pin_motion: "timer",
+        env.physics_ui.CLOTHNEXT_PT_soft_constraints: "link",
         env.physics_ui.CLOTHNEXT_PT_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_soft_body_rest_shape: "rest_shape",
         env.physics_ui.CLOTHNEXT_PT_cable_rope_rest_shape: "rest_shape",
@@ -1057,6 +1057,13 @@ def test_role_workflow_panels_use_existing_semantic_header_icons(blender_env):
         assert panel.header_icon == icon, panel.__name__
         assert icon in available, panel.__name__
         assert icon != "info", panel.__name__
+
+
+def test_cloth_and_soft_body_rest_shape_panels_are_named_shrink(blender_env):
+    ui = blender_env.physics_ui
+    assert ui.CLOTHNEXT_PT_rest_shape.bl_label == "Shrink"
+    assert ui.CLOTHNEXT_PT_soft_body_rest_shape.bl_label == "Shrink"
+    assert ui.CLOTHNEXT_PT_cable_rope_rest_shape.bl_label == "Rest Shape"
 
 
 def test_quality_preset_operator_uses_button_specific_hover_tooltip(

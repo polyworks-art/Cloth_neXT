@@ -2331,8 +2331,12 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         deformable_objs, key=export_identity.export_uuid))
     collider_objs = tuple(sorted(
         collider_objs, key=export_identity.export_uuid))
+    previous_records = {
+        validation_state.object_key(obj): validation_state.record_for(obj)
+        for obj in deformable_objs}
     for obj in deformable_objs:
         validation_state.mark_validating(obj)
+    validation_subject = None
     try:
         ranges = tuple(BakeFrameRange(int(obj.cloth_next.bake_start),
                                       int(obj.cloth_next.bake_end))
@@ -2351,16 +2355,19 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         materials = []
         presets = []
         for obj in deformable_objs:
+            validation_subject = obj
             material, _static, _contact, preset = _snapshot_materials(
                 obj, collider_objs[0] if collider_objs else None)
             materials.append(material)
             presets.append(preset)
+        validation_subject = None
         statics = tuple(object_properties.static_settings_from(obj.cloth_next)
                         for obj in collider_objs)
         quality = object_properties.solver_quality_from(context.scene)
         gravity_blender, wind_blender = _force_vectors(context)
         entries = []
         for obj, material, preset in zip(deformable_objs, materials, presets):
+            validation_subject = obj
             role = str(obj.cloth_next.role)
             if role == "ROD":
                 vertices, edges, _splines = sample_curve(obj)
@@ -2395,6 +2402,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
                 pins = _snapshot_static_pin(obj, topology_signature=topology)
             entries.append(DeformableValidation(
                 obj, material, preset, pins, topology, shape, role))
+        validation_subject = None
         per_object_settings = [
             _settings_fingerprint(context, entry.obj, collider_objs,
                                   entry.material, statics, contact_enabled,
@@ -2423,8 +2431,15 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             TypeError, ValueError) as exc:
         message = (exc.record.user_message if isinstance(exc, ClothNextError)
                    else str(exc))
-        for obj in deformable_objs:
-            validation_state.store_invalid(obj, message)
+        if validation_subject is None:
+            for obj in deformable_objs:
+                validation_state.store_invalid(obj, message)
+        else:
+            validation_state.store_invalid(validation_subject, message)
+            for obj in deformable_objs:
+                if obj is not validation_subject:
+                    validation_state.restore_record(
+                        obj, previous_records[validation_state.object_key(obj)])
         if isinstance(exc, SceneValidationError):
             raise
         raise SceneValidationError(message) from exc

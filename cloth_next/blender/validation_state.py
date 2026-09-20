@@ -231,6 +231,17 @@ def store_invalid(obj, message: str) -> ValidationRecord:
     return record
 
 
+def restore_record(obj, record: ValidationRecord) -> None:
+    """Restore an object's pre-validation status after another object fails."""
+    key = object_key(obj)
+    if not key:
+        return
+    if record is _UNKNOWN or not record.object_key:
+        _records.pop(key, None)
+    else:
+        _store(key, record)
+
+
 # ---------------------------------------------------------------------------
 # Lifecycle
 

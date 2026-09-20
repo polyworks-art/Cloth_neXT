@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.4 - 2026-09-20
+
+- Enable the floating New Look viewport controls by default for new installations.
+- Use the compact Quick Assign captions SBD, COLL and CABLE without changing the normal role names.
+- Rename Rest Shape to Shrink for Cloth and Soft Body while retaining Rest Shape for Cable / Rope.
+- Give Advanced Pin Motion and Soft Constraints distinct header icons instead of repeating the Pinning icon.
+- Keep object-specific Pinning validation errors on the object that caused them instead of mirroring them onto other deformables.
+
 ## 2.7.3 - 2026-09-18
 
 - Share Collider Motion, Friction, Collision Gap and Surface Offset through scene-owned UUID groups.

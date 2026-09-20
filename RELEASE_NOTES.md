@@ -1,24 +1,16 @@
-# Cloth NeXt 2.7.3
+# Cloth NeXt 2.7.4
 
-Collider Collision now includes a compact Linked Colliders eyedropper and a
-member list. Motion, Friction, Collision Gap and Surface Offset directly edit
-one scene-owned settings source. Shared [N] and four chain markers identify the
-linked values. Role, capture options, frame range, caches and identity stay local.
+The floating New Look viewport controls are now enabled by default for new
+installations. Quick Assign uses the compact captions SBD, COLL and CABLE while
+the normal Physics UI keeps its descriptive role names.
 
-The one-shot picker preserves selection, the active object and Properties context.
-Available Colliders have subtle cyan GPU outlines; hover is stronger. Members of
-another group are amber and require a Move confirmation. Invalid or empty clicks
-leave the picker active. Success, cancel, shutdown and file/viewport lifecycle
-changes tear down temporary overlays and timers without touching scene display data.
+Cloth and Soft Body now present Rest Shape as Shrink. Cable / Rope retains Rest
+Shape, and the Advanced Pin Motion and Soft Constraints panels use distinct
+header icons instead of repeating the Pinning symbol.
 
-Unlink copies current shared values locally. Groups dissolve below two valid
-members. Shared settings are resolved by export/bake, motion capture, recovery,
-diagnostics and proxy consumers. Linking and editing controls are blocked during Bake.
-Read-only library objects and objects used in multiple scenes are not picker targets.
-
-Release to detach now appears inside the red bar, right of the trash icon.
-The Add button uses the same charcoal background as the main floating toolbar.
-Its role bubbles fan out from the button with a short staggered, eased reveal.
+Pinning validation is now correctly object-local. An enabled but empty Pin Group
+on one deformable no longer mirrors its error onto another deformable with valid
+pinned vertices.
 
 Published only to the configured private repository; historical feeds are unchanged.
 The external PPF Contact Solver is not bundled.
