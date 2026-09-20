@@ -60,7 +60,10 @@ def test_every_classifier_target_and_stage_fallback_exists():
     ("PREPARING", "Bake range is invalid", "CNX-E102"),
     ("PREPARING", "Topology-changing modifiers are unsupported", "CNX-E103"),
     ("PREPARING", "Invalid material quality value", "CNX-E104"),
+    ("PREPARING", "Shrink cannot be combined with Stretch Limit", "CNX-E104"),
     ("PREPARING", "Animated Pinning changed Cloth topology", "CNX-E105"),
+    ("PREPARING", "Advanced Pin Motion target is invalid", "CNX-E105"),
+    ("PREPARING", "Soft Constraint target is missing", "CNX-E105"),
     ("PREPARING", "All deformables need the same range", "CNX-E106"),
     ("PREPARING", "Object Coat no longer exists", "CNX-E107"),
     ("PREPARING", "Force Empty has an invalid axis", "CNX-E108"),
@@ -160,6 +163,12 @@ def test_parameter_instability_is_reachable_as_e168():
                           "Numerical overflow at frame 12") == "CNX-E168"
     assert classify_error("SIMULATING", details=
                           "BVH traversal stack overflow") == "CNX-E168"
+
+
+def test_current_guidance_names_current_recovery_tools():
+    assert "Auto Fix Intersections" in ERROR_CODES["CNX-E162"].action
+    assert "Auto-Cancel on High RAM" in ERROR_CODES["CNX-E166"].action
+    assert "Cable / Rope" in ERROR_CODES["CNX-E188"].cause
 
 
 def test_e161_recommends_the_most_reliable_recovery_first():
