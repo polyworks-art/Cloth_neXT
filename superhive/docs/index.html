@@ -16,7 +16,7 @@
       <section class="hero">
         <label>DOCUMENTATION · CLOTH NEXT 2.7</label>
         <h1>From installation<br>to a production-ready Bake.</h1>
-        <p>Cloth NeXt keeps setup, materials, validation, simulation, recovery and playback inside Blender while the external PPF Contact Solver performs the actual solve. This guide follows the current 2.7 workflow.</p>
+        <p>Cloth NeXt keeps setup, materials, validation, simulation, recovery and playback inside Blender while the external solver performs the actual solve. This guide follows the current 2.7 workflow.</p>
         <div class="links">
           <a href="../../docs/" target="_blank" rel="noreferrer">Full Setting Reference ↗</a>
           <a href="../../errors/" target="_blank" rel="noreferrer">Error Index ↗</a>
@@ -58,7 +58,7 @@
 
       <section id="solver">
         <label>04 · SOLVER SETUP</label>
-        <h2>Install or select the PPF Contact Solver</h2>
+        <h2>Install or select the solver</h2>
         <p>The solver is separate third-party software and is never bundled inside the Cloth NeXt extension.</p>
         <ol class="steps">
           <li><b>1</b><div><strong>Open Cloth NeXt Preferences</strong><p>Find Cloth NeXt in Blender's installed Extensions.</p></div></li>
@@ -130,7 +130,7 @@
           <article><h3>Damping</h3><p>Shape Damping reduces in-plane oscillation; Fold Damping calms bending flutter and unstable folds.</p></article>
           <article><h3>Permanent deformation</h3><p>Permanent Stretch and Permanent Bends expose creep rate and threshold controls for rest-shape changes under sustained deformation.</p></article>
         </div>
-        <div class="notice"><b>Stretch Resistance is a solver-native value</b><p>PPF's <code>young-mod</code> is density-normalized. Cloth NeXt does not label it as an ordinary textbook Young's modulus in pascals.</p></div>
+        <div class="notice"><b>Stretch Resistance is a solver-native value</b><p>The solver's <code>young-mod</code> is density-normalized. Cloth NeXt does not label it as an ordinary textbook Young's modulus in pascals.</p></div>
       </section>
 
       <section id="shape">
@@ -257,7 +257,7 @@
         <h2>Important limitations</h2>
         <ul>
           <li>Windows x64 and a compatible NVIDIA GPU are currently required for the supported production workflow.</li>
-          <li>The external PPF Contact Solver is installed separately and is not included in the Cloth NeXt ZIP.</li>
+          <li>The external solver is installed separately and is not included in the Cloth NeXt ZIP.</li>
           <li>Topology-changing deformation across a Bake is rejected where constant topology is required.</li>
           <li>Playback requires stable vertex count and vertex order; dynamic tearing / ripping is not supported.</li>
           <li>Cable / Rope currently supports Bezier and Poly Curves and uses one uniform simulated collision radius. Curve bevel, taper and per-point visual radius do not create variable physical thickness.</li>
