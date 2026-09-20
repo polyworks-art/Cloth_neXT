@@ -256,16 +256,16 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    # Validation, role colors, recovery, and New Look image-cache cleanup.
-    assert len(handlers.load_post) == 4
+    # Validation, role colors, recovery, New Look image-cache, and linked Collider repair.
+    assert len(handlers.load_post) == 5
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_viewport_handler", False)]) == 1
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_validation_handler", False)]) == 1
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_recovery_handler", False)]) == 1
-    assert len(handlers.undo_post) == 1
-    assert len(handlers.redo_post) == 1
+    assert len(handlers.undo_post) == 2
+    assert len(handlers.redo_post) == 2
 
 
 def test_validation_handlers_are_persistent_across_file_loads(env):
@@ -336,8 +336,8 @@ def test_object_deletion_drops_the_runtime_state(env):
 def test_undo_redo_prunes_without_crashing(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
     _validated(env, scene)
-    for handler in (env.bpy.app.handlers.undo_post[0],
-                    env.bpy.app.handlers.redo_post[0]):
+    for handler in (*env.bpy.app.handlers.undo_post,
+                    *env.bpy.app.handlers.redo_post):
         handler(scene.context.scene)  # bpy.data.objects is empty -> prunes
     assert _state(env).record_for(scene.cloth).state is _states(env).UNKNOWN
 

@@ -1,26 +1,24 @@
-# Cloth NeXt 2.7.0
+# Cloth NeXt 2.7.3
 
-Quick Assign adds a floating Add bubble above the existing simulation toolbar.
-Hold and drag to choose among Cloth, Cable, Rigid Body, Soft Body and Collider.
-The selected bubble and its labeled radial sector are blue. Releasing assigns
-an eligible role; moving back to the center, outside, Escape or right-click cancels.
-Errors and other messages appear to the right of Bake, outside the toolbar pill.
+Collider Collision now includes a compact Linked Colliders eyedropper and a
+member list. Motion, Friction, Collision Gap and Surface Offset directly edit
+one scene-owned settings source. Shared [N] and four chain markers identify the
+linked values. Role, capture options, frame range, caches and identity stay local.
 
-The Update Channel selector and Dev acknowledgement are removed from Preferences.
-Updates use the installation's owning native Blender repository, without changing
-its URL or applying Stable/Beta/Dev filters. Normal customers update through
-Superhive; no custom authentication is introduced.
+The one-shot picker preserves selection, the active object and Properties context.
+Available Colliders have subtle cyan GPU outlines; hover is stronger. Members of
+another group are amber and require a Move confirmation. Invalid or empty clicks
+leave the picker active. Success, cancel, shutdown and file/viewport lifecycle
+changes tear down temporary overlays and timers without touching scene display data.
 
-Private GitHub releases with any version greater than 2.6.0 share one configured
-repository. Its URL exists only in the publisher's GitHub Actions secret and is
-not included in source or in the extension ZIP. The old GitHub Beta migration
-bridge remains at 2.6.0; existing legacy feed contents are preserved.
+Unlink copies current shared values locally. Groups dissolve below two valid
+members. Shared settings are resolved by export/bake, motion capture, recovery,
+diagnostics and proxy consumers. Linking and editing controls are blocked during Bake.
+Read-only library objects and objects used in multiple scenes are not picker targets.
 
-The external PPF Contact Solver is not bundled. The release includes the existing
-Companion and exact-version What's New resources.
+Release to detach now appears inside the red bar, right of the trash icon.
+The Add button uses the same charcoal background as the main floating toolbar.
+Its role bubbles fan out from the button with a short staggered, eased reveal.
 
-Preferences show a Superhive status section instead of update controls:
-`Superhive connected` means an enabled official Superhive repository is configured;
-`Purchase validated` means that repository's locally cached Blender index contains
-`cloth_next`. These are informational states only. They read no access tokens,
-perform no network request in drawing, and never enable or disable features.
+Published only to the configured private repository; historical feeds are unchanged.
+The external PPF Contact Solver is not bundled.

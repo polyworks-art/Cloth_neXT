@@ -5,7 +5,7 @@ import time
 
 import bpy
 
-from ..quick_assign import Gesture, ROLE_ORDER, make_layout
+from ..quick_assign import Gesture, ROLE_ORDER, make_layout, fan_progress
 from ..bake.controller import shared_controller
 from . import object_properties
 
@@ -269,11 +269,12 @@ def draw(context, blf, gpu, batch, shader):
     operator = session(context)
     gesture = operator.gesture if operator else None
     opened = gesture is not None and gesture.opened is not None
-    fade = min(1., (time.monotonic() - gesture.opened) / .09) if opened else 0.
+    elapsed = time.monotonic() - gesture.opened if opened else 0.
+    fade = fan_progress(elapsed, 0) if opened else 0.
     if opened and gesture.target:
         _draw_sector(gesture, fade, gpu, batch)
     floating._rounded(shader, batch, cx-radius, cy-radius, radius*2, radius*2,
-                      radius, floating._SURFACE)
+                      radius, floating._BG)
     floating._asset_icon(gpu, batch, "add", cx-14*scale, cy-14*scale, 28*scale)
     if not opened:
         return
@@ -281,17 +282,24 @@ def draw(context, blf, gpu, batch, shader):
     labels = {role: label for role, label, _ in object_properties.ROLE_ITEMS}
     labels["RIGID_BODY"] = "RBD"
     for i, role in enumerate(gesture.layout.roles):
-        x, y = gesture.layout.point(i)
+        progress = fan_progress(elapsed, i)
+        if progress <= 0.:
+            continue
+        target_x, target_y = gesture.layout.point(i)
+        origin_x, origin_y = gesture.layout.center
+        x = origin_x + (target_x - origin_x) * progress
+        y = origin_y + (target_y - origin_y) * progress
         active = gesture.target == role
-        r = gesture.layout.bubble_radius * (1.12 if active else 1.) * (.92 + .08*fade)
+        reveal_scale = .65 + .35 * progress
+        r = gesture.layout.bubble_radius * (1.12 if active else 1.) * reveal_scale
         color = floating._CYAN if active else floating._BG
         if role == operator.current:
             floating._rounded(shader, batch, x-r-2*bubble_scale, y-r-2*bubble_scale,
                               2*r+4*bubble_scale, 2*r+4*bubble_scale, r+2*bubble_scale,
-                              (*floating._MUTED[:3], fade))
+                              (*floating._MUTED[:3], progress))
         floating._rounded(shader, batch, x-r, y-r, 2*r, 2*r, r,
-                          (*color[:3], color[3]*fade))
-        size = 23*bubble_scale
+                          (*color[:3], color[3]*progress))
+        size = 23*bubble_scale * reveal_scale
         floating._asset_icon(gpu, batch, ROLE_ICONS[role],
                              x-size/2, y-size/2, size)
         if role not in operator.allowed:

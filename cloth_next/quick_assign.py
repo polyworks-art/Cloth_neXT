@@ -7,6 +7,12 @@ import math
 ROLE_ORDER = ("CLOTH", "ROD", "RIGID_BODY", "SOFT_BODY", "COLLIDER")
 
 
+def fan_progress(elapsed, index):
+    """Stagger a short eased reveal while keeping gesture hit regions stable."""
+    progress = max(0., min(1., (elapsed - index * .022) / .24))
+    return 1. - (1. - progress) ** 3
+
+
 @dataclass(frozen=True)
 class RadialLayout:
     center: tuple[float, float]

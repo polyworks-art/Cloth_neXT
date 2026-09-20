@@ -5,7 +5,17 @@ from types import SimpleNamespace as NS
 
 import pytest
 
-from cloth_next.quick_assign import Gesture, ROLE_ORDER, make_layout
+from cloth_next.quick_assign import Gesture, ROLE_ORDER, make_layout, fan_progress
+
+
+def test_fan_reveal_staggers_eases_and_finishes():
+    assert all(fan_progress(0., i) == 0. for i in range(5))
+    assert fan_progress(.03, 0) > fan_progress(.03, 1) > fan_progress(.03, 2)
+    assert fan_progress(.12, 0) > .5
+    assert all(fan_progress(.4, i) == 1. for i in range(5))
+    for i in range(5):
+        values = [fan_progress(step / 100., i) for step in range(41)]
+        assert values == sorted(values)
 
 
 @pytest.mark.parametrize("scale", [.75, 1., 1.5, 2.])

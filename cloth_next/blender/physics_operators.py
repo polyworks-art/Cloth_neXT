@@ -157,6 +157,9 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             return {"CANCELLED"}
         scene = getattr(context, "scene", None)
         previous_has_pdrd = _scene_has_pdrd(scene)
+        if obj.cloth_next.role == "COLLIDER" and self.role != "COLLIDER":
+            from . import linked_colliders
+            linked_colliders.unlink(scene, obj)
         obj.cloth_next.role = self.role
         _remap_quality_after_pdrd_change(
             scene, previous_has_pdrd=previous_has_pdrd)
@@ -210,6 +213,27 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def removal_targets_valid(targets):
+    """Preflight the entire batch before changing any object."""
+    if shared_controller.snapshot().active or not targets:
+        return False
+    try:
+        return all(obj.cloth_next.enabled for obj in targets)
+    except (ReferenceError, AttributeError):
+        return False
+
+
+def remove_physics_targets(scene, targets):
+    """Shared state-only removal; baked playback and files belong to the user."""
+    if not removal_targets_valid(targets):
+        return False
+    previous_has_pdrd = _scene_has_pdrd(scene)
+    for obj in targets:
+        object_properties.reset_settings(obj.cloth_next)
+    _remap_quality_after_pdrd_change(scene, previous_has_pdrd=previous_has_pdrd)
+    return True
+
+
 class CLOTHNEXT_OT_remove_physics(bpy.types.Operator):
     """Remove Cloth NeXt from the active object (Cloth NeXt state only)"""
 
@@ -230,10 +254,8 @@ class CLOTHNEXT_OT_remove_physics(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         scene = getattr(context, "scene", None)
-        previous_has_pdrd = _scene_has_pdrd(scene)
-        object_properties.reset_settings(obj.cloth_next)
-        _remap_quality_after_pdrd_change(
-            scene, previous_has_pdrd=previous_has_pdrd)
+        if not remove_physics_targets(scene, (obj,)):
+            return {"CANCELLED"}
         self.report({"INFO"}, f"Cloth NeXt removed from '{obj.name}'.")
         return {"FINISHED"}
 

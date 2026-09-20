@@ -85,6 +85,23 @@ jobs:
       - name: Quick Assign registration and role dispatch
         run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_quick_assign_smoke.py'
 
+      - name: Pull detach registration and playback smoke
+        run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_pull_detach_smoke.py'
+
+      - name: Linked Collider sharing and persistence smoke
+        run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_linked_colliders_smoke.py'
+
+      - name: Real floating UI gestures on a virtual display
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          for script in tools/blender_quick_assign_smoke.py tools/blender_pull_detach_smoke.py tools/blender_linked_colliders_smoke.py; do
+            timeout 120s xvfb-run -a "$BLENDER" --factory-startup --enable-event-simulate --python-exit-code 1 --python "$script" -- --events
+          done
+
       - name: Rod and Soft Body workflow smoke test
         run: |
           set -euo pipefail

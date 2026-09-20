@@ -18,7 +18,7 @@ from ..core.beta_readiness import (
     human_bytes, inventory_cache, pc2_size_bytes, redact_text,
     remove_invalid, support_markdown)
 from ..telemetry import shared_telemetry
-from . import solver_test
+from . import solver_test, object_properties
 
 
 _last_health: tuple[HealthCheck, ...] = ()
@@ -70,7 +70,7 @@ def run_health_checks(context) -> tuple[HealthCheck, ...]:
     collider_estimate = 0
     low_sampling = []
     for obj in colliders:
-        if str(getattr(obj.cloth_next, "collider_motion", "STATIC")) != "ANIMATED":
+        if str(object_properties.collider_motion_from(obj.cloth_next)) != "ANIMATED":
             continue
         samples = int(getattr(obj.cloth_next, "collider_samples_per_frame", 8))
         collider_estimate += collider_capture_bytes(

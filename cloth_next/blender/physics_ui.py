@@ -1166,12 +1166,34 @@ def _draw_cable_rope_material(layout, settings) -> None:
     controls.prop(cable, "bend_rest_from_geometry")
 
 
-def _draw_collider_collision(layout, settings) -> None:
+def _draw_collider_collision(layout, settings, context=None) -> None:
     """Draw mapped Collider motion and contact controls."""
     layout.use_property_split = True
     layout.use_property_decorate = False
-    layout.prop(settings, "collider_motion")
-    if settings.collider_motion == "STATIC":
+    from . import linked_colliders
+    context = context or bpy.context
+    obj = getattr(settings, "id_data", None)
+    scene = getattr(context, "scene", None)
+    group = linked_colliders.group_for(obj, scene) if scene is not None else None
+    link_row = layout.row(align=True)
+    link_row.label(text="Linked Colliders")
+    link_row.operator("clothnext.pick_collider", text="", icon="EYEDROPPER")
+    if group is not None:
+        listing = layout.box()
+        for member in linked_colliders.members(scene, group):
+            row = listing.row(align=True)
+            row.label(text=member.name)
+            remove = row.operator("clothnext.unlink_collider", text="", icon="X")
+            remove.target_name = member.name
+    def shared_prop(owner, name):
+        if group is None:
+            layout.prop(owner, name)
+        else:
+            row = layout.row(align=True)
+            row.label(text="", **icon_registry.icon_kwargs("link", "LINKED"))
+            row.prop(group, name)
+    shared_prop(settings, "collider_motion")
+    if object_properties.collider_motion_from(settings) == "STATIC":
         from . import solver_test
         obj = getattr(settings, "id_data", None)
         if solver_test.static_collider_has_animation(obj):
@@ -1179,7 +1201,7 @@ def _draw_collider_collision(layout, settings) -> None:
             warning.alert = True
             warning.label(text="Animated Collider is set to Static", icon="ERROR")
             warning.label(text="Set Collider Motion to Animated before Bake")
-    if settings.collider_motion == "ANIMATED":
+    if object_properties.collider_motion_from(settings) == "ANIMATED":
         layout.prop(settings, "collider_capture_mode")
         layout.prop(settings, "collider_samples_per_frame",
                     text="Samples per Frame")
@@ -1192,10 +1214,10 @@ def _draw_collider_collision(layout, settings) -> None:
             layout.label(
                 text="Fast or curved motion: consider 12–16 samples",
                 icon="INFO")
-    collision = settings.collision
-    layout.prop(collision, "surface_grip")
-    layout.prop(collision, "collision_gap")
-    layout.prop(collision, "surface_offset")
+    collision = group or settings.collision
+    shared_prop(collision, "surface_grip")
+    shared_prop(collision, "collision_gap")
+    shared_prop(collision, "surface_offset")
 
 
 def _draw_material_category(self, context):
@@ -1548,7 +1570,19 @@ class CLOTHNEXT_PT_collider_collision(_ClothNextSubpanel, bpy.types.Panel):
     header_icon = "collision"
 
     def draw(self, context):
-        _draw_collider_collision(self.layout, context.object.cloth_next)
+        controls = self.layout.column()
+        controls.enabled = not shared_controller.snapshot().active
+        _draw_collider_collision(controls, context.object.cloth_next, context)
+
+    def draw_header(self, context):
+        super().draw_header(context)
+        from . import linked_colliders
+        group = linked_colliders.group_for(context.object, context.scene)
+        if group is not None:
+            count = len(linked_colliders.members(context.scene, group))
+            indicator = self.layout.operator("clothnext.shared_collision_info", text=f"Shared [{count}]",
+                                            emboss=False, **icon_registry.icon_kwargs("link", "LINKED"))
+            indicator.count = count
 
 
 class CLOTHNEXT_PT_simulation_proxy(_ClothNextSubpanel, bpy.types.Panel):
@@ -1564,7 +1598,7 @@ class CLOTHNEXT_PT_simulation_proxy(_ClothNextSubpanel, bpy.types.Panel):
         if not super().poll(context):
             return False
         settings = context.object.cloth_next
-        return (settings.collider_motion == "ANIMATED"
+        return (object_properties.collider_motion_from(settings) == "ANIMATED"
                 and not collider_proxy.is_generated_proxy(context.object))
 
     def draw(self, context):
@@ -1828,7 +1862,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
         collision = settings.collision
         if settings.role == "COLLIDER":
             layout.prop(settings, "collider_motion")
-            if settings.collider_motion == "STATIC":
+            if object_properties.collider_motion_from(settings) == "STATIC":
                 from . import solver_test
                 if solver_test.static_collider_has_animation(context.object):
                     warning = layout.box()
@@ -1837,7 +1871,7 @@ class CLOTHNEXT_PT_collisions(_ClothNextSubpanel, bpy.types.Panel):
                         text="Animated Collider is set to Static", icon="ERROR")
                     warning.label(
                         text="Set Collider Motion to Animated before Bake")
-            if settings.collider_motion == "ANIMATED":
+            if object_properties.collider_motion_from(settings) == "ANIMATED":
                 layout.prop(settings, "collider_capture_mode")
                 layout.prop(settings, "collider_samples_per_frame")
                 samples = int(settings.collider_samples_per_frame)

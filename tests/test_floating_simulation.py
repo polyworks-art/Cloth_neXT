@@ -175,3 +175,47 @@ def test_f6_keymap_registers_once_and_cleans_up(blender_env, monkeypatch):
     floating.register()
     assert len(keymaps.km.keymap_items) == 1
     floating.unregister()
+
+
+def test_detach_has_independent_operator_registration(blender_env):
+    from cloth_next.blender import floating_simulation as floating, quick_assign
+    assert quick_assign.CLOTHNEXT_OT_quick_assign not in floating.CLOTHNEXT_OT_pull_detach.__mro__
+    assert floating.CLOTHNEXT_OT_pull_detach.__bases__ == (blender_env.bpy.types.Operator,)
+
+
+def test_label_restores_alpha_for_following_png_icons(blender_env, monkeypatch):
+    import sys
+    from cloth_next.blender import floating_simulation as floating
+    calls = []
+    gpu = SimpleNamespace(state=SimpleNamespace(blend_set=lambda value: calls.append(value)))
+    monkeypatch.setitem(sys.modules, "gpu", gpu)
+    blf = SimpleNamespace(size=lambda *args: None, color=lambda *args: None,
+                          position=lambda *args: None, draw=lambda *args: calls.append("NONE"))
+    floating._label(blf, "Release to detach", 0, 0, 12, (1, 1, 1, 1))
+    assert calls == ["ALPHA", "NONE", "ALPHA"]
+
+
+def test_pull_fade_preserves_rounded_shape_and_transparent_origin(blender_env):
+    from cloth_next.blender import floating_simulation as floating
+    vertices, colors, triangles = floating._pull_fade_mesh(10, 20, 200, 34, 17, (1, .1, .1, 1))
+    ordered = sorted(zip(vertices, colors), key=lambda pair: pair[0][0])
+    assert ordered[0][1][3] == 1
+    assert ordered[-1][1][3] == 0
+    assert colors[0][3] == .5
+    assert all(color[:3] == (1, .1, .1) for color in colors)
+    assert len(triangles) == len(vertices)-1
+
+
+def test_armed_caption_stays_inside_tab_to_right_of_trash(blender_env, monkeypatch):
+    from cloth_next.blender import floating_simulation as floating
+    key = (1, 2)
+    monkeypatch.setattr(floating.quick_assign, "region_key", lambda context: key)
+    monkeypatch.setitem(floating._pull_sessions, key, SimpleNamespace(
+        gesture=SimpleNamespace(state="ARMED", progress=1), targets=(object(),)))
+    monkeypatch.setattr(floating, "_pull_fade", lambda *args: None)
+    monkeypatch.setattr(floating, "_rounded", lambda *args: None)
+    monkeypatch.setattr(floating, "_fit_label", lambda blf, text, available, size: text)
+    labels = []
+    monkeypatch.setattr(floating, "_label", lambda blf, text, x, y, size, color: labels.append((text, x, y)))
+    floating._draw_pull(None, (300, 20, 200, 54, 1), None, None, None)
+    assert labels == [("Release to detach", 300-198+35, 20+23)]
