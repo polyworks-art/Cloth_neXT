@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#030a0b">
-  <meta name="description" content="Cloth NeXt documentation covering installation, solver setup, scene roles, materials, pins, collision cages, baking, recovery and troubleshooting.">
+  <meta name="description" content="Cloth NeXt 2.7 documentation covering installation, Superhive updates, solver setup, Quick Assign, simulation roles, materials, constraints, collision, baking, recovery and troubleshooting.">
   <title>Cloth NeXt Documentation</title>
   <link rel="icon" href="../../assets/cloth-next-white.svg" type="image/svg+xml">
   <link rel="stylesheet" href="docs.css">
@@ -14,9 +14,13 @@
   <div class="shell">
     <main>
       <section class="hero">
-        <label>DOCUMENTATION</label>
-        <h1>From installation<br>to your first production Bake.</h1>
-        <p>Cloth NeXt keeps setup, materials, validation, baking, recovery and playback inside Blender. This guide covers the supported workflow from installation to final cached results.</p>
+        <label>DOCUMENTATION · CLOTH NEXT 2.7</label>
+        <h1>From installation<br>to a production-ready Bake.</h1>
+        <p>Cloth NeXt keeps setup, materials, validation, simulation, recovery and playback inside Blender while the external PPF Contact Solver performs the actual solve. This guide follows the current 2.7 workflow.</p>
+        <div class="links">
+          <a href="../../docs/" target="_blank" rel="noreferrer">Full Setting Reference ↗</a>
+          <a href="../../errors/" target="_blank" rel="noreferrer">Error Index ↗</a>
+        </div>
       </section>
 
       <section id="requirements">
@@ -25,9 +29,9 @@
         <div class="cards three">
           <article><small>BLENDER</small><strong>5.0+</strong><p>Use a supported Blender 5.x release.</p></article>
           <article><small>PLATFORM</small><strong>Windows x64</strong><p>The current production workflow targets Windows.</p></article>
-          <article><small>HARDWARE</small><strong>NVIDIA GPU</strong><p>A compatible NVIDIA GPU is required for simulation.</p></article>
+          <article><small>HARDWARE</small><strong>NVIDIA GPU</strong><p>A compatible NVIDIA GPU is required by the supported solver workflow.</p></article>
         </div>
-        <div class="notice"><b>Scene capacity</b><p>Practical scene size depends on VRAM, system RAM, topology, contact count, animated samples, quality and frame count.</p></div>
+        <div class="notice"><b>Scene capacity</b><p>Practical scene size depends on VRAM, system RAM, topology, contact count, animated samples, quality, frame count and the roles participating in the solve.</p></div>
       </section>
 
       <section id="install">
@@ -35,156 +39,233 @@
         <h2>Install Cloth NeXt</h2>
         <ol class="steps">
           <li><b>1</b><div><strong>Download the product ZIP</strong><p>Keep the extension archive intact. Do not extract it.</p></div></li>
-          <li><b>2</b><div><strong>Open Get Extensions</strong><p>Go to <code>Edit → Preferences → Get Extensions</code>.</p></div></li>
+          <li><b>2</b><div><strong>Open Blender Extensions</strong><p>Go to <code>Edit → Preferences → Extensions</code>.</p></div></li>
           <li><b>3</b><div><strong>Install from Disk</strong><p>Open the repository menu, choose <code>Install from Disk</code>, and select the ZIP.</p></div></li>
           <li><b>4</b><div><strong>Enable Cloth NeXt</strong><p>Enable the extension and restart Blender whenever Blender requests it.</p></div></li>
         </ol>
       </section>
 
+      <section id="updates">
+        <label>03 · UPDATES</label>
+        <h2>Customer updates now come through Superhive</h2>
+        <p>From Cloth NeXt 2.7 onward, normal customer updates use Superhive's native Blender Extension Repository. The old Stable, Beta and Dev selector is no longer part of the current customer workflow.</p>
+        <div class="cards two">
+          <article><h3>Superhive connected</h3><p>Means an enabled official Superhive repository is configured in Blender.</p></article>
+          <article><h3>Purchase validated</h3><p>Means Blender's locally cached Superhive repository index contains Cloth NeXt.</p></article>
+        </div>
+        <div class="notice"><b>No custom account system</b><p>These status indicators use Blender repository data. Drawing the Preferences panel does not read access tokens or make a network request, and the status does not enable or disable product features.</p></div>
+      </section>
+
       <section id="solver">
-        <label>03 · SOLVER SETUP</label>
-        <h2>Install the solver from Cloth NeXt</h2>
-        <p>The solver is not included in the add-on ZIP, but can be installed directly from the add-on preferences.</p>
+        <label>04 · SOLVER SETUP</label>
+        <h2>Install or select the PPF Contact Solver</h2>
+        <p>The solver is separate third-party software and is never bundled inside the Cloth NeXt extension.</p>
         <ol class="steps">
-          <li><b>1</b><div><strong>Open Cloth NeXt Preferences</strong><p>Find Cloth NeXt under Blender's installed Add-ons.</p></div></li>
-          <li><b>2</b><div><strong>Start the guided installation</strong><p>Choose the managed solver installation option shown in the preferences.</p></div></li>
-          <li><b>3</b><div><strong>Review and confirm</strong><p>Cloth NeXt shows the compatible release and asks for confirmation before installation.</p></div></li>
-          <li><b>4</b><div><strong>Run Solver Health Check</strong><p>A compatible protocol and schema marks the solver Ready.</p></div></li>
+          <li><b>1</b><div><strong>Open Cloth NeXt Preferences</strong><p>Find Cloth NeXt in Blender's installed Extensions.</p></div></li>
+          <li><b>2</b><div><strong>Choose a solver installation</strong><p>Use a managed installation downloaded from the official source, or register an existing external installation.</p></div></li>
+          <li><b>3</b><div><strong>Review and confirm</strong><p>Managed downloads require explicit confirmation and are installed outside the extension directory.</p></div></li>
+          <li><b>4</b><div><strong>Run the health check</strong><p>Cloth NeXt verifies the selected installation before it is used for production Bakes.</p></div></li>
         </ol>
-        <div class="notice"><b>Managed setup</b><p>Cloth NeXt downloads, verifies and configures the selected compatible solver installation from the preferences.</p></div>
+        <div class="notice"><b>Side-by-side solver installs</b><p>Managed solver releases can coexist. Switching or repairing a managed installation does not modify the Cloth NeXt extension itself.</p></div>
       </section>
 
       <section id="first-bake">
-        <label>04 · QUICK START</label>
+        <label>05 · QUICK START</label>
         <h2>Your first Cloth Bake</h2>
         <div class="split">
           <ol class="steps">
-            <li><b>1</b><div><strong>Prepare the mesh</strong><p>Use clean, constant topology and intentional object scale.</p></div></li>
-            <li><b>2</b><div><strong>Add the Cloth role</strong><p>In Physics Properties, add Cloth NeXt and select <code>Cloth</code>.</p></div></li>
-            <li><b>3</b><div><strong>Add a Collider</strong><p>Enable Cloth NeXt on the collision mesh and choose <code>Collider</code>.</p></div></li>
-            <li><b>4</b><div><strong>Choose material and quality</strong><p>Start from a material preset and use a lower quality tier while iterating.</p></div></li>
-            <li><b>5</b><div><strong>Validate and Bake</strong><p>Resolve Scene Health messages, set the frame range, then start the Bake.</p></div></li>
+            <li><b>1</b><div><strong>Prepare the mesh</strong><p>Use intentional scale and topology that remains compatible throughout the Bake.</p></div></li>
+            <li><b>2</b><div><strong>Assign roles</strong><p>Use Physics Properties or Quick Assign to choose Cloth, Collider, Cable / Rope, Soft Body or Rigid Body.</p></div></li>
+            <li><b>3</b><div><strong>Choose material and contact settings</strong><p>Start from a material preset, then adjust only what the shot needs.</p></div></li>
+            <li><b>4</b><div><strong>Set the Bake range and cache directory</strong><p>All participating objects must be compatible with the shared simulation range.</p></div></li>
+            <li><b>5</b><div><strong>Validate and Bake</strong><p>Resolve Scene Health issues, then start the Bake from the Simulation panel or floating toolbar.</p></div></li>
           </ol>
-          <figure><img src="../media/cloth-next-ui.png" alt="Cloth NeXt interface in Blender"><figcaption>Cloth setup · Physics Properties</figcaption></figure>
+          <figure><img src="../media/cloth-next-ui.png" alt="Cloth NeXt interface in Blender"><figcaption>Role-aware setup · Physics Properties</figcaption></figure>
+        </div>
+      </section>
+
+      <section id="quick-assign">
+        <label>06 · VIEWPORT WORKFLOW</label>
+        <h2>New Look and Quick Assign</h2>
+        <p>Enable <b>New Look</b> in Cloth NeXt Preferences to use the compact floating simulation toolbar in the 3D Viewport. The toolbar exposes the existing cache-directory, Quality, Bake, Cancel and Diagnostics workflows without replacing the underlying simulation logic.</p>
+        <div class="cards two">
+          <article><h3>Quick Assign</h3><p>Hold or drag the floating Add bubble to choose Cloth, Cable, Rigid Body, Soft Body or Collider. Release on a valid sector to assign the role.</p></article>
+          <article><h3>F6 visibility</h3><p>The viewport shortcut can slide the floating controls out of view and restore them without changing the New Look preference.</p></article>
+          <article><h3>Role Colors</h3><p>Optional role colors can identify Cloth NeXt objects in Solid shading when Blender's Color mode is set to Object.</p></article>
+          <article><h3>Auto-Frame</h3><p>Optional live framing keeps active deformables visible during a Bake, with Smooth or Cinematic motion and configurable margin.</p></article>
         </div>
       </section>
 
       <section id="roles">
-        <label>05 · SCENE ROLES</label>
-        <h2>Build one interacting scene</h2>
+        <label>07 · SCENE ROLES</label>
+        <h2>Build one interacting simulation scene</h2>
         <div class="cards two">
-          <article><h3>Cloth</h3><p>A surface mesh simulated as fabric. Multiple garments can participate in one solve.</p></article>
-          <article><h3>Collider</h3><p>A static or topology-preserving animated contact surface.</p></article>
-          <article><h3>Rod / Cable</h3><p>A Curve simulated as a one-dimensional deformable with a uniform physical radius.</p></article>
+          <article><h3>Cloth</h3><p>A surface mesh simulated as fabric, with material, rest-shape, pressure, sewing, pinning and contact controls.</p></article>
+          <article><h3>Cable / Rope</h3><p>A Bezier or Poly Curve simulated as a one-dimensional deformable centerline.</p></article>
           <article><h3>Soft Body</h3><p>A closed volumetric deformable using automatic internal tetrahedralization.</p></article>
-          <article><h3>Rigid Body</h3><p>A rigid simulation object that participates in the shared contact scene.</p></article>
-          <article><h3>Force</h3><p>A keyframeable Empty used for gravity, wind and supported air behavior.</p></article>
+          <article><h3>Rigid Body</h3><p>A closed solid moving object using the rigid PDRD workflow while participating in shared contact.</p></article>
+          <article><h3>Collider</h3><p>A static or animated contact surface, optionally replaced by a generated simulation proxy.</p></article>
+          <article><h3>Force</h3><p>A keyframeable Empty for gravity, wind and supported air behavior.</p></article>
         </div>
       </section>
 
       <section id="materials">
-        <label>06 · MATERIALS</label>
+        <label>08 · MATERIALS</label>
         <h2>Start with one of 75 material presets</h2>
-        <p>The material library provides categorized starting points for common fabrics and flexible materials. Presets fill artist-facing controls for surface weight, stretch response, sideways response, bending, friction and stretch protection. Editing a value keeps the preset as a starting point and moves the material into a custom state.</p>
-        <div class="cards two quality">
-          <article><b>LOW</b><p>Fast setup checks and broad motion tests.</p></article>
-          <article><b>MEDIUM</b><p>Balanced iteration with stronger contact handling.</p></article>
-          <article><b>HIGH</b><p>Final-oriented settings for demanding scenes.</p></article>
-          <article><b>EXTREME</b><p>An expensive last-mile profile for difficult shots.</p></article>
+        <p>Presets provide artist-facing starting points for fabric response. Editing a preset-controlled value switches the selection to Custom without resetting the current material.</p>
+        <div class="cards two">
+          <article><h3>Surface response</h3><p>Surface Weight controls area mass. Stretch Resistance, Sideways Response and Bend Resistance control the main fabric deformation behavior.</p></article>
+          <article><h3>Stretch protection</h3><p>Stretch Limit and Maximum Stretch can cap extension when the material needs stricter dimensional control.</p></article>
+          <article><h3>Damping</h3><p>Shape Damping reduces in-plane oscillation; Fold Damping calms bending flutter and unstable folds.</p></article>
+          <article><h3>Permanent deformation</h3><p>Permanent Stretch and Permanent Bends expose creep rate and threshold controls for rest-shape changes under sustained deformation.</p></article>
+        </div>
+        <div class="notice"><b>Stretch Resistance is a solver-native value</b><p>PPF's <code>young-mod</code> is density-normalized. Cloth NeXt does not label it as an ordinary textbook Young's modulus in pascals.</p></div>
+      </section>
+
+      <section id="shape">
+        <label>09 · REST SHAPE, PRESSURE & SEWING</label>
+        <h2>Change what the material wants to return to</h2>
+        <div class="cards two">
+          <article><h3>Shrink</h3><p>Positive Cloth Shrink contracts the rest shape. Negative values expand or pre-stretch it.</p></article>
+          <article><h3>Pressure</h3><p>Uniform pressure acts along Cloth surface normals. Consistent normals and closed geometry are recommended for balloon-like results.</p></article>
+          <article><h3>Sewing</h3><p>Edges not used by any face can become sewing springs that pull their endpoints together.</p></article>
+          <article><h3>Initial Bend Shape</h3><p>Cloth and Cable controls can preserve the starting bends as the bend rest shape instead of treating the object as initially flat.</p></article>
         </div>
       </section>
 
       <section id="pins">
-        <label>07 · HARD AND SOFT PINS</label>
-        <h2>Attach cloth without freezing the performance</h2>
-        <p>Create a Blender vertex group on the deformable and assign it as the pin group.</p>
+        <label>10 · PINNING & CONSTRAINTS</label>
+        <h2>Attach cloth without freezing the whole performance</h2>
+        <p>Standard Pinning uses a Blender vertex group and supports Static or Follow Animation behavior. Follow Animation captures evaluated Blender positions throughout the Bake range.</p>
         <div class="cards two">
-          <article><h3>Hard Pins</h3><p>Keep selected vertices fixed to their static or animated target.</p></article>
-          <article><h3>Soft Pins</h3><p>Maintain attachment while allowing controlled movement and a softer response.</p></article>
+          <article><h3>Advanced Pin Motion</h3><p>Add multiple independent Pin Groups with their own animated Target Objects and per-group Strength. Groups preserve their own Bake Start offsets and remain subject to collider contact.</p></article>
+          <article><h3>Soft Constraints</h3><p>Add Target Object rows for Location, Rotation or Scale with independent Strength values. Removing all rows disables the soft-constraint setup.</p></article>
         </div>
-        <p>Animated targets are useful for rig-driven waistbands, cuffs, collars, straps and other attachment areas. Evaluated topology must remain constant throughout the Bake range.</p>
+        <div class="notice"><b>Pin topology must remain stable</b><p>Pin indices and captured animation depend on topology-preserving evaluated geometry. Overlapping Advanced Pin groups are not supported.</p></div>
       </section>
 
       <section id="contact">
-        <label>08 · CONTACT</label>
-        <h2>Control collisions and surface behavior</h2>
-        <p>Friction controls how easily surfaces slide. Surface Offset represents simulated thickness. Collision Gap controls when contact response begins. Animated colliders are sampled from evaluated Blender geometry.</p>
-        <div class="notice"><b>Use intentional collider topology</b><p>Dense animated colliders multiply preparation time and memory use across captured samples. Use the full character when accuracy matters, or a purpose-built collision cage when faster setup is more useful.</p></div>
+        <label>11 · COLLISION & FRICTION</label>
+        <h2>Control contact without confusing gap and thickness</h2>
+        <p>Friction controls surface sliding. Collision Gap is the contact barrier distance. Surface Offset represents simulated thickness or collision radius and is particularly important for Cable / Rope centerlines.</p>
+        <div class="cards two">
+          <article><h3>Friction Regions</h3><p>Vertex-group friction overrides can assign different grip values to selected areas while unassigned vertices keep the object's general Friction.</p></article>
+          <article><h3>Collision Timing</h3><p>Advanced controls expose audited contact completion, motion safety, collision-search and moving-constraint precision settings for difficult scenes.</p></article>
+        </div>
       </section>
 
-      <section id="cages">
-        <label>09 · CHARACTER COLLISION CAGES</label>
-        <h2>Create faster character collision proxies</h2>
-        <p>Character Collision Cages create animation-aware proxy geometry around a rig. The generated structure stays visible and editable in Blender, making it useful for heavy characters where simulating against the full mesh is unnecessary.</p>
-        <ul>
-          <li>Per-bone collision structure</li>
-          <li>Animation-aware proxy generation</li>
-          <li>Reusable evaluated data</li>
-          <li>Optional workflow, not required for every character</li>
-        </ul>
+      <section id="colliders">
+        <label>12 · ANIMATED COLLIDERS & PROXIES</label>
+        <h2>Use the full character or a lighter collision target</h2>
+        <p>Animated Colliders capture evaluated Blender transforms and topology-preserving deformation. Parenting, constraints, drivers, Armatures, Shape Keys and compatible deforming modifiers can contribute to the evaluated motion.</p>
+        <div class="cards two">
+          <article><h3>Motion Samples</h3><p>Sub-frame sampling improves fast or curved animated motion without becoming extra logical output frames.</p></article>
+          <article><h3>Character Collision Cage</h3><p>Generate an animation-aware per-bone proxy when the full character is unnecessarily expensive for collision preparation.</p></article>
+          <article><h3>Reduced Mesh Proxy</h3><p>A target vertex count can create a simpler collision surface for scenes that do not need full source detail.</p></article>
+          <article><h3>Proxy replacement</h3><p>When enabled, the logical Collider is replaced by its generated simulation proxy during the Bake while the source remains your Blender object.</p></article>
+        </div>
+      </section>
+
+      <section id="deformables">
+        <label>13 · CABLE, SOFT BODY & RIGID BODY</label>
+        <h2>Beyond surface Cloth</h2>
+        <div class="cards two">
+          <article><h3>Cable / Rope</h3><p>Uses Bezier or Poly Curve control points as a one-dimensional centerline. Linear Density, stretch, bend, length scale, stretch limit and permanent bends control the response.</p></article>
+          <article><h3>Soft Body</h3><p>Uses a closed manifold mesh, volumetric density and stiffness controls, volume scale, tetrahedralizer choice, damping and permanent stretch.</p></article>
+          <article><h3>Rigid Body</h3><p>Uses a closed solid mesh with Weight Density and the shared collision controls. It participates in the same contact scene as other supported roles.</p></article>
+          <article><h3>Shared contact</h3><p>Different supported deformable and rigid roles can interact within the same Cloth NeXt Bake instead of being solved as isolated effects.</p></article>
+        </div>
       </section>
 
       <section id="forces">
-        <label>10 · FORCES</label>
-        <h2>Animate gravity, wind and air response</h2>
-        <p>Add an Empty, enable Cloth NeXt and choose the Force role. Supported gravity, wind and air controls can be animated through normal Blender properties and are evaluated with the rest of the Bake scene.</p>
+        <label>14 · FORCES & MOTION OVERRIDES</label>
+        <h2>Animate the environment and explicit motion</h2>
+        <p>Force objects expose Gravity, Wind, Wind Variation, Wind Noise Scale, Air Density, Air Friction and Vertex Air Damping. Supported values can be animated through normal Blender keyframes.</p>
+        <div class="cards two">
+          <article><h3>Force direction</h3><p>Gravity and Wind use the configured Empty orientation / axis behavior and are converted into solver space during the Bake.</p></article>
+          <article><h3>Motion Overrides</h3><p>Frame-specific Move or Spin entries can replace velocity for supported dynamic vertices when the solver crosses the configured frame.</p></article>
+        </div>
+      </section>
+
+      <section id="quality">
+        <label>15 · QUALITY & ADVANCED SOLVER</label>
+        <h2>Use presets first, expert controls second</h2>
+        <p>Quality presets provide the normal iteration path. Advanced settings expose real solver parameters such as Time Step, Newton passes, PCG limits and tolerance.</p>
+        <div class="cards two quality">
+          <article><b>LOW</b><p>Fast setup and broad motion checks where available for the active role mix.</p></article>
+          <article><b>MEDIUM</b><p>Balanced iteration for normal scene development.</p></article>
+          <article><b>HIGH</b><p>Higher-cost settings for demanding contact and final-oriented runs.</p></article>
+          <article><b>EXTREME</b><p>An expensive last-mile option for particularly difficult scenes.</p></article>
+        </div>
+        <div class="notice warning"><b>Advanced solver controls are diagnostic tools</b><p>Material, topology, collision setup and scene scale should be corrected before increasing low-level contact capacity or iteration limits.</p></div>
       </section>
 
       <section id="results">
-        <label>11 · BAKE AND RESULTS</label>
+        <label>16 · BAKE, LIVE VIEW & RESULTS</label>
         <h2>Know what the Bake is doing</h2>
         <div class="split reverse">
-          <figure class="bake"><img src="../media/cloth-next-bake-window.png" alt="Cloth NeXt Bake Companion"><figcaption>Live frame and solver activity</figcaption></figure>
+          <figure class="bake"><img src="../media/cloth-next-bake-window.png" alt="Cloth NeXt Bake Companion"><figcaption>Progress, activity and solver feedback</figcaption></figure>
           <div>
-            <p>The Bake Companion reports the current frame, total progress, solver activity, estimated timing and system load.</p>
+            <p>The Bake Companion reports current activity, frame progress and estimated timing while Cloth NeXt prepares and transfers the simulation result.</p>
             <ul>
-              <li>Results are written as versioned object-local playback caches.</li>
-              <li>Incomplete output is never presented as a finished result.</li>
-              <li>A failed Rebake preserves the previous valid result.</li>
-              <li>Clear Result removes only Cloth NeXt-owned files and playback.</li>
+              <li>Buffered Live View follows confirmed complete solver frames during a running Bake.</li>
+              <li>Results use versioned, authenticated playback-cache metadata.</li>
+              <li>A failed or cancelled Rebake preserves the previous valid result for rollback.</li>
+              <li>Changing solver-visible settings or geometry can mark an existing result stale.</li>
+              <li>Clear Result removes only authenticated Cloth NeXt-owned playback data.</li>
             </ul>
           </div>
         </div>
       </section>
 
       <section id="recovery">
-        <label>12 · VERIFIED RECOVERY</label>
-        <h2>Resume instead of starting from frame one</h2>
-        <p>When a valid checkpoint survives an unexpected solver exit, Cloth NeXt verifies that the recovery data belongs to the active scene and compatible solver installation before offering Resume from Latest.</p>
-        <div class="notice"><b>Recovery is verified before use</b><p>Invalid, incomplete or incompatible checkpoints are not presented as resumable results.</p></div>
+        <label>17 · RECOVERY & MEMORY SAFETY</label>
+        <h2>Protect long Bakes</h2>
+        <p>Recovery checkpoints are authenticated before Cloth NeXt offers them for resume. Invalid, incompatible or foreign checkpoints are not presented as safe recovery states.</p>
+        <div class="cards two">
+          <article><h3>Recovery policy</h3><p>Checkpoint interval, retained states, automatic saving and save-on-cancel / save-on-finish behavior are configurable.</p></article>
+          <article><h3>Memory Safety</h3><p>Auto-Cancel on High RAM is enabled by default and can stop a Bake after total system RAM remains above the configured safety threshold.</p></article>
+        </div>
+        <div class="notice"><b>Previous results stay protected</b><p>Recovery and Rebake use transactional cache handling so an incomplete new run does not silently replace a previously valid result.</p></div>
       </section>
 
       <section id="errors">
-        <label>13 · TROUBLESHOOTING</label>
+        <label>18 · TROUBLESHOOTING</label>
         <h2>When a Bake fails</h2>
         <ol class="steps">
           <li><b>1</b><div><strong>Read the CNX code</strong><p>The Bake Companion and Blender show a stable code such as <code>CNX-E161</code>.</p></div></li>
-          <li><b>2</b><div><strong>Follow the displayed guidance</strong><p>The error state names the likely cause, affected stage and recommended first action.</p></div></li>
-          <li><b>3</b><div><strong>Run Scene Health</strong><p>Check geometry, storage, compatibility, memory and solver readiness.</p></div></li>
-          <li><b>4</b><div><strong>Retry after correction</strong><p>Fix the reported issue, then start a new Bake or resume from a verified checkpoint when available.</p></div></li>
+          <li><b>2</b><div><strong>Follow the displayed guidance</strong><p>The error state identifies the likely stage and recommended first action.</p></div></li>
+          <li><b>3</b><div><strong>Run Scene Health</strong><p>Check geometry, storage, compatibility, memory, solver readiness and recoverable cache state.</p></div></li>
+          <li><b>4</b><div><strong>Retry or resume</strong><p>After correcting the reported issue, start a new Bake or resume only from a verified checkpoint.</p></div></li>
         </ol>
+        <div class="links"><a href="../../errors/" target="_blank" rel="noreferrer">Open the CNX Error Index ↗</a></div>
       </section>
 
       <section id="limits">
-        <label>14 · LIMITATIONS</label>
+        <label>19 · LIMITATIONS</label>
         <h2>Important limitations</h2>
         <ul>
-          <li>Windows x64 and a compatible NVIDIA GPU are currently required.</li>
-          <li>The solver is intended for offline production simulation, not real-time playback.</li>
-          <li>Topology-changing deformation across a Bake is rejected.</li>
-          <li>Playback requires constant vertex order and vertex count.</li>
-          <li>Rod / Cable currently uses a uniform simulated collision radius.</li>
-          <li>Soft Body requires a closed manifold mesh.</li>
-          <li>Capacity depends on topology, contacts, samples, quality, VRAM and RAM.</li>
-          <li>The solver is not included in the add-on ZIP and is installed from the add-on preferences.</li>
+          <li>Windows x64 and a compatible NVIDIA GPU are currently required for the supported production workflow.</li>
+          <li>The external PPF Contact Solver is installed separately and is not included in the Cloth NeXt ZIP.</li>
+          <li>Topology-changing deformation across a Bake is rejected where constant topology is required.</li>
+          <li>Playback requires stable vertex count and vertex order; dynamic tearing / ripping is not supported.</li>
+          <li>Cable / Rope currently supports Bezier and Poly Curves and uses one uniform simulated collision radius. Curve bevel, taper and per-point visual radius do not create variable physical thickness.</li>
+          <li>Soft Body requires a suitable closed manifold surface for volumetric tetrahedralization.</li>
+          <li>Timed pin release is not currently exposed. Advanced Pin groups must not overlap.</li>
+          <li>Material and pressure behavior is evaluated as configured for the Bake; unsupported dynamic material controls remain hidden rather than being approximated.</li>
+          <li>Capacity depends on topology, contacts, animated samples, quality, VRAM, RAM, disk space and frame count.</li>
         </ul>
       </section>
 
       <section id="support">
-        <label>15 · SUPPORT</label>
+        <label>20 · SUPPORT</label>
         <h2>What to include in a support request</h2>
         <p>Run Scene Health and choose <b>Export Privacy-Safe Report</b>. Send the report with the visible CNX error code, Blender version, GPU model and short reproduction steps using the support contact on the Superhive product page.</p>
         <div class="notice"><b>Your scene stays private</b><p>The report excludes mesh geometry, object names, file contents and full filesystem paths.</p></div>
+        <div class="links">
+          <a href="../../docs/" target="_blank" rel="noreferrer">Full Setting Reference ↗</a>
+          <a href="https://github.com/polyworks-art/Cloth_neXT/issues" target="_blank" rel="noreferrer">GitHub Issues ↗</a>
+        </div>
       </section>
     </main>
   </div>
