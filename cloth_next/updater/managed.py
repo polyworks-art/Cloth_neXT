@@ -22,7 +22,7 @@ from typing import Callable
 
 from ..core.errors import ErrorCategory, ErrorRecord
 from ..core.safe_delete import DeleteFailedError, delete_owned
-from ..ppf.bootstrap import (atomic_replace_directory, find_single_executable,
+from ..ppf.bootstrap import (atomic_replace_directory, find_release_executable,
                              normalize_bundle_root)
 from ..ppf.layout import EXECUTABLE_NAME
 
@@ -52,6 +52,8 @@ class ManagedSolverInstaller:
                  forbidden_roots: tuple[Path, ...] = (),
                  is_solver_running: Callable[[], bool] = lambda: False,
                  apply_overlay: Callable[..., None] | None = None) -> None:
+        if not entry.downloadable:
+            raise ValueError(f"release {entry.release_id!r} is not downloadable")
         paths.validate_outside(forbidden_roots)
         self._paths = paths
         self._entry = entry
@@ -169,7 +171,7 @@ class ManagedSolverInstaller:
             self._set_state(InstallerState.EXTRACTING)
             staging = extract_to_staging(archive_path, self._paths.staging_dir)
             self._set_state(InstallerState.INSTALLING)
-            executable = find_single_executable(staging)
+            executable = find_release_executable(staging, entry.archive_layout_version)
             if executable.name != EXECUTABLE_NAME:
                 raise ValueError(f"unexpected executable {executable.name!r} is not started")
             package, protocol, schema = self._probe_version(executable)
@@ -184,14 +186,16 @@ class ManagedSolverInstaller:
                 raise _CompatibilityFailure(
                     f"package {package!r} does not match the manifest version "
                     f"{entry.solver_package_version!r}")
-            bundle_root = normalize_bundle_root(staging)
+            bundle_root = normalize_bundle_root(staging, entry.archive_layout_version)
             if self._apply_overlay is not None:
-                self._apply_overlay(
-                    Path(bundle_root),
+                overlay_args = dict(
                     protocol_version=protocol,
                     schema_version=schema,
                     official_release_tag=entry.official_release_tag,
                     managed=True)
+                if entry.integration_recipe_id:
+                    overlay_args["integration_recipe_id"] = entry.integration_recipe_id
+                self._apply_overlay(Path(bundle_root), **overlay_args)
             self._set_state(InstallerState.HEALTH_CHECKING)
             if entry.health_check_required and not self._health_check(executable):
                 raise _HealthCheckFailure("the real solver health check failed")

@@ -32,9 +32,9 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
     resolved = manifest.entry_for(PLATFORM)
     assert resolved is not None
     assert resolved.official_repository == OFFICIAL_REPOSITORY_SLUG
-    assert resolved.release_id == "ppf-0.18-current"
-    assert resolved.display_name == "Lumen"
-    assert resolved.protocol_version == "0.18"
+    assert resolved.release_id == "ppf-0.22-gaia"
+    assert resolved.display_name == "Gaia"
+    assert resolved.protocol_version == "0.22"
     assert resolved.schema_version == "2"
     assert resolved.download_size > 0
     assert len(resolved.sha256) == 64
@@ -42,14 +42,41 @@ def test_bundled_manifest_is_valid_and_matches_addon_version():
 
 def test_valid_manifest_parses():
     manifest = parse_manifest(valid_payload())
-    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-08-12-15-47"
+    assert manifest.entry_for(PLATFORM).official_release_tag == "2026-09-21-21-32"
     releases = manifest.releases_for(PLATFORM)
     assert [(item.protocol_version, item.schema_version) for item in releases] == [
-        ("0.13", "2"), ("0.18", "2")]
+        ("0.13", "2"), ("0.18", "2"), ("0.22", "2")]
     assert releases[1].official_release_tag == "2026-08-12-15-47"
     assert releases[1].download_size == 447922058
     assert releases[1].sha256 == (
         "f80d185b5c585b5f7749d747f317f4e7ab57d0522f10083f970089ff7d378733")
+    assert not releases[0].downloadable
+    assert releases[1].downloadable and releases[2].downloadable
+    assert releases[1].adapter_id == releases[2].adapter_id == "modern-schema2"
+    assert releases[2].download_size == 404647817
+    assert releases[2].sha256 == (
+        "44b8fbda3d1328e00ddebc5c7f49298a0d4d5509ba115102420555d805a93a56")
+
+
+def test_unknown_adapter_rejected():
+    payload = valid_payload()
+    entry(payload)["adapter_id"] = "future-wire"
+    with pytest.raises(ValueError, match="unknown adapter_id"):
+        parse_manifest(payload)
+
+
+def test_duplicate_release_rejected():
+    payload = valid_payload()
+    payload["platforms"][PLATFORM]["releases"].append(dict(entry(payload)))
+    with pytest.raises(ValueError, match="unique"):
+        parse_manifest(payload)
+
+
+def test_recipe_must_match_exact_release_identity():
+    payload = valid_payload()
+    entry(payload)["integration_recipe_id"] = "gaia-verified"
+    with pytest.raises(ValueError, match="integration_recipe_id"):
+        parse_manifest(payload)
 
 
 @pytest.mark.parametrize("missing", ["sha256", "protocol_version", "schema_version"])

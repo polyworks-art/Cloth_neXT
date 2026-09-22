@@ -44,6 +44,12 @@ def test_external_server_and_missing_solver(tmp_path):
     assert resolver().resolve(SolverResolutionContext()) is None
 
 
+def test_explicit_backend_without_selected_installation_fails_closed():
+    import pytest
+    with pytest.raises(ValueError, match="requires a selected solver"):
+        resolver().resolve(SolverResolutionContext(backend_choice="CPU"))
+
+
 def test_no_implicit_extension_or_repository_scanning():
     """The bundled-solver modes are gone; nothing resolves without explicit context."""
     assert {mode.name for mode in SolverMode} == {

@@ -25,6 +25,20 @@ def test_current_protocol_profile_is_explicitly_supported():
     assert validate_versions("0.18", "2", "0.1.0", profile=profile).fully_compatible
 
 
+def test_gaia_and_lumen_share_verified_wire_adapter_but_not_identity():
+    from cloth_next.ppf.compatibility import protocol_profile
+
+    lumen = protocol_profile("0.18", "2")
+    gaia = protocol_profile("0.22", "2")
+    assert lumen is not None and gaia is not None
+    assert lumen.adapter_id == gaia.adapter_id == "modern-schema2"
+    assert validate_versions("0.22", "2", "0.1.0", profile=gaia).fully_compatible
+    assert not validate_versions("0.22", "2", "0.1.0", profile=lumen).fully_compatible
+    assert not validate_versions("0.18", "2", "0.1.0", profile=gaia).fully_compatible
+    assert protocol_profile("0.23", "2") is None
+    assert not validate_versions("0.23", "2", "0.1.0").fully_compatible
+
+
 def test_retired_protocol_is_rejected():
     from cloth_next.ppf.compatibility import protocol_profile
 

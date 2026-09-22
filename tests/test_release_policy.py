@@ -318,7 +318,7 @@ def test_release_manifest_checks(tmp_path):
     check_sha256sums(sums_path, zip_path)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["solver_bundled"] is False
-    assert payload["required_ppf_protocol"] == ["0.13", "0.18"]
+    assert payload["required_ppf_protocol"] == ["0.13", "0.18", "0.22"]
 
     payload["solver_bundled"] = True
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")

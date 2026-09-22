@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.6",
+  "title": "What's New in Cloth NeXt 2.7.6",
+  "subtitle": "Gaia solver support and direct backend control.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Gaia is ready",
+      "description": "Gaia 0.22 is the preferred solver for new installations. Lumen remains available, and existing verified Velune installations still work."
+    },
+    {
+      "icon": "icons/docs.png",
+      "title": "Choose your backend",
+      "description": "Select AUTO, CUDA, ROCm, or CPU in Preferences. ROCm is available with a warning while broader AMD verification continues."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Switch with confidence",
+      "description": "Solver and backend changes were exercised across consecutive bakes in one Blender session."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

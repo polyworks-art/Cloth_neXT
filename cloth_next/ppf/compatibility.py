@@ -7,13 +7,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from types import MappingProxyType
+from functools import lru_cache
 
 from ..core.errors import ErrorCategory, ErrorRecord
 
-EXPECTED_PROTOCOL = "0.13"
-EXPECTED_SCHEMA = "2"
-EXPECTED_PACKAGE = "0.1.0"
 _VERSION_RE = re.compile(r"(?P<package>\d+\.\d+\.\d+) \(protocol v(?P<protocol>[^,]+), schema v(?P<schema>[^)]+)\)")
 
 
@@ -23,19 +20,22 @@ class ProtocolProfile:
     schema_version: str
     package_version: str | None
     display_name: str
+    adapter_id: str = ""
 
 
-PROTOCOL_PROFILES = MappingProxyType({
-    ("0.13", "2"): ProtocolProfile(
-        "0.13", "2", "0.1.0", "Solver Protocol 0.13 / Schema 2"),
-    ("0.18", "2"): ProtocolProfile(
-        "0.18", "2", "0.1.0", "Solver Protocol 0.18 / Schema 2"),
-})
-DEFAULT_PROTOCOL_PROFILE = PROTOCOL_PROFILES[(EXPECTED_PROTOCOL, EXPECTED_SCHEMA)]
-
-
+@lru_cache(maxsize=32)
 def protocol_profile(protocol: str, schema: str) -> ProtocolProfile | None:
-    return PROTOCOL_PROFILES.get((protocol, schema))
+    from ..updater.solver_manifest import load_bundled_manifest
+    from .adapters import ADAPTERS
+    for entry in load_bundled_manifest().platforms:
+        if entry.protocol_version == protocol and entry.schema_version == schema:
+            adapter = ADAPTERS.get(entry.adapter_id)
+            if adapter is None or adapter.supported_schema != schema:
+                return None
+            return ProtocolProfile(protocol, schema, entry.solver_package_version,
+                                   f"Solver Protocol {protocol} / Schema {schema}",
+                                   adapter.id)
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,19 +63,31 @@ def parse_executable_version(output: str) -> tuple[str, str, str]:
 
 def validate_versions(protocol: str | None, schema: str | None,
                       package: str | None, *,
-                      profile: ProtocolProfile = DEFAULT_PROTOCOL_PROFILE,
+                      profile: ProtocolProfile | None = None,
                       ) -> CompatibilityResult:
-    protocol_ok = protocol == profile.protocol_version
-    schema_ok = None if schema is None else schema == profile.schema_version
-    package_ok = (None if package is None or profile.package_version is None
+    if profile is None and protocol is not None:
+        if schema is not None:
+            profile = protocol_profile(protocol, schema)
+        else:
+            from ..updater.solver_manifest import load_bundled_manifest
+            matches = [entry for entry in load_bundled_manifest().platforms
+                       if entry.protocol_version == protocol]
+            if len(matches) == 1:
+                entry = matches[0]
+                profile = ProtocolProfile(protocol, entry.schema_version,
+                                          entry.solver_package_version,
+                                          entry.display_name, entry.adapter_id)
+    protocol_ok = profile is not None and protocol == profile.protocol_version
+    schema_ok = None if schema is None or profile is None else schema == profile.schema_version
+    package_ok = (None if package is None or profile is None or profile.package_version is None
                   else package == profile.package_version)
     error = None
     if not protocol_ok or schema_ok is False or package_ok is False:
         error = ErrorRecord.create(
             category=ErrorCategory.PROTOCOL_COMPATIBILITY,
             user_message="The simulation solver is not compatible with this Cloth NeXt build.",
-            technical_message=(f"expected protocol={profile.protocol_version}, "
-                               f"schema={profile.schema_version}; "
+            technical_message=(f"expected protocol={getattr(profile, 'protocol_version', None)}, "
+                               f"schema={getattr(profile, 'schema_version', None)}; "
                                f"found protocol={protocol!r}, schema={schema!r}, package={package!r}"),
             recommended_action=(
                 "Install or select a solver release listed as supported by "

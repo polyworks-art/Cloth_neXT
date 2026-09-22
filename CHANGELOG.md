@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.6 - 2026-09-22
+
+- Prefer Gaia 0.22 for new solver installations while keeping Lumen 0.18 and verified Velune installations available.
+- Add an AUTO, CUDA, ROCm, and CPU backend choice in Preferences, with an AMD ROCm verification warning and explicit compatibility errors.
+- Certify Gaia on CUDA and CPU, Lumen on CUDA, and a lightweight Gaia ROCm bake on an AMD APU; document the scope and limits of those checks.
+- Improve solver generation compatibility, health checks, and backend switching across consecutive Blender bakes.
+
 ## 2.7.5 - 2026-09-20
 
 - Add a Learning Center button to the Learn Cloth NeXt preferences section.

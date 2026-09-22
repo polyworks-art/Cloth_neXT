@@ -234,3 +234,32 @@ def test_unknown_or_external_release_is_not_patched(tmp_path):
         solver_overlay.apply_solver_overlay(
             tmp_path, protocol_version="0.13", schema_version="2",
             official_release_tag="unknown", managed=True)
+
+
+def test_gaia_recipe_applies_only_to_its_exact_release(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    decoder = frontend / "_decoder_.py"
+    scene = frontend / "_scene_.py"
+    worker = frontend / "build_worker.py"
+    decoder.write_text(
+        'elif key == "lock-translation":\n' + solver_overlay._DECODER_NEEDLE,
+        encoding="utf-8")
+    scene.write_text(
+        solver_overlay._GAIA_SCENE_MAPPED
+        + solver_overlay._VIOLATION_NEEDLE
+        + 'statistics_input_path = os.path.join(path, "statistics_input.cbor")\n',
+        encoding="utf-8")
+    worker.write_text(solver_overlay._BUILD_WORKER_NEEDLE, encoding="utf-8")
+    kwargs = dict(protocol_version="0.22", schema_version="2",
+                  official_release_tag="2026-09-21-21-32", managed=True,
+                  integration_recipe_id="gaia-verified")
+    solver_overlay.apply_solver_overlay(tmp_path, **kwargs)
+    assert "_face_friction" in decoder.read_text(encoding="utf-8")
+    assert "invalid face_friction override" in scene.read_text(encoding="utf-8")
+    assert "exact_pairs" in scene.read_text(encoding="utf-8")
+    assert "PPF_CTS_DATA_ROOT" in worker.read_text(encoding="utf-8")
+    solver_overlay.apply_solver_overlay(tmp_path, **kwargs)
+    with pytest.raises(solver_overlay.SolverOverlayError, match="does not match"):
+        solver_overlay.apply_solver_overlay(
+            tmp_path, **{**kwargs, "official_release_tag": "other"})

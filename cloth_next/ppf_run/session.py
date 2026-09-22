@@ -1361,6 +1361,12 @@ class SolverSession:
         server_data = self._server_data_root()
         server_data.mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
+        from ..ppf.backend_selection import selected_backend, verify_backend_status
+        backend_identity = selected_backend(root, executable)
+        if backend_identity is not None:
+            # Gaia's worker follows CARGO_TARGET_DIR, independently of the
+            # control-server binary's directory. Pin both to one build.
+            environment["CARGO_TARGET_DIR"] = str(backend_identity[1])
         # Pin the per-project server data below our own work directory so
         # the run's cache never lands in unrelated user locations.
         environment["PPF_CTS_DATA_ROOT"] = str(server_data)
@@ -1388,6 +1394,17 @@ class SolverSession:
             # recovery project after readiness has been established.
             health_project = f"{self.scene.project_name}_health_probe"
         health = start_owned_and_wait(self._manager, health_project)
+        if backend_identity is not None:
+            try:
+                verify_backend_status(backend_identity, self._status())
+            except ValueError as exc:
+                raise ClothNextError(ErrorRecord.create(
+                    category=ErrorCategory.SOLVER_INSTALLATION,
+                    user_message="The selected solver backend did not start.",
+                    technical_message=str(exc),
+                    recommended_action="Reinstall the selected official solver release.",
+                    recoverable=True,
+                    exception=exc)) from exc
         poll = self._manager.poll()
         self.diagnostics.host, self.diagnostics.port = config.host, config.port
         self.diagnostics.process_id = poll.process_id
@@ -2086,6 +2103,9 @@ class SolverSession:
         self.diagnostics.termination_requested = True
         self._capture_process_tails()
         poll = manager.stop()
+        self.diagnostics.control_server_alive = poll.running
+        self.diagnostics.control_server_exit_code = poll.exit_code
+        self.diagnostics.owned_process_ids = tuple(poll.owned_process_ids)
         self.diagnostics.stdout_tail = poll.stdout_tail
         self.diagnostics.stderr_tail = poll.stderr_tail
         self.diagnostics.contact_peak = poll.contact_peak

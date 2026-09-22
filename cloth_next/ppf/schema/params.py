@@ -43,6 +43,8 @@ tracks using the same audited scene keys.
 
 from __future__ import annotations
 
+from ..adapters import LEGACY_PARAM_PROTOCOL
+
 import math
 import struct
 from dataclasses import dataclass, field
@@ -266,7 +268,7 @@ class SimulationSettings:
 def _scene_wire_params(settings: SimulationSettings,
                        contact_enabled: bool, *,
                        schema_version: int = 1,
-                       protocol_version: str = "0.13") -> dict:
+                       protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
     scene = {
         "dt": float32_wire(settings.quality.time_step),
         "min-newton-steps": int(settings.quality.min_newton_steps),
@@ -296,13 +298,15 @@ def _scene_wire_params(settings: SimulationSettings,
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
-    if protocol_version == "0.13":
-        scene["ccd-reduction"] = float32_wire(
-            settings.quality.ccd_reduction)
-        scene["ccd-max-iter"] = int(settings.quality.ccd_max_iter)
-    elif protocol_version != "0.18":
+    from ..compatibility import protocol_profile
+    from ..adapters import ADAPTERS, PARAM_ENCODER_COMPATIBILITY
+    profile = protocol_profile(protocol_version, str(schema_version))
+    adapter_id = (profile.adapter_id if profile is not None else
+                  PARAM_ENCODER_COMPATIBILITY.get((protocol_version, str(schema_version))))
+    if adapter_id is None:
         raise ParamEncodeError(
             f"unsupported solver protocol {protocol_version!r}")
+    ADAPTERS[adapter_id].adapt_scene_params(scene, settings.quality)
     if settings.auto_save_interval:
         scene["auto-save"] = int(settings.auto_save_interval)
     if settings.keep_saved_states:
@@ -361,7 +365,7 @@ def build_param_payload(settings: SimulationSettings,
                         contact_enabled: bool = True,
                         static_pin: StaticPinConfig | None = None,
                         schema_version: int = 1,
-                        protocol_version: str = "0.13") -> dict:
+                        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
     for label, value in (("cloth name", cloth_name), ("cloth uuid", cloth_uuid),
                          ("collider name", collider_name),
                          ("collider uuid", collider_uuid)):
@@ -392,7 +396,7 @@ def build_multi_collider_param_payload(
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> dict:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
     """PPF Param payload with one material group per STATIC collider."""
     entries = tuple(colliders)
     if not entries:
@@ -418,7 +422,7 @@ def encode_multi_collider_param(
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> tuple[bytes, str]:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> tuple[bytes, str]:
     payload = build_multi_collider_param_payload(
         settings, cloth_name, cloth_uuid, colliders, shell=shell,
         contact_enabled=contact_enabled, static_pin=static_pin,
@@ -436,7 +440,7 @@ def build_deformable_param_payload(
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> dict:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
     return build_multi_deformable_param_payload(
         settings,
         ((deformable_name, deformable_uuid, group_type, material,
@@ -449,7 +453,7 @@ def build_multi_deformable_param_payload(
         settings: SimulationSettings, deformables, colliders, *,
         contact_enabled: bool = True,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> dict:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
     """PPF parameters for multiple dynamic objects and shared colliders.
 
     Each deformable tuple is ``(name, uuid, group_type, material, pin)``.
@@ -507,7 +511,7 @@ def encode_deformable_param(
         contact_enabled: bool = True,
         static_pin: StaticPinConfig | None = None,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> tuple[bytes, str]:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> tuple[bytes, str]:
     payload = build_deformable_param_payload(
         settings, deformable_name, deformable_uuid, colliders,
         group_type=group_type, material=material,
@@ -522,7 +526,7 @@ def encode_multi_deformable_param(
         settings: SimulationSettings, deformables, colliders, *,
         contact_enabled: bool = True,
         schema_version: int = 1,
-        protocol_version: str = "0.13") -> tuple[bytes, str]:
+        protocol_version: str = LEGACY_PARAM_PROTOCOL) -> tuple[bytes, str]:
     payload = build_multi_deformable_param_payload(
         settings, deformables, colliders, contact_enabled=contact_enabled,
         schema_version=schema_version, protocol_version=protocol_version)
@@ -539,7 +543,7 @@ def encode_param(settings: SimulationSettings,
                  contact_enabled: bool = True,
                  static_pin: StaticPinConfig | None = None,
                  schema_version: int = 1,
-                 protocol_version: str = "0.13") -> tuple[bytes, str]:
+                 protocol_version: str = LEGACY_PARAM_PROTOCOL) -> tuple[bytes, str]:
     payload = build_param_payload(settings, cloth_name, cloth_uuid,
                                   collider_name, collider_uuid,
                                   shell=shell, static=static,

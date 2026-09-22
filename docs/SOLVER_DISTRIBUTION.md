@@ -11,7 +11,18 @@ solver executable or its runtime bundle (see
 [RELEASE_POLICY.md](RELEASE_POLICY.md) section 6). Release artifacts are scanned
 by `tools/scan_release_artifact.py`, and the release aborts on any hit.
 
-## Current locally validated runtime
+## Locally validated runtimes
+
+Gaia is the preferred managed installation. Its official tag is
+`2026-09-21-21-32` (commit `85e212db8438829e003540649fd7a118cfc5913d`).
+The Windows asset is
+<https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-21-21-32/ppf-contact-solver-2026-09-21-21-32-win64.zip>
+(404,647,817 bytes, SHA-256
+`44b8fbda3d1328e00ddebc5c7f49298a0d4d5509ba115102420555d805a93a56`).
+The CPU executable reports package `0.1.0`, protocol `0.22`, schema `2`.
+Managed installation, health check, real Bake, and integration tests passed.
+
+Lumen remains downloadable and selectable:
 
 - Official project: `st-tech/ppf-contact-solver` (ZOZO, Inc.).
 - Official release tag: `2026-08-12-15-47` (Lumen).

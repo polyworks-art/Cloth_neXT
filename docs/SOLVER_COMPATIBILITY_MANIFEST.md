@@ -6,31 +6,34 @@ metadata only — never binary data. Validation lives in
 `cloth_next/updater/solver_manifest.py`, `tools/validate_release_policy.py`,
 and `tests/test_solver_compatibility_manifest.py`.
 
-## Schema (manifest_version 2)
+## Schema (manifest_version 3)
 
 ```json
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "cloth_next_version": "<must equal blender_manifest.toml version>",
   "platforms": {
     "windows-x86_64": {
-      "default_release_id": "ppf-0.18-current",
+      "default_release_id": "ppf-0.22-gaia",
       "releases": [
         {
-          "id": "ppf-0.18-current",
-          "codename": "Lumen",
-          "display_name": "Lumen",
+          "id": "ppf-0.22-gaia",
+          "codename": "Gaia",
+          "display_name": "Gaia",
           "channel": "current",
+          "downloadable": true,
+          "adapter_id": "modern-schema2",
+          "integration_recipe_id": "gaia-verified",
           "solver_package_version": "0.1.0",
-          "protocol_version": "0.18",
+          "protocol_version": "0.22",
           "schema_version": "2",
           "official_repository": "st-tech/ppf-contact-solver",
-          "official_release_tag": "2026-08-12-15-47",
-          "official_asset_name": "ppf-contact-solver-2026-08-12-15-47-win64.zip",
-          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/<tag>/<asset>",
-          "download_size": 447922058,
-          "sha256": "<64 lowercase hex>",
-          "archive_layout_version": 1,
+          "official_release_tag": "2026-09-21-21-32",
+          "official_asset_name": "ppf-contact-solver-2026-09-21-21-32-win64.zip",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-21-21-32/ppf-contact-solver-2026-09-21-21-32-win64.zip",
+          "download_size": 404647817,
+          "sha256": "44b8fbda3d1328e00ddebc5c7f49298a0d4d5509ba115102420555d805a93a56",
+          "archive_layout_version": 2,
           "health_check_required": true
         }
       ]
@@ -50,10 +53,11 @@ Current names:
 
 - **Velune** — protocol `0.13`, schema `2`
 - **Lumen** — protocol `0.18`, schema `2`
+- **Gaia** — protocol `0.22`, schema `2`
 
-Lumen is the preferred and only release offered for new installation from the
-Preferences UI. Existing verified Velune installations remain compatible and
-can continue to be used, but Velune is no longer advertised as a download.
+Gaia is preferred for new installations. Gaia and Lumen are both offered in
+Preferences and can coexist as managed installations. Existing verified Velune
+installations remain compatible, but Velune is not offered for download.
 
 A codename stays attached to its protocol generation. Small rebuilds and
 compatible fixes keep the same codename; a new codename requires a deliberate,
@@ -78,8 +82,11 @@ release identity.
 ## Release identity
 
 The pair `official_release_tag` + `sha256` is the immutable identity of a
-verified release. Managed installations store this identity in `current.json`
-and compare it against the manifest to decide whether an update is available;
+verified release. Managed installations store this identity in their registry
+records and compare it against the manifest before launch. Registry selection
+chooses the active solver; `current.json` remains legacy metadata.
+The `adapter_id` selects the wire contract, and `integration_recipe_id` selects
+the verified frontend overlay. `downloadable` controls new-install offers;
 `solver_package_version` is a compatibility check of the downloaded executable,
 never a sufficient release identity. Different official releases may report the
 same internal package version.

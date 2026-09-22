@@ -38,8 +38,9 @@ into Blender-only progress without a global workflow lock.
   registration/RNA smoke test passes. Background mode cannot verify final on-screen
   HUD contrast, clipping, DPI behavior, or icon appearance; those remain explicit
   interactive visual checks.
-- Lumen (protocol 0.18/schema 2) is the default and only newly offered release.
-  Existing verified Velune installations remain compatible. Full package/schema verification is possible for an owned local
+- Gaia (protocol 0.22/schema 2) is preferred for new installations, while
+  Lumen (protocol 0.18/schema 2) remains downloadable and selectable. Existing
+  verified Velune installations remain compatible. Full package/schema verification is possible for an owned local
   executable via `--version`; external servers remain protocol-identified but
   schema-unverified.
 - The official release tag commit (`4f42d8c1…`) is earlier than the audited source

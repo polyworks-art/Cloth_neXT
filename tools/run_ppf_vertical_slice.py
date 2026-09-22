@@ -69,7 +69,8 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         preset: str = material_presets.DEFAULT_PRESET_ID,
         contact_enabled: bool = True, frame_count: int | None = None,
         face_friction: tuple[float, ...] = (),
-        cloth_divisions: int = fixture.CLOTH_DIVISIONS) -> dict:
+        cloth_divisions: int = fixture.CLOTH_DIVISIONS,
+        resolution=None) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     cloth, collider = fixture.vertical_slice_fixture()
     if cloth_divisions != fixture.CLOTH_DIVISIONS:
@@ -86,7 +87,7 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
     static_material = DEFAULT_STATIC_SETTINGS
 
     resolver = SolverResolver(_version_probe)
-    resolved = resolver.resolve(SolverResolutionContext(
+    resolved = resolution or resolver.resolve(SolverResolutionContext(
         development_executable=solver_executable))
     if resolved is None or resolved.executable_path is None:
         raise SystemExit(f"no solver executable at {solver_executable}")

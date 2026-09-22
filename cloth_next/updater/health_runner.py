@@ -28,6 +28,9 @@ def free_port(host: str = "127.0.0.1") -> int:
 
 def bundle_root_for(executable: Path) -> Path:
     parent = executable.parent
+    if (parent.name == "release" and parent.parent.name in ("cpu", "cuda", "rocm")
+            and parent.parent.parent.name == "target"):
+        return parent.parent.parent.parent
     if parent.name == "release" and parent.parent.name == "target":
         return parent.parent.parent
     return parent

@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.logging import get_logger, log_with_context
 from ..core.state import ApplicationState
-from .compatibility import (CompatibilityResult, DEFAULT_PROTOCOL_PROFILE,
-                            ProtocolProfile, protocol_profile,
+from .compatibility import (CompatibilityResult, ProtocolProfile, protocol_profile,
                             validate_versions)
 from .models import ConnectionOwnership
 from .process import SolverProcessManager
@@ -65,12 +64,13 @@ def query_health(
         profile = expected_profile or (
             protocol_profile(executable_protocol, schema)
             if executable_protocol is not None and schema is not None
-            else None) or DEFAULT_PROTOCOL_PROFILE
+            else None)
         compatibility = validate_versions(
             parsed.protocol_version, schema, package, profile=profile)
         if executable_protocol is not None and executable_protocol != parsed.protocol_version:
-            compatibility = validate_versions(
-                executable_protocol, schema, package, profile=profile)
+            raise ValueError(
+                "owned solver protocol mismatch: "
+                f"executable={executable_protocol}, server={parsed.protocol_version}")
         if parsed.error:
             crash = (f"; crash_kind={parsed.crash_kind!r}"
                      if parsed.crash_kind else "")

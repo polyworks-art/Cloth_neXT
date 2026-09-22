@@ -239,6 +239,7 @@ def migrate_legacy_current(paths, manifest, *,
         official_installation_id(release.official_release_tag)
         if known and release is not None
         else f"legacy-{uuid.uuid5(uuid.NAMESPACE_URL, str(root.resolve()))}")
+    was_empty = not registry.installations
     if registry.get(installation_id) is None:
         layout = BundledSolverLayout.from_root(root)
         installation = SolverInstallation(
@@ -260,6 +261,6 @@ def migrate_legacy_current(paths, manifest, *,
             channel=(release.channel if known and release else "unsupported"),
             error=None)
         registry = registry.register(installation)
-    if registry.selected_installation_id is None:
+    if was_empty and registry.selected_installation_id is None:
         registry = replace(registry, selected_installation_id=installation_id)
     return write_registry(paths.registry_json, registry)

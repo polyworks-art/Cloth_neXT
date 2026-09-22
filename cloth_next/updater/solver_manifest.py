@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
-SUPPORTED_MANIFEST_VERSIONS = frozenset({1, 2})
+SUPPORTED_MANIFEST_VERSIONS = frozenset({1, 2, 3})
 OFFICIAL_OWNER = "st-tech"
 OFFICIAL_REPOSITORY = "ppf-contact-solver"
 OFFICIAL_REPOSITORY_SLUG = f"{OFFICIAL_OWNER}/{OFFICIAL_REPOSITORY}"
@@ -25,6 +25,9 @@ OFFICIAL_DOWNLOAD_PREFIX = (
     f"https://github.com/{OFFICIAL_REPOSITORY_SLUG}/releases/download/")
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_PACKAGE_RE = re.compile(r"^\d+\.\d+\.\d+$")
+_PROTOCOL_RE = re.compile(r"^\d+\.\d+$")
+_SCHEMA_RE = re.compile(r"^\d+$")
 _PLACEHOLDER_RE = re.compile(r"VERIFIED|PLACEHOLDER|TODO|CHANGEME|EXAMPLE", re.IGNORECASE)
 _LOCAL_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]|^\\\\|^/|^\.")
 
@@ -47,6 +50,9 @@ class SolverCompatibilityEntry:
     display_name: str = ""
     codename: str = ""
     channel: str = "stable"
+    downloadable: bool = True
+    adapter_id: str = ""
+    integration_recipe_id: str = ""
 
     @property
     def official_release_page(self) -> str:
@@ -75,6 +81,10 @@ class SolverCompatibilityManifest:
     def releases_for(self, platform: str) -> tuple[SolverCompatibilityEntry, ...]:
         return tuple(entry for entry in self.platforms
                      if entry.platform == platform)
+
+    def downloadable_for(self, platform: str) -> tuple[SolverCompatibilityEntry, ...]:
+        return tuple(entry for entry in self.releases_for(platform)
+                     if entry.downloadable)
 
     def release(self, platform: str,
                 release_id: str) -> SolverCompatibilityEntry | None:
@@ -110,7 +120,7 @@ def _validate_url(url: str, tag: str, asset: str, platform: str) -> None:
 
 
 def parse_entry(platform: str, payload: Mapping[str, Any], *,
-                legacy: bool = False) -> SolverCompatibilityEntry:
+                legacy: bool = False, manifest_version: int = 2) -> SolverCompatibilityEntry:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{platform}: platform entry must be an object")
     repository = _require_text(payload, "official_repository", platform)
@@ -131,11 +141,37 @@ def parse_entry(platform: str, payload: Mapping[str, Any], *,
     if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
         raise ValueError(f"{platform}: download_size must be a positive integer")
     layout = payload.get("archive_layout_version")
-    if layout != 1:
+    if layout not in (1, 2):
         raise ValueError(f"{platform}: unsupported archive_layout_version {layout!r}")
     health = payload.get("health_check_required")
     if health is not True:
         raise ValueError(f"{platform}: health_check_required must be true")
+    adapter_id = ""
+    recipe_id = ""
+    downloadable = True
+    if manifest_version >= 3:
+        for key, pattern in (("solver_package_version", _PACKAGE_RE),
+                             ("protocol_version", _PROTOCOL_RE),
+                             ("schema_version", _SCHEMA_RE)):
+            if not pattern.fullmatch(_require_text(payload, key, platform)):
+                raise ValueError(f"{platform}: invalid {key}")
+        from ..ppf.adapters import ADAPTERS
+        adapter_id = _require_text(payload, "adapter_id", platform)
+        if adapter_id not in ADAPTERS:
+            raise ValueError(f"{platform}: unknown adapter_id {adapter_id!r}")
+        recipe_id = payload.get("integration_recipe_id")
+        if not isinstance(recipe_id, str) or not recipe_id.strip():
+            raise ValueError(f"{platform}: integration_recipe_id must be a non-empty string")
+        from ..ppf.solver_overlay import INTEGRATION_RECIPES
+        recipe = INTEGRATION_RECIPES.get(recipe_id)
+        if recipe is None or (recipe.protocol, recipe.schema, recipe.release_tag) != (
+                payload.get("protocol_version"), payload.get("schema_version"), tag):
+            raise ValueError(f"{platform}: unknown or mismatched integration_recipe_id")
+        if ADAPTERS[adapter_id].supported_schema != payload.get("schema_version"):
+            raise ValueError(f"{platform}: adapter_id does not support schema_version")
+        downloadable = payload.get("downloadable")
+        if not isinstance(downloadable, bool):
+            raise ValueError(f"{platform}: downloadable must be boolean")
 
     display_name = (
         f"Simulation Solver {tag}" if legacy
@@ -167,6 +203,9 @@ def parse_entry(platform: str, payload: Mapping[str, Any], *,
         sha256=sha256,
         archive_layout_version=layout,
         health_check_required=health,
+        downloadable=downloadable,
+        adapter_id=adapter_id,
+        integration_recipe_id=recipe_id,
     )
 
 
@@ -204,13 +243,17 @@ def parse_manifest(payload: Mapping[str, Any], *,
             releases = platform_payload.get("releases")
             if not isinstance(releases, list) or not releases:
                 raise ValueError(f"{platform}: releases must be a non-empty list")
-            parsed = tuple(parse_entry(platform, item) for item in releases)
+            parsed = tuple(parse_entry(platform, item, manifest_version=version)
+                           for item in releases)
             ids = tuple(item.release_id for item in parsed)
             if len(ids) != len(set(ids)):
                 raise ValueError(f"{platform}: release ids must be unique")
             if default not in ids:
                 raise ValueError(
                     f"{platform}: default_release_id {default!r} is not listed")
+            if version >= 3 and not next(
+                    item for item in parsed if item.release_id == default).downloadable:
+                raise ValueError(f"{platform}: preferred release must be downloadable")
             entries.extend(parsed)
             defaults.append((platform, default))
     return SolverCompatibilityManifest(

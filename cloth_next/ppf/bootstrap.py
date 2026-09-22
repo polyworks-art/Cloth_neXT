@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from ..core.safe_delete import DeleteFailedError, delete_owned
-from .compatibility import EXPECTED_PROTOCOL, EXPECTED_SCHEMA
 from .layout import BundledSolverLayout, EXECUTABLE_NAME
 
 UPSTREAM_BASELINE = "fec156e3edd8c931c1029215bf6973164f433270"
@@ -64,13 +63,36 @@ def find_single_executable(root: Path) -> Path:
     return found[0]
 
 
+def find_release_executable(root: Path, archive_layout_version: int) -> Path:
+    if archive_layout_version == 1:
+        return find_single_executable(root)
+    if archive_layout_version == 2:
+        expected = root / "target" / "cpu" / "release" / EXECUTABLE_NAME
+        if not expected.is_file():
+            raise ValueError("multi-backend archive is missing the CPU control server")
+        for backend in ("cpu", "cuda", "rocm"):
+            directory = root / "target" / backend / "release"
+            if not (directory / EXECUTABLE_NAME).is_file():
+                raise ValueError(f"multi-backend archive is missing {backend} server")
+            if not (directory / "ppf-contact-solver.exe").is_file():
+                raise ValueError(f"multi-backend archive is missing {backend} worker")
+            if not (directory / ".ppf-backend").is_file():
+                raise ValueError(f"multi-backend archive is missing {backend} marker")
+        if not (root / "frontend" / "_scene_.py").is_file():
+            raise ValueError("multi-backend archive is missing the frontend")
+        return expected
+    raise ValueError(f"unsupported archive layout {archive_layout_version}")
+
+
 def find_license_files(root: Path) -> list[Path]:
     return [path for path in root.rglob("*") if path.is_file()
             and (path.name.upper().startswith("LICENSE") or path.name.upper().startswith("NOTICE"))]
 
 
-def normalize_bundle_root(staging: Path) -> Path:
-    executable = find_single_executable(staging)
+def normalize_bundle_root(staging: Path, archive_layout_version: int = 1) -> Path:
+    executable = find_release_executable(staging, archive_layout_version)
+    if archive_layout_version == 2:
+        return staging
     if executable.parent.name == "release" and executable.parent.parent.name == "target":
         return staging
     return executable.parent
