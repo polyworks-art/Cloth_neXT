@@ -1718,7 +1718,7 @@ class SolverSession:
                 self._request(REQUEST_CANCEL_BUILD_ALIAS)
             elif status in (STATUS_BUSY, STATUS_SAVE_AND_QUIT):
                 self._request(REQUEST_TERMINATE_ALIAS)
-        except ClothNextError:
+        except (ClothNextError, OSError):
             pass  # the server may already be gone; process cleanup follows
 
     def _save_recovery_on_cancel(self) -> RecoveryOutcome:
