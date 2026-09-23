@@ -184,6 +184,32 @@ def run_stats(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
         ("ACTIVITY", activity[:34] or "—"),
     )
 
+
+_SOLVER_DETAIL_ROWS = (
+    ("BACKEND", "Backend"), ("DEVICE", "Device"),
+    ("FRAME_TIME", "Frame Time"), ("STEP_TIME", "Step Time"),
+    ("MATRIX_ASSEMBLY", "Matrix Assembly"),
+    ("LINEAR_SOLVE", "Linear Solve / PCG Solve"),
+    ("LINE_SEARCH", "Line Search"),
+    ("STEP_ADVANCED", "Step Advanced"),
+    ("CONTACT_MEMORY", "Contact Memory"), ("STRETCH", "Stretch"),
+)
+
+
+def solver_details(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
+    """Return only runtime facts actually reported by the active solver."""
+    values = dict(snapshot.solver_telemetry or {})
+    name = str(snapshot.solver_name or "").strip()
+    backend = str(snapshot.solver_backend or "").strip()
+    if name:
+        values["BACKEND"] = (
+            f"{name} · {backend.upper()}" if backend else name)
+    device = str(snapshot.solver_device or "").strip()
+    if device:
+        values["DEVICE"] = device
+    return tuple((key, str(values[key])) for key, _label in _SOLVER_DETAIL_ROWS
+                 if key in values and str(values[key]).strip())
+
 def progress_display_text(snapshot: BakeSnapshot) -> str:
     """Render frame text only when the snapshot carries a real frame."""
     if snapshot.current_frame is not None and snapshot.progress_total:
@@ -574,12 +600,13 @@ class BakeWindow:
         self.error_docs_link.bind("<Return>",self._open_error_docs)
         self.error_docs_link.bind("<space>",self._open_error_docs)
         self._error_docs_url=""
-        self.run_stats_section=tk.Frame(self.details_panel,bg=PANEL)
-        self.run_stats_section.pack(fill="both",expand=True)
-        self.run_stat_vars={}
+        self.solver_stats_section=tk.Frame(self.details_panel,bg=PANEL)
+        self.solver_stats_section.pack(fill="both",expand=True)
+        self.solver_stat_vars={}
+        self.solver_stat_rows={}
 
         def stat_group(title,rows):
-            group=tk.Frame(self.run_stats_section,bg=SECTION_BODY,
+            group=tk.Frame(self.solver_stats_section,bg=SECTION_BODY,
                            highlightbackground="#202020",highlightthickness=1)
             group.pack(fill="x",pady=(0,5))
             tk.Label(group,text=f"⌄  {title}",bg=SECTION_HEADER,fg=MUTED,
@@ -588,25 +615,21 @@ class BakeWindow:
             body.pack(fill="x")
             body.columnconfigure(1,weight=1)
             for row,(key,label) in enumerate(rows):
-                tk.Label(body,text=label,bg=SECTION_BODY,fg=MUTED,
-                         font=("Segoe UI",8),anchor="e",width=13).grid(
-                             row=row,column=0,sticky="e",padx=(0,8),pady=2)
-                value=tk.StringVar(value="—"); self.run_stat_vars[key]=value
-                tk.Label(body,textvariable=value,bg=VALUE_BG,fg=TEXT,
-                         font=("Consolas",8),anchor="w",padx=6,pady=2).grid(
-                             row=row,column=1,sticky="ew",pady=2)
+                label_widget=tk.Label(
+                    body,text=label,bg=SECTION_BODY,fg=MUTED,
+                    font=("Segoe UI",8),anchor="e",width=19)
+                label_widget.grid(row=row,column=0,sticky="e",
+                                  padx=(0,8),pady=2)
+                value=tk.StringVar(value="")
+                value_widget=tk.Label(
+                    body,textvariable=value,bg=VALUE_BG,fg=TEXT,
+                    font=("Consolas",8),anchor="w",padx=6,pady=2)
+                value_widget.grid(row=row,column=1,sticky="ew",pady=2)
+                self.solver_stat_vars[key]=value
+                self.solver_stat_rows[key]=(label_widget,value_widget)
             return group
 
-        stat_group("Run",(("FRAME","Frame"),("PROGRESS","Progress"),
-                          ("ELAPSED","Elapsed"),("ACTIVITY","Activity")))
-        stat_group("Solver",(("SOLVER","Backend"),("CONTACTS","Contacts"),
-                             ("NEWTON","Newton Steps"),
-                             ("LINEAR ITERS","Linear Iterations")))
-        self.run_eta=tk.Label(
-            self.run_stats_section,textvariable=self.remaining_text,
-            bg=SECTION_HEADER,fg="#9bc46a",font=("Segoe UI Semibold",8),
-            anchor="center",pady=4)
-        self.run_eta.pack(fill="x",pady=(6,0))
+        stat_group("Solver",_SOLVER_DETAIL_ROWS)
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
             style="CN.TButton",command=self._toggle_details)
@@ -737,12 +760,25 @@ class BakeWindow:
 
     def _show_run_details(self,snapshot):
         if snapshot.state is BakeState.ERROR:
-            self.run_stats_section.pack_forget()
+            self.solver_stats_section.pack_forget()
             if not self.diagnostics_section.winfo_manager():
                 self.diagnostics_section.pack(fill="both",expand=True)
-        elif not self.run_stats_section.winfo_manager():
+        elif not self.solver_stats_section.winfo_manager():
             self.diagnostics_section.pack_forget()
-            self.run_stats_section.pack(fill="both",expand=True)
+            self.solver_stats_section.pack(fill="both",expand=True)
+
+    def _update_solver_details(self,snapshot):
+        visible=dict(solver_details(snapshot))
+        for key,_label in _SOLVER_DETAIL_ROWS:
+            label_widget,value_widget=self.solver_stat_rows[key]
+            value=visible.get(key)
+            if value is None:
+                label_widget.grid_remove()
+                value_widget.grid_remove()
+            else:
+                self.solver_stat_vars[key].set(value)
+                label_widget.grid()
+                value_widget.grid()
 
     def _fit_window_to_content(self):
         """Keep content from displacing the fixed bottom controls."""
@@ -898,8 +934,7 @@ class BakeWindow:
         if snapshot.state is BakeState.ERROR:
             label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
-        for label,value in run_stats(snapshot):
-            self.run_stat_vars[label].set(value)
+        self._update_solver_details(snapshot)
         self._show_run_details(snapshot)
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)

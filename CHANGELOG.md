@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.7 - 2026-09-23
+
+- Keep the collapsed Bake Companion visually and behaviorally unchanged.
+- Remove the duplicate Run group from expanded details and retain one Solver group.
+- Show the active solver runtime, backend, and reported device instead of installation mode and package version.
+- Add optional live frame, step, assembly, solve, line-search, advancement, contact-memory, and stretch telemetry while hiding unavailable rows and preserving Lumen compatibility.
+
 ## 2.7.6 - 2026-09-22
 
 - Prefer Gaia 0.22 for new solver installations while keeping Lumen 0.18 and verified Velune installations available.

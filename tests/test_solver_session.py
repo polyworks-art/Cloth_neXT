@@ -148,6 +148,33 @@ def _transport_failure(phase="READ_TIMEOUT"):
         context={"transport_failure_phase": phase}))
 
 
+def test_optional_gaia_runtime_details_are_captured_without_placeholders(
+        monkeypatch):
+    session, _scripted, _frames, _events = _run_session(monkeypatch)
+
+    session._capture_solver_details({
+        "solver_name": "Gaia", "solver_backend": "cuda",
+        "device_name": "RTX 4070 SUPER",
+        "telemetry": {"frame_time": "18.2 ms", "line_search": "0.8 ms"},
+    })
+
+    assert session.diagnostics.solver_name == "Gaia"
+    assert session.diagnostics.solver_backend == "cuda"
+    assert session.diagnostics.solver_device == "RTX 4070 SUPER"
+    assert session.diagnostics.solver_telemetry == {
+        "FRAME_TIME": "18.2 ms", "LINE_SEARCH": "0.8 ms"}
+
+
+def test_lumen_status_without_optional_runtime_details_stays_clean(monkeypatch):
+    session, _scripted, _frames, _events = _run_session(monkeypatch)
+
+    session._capture_solver_details({"status": "BUSY"})
+
+    assert session.diagnostics.solver_backend == ""
+    assert session.diagnostics.solver_device == ""
+    assert session.diagnostics.solver_telemetry == {}
+
+
 def test_full_lifecycle_order_and_frames(monkeypatch):
     session, scripted, frames, events = _run_session(monkeypatch)
     diagnostics = session.run()

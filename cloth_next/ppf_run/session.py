@@ -341,6 +341,10 @@ class SessionEvent:
     host: str = ""
     port: int = 0
     activity_code: str = ""
+    solver_name: str = ""
+    solver_backend: str = ""
+    solver_device: str = ""
+    solver_telemetry: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -406,6 +410,10 @@ class SessionDiagnostics:
     max_status_latency_ms: float = 0.0
     last_status_success_monotonic: float | None = None
     transport_failure_phase: str = ""
+    solver_name: str = ""
+    solver_backend: str = ""
+    solver_device: str = ""
+    solver_telemetry: dict[str, str] = field(default_factory=dict)
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -498,7 +506,48 @@ class SolverSession:
                     package_version=self.diagnostics.package_version,
                     protocol_version=self.diagnostics.protocol_version,
                     schema_version=self.diagnostics.schema_version,
-                    host=self.diagnostics.host, port=self.diagnostics.port)
+                    host=self.diagnostics.host, port=self.diagnostics.port,
+                    solver_name=self.diagnostics.solver_name,
+                    solver_backend=self.diagnostics.solver_backend,
+                    solver_device=self.diagnostics.solver_device,
+                    solver_telemetry=dict(self.diagnostics.solver_telemetry))
+
+    def _capture_solver_details(self, response: dict) -> None:
+        """Capture optional runtime facts without requiring them from Lumen."""
+        profile = self.resolved.protocol_profile
+        if profile is not None:
+            self.diagnostics.solver_name = profile.display_name
+        for key in ("solver_name", "solver_codename"):
+            value = response.get(key)
+            if isinstance(value, str) and value.strip():
+                self.diagnostics.solver_name = value.strip()
+                break
+        backend = response.get("solver_backend")
+        if isinstance(backend, str) and backend.strip():
+            self.diagnostics.solver_backend = backend.strip()
+        for key in ("solver_device", "device_name", "gpu_name"):
+            value = response.get(key)
+            if isinstance(value, str) and value.strip():
+                self.diagnostics.solver_device = value.strip()
+                break
+        raw = response.get("solver_telemetry", response.get("telemetry", {}))
+        if not isinstance(raw, dict):
+            raw = {}
+        aliases = {
+            "frame_time": "FRAME_TIME", "step_time": "STEP_TIME",
+            "matrix_assembly": "MATRIX_ASSEMBLY",
+            "linear_solve": "LINEAR_SOLVE", "pcg_solve": "LINEAR_SOLVE",
+            "line_search": "LINE_SEARCH", "step_advanced": "STEP_ADVANCED",
+            "contact_memory": "CONTACT_MEMORY", "stretch": "STRETCH",
+        }
+        captured = {}
+        for source, target in aliases.items():
+            value = raw.get(source, response.get(source))
+            if (isinstance(value, (str, int, float))
+                    and not isinstance(value, bool)
+                    and str(value).strip()):
+                captured[target] = str(value).strip()
+        self.diagnostics.solver_telemetry = captured
 
     def _status(self, *, allow_server_error: bool = False) -> dict:
         assert self._address is not None
@@ -545,6 +594,7 @@ class SolverSession:
         self.diagnostics.last_successful_command = "status"
         self.diagnostics.command_in_flight = ""
         status = str(response.get("status", ""))
+        self._capture_solver_details(response)
         self.diagnostics.note_status(status)
         previous = (tuple(item.frame for item in self._recovery_record.checkpoints)
                     if self._recovery_record is not None else ())
@@ -1689,7 +1739,12 @@ class SolverSession:
                             activity_message or
                             f"Simulating frame {current} of {total}",
                             frame_current=available, frame_total=total,
-                            activity_code=activity_code)
+                            activity_code=activity_code,
+                            solver_name=self.diagnostics.solver_name,
+                            solver_backend=self.diagnostics.solver_backend,
+                            solver_device=self.diagnostics.solver_device,
+                            solver_telemetry=dict(
+                                self.diagnostics.solver_telemetry))
             else:
                 self._event("SIMULATING",
                             f"Waiting for the solver ({status})",

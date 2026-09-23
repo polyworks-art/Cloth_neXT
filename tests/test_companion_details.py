@@ -123,19 +123,20 @@ def test_details_height_uses_requested_content_height():
     assert "max(DETAILS_HEIGHT,requested)" in source
 
 
-def test_details_stats_own_normal_panel_and_eta_sits_below_it():
+def test_expanded_details_contains_only_solver_section():
     source=inspect.getsource(app.BakeWindow._build)
     states=inspect.getsource(app.BakeWindow._show_run_details)
-    assert 'self.run_stats_section.pack(fill="both",expand=True)' in source
-    assert "self.run_stat_vars" in source
-    assert 'self.run_eta.pack(fill="x",pady=(6,0))' in source
+    assert 'self.solver_stats_section.pack(fill="both",expand=True)' in source
+    assert 'stat_group("Solver",_SOLVER_DETAIL_ROWS)' in source
+    assert 'stat_group("Run"' not in source
+    assert "self.run_eta" not in source
     assert "self.diagnostics_section.pack_forget()" in states
 
 
 def test_error_details_replace_stats_and_window_refits_after_updates():
     states=inspect.getsource(app.BakeWindow._show_run_details)
     show=inspect.getsource(app.BakeWindow.show)
-    assert "self.run_stats_section.pack_forget()" in states
+    assert "self.solver_stats_section.pack_forget()" in states
     assert 'self.diagnostics_section.pack(fill="both",expand=True)' in states
     assert "self._fit_window_to_content()" in show
 
@@ -152,6 +153,34 @@ def test_run_stats_replace_history_graph_with_current_run_facts():
     assert values["NEWTON"] == "2"
     assert values["LINEAR ITERS"] == "187"
     assert "FramePerformanceHistory" not in inspect.getsource(app)
+
+
+def test_solver_details_show_reported_runtime_identity_and_telemetry_only():
+    snapshot=BakeSnapshot(
+        solver_name="Gaia",solver_backend="cuda",
+        solver_device="RTX 4070 SUPER",
+        solver_telemetry={"FRAME_TIME":"18.2 ms","PCG_UNUSED":"99"})
+    assert app.solver_details(snapshot) == (
+        ("BACKEND","Gaia · CUDA"),
+        ("DEVICE","RTX 4070 SUPER"),
+        ("FRAME_TIME","18.2 ms"),)
+
+
+def test_unavailable_solver_telemetry_has_no_placeholder_rows():
+    assert app.solver_details(BakeSnapshot()) == ()
+    lumen=BakeSnapshot(solver_name="Lumen")
+    assert app.solver_details(lumen) == (("BACKEND","Lumen"),)
+    assert all(value not in {"N/A","—"} for _,value in app.solver_details(lumen))
+
+
+def test_solver_telemetry_is_confined_to_hidden_details_panel():
+    build=inspect.getsource(app.BakeWindow._build)
+    show=inspect.getsource(app.BakeWindow.show)
+    assert "self.details_panel.grid_remove()" in build
+    assert "self._update_solver_details(snapshot)" in show
+    assert "solver_telemetry" not in inspect.getsource(
+        app.BakeWindow._draw_status_content)
+    assert app.COMPACT_HEIGHT == 118
 
 
 def test_details_replaces_nonfunctional_pause_control():
