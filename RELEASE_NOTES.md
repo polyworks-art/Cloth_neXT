@@ -1,7 +1,9 @@
-# Cloth NeXt 2.7.7
+# Cloth NeXt 2.7.8
 
-The expanded Bake Companion details now focus on solver runtime information without changing the normal compact Bake view. The duplicate Run section has been removed, while the compact frame progress, Contacts, Newton Steps, and Linear Iterations presentation remains unchanged.
+The expanded Bake Companion Solver details now use the active solver's verified runtime identity. Gaia reports its actual CUDA, CPU, or ROCm backend and device when available; protocol and schema compatibility metadata are no longer presented as the backend.
 
-Solver details identify the active runtime and backend, such as Gaia CUDA, and show the device when the solver reports it. Optional live telemetry includes frame and step timing, matrix assembly, linear or PCG solve, line search, step advancement, contact memory, and stretch. Rows are omitted when the active solver does not report a value, so Lumen remains clean and compatible.
+Live values are read from the real solver status summary for frame and step timing, matrix assembly, linear solve, line search, step advancement, contact memory, and stretch. Missing values create no rows, the expanded area follows its visible content, and collapsing restores the exact existing Bake Companion size. Lumen continues to degrade cleanly.
+
+The add-on preferences now label the solver section GAIA Engine and show the supplied transparent GAIA leaf mark.
 
 Published to the configured private repository. The external PPF Contact Solver is not bundled.

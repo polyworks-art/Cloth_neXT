@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.8",
+  "title": "What's New in Cloth NeXt 2.7.8",
+  "subtitle": "Accurate Gaia runtime details in the Bake Companion.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "See the real backend",
+      "description": "Gaia now reports its verified CUDA, CPU, or ROCm runtime and device instead of displaying protocol metadata as the backend."
+    },
+    {
+      "icon": "icons/docs.png",
+      "title": "Follow live solver telemetry",
+      "description": "Expanded Solver details show only timing, assembly, solve, advancement, memory, and stretch values actually reported by the active solver."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Expand only what is there",
+      "description": "Unavailable rows stay hidden, expanded height follows visible content, and collapsing returns to the exact existing Bake Companion size."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

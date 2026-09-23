@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.8 - 2026-09-23
+
+- Keep the collapsed Bake Companion at its exact existing size and presentation.
+- Read Gaia protocol 0.22 runtime identity and live telemetry from the real status summary instead of showing protocol/schema as the backend.
+- Size expanded Solver details to the rows actually reported, hide unavailable values, and restore the exact compact height on collapse.
+- Rename the solver preferences section to GAIA Engine and add its transparent branded leaf icon.
+
 ## 2.7.7 - 2026-09-23
 
 - Keep the collapsed Bake Companion visually and behaviorally unchanged.
