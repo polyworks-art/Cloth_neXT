@@ -8246,7 +8246,11 @@ def _pump_once() -> float | None:
                 shared_telemetry.set_solver_pid(event.process_id)
                 shared_controller.update(solver_mode=event.solver_mode,
                     solver_version=event.package_version or "",
-                    solver_process_id=event.process_id)
+                    solver_process_id=event.process_id,
+                    solver_name=event.solver_name,
+                    solver_backend=event.solver_backend,
+                    solver_device=event.solver_device,
+                    solver_telemetry=event.solver_telemetry)
                 continue
             if event.phase == "RECOVERY_SAVED":
                 # Periodic solver checkpoints are verified on the worker
@@ -8298,6 +8302,12 @@ def _pump_once() -> float | None:
                                      "activity_label": event.message}
                                     if activity_code is not None else
                                     {"activity_label": ""})
+                if getattr(event, "solver_name", ""):
+                    activity_changes.update(
+                        solver_name=event.solver_name,
+                        solver_backend=event.solver_backend,
+                        solver_device=event.solver_device,
+                        solver_telemetry=event.solver_telemetry)
                 _safe_transition(
                     state, status_message=event.message,
                     current_frame=current,

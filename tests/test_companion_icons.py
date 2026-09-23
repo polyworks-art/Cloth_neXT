@@ -102,7 +102,19 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
             visible = [pixel for pixel in image.convert("RGBA").get_flattened_data()
                        if pixel[3]]
             assert visible, path
+        if path.name == "gaia_engine.png":
+            continue
         assert all(pixel[:3] == (255, 255, 255) for pixel in visible), path
+
+
+def test_gaia_engine_brand_icon_is_small_and_transparent():
+    path = ROOT / "cloth_next" / "assets" / "icons" / "gaia_engine.png"
+    with Image.open(path) as image:
+        rgba = image.convert("RGBA")
+        assert image.size == (64, 64)
+        assert rgba.getpixel((0, 0))[3] == 0
+        assert any(pixel[3] and pixel[:3] != (255, 255, 255)
+                   for pixel in rgba.get_flattened_data())
 
 
 def test_companion_error_bar_uses_only_stable_code():

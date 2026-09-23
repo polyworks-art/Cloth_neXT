@@ -85,7 +85,10 @@ def _draw_worker_state(layout) -> None:
 def draw_solver_section(self, layout) -> None:
     """Draw one active solver card with secondary actions behind Manage."""
     box = layout.box()
-    box.label(text="Solver")
+    box.label(
+        text="GAIA Engine",
+        **icon_registry.icon_kwargs("gaia_engine", "NONE"),
+    )
 
     _preferences._session.load()
     registry, registry_error = _preferences._read_registry()

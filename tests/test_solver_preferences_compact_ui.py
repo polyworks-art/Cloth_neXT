@@ -103,6 +103,13 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     )
     registry = SolverRegistry((old, current), old.installation_id)
     preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    requested_icons = []
+
+    def record_icon(name, fallback="NONE"):
+        requested_icons.append((name, fallback))
+        return {"icon": fallback}
+
+    monkeypatch.setattr(compact_ui.icon_registry, "icon_kwargs", record_icon)
 
     prefs = preferences.CLOTHNEXT_AddonPreferences()
     prefs.selected_solver_installation_id = old.installation_id
@@ -110,7 +117,9 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     prefs._draw_solver_section(layout)
 
     labels = [text for text, _icon in layout.labels]
-    assert "Solver" in labels
+    assert "GAIA Engine" in labels
+    assert "Solver" not in labels
+    assert ("gaia_engine", "NONE") in requested_icons
     assert old.display_name not in labels
     assert current.display_name not in labels
     assert "No Solver Selected" in labels

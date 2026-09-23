@@ -78,7 +78,9 @@ def test_progress_unknown_zero_and_clamped():
 
 def test_snapshot_immutable_round_trip_and_duration():
     snap = BakeSnapshot(state=BakeState.SIMULATING, progress_current=2,
-                        progress_total=4)
+                        progress_total=4,solver_name="Gaia",
+                        solver_backend="cuda",solver_device="RTX 4070 SUPER",
+                        solver_telemetry={"FRAME_TIME":"18.2 ms"})
     with pytest.raises(FrozenInstanceError):
         snap.job_id = "changed"
     assert BakeSnapshot.from_json(snap.to_json()) == snap
@@ -175,6 +177,10 @@ def test_new_bake_clears_all_previous_run_status_fields():
         solver_mode="MANAGED",
         solver_version="old",
         solver_process_id=123,
+        solver_name="Gaia",
+        solver_backend="cuda",
+        solver_device="Old GPU",
+        solver_telemetry={"STEP_TIME":"1 ms"},
         activity_label="Old solver activity",
         activity_detail="Old run detail")
     c.fail("Old run failed", "Old technical details")
@@ -190,6 +196,10 @@ def test_new_bake_clears_all_previous_run_status_fields():
     assert fresh.solver_mode == ""
     assert fresh.solver_version == ""
     assert fresh.solver_process_id is None
+    assert fresh.solver_name == ""
+    assert fresh.solver_backend == ""
+    assert fresh.solver_device == ""
+    assert fresh.solver_telemetry == {}
     assert fresh.activity_label == ""
     assert fresh.activity_detail == ""
     assert fresh.error_summary == ""

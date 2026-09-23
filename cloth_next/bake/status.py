@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 import json
 import math
@@ -173,6 +173,10 @@ class BakeSnapshot:
     solver_mode: str = ""
     solver_version: str = ""
     solver_process_id: int | None = None
+    solver_name: str = ""
+    solver_backend: str = ""
+    solver_device: str = ""
+    solver_telemetry: dict[str, str] = field(default_factory=dict)
     activity_code: BakeActivity = BakeActivity.IDLE
     activity_label: str = ""
     activity_detail: str = ""
@@ -211,7 +215,9 @@ class BakeSnapshot:
             "status_message": 4096, "activity_detail": 2048,
             "activity_label": 1024, "status_title": 512,
             "active_object_name": 1024, "solver_version": 512,
-            "solver_mode": 128, "job_id": 128, "error_code": 32,
+            "solver_mode": 128, "solver_name": 128,
+            "solver_backend": 128, "solver_device": 512,
+            "job_id": 128, "error_code": 32,
         }
         for key, limit in limits.items():
             value = data.get(key)
@@ -254,6 +260,12 @@ class BakeSnapshot:
             if key in values and values[key] is not None:
                 try: values[key] = int(values[key])
                 except (TypeError, ValueError): values[key] = None if key != "progress_current" else 0
+        telemetry = values.get("solver_telemetry")
+        values["solver_telemetry"] = (
+            {str(key): str(value) for key, value in telemetry.items()
+             if isinstance(key, str) and isinstance(value, (str, int, float))
+             and not isinstance(value, bool) and str(value).strip()}
+            if isinstance(telemetry, dict) else {})
         if "progress_total" in values and values["progress_total"] is not None:
             try: values["progress_total"] = max(0, int(values["progress_total"]))
             except (TypeError, ValueError): values["progress_total"] = None

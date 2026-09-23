@@ -834,7 +834,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
-        box.label(text="Simulation Solver")
+        box.label(
+            text="GAIA Engine",
+            **icon_registry.icon_kwargs("gaia_engine", "NONE"),
+        )
         box.label(text="Solver Installations")
         _session.load()
         registry, registry_error = _read_registry()

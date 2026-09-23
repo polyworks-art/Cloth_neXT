@@ -13,6 +13,7 @@ import json
 import struct
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -146,6 +147,47 @@ def _transport_failure(phase="READ_TIMEOUT"):
             f"transport_failure_phase={phase}; injected status failure"),
         recommended_action="retry", recoverable=True,
         context={"transport_failure_phase": phase}))
+
+
+def test_gaia_status_summary_reaches_runtime_telemetry_without_duplicates(
+        monkeypatch):
+    session, _scripted, _frames, _events = _run_session(monkeypatch)
+    installation = SimpleNamespace(
+        verified=True, protocol_version="0.22", display_name="Gaia",
+        official_release_tag="gaia-release")
+    session.resolved = SimpleNamespace(installation=installation)
+
+    session._capture_solver_details({
+        "status":"BUSY", "backend":"cuda", "device":"RTX 4070 SUPER",
+        "summary":{
+            "time-per-frame":"2.14 s", "time-per-step":"184 ms",
+            "matrix-assembly":"31 ms", "pcg-linsolve":"108 ms",
+            "line-search":"22 ms", "toi-advanced":"97 %",
+            "dyn-consumed":"34 %", "stretch":"1.04×",
+            "contacts":408, "newton-steps":2, "pcg-iterations":187}})
+
+    assert session.diagnostics.solver_name == "Gaia"
+    assert session.diagnostics.solver_backend == "cuda"
+    assert session.diagnostics.solver_device == "RTX 4070 SUPER"
+    assert session.diagnostics.solver_telemetry == {
+        "FRAME_TIME":"2.14 s", "STEP_TIME":"184 ms",
+        "MATRIX_ASSEMBLY":"31 ms", "LINEAR_SOLVE":"108 ms",
+        "LINE_SEARCH":"22 ms", "STEP_ADVANCED":"97 %",
+        "CONTACT_MEMORY":"34 %", "STRETCH":"1.04×"}
+
+
+def test_lumen_without_summary_telemetry_degrades_cleanly(monkeypatch):
+    session, _scripted, _frames, _events = _run_session(monkeypatch)
+    session.resolved = SimpleNamespace(installation=SimpleNamespace(
+        verified=True, protocol_version="0.18", display_name="Lumen",
+        official_release_tag="lumen-release"))
+
+    session._capture_solver_details({"status":"BUSY"})
+
+    assert session.diagnostics.solver_name == "Lumen"
+    assert session.diagnostics.solver_backend == ""
+    assert session.diagnostics.solver_device == ""
+    assert session.diagnostics.solver_telemetry == {}
 
 
 def test_full_lifecycle_order_and_frames(monkeypatch):
