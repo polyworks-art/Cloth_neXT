@@ -68,6 +68,18 @@ def test_protocol_mismatch_is_rejected():
     assert not health.compatible
 
 
+def test_stale_supported_server_protocol_cannot_match_selected_executable():
+    server = TcpTestDouble([response("0.18")])
+    health = query_health(host="127.0.0.1", port=server.port,
+        project_name="stale", ownership=ConnectionOwnership.OWNED_PROCESS,
+        transport=TransportConfig(),
+        local_versions=("0.1.0", "0.22", "2"))
+    server.close()
+    assert not health.compatible
+    assert health.last_error is not None
+    assert "executable=0.22, server=0.18" in health.last_error.technical_message
+
+
 class FakeManager:
     def __init__(self, polls):
         self.config = SimpleNamespace(host="127.0.0.1", port=19091, connect_timeout=.01,

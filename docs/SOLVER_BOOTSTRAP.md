@@ -15,7 +15,7 @@ whole parent tree because the server is not a standalone EXE. Default target is
 The importer extracts/copies to `solver/.staging-<uuid>`, rejects traversal and
 symlinks, requires exactly one server executable and at least one LICENSE/NOTICE,
 preserves runtime files, runs `--version`, requires a release in the supported
-compatibility matrix, and defaults new installations to Lumen 0.18/schema 2 before it starts
+compatibility matrix, and checks its single-executable archive layout before it starts
 the real server on an ephemeral port. Only after
 `SERVER_READY` plus a compatible TCMD status does it create `SOURCE.json` and atomically
 exchange the target. Failure removes staging; an old target is restored from its
@@ -24,6 +24,10 @@ temporary backup.
 Mutable progress/log state uses a temporary `ClothNeXt-*` directory outside source and
 extension roots. Absolute local source paths are recorded only as `redacted`.
 
-The currently used official archive omitted a root license file. For the local import,
+This legacy importer does not handle Gaia's multi-backend archive layout. New
+managed Gaia installations use the Preferences installer and the manifest's
+archive layout 2 recipe instead.
+
+The Lumen archive used for the historical local import omitted a root license file. For the local import,
 the unchanged Apache-2.0 `LICENSE` from the official repository checkout was added
 before bootstrap. The tool correctly refuses an archive/directory with no license.

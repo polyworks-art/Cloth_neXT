@@ -42,6 +42,7 @@ def test_bundled_releases_have_expected_codenames():
     assert [(entry.protocol_version, entry.release_name) for entry in releases] == [
         ("0.13", "Velune"),
         ("0.18", "Lumen"),
+        ("0.22", "Gaia"),
     ]
     assert all(entry.codename == entry.display_name for entry in releases)
 

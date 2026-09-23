@@ -25,10 +25,22 @@ class BundledSolverLayout:
     architecture: str = "x86_64"
 
     @classmethod
+    def from_executable(cls, executable: Path) -> "BundledSolverLayout":
+        path = executable.expanduser().resolve()
+        parent = path.parent
+        if (parent.name == "release" and parent.parent.name in ("cpu", "cuda", "rocm")
+                and parent.parent.parent.name == "target"):
+            return cls.from_root(parent.parent.parent.parent)
+        if parent.name == "release" and parent.parent.name == "target":
+            return cls.from_root(parent.parent.parent)
+        return cls.from_root(parent)
+
+    @classmethod
     def from_root(cls, root: Path) -> "BundledSolverLayout":
         normalized = root.expanduser().resolve()
         candidates = (normalized / EXECUTABLE_NAME,
-                      normalized / "target" / "release" / EXECUTABLE_NAME)
+                      normalized / "target" / "release" / EXECUTABLE_NAME,
+                      normalized / "target" / "cpu" / "release" / EXECUTABLE_NAME)
         executable = next((path for path in candidates if path.is_file()), candidates[0])
         return cls(normalized, executable, normalized / "SOURCE.json", normalized / "LICENSES")
 

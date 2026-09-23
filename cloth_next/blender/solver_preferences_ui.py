@@ -48,13 +48,7 @@ def _worker_active() -> bool:
 
 
 def _selected_installation(preferences, registry):
-    selected_id = (
-        getattr(preferences, "selected_solver_installation_id", "")
-        or registry.selected_installation_id
-        or ""
-    )
-    if selected_id == "NONE":
-        selected_id = ""
+    selected_id = registry.selected_installation_id or ""
     return selected_id, registry.get(selected_id)
 
 
@@ -149,6 +143,25 @@ def draw_solver_section(self, layout) -> None:
         selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
 
+    if active.protocol_version in {"0.22", "0.18"}:
+        from ..ppf.backend_selection import available_backend_choices
+        choice = str(getattr(self, "solver_backend_choice", "AUTO") or "AUTO")
+        available = available_backend_choices(
+            active.protocol_version, active.root)
+        backend_row = box.row()
+        backend_row.enabled = not busy
+        backend_row.prop(self, "solver_backend_choice", text="Backend")
+        if active.protocol_version == "0.18":
+            box.label(text="Lumen provides CUDA only; Auto uses CUDA.")
+        if choice not in available:
+            box.label(
+                text=f"{choice} is unavailable in {active.display_name}; choose Auto or an available backend.",
+                icon="ERROR")
+        if choice == "ROCM":
+            box.label(text="ROCm: general AMD GPU support is not yet verified.",
+                      icon="INFO")
+        box.label(text="The selected backend is checked before each Bake.")
+
     if active.error:
         box.label(text=active.error, **icon_registry.icon_kwargs("error", "ERROR"))
     if session_active:
@@ -160,7 +173,7 @@ def draw_solver_section(self, layout) -> None:
     actions = box.row(align=True)
     test_row = actions.row(align=True)
     test_row.enabled = not busy
-    test = test_row.operator("clothnext.solver_health_check", text="Test")
+    test = test_row.operator("clothnext.solver_health_check", text="Test Install")
     test.installation_id = active.installation_id
     actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
 
@@ -212,11 +225,8 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             for installation in supported
             if installation.managed and installation.official_release_tag
         }
-        # Offer only the manifest's preferred release. Older compatible
-        # installations remain usable, but are no longer advertised for a
-        # new install or reinstall.
-        preferred = _preferences._session.entry
-        for entry in ((preferred,) if preferred is not None else ()):
+        for entry in (item for item in _preferences._session.entries
+                      if item.downloadable):
             installed = installed_by_tag.get(entry.official_release_tag)
             release_row = layout.row()
             release_row.enabled = not busy
@@ -226,7 +236,10 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
                     text=f"Install {entry.display_name}",
                 )
                 operator.release_id = entry.release_id
-                operator.activate_after_install = active is None
+                preferred = _preferences._session.entry
+                operator.activate_after_install = (
+                    active is None and preferred is not None
+                    and entry.release_id == preferred.release_id)
             else:
                 operator = release_row.operator(
                     "clothnext.solver_download",

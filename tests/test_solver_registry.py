@@ -86,3 +86,19 @@ def test_corrupt_registry_rejected(tmp_path):
 def test_official_installation_id_is_stable():
     assert official_installation_id("2026-07-26-22-53") == (
         "official-2026-07-26-22-53-win64")
+
+
+def test_lumen_and_gaia_switch_without_losing_either_release(tmp_path):
+    lumen = installation(tmp_path, "lumen", "0.18", "2")
+    gaia = installation(tmp_path, "gaia", "0.22", "2")
+    path = tmp_path / "registry.json"
+    registry = SolverRegistry().register(lumen).register(gaia).select(
+        lumen.installation_id)
+    write_registry(path, registry)
+    assert load_registry(path).selected == lumen
+    write_registry(path, load_registry(path).select(gaia.installation_id))
+    assert load_registry(path).selected == gaia
+    remaining = load_registry(path).unregister(gaia.installation_id)
+    assert remaining.installations == (lumen,)
+    assert remaining.selected_installation_id is None
+    assert lumen.executable.is_file()

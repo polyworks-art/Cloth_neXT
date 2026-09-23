@@ -1,15 +1,18 @@
 {
-  "manifest_version": 2,
-  "cloth_next_version": "2.7.5",
+  "manifest_version": 3,
+  "cloth_next_version": "2.7.7",
   "platforms": {
     "windows-x86_64": {
-      "default_release_id": "ppf-0.18-current",
+      "default_release_id": "ppf-0.22-gaia",
       "releases": [
         {
           "id": "ppf-0.13-stable",
           "codename": "Velune",
           "display_name": "Velune",
           "channel": "stable",
+          "downloadable": false,
+          "adapter_id": "legacy-schema2",
+          "integration_recipe_id": "velune-verified",
           "solver_package_version": "0.1.0",
           "protocol_version": "0.13",
           "schema_version": "2",
@@ -27,6 +30,9 @@
           "codename": "Lumen",
           "display_name": "Lumen",
           "channel": "current",
+          "downloadable": true,
+          "adapter_id": "modern-schema2",
+          "integration_recipe_id": "lumen-verified",
           "solver_package_version": "0.1.0",
           "protocol_version": "0.18",
           "schema_version": "2",
@@ -37,6 +43,26 @@
           "download_size": 447922058,
           "sha256": "f80d185b5c585b5f7749d747f317f4e7ab57d0522f10083f970089ff7d378733",
           "archive_layout_version": 1,
+          "health_check_required": true
+        },
+        {
+          "id": "ppf-0.22-gaia",
+          "codename": "Gaia",
+          "display_name": "Gaia",
+          "channel": "current",
+          "downloadable": true,
+          "adapter_id": "modern-schema2",
+          "integration_recipe_id": "gaia-verified",
+          "solver_package_version": "0.1.0",
+          "protocol_version": "0.22",
+          "schema_version": "2",
+          "official_repository": "st-tech/ppf-contact-solver",
+          "official_release_tag": "2026-09-21-21-32",
+          "official_asset_name": "ppf-contact-solver-2026-09-21-21-32-win64.zip",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-21-21-32/ppf-contact-solver-2026-09-21-21-32-win64.zip",
+          "download_size": 404647817,
+          "sha256": "44b8fbda3d1328e00ddebc5c7f49298a0d4d5509ba115102420555d805a93a56",
+          "archive_layout_version": 2,
           "health_check_required": true
         }
       ]

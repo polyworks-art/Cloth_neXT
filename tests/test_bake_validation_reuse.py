@@ -60,9 +60,9 @@ def test_resolve_managed_solver_applies_both_frontend_overlays(env,
     selected = SimpleNamespace(
         managed=True,
         root=root,
-        protocol_version="0.11",
-        schema_version="0.11",
-        official_release_tag="v-test",
+        protocol_version="0.18",
+        schema_version="2",
+        official_release_tag="2026-08-12-15-47",
     )
     registry = SimpleNamespace(
         selected_installation_id="managed-id",
@@ -96,9 +96,9 @@ def test_resolve_managed_solver_applies_both_frontend_overlays(env,
 
     assert calls == [
         ("solver", root, {
-            "protocol_version": "0.11",
-            "schema_version": "0.11",
-            "official_release_tag": "v-test",
+            "protocol_version": "0.18",
+            "schema_version": "2",
+            "official_release_tag": "2026-08-12-15-47",
             "managed": True,
         }),
         ("managed", root),

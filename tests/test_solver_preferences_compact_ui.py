@@ -197,7 +197,45 @@ def test_registered_release_without_selection_shows_selector_not_install(
     compact_ui.uninstall()
 
 
-def test_manage_menu_only_offers_default_lumen(blender_env, monkeypatch,
+def test_gaia_backend_switch_and_rocm_warning(blender_env, monkeypatch, tmp_path):
+    gaia = make_installation(
+        tmp_path, installation_id="gaia", display_name="Gaia",
+        protocol="0.22", schema="2", release_tag="2026-09-21-21-32")
+    for backend in ("cuda", "rocm", "cpu"):
+        release = gaia.root / "target" / backend / "release"
+        release.mkdir(parents=True)
+        (release / "ppf-cts-server.exe").touch()
+    registry = SolverRegistry((gaia,), gaia.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = gaia.installation_id
+    prefs.solver_backend_choice = "ROCM"
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+    assert ("solver_backend_choice", "Backend", True) in layout.props
+    assert any("general AMD GPU support is not yet verified" in text
+               for text, _icon in layout.labels)
+    compact_ui.uninstall()
+
+
+def test_backend_switch_is_disabled_during_bake(blender_env, monkeypatch,
+                                                tmp_path):
+    gaia = make_installation(
+        tmp_path, installation_id="gaia", display_name="Gaia",
+        protocol="0.22", schema="2", release_tag="2026-09-21-21-32")
+    registry = SolverRegistry((gaia,), gaia.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    monkeypatch.setattr(preferences, "_solver_session_active", lambda: True)
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = gaia.installation_id
+    prefs.solver_backend_choice = "AUTO"
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+    assert ("solver_backend_choice", "Backend", False) in layout.props
+    compact_ui.uninstall()
+
+
+def test_manage_menu_offers_downloadable_generations(blender_env, monkeypatch,
                                                tmp_path):
     installed = make_installation(
         tmp_path,
@@ -214,15 +252,23 @@ def test_manage_menu_only_offers_default_lumen(blender_env, monkeypatch,
             release_id="ppf-0.13-stable",
             display_name="Velune",
             official_release_tag="velune-tag",
+            downloadable=False,
         ),
         SimpleNamespace(
             release_id="ppf-0.18-current",
             display_name="Lumen",
             official_release_tag="lumen-tag",
+            downloadable=True,
+        ),
+        SimpleNamespace(
+            release_id="ppf-0.22-gaia",
+            display_name="Gaia",
+            official_release_tag="gaia-tag",
+            downloadable=True,
         ),
     )
     preferences._session.entries = entries
-    preferences._session.entry = entries[1]
+    preferences._session.entry = entries[2]
 
     menu = compact_ui.CLOTHNEXT_MT_solver_manage()
     menu.layout = RecordingLayout()
@@ -233,10 +279,11 @@ def test_manage_menu_only_offers_default_lumen(blender_env, monkeypatch,
         for idname, text, operator, _enabled in menu.layout.operators
         if idname == "clothnext.solver_download"
     }
-    assert set(release_actions) == {"ppf-0.18-current"}
+    assert set(release_actions) == {"ppf-0.18-current", "ppf-0.22-gaia"}
     lumen_text, lumen = release_actions["ppf-0.18-current"]
     assert lumen_text == "Install Lumen"
-    assert lumen.activate_after_install is True
+    assert lumen.activate_after_install is False
+    assert release_actions["ppf-0.22-gaia"][1].activate_after_install is True
 
     compact_ui.uninstall()
 

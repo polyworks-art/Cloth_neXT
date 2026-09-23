@@ -54,3 +54,13 @@ def test_status_parser_rejects_non_text_crash_kind():
     with pytest.raises(ValueError, match="crash_kind"):
         parse_status({"protocol_version": "0.18", "status": "FAILED",
                       "crash_kind": 18})
+
+
+def test_gaia_backend_status_fields_are_additive():
+    parsed = parse_status({
+        "protocol_version": "0.22", "status": "READY",
+        "solver_backend": "cuda", "solver_target_dir": "C:/solver/target/cuda",
+        "future_upstream_field": {"any": "value"},
+    })
+    assert parsed.protocol_version == "0.22"
+    assert parsed.wire_status is WireStatus.READY

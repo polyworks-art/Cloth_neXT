@@ -5,6 +5,29 @@ not include it; the add-on preferences install or select it separately. See
 [SOLVER_DISTRIBUTION.md](SOLVER_DISTRIBUTION.md) and
 [RELEASE_POLICY.md](RELEASE_POLICY.md) section 13.
 
+Gaia (protocol 0.22, schema 2) is preferred for a fresh managed installation.
+Lumen (protocol 0.18, schema 2) is also available for download. Both install
+in separate immutable release directories and can be selected in Preferences.
+The registry's selected installation is authoritative for future Bakes;
+`current.json` is retained for legacy migration and managed installation
+metadata. Existing Lumen selections remain selected after an add-on update,
+and registered Velune installations are not removed automatically. Selection
+is locked during an active Bake. Gaia's additional upstream simulation
+features are not exposed by Cloth NeXt yet.
+
+Automatic Gaia backend selection uses verified CUDA on a suitable NVIDIA GPU
+and otherwise uses CPU. The official Windows asset also contains ROCm, but
+general AMD support remains in development and ROCm is not selected
+automatically. The [backend certification record](SOLVER_BACKEND_CERTIFICATION.md)
+separates packaged builds, host availability, and completed Cloth NeXt Bakes.
+For Gaia, choose Auto, CUDA, ROCm or CPU in Preferences. Auto uses verified
+CUDA when it probes successfully and otherwise CPU. CUDA, ROCm and CPU are
+explicit choices: a missing build or failed device probe stops the Bake
+instead of switching backend. Lumen offers Auto and CUDA; its Windows build
+is CUDA only. ROCm carries an in-app notice that general AMD GPU support is
+not yet verified. Backend changes affect future Bakes and are locked during
+an active Bake.
+
 ## Installation modes
 
 | Mode | Origin | Cloth NeXt may | Cloth NeXt must never |

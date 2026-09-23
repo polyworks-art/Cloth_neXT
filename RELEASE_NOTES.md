@@ -1,11 +1,7 @@
-# Cloth NeXt 2.7.5
+# Cloth NeXt 2.7.7
 
-The Learn Cloth NeXt section in Preferences now includes a Learning Center
-button that opens the published Cloth NeXt documentation directly.
+The expanded Bake Companion details now focus on solver runtime information without changing the normal compact Bake view. The duplicate Run section has been removed, while the compact frame progress, Contacts, Newton Steps, and Linear Iterations presentation remains unchanged.
 
-Lumen is now the preferred solver for new installations and the only compatible
-release offered in the download list. Existing verified Velune installations
-remain compatible and usable, but Velune is no longer advertised for download.
+Solver details identify the active runtime and backend, such as Gaia CUDA, and show the device when the solver reports it. Optional live telemetry includes frame and step timing, matrix assembly, linear or PCG solve, line search, step advancement, contact memory, and stretch. Rows are omitted when the active solver does not report a value, so Lumen remains clean and compatible.
 
-Published only to the configured private repository; historical feeds are unchanged.
-The external PPF Contact Solver is not bundled.
+Published to the configured private repository. The external PPF Contact Solver is not bundled.

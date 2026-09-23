@@ -75,9 +75,10 @@ class _SolverSession:
 
     def ensure_installer(self, release_id: str = "") -> ManagedSolverInstaller | None:
         self.load()
-        entry = next((item for item in self.entries
-                      if item.release_id == release_id), self.entry)
-        if entry is None:
+        entry = (next((item for item in self.entries
+                       if item.release_id == release_id), None)
+                 if release_id else self.entry)
+        if entry is None or not entry.downloadable:
             return None
         if self.installer is None or self.installer.entry != entry:
             extension_root = Path(__file__).resolve().parents[1]
@@ -362,6 +363,10 @@ class _SolverInstallDialog:
         # installer here would replace the explicitly confirmed release with
         # the manifest default and lose the confirmation state.
         release_id = str(getattr(self, "release_id", "") or "")
+        if (_session.target_entry is None
+                or _session.target_entry.release_id != release_id):
+            self.report({"ERROR"}, "The confirmed solver release changed; retry the download.")
+            return {"CANCELLED"}
         installer = _session.ensure_installer(release_id)
         if installer is None:
             return {"CANCELLED"}
@@ -722,6 +727,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         items=_solver_enum_items, update=_solver_enum_update,
         description="Select the exact installed solver used by future Bakes; "
                     "selection is locked while a session is active")
+    solver_backend_choice: bpy.props.EnumProperty(
+        name="Solver Backend",
+        items=(("AUTO", "Auto", "Use verified CUDA if available, otherwise CPU"),
+               ("CUDA", "CUDA", "Require the NVIDIA CUDA build"),
+               ("ROCM", "ROCm", "Require the AMD ROCm build; general AMD support is not yet verified"),
+               ("CPU", "CPU", "Require the CPU build")),
+        default="AUTO",
+        description="Backend for future Bakes; an explicit choice never falls back")
 
     developer_tools: bpy.props.BoolProperty(
         name="Developer Tools", default=False,
@@ -857,6 +870,22 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=(
                 f"{active.display_name} · Protocol "
                 f"{active.protocol_version} · Schema {active.schema_version}"))
+            if active.protocol_version in {"0.22", "0.18"}:
+                from ..ppf.backend_selection import available_backend_choices
+                backend = box.row()
+                backend.enabled = not session_active
+                backend.prop(self, "solver_backend_choice", text="Backend")
+                if active.protocol_version == "0.18":
+                    box.label(text="Lumen provides CUDA only; Auto uses CUDA.")
+                choice = str(getattr(self, "solver_backend_choice", "AUTO") or "AUTO")
+                if choice not in available_backend_choices(
+                        active.protocol_version, active.root):
+                    box.label(text=f"{choice} is unavailable in {active.display_name}.",
+                              icon="ERROR")
+                if choice == "ROCM":
+                    box.label(text="ROCm: general AMD GPU support is not yet verified.",
+                              icon="INFO")
+                box.label(text="The selected backend is checked before each Bake.")
         if session_active:
             box.label(
                 text="Solver selection is locked while a Bake is active.",
@@ -909,7 +938,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         installed_tags = {
             item.official_release_tag for item in registry.installations
             if item.managed}
-        for entry in ((_session.entry,) if _session.entry is not None else ()):
+        for entry in (item for item in _session.entries if item.downloadable):
             row_box = available_box.box()
             row_box.label(text=entry.display_name)
             row_box.label(text=(

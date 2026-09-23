@@ -140,7 +140,7 @@ from ..topology import geometry_fingerprint as combine_geometry_fingerprint
 from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
-from ..updater.install_paths import ManagedSolverPaths, read_current
+from ..updater.install_paths import ManagedSolverPaths
 from ..updater.solver_registry import load_registry
 from . import (collider_proxy, companion_manager, modal_lock,
                object_properties, validation_state)
@@ -733,10 +733,21 @@ def _plan_for_target(plan: RunPlan, target: DeformablePlan) -> RunPlan:
 def _version_probe(executable: Path) -> tuple[str, str, str]:
     from ..ppf.models import ConnectionOwnership
     from ..ppf.process import SolverProcessConfig, SolverProcessManager
+    from ..ppf.layout import BundledSolverLayout
     config = SolverProcessConfig(
         executable_path=executable, working_directory=executable.parent,
-        connect_timeout=10.0, ownership_mode=ConnectionOwnership.OWNED_PROCESS)
+        connect_timeout=10.0, ownership_mode=ConnectionOwnership.OWNED_PROCESS,
+        environment=BundledSolverLayout.from_executable(
+            executable).process_environment())
     return SolverProcessManager(config).executable_version()
+
+
+def _backend_choice(context) -> str:
+    try:
+        preferences = addon_preferences(context, __package__)
+    except (KeyError, AttributeError):
+        return "AUTO"
+    return str(getattr(preferences, "solver_backend_choice", "AUTO") or "AUTO")
 
 
 def _resolved_installation_id(resolved) -> str:
@@ -749,45 +760,22 @@ def _resolved_release_tag(resolved) -> str | None:
             if installation is not None else None)
 
 
-def _managed_root() -> Path | None:
-    try:
-        paths = ManagedSolverPaths.default()
-        active = read_current(paths)
-        if active is None:
-            return None
-        executable = active.executable_path(paths)
-        bundle_root = paths.version_dir(active.installation_id)
-        # Managed installs are owned by Cloth NeXt, so the pinned and tested
-        # frontend extension can be applied safely before the process starts.
-        from ..ppf.solver_overlay import apply_managed_solver_overlay
-        apply_managed_solver_overlay(bundle_root)
-        return bundle_root
-    except (OSError, ValueError):
-        return None
-
-
 def resolve_solver(context) -> ResolvedSolver:
-    selected = None
     try:
-        preferences = addon_preferences(context, __package__)
         registry = load_registry(ManagedSolverPaths.default().registry_json)
-        requested = (getattr(
-            preferences, "selected_solver_installation_id", "") or "").strip()
-        if requested == "NONE":
-            requested = ""
-        requested = requested or (registry.selected_installation_id or "")
-        if requested:
-            selected = registry.get(requested)
-            if selected is None:
-                raise SceneValidationError(
-                    "The selected solver installation is missing. Choose "
-                    "another installation in the Cloth NeXt preferences.")
-    except (KeyError, AttributeError):
-        pass
+        requested = registry.selected_installation_id or ""
+    except (OSError, ValueError) as exc:
+        raise SceneValidationError(f"Solver registry is unavailable: {exc}") from exc
+    selected = registry.get(requested) if requested else None
+    if requested and selected is None:
+        raise SceneValidationError(
+            "The selected solver installation is missing. Choose "
+            "another installation in the Cloth NeXt preferences.")
     if selected is not None and selected.managed:
         from ..ppf.solver_overlay import (
             apply_managed_solver_overlay,
             apply_solver_overlay,
+            needs_legacy_diagnostics_overlay,
         )
         apply_solver_overlay(
             selected.root,
@@ -799,16 +787,31 @@ def resolve_solver(context) -> ResolvedSolver:
         # frontend is supported.  Install the diagnostics extension as a
         # separate step so authoritative intersection pairs are exported for
         # the Blender overlay instead of relying on the lossy fallback locator.
-        apply_managed_solver_overlay(selected.root)
+        if needs_legacy_diagnostics_overlay(selected.official_release_tag):
+            apply_managed_solver_overlay(selected.root)
     resolver = SolverResolver(_version_probe)
-    resolved = resolver.resolve(SolverResolutionContext(
-        selected_installation=selected,
-        development_executable=development_executable_from_environment()))
+    try:
+        resolved = resolver.resolve(SolverResolutionContext(
+            selected_installation=selected,
+            development_executable=development_executable_from_environment(),
+            backend_choice=_backend_choice(context)))
+    except ValueError as exc:
+        raise SceneValidationError(str(exc)) from exc
     if resolved is None or resolved.executable_path is None:
         raise SceneValidationError(
             "No compatible simulation solver installation is configured. Select or "
             "install one in the Cloth NeXt add-on preferences.")
     return resolved
+
+
+def _resolved_wire_contract(resolved: ResolvedSolver) -> tuple[int, str]:
+    from ..ppf.compatibility import protocol_profile
+    protocol = getattr(resolved, "protocol_version", None)
+    schema = getattr(resolved, "schema_version", None)
+    if not protocol or not schema or protocol_profile(protocol, schema) is None:
+        raise SceneValidationError(
+            "The selected solver has no verified protocol and schema profile.")
+    return int(schema), protocol
 
 
 # ---------------------------------------------------------------------------
@@ -4922,7 +4925,9 @@ def _all_dynamic_parameters(snapshot, force_capture, fps: float):
 
 def _encode_cached_param(context, snapshot, force_capture, pin_configs,
                          cache, target_uuids, *, schema_version: int = 1,
-                         protocol_version: str = "0.13"):
+                         protocol_version: str | None = None):
+    if protocol_version is None:
+        raise SceneValidationError("Param encoding requires a selected protocol")
     entries = snapshot.deformables
     settings = SimulationSettings(
         snapshot.bake_range.output_count, _scene_fps(context),
@@ -5114,9 +5119,8 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
         param_payload, param_hash = _encode_cached_param(
             context, snapshot, force_capture, tuple(pin_configs), cache,
             tuple(target.uuid for target in target_plans),
-            schema_version=int(resolved.schema_version or "2"),
-            protocol_version=getattr(
-                resolved, "protocol_version", None) or "0.13")
+            schema_version=_resolved_wire_contract(resolved)[0],
+            protocol_version=_resolved_wire_contract(resolved)[1])
         param_key = _param_source_key(
             context, snapshot, force_capture,
             tuple(target.uuid for target in target_plans),
@@ -5206,8 +5210,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           collider_captures=None) -> RunPlan:
     scene = context.scene
     resolved = resolve_solver(context)
-    wire_schema = int(resolved.schema_version or "1")
-    wire_protocol = getattr(resolved, "protocol_version", None) or "0.13"
+    wire_schema, wire_protocol = _resolved_wire_contract(resolved)
     if (any(_friction_region_settings(entry.obj)
             for entry in snapshot.deformables)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
@@ -5623,8 +5626,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # Compatibility probing happens before animation capture so a missing
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
-    wire_schema = int(resolved.schema_version or "1")
-    wire_protocol = getattr(resolved, "protocol_version", None) or "0.13"
+    wire_schema, wire_protocol = _resolved_wire_contract(resolved)
     if (_friction_region_settings(cloth_obj)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
         raise SceneValidationError(

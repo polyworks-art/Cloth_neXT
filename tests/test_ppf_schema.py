@@ -230,6 +230,21 @@ def test_protocol_018_omits_parameters_removed_by_upstream():
     assert payload["time_scale"] == 1.0
 
 
+def test_gaia_uses_lumen_wire_subset_without_new_feature_fields():
+    def payload(protocol):
+        return build_param_payload(
+            _micro_settings(), "MicroCloth", "cn-cloth-0001",
+            "Ground", "cn-static-0001", shell=DEFAULT_SHELL_SETTINGS,
+            static=DEFAULT_STATIC_SETTINGS, schema_version=2,
+            protocol_version=protocol)
+
+    lumen = payload("0.18")
+    gaia = payload("0.22")
+    assert gaia == lumen
+    assert not any(key.startswith(("lock-", "material-map", "backend"))
+                   for key in gaia["scene"])
+
+
 def test_schema2_static_deform_has_no_time_array():
     import numpy as np
     deform = SceneObject(

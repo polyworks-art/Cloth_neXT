@@ -40,6 +40,7 @@ class SolverResolutionContext:
     development_executable: Path | None = None
     external_server_available: bool = False
     selected_installation: SolverInstallation | None = None
+    backend_choice: str = "AUTO"
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +83,9 @@ class SolverResolver:
             protocol, schema, ConnectionOwnership.OWNED_PROCESS, metadata, writable)
 
     def resolve(self, context: SolverResolutionContext) -> ResolvedSolver | None:
+        if context.selected_installation is None and context.backend_choice != "AUTO":
+            raise ValueError(
+                "An explicit backend requires a selected solver installation")
         if context.selected_installation is not None:
             selected = context.selected_installation
             if not (selected.available and selected.verified
@@ -91,10 +95,38 @@ class SolverResolver:
                 selected.protocol_version or "", selected.schema_version or "")
             if profile is None:
                 return None
+            if selected.managed:
+                from ..updater.solver_manifest import load_bundled_manifest
+                release = next((entry for entry in
+                    load_bundled_manifest().platforms
+                    if entry.official_release_tag == selected.official_release_tag), None)
+                if (release is None or
+                        (release.solver_package_version, release.protocol_version,
+                         release.schema_version) !=
+                        (selected.package_version, selected.protocol_version,
+                         selected.schema_version) or
+                        release.adapter_id != profile.adapter_id):
+                    return None
             mode = (SolverMode.MANAGED_INSTALLATION
                     if selected.managed else SolverMode.EXTERNAL_INSTALLATION)
+            executable = selected.executable
+            if (selected.root / "target" / "cpu" / "release"
+                    / "ppf-cts-server.exe").is_file() and selected.protocol_version == "0.22":
+                from .backend_selection import executable_for_choice
+                executable = executable_for_choice(
+                    selected.root, selected.protocol_version,
+                    context.backend_choice)
+                if self._version_probe(executable) != (
+                        selected.package_version, selected.protocol_version,
+                        selected.schema_version):
+                    return None
+            elif context.backend_choice != "AUTO":
+                from .backend_selection import executable_for_choice
+                executable = executable_for_choice(
+                    selected.root, selected.protocol_version or "",
+                    context.backend_choice)
             return ResolvedSolver(
-                mode, selected.root, selected.executable,
+                mode, selected.root, executable,
                 selected.package_version, selected.protocol_version,
                 selected.schema_version, ConnectionOwnership.OWNED_PROCESS,
                 None, selected.managed, selected, profile, selected.frontend)
@@ -113,7 +145,7 @@ class SolverResolver:
         if context.development_executable is not None:
             executable = context.development_executable.expanduser().resolve()
             found = self._local(SolverMode.DEVELOPMENT,
-                                BundledSolverLayout.from_root(executable.parent), True)
+                                BundledSolverLayout.from_executable(executable), True)
             if found:
                 return found
         if context.external_server_available:

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.7.7 - 2026-09-23
+
+- Keep the collapsed Bake Companion visually and behaviorally unchanged.
+- Remove the duplicate Run group from expanded details and retain one Solver group.
+- Show the active solver runtime, backend, and reported device instead of installation mode and package version.
+- Add optional live frame, step, assembly, solve, line-search, advancement, contact-memory, and stretch telemetry while hiding unavailable rows and preserving Lumen compatibility.
+
+## 2.7.6 - 2026-09-22
+
+- Prefer Gaia 0.22 for new solver installations while keeping Lumen 0.18 and verified Velune installations available.
+- Add an AUTO, CUDA, ROCm, and CPU backend choice in Preferences, with an AMD ROCm verification warning and explicit compatibility errors.
+- Certify Gaia on CUDA and CPU, Lumen on CUDA, and a lightweight Gaia ROCm bake on an AMD APU; document the scope and limits of those checks.
+- Improve solver generation compatibility, health checks, and backend switching across consecutive Blender bakes.
+
 ## 2.7.5 - 2026-09-20
 
 - Add a Learning Center button to the Learn Cloth NeXt preferences section.

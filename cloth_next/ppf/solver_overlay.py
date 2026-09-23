@@ -13,7 +13,9 @@ to Cloth NeXt-managed solver installations, never external user installs.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 OVERLAY_VERSION = "face-friction-intersection-preview-v9"
 UPSTREAM_013_RELEASE = "2026-07-26-22-53"
@@ -70,6 +72,26 @@ _SCENE_SHELL_REPLACEMENT = '''            if tri_added and tet_added == 0:
                 overrides = ({"friction": face_friction}
                              if face_friction is not None else None)
                 _extend_param(obj.param, concat_tri_param, tri_added, overrides)
+'''
+_GAIA_SCENE_MAPPED = '''                mapped = (
+                    obj.element_param_values(key, float(value), 0.0, element_key)
+                    if obj is not None and key in obj.param_spatial
+                    else None
+                )
+'''
+_GAIA_SCENE_MAPPED_REPLACEMENT = '''                mapped = (
+                    obj.element_param_values(key, float(value), 0.0, element_key)
+                    if obj is not None and key in obj.param_spatial
+                    else None
+                )
+                # Cloth NeXt's existing triangle-aligned friction overrides
+                # remain separate from Gaia's optional spatial material maps.
+                if key == "friction" and element_key == "F" and obj is not None:
+                    face_friction = getattr(obj, "_face_friction", None)
+                    if face_friction is not None:
+                        if mapped is not None or len(face_friction) != count:
+                            raise ValueError("invalid face_friction override")
+                        mapped = face_friction
 '''
 _BUILD_WORKER_NEEDLE = '''                with open(os.path.join(root, "build_violations.json"), "w") as fp:
                     json.dump({"violations": violations}, fp)
@@ -368,34 +390,78 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
     marker.write_text(OVERLAY_VERSION + "\n", encoding="ascii")
 
 
+def _apply_gaia_overlay(bundle_root: Path) -> None:
+    marker = bundle_root / f".cloth-next-{OVERLAY_VERSION}-gaia"
+    if marker.is_file():
+        return
+    frontend = bundle_root / "frontend"
+    _replace_once(frontend / "_decoder_.py", (
+        (_DECODER_NEEDLE, _DECODER_REPLACEMENT),))
+    _replace_once(frontend / "_scene_.py", (
+        (_GAIA_SCENE_MAPPED, _GAIA_SCENE_MAPPED_REPLACEMENT),
+        (_VIOLATION_NEEDLE, _VIOLATION_REPLACEMENT),))
+    _replace_once(frontend / "build_worker.py", (
+        (_BUILD_WORKER_NEEDLE, _BUILD_WORKER_REPLACEMENT),))
+    marker.write_text(OVERLAY_VERSION + "\n", encoding="ascii")
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrationRecipe:
+    id: str
+    protocol: str
+    schema: str
+    release_tag: str
+    marker_name: str
+    anchors: tuple[str, ...]
+    overlay: str
+
+
+INTEGRATION_RECIPES = MappingProxyType({
+    "velune-verified": IntegrationRecipe(
+        "velune-verified", "0.13", "2", UPSTREAM_013_RELEASE,
+        ".cloth-next-upstream-integration-0.13-schema-2", (), "legacy"),
+    "lumen-verified": IntegrationRecipe(
+        "lumen-verified", "0.18", "2", "2026-08-12-15-47",
+        ".cloth-next-upstream-integration-0.18-schema-2",
+        ('elif key == "lock-translation":',
+         'elif key == "lock-rotation":',
+         'elif key == "lock-rotation-prohibit-axis":',
+         'statistics_input_path = os.path.join(path, "statistics_input.cbor")'),
+        "legacy"),
+    "gaia-verified": IntegrationRecipe(
+        "gaia-verified", "0.22", "2", "2026-09-21-21-32",
+        ".cloth-next-upstream-integration-0.22-schema-2",
+        (_GAIA_SCENE_MAPPED, 'elif key == "lock-translation":',
+         'statistics_input_path = os.path.join(path, "statistics_input.cbor")'),
+        "gaia"),
+})
+
+
+def needs_legacy_diagnostics_overlay(release_tag: str | None) -> bool:
+    return any(recipe.release_tag == release_tag and recipe.overlay == "legacy"
+               for recipe in INTEGRATION_RECIPES.values())
+
+
 def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
                          schema_version: str,
                          official_release_tag: str | None,
-                         managed: bool) -> None:
+                         managed: bool,
+                         integration_recipe_id: str | None = None) -> None:
     """Apply only the exact integration recipe verified for this release."""
     if not managed:
         return
     identity = (protocol_version, schema_version, official_release_tag)
-    verified_upstream = {
-        ("0.13", "2", UPSTREAM_013_RELEASE): (
-            ".cloth-next-upstream-integration-0.13-schema-2",
-            (),
-        ),
-        ("0.18", "2", "2026-08-12-15-47"): (
-            ".cloth-next-upstream-integration-0.18-schema-2",
-            (
-                'elif key == "lock-translation":',
-                'elif key == "lock-rotation":',
-                'elif key == "lock-rotation-prohibit-axis":',
-                'statistics_input_path = os.path.join(path, "statistics_input.cbor")',
-            ),
-        ),
-    }
-    recipe = verified_upstream.get(identity)
+    recipe = (INTEGRATION_RECIPES.get(integration_recipe_id)
+              if integration_recipe_id else next((item for item in
+                  INTEGRATION_RECIPES.values()
+                  if (item.protocol, item.schema, item.release_tag) == identity), None))
     if recipe is not None:
-        marker_name, protocol_anchors = recipe
-        marker = bundle_root / marker_name
-        diagnostics_marker = bundle_root / f".cloth-next-{OVERLAY_VERSION}"
+        if (recipe.protocol, recipe.schema, recipe.release_tag) != identity:
+            raise SolverOverlayError("integration recipe does not match the release")
+        marker = bundle_root / recipe.marker_name
+        diagnostics_marker = bundle_root / (f".cloth-next-{OVERLAY_VERSION}-gaia"
+                                          if recipe.overlay == "gaia"
+                                          else f".cloth-next-{OVERLAY_VERSION}")
         # A managed frontend is intentionally modified after its exact
         # upstream contract has been verified.  On later launches those
         # modifications no longer match every pristine upstream anchor; the
@@ -426,10 +492,12 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
                 "do not match the verified release")
         if any((scene_text.count(anchor) + decoder_text.count(anchor)
                 + worker_text.count(anchor)) != 1
-               for anchor in protocol_anchors):
+               for anchor in recipe.anchors):
             raise SolverOverlayError(
                 f"protocol {protocol_version} frontend contract does not match the "
                 "verified release")
+        if recipe.overlay == "gaia":
+            _apply_gaia_overlay(bundle_root)
         marker.write_text(str(official_release_tag) + "\n", encoding="ascii")
         return
     raise SolverOverlayError(

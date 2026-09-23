@@ -38,12 +38,14 @@
 
 ## What is Cloth NeXt?
 
-Cloth NeXt turns the external GPU-based PPF Contact Solver into a guided
+Cloth NeXt turns the external PPF Contact Solver into a guided
 Blender workflow. Scene setup, validation, materials, baking, diagnostics, and
 cache playback stay inside Blender while the solver remains a separate,
 independently installed application maintained by ST Tech / ZOZO.
 
-It is designed for users who want powerful GPU-based cloth simulation while keeping a clear, Blender-focused setup with familiar object roles, accessible controls, and sensible defaults.
+It is designed for users who want powerful cloth simulation on a supported
+NVIDIA GPU or CPU while keeping a clear, Blender-focused setup with familiar
+object roles, accessible controls, and sensible defaults.
 
 The Physics Properties panel is the artist-facing entry point. It provides
 role-aware controls, scene validation, Bake/Rebake/Cancel actions, cache state,
@@ -55,7 +57,7 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
 ### What it provides
 
 - Blender-centered cloth simulation workflow
-- Integration with the GPU-based PPF Contact Solver
+- Integration with the PPF Contact Solver
 - Guided solver installation and selection
 - Solver version and compatibility checks
 - Stable and beta update channels
@@ -151,6 +153,22 @@ After installing the extension:
 4. Confirm access to the external official source.
 5. Install the solver or select an existing installation.
 6. Let Cloth NeXt verify compatibility.
+
+Gaia is the preferred solver for a new installation. Lumen remains supported
+and downloadable in **Manage**, and both releases can be installed side by
+side. Choose the active installation in Preferences; switching is locked while
+a Bake is active. Updating Cloth NeXt does not switch an existing Lumen user
+to Gaia or remove an existing Velune installation. Gaia currently uses the
+same Cloth NeXt simulation controls as Lumen; its additional upstream features
+are not exposed yet.
+
+On Windows x86_64, real Cloth NeXt Bakes verified Gaia CUDA on NVIDIA and
+Gaia CPU, plus Lumen CUDA on NVIDIA. Gaia's ROCm build ran a short Bake on one
+AMD APU; general AMD GPU support remains in development. See the
+[backend certification record](docs/SOLVER_BACKEND_CERTIFICATION.md).
+Preferences offers Auto, CUDA, ROCm and CPU for Gaia. An explicit backend
+must pass its own probe and Bake startup checks; it never switches silently
+to another backend. ROCm remains marked as not generally verified for AMD.
 
 For manual installation and troubleshooting, see
 [Solver Installation](docs/SOLVER_INSTALLATION.md).

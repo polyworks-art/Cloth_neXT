@@ -182,7 +182,9 @@ def test_missing_solver_telemetry_creates_no_placeholder_rows():
 
 def test_solver_telemetry_is_confined_to_hidden_details_panel():
     build=inspect.getsource(app.BakeWindow._build)
+    show=inspect.getsource(app.BakeWindow.show)
     assert "self.details_panel.grid_remove()" in build
+    assert "self._update_solver_details(snapshot)" in show
     assert "solver_telemetry" not in inspect.getsource(
         app.BakeWindow._draw_status_content)
     assert app.COMPACT_HEIGHT == 118

@@ -168,6 +168,7 @@ def test_confirmed_download_executes_the_same_selected_release(
         lambda target, **_kwargs: target())
     operator = preferences.CLOTHNEXT_OT_solver_download()
     operator.release_id = "ppf-0.13-current"
+    preferences._session.target_entry = SimpleNamespace(release_id=operator.release_id)
     preferences._session.activate_after_install = True
     preferences._session.reinstall = False
 

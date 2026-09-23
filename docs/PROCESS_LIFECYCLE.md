@@ -22,9 +22,10 @@ timeout abort startup before any worker/PPF process or cache replacement. Logs
 rotate under the user's Cloth NeXt configuration/runtime log directory and the
 companion's Local AppData log directory, never inside the extension.
 
-Compatibility default: Lumen protocol `0.18`, schema `2`, package `0.1.0`.
-Existing verified Velune protocol `0.13` installations remain compatible, but
-Velune is no longer offered for new installation.
+Compatibility default: Gaia protocol `0.22`, schema `2`, package `0.1.0`.
+Lumen protocol `0.18` remains downloadable and selectable. Existing verified
+Velune protocol `0.13` installations remain compatible but are not offered for
+new installation.
 
 ```text
 validate executable -> probe port

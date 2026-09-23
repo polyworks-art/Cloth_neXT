@@ -645,11 +645,7 @@ def _solver_status(context) -> _SolverStatus:
         from ..updater.install_paths import ManagedSolverPaths
         from ..updater.solver_registry import load_registry
         registry = load_registry(ManagedSolverPaths.default().registry_json)
-        requested = str(getattr(
-            prefs, "selected_solver_installation_id", "") or "").strip()
-        if requested == "NONE":
-            return _SolverStatus(False, "No Solver Selected")
-        requested = requested or (registry.selected_installation_id or "")
+        requested = registry.selected_installation_id or ""
         if requested:
             installation = registry.get(requested)
             if installation is None or not installation.available:
@@ -670,6 +666,8 @@ def _solver_status(context) -> _SolverStatus:
             protocol = installation.protocol_version or "unknown"
             return _SolverStatus(
                 True, f"Ready Â· Protocol {protocol}", details)
+        if registry.installations:
+            return _SolverStatus(False, "No Solver Selected")
     except (OSError, ValueError):
         return _SolverStatus(False, "Solver registry unavailable")
     if raw:
@@ -684,7 +682,9 @@ def _solver_status(context) -> _SolverStatus:
         active = read_current(paths)
         if active is not None and active.executable_path(paths).is_file():
             from ..updater.solver_manifest import load_bundled_manifest
-            entry = load_bundled_manifest().entry_for("windows-x86_64")
+            entry = next((item for item in load_bundled_manifest().releases_for(
+                "windows-x86_64")
+                if item.official_release_tag == active.official_release_tag), None)
             details = (f"Package {active.version}",
                        f"Protocol {entry.protocol_version}",
                        f"Schema {entry.schema_version}",

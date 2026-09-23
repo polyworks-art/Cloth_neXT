@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.7",
+  "title": "What's New in Cloth NeXt 2.7.7",
+  "subtitle": "Deeper solver telemetry in the Bake Companion.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Know the active runtime",
+      "description": "Expanded Solver details identify Gaia or Lumen, the active backend, and the device when reported by the solver."
+    },
+    {
+      "icon": "icons/docs.png",
+      "title": "Inspect deeper telemetry",
+      "description": "See available timing, assembly, solve, line-search, contact-memory, and stretch details without duplicating the compact summary."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Clean by default",
+      "description": "Unavailable values stay hidden, and the normal collapsed Bake Companion remains unchanged."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
