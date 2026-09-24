@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-import bpy  # noqa: F401 - proves this harness is running inside real Blender
+import bpy
 
 
 def _command(*args: str, timeout: float | None = None) -> str:
@@ -168,6 +168,8 @@ def main() -> None:
     cloth_next.unregister()
     if payload["result"] != "PASS":
         raise RuntimeError(json.dumps(payload, sort_keys=True))
+    if real_wm:
+        bpy.ops.wm.quit_blender()
 
 
 main()
