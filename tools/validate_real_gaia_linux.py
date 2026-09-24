@@ -61,9 +61,17 @@ def main() -> int:
         assert executable.name == spec.solver_filename
         assert os.access(executable, os.X_OK)
         layout = BundledSolverLayout.from_executable(executable)
+        environment = dict(layout.process_environment())
+        build_python = Path(environment["PPF_CTS_BUILD_PYTHON"])
+        assert build_python.is_relative_to(layout.root_directory)
+        assert os.access(build_python, os.X_OK)
+        subprocess.run(
+            [str(build_python), "-c", "import pythreejs"],
+            cwd=layout.root_directory, env=dict(os.environ, **environment),
+            check=True)
         config = SolverProcessConfig(
             executable, layout.root_directory, port=_free_port(),
-            environment=layout.process_environment())
+            environment=tuple(sorted(environment.items())))
         manager = SolverProcessManager(config)
         versions = manager.executable_version()
         assert versions == (entry.solver_package_version,
@@ -73,7 +81,7 @@ def main() -> int:
         manager.stop()
         manager = None
         report = run_vertical_slice(executable, work / "vertical-slice",
-                                    frame_count=2, cloth_divisions=2)
+                                    frame_count=3, cloth_divisions=2)
         assert report["result"] == "PASS"
         print(json.dumps({
             "result": "PASS",
@@ -83,6 +91,8 @@ def main() -> int:
             "download_size": archive.stat().st_size,
             "sha256": entry.sha256,
             "executable": str(executable.relative_to(extracted)),
+            "build_python": str(build_python.relative_to(extracted)),
+            "build_python_has_pythreejs": True,
             "versions": versions,
             "health": {"reachable": health.reachable,
                        "compatible": health.compatible},
