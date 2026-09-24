@@ -127,7 +127,8 @@ jobs:
             "$CLOTH_NEXT_BLENDER" --background --python-exit-code 1 \
             --python tools/blender_smoke_test.py
           INSTALLED_ROOT="$RUNNER_TEMP/linux-candidate-profile/extensions/user_default/cloth_next"
-          timeout 90s xvfb-run -a \
+          BLENDER_USER_RESOURCES="$RUNNER_TEMP/linux-candidate-profile" \
+            timeout 90s xvfb-run -a \
             "$CLOTH_NEXT_BLENDER" --background --python-exit-code 1 \
             --python tools/blender_companion_shutdown_smoke.py -- \
             "$INSTALLED_ROOT" "$RUNNER_TEMP/linux-companion-shutdown.json" --installed
