@@ -2,6 +2,31 @@
   "manifest_version": 3,
   "cloth_next_version": "2.7.8",
   "platforms": {
+    "linux-x86_64": {
+      "default_release_id": "ppf-0.22-gaia",
+      "releases": [
+        {
+          "id": "ppf-0.22-gaia",
+          "codename": "Gaia",
+          "display_name": "Gaia",
+          "channel": "current",
+          "downloadable": true,
+          "adapter_id": "modern-schema2",
+          "integration_recipe_id": "gaia-verified",
+          "solver_package_version": "0.1.0",
+          "protocol_version": "0.22",
+          "schema_version": "2",
+          "official_repository": "st-tech/ppf-contact-solver",
+          "official_release_tag": "2026-09-21-21-32",
+          "official_asset_name": "ppf-contact-solver-2026-09-21-21-32-linux-x86_64.tar.gz",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-21-21-32/ppf-contact-solver-2026-09-21-21-32-linux-x86_64.tar.gz",
+          "download_size": 644427496,
+          "sha256": "0706f06b0e1703bbbe861f25e25c4c8b7f3043cf6ab107b6a40b1659defa1b3d",
+          "archive_layout_version": 2,
+          "health_check_required": true
+        }
+      ]
+    },
     "windows-x86_64": {
       "default_release_id": "ppf-0.22-gaia",
       "releases": [

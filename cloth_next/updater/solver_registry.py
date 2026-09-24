@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ..core.safe_delete import delete_owned
+from ..platform_support import platform_spec
 
 REGISTRY_VERSION = 1
 
@@ -228,7 +229,7 @@ def migrate_legacy_current(paths, manifest, *,
         return write_registry(paths.registry_json, registry)
     package, protocol, schema = probe_version(executable)
     release = next((
-        entry for entry in manifest.releases_for("windows-x86_64")
+        entry for entry in manifest.releases_for(platform_spec().solver_platform)
         if entry.official_release_tag == active.official_release_tag
         or (active.official_release_tag is None
             and entry.solver_package_version == package

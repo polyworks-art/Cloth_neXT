@@ -25,6 +25,7 @@ from cloth_next.ppf.compatibility import EXPECTED_PACKAGE, EXPECTED_PROTOCOL, EX
 from cloth_next.ppf.health import start_owned_and_wait
 from cloth_next.ppf.layout import BundledSolverLayout, PLATFORM_DIRECTORY
 from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
+from cloth_next.platform_support import platform_spec
 
 
 def free_port() -> int:
@@ -68,7 +69,7 @@ def main() -> int:
     try:
         _source_into(source, kind, staging)
         executable = find_single_executable(staging)
-        root_executable = staging / "ppf-cts-server.exe"
+        root_executable = staging / platform_spec().solver_filename
         if executable != root_executable:
             shutil.copy2(executable, root_executable)
             executable.unlink()

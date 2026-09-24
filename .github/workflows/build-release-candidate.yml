@@ -89,6 +89,49 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: {name: candidate-under-verification, path: "dist/${{ needs.validate-source.outputs.zip-name }}", if-no-files-found: error}
 
+  build-linux-extension:
+    needs: validate-source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb
+      - run: python tools/build_icons.py
+      - run: python companion/build_companion.py
+      - run: timeout 90s xvfb-run -a python tools/verify_companion.py
+      - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake"
+      - name: Download Blender
+        run: |
+          curl -fsSL "https://download.blender.org/release/Blender${BLENDER_SERIES}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" -o blender.tar.xz
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xf blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
+          echo "CLOTH_NEXT_BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
+      - name: Build and validate linux-x64 candidate
+        run: |
+          ZIP="dist/cloth_next-${{ needs.validate-source.outputs.version }}-linux-x64.zip"
+          python tools/build_extension.py --blender "$CLOTH_NEXT_BLENDER" --output "$ZIP"
+          pytest -m built_artifact --extension-zip "$ZIP"
+          python tools/validate_extension.py "$ZIP" --phase packaged
+          python tools/scan_release_artifact.py "$ZIP"
+          python tools/validate_release_policy.py --phase post-build --tag "${{ needs.validate-source.outputs.version }}" --zip "$ZIP"
+          "$CLOTH_NEXT_BLENDER" --factory-startup --background --command extension validate "$ZIP"
+          BLENDER_USER_RESOURCES="$RUNNER_TEMP/linux-candidate-profile" \
+            "$CLOTH_NEXT_BLENDER" --command extension install-file \
+            --repo user_default --enable "$ZIP"
+          BLENDER_USER_RESOURCES="$RUNNER_TEMP/linux-candidate-profile" \
+            "$CLOTH_NEXT_BLENDER" --background --python-exit-code 1 \
+            --python tools/blender_smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cloth-next-linux-release-candidate
+          path: "dist/cloth_next-${{ needs.validate-source.outputs.version }}-linux-x64.zip"
+          if-no-files-found: error
+
   verify-release-candidate:
     needs: [validate-source, build-windows-extension]
     runs-on: ubuntu-latest

@@ -21,7 +21,9 @@ from zipfile import ZipFile
 
 FORBIDDEN_FILE_PATTERNS = (
     "ppf-cts-server.exe",
+    "ppf-cts-server",
     "ppf-contact-solver.exe",
+    "ppf-contact-solver",
     "ppf-contact-solver-*.zip",
     "ppf-contact-solver-*-win64.zip",
     "headless.bat",
@@ -34,7 +36,7 @@ FORBIDDEN_FILE_PATTERNS = (
     "*.pyc",
     "*.partial",
 )
-ALLOWED_EXECUTABLE = "bin/cloth-next-bake.exe"
+ALLOWED_EXECUTABLES = {"bin/cloth-next-bake.exe", "bin/cloth-next-bake"}
 
 FORBIDDEN_DIRECTORIES = (
     "solver",
@@ -62,7 +64,7 @@ def scan_names(names: Iterable[str]) -> list[str]:
             continue
         path = PurePosixPath(name)
         lowered_parts = [part.lower() for part in path.parts]
-        if path.suffix.lower() == ".exe" and name.lower() != ALLOWED_EXECUTABLE:
+        if path.suffix.lower() == ".exe" and name.lower() not in ALLOWED_EXECUTABLES:
             violations.append(f"{raw}: executable is not the approved Cloth NeXt companion")
             continue
         file_pattern = next((pattern for pattern in FORBIDDEN_FILE_PATTERNS

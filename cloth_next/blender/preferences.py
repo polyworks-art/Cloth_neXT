@@ -38,9 +38,10 @@ from ..updater.update_check import solver_update_available
 from ..updater.solver_registry import (
     SolverInstallation, SolverRegistry, external_installation_id, load_registry,
     migrate_legacy_current, write_registry)
+from ..platform_support import platform_spec
 
 _ADDON_ID = package_addon_id(__package__)
-_PLATFORM = "windows-x86_64"
+_PLATFORM = platform_spec().solver_platform
 
 
 class _SolverSession:

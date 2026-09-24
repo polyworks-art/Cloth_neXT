@@ -53,8 +53,9 @@ transport. The companion is separately owned from every PPF process; its future
 IPC boundary is authenticated, bounded JSON on localhost only. See
 `UI_ARCHITECTURE.md`.
 
-The Windows package contains exactly one Cloth NeXt-owned executable at
-`bin/cloth-next-bake.exe`. CI builds it from tagged source and generates a strict
+Each platform package contains exactly one Cloth NeXt-owned executable:
+`bin/cloth-next-bake.exe` on Windows x86_64 or `bin/cloth-next-bake` on Linux
+x86_64. CI builds it natively from the same Tkinter source and generates a strict
 version/platform/size/SHA-256 manifest. This narrow allowance never applies to PPF.
 
 Cloth NeXt is a Blender client and pipeline for PPF, never a physics engine.
@@ -250,7 +251,9 @@ and publishes the draft only after every step succeeded.
 The solver has a fully separate lifecycle. `cloth_next/updater/` contains the
 pure (bpy-free) installer core: `solver_manifest.py` (strict validation of the
 metadata-only compatibility manifest), `install_paths.py` (managed layout under
-`%LOCALAPPDATA%\ClothNeXt\solver`, outside every extension/repository root),
+`%LOCALAPPDATA%\ClothNeXt\solver` on Windows or
+`$XDG_DATA_HOME/ClothNeXt/solver` on Linux (falling back to
+`~/.local/share/ClothNeXt/solver`), outside every extension/repository root),
 `download.py` (HTTPS-only, host-restricted, size-limited, cancellable),
 `archive.py` (traversal/symlink/reparse/bomb hardening), `managed.py` (the
 confirmation-gated pipeline with side-by-side activation and rollback safety),

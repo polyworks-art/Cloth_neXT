@@ -42,6 +42,7 @@ from ..ppf.resolver import ResolvedSolver
 from ..ppf.transport import TransportConfig
 from .. import recovery
 from ..updater.health_runner import bundle_root_for, free_port
+from ..platform_support import platform_spec
 
 # Wire status tokens (crates/ppf-cts-server, verified at pinned 7193f158).
 STATUS_NO_DATA = "NO_DATA"
@@ -114,7 +115,7 @@ def _native_worker_path(executable: Path) -> Path:
     Blender integration proof and must not be mistaken for a quarantined
     worker.
     """
-    bundled = executable.with_name("ppf-contact-solver.exe")
+    bundled = executable.with_name(platform_spec().solver_worker_filename)
     if bundled.is_file():
         return bundled
     return executable.parent / "target" / "release" / bundled.name

@@ -110,8 +110,9 @@ class SolverResolver:
             mode = (SolverMode.MANAGED_INSTALLATION
                     if selected.managed else SolverMode.EXTERNAL_INSTALLATION)
             executable = selected.executable
+            from .layout import EXECUTABLE_NAME
             if (selected.root / "target" / "cpu" / "release"
-                    / "ppf-cts-server.exe").is_file() and selected.protocol_version == "0.22":
+                    / EXECUTABLE_NAME).is_file() and selected.protocol_version == "0.22":
                 from .backend_selection import executable_for_choice
                 executable = executable_for_choice(
                     selected.root, selected.protocol_version,

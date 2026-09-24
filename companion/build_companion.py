@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 import PyInstaller.__main__
@@ -17,6 +18,7 @@ from companion.build_assets import (  # noqa: E402
     STATUS_ASSETS,
     build as build_assets,
 )
+from cloth_next.platform_support import platform_spec  # noqa: E402
 
 
 def main():
@@ -29,20 +31,20 @@ def main():
             "--onefile",
             "--windowed",
             "--noconfirm",
-            f"--icon={assets / 'cloth_next.ico'}",
-            f"--add-data={assets / 'cloth_next.png'};companion_assets",
-            f"--add-data={assets / 'veyra.png'};companion_assets",
-            f"--add-data={assets / 'bake.png'};companion_assets",
+            *([f"--icon={assets / 'cloth_next.ico'}"] if sys.platform == "win32" else []),
+            f"--add-data={assets / 'cloth_next.png'}{os.pathsep}companion_assets",
+            f"--add-data={assets / 'veyra.png'}{os.pathsep}companion_assets",
+            f"--add-data={assets / 'bake.png'}{os.pathsep}companion_assets",
             *[
-                f"--add-data={assets / name};companion_assets"
+                f"--add-data={assets / name}{os.pathsep}companion_assets"
                 for name in PARTICLE_ASSETS
             ],
             *[
-                f"--add-data={assets / name};companion_assets"
+                f"--add-data={assets / name}{os.pathsep}companion_assets"
                 for name in PARTICLE_SUBPIXEL_ASSETS
             ],
             *[
-                f"--add-data={assets / name};companion_assets"
+                f"--add-data={assets / name}{os.pathsep}companion_assets"
                 for name in STATUS_ASSETS
             ],
             f"--distpath={ROOT / 'companion/dist'}",
@@ -51,9 +53,9 @@ def main():
             f"--paths={ROOT}",
         ]
     )
-    output = ROOT / "companion/dist/Cloth NeXt Bake.exe"
+    output = ROOT / "companion/dist" / platform_spec().companion_build_name
     if not output.is_file():
-        raise RuntimeError("companion EXE was not produced")
+        raise RuntimeError("companion executable was not produced")
     print(f"Development companion: {output}")
 
 

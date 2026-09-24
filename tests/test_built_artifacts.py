@@ -14,15 +14,19 @@ pytestmark = pytest.mark.built_artifact
 def test_release_candidate_contains_verified_companion(extension_zip):
     with zipfile.ZipFile(extension_zip) as bundle:
         names = bundle.namelist()
-        assert names.count("bin/cloth-next-bake.exe") == 1
         assert names.count("companion_manifest.json") == 1
-        binary = bundle.read("bin/cloth-next-bake.exe")
         metadata = json.loads(bundle.read("companion_manifest.json"))
+        filename = metadata["filename"]
+        assert names.count(f"bin/{filename}") == 1
+        binary = bundle.read(f"bin/{filename}")
         version = tomllib.loads(bundle.read("blender_manifest.toml").decode())["version"]
-    assert binary.startswith(b"MZ")
+    expected = {
+        "windows-x64": ("cloth-next-bake.exe", b"MZ"),
+        "linux-x64": ("cloth-next-bake", b"\x7fELF"),
+    }[metadata["platform"]]
+    assert filename == expected[0]
+    assert binary.startswith(expected[1])
     assert metadata["cloth_next_version"] == version
-    assert metadata["filename"] == "cloth-next-bake.exe"
-    assert metadata["platform"] == "windows-x64"
     assert metadata["file_size"] == len(binary)
     assert metadata["sha256"] == hashlib.sha256(binary).hexdigest()
 

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from cloth_next.bake.status import BakeSnapshot, BakeState  # noqa: E402
 from cloth_next.bake.transport import LocalSocketServer  # noqa: E402
+from cloth_next.platform_support import platform_spec  # noqa: E402
 def verify_information_modes(exe: Path) -> None:
     env = dict(__import__("os").environ)
     env["CLOTH_NEXT_COMPANION_AUTO_CLOSE_MS"] = "350"
@@ -58,9 +59,9 @@ def verify_information_modes(exe: Path) -> None:
 
 
 def main():
-    exe = ROOT / "companion/dist/Cloth NeXt Bake.exe"
+    exe = ROOT / "companion" / "dist" / platform_spec().companion_build_name
     if not exe.is_file():
-        raise SystemExit("development EXE missing")
+        raise SystemExit("development Companion executable missing")
     server = LocalSocketServer()
     process = subprocess.Popen(
         [str(exe), "--port", str(server.port), "--token", server.token]
@@ -86,7 +87,7 @@ def main():
         if process.returncode:
             raise RuntimeError(f"companion exited {process.returncode}")
         verify_information_modes(exe)
-        print("Development EXE: Bake and information modes passed")
+        print("Development Companion: Bake and information modes passed")
     finally:
         if process.poll() is None:
             process.terminate()

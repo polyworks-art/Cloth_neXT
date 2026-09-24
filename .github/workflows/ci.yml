@@ -137,3 +137,29 @@ jobs:
           BLENDER_USER_RESOURCES="$RUNNER_TEMP/blender-update-profile" \
             "$BLENDER" --factory-startup --background --online-mode \
             --python-exit-code 1 --python tools/blender_update_smoke_test.py
+
+  linux-companion-extension:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - name: Install Tk and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb
+      - name: Build native Linux Companion
+        run: python companion/build_companion.py
+      - name: Exercise Companion IPC and information modes
+        run: timeout 90s xvfb-run -a python tools/verify_companion.py
+      - name: Stage and package linux-x64 extension
+        run: |
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("cloth_next/blender_manifest.toml","rb"))["version"])')"
+          python tools/stage_companion.py "companion/dist/Cloth NeXt Bake"
+          python tools/build_extension.py --output "dist/cloth_next-$VERSION-linux-x64.zip"
+          echo "LINUX_ZIP=dist/cloth_next-$VERSION-linux-x64.zip" >> "$GITHUB_ENV"
+      - run: pytest -m built_artifact --extension-zip "$LINUX_ZIP"
+      - run: python tools/validate_extension.py "$LINUX_ZIP" --phase packaged
+      - run: python tools/scan_release_artifact.py "$LINUX_ZIP"

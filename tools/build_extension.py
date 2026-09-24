@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tomllib
 import zipfile
+import uuid
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -25,15 +26,17 @@ if __package__ in (None, ""):
 from tools.scan_release_artifact import scan_zip
 from tools.validate_extension import validate_zip
 from tools.build_icons import build as build_icons, validate as validate_icons
+from cloth_next.platform_support import PlatformSpec, platform_spec
 
 _EXCLUDED_DIRECTORIES = frozenset({"__pycache__", ".state", "solver", "downloads",
                                    "managed_solver", "staging", "logs"})
 
 
-def default_output(source_root: Path) -> Path:
+def default_output(source_root: Path, platform: PlatformSpec | None = None) -> Path:
     manifest = tomllib.loads((source_root / "blender_manifest.toml")
                              .read_text(encoding="utf-8"))
-    return Path("dist") / f"cloth_next-{manifest['version']}-windows-x64.zip"
+    selected = platform or platform_spec()
+    return Path("dist") / f"cloth_next-{manifest['version']}-{selected.blender_platform}.zip"
 
 
 def build_extension(source_root: Path, output: Path, *,
@@ -56,6 +59,7 @@ def build_extension(source_root: Path, output: Path, *,
                 if not path.is_file() or _EXCLUDED_DIRECTORIES & set(relative.parts):
                     continue
                 bundle.write(path, relative)
+    _prune_historical_whats_new(output)
     validate_zip(output)
     violations = scan_zip(output)
     if violations:
@@ -63,6 +67,30 @@ def build_extension(source_root: Path, output: Path, *,
         raise ValueError("build aborted, forbidden solver material detected: "
                          + "; ".join(violations))
     return output
+
+
+def _prune_historical_whats_new(archive: Path) -> None:
+    """Ship only this candidate's release content, preserving ZIP modes."""
+    temporary = archive.with_name(f".{archive.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with zipfile.ZipFile(archive, "r") as source:
+            manifest = tomllib.loads(
+                source.read("blender_manifest.toml").decode("utf-8"))
+            current = (
+                f"resources/onboarding/whats_new/{manifest['version']}.json")
+            with zipfile.ZipFile(
+                    temporary, "w", compression=zipfile.ZIP_DEFLATED,
+                    compresslevel=6) as target:
+                for info in source.infolist():
+                    if (info.filename.startswith(
+                            "resources/onboarding/whats_new/")
+                            and info.filename.endswith(".json")
+                            and info.filename != current):
+                        continue
+                    target.writestr(info, source.read(info.filename))
+        temporary.replace(archive)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main() -> int:

@@ -11,6 +11,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from .layout import EXECUTABLE_NAME
+from ..platform_support import platform_spec
+
+WORKER_NAME = platform_spec().solver_worker_filename
 
 _WINDOWS_LOADER_FAILURE = {3221225781, 3221225785, 3221225794}
 BACKEND_CHOICES = ("AUTO", "CUDA", "ROCM", "CPU")
@@ -45,7 +48,7 @@ def executable_for_choice(root: Path, protocol_version: str,
         return root / "target" / "release" / EXECUTABLE_NAME
     backend = choice.lower()
     candidate = root / "target" / backend / "release" / EXECUTABLE_NAME
-    worker = candidate.with_name("ppf-contact-solver.exe")
+    worker = candidate.with_name(WORKER_NAME)
     if not worker.is_file():
         raise ValueError(f"{choice} solver worker is missing")
     environment = _probe_environment(root)
@@ -105,7 +108,7 @@ def preferred_executable(root: Path) -> Path:
     """
     signatures = []
     for backend in ("cuda", "rocm", "cpu"):
-        worker = root / "target" / backend / "release" / "ppf-contact-solver.exe"
+        worker = root / "target" / backend / "release" / WORKER_NAME
         try:
             stat = worker.stat()
             signatures.append((backend, stat.st_size, stat.st_mtime_ns))
@@ -123,7 +126,7 @@ def _preferred_executable_cached(root: Path, _signatures: tuple) -> Path:
     environment = _probe_environment(root)
     for backend in ("cuda",):
         candidate = target / backend / "release" / EXECUTABLE_NAME
-        worker = candidate.with_name("ppf-contact-solver.exe")
+        worker = candidate.with_name(WORKER_NAME)
         if not candidate.is_file() or not worker.is_file():
             continue
         try:

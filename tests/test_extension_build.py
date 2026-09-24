@@ -18,7 +18,8 @@ def extension_source(tmp_path):
     (source / "solver_compatibility.json").write_text("{}")
     (source / "bin").mkdir()
     (source / "bin" / "cloth-next-bake.exe").write_bytes(b"MZfixture")
-    (source / "companion_manifest.json").write_text(json.dumps({}))
+    (source / "companion_manifest.json").write_text(json.dumps({
+        "platform": "windows-x64", "filename": "cloth-next-bake.exe"}))
     return source
 
 

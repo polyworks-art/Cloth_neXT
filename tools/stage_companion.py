@@ -8,17 +8,25 @@ import json
 from pathlib import Path
 import shutil
 import tomllib
+import os
+import sys
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from cloth_next.platform_support import PlatformSpec, platform_spec
 
 ROOT=Path(__file__).resolve().parents[1]
-FILENAME="cloth-next-bake.exe"
-
-def stage(source: Path, extension: Path=ROOT/"cloth_next") -> Path:
+def stage(source: Path, extension: Path=ROOT/"cloth_next", *,
+          platform: PlatformSpec | None = None) -> Path:
+    selected = platform or platform_spec()
     if not source.is_file(): raise FileNotFoundError(source)
     version=tomllib.loads((extension/"blender_manifest.toml").read_text("utf-8"))["version"]
-    target=extension/"bin"/FILENAME; target.parent.mkdir(parents=True,exist_ok=True)
+    target=extension/"bin"/selected.companion_filename; target.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(source,target); data=target.read_bytes()
-    payload={"schema_version":2,"cloth_next_version":version,"filename":FILENAME,
-             "platform":"windows-x64","file_size":len(data),
+    if selected.executable_permission_required:
+        os.chmod(target, target.stat().st_mode | 0o755)
+    payload={"schema_version":2,"cloth_next_version":version,"filename":selected.companion_filename,
+             "platform":selected.blender_platform,"file_size":len(data),
              "sha256":hashlib.sha256(data).hexdigest(),
              "modes":["bake","veyra","welcome","whats-new"]}
     manifest=extension/"companion_manifest.json"

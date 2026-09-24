@@ -47,6 +47,11 @@ an active Bake.
 └─ logs\
 ```
 
+Linux x86_64 uses `$XDG_DATA_HOME/ClothNeXt/solver/`, with
+`~/.local/share/ClothNeXt/solver/` as the XDG fallback. Official Linux archives
+use native `ppf-cts-server` and `ppf-contact-solver` filenames; metadata that
+names a Windows `.exe`, an absolute path, or traversal is rejected.
+
 New managed installations are stored under the immutable official release tag
 (e.g. `versions/2026-07-13-21-05/`), never under the internal solver package
 version alone: multiple official releases may report the same internal package

@@ -21,6 +21,7 @@ from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.process import SolverProcessConfig, SolverProcessManager
 from cloth_next.ppf.resolver import (SolverResolutionContext, SolverResolver,
                                      development_executable_from_environment)
+from cloth_next.platform_support import platform_spec
 
 
 def main() -> int:
@@ -30,7 +31,7 @@ def main() -> int:
                         help="Explicit solver executable (external installation)")
     source.add_argument("--development", action="store_true",
                         help="Use CLOTH_NEXT_PPF_EXECUTABLE or the local "
-                             "solver/windows-x86_64 development tree")
+                             "host-platform development tree")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9090)
     parser.add_argument("--working-directory", type=Path)
@@ -49,7 +50,7 @@ def main() -> int:
             development = development_executable_from_environment()
             if development is None:
                 local = (Path(__file__).resolve().parents[1] / PLATFORM_DIRECTORY
-                         / "ppf-cts-server.exe")
+                         / platform_spec().solver_filename)
                 development = local if local.is_file() else None
         resolved = SolverResolver(probe).resolve(SolverResolutionContext(
             external_path=args.executable,

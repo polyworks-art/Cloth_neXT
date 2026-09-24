@@ -682,8 +682,9 @@ def _solver_status(context) -> _SolverStatus:
         active = read_current(paths)
         if active is not None and active.executable_path(paths).is_file():
             from ..updater.solver_manifest import load_bundled_manifest
+            from ..platform_support import platform_spec
             entry = next((item for item in load_bundled_manifest().releases_for(
-                "windows-x86_64")
+                platform_spec().solver_platform)
                 if item.official_release_tag == active.official_release_tag), None)
             details = (f"Package {active.version}",
                        f"Protocol {entry.protocol_version}",

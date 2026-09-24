@@ -13,7 +13,6 @@ repository, Program Files, the current working directory, or a temp directory.
 from __future__ import annotations
 
 import json
-import os
 import re
 import uuid
 from dataclasses import dataclass
@@ -22,6 +21,7 @@ from pathlib import Path
 from typing import Iterable
 
 from ..core.safe_delete import DeleteFailedError, delete_owned
+from ..platform_support import PlatformSpec, managed_solver_root, platform_spec
 
 VENDOR_DIRECTORY = "ClothNeXt"
 
@@ -96,14 +96,14 @@ class ActiveInstallation:
         return candidate
 
 
-_EXECUTABLE_NAME = "ppf-cts-server.exe"
-
-
-def _validate_executable_relative(value: str) -> str:
+def _validate_executable_relative(value: str, *,
+                                  platform: PlatformSpec | None = None) -> str:
+    selected = platform or platform_spec()
     normalized = value.replace("\\", "/")
     parts = normalized.split("/")
     if (not normalized or normalized.startswith("/") or ".." in parts
-            or (parts and ":" in parts[0]) or parts[-1] != _EXECUTABLE_NAME):
+            or (parts and ":" in parts[0])
+            or parts[-1] != selected.solver_filename):
         raise ValueError(f"current.json names an invalid executable {value!r}")
     return normalized
 
@@ -113,11 +113,11 @@ class ManagedSolverPaths:
     root: Path
 
     @classmethod
-    def default(cls) -> "ManagedSolverPaths":
-        base = os.environ.get("LOCALAPPDATA")
-        if not base:
-            base = str(Path.home() / ".local" / "share")
-        return cls((Path(base) / VENDOR_DIRECTORY / "solver").resolve())
+    def default(cls, *, platform: PlatformSpec | None = None,
+                environ: dict[str, str] | None = None,
+                home: Path | None = None) -> "ManagedSolverPaths":
+        return cls(managed_solver_root(platform or platform_spec(),
+                                       environ=environ, home=home))
 
     @property
     def versions_dir(self) -> Path:

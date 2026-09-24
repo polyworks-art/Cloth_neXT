@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import subprocess
+import os
+import signal
 import sys
 import time
 from io import StringIO
@@ -14,7 +16,7 @@ from cloth_next.core.errors import ClothNextError
 from cloth_next.ppf.models import ConnectionOwnership
 from cloth_next.ppf.process import (
     SolverProcessConfig, SolverProcessManager, _contact_counts,
-    _WindowsJob, _solver_activity, format_windows_exit_code)
+    _PosixProcessGroup, _WindowsJob, _solver_activity, format_windows_exit_code)
 
 
 def config(tmp_path, ownership=ConnectionOwnership.OWNED_PROCESS):
@@ -352,6 +354,71 @@ def test_owned_launch_uses_real_files_and_no_reader_threads(tmp_path):
         assert not any(thread.name.startswith("cloth-next-ppf-")
                        for thread in __import__("threading").enumerate())
         manager.stop()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process groups only")
+def test_linux_owned_process_uses_a_new_session_and_reaps(tmp_path):
+    script = tmp_path / "server.py"
+    script.write_text(
+        "#!/usr/bin/env python3\nimport signal,time\n"
+        "signal.signal(signal.SIGTERM, lambda *_: exit(0))\n"
+        "while True: time.sleep(.05)\n", encoding="utf-8")
+    script.chmod(0o755)
+    cfg = SolverProcessConfig(script, tmp_path, shutdown_timeout=1.0)
+    manager = SolverProcessManager(cfg)
+    manager.start()
+    pid = manager.poll().process_id
+    assert pid is not None and os.getpgid(pid) == pid
+    stopped = manager.stop()
+    assert not stopped.running
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process groups only")
+def test_posix_group_forced_stop_kills_owned_child_only(tmp_path):
+    child_pid_file = tmp_path / "child.pid"
+    script = tmp_path / "tree.py"
+    script.write_text(
+        "#!/usr/bin/env python3\nimport os,signal,subprocess,sys,time\n"
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+        "p=subprocess.Popen([sys.executable,'-c','import signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);time.sleep(60)'])\n"
+        f"open({str(child_pid_file)!r},'w').write(str(p.pid))\n"
+        "while True: time.sleep(.05)\n", encoding="utf-8")
+    script.chmod(0o755)
+    cfg = SolverProcessConfig(script, tmp_path, shutdown_timeout=0.2)
+    manager = SolverProcessManager(cfg)
+    manager.start()
+    deadline = time.time() + 2
+    while not child_pid_file.exists() and time.time() < deadline:
+        time.sleep(.02)
+    child_pid = int(child_pid_file.read_text())
+    manager.stop()
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(.02)
+    else:
+        pytest.fail("owned child survived process-group cleanup")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process groups only")
+def test_external_posix_process_is_never_signalled(tmp_path):
+    external = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        start_new_session=True)
+    try:
+        manager = SolverProcessManager(config(
+            tmp_path, ConnectionOwnership.EXTERNAL_SERVER))
+        with pytest.raises(PermissionError):
+            manager.stop()
+        assert external.poll() is None
+    finally:
+        os.killpg(os.getpgid(external.pid), signal.SIGTERM)
+        external.wait(timeout=5)
 
     assert not manager.config.stdout_log_file.exists()
     assert not manager.config.stderr_log_file.exists()

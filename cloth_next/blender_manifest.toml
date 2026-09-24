@@ -10,7 +10,7 @@ tags = ["Physics"]
 blender_version_min = "5.0.0"
 license = ["SPDX:GPL-3.0-or-later"]
 copyright = ["2026 Tim Christmann and Cloth NeXt contributors"]
-platforms = ["windows-x64"]
+platforms = ["windows-x64", "linux-x64"]
 
 [permissions]
 network = "Download explicitly selected external solver dependencies"

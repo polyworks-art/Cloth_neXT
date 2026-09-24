@@ -18,8 +18,9 @@ import re
 from ..updater.solver_manifest import load_bundled_manifest
 from ..updater.solver_registry import SolverRegistry
 from . import preferences as _preferences
+from ..platform_support import platform_spec
 
-_PLATFORM = "windows-x86_64"
+_PLATFORM = platform_spec().solver_platform
 _ORIGINAL_READ_REGISTRY = getattr(
     _preferences._read_registry,
     "_clothnext_original_read_registry",

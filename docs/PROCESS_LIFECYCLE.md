@@ -33,6 +33,13 @@ validate executable -> probe port
                          |          -> invalid: PORT CONFLICT
                          v free (advisory only)
 run executable --version -> Popen argument list, shell=False
+
+Owned solver trees use a platform-specific ownership boundary behind the same
+manager. Windows retains the kill-on-close Job Object implementation. Linux
+starts the control server in a new POSIX session, requests normal shutdown when
+available, signals only that owned process group with SIGTERM, waits for a
+bounded interval, and escalates that group to SIGKILL if required. External
+server connections never acquire an ownership boundary and are never signaled.
                          -> stdout/stderr redirected to owned real files
                          -> bounded incremental file-tail parsing
                          -> poll child and unique absolute progress file

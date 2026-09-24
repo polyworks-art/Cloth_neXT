@@ -31,6 +31,7 @@ from companion.particle_motion import (advance_particle,
                                        subpixel_coordinate)
 from companion.frame_progress import CurrentFrameProgressEstimator, FrameProgress
 from companion.error_guidance import ErrorGuidanceClient, replace_recommendation
+from companion.ui_fonts import UI_FONT, UI_SEMIBOLD
 
 COMPANION_MESSAGE_BATCH_LIMIT=2048
 
@@ -62,7 +63,10 @@ def details_window_height(details_visible: bool, requested: int) -> int:
     return max(COMPACT_HEIGHT, int(requested)) if details_visible else COMPACT_HEIGHT
 
 def _logger():
-    root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
+    if sys.platform == "win32":
+        root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
+    else:
+        root=Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local"/"state"))/"ClothNeXt"/"logs"
     logger=logging.getLogger("cloth_next_companion")
     if not logger.handlers:
         try:
@@ -98,7 +102,7 @@ class HoverTooltip:
         window.wm_geometry(f"+{x}+{y}")
         tk.Label(window,text=self.text,bg="#171717",fg=TEXT,
                  relief="solid",borderwidth=1,padx=7,pady=4,
-                 font=("Segoe UI",8)).pack()
+                 font=(UI_FONT,8)).pack()
     def hide(self,_event=None):
         if self._after is not None:
             try:self.widget.after_cancel(self._after)
@@ -541,9 +545,9 @@ class BakeWindow:
     def _configure_style(self):
         style=ttk.Style(self.root); style.theme_use("clam"); self._style=style
         style.configure("CN.TFrame",background=BG); style.configure("Inset.TFrame",background=PANEL)
-        style.configure("CN.TLabel",background=BG,foreground=TEXT,font=("Segoe UI",9))
-        style.configure("Muted.TLabel",background=PANEL,foreground=MUTED,font=("Segoe UI",9))
-        style.configure("Primary.TLabel",background=PANEL,foreground=TEXT,font=("Segoe UI Semibold",9))
+        style.configure("CN.TLabel",background=BG,foreground=TEXT,font=(UI_FONT,9))
+        style.configure("Muted.TLabel",background=PANEL,foreground=MUTED,font=(UI_FONT,9))
+        style.configure("Primary.TLabel",background=PANEL,foreground=TEXT,font=(UI_SEMIBOLD,9))
         style.configure("CN.TButton",background=BUTTON,foreground=TEXT,bordercolor=BORDER,padding=(8,3))
         style.map("CN.TButton",background=[("active","#444950"),("disabled",PANEL)],foreground=[("disabled","#6f747a")])
 
@@ -560,7 +564,7 @@ class BakeWindow:
         self.progress=tk.Canvas(right,width=270,height=22,bg=PANEL,highlightbackground="#777777",highlightthickness=1,borderwidth=0)
         self.progress.grid(row=0,column=0,sticky="ew"); right.columnconfigure(0,weight=1)
         self.progress_fill=self.progress.create_rectangle(0,0,0,22,fill=AMBER,outline="")
-        self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=("Segoe UI",8))
+        self.progress_label=self.progress.create_text(136,11,text="Ready",fill=TEXT,font=(UI_FONT,8))
         self.progress.bind("<Configure>",self._resize_progress)
         self.status=tk.Canvas(
             right,height=20,bg=PANEL,highlightbackground="#777777",
@@ -578,7 +582,7 @@ class BakeWindow:
                     file=str(_asset("status_iterations_16.png")))}
         except tk.TclError:
             self._solver_stat_icons={}
-        self._status_font=tkfont.Font(family="Segoe UI",size=8)
+        self._status_font=tkfont.Font(family=UI_FONT,size=8)
         self.status.bind("<Configure>",self._resize_status)
         self.status_tooltip=HoverTooltip(
             self.status,"Contacts · Newton steps · Linear iterations")
@@ -588,17 +592,17 @@ class BakeWindow:
         self.details_panel.grid_remove()
         self.diagnostics_section=tk.Frame(self.details_panel,bg=PANEL)
         tk.Label(self.diagnostics_section,textvariable=self.primary,bg=PANEL,
-                 fg=TEXT,font=("Segoe UI Semibold",9),anchor="w").pack(fill="x")
+                 fg=TEXT,font=(UI_SEMIBOLD,9),anchor="w").pack(fill="x")
         tk.Label(self.diagnostics_section,textvariable=self.secondary,bg=PANEL,fg=MUTED,
-                 font=("Segoe UI",8),anchor="w",justify="left",
+                 font=(UI_FONT,8),anchor="w",justify="left",
                  wraplength=350).pack(fill="x",pady=(2,0))
         tk.Label(self.diagnostics_section,textvariable=self.details_meta_text,bg=PANEL,
-                 fg=MUTED,font=("Segoe UI",8),anchor="w",justify="left",
+                 fg=MUTED,font=(UI_FONT,8),anchor="w",justify="left",
                  wraplength=350).pack(fill="x",pady=(3,0))
         self.error_docs_link=tk.Label(
             self.diagnostics_section,text="",bg=PANEL,fg=AMBER,
             activebackground=PANEL,activeforeground="#efbd69",
-            font=("Segoe UI Semibold",8,"underline"),anchor="w",
+            font=(UI_SEMIBOLD,8,"underline"),anchor="w",
             cursor="hand2",takefocus=True)
         self.error_docs_link.bind("<Button-1>",self._open_error_docs)
         self.error_docs_link.bind("<Return>",self._open_error_docs)
@@ -614,14 +618,14 @@ class BakeWindow:
                            highlightbackground="#202020",highlightthickness=1)
             group.pack(fill="x",pady=(0,5))
             tk.Label(group,text=f"⌄  {title}",bg=SECTION_HEADER,fg=MUTED,
-                     font=("Segoe UI",8),anchor="w",padx=8,pady=4).pack(fill="x")
+                     font=(UI_FONT,8),anchor="w",padx=8,pady=4).pack(fill="x")
             body=tk.Frame(group,bg=SECTION_BODY,padx=9,pady=5)
             body.pack(fill="x")
             body.columnconfigure(1,weight=1)
             for row,(key,label) in enumerate(rows):
                 label_widget=tk.Label(
                     body,text=label,bg=SECTION_BODY,fg=MUTED,
-                    font=("Segoe UI",8),anchor="e",width=19)
+                    font=(UI_FONT,8),anchor="e",width=19)
                 label_widget.grid(row=row,column=0,sticky="e",
                                   padx=(0,8),pady=2)
                 value=tk.StringVar(value="")
@@ -739,7 +743,7 @@ class BakeWindow:
         if not values:
             canvas.create_text(
                 7,height/2,text="Collecting frame performance…",fill=MUTED,
-                font=("Segoe UI",7),anchor="w")
+                font=(UI_FONT,7),anchor="w")
             return
         usable_width=max(1,width-12); usable_height=max(1,height-12)
         step=usable_width/max(1,len(values)-1)
@@ -754,13 +758,13 @@ class BakeWindow:
             canvas.create_oval(points[0]-2,points[1]-2,
                                points[0]+2,points[1]+2,fill=GRAPH,outline="")
         canvas.create_text(7,6,text="PERFORMANCE",fill=MUTED,
-                           font=("Segoe UI Semibold",6),anchor="nw")
+                           font=(UI_SEMIBOLD,6),anchor="nw")
         average=self._performance.average_frame_seconds
         average_text=(
             f"AVG {average:.2f}s" if average is not None and average < 10.0
             else (f"AVG {average:.1f}s" if average is not None else ""))
         canvas.create_text(width-7,6,text=average_text,
-                           fill=GRAPH,font=("Segoe UI Semibold",7),anchor="ne")
+                           fill=GRAPH,font=(UI_SEMIBOLD,7),anchor="ne")
 
     def _show_run_details(self,snapshot):
         if snapshot.state is BakeState.ERROR:

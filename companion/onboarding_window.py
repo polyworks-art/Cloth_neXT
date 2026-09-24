@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import tkinter as tk
+from companion.ui_fonts import UI_FONT, UI_SYMBOL
 import webbrowser
 
 from cloth_next.onboarding import (default_resource_root, load_welcome,
@@ -93,7 +94,7 @@ class InfoWindow:
     def _label(self, parent, text, *, size=10, color=INK, weight="normal",
                wrap=650, **kwargs):
         return tk.Label(parent, text=text, bg=parent.cget("bg"), fg=color,
-                        font=("Segoe UI", size, weight), justify="left",
+                        font=(UI_FONT, size, weight), justify="left",
                         anchor="w", wraplength=wrap, **kwargs)
 
     def _build(self):
@@ -152,17 +153,17 @@ class InfoWindow:
             hero.create_image(14, 17, image=self._brand_logo, anchor="nw")
         else:
             hero.create_text(14, 19, text="◆", fill="#2a91e8",
-                             font=("Segoe UI Symbol", 14), anchor="nw")
+                             font=(UI_SYMBOL, 14), anchor="nw")
         hero.create_text(43, 21, text="Cloth NeXt", fill="#ffffff",
-                         font=("Segoe UI", 11, "bold"), anchor="nw")
+                         font=(UI_FONT, 11, "bold"), anchor="nw")
         hero.create_text(14, 51, text="SIMULATION FOR ARTISTS", fill="#b9b9b9",
-                         font=("Segoe UI", 6, "bold"), anchor="nw")
+                         font=(UI_FONT, 6, "bold"), anchor="nw")
         hero.create_text(14, self.HEIGHT - 30,
                          text="Create freely.\nBake with confidence.",
-                         fill="#e8e5df", font=("Segoe UI", 7),
+                         fill="#e8e5df", font=(UI_FONT, 7),
                          anchor="sw", justify="left")
         hero.create_text(width - 12, self.HEIGHT - 10, text="© Tim Christmann",
-                         fill="#c7c4bf", font=("Segoe UI", 7), anchor="se")
+                         fill="#c7c4bf", font=(UI_FONT, 7), anchor="se")
 
     def _section_title(self, parent, text):
         self._label(parent, text, size=9, weight="bold").pack(fill="x", pady=(0, 3))
@@ -182,7 +183,7 @@ class InfoWindow:
                 pass
             badge = tk.Label(card, image=icon, text=str(index) if icon is None else "",
                              width=24, height=24, bg=CARD, fg=ACCENT,
-                             font=("Segoe UI", 8, "bold"))
+                             font=(UI_FONT, 8, "bold"))
             badge.pack(side="left", anchor="n", padx=(0, 7))
             copy = tk.Frame(card, bg=CARD)
             copy.pack(side="left", fill="x", expand=True)
@@ -208,7 +209,7 @@ class InfoWindow:
             except (AttributeError, OSError, tk.TclError):
                 pass
             tk.Label(card, image=icon, text="•" if icon is None else "",
-                     bg=CARD, fg=ICON_BLUE, font=("Segoe UI", 10, "bold")).pack(anchor="w")
+                     bg=CARD, fg=ICON_BLUE, font=(UI_FONT, 10, "bold")).pack(anchor="w")
             self._label(card, item["title"], size=8, weight="bold",
                         wrap=155).pack(fill="x", pady=(0, 1))
             if item["description"]:
@@ -249,7 +250,7 @@ class InfoWindow:
                 activeforeground="white" if primary else INK,
                 relief="flat" if primary else "solid", borderwidth=1,
                 highlightbackground=BORDER, padx=6, pady=4,
-                font=("Segoe UI", 7, "bold" if primary else "normal"),
+                font=(UI_FONT, 7, "bold" if primary else "normal"),
                 cursor="hand2", takefocus=True)
             button.pack(side="left", padx=(0, 9))
 

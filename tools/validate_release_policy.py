@@ -31,6 +31,8 @@ from tools.release_routing import publication_directories
 from cloth_next.updater.channel_policy import (allowed_release_channels,
                                                  publication_targets)
 from cloth_next.updater.addon_versions import parse_version as parse_addon_version
+from cloth_next.platform_support import (PlatformSpec, WINDOWS_X64,
+                                         spec_for_blender_platform)
 
 RELEASE_PLATFORM = "windows-x64"
 MAX_GITHUB_BLOB_BYTES = 100 * 1024 * 1024
@@ -80,8 +82,9 @@ def check_beta_bridge_target(version: str, channel: str) -> None:
         raise ValueError("GitHub Beta is frozen at 2.6.0; customer releases move to Superhive")
 
 
-def expected_zip_name(version: ReleaseVersion) -> str:
-    return f"cloth_next-{version.text}-{RELEASE_PLATFORM}.zip"
+def expected_zip_name(version: ReleaseVersion,
+                      platform: PlatformSpec = WINDOWS_X64) -> str:
+    return f"cloth_next-{version.text}-{platform.blender_platform}.zip"
 
 
 def read_manifest_version(repository_root: Path) -> str:
@@ -129,7 +132,13 @@ def check_onboarding_content(repository_root: Path, version: str) -> None:
 
 
 def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
-    expected = expected_zip_name(version)
+    prefix = f"cloth_next-{version.text}-"
+    if not zip_path.stem.startswith(prefix):
+        raise ValueError(
+            f"ZIP name {zip_path.name!r} must identify version {version.text!r}")
+    suffix = zip_path.stem.removeprefix(prefix)
+    selected = spec_for_blender_platform(suffix)
+    expected = expected_zip_name(version, selected)
     if zip_path.name != expected:
         raise ValueError(f"ZIP name {zip_path.name!r} must be {expected!r}")
     if zip_path.stat().st_size > MAX_GITHUB_BLOB_BYTES:
@@ -202,13 +211,15 @@ def check_zip(zip_path: Path, version: ReleaseVersion) -> None:
         load_welcome(resource_root, asset_exists)
         validate_whats_new_payload(whats_new, version.text, resource_root,
                                     asset_exists)
-        if "bin/cloth-next-bake.exe" not in names or "companion_manifest.json" not in names:
+        companion_name = f"bin/{selected.companion_filename}"
+        if companion_name not in names or "companion_manifest.json" not in names:
             raise ValueError("extension ZIP misses the approved bundled companion")
         companion = json.loads(bundle.read("companion_manifest.json"))
-        binary = bundle.read("bin/cloth-next-bake.exe")
+        binary = bundle.read(companion_name)
         if companion.get("cloth_next_version") != version.text:
             raise ValueError("companion manifest version mismatch")
-        if companion.get("filename") != "cloth-next-bake.exe" or companion.get("platform") != "windows-x64":
+        if (companion.get("filename") != selected.companion_filename
+                or companion.get("platform") != selected.blender_platform):
             raise ValueError("invalid bundled companion identity")
         if companion.get("schema_version") != 2 or companion.get("modes") != [
                 "bake", "veyra", "welcome", "whats-new"]:

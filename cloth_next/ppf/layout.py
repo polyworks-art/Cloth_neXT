@@ -10,9 +10,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from ..platform_support import platform_spec
 
-PLATFORM_DIRECTORY = Path("solver") / "windows-x86_64"
-EXECUTABLE_NAME = "ppf-cts-server.exe"
+_HOST = platform_spec()
+PLATFORM_DIRECTORY = Path("solver") / _HOST.solver_platform
+EXECUTABLE_NAME = _HOST.solver_filename
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,8 +23,8 @@ class BundledSolverLayout:
     executable_path: Path
     source_metadata_path: Path
     licenses_directory: Path
-    platform: str = "windows"
-    architecture: str = "x86_64"
+    platform: str = _HOST.os_name
+    architecture: str = _HOST.architecture
 
     @classmethod
     def from_executable(cls, executable: Path) -> "BundledSolverLayout":

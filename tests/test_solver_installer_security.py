@@ -5,6 +5,9 @@ import shutil
 import stat
 import threading
 import zipfile
+import tarfile
+import os
+import io
 from dataclasses import replace
 from pathlib import Path
 
@@ -202,6 +205,99 @@ def test_path_traversal_rejected(tmp_path):
     archive = make_solver_zip(tmp_path, {"../evil.txt": b"x"})
     with pytest.raises(ValueError, match="traversal"):
         inspect_archive(archive)
+
+
+def test_linux_tar_archive_preserves_executable_mode(tmp_path):
+    source = tmp_path / "ppf-cts-server"
+    source.write_bytes(b"ELF fixture")
+    source.chmod(0o755)
+    archive = tmp_path / "solver-linux-x86_64.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        bundle.add(source, arcname="target/cpu/release/ppf-cts-server")
+    staging = extract_to_staging(archive, tmp_path / "staging-tar")
+    extracted = staging / "target" / "cpu" / "release" / "ppf-cts-server"
+    assert extracted.read_bytes() == b"ELF fixture"
+    if os.name == "posix":
+        assert extracted.stat().st_mode & 0o111
+
+
+def test_linux_tar_traversal_is_rejected(tmp_path):
+    archive = tmp_path / "evil.tar.gz"
+    payload = tmp_path / "payload"
+    payload.write_bytes(b"x")
+    with tarfile.open(archive, "w:gz") as bundle:
+        info = bundle.gettarinfo(str(payload), arcname="../escape")
+        with payload.open("rb") as stream:
+            bundle.addfile(info, stream)
+    with pytest.raises(ValueError, match="traversal"):
+        inspect_archive(archive)
+
+
+@pytest.mark.parametrize("target", ["/etc/passwd", "../../outside"])
+def test_linux_tar_escaping_link_is_rejected(tmp_path, target):
+    archive = tmp_path / "escaping-link.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        info = tarfile.TarInfo("bundle/python")
+        info.type = tarfile.SYMTYPE
+        info.linkname = target
+        bundle.addfile(info)
+    with pytest.raises(ValueError, match="unsafe archive link"):
+        inspect_archive(archive)
+
+
+def test_linux_tar_chained_link_cannot_escape(tmp_path):
+    archive = tmp_path / "chained-link.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        first = tarfile.TarInfo("bundle/bin/python")
+        first.type = tarfile.SYMTYPE
+        first.linkname = "python-current"
+        bundle.addfile(first)
+        second = tarfile.TarInfo("bundle/bin/python-current")
+        second.type = tarfile.SYMTYPE
+        second.linkname = "../../../outside"
+        bundle.addfile(second)
+    with pytest.raises(ValueError, match="unsafe archive link"):
+        inspect_archive(archive)
+
+
+def test_linux_tar_missing_link_target_is_rejected_during_extraction(tmp_path):
+    archive = tmp_path / "missing-link-target.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        info = tarfile.TarInfo("bundle/python")
+        info.type = tarfile.SYMTYPE
+        info.linkname = "missing-python"
+        bundle.addfile(info)
+    inspect_archive(archive)
+    with pytest.raises(ValueError, match="not a regular file"):
+        extract_to_staging(archive, tmp_path / "staging-missing")
+
+
+def test_linux_tar_device_member_is_rejected(tmp_path):
+    archive = tmp_path / "device.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        info = tarfile.TarInfo("bundle/device")
+        info.type = tarfile.CHRTYPE
+        bundle.addfile(info)
+    with pytest.raises(ValueError, match="special archive member"):
+        inspect_archive(archive)
+
+
+def test_linux_tar_internal_link_is_materialized_as_regular_file(tmp_path):
+    archive = tmp_path / "internal-link.tar.gz"
+    payload = b"#!/bin/sh\nexit 0\n"
+    with tarfile.open(archive, "w:gz") as bundle:
+        target = tarfile.TarInfo("bundle/python3.11")
+        target.size = len(payload)
+        target.mode = 0o755
+        bundle.addfile(target, io.BytesIO(payload))
+        link = tarfile.TarInfo("bundle/python3")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "python3.11"
+        bundle.addfile(link)
+    staging = extract_to_staging(archive, tmp_path / "staging-link")
+    materialized = staging / "bundle" / "python3"
+    assert materialized.is_file() and not materialized.is_symlink()
+    assert materialized.read_bytes() == payload
 
 
 @pytest.mark.parametrize("member", ["/etc/passwd", "C:/windows/evil.exe",

@@ -26,6 +26,6 @@ def test_zip_has_manifest_and_entrypoint_at_archive_root(tmp_path):
             if path.is_file():
                 bundle.write(path, path.relative_to(EXTENSION_ROOT))
         bundle.writestr("bin/cloth-next-bake.exe", b"MZfixture")
-        bundle.writestr("companion_manifest.json", "{}")
+        bundle.writestr("companion_manifest.json", '{"platform":"windows-x64"}')
     validate_zip(archive)
 

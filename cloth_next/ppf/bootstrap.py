@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 
 from ..core.safe_delete import DeleteFailedError, delete_owned
 from .layout import BundledSolverLayout, EXECUTABLE_NAME
+from ..platform_support import platform_spec
 
 UPSTREAM_BASELINE = "fec156e3edd8c931c1029215bf6973164f433270"
 
@@ -67,6 +68,11 @@ def find_release_executable(root: Path, archive_layout_version: int) -> Path:
     if archive_layout_version == 1:
         return find_single_executable(root)
     if archive_layout_version == 2:
+        direct = root / "target" / "cpu" / "release" / EXECUTABLE_NAME
+        if not direct.is_file():
+            children = tuple(path for path in root.iterdir())
+            if len(children) == 1 and children[0].is_dir():
+                root = children[0]
         expected = root / "target" / "cpu" / "release" / EXECUTABLE_NAME
         if not expected.is_file():
             raise ValueError("multi-backend archive is missing the CPU control server")
@@ -74,7 +80,7 @@ def find_release_executable(root: Path, archive_layout_version: int) -> Path:
             directory = root / "target" / backend / "release"
             if not (directory / EXECUTABLE_NAME).is_file():
                 raise ValueError(f"multi-backend archive is missing {backend} server")
-            if not (directory / "ppf-contact-solver.exe").is_file():
+            if not (directory / platform_spec().solver_worker_filename).is_file():
                 raise ValueError(f"multi-backend archive is missing {backend} worker")
             if not (directory / ".ppf-backend").is_file():
                 raise ValueError(f"multi-backend archive is missing {backend} marker")
@@ -92,7 +98,7 @@ def find_license_files(root: Path) -> list[Path]:
 def normalize_bundle_root(staging: Path, archive_layout_version: int = 1) -> Path:
     executable = find_release_executable(staging, archive_layout_version)
     if archive_layout_version == 2:
-        return staging
+        return executable.parents[3]
     if executable.parent.name == "release" and executable.parent.parent.name == "target":
         return staging
     return executable.parent
@@ -113,7 +119,8 @@ def write_source_metadata(layout: BundledSolverLayout, *, source_type: str,
         "source_path": source_label, "installed_at": datetime.now(timezone.utc).isoformat(),
         "package_version": package, "protocol_version": protocol,
         "schema_version": schema, "upstream_commit": upstream_commit,
-        "platform": "windows", "architecture": "x86_64",
+        "platform": platform_spec().os_name,
+        "architecture": platform_spec().architecture,
         "health_check": "passed" if health_passed else "not_run", "files": files,
     }
     layout.source_metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

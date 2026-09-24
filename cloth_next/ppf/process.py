@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -22,6 +23,9 @@ from ..core.safe_delete import delete_owned
 from .compatibility import parse_executable_version
 from .models import ConnectionOwnership
 from .progress import ProgressSnapshot, read_progress
+from ..platform_support import platform_spec
+
+_POPEN_TYPE = subprocess.Popen
 
 
 class _WindowsJob:
@@ -133,6 +137,55 @@ class _WindowsJob:
         handle, self._handle = self._handle, None
         if handle is not None:
             self._kernel32.CloseHandle(handle)
+
+
+class _PosixProcessGroup:
+    """Own only the process session created for one Cloth NeXt launch."""
+
+    def __init__(self) -> None:
+        self._pgid: int | None = None
+
+    def assign(self, process: subprocess.Popen[str]) -> None:
+        # Test doubles must never result in signals being sent to arbitrary PIDs.
+        if not isinstance(process, _POPEN_TYPE):
+            return
+        self._pgid = os.getpgid(process.pid)
+
+    def process_ids(self) -> tuple[int, ...]:
+        return (() if self._pgid is None else (self._pgid,))
+
+    @property
+    def active(self) -> bool:
+        return self._pgid is not None
+
+    def terminate(self) -> None:
+        self._signal(signal.SIGTERM)
+
+    def kill(self) -> None:
+        self._signal(signal.SIGKILL)
+
+    def wait_empty(self, timeout: float) -> bool:
+        if self._pgid is None:
+            return True
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(self._pgid, 0)
+            except ProcessLookupError:
+                return True
+            time.sleep(0.02)
+        return False
+
+    def _signal(self, value: signal.Signals) -> None:
+        if self._pgid is None:
+            return
+        try:
+            os.killpg(self._pgid, value)
+        except ProcessLookupError:
+            pass
+
+    def close(self) -> None:
+        self._pgid = None
 
 
 _CONTACT_LABEL = re.compile(r"\bnum[-_ ]?contacts?\b", re.IGNORECASE)
@@ -280,6 +333,7 @@ class SolverProcessManager:
         self._log_offsets = {"stdout": 0, "stderr": 0}
         self._log_pending = {"stdout": b"", "stderr": b""}
         self._job: _WindowsJob | None = None
+        self._process_group: _PosixProcessGroup | None = None
         self._contact_peak = 0
         self._contact_last = 0
         self._contact_samples = 0
@@ -310,7 +364,9 @@ class SolverProcessManager:
                 category=ErrorCategory.SOLVER_INSTALLATION,
                 user_message="The configured executable is not the required simulation solver build.",
                 technical_message=f"ppf-cts-server --version failed: {exc}",
-                recommended_action="Configure ppf-cts-server.exe built from pinned commit 7193f158.",
+                recommended_action=(
+                    f"Configure {platform_spec().solver_filename} built from the "
+                    "supported official solver release."),
                 recoverable=True,
                 exception=exc,
             )) from exc
@@ -350,7 +406,8 @@ class SolverProcessManager:
                           "environment_overrides": tuple(
                               key for key, _value in self.config.environment)})
         try:
-            job = _WindowsJob()
+            job = _WindowsJob() if sys.platform == "win32" else None
+            process_group = _PosixProcessGroup() if os.name == "posix" else None
             # A real file is essential here. On Windows a full anonymous pipe
             # blocks the Rust logger's Tokio worker in WriteFile; enough blocked
             # workers leave ppf-cts-server alive while its status endpoint stops
@@ -359,39 +416,57 @@ class SolverProcessManager:
             stderr_log = open(self.config.stderr_log_file, "wb")
             try:
                 try:
+                    popen_options = dict(
+                        cwd=self.config.working_directory, stdout=stdout_log,
+                        stderr=stderr_log, shell=False,
+                        env=self.config.subprocess_environment())
+                    if process_group is not None:
+                        popen_options["start_new_session"] = True
                     self._process = subprocess.Popen(
-                        self.config.arguments(), cwd=self.config.working_directory,
-                        stdout=stdout_log, stderr=stderr_log, shell=False,
-                        env=self.config.subprocess_environment(),
-                    )
+                        self.config.arguments(), **popen_options)
                 finally:
                     stdout_log.close()
                     stderr_log.close()
             except BaseException:
-                job.close()
+                if job is not None:
+                    job.close()
                 self._cleanup_log_files()
                 raise
             try:
-                job.assign(self._process)
+                if job is not None:
+                    job.assign(self._process)
+                if process_group is not None:
+                    process_group.assign(self._process)
             except BaseException:
                 try:
                     self._process.terminate()
                     try:
                         self._process.wait(timeout=self.config.shutdown_timeout)
                     except subprocess.TimeoutExpired:
-                        job.close()
+                        if job is not None:
+                            job.close()
+                        if process_group is not None:
+                            process_group.kill()
                         self._process.wait(timeout=self.config.shutdown_timeout)
                 finally:
-                    job.close()
+                    if job is not None:
+                        job.close()
+                    if process_group is not None:
+                        process_group.close()
                     self._process = None
                     self._cleanup_log_files()
                 raise
             self._job = job
+            self._process_group = process_group
         except OSError as exc:
             winerror = getattr(exc, "winerror", None)
             if isinstance(exc, PermissionError) or winerror == 5:
-                user_message = "Windows denied access while starting the solver."
-                failure_kind = "WINDOWS_ACCESS_DENIED"
+                if sys.platform == "win32":
+                    user_message = "Windows denied access while starting the solver."
+                    failure_kind = "WINDOWS_ACCESS_DENIED"
+                else:
+                    user_message = "Execution permission was denied while starting the solver."
+                    failure_kind = "EXECUTION_PERMISSION_DENIED"
             elif isinstance(exc, FileNotFoundError) or winerror in {2, 3}:
                 user_message = "The solver executable could not be found."
                 failure_kind = "EXECUTABLE_MISSING"
@@ -493,7 +568,9 @@ class SolverProcessManager:
             activity_code=self._activity_code,
             activity_message=self._activity_message,
             owned_process_ids=(
-                self._job.process_ids() if self._job is not None else ()),
+                self._job.process_ids() if self._job is not None else
+                self._process_group.process_ids()
+                if self._process_group is not None else ()),
             progress=read_progress(self.config.progress_file),
             launch_id=self._launch_id,
             started_at=self._started_at,
@@ -526,15 +603,23 @@ class SolverProcessManager:
             return result
         log_with_context(self._logger, 20, "shutdown attempt", {"process_id": process.pid})
         owned_process_ids = (
-            self._job.process_ids() if self._job is not None else ())
+            self._job.process_ids() if self._job is not None else
+            self._process_group.process_ids() if self._process_group is not None
+            else ())
         if process.poll() is None:
             self._termination_requested = True
-            process.terminate()
+            if self._process_group is not None and self._process_group.active:
+                self._process_group.terminate()
+            else:
+                process.terminate()
             try:
                 process.wait(timeout=self.config.shutdown_timeout)
             except subprocess.TimeoutExpired:
                 if self._job is not None:
                     self._job.close()
+                elif (self._process_group is not None
+                      and self._process_group.active):
+                    self._process_group.kill()
                 else:
                     process.kill()
                 process.wait(timeout=self.config.shutdown_timeout)
@@ -545,10 +630,16 @@ class SolverProcessManager:
         # before final log consumption.
         if self._job is not None:
             self._job.close()
+        if self._process_group is not None:
+            if not self._process_group.wait_empty(self.config.shutdown_timeout):
+                self._process_group.kill()
+                self._process_group.wait_empty(self.config.shutdown_timeout)
+            self._process_group.close()
         result = self.final_poll()
         log_with_context(self._logger, 20, "shutdown result", {"exit_code": result.exit_code})
         self._process = None
         self._job = None
+        self._process_group = None
         if self.config.cleanup_progress_file:
             outcome = delete_owned(
                 self.config.progress_file,
@@ -609,7 +700,7 @@ class SolverProcessManager:
                 f"stderr_tail={poll.stderr_tail}; progress_tail={poll.progress.tail}"),
             recommended_action=(
                 "Inspect the retained run log. Cloth NeXt terminated every "
-                "remaining process in the owned solver job before allowing a retry."),
+                "remaining process in the owned solver process tree before allowing a retry."),
             recoverable=True,
             context={"control_server_pid": poll.process_id,
                      "exit_code": poll.exit_code,

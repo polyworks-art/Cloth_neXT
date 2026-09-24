@@ -162,7 +162,8 @@ to Gaia or remove an existing Velune installation. Gaia currently uses the
 same Cloth NeXt simulation controls as Lumen; its additional upstream features
 are not exposed yet.
 
-On Windows x86_64, real Cloth NeXt Bakes verified Gaia CUDA on NVIDIA and
+Cloth NeXt supports Blender on Windows x86_64 and Linux x86_64. On Windows
+x86_64, real Cloth NeXt Bakes verified Gaia CUDA on NVIDIA and
 Gaia CPU, plus Lumen CUDA on NVIDIA. Gaia's ROCm build ran a short Bake on one
 AMD APU; general AMD GPU support remains in development. See the
 [backend certification record](docs/SOLVER_BACKEND_CERTIFICATION.md).

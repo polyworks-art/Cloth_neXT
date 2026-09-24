@@ -64,7 +64,7 @@ def test_license_file_is_the_full_gpl3_text():
 def test_manifest_is_limited_to_windows_with_declared_permissions():
     manifest = tomllib.loads(
         (PACKAGE_ROOT / "blender_manifest.toml").read_text(encoding="utf-8"))
-    assert manifest["platforms"] == ["windows-x64"]
+    assert manifest["platforms"] == ["windows-x64", "linux-x64"]
     assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
     assert manifest["copyright"]
     assert len(manifest["tagline"]) <= 64 and not manifest["tagline"].endswith(".")

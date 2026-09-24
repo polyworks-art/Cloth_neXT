@@ -25,6 +25,8 @@ python tools\build_extension.py `
 Both modes validate the ZIP layout and scan the finished artifact. Release CI
 additionally builds and stages the Cloth NeXt-owned Windows Bake companion at
 `bin/cloth-next-bake.exe`; that executable is UI software, not the solver.
+The corresponding Linux x86_64 candidate contains `bin/cloth-next-bake` with
+its executable mode retained. Platform candidates never contain both binaries.
 The package also contains validated offline onboarding resources under
 `resources/onboarding/`: the manifest-version `whats_new/<version>.json` plus the
 shared hero and icon pool. Welcome is invariant Companion content and therefore has
@@ -36,5 +38,28 @@ Companion modes, or an archive without these resources for Dev, Beta, and Stable
 
 The installed extension directory is treated as read-only. Managed solver files,
 downloads, logs, and runtime state live under `%LOCALAPPDATA%\ClothNeXt\solver\`.
+On Linux, persistent solver data lives under
+`$XDG_DATA_HOME/ClothNeXt/solver/`, or `~/.local/share/ClothNeXt/solver/` when
+`XDG_DATA_HOME` is unset.
+
+## Linux local checks
+
+On native Linux (or WSL2 with WSLg), install Python 3.11, Tk, Xvfb, and the
+build requirements, then run:
+
+```bash
+pytest -m "not integration and not built_artifact"
+python companion/build_companion.py
+xvfb-run -a python tools/verify_companion.py
+python tools/stage_companion.py "companion/dist/Cloth NeXt Bake"
+python tools/build_extension.py --output dist/cloth_next-2.7.8-linux-x64.zip
+python tools/validate_extension.py dist/cloth_next-2.7.8-linux-x64.zip --phase packaged
+```
+
+Use the version already present in `blender_manifest.toml` when it changes;
+these commands do not authorize a version bump. WSLg is useful for IPC and
+window-layout checks but does not reproduce every native desktop compositor,
+GPU driver, file-permission, or session-lifecycle behavior. A native Linux
+desktop remains the final visual and real-solver acceptance environment.
 See [Solver distribution](SOLVER_DISTRIBUTION.md) and the mandatory
 [Release policy](RELEASE_POLICY.md).
