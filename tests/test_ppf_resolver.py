@@ -84,6 +84,46 @@ def test_layout_runtime_environment_does_not_write_bundle(tmp_path):
     assert environment["PYTHONPATH"] == str(tmp_path.resolve())
 
 
+def test_linux_layout_selects_only_its_trusted_build_python(tmp_path):
+    install_fake(tmp_path)
+    interpreter = tmp_path / "python" / "bin" / "python3"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.write_bytes(b"python")
+    layout = BundledSolverLayout.from_root(tmp_path)
+    layout = BundledSolverLayout(
+        layout.root_directory, layout.executable_path,
+        layout.source_metadata_path, layout.licenses_directory,
+        platform="linux", architecture="x86_64")
+
+    environment = dict(layout.process_environment())
+
+    assert environment["PPF_CTS_BUILD_PYTHON"] == str(interpreter.resolve())
+
+
+def test_linux_layout_rejects_build_python_escaping_installation(tmp_path):
+    import os
+    import pytest
+
+    if not hasattr(os, "symlink"):
+        pytest.skip("symlinks unavailable")
+    install_fake(tmp_path)
+    outside = tmp_path.parent / "outside-python"
+    outside.write_bytes(b"python")
+    interpreter = tmp_path / "python" / "bin" / "python3"
+    interpreter.parent.mkdir(parents=True)
+    try:
+        interpreter.symlink_to(outside)
+    except OSError:
+        pytest.skip("symlink creation unavailable")
+    layout = BundledSolverLayout.from_root(tmp_path)
+    layout = BundledSolverLayout(
+        layout.root_directory, layout.executable_path,
+        layout.source_metadata_path, layout.licenses_directory,
+        platform="linux", architecture="x86_64")
+
+    assert "PPF_CTS_BUILD_PYTHON" not in dict(layout.process_environment())
+
+
 def test_selected_installation_routes_executable_and_protocol_together(tmp_path):
     root = tmp_path / "ppf013"
     executable = root / "ppf-cts-server.exe"

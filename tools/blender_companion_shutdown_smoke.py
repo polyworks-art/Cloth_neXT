@@ -5,16 +5,93 @@ import json
 import importlib
 import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 
-import bpy
+import bpy  # noqa: F401 - proves this harness is running inside real Blender
+
+
+def _command(*args: str) -> str:
+    return subprocess.run(args, check=True, text=True, capture_output=True).stdout.strip()
+
+
+def _window_id(title: str) -> str:
+    values = _command("xdotool", "search", "--onlyvisible", "--name", title).splitlines()
+    if not values:
+        raise RuntimeError(f"visible X11 window not found: {title}")
+    return values[-1]
+
+
+def _geometry(window_id: str) -> dict[str, int]:
+    values = {}
+    for line in _command("xdotool", "getwindowgeometry", "--shell", window_id).splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            if key in {"X", "Y", "WIDTH", "HEIGHT"}:
+                values[key.lower()] = int(value)
+    return values
+
+
+def _real_wm_exercise(blender_window: str) -> dict:
+    companion = _window_id("^Cloth NeXt Bake$")
+    compact = _geometry(companion)
+    info = _command("xwininfo", "-id", companion)
+    if "Map State: IsViewable" not in info:
+        raise RuntimeError(f"Companion is not viewable:\n{info}")
+    if compact.get("width", 0) < 300 or compact.get("height", 0) < 80:
+        raise RuntimeError(f"invalid compact Companion geometry: {compact}")
+
+    probe = subprocess.Popen(
+        ["xmessage", "-title", "Cloth NeXt WM Probe", "WM focus probe"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        probe_window = _window_id("^Cloth NeXt WM Probe$")
+        _command("xdotool", "windowactivate", "--sync", probe_window)
+        probe_received_focus = _command("xdotool", "getactivewindow") == probe_window
+        _command("xdotool", "windowactivate", "--sync", blender_window)
+        blender_regained_focus = _command("xdotool", "getactivewindow") == blender_window
+        if not probe_received_focus or not blender_regained_focus:
+            raise RuntimeError(
+                "Openbox focus cycle failed: "
+                f"probe={probe_received_focus}, blender={blender_regained_focus}")
+
+        # Exercise the actual installed Details control after both focus changes.
+        _command("xdotool", "mousemove", "--window", companion, "45",
+                 str(compact["height"] - 16), "click", "1")
+        deadline = time.monotonic() + 3.0
+        expanded = _geometry(companion)
+        while expanded["height"] <= compact["height"] and time.monotonic() < deadline:
+            time.sleep(0.05)
+            expanded = _geometry(companion)
+        if expanded["height"] <= compact["height"]:
+            raise RuntimeError(
+                f"Details did not expand: compact={compact}, expanded={expanded}")
+        if "Map State: IsViewable" not in _command("xwininfo", "-id", companion):
+            raise RuntimeError("Companion stopped being viewable after focus exercise")
+        return {
+            "window_id": companion,
+            "compact_geometry": compact,
+            "expanded_geometry": expanded,
+            "mapped_viewable": True,
+            "other_window_received_focus": probe_received_focus,
+            "blender_regained_focus": blender_regained_focus,
+            "companion_remained_usable": True,
+        }
+    finally:
+        probe.terminate()
+        try:
+            probe.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            probe.kill()
 
 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:]
     package_root, result_path = Path(argv[0]), Path(argv[1])
     installed = "--installed" in argv[2:]
+    real_wm = "--real-wm" in argv[2:]
+    blender_window = _command("xdotool", "getactivewindow") if real_wm else ""
     if installed:
         module_name = "bl_ext.user_default.cloth_next"
         try:
@@ -56,6 +133,7 @@ def main() -> None:
         time.sleep(0.05)
 
     if ready:
+        wm_result = _real_wm_exercise(blender_window) if real_wm else None
         for state in (BakeState.EXPORTING, BakeState.STARTING_SOLVER,
                       BakeState.SIMULATING, BakeState.IMPORTING,
                       BakeState.FINISHED):
@@ -73,6 +151,7 @@ def main() -> None:
         "terminal_state": shared_controller.snapshot().state.value,
         "launch_ok": ok,
         "launch_message": message,
+        "real_wm": wm_result if ready else None,
     }
     result_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     companion_manager.shutdown()

@@ -69,4 +69,17 @@ class BundledSolverLayout:
             "PATH": os.pathsep.join(entries + ([current_path] if current_path else [])),
             "PYTHONPATH": str(root),
         }
+        if self.platform == "linux":
+            # Gaia's native Linux launcher selects the build worker's bundled
+            # environment explicitly.  Do the same for a verified installation
+            # instead of allowing the server to fall back to runner ``python3``.
+            candidate = root / "python" / "bin" / "python3"
+            try:
+                resolved = candidate.resolve(strict=True)
+                resolved.relative_to(root.resolve(strict=True))
+            except (OSError, ValueError):
+                pass
+            else:
+                if resolved.is_file():
+                    environment["PPF_CTS_BUILD_PYTHON"] = str(resolved)
         return tuple(sorted(environment.items()))

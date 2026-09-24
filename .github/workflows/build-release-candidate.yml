@@ -100,7 +100,7 @@ jobs:
       - run: pip install -r requirements-build.txt
       - run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk xvfb
+          sudo apt-get install -y openbox python3-tk wmctrl x11-utils xdotool xvfb
       - run: python tools/build_icons.py
       - run: python companion/build_companion.py
       - run: timeout 90s xvfb-run -a python tools/verify_companion.py
@@ -127,11 +127,24 @@ jobs:
             "$CLOTH_NEXT_BLENDER" --background --python-exit-code 1 \
             --python tools/blender_smoke_test.py
           INSTALLED_ROOT="$RUNNER_TEMP/linux-candidate-profile/extensions/user_default/cloth_next"
-          BLENDER_USER_RESOURCES="$RUNNER_TEMP/linux-candidate-profile" \
-            timeout 90s xvfb-run -a \
-            "$CLOTH_NEXT_BLENDER" --background --python-exit-code 1 \
-            --python tools/blender_companion_shutdown_smoke.py -- \
-            "$INSTALLED_ROOT" "$RUNNER_TEMP/linux-companion-shutdown.json" --installed
+          export BLENDER_USER_RESOURCES="$RUNNER_TEMP/linux-candidate-profile"
+          export INSTALLED_ROOT
+          timeout 90s xvfb-run -a bash -c '
+            openbox >"$RUNNER_TEMP/openbox.log" 2>&1 &
+            wm_pid=$!
+            trap '\''kill "$wm_pid" 2>/dev/null || true'\'' EXIT
+            ready=0
+            for attempt in $(seq 1 50); do
+              if wmctrl -m >/dev/null 2>&1; then ready=1; break; fi
+              kill -0 "$wm_pid" 2>/dev/null || exit 1
+              sleep 0.1
+            done
+            test "$ready" = 1
+            "$CLOTH_NEXT_BLENDER" --python-exit-code 1 \
+              --python tools/blender_companion_shutdown_smoke.py -- \
+              "$INSTALLED_ROOT" "$RUNNER_TEMP/linux-companion-shutdown.json" \
+              --installed --real-wm
+          '
           python -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["result"] == "PASS", p; print(json.dumps(p, indent=2))' \
             "$RUNNER_TEMP/linux-companion-shutdown.json"
       - uses: actions/upload-artifact@v4
