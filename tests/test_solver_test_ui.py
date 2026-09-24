@@ -1781,6 +1781,9 @@ def test_attach_places_cache_after_armature_and_before_later_modifiers(
     assert obj.modifiers[0] is armature
     assert obj.modifiers[1] is boundary
     assert module.has_cloth_next_playback_marker(obj, boundary)
+    assert boundary.cache_format == "PC2"
+    assert boundary.show_viewport
+    assert boundary.show_render
     assert obj.modifiers[2] is subdivision
     # The cache contains the evaluated Armature result. Playback must not
     # apply the same 90-degree rig rotation again as an apparent 180 degrees.

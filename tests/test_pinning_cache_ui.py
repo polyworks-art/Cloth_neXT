@@ -182,7 +182,7 @@ def test_bake_scans_the_pin_group_exactly_once(env):
     assert scene.counters.vertex_group_scans == vertex_count
     assert scene.counters.vertex_scans == 1
     # Cloth and Collider connectivity plus coordinates are authenticated once.
-    assert scene.counters.foreach_get_calls == 14
+    assert scene.counters.foreach_get_calls == 10
 
 
 # ---------------------------------------------------------------------------

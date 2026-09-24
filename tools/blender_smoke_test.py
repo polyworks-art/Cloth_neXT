@@ -120,8 +120,10 @@ def _phase28_roundtrip(bpy, module_name: str) -> None:
     boundary_uid = boundary.persistent_uid
     assert boundary.name == "Cloth NeXt"
     assert boundary.type == "MESH_CACHE"
+    assert boundary.cache_format == "PC2"
     assert not boundary.show_viewport and not boundary.show_render
     assert not any(mod.type == "CLOTH" for mod in mesh_obj.modifiers)
+
 
     subdivision = mesh_obj.modifiers.new("Before Simulation", "SUBSURF")
     subdivision.levels = 1
@@ -181,6 +183,49 @@ def _phase28_roundtrip(bpy, module_name: str) -> None:
                    for mod in mesh_obj.modifiers)
     for modifier in tuple(mesh_obj.modifiers):
         mesh_obj.modifiers.remove(modifier)
+
+
+def _animated_collider_cache_key_roundtrip(bpy, module_name: str) -> None:
+    """A timeline evaluation must not invalidate an unchanged Collider."""
+    solver_test = importlib.import_module(f"{module_name}.blender.solver_test")
+    export_identity = importlib.import_module(f"{module_name}.export_identity")
+
+    mesh = bpy.data.meshes.new("CN Cache Collider Mesh")
+    mesh.from_pydata(
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        (), ((0, 1, 2),))
+    collider = bpy.data.objects.new("CN Cache Collider", mesh)
+    bpy.context.scene.collection.objects.link(collider)
+    settings = collider.cloth_next
+    settings.enabled = True
+    settings.role = "COLLIDER"
+    settings.collider_motion = "ANIMATED"
+    settings.collider_samples_per_frame = 2
+    export_identity.ensure_persistent_id(collider)
+    collider.location = (0.0, 0.0, 0.0)
+    collider.keyframe_insert(data_path="location", frame=1)
+    collider.location = (2.0, 0.0, 0.0)
+    collider.keyframe_insert(data_path="location", frame=10)
+    subdivision = collider.modifiers.new("Collision Subdivision", "SUBSURF")
+    subdivision.levels = 1
+
+    bake_range = solver_test.BakeFrameRange(1, 10)
+    first, reason = solver_test._animated_collider_cache_key(
+        bpy.context, collider, bake_range)
+    assert first, reason
+    original = bpy.context.scene.frame_current
+    try:
+        for frame in (1, 5, 10):
+            bpy.context.scene.frame_set(frame)
+            bpy.context.evaluated_depsgraph_get().update()
+    finally:
+        bpy.context.scene.frame_set(original)
+    second, reason = solver_test._animated_collider_cache_key(
+        bpy.context, collider, bake_range)
+    assert second, reason
+    assert second == first, "Timeline evaluation invalidated Collider cache key"
+    bpy.data.objects.remove(collider, do_unlink=True)
+    bpy.data.meshes.remove(mesh)
 
 
 def _solver_download_dispatch_check(bpy, module_name: str) -> None:
@@ -285,6 +330,7 @@ def main() -> None:
         _solver_download_dispatch_check(bpy, module_name)
         _addon_update_section_check(bpy, module_name)
         _phase28_roundtrip(bpy, module_name)
+        _animated_collider_cache_key_roundtrip(bpy, module_name)
         icons = importlib.import_module(module_name + ".blender.icon_registry")
         floating = importlib.import_module(module_name + ".blender.floating_simulation")
         physics_ui = importlib.import_module(module_name + ".blender.physics_ui")

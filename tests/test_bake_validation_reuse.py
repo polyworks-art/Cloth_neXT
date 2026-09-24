@@ -148,7 +148,7 @@ def test_bake_start_hashes_topology_and_scans_pins_exactly_once(env,
     # to the solver legitimately reads every coordinate once.
     # The boundary architecture adds one stable topology+shape fingerprint of
     # the simulation input, without adding per-frame scans.
-    assert scene.counters.foreach_get_calls == 14
+    assert scene.counters.foreach_get_calls == 10
     assert scene.counters.vertex_group_scans == vertex_count
 
 
@@ -163,6 +163,14 @@ def test_run_plan_reuses_the_supplied_snapshot(env, monkeypatch):
 
     snapshot = module.validate_scene(scene.context)
     scene.counters.reset()
+    original_extract = module._extract_deformable_mesh
+    monkeypatch.setattr(
+        module, "_extract_deformable_mesh",
+        lambda _context, obj, **kwargs: (
+            (_ for _ in ()).throw(AssertionError(
+                "validated Bake-start geometry must be reused"))
+            if obj is scene.cloth else
+            original_extract(_context, obj, **kwargs)))
 
     plan = module.build_run_plan(scene.context, snapshot=snapshot)
 

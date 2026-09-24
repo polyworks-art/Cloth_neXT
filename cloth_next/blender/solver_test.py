@@ -137,6 +137,7 @@ from ..ppf_run.session import (
 from ..telemetry import shared_telemetry
 from ..telemetry.hud_layout import RamAutoCancelGuard
 from ..topology import geometry_fingerprint as combine_geometry_fingerprint
+from ..topology import GEOMETRY_SCHEMA_VERSION
 from ..topology import mesh_geometry_signature
 from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
@@ -1323,15 +1324,36 @@ def _extract_boundary_mesh(context, obj, *, needs_edges: bool):
 
 def _evaluated_deformable_signatures(context, obj):
     """Topology/order and shape signatures at the simulation boundary."""
+    topology, shape, vertices, triangles = (
+        _evaluated_deformable_snapshot(context, obj))
+    return topology, shape, len(vertices), len(triangles)
+
+
+def _evaluated_deformable_snapshot(context, obj):
+    """Boundary signatures plus the geometry that produced them."""
     cutoff = _solver_input_modifier_cutoff(obj)
     if simulation_modifiers(obj) and cutoff < 0:
         mesh = getattr(obj, "data", None)
         if mesh is None:
             return (_hash_mesh_topology(mesh), mesh_geometry_signature(mesh),
-                    0, 0)
+                    (), ())
         mesh.calc_loop_triangles()
-        return (_hash_mesh_topology(mesh), mesh_geometry_signature(mesh),
-                len(mesh.vertices), len(mesh.loop_triangles))
+        topology = _hash_mesh_topology(mesh)
+        coordinates = np.empty(len(mesh.vertices) * 3, dtype="<f8")
+        mesh.vertices.foreach_get("co", coordinates)
+        shape_hash = hashlib.sha256()
+        shape_hash.update(struct.pack(
+            "<II", GEOMETRY_SCHEMA_VERSION, len(mesh.vertices)))
+        shape_hash.update(topology.encode("ascii"))
+        shape_hash.update(memoryview(coordinates).cast("B"))
+        vertices = coordinates.reshape((-1, 3)).astype("<f4")
+        triangles = np.empty((len(mesh.loop_triangles), 3), dtype="<u4")
+        if not hasattr(mesh, "arrays"):
+            mesh.loop_triangles.foreach_get("vertices", triangles.reshape(-1))
+        else:  # lightweight test adapter lacks the loop-triangle bulk array
+            triangles = tuple(tuple(item.vertices)
+                              for item in mesh.loop_triangles)
+        return topology, shape_hash.hexdigest(), vertices, triangles
     vertices, triangles = _extract_deformable_mesh(
         context, obj, needs_edges=True)
     topology_hash = hashlib.sha256()
@@ -1349,7 +1371,21 @@ def _evaluated_deformable_signatures(context, obj):
             :_solver_input_modifier_cutoff(obj) + 1]),
         separators=(",", ":")).encode("utf-8"))
     shape = shape_hash.hexdigest()
-    return topology, shape, len(vertices), len(triangles)
+    return topology, shape, vertices, triangles
+
+
+def _boundary_snapshot_at_frame(context, obj, frame):
+    """Capture one boundary frame and restore the user's timeline position."""
+    scene = context.scene
+    if not hasattr(scene, "frame_set"):
+        return _evaluated_deformable_snapshot(context, obj)
+    original = int(getattr(scene, "frame_current", frame))
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
+    try:
+        scene.frame_set(frame)
+        return _evaluated_deformable_snapshot(context, obj)
+    finally:
+        scene.frame_set(original, subframe=original_subframe)
 
 
 def _has_topology_changing_solver_input(obj) -> bool:
@@ -1368,8 +1404,11 @@ def _validate_boundary_topology_range(context, obj, bake_range,
     scene = context.scene
     original = int(scene.frame_current)
     original_subframe = float(getattr(scene, "frame_subframe", 0.0))
-    frames = tuple(sorted({bake_range.start, bake_range.end,
-                           (bake_range.start + bake_range.end) // 2}))
+    # Bake-start geometry was already captured by validate_scene() and is
+    # reused for export. Only the remaining bounded samples need evaluation.
+    frames = tuple(sorted({bake_range.end,
+                           (bake_range.start + bake_range.end) // 2}
+                          - {bake_range.start}))
     try:
         for frame in frames:
             scene.frame_set(frame)
@@ -1661,8 +1700,13 @@ def _build_local_geometry_snapshot(context, validation_snapshot):
                     vertices, edges, _splines = sample_curve(obj)
                     triangles = ()
                 else:
-                    vertices, triangles = _extract_deformable_mesh(
-                        context, obj, needs_edges=True)
+                    if (len(entry.boundary_vertices)
+                            and len(entry.boundary_triangles)):
+                        vertices = entry.boundary_vertices
+                        triangles = entry.boundary_triangles
+                    else:
+                        vertices, triangles = _extract_deformable_mesh(
+                            context, obj, needs_edges=True)
                     if (_has_topology_changing_solver_input(obj)
                             and (_friction_region_settings(obj)
                                  or entry.material.sewing_enabled
@@ -2310,6 +2354,8 @@ class DeformableValidation:
     topology_signature: str
     shape_signature: str
     role: str
+    boundary_vertices: object = ()
+    boundary_triangles: object = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -2340,6 +2386,8 @@ class ValidationSnapshot:
     gravity_blender: tuple[float, float, float] = (0.0, 0.0, -9.81)
     wind_blender: tuple[float, float, float] = (0.0, 0.0, 0.0)
     timings: dict[str, float] = field(default_factory=dict)
+    boundary_vertices: object = ()
+    boundary_triangles: object = ()
 
 
 def _validate_scene_single(context) -> ValidationSnapshot:
@@ -2393,8 +2441,9 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                 source_topology_signature=topology_signature)
         else:
             (topology_signature, deformable_shape_signature,
-             _evaluated_vertices, _evaluated_triangles) = (
-                _evaluated_deformable_signatures(context, cloth_obj))
+             boundary_vertices, boundary_triangles) = (
+                _boundary_snapshot_at_frame(
+                    context, cloth_obj, bake_range.start))
             if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
                     cloth_obj.cloth_next.pinning_enabled):
                 raise SceneValidationError(
@@ -2446,7 +2495,9 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         preset_identifier=preset_identifier, quality=quality,
         pin_membership=pin_membership, topology_signature=topology_signature,
         settings_fingerprint=settings_fp, geometry_fingerprint=geometry_fp,
-        combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp))
+        combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp),
+        boundary_vertices=(boundary_vertices if role != "ROD" else ()),
+        boundary_triangles=(boundary_triangles if role != "ROD" else ()))
 
 
 def _validate_scene_impl(context) -> ValidationSnapshot:
@@ -2522,8 +2573,9 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
                 pins = StaticPinSnapshot(False, "", str(obj.name),
                     len(vertices), (), source_topology_signature=topology)
             else:
-                topology, shape, _vertex_count, _triangle_count = (
-                    _evaluated_deformable_signatures(context, obj))
+                topology, shape, boundary_vertices, boundary_triangles = (
+                    _boundary_snapshot_at_frame(
+                        context, obj, ranges[0].start))
                 if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
                         obj.cloth_next.pinning_enabled):
                     raise SceneValidationError(
@@ -2532,7 +2584,9 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
                         "disable Pinning.")
                 pins = _snapshot_static_pin(obj, topology_signature=topology)
             entries.append(DeformableValidation(
-                obj, material, preset, pins, topology, shape, role))
+                obj, material, preset, pins, topology, shape, role,
+                boundary_vertices if role != "ROD" else (),
+                boundary_triangles if role != "ROD" else ()))
         validation_subject = None
         per_object_settings = [
             _settings_fingerprint(context, entry.obj, collider_objs,
@@ -2602,7 +2656,9 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         settings_fingerprint=settings_fp, geometry_fingerprint=geometry_fp,
         combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp),
         deformables=tuple(entries), gravity_blender=gravity_blender,
-        wind_blender=wind_blender)
+        wind_blender=wind_blender,
+        boundary_vertices=first.boundary_vertices,
+        boundary_triangles=first.boundary_triangles)
 
 
 def validate_scene(context) -> ValidationSnapshot:
@@ -2922,6 +2978,47 @@ def _safe_shape_key_identity(data) -> tuple[bool, dict | None, str]:
     }, ""
 
 
+def _safe_self_contained_modifier_identity(modifier, owner):
+    """Fingerprint a modifier whose result has no external ID dependency."""
+    properties = getattr(getattr(modifier, "bl_rna", None), "properties", None)
+    if properties is None:
+        return False, {}, "unidentifiable modifier settings"
+    animated = _animated_component_paths(owner)
+    values = {}
+    for prop in properties:
+        name = str(getattr(prop, "identifier", ""))
+        if (not name or name == "rna_type"
+                or bool(getattr(prop, "is_readonly", False))):
+            continue
+        prop_type = str(getattr(prop, "type", ""))
+        value = getattr(modifier, name, None)
+        if prop_type == "POINTER":
+            if value is not None:
+                return False, {}, f"external dependency in property {name}"
+            values[name] = None
+            continue
+        if prop_type == "COLLECTION":
+            if tuple(value or ()):
+                return False, {}, f"collection dependency in property {name}"
+            values[name] = []
+            continue
+        if prop_type not in {"BOOLEAN", "INT", "FLOAT", "STRING", "ENUM"}:
+            return False, {}, f"unsupported property {name}"
+        if isinstance(value, set):
+            values[name] = sorted(str(item) for item in value)
+            continue
+        try:
+            path = f'{modifier.path_from_id()}.{name}'
+            values[name] = _stable_animated_value(value, path, animated)
+        except (AttributeError, TypeError, ValueError):
+            return False, {}, f"unreadable property {name}"
+    return True, {
+        "type": str(getattr(modifier, "type", "")),
+        "name": str(getattr(modifier, "name", "")),
+        "settings": values,
+    }, ""
+
+
 def _safe_object_dependency_identity(
         obj, *, collider_capture=False) -> tuple[bool, dict, str]:
     """Cheap, conservative dependency identity for an early cache lookup."""
@@ -2962,8 +3059,16 @@ def _safe_object_dependency_identity(
             continue
         kind = str(getattr(modifier, "type", ""))
         if kind != "ARMATURE":
-            return False, {}, (
-                f"{obj.name}: {kind or 'unknown'} modifier dependency")
+            if not collider_capture:
+                return False, {}, (
+                    f"{obj.name}: {kind or 'unknown'} modifier dependency")
+            modifier_safe, modifier_identity, reason = (
+                _safe_self_contained_modifier_identity(modifier, obj))
+            if not modifier_safe:
+                return False, {}, (
+                    f"{obj.name}: {kind or 'unknown'} modifier {reason}")
+            modifiers.append(modifier_identity)
+            continue
         armature = getattr(modifier, "object", None)
         if armature is None:
             return False, {}, f"{obj.name}: unresolved Armature modifier"
@@ -5814,8 +5919,13 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                             f"{cloth_obj.name} is not a closed manifold surface "
                             f"({open_edges} boundary/non-manifold edges). Seal the "
                             "mesh and make its normals face outward before Bake.")
-                cloth_vertices, cloth_triangles = _extract_deformable_mesh(
-                    context, cloth_obj, needs_edges=True)
+                if (len(snapshot.boundary_vertices)
+                        and len(snapshot.boundary_triangles)):
+                    cloth_vertices = snapshot.boundary_vertices
+                    cloth_triangles = snapshot.boundary_triangles
+                else:
+                    cloth_vertices, cloth_triangles = _extract_deformable_mesh(
+                        context, cloth_obj, needs_edges=True)
                 if (_has_topology_changing_solver_input(cloth_obj)
                         and (_friction_region_settings(cloth_obj)
                              or shell.sewing_enabled
@@ -7773,9 +7883,11 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
                 topology_signature=plan.topology_signature,
                 geometry_fingerprint=plan.geometry_fingerprint,
                 settings_fingerprint=plan.settings_fingerprint)
-        modifier.show_viewport = bool(
-            fields.get("show_viewport", True))
-        modifier.show_render = bool(fields.get("show_render", True))
+        # A successful bake promotes the pass-through boundary to active PC2
+        # playback. The previous visibility is rollback state only; restoring
+        # an initially disabled boundary here would hide the finished result.
+        modifier.show_viewport = True
+        modifier.show_render = True
         _depsgraph_update(bpy.context)
         # Multi-object runs defer destructive cleanup until every target has
         # crossed its filepath commit point, so an attach failure can roll all

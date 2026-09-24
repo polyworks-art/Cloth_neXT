@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.0",
+  "title": "What's New in Cloth NeXt 2.8.0",
+  "subtitle": "Faster repeat bakes with reliable PC2 playback.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Reuse animated Colliders",
+      "description": "Unchanged animated Collider captures are reused across repeat bakes, including safe self-contained modifier stacks."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Prepare geometry once",
+      "description": "Bake-start simulation geometry is validated once and reused for export instead of reading the same evaluated vertices again."
+    },
+    {
+      "icon": "icons/docs.png",
+      "title": "Activate PC2 automatically",
+      "description": "The Cloth NeXt Mesh Cache modifier now uses PC2 explicitly and becomes visible automatically after a successful bake."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

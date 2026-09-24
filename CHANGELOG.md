@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0 - 2026-09-24
+
+- Configure the owned playback modifier explicitly for PC2 and activate it after a successful bake.
+- Reuse validated Bake-start simulation geometry instead of evaluating and reading the same vertices again during export.
+- Avoid resampling the Bake-start frame during animated topology validation.
+- Persist and reuse unchanged animated Collider captures across repeat bakes.
+- Extend safe Collider cache identities to self-contained deterministic modifier stacks while retaining fail-closed invalidation for external dependencies.
+
 ## 2.7.9 - 2026-09-24
 
 - Add a visible Cloth NeXt modifier-stack boundary for Cloth, Soft Body, Rigid Body, and mesh Colliders.

@@ -89,9 +89,11 @@ def ensure_simulation_modifier(obj):
             "modifiers exist. Keep one and remove the duplicates.")
     if found:
         modifier = found[0]
+        modifier.cache_format = "PC2"
         mark_simulation_modifier(obj, modifier)
         return modifier
     modifier = obj.modifiers.new(name="Cloth NeXt", type="MESH_CACHE")
+    modifier.cache_format = "PC2"
     modifier.show_viewport = False
     modifier.show_render = False
     mark_simulation_modifier(obj, modifier)

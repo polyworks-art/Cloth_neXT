@@ -247,7 +247,7 @@ def test_validation_is_the_only_thing_that_scans(env):
     env.solver_test.validate_scene(scene.context)
 
     assert scene.counters.vertex_group_scans == 10_000  # exactly one pass
-    assert scene.counters.foreach_get_calls == 14       # Boundary + collider shape
+    assert scene.counters.foreach_get_calls == 10       # Reused boundary + collider shape
 
 
 # ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ def test_simulation_boundary_is_created_once_and_ignores_artist_cache(
     assert boundary is again
     assert tuple(obj.modifiers) == (artist, boundary)
     assert boundary.name == "Cloth NeXt"
+    assert boundary.cache_format == "PC2"
     assert boundary.show_viewport is False
     assert boundary.show_render is False
     assert cache.simulation_modifiers(obj) == (boundary,)
@@ -103,10 +104,13 @@ def test_animated_topology_mismatch_is_rejected_and_frame_restored(
 
     scene.frame_set = frame_set
     context = SimpleNamespace(scene=scene)
+    sampled = []
     monkeypatch.setattr(
         module, "_evaluated_deformable_signatures",
         lambda _context, _obj: (
-            "changed" if scene.frame_current == 5 else "stable", "shape", 4, 2))
+            sampled.append(scene.frame_current) or
+            ("changed" if scene.frame_current == 5 else "stable"),
+            "shape", 4, 2))
 
     with pytest.raises(module.SceneValidationError,
                        match="topology changes.*frame 5"):
@@ -115,6 +119,7 @@ def test_animated_topology_mismatch_is_rejected_and_frame_restored(
 
     assert scene.frame_current == 7
     assert scene.frame_subframe == 0.25
+    assert sampled == [5]
 
 
 def test_self_intersection_check_deduplicates_pairs_and_ignores_neighbours(
