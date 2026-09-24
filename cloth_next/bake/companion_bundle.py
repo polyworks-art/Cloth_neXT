@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from pathlib import Path
 from ..platform_support import PlatformSpec, platform_spec
 
@@ -28,5 +29,12 @@ def validate_bundle(extension_root: Path, expected_version: str, *,
     if hashlib.sha256(data).hexdigest()!=payload["sha256"]: raise ValueError("companion hash mismatch")
     if (expected.executable_permission_required and os.name == "posix"
             and not binary.stat().st_mode & 0o111):
-        raise ValueError("companion executable permission is missing")
+        # Blender's extension installer currently strips executable mode bits
+        # while unpacking ZIPs. Restore them only after the exact binary has
+        # passed the signed-in-repository manifest identity, size, and hash
+        # checks above; never chmod an unauthenticated path.
+        binary.chmod(binary.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP |
+                     stat.S_IXOTH)
+        if not binary.stat().st_mode & 0o111:
+            raise ValueError("companion executable permission is missing")
     return binary

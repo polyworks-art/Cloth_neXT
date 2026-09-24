@@ -55,6 +55,19 @@ def test_linux_stage_identity_and_executable_mode(tmp_path):
     assert validate_bundle(extension, "2.7.8", platform=LINUX_X64) == target
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX executable modes only")
+def test_linux_validation_restores_mode_after_blender_style_zip_install(tmp_path):
+    extension = tmp_path / "cloth_next"
+    extension.mkdir()
+    source = tmp_path / "companion"
+    source.write_bytes(b"\x7fELFfixture")
+    target = stage(source, extension, platform=LINUX_X64)
+    target.chmod(target.stat().st_mode & ~0o111)
+    assert not target.stat().st_mode & 0o111
+    assert validate_bundle(extension, "2.7.8", platform=LINUX_X64) == target
+    assert target.stat().st_mode & 0o111
+
+
 @pytest.mark.parametrize("field,value", [
     ("platform", "windows-x64"), ("filename", "cloth-next-bake.exe"),
     ("cloth_next_version", "0.0.0"), ("modes", ["bake"]),
