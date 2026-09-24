@@ -59,6 +59,7 @@ def test_linux_stage_identity_and_executable_mode(tmp_path):
 def test_linux_validation_restores_mode_after_blender_style_zip_install(tmp_path):
     extension = tmp_path / "cloth_next"
     extension.mkdir()
+    (extension / "blender_manifest.toml").write_text('version="2.7.8"')
     source = tmp_path / "companion"
     source.write_bytes(b"\x7fELFfixture")
     target = stage(source, extension, platform=LINUX_X64)
