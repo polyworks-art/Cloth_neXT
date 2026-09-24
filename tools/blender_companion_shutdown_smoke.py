@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib
 import os
 from pathlib import Path
 import sys
@@ -13,13 +14,21 @@ import bpy
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:]
     package_root, result_path = Path(argv[0]), Path(argv[1])
-    sys.path.insert(0, str(package_root))
-    import cloth_next
+    installed = "--installed" in argv[2:]
+    if installed:
+        cloth_next = importlib.import_module("bl_ext.user_default.cloth_next")
+    else:
+        sys.path.insert(0, str(package_root.parent))
+        cloth_next = importlib.import_module(package_root.name)
     cloth_next.register()
-    from cloth_next.bake.controller import shared_controller
-    from cloth_next.bake.status import BakeJobKind, BakeState
-    from cloth_next.bake.transport import EnterBakeMode
-    from cloth_next.blender import companion_manager
+    shared_controller = importlib.import_module(
+        cloth_next.__name__ + ".bake.controller").shared_controller
+    status = importlib.import_module(cloth_next.__name__ + ".bake.status")
+    BakeJobKind, BakeState = status.BakeJobKind, status.BakeState
+    EnterBakeMode = importlib.import_module(
+        cloth_next.__name__ + ".bake.transport").EnterBakeMode
+    companion_manager = importlib.import_module(
+        cloth_next.__name__ + ".blender.companion_manager")
 
     job = shared_controller.transition(
         BakeState.PREPARING, job_kind=BakeJobKind.BAKE,

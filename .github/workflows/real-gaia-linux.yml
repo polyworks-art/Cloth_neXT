@@ -1,0 +1,27 @@
+name: real-gaia-linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact commit SHA or git ref to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  real-gaia-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.ref }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: pip install -r requirements-build.txt
+      - name: Archive security regression tests
+        run: pytest tests/test_solver_installer_security.py
+      - name: Download, verify, extract, health-check, and simulate with Gaia
+        run: python tools/validate_real_gaia_linux.py --work-dir "$RUNNER_TEMP/cloth-next-gaia"
