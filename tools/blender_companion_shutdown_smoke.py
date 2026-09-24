@@ -12,12 +12,19 @@ import time
 import bpy  # noqa: F401 - proves this harness is running inside real Blender
 
 
-def _command(*args: str) -> str:
-    return subprocess.run(args, check=True, text=True, capture_output=True).stdout.strip()
+def _command(*args: str, timeout: float | None = None) -> str:
+    return subprocess.run(
+        args, check=True, text=True, capture_output=True,
+        timeout=timeout).stdout.strip()
 
 
-def _window_id(title: str) -> str:
-    values = _command("xdotool", "search", "--onlyvisible", "--name", title).splitlines()
+def _window_id(title: str, *, wait: bool = False) -> str:
+    search = ["xdotool", "search"]
+    if wait:
+        search.append("--sync")
+    values = _command(
+        *search, "--onlyvisible", "--name", title,
+        timeout=5.0 if wait else None).splitlines()
     if not values:
         raise RuntimeError(f"visible X11 window not found: {title}")
     return values[-1]
@@ -46,7 +53,7 @@ def _real_wm_exercise(blender_window: str) -> dict:
         ["xmessage", "-title", "Cloth NeXt WM Probe", "WM focus probe"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        probe_window = _window_id("^Cloth NeXt WM Probe$")
+        probe_window = _window_id("^Cloth NeXt WM Probe$", wait=True)
         _command("xdotool", "windowactivate", "--sync", probe_window)
         probe_received_focus = _command("xdotool", "getactivewindow") == probe_window
         _command("xdotool", "windowactivate", "--sync", blender_window)
