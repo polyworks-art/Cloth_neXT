@@ -50,13 +50,16 @@ def _real_wm_exercise(blender_window: str) -> dict:
         raise RuntimeError(f"invalid compact Companion geometry: {compact}")
 
     probe = subprocess.Popen(
-        ["xmessage", "-title", "Cloth NeXt WM Probe", "WM focus probe"],
+        ["xmessage", "-geometry", "+20+500", "-title",
+         "Cloth NeXt WM Probe", "WM focus probe"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         probe_window = _window_id("^Cloth NeXt WM Probe$", wait=True)
-        _command("xdotool", "windowactivate", "--sync", probe_window)
+        _command("xdotool", "mousemove", "--window", probe_window,
+                 "20", "20", "click", "1", timeout=5.0)
         probe_received_focus = _command("xdotool", "getactivewindow") == probe_window
-        _command("xdotool", "windowactivate", "--sync", blender_window)
+        _command("xdotool", "mousemove", "--window", blender_window,
+                 "20", "20", "click", "1", timeout=5.0)
         blender_regained_focus = _command("xdotool", "getactivewindow") == blender_window
         if not probe_received_focus or not blender_regained_focus:
             raise RuntimeError(
