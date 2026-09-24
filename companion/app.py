@@ -474,7 +474,13 @@ class BakeWindow:
             _set_bake_window_topmost(self.root,True); self.root.lift()
             if not already_visible:
                 self.root.after_idle(self.root.focus_force)
-            self.root.update_idletasks()
+            if sys.platform.startswith("linux"):
+                # X11 window managers acknowledge mapping asynchronously.
+                # Process that MapNotify once before reporting readiness;
+                # update_idletasks alone does not dispatch window events.
+                self.root.update()
+            else:
+                self.root.update_idletasks()
             visible=bool(self.root.winfo_ismapped() and self.root.winfo_viewable())
             topmost=bool(self.root.attributes("-topmost"))
             response={"job_id":job_id,"companion_process_id":os.getpid(),

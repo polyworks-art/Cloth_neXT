@@ -40,6 +40,13 @@ def test_non_windows_topmost_keeps_portable_tk_flag(monkeypatch):
     assert calls == [("-topmost", False)]
 
 
+def test_linux_readiness_dispatches_wm_mapping_event():
+    source = inspect.getsource(app.BakeWindow.enter_bake_mode)
+    assert 'sys.platform.startswith("linux")' in source
+    assert "self.root.update()" in source
+    assert source.index("self.root.update()") < source.rindex("visible=bool")
+
+
 def test_details_meta_collects_useful_snapshot_facts():
     snapshot=BakeSnapshot(active_object_name="Cape",solver_mode="MANAGED",
         solver_version="1.2.3",estimated_remaining_seconds=65,
