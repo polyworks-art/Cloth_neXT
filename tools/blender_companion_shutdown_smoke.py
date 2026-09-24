@@ -16,7 +16,14 @@ def main() -> None:
     package_root, result_path = Path(argv[0]), Path(argv[1])
     installed = "--installed" in argv[2:]
     if installed:
-        cloth_next = importlib.import_module("bl_ext.user_default.cloth_next")
+        module_name = "bl_ext.user_default.cloth_next"
+        try:
+            cloth_next = importlib.import_module(module_name)
+        except ModuleNotFoundError:
+            import addon_utils
+            cloth_next = addon_utils.enable(module_name, default_set=False)
+            if cloth_next is None:
+                raise RuntimeError(f"could not enable installed {module_name}")
     else:
         sys.path.insert(0, str(package_root.parent))
         cloth_next = importlib.import_module(package_root.name)
