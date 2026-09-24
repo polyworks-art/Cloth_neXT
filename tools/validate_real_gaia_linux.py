@@ -11,7 +11,12 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from cloth_next.platform_support import platform_spec
 from cloth_next.ppf.bootstrap import find_release_executable
