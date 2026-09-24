@@ -83,7 +83,7 @@ def test_popen_uses_argument_list_and_shell_false(tmp_path):
         manager.stop()
 
 
-def test_windows_access_denied_is_not_collapsed_into_generic_launch_failure(
+def test_access_denied_is_platform_specific_not_generic_launch_failure(
         tmp_path):
     denied = PermissionError(13, "Access is denied")
     denied.winerror = 5
@@ -93,10 +93,15 @@ def test_windows_access_denied_is_not_collapsed_into_generic_launch_failure(
         with pytest.raises(ClothNextError) as caught:
             manager.start()
 
-    assert caught.value.record.user_message == (
-        "Windows denied access while starting the solver.")
-    assert ("WINDOWS_ACCESS_DENIED" in
-            caught.value.record.technical_message)
+    expected_message = (
+        "Windows denied access while starting the solver."
+        if sys.platform == "win32"
+        else "Execution permission was denied while starting the solver.")
+    expected_kind = (
+        "WINDOWS_ACCESS_DENIED" if sys.platform == "win32"
+        else "EXECUTION_PERMISSION_DENIED")
+    assert caught.value.record.user_message == expected_message
+    assert expected_kind in caught.value.record.technical_message
     assert not manager.config.stdout_log_file.exists()
     assert not manager.config.stderr_log_file.exists()
 
