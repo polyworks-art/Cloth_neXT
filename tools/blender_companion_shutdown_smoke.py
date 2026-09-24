@@ -67,6 +67,8 @@ def main() -> None:
     payload = {
         "result": "PASS" if ready and not companion_manager.running() else "FAIL",
         "ready": ready,
+        "startup_state": companion_manager.startup_status(job)[0],
+        "startup_detail": companion_manager.startup_status(job)[1],
         "process_running_after_finished": companion_manager.running(),
         "terminal_state": shared_controller.snapshot().state.value,
         "launch_ok": ok,
