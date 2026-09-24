@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.9 - 2026-09-24
+
+- Add a visible Cloth NeXt modifier-stack boundary for Cloth, Soft Body, Rigid Body, and mesh Colliders.
+- Evaluate topology-changing modifiers before the boundary while excluding Blender-only presentation modifiers after it.
+- Reuse the same owned modifier for deformable PC2 playback, while keeping Collider boundaries playback-disabled.
+- Isolate boundary evaluation on temporary objects so export never toggles modifiers on the user's object.
+- Preserve legacy owned-cache adoption, duplicate protection, and sampled animated-topology safety checks.
+
 ## 2.7.8 - 2026-09-23
 
 - Keep the collapsed Bake Companion at its exact existing size and presentation.

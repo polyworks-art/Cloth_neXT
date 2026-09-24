@@ -14,6 +14,7 @@ import bpy
 
 from .. import export_identity
 from . import object_properties
+from .playback_cache import ensure_simulation_modifier, simulation_modifiers
 from ..bake.controller import shared_controller
 from ..solver_quality import (
     PDRD_QUALITY_PRESETS,
@@ -161,6 +162,24 @@ class CLOTHNEXT_OT_set_object_type(bpy.types.Operator):
             from . import linked_colliders
             linked_colliders.unlink(scene, obj)
         obj.cloth_next.role = self.role
+        if self.role in {"CLOTH", "SOFT_BODY", "RIGID_BODY", "COLLIDER"}:
+            boundary = ensure_simulation_modifier(obj)
+            # A Collider uses the same stack marker as an export boundary, but
+            # never as PC2 playback.  A later successful deformable bake will
+            # configure and re-enable this same modifier.
+            if self.role == "COLLIDER":
+                boundary.show_viewport = False
+                boundary.show_render = False
+        else:
+            # Rod/Cable and Force keep their existing non-mesh workflows.
+            # Empty boundaries are setup state and can be removed; a boundary
+            # carrying a cache is retained (disabled) so owned bake data is
+            # never silently discarded by a role change.
+            for boundary in simulation_modifiers(obj):
+                boundary.show_viewport = False
+                boundary.show_render = False
+                if not str(getattr(boundary, "filepath", "") or ""):
+                    obj.modifiers.remove(boundary)
         _remap_quality_after_pdrd_change(
             scene, previous_has_pdrd=previous_has_pdrd)
         return {"FINISHED"}
@@ -206,6 +225,9 @@ class CLOTHNEXT_OT_add_physics(bpy.types.Operator):
         settings.enabled = True
         settings.role = ("FORCE" if obj.type == "EMPTY"
                          else object_properties.DEFAULT_ROLE)
+        if obj.type == "MESH" and settings.role in {
+                "CLOTH", "SOFT_BODY", "RIGID_BODY", "COLLIDER"}:
+            ensure_simulation_modifier(obj)
         if scene is not None:
             settings.bake_start = int(scene.frame_start)
             settings.bake_end = int(scene.frame_end)
@@ -229,6 +251,11 @@ def remove_physics_targets(scene, targets):
         return False
     previous_has_pdrd = _scene_has_pdrd(scene)
     for obj in targets:
+        # An empty boundary is setup state, not baked user data.  Keep a
+        # populated cache intact so removing Cloth NeXt never destroys a bake.
+        for modifier in simulation_modifiers(obj):
+            if not str(getattr(modifier, "filepath", "") or ""):
+                obj.modifiers.remove(modifier)
         object_properties.reset_settings(obj.cloth_next)
     _remap_quality_after_pdrd_change(scene, previous_has_pdrd=previous_has_pdrd)
     return True

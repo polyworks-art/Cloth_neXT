@@ -13,6 +13,7 @@ draw-callback bookkeeping that mirrors Blender's ``_draw_funcs`` list.
 from __future__ import annotations
 
 import sys
+import copy
 import types
 
 
@@ -199,6 +200,13 @@ def make_module() -> types.ModuleType:
             self.name = name
             self.type = type
             self.modifiers = _Modifiers()
+
+        def copy(self):
+            duplicate = Object(self.name, self.type)
+            duplicate.__dict__.update(self.__dict__)
+            duplicate.modifiers = _Modifiers(
+                copy.copy(modifier) for modifier in self.modifiers)
+            return duplicate
 
     def _physics_add_draw(self, context):
         pass

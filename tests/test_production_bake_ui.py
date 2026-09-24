@@ -62,12 +62,22 @@ def _objects(env, cloth_count=1, collider_count=1):
         # Blender restart). Tests that exercise that gate clear this.
         obj.cloth_next.cache_directory = "//cn_cache/"
         obj.animation_data = None
+        boundary = obj.modifiers.new("Cloth NeXt", "MESH_CACHE")
+        boundary.show_viewport = False
+        boundary.show_render = False
+        boundary.cloth_next_role = "simulation_cache_v1"
+        obj.cloth_next_simulation_modifier_name = boundary.name
         result.append(obj)
     for number in range(collider_count):
         obj = env.bpy.types.Object(name=f"Collider{number}", type="MESH")
         obj.cloth_next.enabled = True
         obj.cloth_next.role = "COLLIDER"
         obj.animation_data = None
+        boundary = obj.modifiers.new("Cloth NeXt", "MESH_CACHE")
+        boundary.show_viewport = False
+        boundary.show_render = False
+        boundary.cloth_next_role = "simulation_cache_v1"
+        obj.cloth_next_simulation_modifier_name = boundary.name
         result.append(obj)
     return result
 

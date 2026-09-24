@@ -105,26 +105,82 @@ def _assert_no_runtime_timers(bpy, module_name: str) -> None:
     assert not leaked, f"Cloth NeXt timers survived unregister: {leaked}"
 
 
-def _phase28_roundtrip(bpy) -> None:
-    """Enable and remove Cloth NeXt on a real mesh through the operators."""
-    mesh_obj = next((obj for obj in bpy.data.objects if obj.type == "MESH"), None)
-    if mesh_obj is None:
-        bpy.ops.mesh.primitive_plane_add()
-        mesh_obj = bpy.context.active_object
-    bpy.context.view_layer.objects.active = mesh_obj
-    modifier_count = len(mesh_obj.modifiers)
+def _phase28_roundtrip(bpy, module_name: str) -> None:
+    """Exercise the real-RNA simulation boundary and evaluated stack prefix."""
+    bpy.ops.mesh.primitive_plane_add()
+    mesh_obj = bpy.context.active_object
+    mesh_data = mesh_obj.data
 
     assert not mesh_obj.cloth_next.enabled
     bpy.ops.clothnext.add_physics()
     assert mesh_obj.cloth_next.enabled
     assert mesh_obj.cloth_next.role == "CLOTH"
-    # no native Cloth modifier and no other modifier appears
-    assert len(mesh_obj.modifiers) == modifier_count
+    assert len(mesh_obj.modifiers) == 1
+    boundary = mesh_obj.modifiers[0]
+    boundary_uid = boundary.persistent_uid
+    assert boundary.name == "Cloth NeXt"
+    assert boundary.type == "MESH_CACHE"
+    assert not boundary.show_viewport and not boundary.show_render
     assert not any(mod.type == "CLOTH" for mod in mesh_obj.modifiers)
+
+    subdivision = mesh_obj.modifiers.new("Before Simulation", "SUBSURF")
+    subdivision.levels = 1
+    mesh_obj.modifiers.move(1, 0)
+    post = mesh_obj.modifiers.new("After Simulation", "SOLIDIFY")
+    solver_test = importlib.import_module(module_name + ".blender.solver_test")
+    vertices, _triangles = solver_test._extract_deformable_mesh(
+        bpy.context, mesh_obj, needs_edges=True)
+    assert len(vertices) > len(mesh_data.vertices)
+    assert subdivision.show_viewport and post.show_viewport
+
+    # The artist owns the boundary position; moving it changes the solver
+    # input and Cloth NeXt must not move it back automatically.
+    mesh_obj.modifiers.move(1, 0)
+    vertices, _triangles = solver_test._extract_deformable_mesh(
+        bpy.context, mesh_obj, needs_edges=True)
+    assert len(vertices) == len(mesh_data.vertices)
+    assert mesh_obj.modifiers[0].persistent_uid == boundary_uid
+
+    # Solidify is likewise evaluated when authored before the boundary.
+    mesh_obj.modifiers.move(2, 0)
+    vertices, _triangles = solver_test._extract_deformable_mesh(
+        bpy.context, mesh_obj, needs_edges=True)
+    assert len(vertices) > len(mesh_data.vertices)
+
+    # Cloth -> Collider -> Cloth adopts the same boundary.  Collider export
+    # includes its prefix (Subdivision) and excludes its suffix (Bevel), while
+    # playback remains disabled and no second Mesh Cache is created.
+    set_role = bpy.ops.clothnext.set_object_type
+    set_role(role="COLLIDER")
+    assert mesh_obj.cloth_next.role == "COLLIDER"
+    assert any(mod.persistent_uid == boundary_uid
+               for mod in mesh_obj.modifiers)
+    boundary_index = list(mesh_obj.modifiers).index(boundary)
+    for index in range(boundary_index - 1, -1, -1):
+        mesh_obj.modifiers.remove(mesh_obj.modifiers[index])
+    collider_subdivision = mesh_obj.modifiers.new("Collision Subdivision", "SUBSURF")
+    collider_subdivision.levels = 1
+    mesh_obj.modifiers.move(len(mesh_obj.modifiers) - 1, 0)
+    mesh_obj.modifiers.new("Presentation Bevel", "BEVEL")
+    collider_vertices, _triangles = solver_test._extract_boundary_mesh(
+        bpy.context, mesh_obj, needs_edges=False)
+    assert len(collider_vertices) > len(mesh_data.vertices)
+    assert not boundary.show_viewport and not boundary.show_render
+    assert not boundary.filepath
+    assert sum(mod.type == "MESH_CACHE" for mod in mesh_obj.modifiers) == 1
+    set_role(role="CLOTH")
+    assert mesh_obj.cloth_next.role == "CLOTH"
+    assert sum(mod.type == "MESH_CACHE" for mod in mesh_obj.modifiers) == 1
+    assert any(mod.persistent_uid == boundary_uid
+               for mod in mesh_obj.modifiers)
 
     bpy.ops.clothnext.remove_physics()
     assert not mesh_obj.cloth_next.enabled
     assert mesh_obj.cloth_next.role == "CLOTH"
+    assert not any(mod.persistent_uid == boundary_uid
+                   for mod in mesh_obj.modifiers)
+    for modifier in tuple(mesh_obj.modifiers):
+        mesh_obj.modifiers.remove(modifier)
 
 
 def _solver_download_dispatch_check(bpy, module_name: str) -> None:
@@ -228,7 +284,7 @@ def main() -> None:
         assert _clothnext_handler_count(bpy) > 0
         _solver_download_dispatch_check(bpy, module_name)
         _addon_update_section_check(bpy, module_name)
-        _phase28_roundtrip(bpy)
+        _phase28_roundtrip(bpy, module_name)
         icons = importlib.import_module(module_name + ".blender.icon_registry")
         floating = importlib.import_module(module_name + ".blender.floating_simulation")
         physics_ui = importlib.import_module(module_name + ".blender.physics_ui")

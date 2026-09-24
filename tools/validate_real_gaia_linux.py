@@ -45,7 +45,7 @@ def main() -> int:
     spec = platform_spec()
     if spec.solver_platform != "linux-x86_64":
         raise SystemExit(f"this gate requires linux-x86_64, got {spec.solver_platform}")
-    manifest = load_bundled_manifest(expected_cloth_next_version="2.7.8")
+    manifest = load_bundled_manifest(expected_cloth_next_version="2.7.9")
     entry = manifest.entry_for(spec.solver_platform)
     assert entry is not None and entry.release_id == "ppf-0.22-gaia"
     archive = work / entry.official_asset_name

@@ -6,6 +6,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import sys
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -1765,6 +1766,8 @@ def test_attach_places_cache_after_armature_and_before_later_modifiers(
     obj = blender_env.bpy.types.Object(name="cloth", type="MESH")
     blender_env.bpy.data.objects[obj.name] = obj
     armature = obj.modifiers.new("Armature", "ARMATURE")
+    boundary = sys.modules[
+        "cloth_next.blender.playback_cache"].ensure_simulation_modifier(obj)
     subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
     path = tmp_path / "cn_test_cloth_new.pc2"
     header = SimpleNamespace(vertex_count=1, frame_count=1)
@@ -1776,7 +1779,8 @@ def test_attach_places_cache_after_armature_and_before_later_modifiers(
     module._attach_playback(plan, header)
 
     assert obj.modifiers[0] is armature
-    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[1])
+    assert obj.modifiers[1] is boundary
+    assert module.has_cloth_next_playback_marker(obj, boundary)
     assert obj.modifiers[2] is subdivision
     # The cache contains the evaluated Armature result. Playback must not
     # apply the same 90-degree rig rotation again as an apparent 180 degrees.
@@ -1800,7 +1804,7 @@ def test_playback_index_is_after_corrective_smooth(blender_env):
         modifier.show_viewport = True
     cache = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
 
-    assert module._playback_stack_index(obj, cache) == 2
+    assert module._playback_stack_index(obj, cache) == 4
     assert [armature, smooth, subdivision, solidify] == list(obj.modifiers[:4])
 
 
@@ -1810,6 +1814,8 @@ def test_rebake_keeps_cache_after_muted_armature(blender_env, monkeypatch,
     obj = blender_env.bpy.types.Object(name="Rebaked Cloth", type="MESH")
     blender_env.bpy.data.objects[obj.name] = obj
     armature = obj.modifiers.new("Armature", "ARMATURE")
+    boundary = sys.modules[
+        "cloth_next.blender.playback_cache"].ensure_simulation_modifier(obj)
     subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
     header = SimpleNamespace(vertex_count=1, frame_count=1)
     monkeypatch.setattr(module.pc2, "read_header", lambda _path: header)
@@ -1827,7 +1833,8 @@ def test_rebake_keeps_cache_after_muted_armature(blender_env, monkeypatch,
     attach("second")
 
     assert obj.modifiers[0] is armature
-    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[1])
+    assert obj.modifiers[1] is boundary
+    assert module.has_cloth_next_playback_marker(obj, boundary)
     assert obj.modifiers[2] is subdivision
     assert not armature.show_viewport
     assert not armature.show_render
@@ -1970,6 +1977,8 @@ def test_attach_places_cache_after_last_armature(blender_env, monkeypatch, tmp_p
     blender_env.bpy.data.objects[obj.name] = obj
     first_rig = obj.modifiers.new("Primary Rig", "ARMATURE")
     second_rig = obj.modifiers.new("Corrective Rig", "ARMATURE")
+    boundary = sys.modules[
+        "cloth_next.blender.playback_cache"].ensure_simulation_modifier(obj)
     subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
     path = tmp_path / "cn_test_cloth_new.pc2"
     header = SimpleNamespace(vertex_count=1, frame_count=1)
@@ -1981,7 +1990,8 @@ def test_attach_places_cache_after_last_armature(blender_env, monkeypatch, tmp_p
     module._attach_playback(plan, header)
 
     assert list(obj.modifiers[:2]) == [first_rig, second_rig]
-    assert module.has_cloth_next_playback_marker(obj, obj.modifiers[2])
+    assert obj.modifiers[2] is boundary
+    assert module.has_cloth_next_playback_marker(obj, boundary)
     assert obj.modifiers[3] is subdivision
 
 
@@ -1991,7 +2001,7 @@ def test_playback_stack_index_is_first_without_armature(blender_env):
     subdivision = obj.modifiers.new("Subdivision", "SUBSURF")
     cache = obj.modifiers.new(module.import_result.MODIFIER_NAME, "MESH_CACHE")
 
-    assert module._playback_stack_index(obj, cache) == 0
+    assert module._playback_stack_index(obj, cache) == 1
     assert obj.modifiers[0] is subdivision  # helper itself never mutates the stack
 
 
@@ -2235,10 +2245,12 @@ def test_attach_collapses_all_marked_modifiers_after_repeated_bakes(
                           ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)),
                           obj.name, tmp_path, path, 1)
 
-    module._attach_playback(plan, header)
+    with pytest.raises(ValueError, match="multiple Cloth NeXt"):
+        module._attach_playback(plan, header)
 
-    assert list(obj.modifiers) == [first]
-    assert first.filepath == str(path)
+    assert list(obj.modifiers) == [first, second]
+    assert first.filepath.endswith("first.pc2")
+    assert second.filepath.endswith("second.pc2")
 
 
 @pytest.fixture
@@ -2418,7 +2430,10 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
 
     assert operator.execute(SimpleNamespace(object=obj)) == {"FINISHED"}
 
-    assert list(obj.modifiers) == [armature, artist]
+    assert list(obj.modifiers) == [armature, owned, artist]
+    assert owned.filepath == ""
+    assert not owned.show_viewport
+    assert not owned.show_render
     assert armature.show_viewport
     assert armature.show_render
     assert artist.filepath.endswith("artist.pc2")
@@ -2447,10 +2462,13 @@ def test_clear_from_active_collider_removes_scene_deformable_recovery_partial(
 
     assert operator.execute(context) == {"FINISHED"}
 
-    assert list(cloth.modifiers) == []
+    assert list(cloth.modifiers) == [modifier]
+    assert modifier.filepath == ""
+    assert not modifier.show_viewport
+    assert not modifier.show_render
     assert not partial.exists()
     assert list(collider.modifiers) == []
-    assert "Removed 1 Cloth NeXt test cache modifier(s)" in reports[-1][1]
+    assert "Removed 0 Cloth NeXt test cache modifier(s)" in reports[-1][1]
     assert "1 cache file(s)" in reports[-1][1]
 
 

@@ -148,6 +148,9 @@ from .playback_cache import (
     INPUT_DEFORMER_STATE_KEY,
     OBJECT_OWNERSHIP_KEY,
     has_cloth_next_playback_marker,
+    has_simulation_modifier_marker,
+    ensure_simulation_modifier,
+    simulation_modifiers,
     is_cloth_next_playback_modifier,
     mark_owned_playback,
     mute_playback_input_deformers,
@@ -1119,11 +1122,6 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
         vertex_count = len(mesh.vertices)
         if vertex_count == 0:
             raise SceneValidationError(f"{obj.name} has no vertices.")
-        if vertex_count != len(obj.data.vertices):
-            raise SceneValidationError(
-                f"{obj.name}: {len(obj.data.vertices)} source vertices and "
-                f"{vertex_count} evaluated vertices; topology-changing "
-                "modifiers are unsupported.")
         if needs_edges and len(mesh.edges) == 0:
             raise SceneValidationError(f"{obj.name} has no edges.")
         if len(mesh.polygons) == 0:
@@ -1215,7 +1213,29 @@ _TOPOLOGY_CHANGING_MODIFIER_TYPES = frozenset({
 
 
 def _solver_input_modifier_cutoff(obj) -> int:
-    """Last enabled modifier in the contiguous solver-input prefix."""
+    """Return the stack slot immediately before the simulation boundary."""
+    boundaries = simulation_modifiers(obj)
+    if not boundaries:
+        legacy = tuple(modifier for modifier in getattr(obj, "modifiers", ())
+                       if has_cloth_next_playback_marker(obj, modifier))
+        if legacy:
+            ensure_simulation_modifier(obj)
+            boundaries = simulation_modifiers(obj)
+    if len(boundaries) > 1:
+        raise SceneValidationError(
+            f"{obj.name}: multiple Cloth NeXt modifiers exist. Keep one "
+            "simulation boundary and remove the duplicates.")
+    if boundaries:
+        return _modifier_index(obj, boundaries[0]) - 1
+    settings = getattr(obj, "cloth_next", None)
+    if (settings is not None and bool(getattr(settings, "enabled", False))
+            and str(getattr(settings, "role", "")) in {
+                "CLOTH", "SOFT_BODY", "RIGID_BODY", "COLLIDER"}):
+        raise SceneValidationError(
+            "Cloth NeXt modifier is missing. The modifier defines where the "
+            "simulation occurs in the modifier stack. Restore the Cloth NeXt "
+            "modifier to continue.")
+    # Compatibility for low-level callers and legacy unconfigured objects.
     cutoff = -1
     topology_barrier = False
     for index, modifier in enumerate(getattr(obj, "modifiers", ())):
@@ -1239,39 +1259,141 @@ def _solver_input_modifier_cutoff(obj) -> int:
 
 @contextmanager
 def _evaluate_through_solver_input_modifiers(context, obj):
-    """Expose only the supported, contiguous solver-input modifier prefix.
+    """Yield an isolated object containing only the authored stack prefix.
 
-    Rigged deformables must enter PPF in their visible Bake-Start pose. Any
-    Armature and Corrective Smooth are the only supported input deformations.
-    Later modifiers remain downstream display modifiers. Objects without an
-    enabled supported prefix keep the original pre-modifier export path.
+    The user's object, selection, active object, mode, mesh data, and modifier
+    state are never changed.  The temporary object shares source mesh data,
+    owns a copied modifier stack, and is removed on every exit path.
     """
-    modifiers = tuple(getattr(obj, "modifiers", ()))
     cutoff = _solver_input_modifier_cutoff(obj)
-    if cutoff < 0:
-        yield False
+    boundaries = simulation_modifiers(obj)
+    if not boundaries and cutoff < 0:
+        yield None
         return
-    changed = []
+    if boundaries and cutoff < 0:
+        # With the boundary first, the authored mesh is exactly the solver
+        # input.  Avoid evaluating unrelated post-simulation modifiers.
+        yield None
+        return
+    temporary = None
     try:
-        for modifier in modifiers[cutoff + 1:]:
-            if bool(getattr(modifier, "show_viewport", True)):
-                changed.append(modifier)
-                modifier.show_viewport = False
+        temporary = _make_boundary_evaluation_copy(context, obj, cutoff)
         _depsgraph_update(context)
-        yield True
+        yield temporary
     finally:
-        for modifier in changed:
-            modifier.show_viewport = True
-        _depsgraph_update(context)
+        if temporary is not None:
+            bpy.data.objects.remove(temporary, do_unlink=True)
+            _depsgraph_update(context)
+
+
+def _make_boundary_evaluation_copy(context, obj, cutoff=None):
+    """Create a linked, disposable object with only the boundary prefix."""
+    if cutoff is None:
+        cutoff = _solver_input_modifier_cutoff(obj)
+    temporary = obj.copy()
+    temporary.name = f"__ClothNeXtBoundary_{obj.name}"
+    scene = getattr(context, "scene", getattr(bpy.context, "scene", None))
+    collection = getattr(scene, "collection", None)
+    objects = getattr(collection, "objects", None)
+    if objects is not None and hasattr(objects, "link"):
+        objects.link(temporary)
+    for modifier in tuple(temporary.modifiers)[cutoff + 1:]:
+        temporary.modifiers.remove(modifier)
+    return temporary
+
+
+def _remove_boundary_evaluation_copy(temporary):
+    if temporary is not None:
+        bpy.data.objects.remove(temporary, do_unlink=True)
 
 
 def _extract_deformable_mesh(context, obj, *, needs_edges: bool):
-    """Bake-Start supported deformation, otherwise untouched source mesh."""
-    with _evaluate_through_solver_input_modifiers(context, obj) as evaluated:
-        if not evaluated:
+    """Bake-Start geometry immediately before the simulation boundary."""
+    with _evaluate_through_solver_input_modifiers(context, obj) as input_obj:
+        if input_obj is None:
             return _extract_source_mesh(obj, needs_edges=needs_edges)
         return _extract_mesh(
-            obj, context.evaluated_depsgraph_get(), needs_edges=needs_edges)
+            input_obj, context.evaluated_depsgraph_get(), needs_edges=needs_edges)
+
+
+def _extract_boundary_mesh(context, obj, *, needs_edges: bool):
+    """Shared mesh-role export at the Cloth NeXt stack boundary."""
+    return _extract_deformable_mesh(context, obj, needs_edges=needs_edges)
+
+
+def _evaluated_deformable_signatures(context, obj):
+    """Topology/order and shape signatures at the simulation boundary."""
+    cutoff = _solver_input_modifier_cutoff(obj)
+    if simulation_modifiers(obj) and cutoff < 0:
+        mesh = getattr(obj, "data", None)
+        if mesh is None:
+            return (_hash_mesh_topology(mesh), mesh_geometry_signature(mesh),
+                    0, 0)
+        mesh.calc_loop_triangles()
+        return (_hash_mesh_topology(mesh), mesh_geometry_signature(mesh),
+                len(mesh.vertices), len(mesh.loop_triangles))
+    vertices, triangles = _extract_deformable_mesh(
+        context, obj, needs_edges=True)
+    topology_hash = hashlib.sha256()
+    topology_hash.update(int(len(vertices)).to_bytes(8, "little"))
+    topology_hash.update(np.asarray(triangles, dtype="<u4").tobytes())
+    topology = topology_hash.hexdigest()
+    shape_hash = hashlib.sha256()
+    shape_hash.update(topology.encode("ascii"))
+    shape_hash.update(np.asarray(vertices, dtype="<f4").tobytes())
+    shape_hash.update(json.dumps(tuple(
+        (str(getattr(modifier, "type", "")),
+         str(getattr(modifier, "persistent_uid", "") or ""),
+         bool(getattr(modifier, "show_viewport", True)))
+        for modifier in tuple(getattr(obj, "modifiers", ()))[
+            :_solver_input_modifier_cutoff(obj) + 1]),
+        separators=(",", ":")).encode("utf-8"))
+    shape = shape_hash.hexdigest()
+    return topology, shape, len(vertices), len(triangles)
+
+
+def _has_topology_changing_solver_input(obj) -> bool:
+    cutoff = _solver_input_modifier_cutoff(obj)
+    return any(bool(getattr(modifier, "show_viewport", True)) and
+               str(getattr(modifier, "type", "")) in
+               _TOPOLOGY_CHANGING_MODIFIER_TYPES
+               for modifier in tuple(getattr(obj, "modifiers", ()))[:cutoff + 1])
+
+
+def _validate_boundary_topology_range(context, obj, bake_range,
+                                      expected_topology: str) -> None:
+    """Sample start/middle/end to reject incompatible animated topology."""
+    if not _has_topology_changing_solver_input(obj):
+        return
+    scene = context.scene
+    original = int(scene.frame_current)
+    original_subframe = float(getattr(scene, "frame_subframe", 0.0))
+    frames = tuple(sorted({bake_range.start, bake_range.end,
+                           (bake_range.start + bake_range.end) // 2}))
+    try:
+        for frame in frames:
+            scene.frame_set(frame)
+            topology, _shape, _vertices, _triangles = (
+                _evaluated_deformable_signatures(context, obj))
+            if topology != expected_topology:
+                raise SceneValidationError(
+                    f"{obj.name}: the simulation input topology changes "
+                    f"during the bake range (detected at frame {frame}). "
+                    "Cloth NeXt supports topology-changing modifiers only "
+                    "when evaluated vertex correspondence stays compatible.")
+    finally:
+        scene.frame_set(original, subframe=original_subframe)
+
+
+def _uv_faces_for_export(obj, triangles):
+    """Use authored UVs only when they still align with evaluated triangles."""
+    neutral = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0))
+    if _has_topology_changing_solver_input(obj):
+        return tuple(neutral for _triangle in triangles)
+    source = _extract_source_uv_faces(obj)
+    if len(source) == len(triangles):
+        return source
+    return tuple(neutral for _triangle in triangles)
 
 
 def _extract_source_uv_faces(obj) -> tuple[tuple[tuple[float, float], ...], ...]:
@@ -1541,6 +1663,15 @@ def _build_local_geometry_snapshot(context, validation_snapshot):
                 else:
                     vertices, triangles = _extract_deformable_mesh(
                         context, obj, needs_edges=True)
+                    if (_has_topology_changing_solver_input(obj)
+                            and (_friction_region_settings(obj)
+                                 or entry.material.sewing_enabled
+                                 or entry.pin_membership.enabled)):
+                        raise SceneValidationError(
+                            f"{obj.name}: topology-changing simulation input "
+                            "cannot currently be combined with Pinning, Sewing, "
+                            "or Friction Vertex Groups because those controls "
+                            "refer to base-mesh vertex indices.")
                     edges = ()
             world = tuple(tuple(row) for row in obj.matrix_world)
             if not matrix_is_finite_and_invertible(world):
@@ -2261,11 +2392,9 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                 False, "", str(cloth_obj.name), len(vertices), (),
                 source_topology_signature=topology_signature)
         else:
-            topology_signature = mesh_topology_signature(
-                getattr(cloth_obj, "data", None))
-            deformable_shape_signature = mesh_geometry_signature(
-                getattr(cloth_obj, "data", None),
-                topology_signature=topology_signature)
+            (topology_signature, deformable_shape_signature,
+             _evaluated_vertices, _evaluated_triangles) = (
+                _evaluated_deformable_signatures(context, cloth_obj))
             if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
                     cloth_obj.cloth_next.pinning_enabled):
                 raise SceneValidationError(
@@ -2393,9 +2522,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
                 pins = StaticPinSnapshot(False, "", str(obj.name),
                     len(vertices), (), source_topology_signature=topology)
             else:
-                topology = mesh_topology_signature(getattr(obj, "data", None))
-                shape = mesh_geometry_signature(
-                    getattr(obj, "data", None), topology_signature=topology)
+                topology, shape, _vertex_count, _triangle_count = (
+                    _evaluated_deformable_signatures(context, obj))
                 if role in {"SOFT_BODY", "RIGID_BODY"} and bool(
                         obj.cloth_next.pinning_enabled):
                     raise SceneValidationError(
@@ -3763,8 +3891,13 @@ def _collider_transform_only_is_safe(collider_obj) -> bool:
     # Topology-preserving modifiers may still move vertices. Unknown and
     # topology-changing modifiers are unsafe as well, so AUTO accepts no
     # enabled modifier at all.
+    modifiers = tuple(getattr(collider_obj, "modifiers", ()))
+    boundaries = simulation_modifiers(collider_obj)
+    cutoff = (_modifier_index(collider_obj, boundaries[0]) - 1
+              if len(boundaries) == 1 else len(modifiers) - 1)
+    prefix = modifiers[:cutoff + 1]
     return not any(bool(getattr(modifier, "show_viewport", True))
-                   for modifier in getattr(collider_obj, "modifiers", ()))
+                   for modifier in prefix)
 
 
 _TOPOLOGY_PRESERVING_MODIFIERS = frozenset({
@@ -3775,8 +3908,12 @@ _TOPOLOGY_PRESERVING_MODIFIERS = frozenset({
 
 def _collider_topology_check_mode(collider_obj) -> str:
     """Use vertex-count checks only for a completely known-safe stack."""
+    all_modifiers = tuple(getattr(collider_obj, "modifiers", ()))
+    boundaries = simulation_modifiers(collider_obj)
+    cutoff = (_modifier_index(collider_obj, boundaries[0]) - 1
+              if len(boundaries) == 1 else len(all_modifiers) - 1)
     modifiers = tuple(
-        modifier for modifier in getattr(collider_obj, "modifiers", ())
+        modifier for modifier in all_modifiers[:cutoff + 1]
         if bool(getattr(modifier, "show_viewport", True)))
     return ("VERTEX_COUNT" if all(
         str(getattr(modifier, "type", "")) in
@@ -3814,17 +3951,19 @@ def _capture_transform_only_collider_motion(
         COLLIDER_SAMPLES_PER_FRAME))
     metadata = _collider_animation_metadata(
         bake_range, _scene_fps(context), samples_per_frame)
-    times = metadata["time"]
     frame_offsets = metadata["_sample_frame_offset"]
     matrices = []
     vertices = triangles = None
+    cutoff = _solver_input_modifier_cutoff(collider_obj)
+    evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
+                      if cutoff >= 0 else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
                 raise SessionCancelled()
             scene.frame_set(frame, subframe=subframe)
             depsgraph = context.evaluated_depsgraph_get()
-            evaluated = collider_obj.evaluated_get(depsgraph)
+            evaluated = evaluation_obj.evaluated_get(depsgraph)
             world = tuple(tuple(float(value) for value in row)
                           for row in evaluated.matrix_world)
             if not matrix_is_finite_and_invertible(world):
@@ -3834,7 +3973,7 @@ def _capture_transform_only_collider_motion(
             matrices.append(solver_world_matrix(world))
             if offset == 0:
                 vertices, triangles = _extract_mesh(
-                    collider_obj, depsgraph, needs_edges=False)
+                    evaluation_obj, depsgraph, needs_edges=False)
             if offset == 0 or offset + 1 == len(sample_points) or subframe == 0:
                 shared_controller.update(
                     status_message=(f"Capturing collider transforms · frame "
@@ -3862,6 +4001,8 @@ def _capture_transform_only_collider_motion(
                  for _index in range(len(sample_points) - 1)]},
             content_digest=_collider_motion_digest(frame_offsets, matrices))
     finally:
+        if evaluation_obj is not collider_obj:
+            _remove_boundary_evaluation_copy(evaluation_obj)
         scene.frame_set(original_frame, subframe=original_subframe)
 
 
@@ -3884,7 +4025,6 @@ def _capture_collider_motion(context, collider_obj,
         COLLIDER_SAMPLES_PER_FRAME))
     metadata = _collider_animation_metadata(
         bake_range, _scene_fps(context), samples_per_frame)
-    times = metadata["time"]
     frame_offsets = metadata["_sample_frame_offset"]
     reference_vertices = None
     reference_triangles = None
@@ -3896,6 +4036,9 @@ def _capture_collider_motion(context, collider_obj,
     deforming = False
     motion_hasher = hashlib.sha256()
     topology_check_mode = _collider_topology_check_mode(collider_obj)
+    cutoff = _solver_input_modifier_cutoff(collider_obj)
+    evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
+                      if cutoff >= 0 else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             if _cancel_event.is_set():
@@ -3914,7 +4057,7 @@ def _capture_collider_motion(context, collider_obj,
             # frame_set() already evaluates the dependency graph. Repeating
             # view_layer.update() doubled the dominant cost on long,
             # deforming character Collider captures.
-            evaluated = collider_obj.evaluated_get(
+            evaluated = evaluation_obj.evaluated_get(
                 context.evaluated_depsgraph_get())
             mesh = evaluated.to_mesh()
             try:
@@ -4050,6 +4193,8 @@ def _capture_collider_motion(context, collider_obj,
                 artifact_type="collider_memmap")
         raise
     finally:
+        if evaluation_obj is not collider_obj:
+            _remove_boundary_evaluation_copy(evaluation_obj)
         scene.frame_set(original_frame, subframe=original_subframe)
 
 
@@ -4307,6 +4452,9 @@ def _begin_collider_pump(colliders, bake_range, fps):
     """Mutable main-thread state used by the asynchronous union pump."""
     result = {}
     for obj in colliders:
+        cutoff = _solver_input_modifier_cutoff(obj)
+        evaluation_obj = (_make_boundary_evaluation_copy(bpy.context, obj, cutoff)
+                          if cutoff >= 0 else obj)
         rate = int(getattr(
             obj.cloth_next, "collider_samples_per_frame",
             COLLIDER_SAMPLES_PER_FRAME))
@@ -4315,7 +4463,9 @@ def _begin_collider_pump(colliders, bake_range, fps):
             samples_per_frame=rate, fps=fps)
         points = timeline.points
         result[obj.name] = {
-            "obj": obj, "points": {
+            "obj": evaluation_obj, "source_obj": obj,
+            "temporary_obj": evaluation_obj if evaluation_obj is not obj else None,
+            "points": {
                 point.position: index for index, point in enumerate(points)},
             "metadata": {
                 "time": list(timeline.times),
@@ -4424,53 +4574,57 @@ def _pump_collider_point(depsgraph, point, states):
 
 def _finish_collider_pump(states):
     captures = {}
-    for name, state in states.items():
-        matrices = state["matrices"]
-        metadata = state["metadata"]
-        frame_offsets = metadata["_sample_frame_offset"]
-        if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
-            translations, quaternions, scales = [], [], []
-            for matrix in matrices:
-                translation, quaternion, scale = _matrix_trs(matrix)
-                if (quaternions and sum(
-                        a * b for a, b in
-                        zip(quaternions[-1], quaternion)) < 0.0):
-                    quaternion = [-value for value in quaternion]
-                translations.append(translation)
-                quaternions.append(quaternion)
-                scales.append(scale)
-            captures[name] = ColliderMotionCapture(
-                "RIGID_ANIMATED", state["vertices"], state["triangles"],
-                matrices[0],
-                {**metadata, "translation": translations,
-                 "quaternion": quaternions, "scale": scales,
-                 "segments": [{"interpolation": "LINEAR",
-                               "handle_right": [1.0 / 3.0, 0.0],
-                               "handle_left": [2.0 / 3.0, 1.0]}
-                              for _ in range(len(matrices) - 1)]},
-                content_digest=_collider_motion_digest(
-                    frame_offsets, matrices))
-            if state["samples"] is not None:
-                state["samples"]._mmap.close()
-                delete_owned(
-                    state["path"], root=state["path"].parent,
-                    ownership_authenticated=True,
-                    lifecycle_stage="COLLIDER_CAPTURE_RIGID",
-                    artifact_type="collider_memmap")
-        else:
-            state["samples"].flush()
-            identity = tuple(tuple(
-                1.0 if row == column else 0.0 for column in range(4))
-                for row in range(4))
-            captures[name] = ColliderMotionCapture(
-                "DEFORMING_ANIMATED",
-                tuple(tuple(float(value) for value in row)
-                      for row in state["samples"][0]),
-                state["triangles"], identity,
-                {**metadata, "vert_frames": state["samples"]}, state["path"],
-                content_digest=_collider_motion_digest(
-                    frame_offsets, state["samples"], dtype="<f4"))
-    return captures
+    try:
+        for name, state in states.items():
+            matrices = state["matrices"]
+            metadata = state["metadata"]
+            frame_offsets = metadata["_sample_frame_offset"]
+            if state["mode"] == "TRANSFORM_ONLY" or not state["deforming"]:
+                translations, quaternions, scales = [], [], []
+                for matrix in matrices:
+                    translation, quaternion, scale = _matrix_trs(matrix)
+                    if (quaternions and sum(
+                            a * b for a, b in
+                            zip(quaternions[-1], quaternion)) < 0.0):
+                        quaternion = [-value for value in quaternion]
+                    translations.append(translation)
+                    quaternions.append(quaternion)
+                    scales.append(scale)
+                captures[name] = ColliderMotionCapture(
+                    "RIGID_ANIMATED", state["vertices"], state["triangles"],
+                    matrices[0],
+                    {**metadata, "translation": translations,
+                     "quaternion": quaternions, "scale": scales,
+                     "segments": [{"interpolation": "LINEAR",
+                                   "handle_right": [1.0 / 3.0, 0.0],
+                                   "handle_left": [2.0 / 3.0, 1.0]}
+                                  for _ in range(len(matrices) - 1)]},
+                    content_digest=_collider_motion_digest(
+                        frame_offsets, matrices))
+                if state["samples"] is not None:
+                    state["samples"]._mmap.close()
+                    delete_owned(
+                        state["path"], root=state["path"].parent,
+                        ownership_authenticated=True,
+                        lifecycle_stage="COLLIDER_CAPTURE_RIGID",
+                        artifact_type="collider_memmap")
+            else:
+                state["samples"].flush()
+                identity = tuple(tuple(
+                    1.0 if row == column else 0.0 for column in range(4))
+                    for row in range(4))
+                captures[name] = ColliderMotionCapture(
+                    "DEFORMING_ANIMATED",
+                    tuple(tuple(float(value) for value in row)
+                          for row in state["samples"][0]),
+                    state["triangles"], identity,
+                    {**metadata, "vert_frames": state["samples"]},
+                    state["path"], content_digest=_collider_motion_digest(
+                        frame_offsets, state["samples"], dtype="<f4"))
+        return captures
+    finally:
+        for state in states.values():
+            _remove_boundary_evaluation_copy(state.get("temporary_obj"))
 
 
 def _cleanup_collider_pump(states):
@@ -4485,6 +4639,7 @@ def _cleanup_collider_pump(states):
                 path, root=path.parent, ownership_authenticated=True,
                 lifecycle_stage="COLLIDER_CAPTURE_CANCEL",
                 artifact_type="collider_memmap")
+        _remove_boundary_evaluation_copy(state.get("temporary_obj"))
     if states:
         _depsgraph_update(bpy.context)
 
@@ -5230,6 +5385,9 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             obj = entry.obj
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
+                if entry.role != "ROD":
+                    _validate_boundary_topology_range(
+                        context, obj, bake_range, entry.topology_signature)
                 # A previous absolute cache mutes its already-baked Armature
                 # inputs during playback. Restore them for both Pin sampling
                 # and mesh export so a Re-Bake uses the authored rig pose.
@@ -5254,7 +5412,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     vertices, triangles = _extract_deformable_mesh(
                         context, obj, needs_edges=True)
                     edges = ()
-                    uv_faces = (_extract_source_uv_faces(obj)
+                    uv_faces = (_uv_faces_for_export(obj, triangles)
                                 if entry.role == "CLOTH" else ())
                     face_friction = (_extract_face_friction(
                         obj, triangles, entry.material.surface_grip)
@@ -5294,18 +5452,16 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 context, animated, bake_range))
         static_colliders = tuple(
             obj for obj in snapshot.collider_objs if obj not in animated)
-        static_depsgraph = None
         if static_colliders:
             scene.frame_set(bake_range.start)
-            static_depsgraph = context.evaluated_depsgraph_get()
         for obj in snapshot.collider_objs:
             if str(object_properties.collider_motion_from(obj.cloth_next)) == "ANIMATED":
                 capture = animated_captures[obj.name]
                 collider_records.append((obj, capture.vertices,
                     capture.triangles, None, capture))
             else:
-                vertices, triangles = _extract_mesh(
-                    obj, static_depsgraph, needs_edges=False)
+                vertices, triangles = _extract_boundary_mesh(
+                    context, obj, needs_edges=False)
                 world = tuple(tuple(row) for row in obj.matrix_world)
                 if not matrix_is_finite_and_invertible(world):
                     raise SceneValidationError(
@@ -5639,6 +5795,10 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     collider_records = []
     try:
         with without_owned_playback(cloth_obj,lambda:_depsgraph_update(context)):
+            if deformable_role != "ROD":
+                _validate_boundary_topology_range(
+                    context, cloth_obj, bake_range,
+                    snapshot.topology_signature)
             scene.frame_set(bake_range.start)
             if deformable_role == "ROD":
                 cloth_vertices, cloth_edges, _curve_splines = sample_curve(cloth_obj)
@@ -5656,8 +5816,17 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                             "mesh and make its normals face outward before Bake.")
                 cloth_vertices, cloth_triangles = _extract_deformable_mesh(
                     context, cloth_obj, needs_edges=True)
+                if (_has_topology_changing_solver_input(cloth_obj)
+                        and (_friction_region_settings(cloth_obj)
+                             or shell.sewing_enabled
+                             or pin_membership.enabled)):
+                    raise SceneValidationError(
+                        f"{cloth_obj.name}: topology-changing simulation input "
+                        "cannot currently be combined with Pinning, Sewing, or "
+                        "Friction Vertex Groups because those controls refer "
+                        "to base-mesh vertex indices.")
                 cloth_edges = ()
-                cloth_uv_faces = (_extract_source_uv_faces(cloth_obj)
+                cloth_uv_faces = (_uv_faces_for_export(cloth_obj, cloth_triangles)
                                   if deformable_role == "CLOTH" else ())
                 cloth_face_friction = (_extract_face_friction(
                     cloth_obj, cloth_triangles, shell.surface_grip)
@@ -5686,18 +5855,16 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                 context, animated, bake_range))
         static_colliders = tuple(
             current for current in collider_objs if current not in animated)
-        static_depsgraph = None
         if static_colliders:
             scene.frame_set(bake_range.start)
-            static_depsgraph = context.evaluated_depsgraph_get()
         for current in collider_objs:
             if str(object_properties.collider_motion_from(current.cloth_next)) == "ANIMATED":
                 capture = animated_captures[current.name]
                 collider_records.append((current, capture.vertices,
                                          capture.triangles, None, capture))
             else:
-                vertices, triangles = _extract_mesh(
-                    current, static_depsgraph, needs_edges=False)
+                vertices, triangles = _extract_boundary_mesh(
+                    context, current, needs_edges=False)
                 world = tuple(tuple(row) for row in current.matrix_world)
                 collider_records.append(
                     (current, vertices, triangles, world, None))
@@ -7183,18 +7350,8 @@ def _modifier_index(obj, modifier) -> int:
 
 
 def _playback_stack_index(obj, playback_modifier) -> int:
-    """Return the slot immediately after the solver-input modifier prefix.
-
-    Playback mutes that prefix because its evaluated deformation is already in
-    the absolute PC2. Keeping the cache in the same semantic stack position
-    preserves the artist's ordering when playback is cleared or suspended for
-    a Re-Bake. Other modifier types retain their relative ordering.
-    """
-    stack_without_playback = [modifier for modifier in obj.modifiers
-                              if not _same_modifier(modifier,
-                                                    playback_modifier)]
-    proxy = type("_ModifierStack", (), {"modifiers": stack_without_playback})()
-    return _solver_input_modifier_cutoff(proxy) + 1
+    """Preserve the user-selected simulation-boundary stack position."""
+    return _modifier_index(obj, playback_modifier)
 
 
 _ROD_FCURVE_GROUP = "Cloth NeXt Rod Cache"
@@ -7526,8 +7683,11 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
     # used here because the object stores only the newest cache path. After
     # two bakes that would make every older, still-marked modifier invisible
     # and a fresh modifier would be added on each subsequent bake.
-    stale = [mod for mod in obj.modifiers
-             if has_cloth_next_playback_marker(obj, mod)]
+    stale = list(simulation_modifiers(obj))
+    if len(stale) > 1:
+        raise ValueError(
+            f"{obj.name}: multiple Cloth NeXt simulation modifiers exist. "
+            "Keep one and remove the duplicates.")
     previous_paths = {Path(bpy.path.abspath(mod.filepath)) for mod in stale
                       if getattr(mod, "filepath", "")}
     # Reuse the active modifier. Removing and recreating it forces Blender to
@@ -7538,8 +7698,7 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         modifier, extras = stale[0], stale[1:]
         created = False
     else:
-        modifier = getattr(obj.modifiers, "new")(
-            name=import_result.MODIFIER_NAME, type="MESH_CACHE")
+        modifier = ensure_simulation_modifier(obj)
         extras = []
         created = True
     original_index = _modifier_index(obj, modifier)
@@ -7575,7 +7734,8 @@ def _attach_playback(plan: RunPlan, header, *, _transaction=None) -> None:
         # semantic stack slot is computed from the real solver-input prefix.
         if restore_playback_input_deformers(obj):
             _depsgraph_update(bpy.context)
-        modifier.name = import_result.MODIFIER_NAME
+        if created:
+            modifier.name = import_result.MODIFIER_NAME
         _configure_playback_modifier(modifier, plan.frame_start)
         current_index = _modifier_index(obj, modifier)
         if current_index < 0:
@@ -10002,8 +10162,13 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
             for mod in list(obj.modifiers):
                 if is_cloth_next_playback_modifier(obj,mod):
                     filepath = getattr(mod, "filepath", "")
-                    obj.modifiers.remove(mod)
-                    removed_modifiers += 1
+                    if has_simulation_modifier_marker(obj, mod):
+                        mod.show_viewport = False
+                        mod.show_render = False
+                        mod.filepath = ""
+                    else:
+                        obj.modifiers.remove(mod)
+                        removed_modifiers += 1
                     if filepath:
                         owned_paths.append(Path(bpy.path.abspath(filepath)))
             if owned_paths:

@@ -9,6 +9,10 @@ from collections import deque
 
 OWNERSHIP_MARKER="cloth_next_playback_v1"
 OBJECT_OWNERSHIP_KEY="cloth_next_playback_owner"
+SIMULATION_ROLE="simulation_cache_v1"
+SIMULATION_ROLE_KEY="cloth_next_role"
+OBJECT_SIMULATION_UID_KEY="cloth_next_simulation_modifier_uid"
+OBJECT_SIMULATION_NAME_KEY="cloth_next_simulation_modifier_name"
 INPUT_DEFORMER_STATE_KEY="cloth_next_playback_input_deformers_v1"
 INPUT_DEFORMER_TYPES=frozenset({"ARMATURE", "CORRECTIVE_SMOOTH"})
 _PENDING_CLEANUP_LIMIT = 128
@@ -38,7 +42,63 @@ def _property(value,key,default=None):
     try:return value.get(key,default)
     except (AttributeError,TypeError):return getattr(value,key,default)
 
+def _modifier_uid(modifier):
+    value = getattr(modifier, "persistent_uid", None)
+    return str(value) if value not in (None, "", 0, "0") else ""
+
+def mark_simulation_modifier(obj, modifier) -> None:
+    """Persistently identify the one logical simulation/cache boundary."""
+    try:
+        modifier[SIMULATION_ROLE_KEY] = SIMULATION_ROLE
+    except (AttributeError, TypeError):
+        try:setattr(modifier, SIMULATION_ROLE_KEY, SIMULATION_ROLE)
+        except (AttributeError, TypeError):pass
+    uid = _modifier_uid(modifier)
+    for key, value in ((OBJECT_SIMULATION_UID_KEY, uid),
+                       (OBJECT_SIMULATION_NAME_KEY,
+                        str(getattr(modifier, "name", "Cloth NeXt")))):
+        try:obj[key] = value
+        except (AttributeError, TypeError):setattr(obj, key, value)
+
+def has_simulation_modifier_marker(obj, modifier) -> bool:
+    if str(getattr(modifier, "type", "")) != "MESH_CACHE":
+        return False
+    if _property(modifier, SIMULATION_ROLE_KEY, "") == SIMULATION_ROLE:
+        return True
+    stored_uid = str(_property(obj, OBJECT_SIMULATION_UID_KEY, "") or "")
+    actual_uid = _modifier_uid(modifier)
+    if stored_uid and actual_uid:
+        return stored_uid == actual_uid
+    stored_name = str(_property(obj, OBJECT_SIMULATION_NAME_KEY, "") or "")
+    return bool(stored_name and stored_name == str(getattr(modifier, "name", "")))
+
+def simulation_modifiers(obj) -> tuple:
+    return tuple(modifier for modifier in getattr(obj, "modifiers", ())
+                 if has_simulation_modifier_marker(obj, modifier))
+
+def ensure_simulation_modifier(obj):
+    """Return/create the stable pass-through boundary without duplicating it."""
+    found = list(simulation_modifiers(obj))
+    if not found:
+        legacy = [modifier for modifier in getattr(obj, "modifiers", ())
+                  if has_cloth_next_playback_marker(obj, modifier)]
+        found = legacy
+    if len(found) > 1:
+        raise ValueError(
+            f"{getattr(obj, 'name', 'Object')}: multiple Cloth NeXt simulation "
+            "modifiers exist. Keep one and remove the duplicates.")
+    if found:
+        modifier = found[0]
+        mark_simulation_modifier(obj, modifier)
+        return modifier
+    modifier = obj.modifiers.new(name="Cloth NeXt", type="MESH_CACHE")
+    modifier.show_viewport = False
+    modifier.show_render = False
+    mark_simulation_modifier(obj, modifier)
+    return modifier
+
 def mark_owned_playback(obj,modifier,cache_path:str)->None:
+    mark_simulation_modifier(obj, modifier)
     # Blender 5.2 modifiers do not necessarily support ID properties. The
     # Object is an ID datablock and therefore owns the authoritative marker;
     # the modifier marker remains a compatible best-effort hint.
@@ -67,6 +127,7 @@ def has_cloth_next_playback_marker(obj,modifier)->bool:
     replaces a cache file.
     """
     if str(getattr(modifier,"type",""))!="MESH_CACHE":return False
+    if has_simulation_modifier_marker(obj, modifier):return True
     modifier_marker=_property(modifier,"cloth_next_owner","")
     marker=(modifier_marker or _property(obj,OBJECT_OWNERSHIP_KEY,""))
     actual=str(getattr(modifier,"filepath","") or "")
@@ -98,6 +159,7 @@ def is_cloth_next_playback_modifier(obj,modifier)->bool:
     if marker!=OWNERSHIP_MARKER:return True  # legacy: fully classified above
     recorded=str(_property(obj,"cloth_next_cache_path","") or "")
     actual=str(getattr(modifier,"filepath","") or "")
+    if not recorded or not actual:return False
     try:return Path(recorded).resolve()==Path(actual).resolve()
     except OSError:return recorded==actual
 

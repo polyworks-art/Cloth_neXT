@@ -9,6 +9,7 @@ covered by ``tools/blender_smoke_test.py``.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1192,6 +1193,9 @@ def test_run_plan_carries_fingerprint_and_material_meta(blender_env):
 # --- parameter inspection -------------------------------------------------------
 
 def _scene_context(env, cloth_obj, collider_obj):
+    if cloth_obj.cloth_next.enabled:
+        sys.modules["cloth_next.blender.playback_cache"].ensure_simulation_modifier(
+            cloth_obj)
     scene = SimpleNamespace(
         objects=[cloth_obj, collider_obj], frame_start=1, frame_end=8,
         render=SimpleNamespace(fps=24), use_gravity=True,

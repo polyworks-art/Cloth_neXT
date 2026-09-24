@@ -87,6 +87,37 @@ def test_supported_object_types_set_authoritative_role(blender_env, role):
     operator.role = role
     assert operator.execute(context) == {"FINISHED"}
     assert obj.cloth_next.role == role
+    assert len(obj.modifiers) == 1
+    assert obj.modifiers[0].name == "Cloth NeXt"
+    env.registration.unregister()
+
+
+@pytest.mark.parametrize("first,second", [
+    ("CLOTH", "COLLIDER"), ("COLLIDER", "CLOTH"),
+    ("SOFT_BODY", "COLLIDER"), ("COLLIDER", "SOFT_BODY"),
+    ("RIGID_BODY", "COLLIDER"), ("COLLIDER", "RIGID_BODY"),
+    ("SOFT_BODY", "RIGID_BODY"),
+])
+def test_mesh_role_switch_reuses_one_disabled_boundary(
+        blender_env, monkeypatch, first, second):
+    env = blender_env
+    env.registration.register()
+    obj = make_mesh(env)
+    obj.cloth_next.enabled = True
+    context = make_context(obj)
+    context.scene = SimpleNamespace(objects=[obj])
+    monkeypatch.setattr(env.physics_operators,
+                        "_remap_quality_after_pdrd_change",
+                        lambda *_args, **_kwargs: None)
+    operator = env.physics_operators.CLOTHNEXT_OT_set_object_type()
+    operator.role = first
+    assert operator.execute(context) == {"FINISHED"}
+    boundary = obj.modifiers[0]
+    operator.role = second
+    assert operator.execute(context) == {"FINISHED"}
+    assert tuple(obj.modifiers) == (boundary,)
+    assert not boundary.show_viewport
+    assert not boundary.show_render
     env.registration.unregister()
 
 
@@ -337,21 +368,28 @@ def test_remove_operator_unavailable_without_cloth_next(blender_env):
     env.registration.unregister()
 
 
-# --- 6: no native Cloth modifier ---------------------------------------------------
+# --- 6: one explicit simulation boundary, no native Cloth modifier ----------------
 
-def test_add_operator_creates_no_native_cloth_modifier(blender_env):
+def test_add_operator_creates_one_hidden_mesh_cache_boundary(blender_env):
     env = blender_env
     env.registration.register()
     obj = make_mesh(env)
     env.physics_operators.CLOTHNEXT_OT_add_physics().execute(make_context(obj))
-    assert list(obj.modifiers) == []
+    assert len(obj.modifiers) == 1
+    boundary = obj.modifiers[0]
+    assert boundary.name == "Cloth NeXt"
+    assert boundary.type == "MESH_CACHE"
+    assert boundary.show_viewport is False
+    assert boundary.show_render is False
+    assert boundary.cloth_next_role == "simulation_cache_v1"
+    assert not any(modifier.type == "CLOTH" for modifier in obj.modifiers)
     env.registration.unregister()
 
 
 def test_only_explicit_proxy_and_playback_paths_create_modifiers():
     for path in BLENDER_PACKAGE.glob("*.py"):
         source = path.read_text(encoding="utf-8")
-        if path.name == "collider_proxy.py":
+        if path.name in {"collider_proxy.py", "playback_cache.py"}:
             assert '"CLOTH"' not in source
             continue
         assert "modifiers.new" not in source, path

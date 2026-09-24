@@ -5,10 +5,116 @@
 import sys
 from types import ModuleType, SimpleNamespace
 
+import pytest
+
 from tests import mesh_fixtures
 
 def _pin_membership(enabled):
     return SimpleNamespace(enabled=enabled)
+
+
+def test_simulation_boundary_is_created_once_and_ignores_artist_cache(
+        blender_env):
+    cache = sys.modules["cloth_next.blender.playback_cache"]
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    artist = obj.modifiers.new("Artist Cache", "MESH_CACHE")
+
+    boundary = cache.ensure_simulation_modifier(obj)
+    again = cache.ensure_simulation_modifier(obj)
+
+    assert boundary is again
+    assert tuple(obj.modifiers) == (artist, boundary)
+    assert boundary.name == "Cloth NeXt"
+    assert boundary.show_viewport is False
+    assert boundary.show_render is False
+    assert cache.simulation_modifiers(obj) == (boundary,)
+
+
+def test_renamed_simulation_boundary_keeps_stable_identity(blender_env):
+    cache = sys.modules["cloth_next.blender.playback_cache"]
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    boundary = cache.ensure_simulation_modifier(obj)
+
+    boundary.name = "My Simulation Point"
+
+    assert cache.simulation_modifiers(obj) == (boundary,)
+    assert cache.ensure_simulation_modifier(obj) is boundary
+
+
+def test_explicit_boundary_uses_isolated_prefix_without_mutating_user_object(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    cache = sys.modules["cloth_next.blender.playback_cache"]
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    before = obj.modifiers.new("Subdivision", "SUBSURF")
+    boundary = cache.ensure_simulation_modifier(obj)
+    after = obj.modifiers.new("Post Smooth", "SMOOTH")
+    before.show_viewport = boundary.show_viewport = after.show_viewport = True
+    monkeypatch.setattr(module, "_depsgraph_update", lambda _context: None)
+
+    with module._evaluate_through_solver_input_modifiers(
+            SimpleNamespace(), obj) as evaluated:
+        assert evaluated is not obj
+        assert [modifier.name for modifier in evaluated.modifiers] == [
+            "Subdivision"]
+        assert before.show_viewport
+        assert boundary.show_viewport
+        assert after.show_viewport
+
+    assert before.show_viewport
+    assert boundary.show_viewport
+    assert after.show_viewport
+
+
+def test_enabled_deformable_without_boundary_has_controlled_error(blender_env):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    obj.cloth_next = SimpleNamespace(enabled=True, role="CLOTH")
+
+    with pytest.raises(module.SceneValidationError, match="modifier is missing"):
+        module._solver_input_modifier_cutoff(obj)
+
+
+def test_duplicate_boundaries_have_controlled_error(blender_env):
+    module = blender_env.solver_test
+    cache = sys.modules["cloth_next.blender.playback_cache"]
+    obj = blender_env.bpy.types.Object(name="Cloth", type="MESH")
+    first = obj.modifiers.new("Cloth NeXt", "MESH_CACHE")
+    second = obj.modifiers.new("Cloth NeXt Copy", "MESH_CACHE")
+    cache.mark_simulation_modifier(obj, first)
+    cache.mark_simulation_modifier(obj, second)
+
+    with pytest.raises(module.SceneValidationError, match="multiple Cloth NeXt"):
+        module._solver_input_modifier_cutoff(obj)
+
+
+def test_animated_topology_mismatch_is_rejected_and_frame_restored(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    cache = sys.modules["cloth_next.blender.playback_cache"]
+    obj = blender_env.bpy.types.Object(name="Animated Cloth", type="MESH")
+    obj.modifiers.new("Animated Subdivision", "SUBSURF").show_viewport = True
+    cache.ensure_simulation_modifier(obj)
+    scene = SimpleNamespace(frame_current=7, frame_subframe=0.25)
+
+    def frame_set(frame, subframe=0.0):
+        scene.frame_current = int(frame)
+        scene.frame_subframe = float(subframe)
+
+    scene.frame_set = frame_set
+    context = SimpleNamespace(scene=scene)
+    monkeypatch.setattr(
+        module, "_evaluated_deformable_signatures",
+        lambda _context, _obj: (
+            "changed" if scene.frame_current == 5 else "stable", "shape", 4, 2))
+
+    with pytest.raises(module.SceneValidationError,
+                       match="topology changes.*frame 5"):
+        module._validate_boundary_topology_range(
+            context, obj, SimpleNamespace(start=1, end=9), "stable")
+
+    assert scene.frame_current == 7
+    assert scene.frame_subframe == 0.25
 
 
 def test_self_intersection_check_deduplicates_pairs_and_ignores_neighbours(
@@ -116,10 +222,12 @@ def test_solver_input_export_disables_only_modifiers_after_boundary(
 
     with module._evaluate_through_solver_input_modifiers(
             SimpleNamespace(), obj) as evaluated:
-        assert evaluated
+        assert evaluated is not obj
         assert rig.show_viewport
         assert smooth.show_viewport
-        assert not after.show_viewport
+        assert after.show_viewport
+        assert [modifier.name for modifier in evaluated.modifiers] == [
+            "Armature", "Corrective Smooth"]
 
     assert after.show_viewport
     assert len(updates) == 2
@@ -154,9 +262,11 @@ def test_corrective_smooth_without_armature_is_solver_input(
 
     with module._evaluate_through_solver_input_modifiers(
             SimpleNamespace(), obj) as evaluated:
-        assert evaluated
+        assert evaluated is not obj
         assert smooth.show_viewport
-        assert not downstream.show_viewport
+        assert downstream.show_viewport
+        assert [modifier.name for modifier in evaluated.modifiers] == [
+            "Corrective Smooth"]
 
     assert downstream.show_viewport
 
@@ -199,7 +309,10 @@ def test_solver_input_visibility_restored_after_exception(
     import pytest
     with pytest.raises(RuntimeError):
         with module._evaluate_through_solver_input_modifiers(
-                SimpleNamespace(), obj):
-            assert not downstream.show_viewport
+                SimpleNamespace(), obj) as evaluated:
+            assert evaluated is not obj
+            assert downstream.show_viewport
+            assert [modifier.name for modifier in evaluated.modifiers] == [
+                "Armature"]
             raise RuntimeError("capture failed")
     assert downstream.show_viewport

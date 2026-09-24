@@ -1573,6 +1573,9 @@ class CLOTHNEXT_PT_collider_collision(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         controls = self.layout.column()
         controls.enabled = not shared_controller.snapshot().active
+        controls.label(text="Collision Geometry · Evaluated at: Cloth NeXt",
+                       icon="MODIFIER")
+        controls.label(text="Modifiers after Cloth NeXt are Blender-only")
         _draw_collider_collision(controls, context.object.cloth_next, context)
 
     def draw_header(self, context):

@@ -395,6 +395,11 @@ def build_cloth_scene(bpy, *, vertex_count: int = 64,
     cloth.cloth_next.role = "CLOTH"
     cloth.cloth_next.bake_start = 1
     cloth.cloth_next.bake_end = 24
+    boundary = cloth.modifiers.new("Cloth NeXt", "MESH_CACHE")
+    boundary.show_viewport = False
+    boundary.show_render = False
+    boundary.cloth_next_role = "simulation_cache_v1"
+    cloth.cloth_next_simulation_modifier_name = boundary.name
     if pinning:
         cloth.cloth_next.pinning_enabled = True
         cloth.cloth_next.pin_group = pin_group
@@ -407,6 +412,11 @@ def build_cloth_scene(bpy, *, vertex_count: int = 64,
     collider.vertex_groups = VertexGroups()
     collider.cloth_next.enabled = enabled
     collider.cloth_next.role = "COLLIDER"
+    collider_boundary = collider.modifiers.new("Cloth NeXt", "MESH_CACHE")
+    collider_boundary.show_viewport = False
+    collider_boundary.show_render = False
+    collider_boundary.cloth_next_role = "simulation_cache_v1"
+    collider.cloth_next_simulation_modifier_name = collider_boundary.name
 
     prefs = SimpleNamespace(auto_launch_bake_window=True,
                             telemetry_refresh_seconds=1.0,
@@ -434,7 +444,12 @@ def build_cloth_scene(bpy, *, vertex_count: int = 64,
 def attach_cache(cloth, *, settings_fingerprint: str,
                  geometry_fingerprint: str = "", version: int = 0):
     """Give the cloth a Cloth NeXt-owned playback modifier and a baked result."""
-    modifier = cloth.modifiers.new("Cloth NeXt Test Cache", "MESH_CACHE")
+    modifier = next((item for item in cloth.modifiers
+                     if getattr(item, "cloth_next_role", "") ==
+                     "simulation_cache_v1"), None)
+    if modifier is None:
+        modifier = cloth.modifiers.new("Cloth NeXt", "MESH_CACHE")
+        modifier.cloth_next_role = "simulation_cache_v1"
     modifier.filepath = "/fake/cache/cn_test_cloth_x.pc2"
     modifier.cloth_next_owner = "cloth_next_playback_v1"
     cloth.cloth_next_cache_path = modifier.filepath

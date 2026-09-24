@@ -146,7 +146,9 @@ def test_bake_start_hashes_topology_and_scans_pins_exactly_once(env,
     #
     # Reading the vertices themselves is *not* counted here: exporting the mesh
     # to the solver legitimately reads every coordinate once.
-    assert scene.counters.foreach_get_calls == 10
+    # The boundary architecture adds one stable topology+shape fingerprint of
+    # the simulation input, without adding per-frame scans.
+    assert scene.counters.foreach_get_calls == 14
     assert scene.counters.vertex_group_scans == vertex_count
 
 
@@ -406,6 +408,11 @@ def test_three_separate_cloths_publish_and_attach_authenticated_caches(
         obj.cloth_next.role = "CLOTH"
         obj.cloth_next.bake_start = 1
         obj.cloth_next.bake_end = 24
+        boundary = obj.modifiers.new("Cloth NeXt", "MESH_CACHE")
+        boundary.show_viewport = False
+        boundary.show_render = False
+        boundary.cloth_next_role = "simulation_cache_v1"
+        obj.cloth_next_simulation_modifier_name = boundary.name
         scene.context.scene.objects.insert(-1, obj)
         return obj
 

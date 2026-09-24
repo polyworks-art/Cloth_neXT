@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.7.9",
+  "title": "What's New in Cloth NeXt 2.7.9",
+  "subtitle": "A clear modifier-stack boundary for simulation and collision geometry.",
+  "hero_asset": "assets/hero-panel.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Choose the evaluated input",
+      "description": "Modifiers before Cloth NeXt feed simulation or collision export, while modifiers after it remain Blender-only presentation effects."
+    },
+    {
+      "icon": "icons/docs.png",
+      "title": "Use the same boundary for Colliders",
+      "description": "Mesh Colliders now show the Cloth NeXt boundary without enabling PC2 playback or requiring a cache file."
+    },
+    {
+      "icon": "icons/rocket.png",
+      "title": "Keep user objects untouched",
+      "description": "Boundary extraction evaluates an isolated temporary object and preserves the original modifier state, mesh, selection, active object, and mode."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

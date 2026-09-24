@@ -25,7 +25,7 @@ from .session import SolverFrame
 
 PC2_START_FRAME = 0.0
 PC2_SAMPLE_RATE = 1.0
-MODIFIER_NAME = "Cloth NeXt Test Cache"
+MODIFIER_NAME = "Cloth NeXt"
 
 
 class ImportValidationError(ValueError):
