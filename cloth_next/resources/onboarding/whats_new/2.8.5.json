@@ -1,0 +1,23 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.5",
+  "title": "What's New in Cloth NeXt 2.8.5",
+  "subtitle": "Smooth interaction without automatic mesh validation.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/cloth.png",
+      "title": "No more validation pauses while editing",
+      "description": "Assignment, property changes, object edits, and dependency-graph updates now mark the scene dirty without scanning mesh or pin data."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Authoritative checks stay where they matter",
+      "description": "Full topology, pin, evaluated-mesh, and collider validation runs only when Validate, Bake, or Rebake explicitly requests it."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

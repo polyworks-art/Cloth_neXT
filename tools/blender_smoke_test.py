@@ -93,7 +93,6 @@ def _assert_no_runtime_timers(bpy, module_name: str) -> None:
         ("solver_test", "_pump_watchdog"),
         ("solver_test", "_startup_pump"),
         ("solver_test", "_pin_capture_pump"),
-        ("validation_state", "_validation_pump"),
         ("viewport_autoframe", "_tick"),
     )
     leaked = []

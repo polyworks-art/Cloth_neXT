@@ -54,6 +54,23 @@ def test_material_change_marks_settings_dirty(env):
     assert scene.counters.full_mesh_scans == 0, "marking dirty must not scan"
 
 
+def test_property_change_never_schedules_or_runs_validation(env, monkeypatch):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=100_000)
+    _validated(env, scene)
+    scene.counters.reset()
+    timers_before = tuple(env.bpy.app.timers.functions)
+    monkeypatch.setattr(
+        env.solver_test, "validate_scene",
+        lambda _context: (_ for _ in ()).throw(
+            AssertionError("property update must not validate")))
+
+    scene.cloth.cloth_next.material.stretch_resistance = 4321.0
+
+    assert _state(env).record_for(scene.cloth).state is _states(env).DIRTY
+    assert tuple(env.bpy.app.timers.functions) == timers_before
+    assert not hasattr(_state(env), "_validation_pump")
+
+
 @pytest.mark.parametrize("attribute,value", [
     ("pinning_enabled", True),
     ("pin_group", "Pins"),
@@ -157,6 +174,28 @@ def test_depsgraph_update_marks_geometry_dirty_without_reading_the_mesh(env):
     assert scene.counters.foreach_get_calls == 0
 
 
+def test_depsgraph_dirty_mark_never_schedules_or_runs_validation(
+        env, monkeypatch):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=100_000)
+    _validated(env, scene)
+    scene.counters.reset()
+    timers_before = tuple(env.bpy.app.timers.functions)
+    monkeypatch.setattr(
+        env.solver_test, "validate_scene",
+        lambda _context: (_ for _ in ()).throw(
+            AssertionError("depsgraph handler must not validate")))
+    depsgraph = SimpleNamespace(updates=[SimpleNamespace(
+        id=scene.cloth, is_updated_geometry=True,
+        is_updated_transform=False)])
+
+    env.bpy.app.handlers.depsgraph_update_post[0](scene.context.scene,
+                                                  depsgraph)
+
+    assert _state(env).record_for(scene.cloth).state is _states(env).DIRTY
+    assert tuple(env.bpy.app.timers.functions) == timers_before
+    assert scene.counters.full_mesh_scans == 0
+
+
 def test_collider_depsgraph_update_demotes_the_deformable(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=100_000)
     _validated(env, scene)
@@ -240,6 +279,41 @@ def test_successful_validation_records_the_pin_count(env):
     assert record.pin_group == mesh_fixtures.PIN_GROUP
 
 
+def test_explicit_validate_operator_runs_one_authoritative_validation(
+        env, monkeypatch):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    calls = []
+    original = env.solver_test.validate_scene
+    monkeypatch.setattr(
+        env.solver_test, "validate_scene",
+        lambda context: calls.append(context) or original(context))
+    operator = env.solver_test.CLOTHNEXT_OT_validate()
+    reports = []
+    operator.report = lambda level, message: reports.append((level, message))
+
+    assert operator.execute(scene.context) == {"FINISHED"}
+
+    assert calls == [scene.context]
+    assert _state(env).record_for(scene.cloth).state is _states(env).VALID
+    assert reports[-1][0] == {"INFO"}
+
+
+def test_explicit_validation_cannot_create_an_automatic_feedback_loop(env):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=400)
+    timers_before = tuple(env.bpy.app.timers.functions)
+
+    env.solver_test.validate_scene(scene.context)
+    depsgraph = SimpleNamespace(updates=[SimpleNamespace(
+        id=scene.cloth, is_updated_geometry=True,
+        is_updated_transform=False)])
+    env.bpy.app.handlers.depsgraph_update_post[0](scene.context.scene,
+                                                  depsgraph)
+
+    assert _state(env).record_for(scene.cloth).state is _states(env).DIRTY
+    assert tuple(env.bpy.app.timers.functions) == timers_before
+    assert not hasattr(_state(env), "_validation_pump")
+
+
 def test_validation_is_the_only_thing_that_scans(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=10_000,
                                             pinning=True)
@@ -293,6 +367,19 @@ def test_reload_cycle_creates_no_duplicate_handlers(blender_env):
         env.registration.unregister()
     env.registration.register()
     assert env.solver_test.validation_state.handler_count() == 4
+    env.registration.unregister()
+
+
+def test_reload_cycle_leaves_no_validation_timer_architecture(blender_env):
+    env = blender_env
+    for _ in range(3):
+        env.registration.register()
+        env.registration.unregister()
+    env.registration.register()
+    assert not hasattr(env.solver_test.validation_state, "_validation_pump")
+    assert all(getattr(callback, "__module__", "") !=
+               env.solver_test.validation_state.__name__
+               for callback in env.bpy.app.timers.functions)
     env.registration.unregister()
 
 

@@ -56,8 +56,8 @@ def _header(counts: tuple[int, int, int, int]) -> bytes:
 def mesh_topology_signature(mesh) -> str:
     """SHA-256 over the connectivity of ``mesh`` using ``foreach_get`` buffers.
 
-    Only ever called from a full validation (bake, explicit validate, or the
-    debounced validation timer) — never from a ``Panel.draw``.
+    Only ever called from an explicit full validation (Validate, Bake, or
+    Rebake) — never from a ``Panel.draw`` or idle callback.
     """
     if numpy is None:  # pragma: no cover - exercised only without NumPy
         return reference_topology_signature(mesh)

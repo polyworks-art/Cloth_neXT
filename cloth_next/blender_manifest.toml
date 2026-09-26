@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "cloth_next"
-version = "2.8.4"
+version = "2.8.5"
 name = "Cloth NeXt"
 tagline = "High-fidelity cloth and soft-body simulation"
 maintainer = "Tim Christmann"

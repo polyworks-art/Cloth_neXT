@@ -1,7 +1,7 @@
-# Cloth NeXt 2.8.4
+# Cloth NeXt 2.8.5
 
-Cloth NeXt 2.8.4 fixes simulation-boundary playback detection. An empty or disabled Cloth NeXt modifier no longer switches off Armature or Corrective Smooth modifiers placed before it.
+Cloth NeXt 2.8.5 removes automatic full-scene validation from idle interaction. Assigning Cloth NeXt, changing a property, moving an object, or receiving a dependency-graph update now performs only a lightweight dirty-state update.
 
-When no active PC2 playback exists, Cloth NeXt restores previously muted input deformers and skips the unnecessary dependency-graph refresh that could briefly freeze complex character scenes. Active baked playback continues to mute already-baked input deformation to prevent double transforms.
+Topology hashing, pin membership scans, evaluated-mesh snapshots, and collider validation now run only when Validate, Bake, or Rebake explicitly needs an authoritative scene snapshot. This prevents periodic UI pauses on dense meshes while preserving strict validation before simulation.
 
 Published to the configured private repository. The external PPF Contact Solver is not bundled.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.5 - 2026-09-26
+
+- Stop scheduling full scene validation from property changes and dependency-graph updates; these paths now only mark validation state dirty.
+- Run topology hashing, pin membership scans, evaluated-mesh snapshots, and collider validation only from explicit Validate, Bake, or Rebake operations.
+- Add a real Blender idle regression and expanded lifecycle tests to ensure assignment, redraws, edits, and reloads cannot recreate an automatic validation timer or feedback loop.
+
 ## 2.8.4 - 2026-09-26
 
 - Keep Armature and Corrective Smooth inputs enabled when the persistent Cloth NeXt modifier is only an empty, disabled simulation boundary.

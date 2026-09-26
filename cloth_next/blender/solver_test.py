@@ -1970,8 +1970,8 @@ def _snapshot_static_pin(cloth_obj, *,
                          topology_signature: str | None = None) -> StaticPinSnapshot:
     """Capture exact vertex-group membership (EXPENSIVE — never from draw).
 
-    Runs only from a full validation: Bake, Rebake, explicit validation, or
-    the debounced validation timer. ``topology_signature`` is threaded through
+    Runs only from an explicit full validation: Bake, Rebake, or Validate.
+    ``topology_signature`` is threaded through
     so a single validation hashes the topology once instead of once per caller.
     """
     settings = cloth_obj.cloth_next
@@ -2394,8 +2394,8 @@ def _validate_scene_single(context) -> ValidationSnapshot:
     """Fully validate the scene: topology, materials, pinning, fingerprints.
 
     EXPENSIVE by design and the *only* place the mesh is scanned. Called from
-    Bake, Rebake, the explicit Validate operator, and the debounced validation
-    timer — never from ``Panel.draw()`` or ``Panel.poll()``.
+    Bake, Rebake, and the explicit Validate operator — never from
+    ``Panel.draw()``, ``Panel.poll()``, or an idle callback.
 
     The result is recorded in :mod:`validation_state` (VALID or INVALID with a
     readable message) and returned so the Bake path can reuse it without
@@ -3401,32 +3401,6 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
         "frame_handlers": handler_identity,
     }
     return deterministic_key("scene", identity), "safe source identity"
-
-
-def _validate_active_cloth() -> bool:
-    """Debounced-timer entry point (Phase 11). Returns True when it validated.
-
-    Skipped entirely while a Bake runs — the Bake owns validation then.
-    """
-    if run_active() or _pending_plan is not None or _pin_capture is not None:
-        return False
-    context = bpy.context
-    scene = getattr(context, "scene", None)
-    if scene is None:
-        return False
-    try:
-        cloth_obj, _collider = _enabled_objects_for_bake(context)
-    except SceneValidationError:
-        return False
-    record = validation_state.record_for(cloth_obj)
-    if record.state in (validation_state.ValidationState.VALID,
-                        validation_state.ValidationState.VALIDATING):
-        return False
-    try:
-        validate_scene(context)
-    except (SceneValidationError, ClothNextError, MaterialValidationError):
-        return True  # recorded as INVALID with its message; the panel shows it
-    return True
 
 
 def _depsgraph_update(context):
@@ -12264,16 +12238,6 @@ class CLOTHNEXT_OT_set_cache_directory(bpy.types.Operator):
                     f"Cache directory set for {len(deformables)} object(s): "
                     f"{directory}")
         return {"FINISHED"}
-
-
-def install_validator() -> None:
-    """Hand the expensive validator to the cheap runtime state module.
-
-    validation_state owns only the recorded outcome and the debounced timer;
-    the mesh work lives here. Installed as a registration step so an
-    unregister/register cycle re-arms it.
-    """
-    validation_state.set_validator(_validate_active_cloth)
 
 
 CLASSES = (CLOTHNEXT_OT_bake, CLOTHNEXT_OT_bake_modal,

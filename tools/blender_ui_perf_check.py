@@ -79,6 +79,9 @@ class RecordingLayout:
     def box(self, **_kw):
         return self
 
+    def split(self, **_kw):
+        return self
+
 
 class Counters:
     def __init__(self):
@@ -92,7 +95,7 @@ class Counters:
 
 def instrument(solver_test, counters):
     for attribute, name in (("_snapshot_static_pin", "pin_scans"),
-                            ("mesh_topology_signature", "topology_hashes"),
+                            ("_hash_mesh_topology", "topology_hashes"),
                             ("validate_scene", "validations")):
         original = getattr(solver_test, attribute)
 
@@ -126,6 +129,8 @@ def build_grid(name: str, vertex_count: int):
 
 
 def make_scene(vertex_count: int):
+    from cloth_next.blender.playback_cache import ensure_simulation_modifier
+
     bpy.ops.wm.read_factory_settings(use_empty=True)
     cloth = build_grid("Cloth", vertex_count)
     collider = build_grid("Collider", 64)
@@ -134,6 +139,7 @@ def make_scene(vertex_count: int):
 
     cloth.cloth_next.enabled = True
     cloth.cloth_next.role = "CLOTH"
+    ensure_simulation_modifier(cloth)
     collider.cloth_next.enabled = True
     collider.cloth_next.role = "COLLIDER"
 
@@ -144,8 +150,10 @@ def make_scene(vertex_count: int):
 
 
 def panels(physics_ui):
-    return (physics_ui.CLOTHNEXT_PT_physics, physics_ui.CLOTHNEXT_PT_overview,
-            physics_ui.CLOTHNEXT_PT_solver, physics_ui.CLOTHNEXT_PT_material,
+    return (physics_ui.CLOTHNEXT_PT_physics, physics_ui.CLOTHNEXT_PT_setup,
+            physics_ui.CLOTHNEXT_PT_simulation,
+            physics_ui.CLOTHNEXT_PT_solver, physics_ui.CLOTHNEXT_PT_shape,
+            physics_ui.CLOTHNEXT_PT_material,
             physics_ui.CLOTHNEXT_PT_pinning, physics_ui.CLOTHNEXT_PT_damping,
             physics_ui.CLOTHNEXT_PT_collisions, physics_ui.CLOTHNEXT_PT_cache,
             physics_ui.CLOTHNEXT_PT_advanced)
@@ -191,10 +199,6 @@ def measure(physics_ui, context, counters, redraws=REDRAWS):
 def main() -> int:
     from cloth_next.blender import physics_ui, registration, solver_test
     from cloth_next.blender import validation_state
-
-    # The debounced background validation would otherwise fire mid-measurement
-    # and blur exactly what this check is trying to isolate.
-    validation_state.set_auto_validate(False)
 
     registration.register()
     counters = Counters()

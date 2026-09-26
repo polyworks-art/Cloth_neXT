@@ -132,8 +132,8 @@ def _object_settings_of(property_group):
 #
 # Every property below that the solver actually reads flips the object's
 # recorded validation status to DIRTY. This is a dict write — no vertex, edge,
-# polygon, or vertex group is touched. The expensive re-validation happens once,
-# later, at Bake (or in the debounced validation timer).
+# polygon, or vertex group is touched. Expensive authoritative validation runs
+# only when Validate, Bake, or Rebake requires it.
 
 def _mark_dirty(property_group) -> None:
     owner = getattr(property_group, "id_data", None)

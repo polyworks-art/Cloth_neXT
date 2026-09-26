@@ -23,8 +23,8 @@ What lives here is deliberately cheap and disposable:
   callbacks only flip a flag; they never read a vertex.
 
 The expensive counterpart — the real topology hash and pin scan — lives in
-:mod:`cloth_next.blender.solver_test` and installs itself here through
-:func:`set_validator`.
+:mod:`cloth_next.blender.solver_test` and runs only from explicit operations
+that require an authoritative snapshot (Validate, Bake, and Rebake).
 """
 
 from __future__ import annotations
@@ -74,15 +74,10 @@ _UNKNOWN = ValidationRecord()
 # object_key -> ValidationRecord. Plain strings in, plain records out.
 _records: dict[str, ValidationRecord] = {}
 
-# Debounce window before the optional background validation runs (Phase 11).
-VALIDATION_DEBOUNCE_SECONDS = 0.6
 # Redraw tagging is throttled; dirty marking itself never is (see below).
 _REDRAW_THROTTLE_SECONDS = 0.2
 
-_validator = None
-_auto_validate = True
 _last_redraw_tag = 0.0
-_validation_due = 0.0
 _handlers_registered = False
 _depsgraph_observers: list = []
 
@@ -170,27 +165,21 @@ def _demote(obj, *, settings: bool = False, geometry: bool = False) -> bool:
 
 def mark_settings_dirty(obj) -> None:
     """A mapped property changed. No mesh is read."""
-    if _demote(obj, settings=True):
-        _schedule_validation()
+    _demote(obj, settings=True)
 
 
 def mark_geometry_dirty(obj) -> None:
     """The mesh may have changed. No mesh is read."""
-    if _demote(obj, geometry=True):
-        _schedule_validation()
+    _demote(obj, geometry=True)
 
 
 def mark_all_settings_dirty() -> None:
     """A scene-wide value (solver quality) changed: every record is suspect."""
-    touched = False
     for key, record in list(_records.items()):
         if record.state is ValidationState.DIRTY and record.settings_dirty:
             continue
         _records[key] = replace(record, state=ValidationState.DIRTY,
                                 settings_dirty=True, message="")
-        touched = True
-    if touched:
-        _schedule_validation()
 
 
 def mark_validating(obj) -> None:
@@ -247,9 +236,7 @@ def restore_record(obj, record: ValidationRecord) -> None:
 
 def clear() -> None:
     """Drop every record. Used on register, unregister, and file load."""
-    global _validation_due
     _records.clear()
-    _validation_due = 0.0
 
 
 def forget(obj) -> None:
@@ -261,18 +248,6 @@ def prune(existing_keys) -> None:
     keep = set(existing_keys)
     for key in [key for key in _records if key not in keep]:
         del _records[key]
-
-
-def set_validator(callback) -> None:
-    """Install the expensive full-validation entry point (solver_test)."""
-    global _validator
-    _validator = callback
-
-
-def set_auto_validate(enabled: bool) -> None:
-    """Phase-11 background validation switch. Bake never depends on it."""
-    global _auto_validate
-    _auto_validate = bool(enabled)
 
 
 # ---------------------------------------------------------------------------
@@ -300,41 +275,6 @@ def _tag_redraw() -> None:
         for area in getattr(getattr(window, "screen", None), "areas", ()):
             if getattr(area, "type", "") == "PROPERTIES":
                 area.tag_redraw()
-
-
-def _schedule_validation() -> None:
-    """Arm the debounced validation timer (Phase 11, optional by design)."""
-    global _validation_due
-    if not _auto_validate or _validator is None:
-        return
-    _validation_due = time.monotonic() + VALIDATION_DEBOUNCE_SECONDS
-    try:
-        if not bpy.app.timers.is_registered(_validation_pump):
-            bpy.app.timers.register(_validation_pump,
-                                    first_interval=VALIDATION_DEBOUNCE_SECONDS)
-    except (AttributeError, ValueError):
-        pass
-
-
-def _validation_pump():
-    """Main-thread, debounced, one object per tick; aborts on new edits.
-
-    Returning a delay reschedules; returning None retires the timer. The Bake
-    path never waits for this — it is a convenience that upgrades UNKNOWN and
-    DIRTY records to VALID while the user is idle.
-    """
-    if not _auto_validate or _validator is None:
-        return None
-    remaining = _validation_due - time.monotonic()
-    if remaining > 0:
-        return remaining  # a newer edit pushed the deadline out; re-arm
-    try:
-        pending = _validator()
-    except Exception:  # noqa: BLE001 — a broken scene must not kill the timer
-        return None
-    if pending:
-        _tag_redraw()
-    return None
 
 
 @persistent
@@ -383,7 +323,6 @@ def _on_depsgraph_update(scene, depsgraph=None) -> None:
             touched = True
     if touched:
         _tag_redraw()
-        _schedule_validation()
     for observer in tuple(_depsgraph_observers):
         try:
             observer(scene, depsgraph)
@@ -458,11 +397,6 @@ def unregister() -> None:
             while callback in container:
                 container.remove(callback)
             _purge_stale(container)
-    try:
-        if bpy.app.timers.is_registered(_validation_pump):
-            bpy.app.timers.unregister(_validation_pump)
-    except (AttributeError, ValueError):
-        pass
     clear()
     _depsgraph_observers.clear()
     _handlers_registered = False
