@@ -14,6 +14,20 @@ ICON_NAMES = ("logo", "link", "cloth", "play", "rocket", "docs", "settings",
               "arrow", "changelog", "close")
 
 
+def build_monochrome_icons(output_root: Path) -> tuple[Path, ...]:
+    """Normalize the complete runtime icon pool to white transparent glyphs."""
+    outputs = []
+    for name in ICON_NAMES:
+        output = output_root / f"{name}.png"
+        image = Image.open(output).convert("RGBA")
+        alpha = image.getchannel("A")
+        white = Image.new("RGBA", image.size, (245, 245, 243, 0))
+        white.putalpha(alpha)
+        white.save(output, optimize=True)
+        outputs.append(output)
+    return tuple(outputs)
+
+
 def build_icon_sheet(source: Path, output_root: Path) -> tuple[Path, ...]:
     image = Image.open(source).convert("RGBA")
     output_root.mkdir(parents=True, exist_ok=True)
@@ -54,15 +68,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--icon-sheet", type=Path)
     parser.add_argument("--hero", type=Path)
+    parser.add_argument("--monochrome-icons", action="store_true")
     parser.add_argument("--output-root", type=Path,
                         default=Path("cloth_next/resources/onboarding"))
     args = parser.parse_args()
-    if not args.icon_sheet and not args.hero:
-        parser.error("provide --icon-sheet and/or --hero")
+    if not args.icon_sheet and not args.hero and not args.monochrome_icons:
+        parser.error("provide --icon-sheet, --hero, and/or --monochrome-icons")
     if args.icon_sheet:
         build_icon_sheet(args.icon_sheet, args.output_root / "icons")
     if args.hero:
         build_hero(args.hero, args.output_root / "assets" / "hero-panel.png")
+    if args.monochrome_icons:
+        build_monochrome_icons(args.output_root / "icons")
     print(f"onboarding assets built in {args.output_root}")
     return 0
 

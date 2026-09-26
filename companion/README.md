@@ -55,7 +55,7 @@ normal startup performs no conversion.
 
 ## Welcome and What's New
 
-The same Companion executable also owns two compact, light product-information
+The same Companion executable also owns two fixed-size, dark product-information
 windows. No second executable or background service exists:
 
 ```text
@@ -72,5 +72,11 @@ compiled into the EXE: each add-on update supplies its own exact-version JSON an
 icon selection. The screens require no network access to render and terminate when their window
 closes. URL actions are explicit HTTPS links. A missing or invalid resource exits
 the informational process without affecting Blender, Bake, authentication, or the
-external solver. The approved character render is cropped at runtime and shared by
-both screens; `© Tim Christmann` remains visible in the Hero.
+external solver. The packaged monochrome wireframe-cloth artwork is shared by both
+screens and contains no release copy.
+
+Automatic launches add `--splash-ms 2000`, so the initialising splash and its
+animated progress bar transition in-place to Welcome or What's New. The shared
+wireframe-cloth background is packaged beside the existing onboarding resources.
+The update preference is returned to Blender through a tokenized temporary file;
+the informational process never edits Blender preferences or release content.

@@ -133,6 +133,14 @@ not repeat; this also keeps channel switches and downgrades monotonic. Manual
 Preferences actions do not alter the automatic seen state. Missing Companion or
 invalid content is non-fatal to Blender and all Bake/solver state.
 
+Every automatic onboarding launch first renders the two-second Cloth NeXt splash
+inside the final fixed-size informational window. Tk `after()` callbacks animate
+the progress bar and cross-fade the existing canvas to Welcome on first install or
+the exact-version What's New view after an update; no UI-thread sleep and no second
+window are used. The What's New checkbox is returned through the launcher's
+tokenized temporary handoff and stored in AddonPreferences. Disabling it suppresses
+future automatic update flows, while manual actions remain available.
+
 ## Phase 3A.1 live presentation
 
 The pure `telemetry` package owns one stoppable worker. At a throttled one-second

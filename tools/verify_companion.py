@@ -16,14 +16,16 @@ from cloth_next.bake.transport import LocalSocketServer  # noqa: E402
 from cloth_next.platform_support import platform_spec  # noqa: E402
 def verify_information_modes(exe: Path) -> None:
     env = dict(__import__("os").environ)
-    env["CLOTH_NEXT_COMPANION_AUTO_CLOSE_MS"] = "350"
+    env["CLOTH_NEXT_COMPANION_AUTO_CLOSE_MS"] = "2500"
     version = tomllib.loads(
         (ROOT / "cloth_next" / "blender_manifest.toml").read_text(encoding="utf-8")
     )["version"]
     content = str(ROOT / "cloth_next" / "resources" / "onboarding")
     for arguments in (
-        ("--mode", "welcome", "--content-root", content),
-        ("--mode", "whats-new", "--version", version, "--content-root", content),
+        ("--mode", "welcome", "--version", version, "--content-root", content,
+         "--splash-ms", "2000"),
+        ("--mode", "whats-new", "--version", version, "--content-root", content,
+         "--splash-ms", "2000"),
     ):
         with tempfile.TemporaryDirectory(prefix="clothnext-info-smoke-") as temporary:
             ready = Path(temporary) / "ready"

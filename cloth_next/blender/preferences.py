@@ -750,6 +750,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Onboarding State", default="",
         description="Internal persistent Welcome and What's-New seen state",
         options={"HIDDEN"})
+    show_whats_new_after_updates: bpy.props.BoolProperty(
+        name="Show What's New after updates", default=True,
+        description="Show release highlights after the startup splash when Cloth NeXt updates",
+        options={"HIDDEN"})
     show_role_colors: bpy.props.BoolProperty(
         name="Show Cloth NeXt Role Colors", default=False,
         description="Color Cloth NeXt objects by role. Visible in Solid shading "

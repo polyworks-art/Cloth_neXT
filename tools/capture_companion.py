@@ -5,6 +5,7 @@ from pathlib import Path
 import argparse
 import sys
 import time
+import tomllib
 from PIL import ImageGrab
 import ctypes
 
@@ -14,12 +15,15 @@ from cloth_next.veyra.model import CompanionMode, VeyraStep
 from companion.app import BakeWindow
 
 parser=argparse.ArgumentParser(); parser.add_argument(
-    "--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
+    "--mode",choices=("bake","veyra","splash","welcome","whats-new"),default="bake")
 args=parser.parse_args()
-if args.mode in {"welcome","whats-new"}:
+if args.mode in {"splash","welcome","whats-new"}:
     from companion.onboarding_window import InfoWindow, load_content
-    version="2.3.5" if args.mode=="whats-new" else None
-    window=InfoWindow(args.mode,load_content(args.mode,version))
+    version=tomllib.loads((ROOT/"cloth_next/blender_manifest.toml").read_text(
+        encoding="utf-8"))["version"]
+    destination="welcome" if args.mode=="splash" else args.mode
+    window=InfoWindow(destination,load_content(destination,version),version=version,
+                      splash_ms=60_000 if args.mode=="splash" else 0)
 else:
     window=BakeWindow()
 snapshot=(BakeSnapshot(state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,

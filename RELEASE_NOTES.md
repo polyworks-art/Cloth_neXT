@@ -1,9 +1,9 @@
-# Cloth NeXt 2.8.0
+# Cloth NeXt 2.8.1
 
-Cloth NeXt 2.8.0 completes PC2 playback at the modifier boundary and makes repeat bakes substantially cheaper. The owned Mesh Cache modifier is explicitly configured for PC2 and is enabled automatically after a successful bake.
+Cloth NeXt 2.8.1 introduces a compact premium startup experience in the existing Companion executable. Every onboarding flow begins with a non-blocking animated splash and transitions in the same fixed-size window to Welcome on first install or exact-version What's New after an update.
 
-Bake-start simulation geometry is now captured once during validation and reused for export. Animated topology validation reuses that start sample and only evaluates the remaining bounded timeline samples.
+Welcome and What's New use the supplied Cloth NeXt mark, monochrome icons, a wireframe cloth background, and release content from validated versioned onboarding metadata. The update preference persists through Blender AddonPreferences, and the full changelog action uses the existing changelog source.
 
-Unchanged animated Collider captures are reused from the persistent export cache. Self-contained deterministic modifier stacks such as Subdivision, Solidify, and Bevel participate in the cache identity; geometry, animation, modifier settings, sampling, frame-range, and FPS changes still invalidate the capture safely.
+The floating viewport toolbar gains a Resume pill beside Bake. It shows a clock and the latest known checkpoint frame when available. Pulling it to the right arms Pull to Resume with the same hysteresis and lifecycle handling as Pull to Detach, then delegates to the existing verified recovery operator.
 
 Published to the configured private repository. The external PPF Contact Solver is not bundled.

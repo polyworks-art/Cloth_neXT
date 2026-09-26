@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 WHATS_NEW_SCHEMA = "cnx.whats-new.v1"
+CHANGELOG_URL = "https://github.com/polyworks-art/Cloth_neXT/blob/main/CHANGELOG.md"
 SUPPORTED_ACTIONS = frozenset({"close", "url"})
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 ICON_ASSETS = frozenset(
@@ -90,7 +91,9 @@ def _read_json(path: Path) -> dict:
 
 
 WELCOME_ASSETS = (
-    "assets/hero-panel.png", "icons/link.png", "icons/cloth.png", "icons/play.png")
+    "assets/hero-panel.png", "assets/wireframe-cloth.png",
+    "assets/cloth-next-logo.png", "assets/cloth-next-logo-splash.png",
+    "icons/link.png", "icons/cloth.png", "icons/play.png")
 WELCOME_CONTENT = {
     "title": "Welcome to Cloth NeXt",
     "subtitle": "GPU-powered cloth simulation shaped for an artist-friendly Blender workflow.",
@@ -139,8 +142,8 @@ def validate_whats_new_payload(payload: dict, version: str,
     if payload.get("version") != version:
         raise ValueError("What's-New resource version mismatch")
     highlights = payload.get("highlights")
-    if not isinstance(highlights, list) or not 2 <= len(highlights) <= 4:
-        raise ValueError("What's New must contain two to four highlights")
+    if not isinstance(highlights, list) or not 2 <= len(highlights) <= 5:
+        raise ValueError("What's New must contain two to five highlights")
     normalized_highlights = []
     for item in highlights:
         if not isinstance(item, dict):

@@ -64,6 +64,9 @@ def make_zip(tmp_path, version="0.2.0", extra=(), name=None):
         bundle.writestr(f"resources/onboarding/whats_new/{version}.json",
                         json.dumps(whats_new))
         bundle.writestr("resources/onboarding/assets/hero-panel.png", b"png")
+        bundle.writestr("resources/onboarding/assets/wireframe-cloth.png", b"png")
+        bundle.writestr("resources/onboarding/assets/cloth-next-logo.png", b"png")
+        bundle.writestr("resources/onboarding/assets/cloth-next-logo-splash.png", b"png")
         for icon in ("rocket", "shield", "link", "cloth", "play"):
             bundle.writestr(f"resources/onboarding/icons/{icon}.png", b"png")
         for member in extra:
@@ -268,6 +271,12 @@ def test_source_gate_rejects_release_notes_version_contradiction(tmp_path):
         (resources / "assets").mkdir()
         (resources / "assets" / "hero-panel.png").write_bytes(
             bundle.read("resources/onboarding/assets/hero-panel.png"))
+        (resources / "assets" / "wireframe-cloth.png").write_bytes(
+            bundle.read("resources/onboarding/assets/wireframe-cloth.png"))
+        (resources / "assets" / "cloth-next-logo.png").write_bytes(
+            bundle.read("resources/onboarding/assets/cloth-next-logo.png"))
+        (resources / "assets" / "cloth-next-logo-splash.png").write_bytes(
+            bundle.read("resources/onboarding/assets/cloth-next-logo-splash.png"))
     (repo / "companion").mkdir()
     (repo / "companion" / "app.py").write_text(
         'MODES=("welcome","whats-new")\nARGS=("--version","--content-root")\n',

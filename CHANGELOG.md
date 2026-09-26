@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.1 - 2026-09-26
+
+- Add the non-blocking Cloth NeXt splash and transition in the existing Companion window to Welcome on first install or exact-version What's New after an update.
+- Redesign Welcome and What's New with the supplied logo, monochrome icons, wireframe cloth artwork, compact fixed geometry, persistent update preference, and existing changelog source.
+- Add a Resume pill beside Bake with a clock, the latest known checkpoint frame, and a rightward Pull to Resume gesture.
+- Delegate Pull to Resume to the existing verified recovery operator while sharing Detach-style hysteresis and guarded per-region gesture lifecycle.
+
 ## 2.8.0 - 2026-09-24
 
 - Configure the owned playback modifier explicitly for PC2 and activate it after a successful bake.

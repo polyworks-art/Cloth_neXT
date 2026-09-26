@@ -1,0 +1,38 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.1",
+  "title": "What's New in Cloth NeXt 2.8.1",
+  "subtitle": "A cleaner startup experience and direct recovery from the viewport.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/logo.png",
+      "title": "Open onboarding with the new Cloth NeXt splash",
+      "description": "A non-blocking splash transitions in-place to Welcome or What's New."
+    },
+    {
+      "icon": "icons/cloth.png",
+      "title": "Present release highlights in a compact premium layout",
+      "description": "The dark window uses the new logo, wireframe artwork, and monochrome icons."
+    },
+    {
+      "icon": "icons/changelog.png",
+      "title": "Load exact-version highlights from release metadata",
+      "description": "What's New remains driven by validated JSON and the existing changelog source."
+    },
+    {
+      "icon": "icons/settings.png",
+      "title": "Remember whether What's New appears after updates",
+      "description": "The preference is returned through a tokenized handoff to AddonPreferences."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Pull the clock pill to resume its displayed frame",
+      "description": "The toolbar shows the saved frame and delegates to the verified recovery operator."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

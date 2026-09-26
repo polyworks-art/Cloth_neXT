@@ -7,18 +7,28 @@
   "highlights": [
     {
       "icon": "icons/rocket.png",
-      "title": "Reuse animated Colliders",
-      "description": "Unchanged animated Collider captures are reused across repeat bakes, including safe self-contained modifier stacks."
+      "title": "Reuse unchanged animated Collider captures",
+      "description": "Unchanged animated Collider captures are reused across repeat bakes."
     },
     {
       "icon": "icons/rocket.png",
-      "title": "Prepare geometry once",
+      "title": "Reuse validated Bake-start geometry",
       "description": "Bake-start simulation geometry is validated once and reused for export instead of reading the same evaluated vertices again."
     },
     {
       "icon": "icons/docs.png",
-      "title": "Activate PC2 automatically",
+      "title": "Enable PC2 playback after successful Bakes",
       "description": "The Cloth NeXt Mesh Cache modifier now uses PC2 explicitly and becomes visible automatically after a successful bake."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Reuse topology validation's start-frame sample",
+      "description": "Animated topology validation reuses the validated Bake-start sample instead of evaluating that frame twice."
+    },
+    {
+      "icon": "icons/shield.png",
+      "title": "Cache deterministic Collider modifier stacks",
+      "description": "Self-contained Collider modifier stacks join the cache identity while external dependencies still invalidate safely."
     }
   ],
   "actions": [

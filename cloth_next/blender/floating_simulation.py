@@ -112,7 +112,7 @@ def _bounds(context):
     if region is None or region.type != "WINDOW":
         return None
     scale = _scale(context)
-    width, height = (230 + _quality_width(context)) * scale, 54 * scale
+    width, height = (308 + _quality_width(context)) * scale, 54 * scale
     if (region.width < width + 24 * scale
             or region.height < height + 78 * (scale / _LAYOUT_SCALE)):
         return None
@@ -160,6 +160,28 @@ def _state(context):
     message = message or (physics_ui._run_state_text(snapshot) if snapshot.active
                           else model.reason)
     return model, snapshot, quality, directory_ok, message
+
+
+def _resume_available(context):
+    settings = getattr(getattr(context, "scene", None),
+                       "cloth_next_recovery", None)
+    return bool(settings and getattr(settings, "resumable", False)
+                and not shared_controller.snapshot().active)
+
+
+def _resume_frame(context):
+    settings = getattr(getattr(context, "scene", None),
+                       "cloth_next_recovery", None)
+    frame = int(getattr(settings, "latest_checkpoint_frame", 0) or 0)
+    return frame if frame > 0 else None
+
+
+def _resume_hit(bounds, x, y, quality_width):
+    if bounds is None:
+        return False
+    bx, by, _width, height, scale = bounds
+    left = bx + (224 + quality_width) * scale
+    return left <= x <= left + 70 * scale and by <= y <= by + height
 
 
 def _rounded(shader, batch_for_shader, x, y, w, h, r, color):
@@ -315,6 +337,10 @@ def _draw():
                           (not snapshot.active and model and model.enabled))
         _rounded(shader, batch_for_shader, x+bake_x*s, y+8*s, 82*s, h-16*s,
                  17*s, _BLUE if bake_ready else (0.12, 0.13, 0.14, 0.88))
+        resume_ready = _resume_available(context)
+        resume_x = bake_x + 88
+        _rounded(shader, batch_for_shader, x+resume_x*s, y+8*s, 70*s, h-16*s,
+                 17*s, _SURFACE if resume_ready else (0.12, 0.13, 0.14, 0.88))
         _rounded(shader, batch_for_shader, x+105*s, y+37*s, 18*s, 18*s,
                  9*s, _DIR_READY if directory_ok else _DIR_MISSING)
         _asset_icon(gpu, batch_for_shader, "cloth_next", x+14*s, y+10*s, 34*s)
@@ -329,26 +355,14 @@ def _draw():
             82*s, round(14*s),
             _TEXT if (snapshot.active and snapshot.can_cancel) or
             (model and model.enabled) else _MUTED)
-        if message:
-            recovery = getattr(getattr(context, "scene", None),
-                               "cloth_next_recovery", None)
-            error = bool(snapshot.error_summary or (model and model.reason))
-            error |= str(getattr(recovery, "status", "") or "") in {
-                "Recovery Check Failed", "Recovery Metadata Invalid",
-                "Recovery Incompatible", "Recovery Project Missing"}
-            ui = s / _LAYOUT_SCALE
-            ix, iy = _message_anchor(bounds)
-            color = _DIR_MISSING if error else (1.0, 1.0, 1.0, 1.0)
-            gpu.state.blend_set("ALPHA")
-            _rounded(shader, batch_for_shader,
-                     ix-7*ui, iy-7*ui, 14*ui, 14*ui, 7*ui,
-                     _DIR_MISSING if error else _BLUE)
-            _centered_glyph(blf, "!" if error else "i", ix, iy,
-                            round(10*ui), (1.0, 1.0, 1.0, 1.0))
-            available = max(0, context.region.width - (ix+25*ui))
-            label = _fit_label(blf, str(message), available, round(11*ui))
-            _label(blf, label,
-                   ix+15*ui, iy-4*ui, round(11*ui), color)
+        resume_frame = _resume_frame(context)
+        clock_x = resume_x + (17 if resume_frame is not None else 35)
+        _centered_glyph(blf, "◷", x+clock_x*s, y+27*s,
+                        round(19*s), _TEXT if resume_ready else _MUTED)
+        if resume_frame is not None:
+            _centered_label(blf, f"F {resume_frame}", x+(resume_x+30)*s,
+                            y+23*s-1.5*(s/_LAYOUT_SCALE), 36*s,
+                            round(11*s), _TEXT if resume_ready else _MUTED)
         quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
@@ -390,6 +404,7 @@ class CLOTHNEXT_OT_pull_detach(bpy.types.Operator):
         self.wm = context.window_manager
         self.bounds = bounds
         self.targets = targets
+        self.kind = "detach"
         self.gesture = PullGesture(event.mouse_region_x, 160*bounds[4])
         self.timer = None
         _pull_sessions[self.key] = self
@@ -450,6 +465,92 @@ class CLOTHNEXT_OT_pull_detach(bpy.types.Operator):
         self.finish()
 
 
+class CLOTHNEXT_OT_pull_resume(bpy.types.Operator):
+    bl_idname = "clothnext.pull_resume"
+    bl_label = "Resume Bake"
+    bl_description = "Hold the clock and pull right to resume the latest verified Bake"
+    bl_options = {"REGISTER", "BLOCKING"}
+
+    @classmethod
+    def poll(cls, context):
+        return (getattr(context.area, "type", None) == "VIEW_3D"
+                and getattr(context.region, "type", None) == "WINDOW"
+                and visible(context) and _resume_available(context))
+
+    def invoke(self, context, event):
+        bounds = _animated_bounds(context)
+        quality_width = _quality_width(context)
+        if (event.type != "LEFTMOUSE" or event.value != "PRESS"
+                or not self.poll(context) or _animation_start_time is not None
+                or not _resume_hit(bounds, event.mouse_region_x,
+                                   event.mouse_region_y, quality_width)):
+            return {"CANCELLED"}
+        self.key = quick_assign.region_key(context)
+        if self.key in _pull_sessions:
+            return {"CANCELLED"}
+        self.window, self.area, self.region = context.window, context.area, context.region
+        self.screen, self.workspace = self.window.screen, self.window.workspace
+        self.scene, self.view_layer = context.scene, context.view_layer
+        self.wm = context.window_manager
+        self.bounds = bounds
+        self.kind = "resume"
+        self.targets = ()
+        self.gesture = PullGesture(event.mouse_region_x, -160*bounds[4])
+        _pull_sessions[self.key] = self
+        try:
+            self.wm.modal_handler_add(self)
+        except Exception:
+            self.finish()
+            raise
+        self.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def valid_context(self, context):
+        try:
+            return (_registered and visible(context) and _animation_start_time is None
+                    and context.window == self.window and self.window in tuple(self.wm.windows)
+                    and self.window.screen == self.screen and self.window.workspace == self.workspace
+                    and self.area in tuple(self.screen.areas) and self.region in tuple(self.area.regions)
+                    and context.area == self.area and context.region == self.region
+                    and context.scene == self.scene and context.view_layer == self.view_layer
+                    and _animated_bounds(context) == self.bounds
+                    and _resume_available(context))
+        except (ReferenceError, AttributeError):
+            return False
+
+    def modal(self, context, event):
+        if _pull_sessions.get(getattr(self, "key", None)) is not self:
+            return {"CANCELLED"}
+        if (not self.valid_context(context) or event.type == "WINDOW_DEACTIVATE"
+                or (event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS")):
+            self.finish()
+            return {"CANCELLED"}
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "LEFTMOUSE"}:
+            self.gesture.update(event.mouse_x - self.region.x)
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE":
+            armed = self.gesture.release(event.mouse_x - self.region.x)
+            self.finish()
+            if armed and _resume_available(context):
+                result = bpy.ops.clothnext.recovery_resume_latest("EXEC_DEFAULT")
+                return {"FINISHED"} if "FINISHED" in result else {"CANCELLED"}
+            return {"CANCELLED"}
+        self.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def finish(self):
+        if _pull_sessions.get(getattr(self, "key", None)) is self:
+            del _pull_sessions[self.key]
+        if hasattr(self, "gesture"):
+            self.gesture.cancel()
+        try:
+            self.area.tag_redraw()
+        except (ReferenceError, AttributeError):
+            pass
+
+    def cancel(self, context):
+        self.finish()
+
+
 def _draw_pull(context, bounds, blf, shader, batch):
     operator = _pull_sessions.get(quick_assign.region_key(context))
     if operator is None:
@@ -457,6 +558,22 @@ def _draw_pull(context, bounds, blf, shader, batch):
     x, y, _, h, s = bounds
     gesture = operator.gesture
     armed = gesture.state == "ARMED"
+    if getattr(operator, "kind", "detach") == "resume":
+        extension = (38 + 160*gesture.progress)*s
+        right = x + bounds[2] + extension
+        color = (0.02, .62, .82, 1.0) if armed else (0.02, .42, .62, .96)
+        _rounded(shader, batch, x+bounds[2]-27*s, y+10*s,
+                 extension+27*s, h-20*s, 17*s, color)
+        _centered_glyph(blf, "◷", right-17*s, y+h/2,
+                        round(18*s), _TEXT)
+        if armed:
+            text = _fit_label(blf, "Release to resume",
+                              max(0., extension-42*s), round(13*s))
+            blf.size(0, round(13*s))
+            width, _ = blf.dimensions(0, text)
+            _label(blf, text, right-35*s-width, y+23*s,
+                   round(13*s), _TEXT)
+        return
     extension = (38 + 160*gesture.progress)*s
     left = x-extension
     color = (1.0, .12, .15, 1.0) if armed else (.80, .06, .09, .96)
@@ -524,7 +641,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         for operator in ("clothnext.set_cache_directory", "wm.call_menu",
                          "clothnext.bake", "clothnext.bake_cancel",
                          "clothnext.companion_open_logs", "clothnext.quick_assign",
-                         "clothnext.pull_detach"):
+                         "clothnext.pull_detach", "clothnext.pull_resume"):
             gizmo = self.gizmos.new("GIZMO_GT_button_2d")
             gizmo.icon = "BLANK1"
             gizmo.draw_options = set()
@@ -555,7 +672,8 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                      (177 + quality_width, 27),
                      (177 + quality_width, 27),
                      ((_w+18*ui)/s, 27),
-                     ((230 + quality_width)/2, 54 + 31*ui/s), (27, 27))
+                     ((308 + quality_width)/2, 54 + 31*ui/s), (27, 27),
+                     (259 + quality_width, 27))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
             gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
@@ -569,8 +687,10 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
             else _CYAN)[:3]
         self._buttons[2].hide = snapshot.active or not (model and model.enabled)
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
-        self._buttons[4].hide = not bool(message)
+        self._buttons[4].hide = True
         self._buttons[5].hide = not bool(quick_assign.valid_roles(context))
+        self._buttons[7].hide = not _resume_available(context)
+        self._buttons[7].alpha_highlight = 0.0
         # Blender does not guarantee refresh() for each timer-driven redraw.
         # Keep hit targets at the same translated position as the painted bar.
         for gizmo in self._buttons:
@@ -581,7 +701,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self.refresh(context)
 
 
-CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_OT_pull_resume, CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
            CLOTHNEXT_GT_floating_simulation)
 
 

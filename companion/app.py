@@ -1028,6 +1028,10 @@ def main(argv=None):
     parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
     parser.add_argument("--version")
     parser.add_argument("--content-root")
+    parser.add_argument("--splash-ms",type=int,default=0)
+    parser.add_argument("--show-after-updates",choices=("0","1"),default="1")
+    parser.add_argument("--preference-path")
+    parser.add_argument("--preference-token")
     args=parser.parse_args(argv)
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:
@@ -1038,13 +1042,17 @@ def main(argv=None):
             parser.error("--mode whats-new requires --version")
         from companion.onboarding_window import run_info_window
         try:
-            run_info_window(args.mode,args.version,Path(args.content_root))
+            run_info_window(args.mode,args.version,Path(args.content_root),
+                            splash_ms=args.splash_ms,
+                            show_after_updates=args.show_after_updates=="1",
+                            preference_path=Path(args.preference_path) if args.preference_path else None,
+                            preference_token=args.preference_token)
         except (OSError,ValueError,json.JSONDecodeError):
             LOG.error("informational companion failed\n%s",traceback.format_exc())
             raise SystemExit(2)
         return
-    if args.version:
-        parser.error("--version is only valid with --mode whats-new")
+    if args.version or args.splash_ms or args.preference_path or args.preference_token:
+        parser.error("informational arguments require an informational mode")
     if args.content_root:
         parser.error("--content-root is only valid with informational modes")
     transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()

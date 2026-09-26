@@ -4,7 +4,8 @@
 from PIL import Image
 
 from tools.build_onboarding_assets import (ICON_NAMES, build_hero,
-                                           build_icon_sheet)
+                                           build_icon_sheet,
+                                           build_monochrome_icons)
 
 
 def test_icon_sheet_builds_sixteen_tiny_transparent_runtime_assets(tmp_path):
@@ -25,3 +26,16 @@ def test_hero_build_is_exact_runtime_panel_size(tmp_path):
     Image.new("RGB", (400, 500), "white").save(source)
     output = build_hero(source, tmp_path / "hero-panel.png")
     assert Image.open(output).size == (175, 390)
+
+
+def test_monochrome_icon_build_preserves_alpha_and_removes_color(tmp_path):
+    icons = tmp_path / "icons"
+    icons.mkdir()
+    for name in ICON_NAMES:
+        image = Image.new("RGBA", (22, 22), (20, 80, 240, 0))
+        image.putpixel((11, 11), (20, 80, 240, 255))
+        image.save(icons / f"{name}.png")
+    outputs = build_monochrome_icons(icons)
+    assert tuple(path.stem for path in outputs) == ICON_NAMES
+    assert all(Image.open(path).getpixel((11, 11)) == (245, 245, 243, 255)
+               for path in outputs)

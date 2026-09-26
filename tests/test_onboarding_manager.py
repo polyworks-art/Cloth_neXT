@@ -4,6 +4,15 @@
 from types import SimpleNamespace
 
 
+class _AcknowledgedProcess:
+    def __init__(self):
+        self.polls = 0
+
+    def poll(self):
+        self.polls += 1
+        return None if self.polls == 1 else 0
+
+
 def test_register_is_one_shot_and_unregister_removes_timer(blender_env):
     manager = __import__("cloth_next.blender.onboarding_manager", fromlist=["x"])
     manager.register()
@@ -21,7 +30,7 @@ def test_automatic_launch_marks_seen_only_after_window_acknowledges(blender_env,
     monkeypatch.setattr(manager, "_preferences", lambda: preferences)
     monkeypatch.setattr(manager, "companion_info_command", lambda *_a, **_k: ["companion"])
     monkeypatch.setattr(manager.subprocess, "Popen", lambda *_a, **_k:
-                        SimpleNamespace(poll=lambda: None))
+                        _AcknowledgedProcess())
     ok, _message = manager.launch_screen("welcome")
     assert ok
     assert manager._state(preferences).next_screen("2.3.7") == "welcome"
@@ -48,9 +57,30 @@ def test_manual_open_does_not_change_seen_state(blender_env, monkeypatch):
     monkeypatch.setattr(manager, "_preferences", lambda: preferences)
     monkeypatch.setattr(manager, "companion_info_command", lambda *_a, **_k: ["companion"])
     monkeypatch.setattr(manager.subprocess, "Popen", lambda *_a, **_k:
-                        SimpleNamespace(poll=lambda: None))
+                        _AcknowledgedProcess())
     assert manager.launch_screen("welcome", manual=True)[0]
     pending = manager._pending[-1]
     pending[2].write_text(pending[3], encoding="utf-8")
     assert manager._poll_startup() is None
     assert preferences.onboarding_state == ""
+
+
+def test_whats_new_checkbox_persists_through_tokenized_handoff(blender_env,
+                                                               monkeypatch):
+    manager = __import__("cloth_next.blender.onboarding_manager", fromlist=["x"])
+    preferences = SimpleNamespace(
+        onboarding_state='{"welcome_seen":true,"seen_versions":["2.3.6"],'
+                         '"highest_version":"2.3.6"}',
+        show_whats_new_after_updates=True)
+    monkeypatch.setattr(manager, "_preferences", lambda: preferences)
+    monkeypatch.setattr(manager, "companion_info_command", lambda *_a, **_k: ["companion"])
+    monkeypatch.setattr(manager.subprocess, "Popen", lambda *_a, **_k:
+                        _AcknowledgedProcess())
+    assert manager.launch_screen("whats-new")[0]
+    pending = manager._pending[-1]
+    pending[2].write_text(pending[3], encoding="utf-8")
+    pending[8].write_text(
+        '{"token":"' + pending[3] + '","show_after_updates":false}',
+        encoding="utf-8")
+    assert manager._poll_startup() is None
+    assert preferences.show_whats_new_after_updates is False

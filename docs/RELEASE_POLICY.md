@@ -181,6 +181,9 @@ Every Dev, Beta, and Stable archive must also contain:
 ```text
 resources/onboarding/whats_new/<version>.json
 resources/onboarding/assets/hero-panel.png
+resources/onboarding/assets/wireframe-cloth.png
+resources/onboarding/assets/cloth-next-logo.png
+resources/onboarding/assets/cloth-next-logo-splash.png
 resources/onboarding/icons/<welcome-and-release-icon>.png
 ```
 
@@ -298,7 +301,7 @@ Before any Dev, Beta, or Stable publication, the release manager verifies:
   and packaged; Welcome has no per-release JSON to curate;
 - `whats_new/<version>.json` exists and its version equals the manifest, requested
   release version, package name, release notes, and changelog entry;
-- titles, two to four highlights, optional improvement/fix lists, action kinds,
+- titles, two to five highlights, optional improvement/fix lists, action kinds,
   package-relative asset paths, and HTTPS URLs are valid;
 - the Companion manifest declares `bake`, `veyra`, `welcome`, and `whats-new`, and
   the built EXE accepts the matching CLI parameters;

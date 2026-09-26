@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import json
 import logging
 from pathlib import Path
 import subprocess
@@ -42,7 +43,11 @@ def _write_state(value: SeenState, preferences=None) -> None:
     preferences.onboarding_state = value.to_json()
 
 
-def companion_info_command(mode: str, version: str | None = None) -> list[str]:
+def companion_info_command(mode: str, version: str | None = None, *,
+                           splash_ms: int = 0,
+                           show_after_updates: bool = True,
+                           preference_path: Path | None = None,
+                           preference_token: str | None = None) -> list[str]:
     extension_root = Path(__file__).resolve().parents[1]
     repository_root = extension_root.parent
     try:
@@ -58,6 +63,12 @@ def companion_info_command(mode: str, version: str | None = None) -> list[str]:
         extension_root / "resources" / "onboarding")]
     if version is not None:
         command += ["--version", version]
+    if splash_ms:
+        command += ["--splash-ms", str(splash_ms)]
+    command += ["--show-after-updates", "1" if show_after_updates else "0"]
+    if preference_path is not None and preference_token is not None:
+        command += ["--preference-path", str(preference_path),
+                    "--preference-token", preference_token]
     return command
 
 
@@ -72,11 +83,17 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
             load_whats_new(version)
         else:
             raise ValueError(f"unknown Companion screen: {mode}")
-        command = companion_info_command(
-            mode, version if mode == "whats-new" else None)
         temporary = tempfile.TemporaryDirectory(prefix="clothnext-onboarding-")
         ready = Path(temporary.name) / "ready"
+        preference = Path(temporary.name) / "preference.json"
         token = secrets.token_hex(16)
+        preferences = _preferences()
+        show_after_updates = bool(getattr(
+            preferences, "show_whats_new_after_updates", True))
+        command = companion_info_command(
+            mode, version, splash_ms=2000,
+            show_after_updates=show_after_updates,
+            preference_path=preference, preference_token=token)
         env = dict(os.environ, CLOTH_NEXT_INFO_READY_PATH=str(ready),
                    CLOTH_NEXT_INFO_READY_TOKEN=token)
         process = subprocess.Popen(
@@ -89,7 +106,7 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
         temporary.cleanup()
         return False, f"Cloth NeXt {mode} exited during startup."
     _pending.append((process, temporary, ready, token, mode, version, manual,
-                     time.monotonic() + 20))
+                     time.monotonic() + 20, preference, False))
     if not bpy.app.timers.is_registered(_poll_startup):
         bpy.app.timers.register(_poll_startup, first_interval=0.1)
     return True, "Welcome opened" if mode == "welcome" else "What's New opened"
@@ -97,17 +114,33 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
 
 def _poll_startup():
     for item in tuple(_pending):
-        process, temporary, ready, token, mode, version, manual, deadline = item
+        (process, temporary, ready, token, mode, version, manual, deadline,
+         preference, acknowledged_before) = item
+        try:
+            payload = json.loads(preference.read_text(encoding="utf-8"))
+            if payload.get("token") == token and isinstance(
+                    payload.get("show_after_updates"), bool):
+                _preferences().show_whats_new_after_updates = payload[
+                    "show_after_updates"]
+                preference.unlink(missing_ok=True)
+        except (OSError, ValueError, AttributeError):
+            pass
         try:
             acknowledged = ready.is_file() and ready.read_text(encoding="utf-8") == token
         except OSError:
             acknowledged = False
-        if acknowledged or process.poll() is not None or time.monotonic() >= deadline:
+        if acknowledged and not acknowledged_before:
+            if not manual:
+                preferences = _preferences()
+                _write_state(_state(preferences).mark_seen(mode, version), preferences)
+            replacement = (*item[:-1], True)
+            _pending[_pending.index(item)] = replacement
+            item = replacement
+        exited = process.poll() is not None
+        timed_out = not acknowledged and time.monotonic() >= deadline
+        if exited or timed_out:
             try:
-                if acknowledged and not manual:
-                    preferences = _preferences()
-                    _write_state(_state(preferences).mark_seen(mode, version), preferences)
-                elif not acknowledged and process.poll() is None:
+                if timed_out and not exited:
                     process.terminate()
                     process.wait(timeout=2)
             finally:
@@ -122,6 +155,10 @@ def _startup_pulse() -> None:
         return None
     try:
         screen = _state().next_screen(manifest_version())
+        if (screen == "whats-new" and not getattr(
+                _preferences(), "show_whats_new_after_updates", True)):
+            _write_state(_state().mark_seen(screen, manifest_version()))
+            return None
         if screen:
             ok, message = launch_screen(screen)
             if not ok:

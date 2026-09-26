@@ -102,3 +102,26 @@ def test_no_targets(pull):
     f, c, targets = pull
     c.selected_objects = []
     assert f.CLOTHNEXT_OT_pull_detach().invoke(c, event("LEFTMOUSE")) == {"CANCELLED"}
+
+
+def test_pull_right_resumes_through_existing_operator(pull, monkeypatch):
+    f, c, _targets = pull
+    c.scene.cloth_next_recovery = NS(resumable=True)
+    monkeypatch.setattr(f, "_animated_bounds", lambda _c: (100, 20, 340, 54, 1))
+    monkeypatch.setattr(f, "_quality_width", lambda _c: 66)
+    calls = []
+    monkeypatch.setattr(
+        f.bpy.ops.clothnext, "recovery_resume_latest",
+        lambda mode: calls.append(mode) or {"FINISHED"}, raising=False)
+    op = f.CLOTHNEXT_OT_pull_resume()
+    assert op.invoke(c, event("LEFTMOUSE", x=400)) == {"RUNNING_MODAL"}
+    assert op.modal(c, event("MOUSEMOVE", x=560)) == {"RUNNING_MODAL"}
+    assert op.gesture.state == "ARMED"
+    assert op.modal(c, event("LEFTMOUSE", "RELEASE", 560)) == {"FINISHED"}
+    assert calls == ["EXEC_DEFAULT"]
+
+
+def test_pull_resume_is_hidden_without_resumable_checkpoint(pull):
+    f, c, _targets = pull
+    c.scene.cloth_next_recovery = NS(resumable=False)
+    assert not f.CLOTHNEXT_OT_pull_resume.poll(c)

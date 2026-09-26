@@ -15,9 +15,10 @@ from cloth_next.onboarding import default_resource_root
 def test_cli_dispatches_informational_modes_without_bake_transport(
         monkeypatch, mode, version):
     calls = []
-    monkeypatch.setattr("companion.onboarding_window.run_info_window",
-                        lambda selected, selected_version, content_root: calls.append(
-                            (selected, selected_version, content_root)))
+    monkeypatch.setattr(
+        "companion.onboarding_window.run_info_window",
+        lambda selected, selected_version, content_root, **_kwargs: calls.append(
+            (selected, selected_version, content_root)))
     arguments = ["--mode", mode, "--content-root", str(default_resource_root())]
     if version:
         arguments += ["--version", version]

@@ -35,7 +35,8 @@ def test_failed_gui_start_does_not_consume_welcome(blender_env, monkeypatch):
     child = SimpleNamespace(returncode=None)
     child.poll = lambda: child.returncode
     monkeypatch.setattr(manager, '_preferences', lambda: preferences)
-    monkeypatch.setattr(manager, 'companion_info_command', lambda *a: ['companion'])
+    monkeypatch.setattr(manager, 'companion_info_command',
+                        lambda *a, **k: ['companion'])
     monkeypatch.setattr(manager.subprocess, 'Popen', lambda *a, **k: child)
     manager.launch_screen('welcome')
     child.returncode = 2

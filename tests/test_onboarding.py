@@ -19,7 +19,7 @@ def test_repository_welcome_and_current_whats_new_are_valid():
     assert len(welcome["steps"]) == 3
     assert welcome["title"] == "Welcome to Cloth NeXt"
     assert current["version"] == version
-    assert 2 <= len(current["highlights"]) <= 4
+    assert 2 <= len(current["highlights"]) <= 5
 
 
 def test_fresh_install_shows_welcome_only_once_and_marks_current_seen():
@@ -54,6 +54,9 @@ def _write_resources(root, version="1.2.3"):
     (root / "icons").mkdir()
     (root / "assets").mkdir()
     (root / "assets" / "hero-panel.png").write_bytes(b"png")
+    (root / "assets" / "wireframe-cloth.png").write_bytes(b"png")
+    (root / "assets" / "cloth-next-logo.png").write_bytes(b"png")
+    (root / "assets" / "cloth-next-logo-splash.png").write_bytes(b"png")
     for name in ("rocket.png", "shield.png", "link.png", "cloth.png", "play.png"):
         (root / "icons" / name).write_bytes(b"png")
     whats = {"schema": "cnx.whats-new.v1", "version": version,
