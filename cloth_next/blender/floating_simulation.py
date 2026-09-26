@@ -28,6 +28,12 @@ _slide = 1.0
 _animation_from = 1.0
 _animation_start_time = None
 _ANIMATION_DURATION = 0.135
+_RESUME_ANIMATION_DURATION = 0.18
+_RESUME_EXTENSION = 62
+_resume_slide = 0.0
+_resume_animation_from = 0.0
+_resume_animation_target = False
+_resume_animation_start_time = None
 _last_enabled = False
 _keymap = None
 _keymap_item = None
@@ -91,6 +97,43 @@ def _animation_tick():
     return 1.0 / 60.0 if _animation_start_time is not None else None
 
 
+def _resume_fraction(context, now=None):
+    """Animate the verified Resume segment out from behind the Bake pill."""
+    global _resume_slide, _resume_animation_from
+    global _resume_animation_target, _resume_animation_start_time
+    target = _resume_available(context)
+    current_time = time.monotonic() if now is None else now
+    if _resume_animation_start_time is not None:
+        elapsed = max(0.0, current_time - _resume_animation_start_time)
+        destination = float(_resume_animation_target)
+        duration = (_RESUME_ANIMATION_DURATION
+                    * abs(destination - _resume_animation_from))
+        t = min(1.0, elapsed / duration) if duration else 1.0
+        eased = 1.0 - (1.0 - t)**3 if destination else t**3
+        _resume_slide = (_resume_animation_from
+                         + (destination - _resume_animation_from) * eased)
+        if t >= 1.0:
+            _resume_slide = destination
+            _resume_animation_start_time = None
+    if target != _resume_animation_target:
+        _resume_animation_from = _resume_slide
+        _resume_animation_target = target
+        _resume_animation_start_time = current_time
+        if not bpy.app.timers.is_registered(_resume_animation_tick):
+            bpy.app.timers.register(_resume_animation_tick,
+                                    first_interval=1.0 / 60.0)
+    if _resume_animation_start_time is None:
+        return _resume_slide
+    return _resume_slide
+
+
+def _resume_animation_tick():
+    _resume_fraction(bpy.context)
+    _tag_redraw(bpy.context)
+    return (1.0 / 60.0
+            if _resume_animation_start_time is not None else None)
+
+
 def _scale(context):
     return max(0.75, float(context.preferences.system.ui_scale)) * _LAYOUT_SCALE
 
@@ -112,11 +155,14 @@ def _bounds(context):
     if region is None or region.type != "WINDOW":
         return None
     scale = _scale(context)
-    width, height = (308 + _quality_width(context)) * scale, 54 * scale
+    resume_extension = _RESUME_EXTENSION * _resume_fraction(context)
+    base_width = (230 + _quality_width(context)) * scale
+    width, height = (base_width + resume_extension * scale, 54 * scale)
     if (region.width < width + 24 * scale
             or region.height < height + 78 * (scale / _LAYOUT_SCALE)):
         return None
-    return ((region.width - width) / 2, 28 * scale, width, height, scale)
+    return ((region.width - base_width) / 2, 28 * scale,
+            width, height, scale)
 
 
 def _animated_bounds(context):
@@ -180,8 +226,11 @@ def _resume_hit(bounds, x, y, quality_width):
     if bounds is None:
         return False
     bx, by, _width, height, scale = bounds
-    left = bx + (224 + quality_width) * scale
-    return left <= x <= left + 70 * scale and by <= y <= by + height
+    visible_width = _RESUME_EXTENSION * _resume_slide
+    left = bx + (218 + quality_width) * scale
+    return (visible_width > 0.0
+            and left <= x <= left + visible_width * scale
+            and by <= y <= by + height)
 
 
 def _rounded(shader, batch_for_shader, x, y, w, h, r, color):
@@ -335,12 +384,15 @@ def _draw():
                  quality.identifier == "EXTREME" else _SURFACE)
         bake_ready = bool((snapshot.active and snapshot.can_cancel) or
                           (not snapshot.active and model and model.enabled))
+        resume_ready = _resume_available(context)
+        resume_fraction = _resume_fraction(context)
+        if resume_fraction > 0.0:
+            _rounded(shader, batch_for_shader, x+(bake_x+68)*s, y+8*s,
+                     (14 + _RESUME_EXTENSION*resume_fraction)*s, h-16*s,
+                     17*s, _DIR_READY)
+        # Paint Bake last so Resume appears to slide out from behind it.
         _rounded(shader, batch_for_shader, x+bake_x*s, y+8*s, 82*s, h-16*s,
                  17*s, _BLUE if bake_ready else (0.12, 0.13, 0.14, 0.88))
-        resume_ready = _resume_available(context)
-        resume_x = bake_x + 88
-        _rounded(shader, batch_for_shader, x+resume_x*s, y+8*s, 70*s, h-16*s,
-                 17*s, _SURFACE if resume_ready else (0.12, 0.13, 0.14, 0.88))
         _rounded(shader, batch_for_shader, x+105*s, y+37*s, 18*s, 18*s,
                  9*s, _DIR_READY if directory_ok else _DIR_MISSING)
         _asset_icon(gpu, batch_for_shader, "cloth_next", x+14*s, y+10*s, 34*s)
@@ -356,13 +408,15 @@ def _draw():
             _TEXT if (snapshot.active and snapshot.can_cancel) or
             (model and model.enabled) else _MUTED)
         resume_frame = _resume_frame(context)
-        clock_x = resume_x + (17 if resume_frame is not None else 35)
-        _centered_glyph(blf, "◷", x+clock_x*s, y+27*s,
-                        round(19*s), _TEXT if resume_ready else _MUTED)
-        if resume_frame is not None:
-            _centered_label(blf, f"F {resume_frame}", x+(resume_x+30)*s,
-                            y+23*s-1.5*(s/_LAYOUT_SCALE), 36*s,
-                            round(11*s), _TEXT if resume_ready else _MUTED)
+        if resume_ready and resume_fraction >= 0.55:
+            alpha = min(1.0, (resume_fraction - 0.55) / 0.45)
+            resume_text = (*_TEXT[:3], alpha)
+            _centered_glyph(blf, "◷", x+(bake_x+94)*s, y+27*s,
+                            round(17*s), resume_text)
+            if resume_frame is not None:
+                _centered_label(blf, str(resume_frame), x+(bake_x+105)*s,
+                                y+23*s-1.5*(s/_LAYOUT_SCALE), 36*s,
+                                round(12*s), resume_text)
         quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
@@ -668,12 +722,15 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         quality_width = _quality_width(context)
         model, snapshot, quality, _directory_ok, message = _state(context)
         ui = s / _LAYOUT_SCALE
+        resume_fraction = _resume_fraction(context)
+        resume_center = (218 + quality_width
+                         + (_RESUME_EXTENSION * resume_fraction) / 2)
         positions = ((91, 27), (126 + quality_width/2, 27),
                      (177 + quality_width, 27),
                      (177 + quality_width, 27),
                      ((_w+18*ui)/s, 27),
-                     ((308 + quality_width)/2, 54 + 31*ui/s), (27, 27),
-                     (259 + quality_width, 27))
+                     (_w/(2*s), 54 + 31*ui/s), (27, 27),
+                     (resume_center, 27))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
             gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
@@ -689,7 +746,8 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
         self._buttons[4].hide = True
         self._buttons[5].hide = not bool(quick_assign.valid_roles(context))
-        self._buttons[7].hide = not _resume_available(context)
+        self._buttons[7].hide = (not _resume_available(context)
+                                 or resume_fraction < 0.55)
         self._buttons[7].alpha_highlight = 0.0
         # Blender does not guarantee refresh() for each timer-driven redraw.
         # Keep hit targets at the same translated position as the painted bar.

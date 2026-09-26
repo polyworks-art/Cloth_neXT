@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.3 - 2026-09-26
+
+- Merge Bake and Resume into one compound pill, with the verified checkpoint frame displayed beside a clock in the green Resume segment.
+- Keep Resume completely absent when recovery is unavailable, then slide the segment out from behind Bake while expanding the toolbar background when a checkpoint becomes resumable.
+
 ## 2.8.1 - 2026-09-26
 
 - Add the non-blocking Cloth NeXt splash and transition in the existing Companion window to Welcome on first install or exact-version What's New after an update.

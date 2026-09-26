@@ -38,6 +38,10 @@ def pull(blender_env, monkeypatch):
     monkeypatch.setattr(floating, "_animated_bounds", lambda c: (100, 20, 300, 54, 1))
     floating._registered = True
     floating._animation_start_time = None
+    floating._resume_slide = 0.0
+    floating._resume_animation_from = 0.0
+    floating._resume_animation_target = False
+    floating._resume_animation_start_time = None
     region = NS(type="WINDOW", x=0, y=0, as_pointer=lambda: 2)
     area = NS(type="VIEW_3D", regions=[region], tag_redraw=lambda: None)
     screen = NS(areas=[area])
@@ -107,6 +111,8 @@ def test_no_targets(pull):
 def test_pull_right_resumes_through_existing_operator(pull, monkeypatch):
     f, c, _targets = pull
     c.scene.cloth_next_recovery = NS(resumable=True)
+    f._resume_slide = 1.0
+    f._resume_animation_target = True
     monkeypatch.setattr(f, "_animated_bounds", lambda _c: (100, 20, 340, 54, 1))
     monkeypatch.setattr(f, "_quality_width", lambda _c: 66)
     calls = []
@@ -125,3 +131,31 @@ def test_pull_resume_is_hidden_without_resumable_checkpoint(pull):
     f, c, _targets = pull
     c.scene.cloth_next_recovery = NS(resumable=False)
     assert not f.CLOTHNEXT_OT_pull_resume.poll(c)
+
+
+def test_resume_segment_animates_only_for_resumable_checkpoint(pull):
+    f, c, _targets = pull
+    c.scene.cloth_next_recovery = NS(resumable=False)
+    assert f._resume_fraction(c, now=10.0) == 0.0
+    c.scene.cloth_next_recovery = NS(
+        resumable=True, latest_checkpoint_frame=19)
+    assert f._resume_fraction(c, now=10.0) == 0.0
+    halfway = f._resume_fraction(
+        c, now=10.0 + f._RESUME_ANIMATION_DURATION / 2)
+    assert 0.5 < halfway < 1.0
+    assert f._resume_fraction(
+        c, now=10.0 + f._RESUME_ANIMATION_DURATION) == 1.0
+
+
+def test_toolbar_background_expands_with_resume_segment(pull, monkeypatch):
+    f, c, _targets = pull
+    c.region.width = 1000
+    c.region.height = 500
+    c.preferences = NS(system=NS(ui_scale=1.0))
+    c.scene.cloth_next_recovery = NS(
+        resumable=True, latest_checkpoint_frame=19)
+    monkeypatch.setattr(f, "_quality_width", lambda _c: 66)
+    f._resume_slide = 1.0
+    f._resume_animation_target = True
+    _x, _y, width, _height, scale = f._bounds(c)
+    assert width == pytest.approx((230 + 66 + f._RESUME_EXTENSION) * scale)

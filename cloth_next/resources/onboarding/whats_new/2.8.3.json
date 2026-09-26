@@ -1,0 +1,23 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.3",
+  "title": "What's New in Cloth NeXt 2.8.3",
+  "subtitle": "A clearer, more fluid Pull to Resume control.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Resume from the frame shown beside Bake",
+      "description": "A green clock segment displays the exact verified checkpoint frame inside one compound Bake control."
+    },
+    {
+      "icon": "icons/play.png",
+      "title": "Reveal Resume only when recovery is available",
+      "description": "The segment slides out from behind Bake while the toolbar background expands, and disappears when no checkpoint can be resumed."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}
