@@ -1,0 +1,23 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.4",
+  "title": "What's New in Cloth NeXt 2.8.4",
+  "subtitle": "Reliable modifier-stack playback without setup freezes.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/cloth.png",
+      "title": "Keep rig deformation active before the first bake",
+      "description": "An empty or disabled Cloth NeXt boundary no longer switches off Armature or Corrective Smooth modifiers placed before it."
+    },
+    {
+      "icon": "icons/rig.png",
+      "title": "Avoid unnecessary scene evaluation",
+      "description": "Registration skips the dependency-graph rebuild when playback state did not change, preventing a brief pause in heavy character scenes."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

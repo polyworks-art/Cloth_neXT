@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.4 - 2026-09-26
+
+- Keep Armature and Corrective Smooth inputs enabled when the persistent Cloth NeXt modifier is only an empty, disabled simulation boundary.
+- Restore previously muted input deformers when registration finds no active PC2 playback, and avoid the unnecessary dependency-graph rebuild that caused a short freeze in heavy character scenes.
+
 ## 2.8.3 - 2026-09-26
 
 - Merge Bake and Resume into one compound pill, with the verified checkpoint frame displayed beside a clock in the green Resume segment.

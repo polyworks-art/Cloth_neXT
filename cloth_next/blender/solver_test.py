@@ -8429,8 +8429,21 @@ def synchronize_playback_input_deformers() -> None:
         playback = next((
             modifier for modifier in getattr(obj, "modifiers", ())
             if has_cloth_next_playback_marker(obj, modifier)), None)
-        if playback is not None:
+        if playback is None:
+            continue
+        # The persistent Mesh Cache modifier is also the pass-through stack
+        # boundary before the first bake (and after Clear).  A boundary has no
+        # cache path and is deliberately hidden; treating its marker as active
+        # playback disabled authored Armature/Corrective Smooth inputs during
+        # add-on registration and forced an unnecessary full depsgraph update.
+        active_playback = bool(
+            str(getattr(playback, "filepath", "") or "")
+            and (bool(getattr(playback, "show_viewport", True))
+                 or bool(getattr(playback, "show_render", True))))
+        if active_playback:
             changed |= mute_playback_input_deformers(obj, playback)
+        else:
+            changed |= restore_playback_input_deformers(obj)
     if changed:
         context = getattr(bpy, "context", None)
         if context is not None:

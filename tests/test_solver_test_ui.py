@@ -1866,6 +1866,55 @@ def test_existing_pre_234_cache_is_migrated_on_registration(blender_env,
     assert armature.show_render
 
 
+def test_empty_disabled_boundary_does_not_mute_armature_on_registration(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Unbaked Cloth", type="MESH")
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    boundary = sys.modules[
+        "cloth_next.blender.playback_cache"].ensure_simulation_modifier(obj)
+    blender_env.bpy.data.objects[obj.name] = obj
+    updates = []
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: updates.append(True))
+
+    assert getattr(boundary, "filepath", "") == ""
+    assert not boundary.show_viewport
+    assert not boundary.show_render
+
+    module.synchronize_playback_input_deformers()
+
+    assert getattr(armature, "show_viewport", True)
+    assert getattr(armature, "show_render", True)
+    assert updates == []
+
+
+def test_disabled_boundary_restores_previous_input_state_on_registration(
+        blender_env, monkeypatch):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Cleared Cloth", type="MESH")
+    armature = obj.modifiers.new("Armature", "ARMATURE")
+    boundary = sys.modules[
+        "cloth_next.blender.playback_cache"].ensure_simulation_modifier(obj)
+    boundary.filepath = "cn_test_cloth_previous.pc2"
+    boundary.show_viewport = True
+    boundary.show_render = True
+    module.mute_playback_input_deformers(obj, boundary)
+    boundary.filepath = ""
+    boundary.show_viewport = False
+    boundary.show_render = False
+    blender_env.bpy.data.objects[obj.name] = obj
+    updates = []
+    monkeypatch.setattr(module, "_depsgraph_update",
+                        lambda _context: updates.append(True))
+
+    module.synchronize_playback_input_deformers()
+
+    assert armature.show_viewport
+    assert armature.show_render
+    assert updates == [True]
+
+
 def test_animated_collider_capture_cache_round_trip(
         blender_env, tmp_path):
     module = blender_env.solver_test
