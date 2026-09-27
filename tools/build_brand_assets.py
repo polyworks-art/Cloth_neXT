@@ -61,8 +61,6 @@ def build() -> None:
     _save(black, ROOT / "assets" / "Logo_CN.png")
     _save(white, ROOT / "assets" / "Logo_CN_BW.png")
     _save(black, ROOT / "assets" / "LOGO_addon.png")
-    _save(_render_mark((64, 64), WHITE),
-          ROOT / "cloth_next" / "assets" / "icons" / "cloth_next.png")
 
     onboarding = ROOT / "cloth_next" / "resources" / "onboarding"
     _save(_render_mark((58, 56), WHITE),

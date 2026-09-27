@@ -21,8 +21,14 @@ REQUIRED = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "sol
             "monitor", "question", "remove", "settings", "update", "upload",
             "validate")
 SIZE = (64, 64)
+WHITE = (255, 255, 255)
+BRAND_WHITE = (245, 245, 243)
 
-def _render(source: Path) -> bytes:
+def _color(name: str) -> tuple[int, int, int]:
+    return BRAND_WHITE if name == "cloth_next" else WHITE
+
+
+def _render(source: Path, color: tuple[int, int, int] = WHITE) -> bytes:
     try:
         import resvg_py
     except ImportError as exc:
@@ -35,13 +41,13 @@ def _render(source: Path) -> bytes:
         # approved icon family as white so it remains legible in the default
         # dark UI; antialiasing stays encoded in the original alpha channel.
         alpha = image.getchannel("A")
-        image = Image.new("RGBA", image.size, (255, 255, 255, 0))
+        image = Image.new("RGBA", image.size, (*color, 0))
         image.putalpha(alpha)
         offset = ((SIZE[0] - image.width) // 2,
                   (SIZE[1] - image.height) // 2)
         alpha_canvas = Image.new("L", SIZE, 0)
         alpha_canvas.paste(alpha, offset)
-        canvas = Image.new("RGBA", SIZE, (255, 255, 255, 0))
+        canvas = Image.new("RGBA", SIZE, (*color, 0))
         canvas.putalpha(alpha_canvas)
         output = BytesIO()
         canvas.save(output, format="PNG", optimize=False, compress_level=9)
@@ -58,9 +64,11 @@ def validate() -> None:
                 if image.format != "PNG" or image.size != SIZE:
                     raise ValueError(f"invalid runtime icon: {output}")
                 rgba = image.convert("RGBA")
-                if any(pixel[:3] != (255, 255, 255)
-                       for pixel in rgba.getdata() if pixel[3]):
-                    raise ValueError(f"runtime icon is not white: {output}")
+                expected = _color(name)
+                if any(pixel[:3] != expected
+                       for pixel in rgba.get_flattened_data() if pixel[3]):
+                    raise ValueError(
+                        f"runtime icon has wrong color {expected}: {output}")
         except OSError as exc: raise ValueError(f"unreadable runtime icon: {output}") from exc
 
 def build() -> None:
@@ -68,7 +76,7 @@ def build() -> None:
     if missing: raise ValueError("missing required SVG concepts: " + ", ".join(missing))
     TARGET.mkdir(parents=True, exist_ok=True)
     for name in REQUIRED:
-        data = _render(SOURCE / f"{name}.svg")
+        data = _render(SOURCE / f"{name}.svg", _color(name))
         with Image.open(BytesIO(data)) as image:
             if image.format != "PNG" or image.size != SIZE:
                 raise ValueError(f"renderer produced invalid {name}.png")
