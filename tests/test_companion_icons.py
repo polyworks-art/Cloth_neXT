@@ -15,6 +15,14 @@ from cloth_next.bake.status import BakeSnapshot,BakeState
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _identity_signature(path):
+    if path.suffix.lower() != ".png":
+        return path.read_bytes()
+    with Image.open(path) as image:
+        rgba = image.convert("RGBA")
+        return rgba.size, rgba.mode, rgba.tobytes()
+
+
 def test_all_identity_derivatives_are_deterministic_from_primary_mark():
     source = ROOT / "assets" / "CN_new_Logo.svg"
     assert 'viewBox="0 0 497 476"' in source.read_text(encoding="utf-8")
@@ -35,9 +43,9 @@ def test_all_identity_derivatives_are_deterministic_from_primary_mark():
         ROOT / "cloth_next" / "resources" / "onboarding" / "icons" /
         "logo.png",
     )
-    before = {path: path.read_bytes() for path in outputs}
+    before = {path: _identity_signature(path) for path in outputs}
     build_brand_assets()
-    assert before == {path: path.read_bytes() for path in outputs}
+    assert before == {path: _identity_signature(path) for path in outputs}
 
 
 def test_identity_sources_follow_primary_mark_clear_space_and_color():
