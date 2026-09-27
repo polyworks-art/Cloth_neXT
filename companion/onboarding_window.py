@@ -4,16 +4,21 @@
 """Premium, non-blocking Splash, Welcome, and What's-New Companion window."""
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import json
 import os
 from pathlib import Path
+import sys
 import time
 import tkinter as tk
 import webbrowser
 
-from companion.ui_fonts import UI_FONT
 from cloth_next.onboarding import (CHANGELOG_URL, default_resource_root,
                                    load_welcome, load_whats_new)
+
+ONBOARDING_FONT = "Roboto"
+_REGISTERED_FONT_ROOTS: set[Path] = set()
 
 BG = "#08090a"
 PANEL = "#151719"
@@ -21,6 +26,35 @@ PANEL_HOVER = "#202326"
 WHITE = "#f7f7f5"
 MUTED = "#9b9da1"
 LINE = "#303337"
+
+
+def _register_onboarding_fonts(content_root: Path) -> None:
+    """Expose bundled fonts privately before Tk resolves any font families."""
+    font_root = (content_root / "fonts").resolve()
+    if font_root in _REGISTERED_FONT_ROOTS:
+        return
+    fonts = tuple(font_root.glob("Roboto-*.ttf"))
+    if not fonts:
+        return
+    try:
+        if sys.platform == "win32":
+            for font in fonts:
+                ctypes.windll.gdi32.AddFontResourceExW(str(font), 0x10, 0)
+        elif sys.platform.startswith("linux"):
+            library = ctypes.CDLL(ctypes.util.find_library("fontconfig")
+                                  or "libfontconfig.so.1")
+            library.FcConfigGetCurrent.restype = ctypes.c_void_p
+            library.FcConfigAppFontAddFile.argtypes = (
+                ctypes.c_void_p, ctypes.c_char_p)
+            library.FcConfigAppFontAddFile.restype = ctypes.c_int
+            library.FcConfigBuildFonts.argtypes = (ctypes.c_void_p,)
+            config = library.FcConfigGetCurrent()
+            for font in fonts:
+                library.FcConfigAppFontAddFile(config, os.fsencode(font))
+            library.FcConfigBuildFonts(config)
+    except (AttributeError, OSError):
+        return
+    _REGISTERED_FONT_ROOTS.add(font_root)
 
 
 def load_content(mode: str, version: str | None = None,
@@ -39,6 +73,7 @@ class InfoWindow:
     DESIGN_HEIGHT = 500
     WIDTH = round(DESIGN_WIDTH * SCALE)
     HEIGHT = round(DESIGN_HEIGHT * SCALE)
+    LINUX_TITLEBAR_HEIGHT = 30
 
     def __init__(self, mode: str, content: dict, *, root=None,
                  content_root: Path | None = None, splash_ms: int = 0,
@@ -49,6 +84,7 @@ class InfoWindow:
         self.content = content
         self.version = version or content.get("version", "")
         self.content_root = content_root or default_resource_root()
+        _register_onboarding_fonts(self.content_root)
         self.splash_ms = max(0, splash_ms)
         self.preference_path = preference_path
         self.preference_token = preference_token
@@ -56,13 +92,20 @@ class InfoWindow:
         self.root.withdraw()
         self.root.title("Cloth NeXt")
         self.root.configure(bg=BG)
-        self.root.geometry(f"{self.WIDTH}x{self.HEIGHT}")
-        self.root.minsize(self.WIDTH, self.HEIGHT)
+        self._custom_titlebar = sys.platform.startswith("linux")
+        self._window_height = self.HEIGHT + (
+            self.LINUX_TITLEBAR_HEIGHT if self._custom_titlebar else 0)
+        if self._custom_titlebar:
+            self.root.overrideredirect(True)
+        self.root.geometry(f"{self.WIDTH}x{self._window_height}")
+        self.root.minsize(self.WIDTH, self._window_height)
         self.root.resizable(False, False)
+        self._images: list[tk.PhotoImage] = []
+        if self._custom_titlebar:
+            self._build_linux_titlebar()
         self.canvas = tk.Canvas(self.root, width=self.WIDTH, height=self.HEIGHT,
                                 bg=BG, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
-        self._images: list[tk.PhotoImage] = []
         self._after_ids: list[str] = []
         self._show_after_updates = tk.BooleanVar(value=show_after_updates)
         self._load_identity()
@@ -80,6 +123,63 @@ class InfoWindow:
         if auto_close.isdigit() and int(auto_close) > 0:
             self._schedule(int(auto_close), self.close)
 
+    def _build_linux_titlebar(self):
+        bar = tk.Frame(self.root, height=self.LINUX_TITLEBAR_HEIGHT,
+                       bg="#000000", highlightthickness=0)
+        bar.pack(fill="x", side="top")
+        bar.pack_propagate(False)
+        left = tk.Frame(bar, bg="#000000")
+        left.pack(side="left", fill="y")
+        try:
+            icon = tk.PhotoImage(file=str(
+                self.content_root / "assets" / "cloth-next-logo-ui-crisp.png"))
+            icon = icon.subsample(3, 3)
+            self._images.append(icon)
+            icon_label = tk.Label(left, image=icon, bg="#000000",
+                                  borderwidth=0)
+            icon_label.pack(side="left", padx=(8, 3))
+        except (OSError, tk.TclError):
+            icon_label = None
+        title = tk.Label(left, text="Cloth NeXt", bg="#000000", fg=WHITE,
+                         font=(ONBOARDING_FONT, 9), borderwidth=0)
+        title.pack(side="left", padx=(3, 0))
+
+        controls = tk.Frame(bar, bg="#000000")
+        controls.pack(side="right", fill="y")
+        minimize = tk.Label(controls, text="—", bg="#000000", fg=WHITE,
+                            width=5, font=(ONBOARDING_FONT, 10))
+        maximize = tk.Label(controls, text="□", bg="#000000", fg="#6d7176",
+                            width=5, font=(ONBOARDING_FONT, 10))
+        close = tk.Label(controls, text="×", bg="#000000", fg=WHITE,
+                         width=5, font=(ONBOARDING_FONT, 12))
+        for control in (minimize, maximize, close):
+            control.pack(side="left", fill="y")
+        minimize.bind("<Button-1>", lambda _event: self._minimize_linux())
+        close.bind("<Button-1>", lambda _event: self.close())
+        close.bind("<Enter>", lambda _event: close.configure(bg="#c42b1c"))
+        close.bind("<Leave>", lambda _event: close.configure(bg="#000000"))
+
+        for widget in (bar, left, title, icon_label):
+            if widget is not None:
+                widget.bind("<ButtonPress-1>", self._start_window_drag)
+                widget.bind("<B1-Motion>", self._drag_window)
+
+    def _start_window_drag(self, event):
+        self._drag_origin = (event.x_root - self.root.winfo_x(),
+                             event.y_root - self.root.winfo_y())
+
+    def _drag_window(self, event):
+        offset_x, offset_y = self._drag_origin
+        self.root.geometry(f"+{event.x_root - offset_x}+{event.y_root - offset_y}")
+
+    def _minimize_linux(self):
+        self.root.overrideredirect(False)
+        self.root.iconify()
+        self.root.bind("<Map>", self._restore_linux_titlebar, add="+")
+
+    def _restore_linux_titlebar(self, _event=None):
+        self.root.after_idle(lambda: self.root.overrideredirect(True))
+
     def _schedule(self, delay: int, callback):
         identifier = self.root.after(delay, callback)
         self._after_ids.append(identifier)
@@ -92,26 +192,29 @@ class InfoWindow:
             logo = tk.PhotoImage(file=str(_asset("cloth_next.png")))
             self._images.append(logo)
             self.root.iconphoto(True, logo)
-            _match_windows_title_bar(self.root, light=False)
+            _match_windows_title_bar(
+                self.root, light=False, background_color=0x00000000)
         except (ImportError, tk.TclError):
             pass
 
     def _load_background(self):
         try:
-            image = tk.PhotoImage(file=str(
-                self.content_root / "assets" / "wireframe-cloth.png"))
-            image = image.zoom(4, 4).subsample(5, 5)
-            self._images.append(image)
-            self._background = image
+            self._splash_background = tk.PhotoImage(file=str(
+                self.content_root / "assets" / "splash-background.png"))
+            self._images.append(self._splash_background)
+        except (OSError, tk.TclError):
+            self._splash_background = None
+        try:
+            self._background = tk.PhotoImage(file=str(
+                self.content_root / "assets" / "destination-background.png"))
+            self._images.append(self._background)
         except (OSError, tk.TclError):
             self._background = None
         try:
             self._brand_logo = tk.PhotoImage(file=str(
-                self.content_root / "assets" / "cloth-next-logo.png"))
+                self.content_root / "assets" / "cloth-next-logo-ui-crisp.png"))
             self._brand_logo_large = tk.PhotoImage(file=str(
-                self.content_root / "assets" / "cloth-next-logo-splash.png"))
-            self._brand_logo = self._brand_logo.zoom(4, 4).subsample(5, 5)
-            self._brand_logo_large = self._brand_logo_large.zoom(4, 4).subsample(5, 5)
+                self.content_root / "assets" / "cloth-next-logo-splash-crisp.png"))
             self._images.extend((self._brand_logo, self._brand_logo_large))
         except (OSError, tk.TclError):
             self._brand_logo = None
@@ -120,20 +223,22 @@ class InfoWindow:
     def _paint_background(self):
         self.canvas.delete("all")
         self.canvas.configure(bg=BG)
-        if self._background is not None:
-            self.canvas.create_image(self.WIDTH // 2, self.HEIGHT // 2,
-                                     image=self._background, anchor="center")
+        if self.splash_ms and self._splash_background is not None:
+            self.canvas.create_image(0, 0, image=self._splash_background,
+                                     anchor="nw")
+        elif self._background is not None:
+            self.canvas.create_image(0, 0, image=self._background, anchor="nw")
 
     def _center(self):
         x = max(0, (self.root.winfo_screenwidth() - self.WIDTH) // 2)
-        y = max(0, (self.root.winfo_screenheight() - self.HEIGHT) // 2)
-        self.root.geometry(f"{self.WIDTH}x{self.HEIGHT}+{x}+{y}")
+        y = max(0, (self.root.winfo_screenheight() - self._window_height) // 2)
+        self.root.geometry(f"{self.WIDTH}x{self._window_height}+{x}+{y}")
 
     def _text(self, x, y, text, *, size=12, color=WHITE, weight="normal",
               anchor="nw", width=None):
         return self.canvas.create_text(
             self._p(x), self._p(y), text=text, fill=color,
-            font=(UI_FONT, max(6, round(size * self.SCALE)), weight),
+            font=(ONBOARDING_FONT, max(6, round(size * self.SCALE)), weight),
             anchor=anchor, width=self._p(width) if width is not None else None,
             justify="left")
 
@@ -141,14 +246,12 @@ class InfoWindow:
         return round(value * self.SCALE)
 
     def _brand(self, x=42, y=32, *, large=False):
-        scale = 1.35 if large else 1.0
-        w = 76 if large else 58
         logo = self._brand_logo_large if large else self._brand_logo
         if logo is not None:
             self.canvas.create_image(self._p(x), self._p(y), image=logo,
                                      anchor="nw")
-        self._text(x + w + int(16 * scale), y - int(7 * scale), "Cloth NeXt",
-                   size=42 if large else 31, weight="bold")
+        if large:
+            self._text(x, y + 102, "Cloth NeXt", size=42, weight="bold")
 
     def _draw_version(self):
         if self.version:
@@ -158,15 +261,18 @@ class InfoWindow:
 
     def _build_splash(self):
         self._paint_background()
-        self._brand(72, 177, large=True)
-        self._text(170, 254, "C L O T H   S I M U L A T I O N   F O R   B L E N D E R",
+        self._brand(72, 112, large=True)
+        self._text(72, 292, "C L O T H   S I M U L A T I O N   F O R   B L E N D E R",
                    size=8, color=MUTED)
-        self._text(42, 414, "Initializing...", size=10, weight="bold")
-        self.canvas.create_rectangle(self._p(42), self._p(440), self._p(310),
-                                     self._p(447), fill=LINE, outline="")
-        self._progress = self.canvas.create_rectangle(
-            self._p(42), self._p(440), self._p(42), self._p(447),
-            fill=WHITE, outline="")
+        self._text(72, 414, "Initializing...", size=10, weight="bold")
+        progress_y = self._p(443.5)
+        progress_width = self._p(7)
+        self.canvas.create_line(self._p(72), progress_y, self._p(364), progress_y,
+                                fill=LINE, width=progress_width,
+                                capstyle=tk.ROUND)
+        self._progress = self.canvas.create_line(
+            self._p(72), progress_y, self._p(72), progress_y,
+            fill=WHITE, width=progress_width, capstyle=tk.ROUND)
         self._draw_version()
         self._splash_started = time.monotonic()
         self._animate_progress()
@@ -175,8 +281,9 @@ class InfoWindow:
         elapsed = (time.monotonic() - self._splash_started) * 1000
         fraction = min(1.0, elapsed / max(1, self.splash_ms))
         eased = 1 - (1 - fraction) ** 3
-        self.canvas.coords(self._progress, self._p(42), self._p(440),
-                           self._p(42 + 268 * eased), self._p(447))
+        progress_y = self._p(443.5)
+        self.canvas.coords(self._progress, self._p(72), progress_y,
+                           self._p(72 + 292 * eased), progress_y)
         if fraction < 1:
             self._schedule(32, self._animate_progress)
         else:
@@ -198,25 +305,23 @@ class InfoWindow:
 
     def _build_destination(self):
         self._paint_background()
-        self._brand()
         if self.mode == "welcome":
+            self._brand()
             self._build_welcome()
         else:
             self._build_whats_new()
         self._draw_version()
 
     def _build_welcome(self):
-        self._text(42, 108, self.content["title"], size=27, weight="bold")
-        self._text(44, 150, self.content["subtitle"], size=9, color=MUTED,
-                   width=410)
-        y = 212
+        self._text(112, 39, self.content["title"], size=27, weight="bold")
+        y = 160
         for index, step in enumerate(self.content["steps"], 1):
-            self._text(44, y + 2, f"0{index}", size=8, color=MUTED, weight="bold")
-            self._text(82, y, step["title"], size=10, weight="bold")
-            self._text(82, y + 20, step["description"], size=7, color=MUTED,
-                       width=360)
-            y += 64
-        self._button(42, 420, 158, 36, self.content["actions"][0]["label"],
+            self._text(48, y + 2, f"0{index}", size=8, color=MUTED, weight="bold")
+            self._text(88, y, step["title"], size=10, weight="bold")
+            self._text(88, y + 20, step["description"], size=8, color=MUTED,
+                       width=315)
+            y += 72
+        self._button(48, 420, 158, 36, self.content["actions"][0]["label"],
                      self.close, primary=True)
 
     def _release_items(self):
@@ -225,51 +330,96 @@ class InfoWindow:
             for item in self.content.get(key, ()):
                 items.append({"title": item["text"], "description": "",
                               "icon": item["icon"]})
-        return items[:5]
+        return items[:3]
 
     def _build_whats_new(self):
-        self._text(42, 106, "What's New", size=29, weight="bold")
-        self._text(44, 150, f"V E R S I O N   {self.content['version']}",
-                   size=8, color=MUTED, weight="bold")
-        self._text(44, 176, self.content["subtitle"], size=9, color=MUTED,
-                   width=410)
-        y = 215
-        for item in self._release_items():
-            self.canvas.create_rectangle(self._p(44), self._p(y + 2),
-                                         self._p(70), self._p(y + 28),
-                                         fill=PANEL, outline=LINE)
+        self._text(48, 54, "What's New", size=30, weight="bold")
+        self._text(48, 102, self.content["subtitle"], size=10, color=MUTED,
+                   width=390)
+        y = 145
+        for index, item in enumerate(self._release_items(), 1):
+            card = self._rounded_rectangle(48, y, 438, y + 52, 10,
+                                           fill="#101214", outline=LINE)
+            icon_plate = self._rounded_rectangle(60, y + 9, 94, y + 43, 8,
+                                                 fill=PANEL, outline="#45494e")
             try:
                 icon = tk.PhotoImage(file=str(self.content_root / item["icon"]))
                 self._images.append(icon)
-                icon = icon.zoom(4, 4).subsample(5, 5)
-                self._images[-1] = icon
-                self.canvas.create_image(self._p(57), self._p(y + 15),
+                icon_item = self.canvas.create_image(self._p(77), self._p(y + 26),
                                          image=icon, anchor="center")
             except (KeyError, OSError, tk.TclError):
-                self._text(57, y + 15, "◇", size=11, anchor="center")
-            self._text(82, y + 15, item["title"], size=9, weight="bold",
-                       width=365, anchor="w")
-            self.canvas.create_line(self._p(82), self._p(y + 29),
-                                    self._p(450), self._p(y + 29), fill=LINE)
-            y += 34
-        self._button(42, 438, 158, 30, "Continue", self.close, primary=True)
-        self._button(212, 438, 178, 30, "View Full Changelog",
+                icon_item = self._text(77, y + 26, "◇", size=13,
+                                       anchor="center")
+            title = self._text(108, y + 26, item["title"], size=10,
+                               weight="bold", width=275, anchor="w")
+            number = self._text(420, y + 26, f"0{index}", size=7,
+                                color=MUTED, weight="bold", anchor="e")
+            for element in (card, icon_plate, icon_item, title, number):
+                self.canvas.tag_bind(
+                    element, "<Enter>",
+                    lambda _event, target=card: self.canvas.itemconfigure(
+                        target, fill="#171a1d"))
+                self.canvas.tag_bind(
+                    element, "<Leave>",
+                    lambda _event, target=card: self.canvas.itemconfigure(
+                        target, fill="#101214"))
+            y += 62
+        self._button(48, 374, 158, 34, "Continue", self.close, primary=True)
+        self._button(218, 374, 190, 34, "View Full Changelog",
                      lambda: webbrowser.open(CHANGELOG_URL, new=2))
-        self._checkbox = tk.Checkbutton(
-            self.canvas, text="Show this after updates",
-            variable=self._show_after_updates, command=self._write_preference,
-            bg=BG, fg=MUTED, activebackground=BG, activeforeground=WHITE,
-            selectcolor=PANEL, font=(UI_FONT, self._p(9)), borderwidth=0,
-            highlightthickness=0, cursor="hand2")
-        self.canvas.create_window(self._p(42), self._p(486),
-                                  window=self._checkbox, anchor="w")
+        self._build_preference_toggle(48, 454)
+
+    def _build_preference_toggle(self, x, y):
+        self._preference_track = self._rounded_rectangle(
+            x, y, x + 36, y + 20, 10, fill=PANEL, outline=LINE)
+        self._preference_knob = self.canvas.create_oval(
+            self._p(x + 3), self._p(y + 3), self._p(x + 17), self._p(y + 17),
+            fill=MUTED, outline="")
+        self._preference_label = self._text(
+            x + 48, y + 10, "Show this after updates", size=8,
+            color=MUTED, anchor="w")
+        for item in (self._preference_track, self._preference_knob,
+                     self._preference_label):
+            self.canvas.tag_bind(item, "<Button-1>",
+                                 lambda _event: self._toggle_preference())
+        self._refresh_preference_toggle(x, y)
+
+    def _toggle_preference(self):
+        self._show_after_updates.set(not self._show_after_updates.get())
+        self._refresh_preference_toggle(48, 454)
+        self._write_preference()
+
+    def _refresh_preference_toggle(self, x, y):
+        enabled = self._show_after_updates.get()
+        self.canvas.itemconfigure(self._preference_track,
+                                  fill=WHITE if enabled else PANEL)
+        knob_x = x + 19 if enabled else x + 3
+        self.canvas.coords(self._preference_knob,
+                           self._p(knob_x), self._p(y + 3),
+                           self._p(knob_x + 14), self._p(y + 17))
+        self.canvas.itemconfigure(self._preference_knob,
+                                  fill=BG if enabled else MUTED)
+
+    def _rounded_rectangle(self, x1, y1, x2, y2, radius, **options):
+        points = (
+            self._p(x1 + radius), self._p(y1),
+            self._p(x2 - radius), self._p(y1),
+            self._p(x2), self._p(y1), self._p(x2), self._p(y1 + radius),
+            self._p(x2), self._p(y2 - radius),
+            self._p(x2), self._p(y2), self._p(x2 - radius), self._p(y2),
+            self._p(x1 + radius), self._p(y2),
+            self._p(x1), self._p(y2), self._p(x1), self._p(y2 - radius),
+            self._p(x1), self._p(y1 + radius),
+            self._p(x1), self._p(y1), self._p(x1 + radius), self._p(y1),
+        )
+        return self.canvas.create_polygon(
+            points, smooth=True, splinesteps=24, **options)
 
     def _button(self, x, y, width, height, label, command, *, primary=False):
         fill = WHITE if primary else PANEL
         color = BG if primary else WHITE
-        rectangle = self.canvas.create_rectangle(
-            self._p(x), self._p(y), self._p(x + width), self._p(y + height),
-            fill=fill,
+        rectangle = self._rounded_rectangle(
+            x, y, x + width, y + height, min(10, height / 2), fill=fill,
             outline=WHITE if primary else LINE, width=1)
         text = self._text(x + width // 2, y + height // 2, label, size=10,
                           color=color, weight="bold", anchor="center")

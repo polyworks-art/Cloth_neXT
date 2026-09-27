@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cloth_next.platform_support import platform_spec
+from cloth_next import manifest_version
 from cloth_next.ppf.bootstrap import find_release_executable
 from cloth_next.ppf.health import start_owned_and_wait
 from cloth_next.ppf.layout import BundledSolverLayout
@@ -45,7 +46,8 @@ def main() -> int:
     spec = platform_spec()
     if spec.solver_platform != "linux-x86_64":
         raise SystemExit(f"this gate requires linux-x86_64, got {spec.solver_platform}")
-    manifest = load_bundled_manifest(expected_cloth_next_version="2.7.9")
+    manifest = load_bundled_manifest(
+        expected_cloth_next_version=manifest_version())
     entry = manifest.entry_for(spec.solver_platform)
     assert entry is not None and entry.release_id == "ppf-0.22-gaia"
     archive = work / entry.official_asset_name

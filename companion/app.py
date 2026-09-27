@@ -241,11 +241,12 @@ def _windows_identity():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Polyworks.ClothNeXt.Bake")
         except (AttributeError,OSError): pass
 
-def _match_windows_title_bar(root, light=False):
+def _match_windows_title_bar(root, light=False, background_color=None):
     if sys.platform!="win32": return
     try:
         root.update_idletasks(); hwnd=ctypes.windll.user32.GetParent(root.winfo_id()) or root.winfo_id()
-        color=ctypes.c_int(0x00F3F3F3 if light else 0x00303030)
+        default_color=0x00F3F3F3 if light else 0x00303030
+        color=ctypes.c_int(default_color if background_color is None else background_color)
         caption=ctypes.c_int(0x00202326 if light else 0x00F0F0F0)
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,35,ctypes.byref(color),ctypes.sizeof(color))
         ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd,36,ctypes.byref(caption),ctypes.sizeof(caption))
@@ -403,6 +404,8 @@ class IconParticleField:
             self._after=None
 
 class BakeWindow:
+    LINUX_TITLEBAR_HEIGHT=30
+
     def __init__(self,transport=None,root=None,session_root=None,
                  initial_mode=CompanionMode.BAKE):
         _windows_identity(); self.transport=transport or DemoTransport(); self.root=root or tk.Tk()
@@ -411,13 +414,29 @@ class BakeWindow:
         # preparation window receives its first Bake command.
         self.root.withdraw()
         LOG.info("startup pid=%s tk_initialized=true",os.getpid())
+        self._custom_titlebar=sys.platform.startswith("linux")
+        self._chrome_height=(self.LINUX_TITLEBAR_HEIGHT
+                             if self._custom_titlebar else 0)
+        if self._custom_titlebar:self.root.overrideredirect(True)
         self.root.title("Cloth NeXt Veyra" if initial_mode is CompanionMode.VEYRA
                         else "Cloth NeXt Bake")
         self.root.configure(bg=BG); self.root.resizable(False,False)
-        self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.minsize(390,COMPACT_HEIGHT)
+        compact_height=COMPACT_HEIGHT+self._chrome_height
+        self.root.geometry(f"390x{compact_height}"); self.root.minsize(390,compact_height)
         self._app_icon=tk.PhotoImage(file=str(_asset("cloth_next.png")))
         self._veyra_icon=tk.PhotoImage(file=str(_asset("veyra.png")))
         self.root.iconphoto(True,self._app_icon)
+        if self._custom_titlebar:
+            self._build_linux_titlebar(initial_mode)
+            self._content_root=tk.Frame(
+                self.root,width=390,height=COMPACT_HEIGHT,bg=BG,
+                highlightthickness=0)
+            self._content_root.grid(row=1,column=0,sticky="nsew")
+            self._content_root.grid_propagate(False)
+            self.root.columnconfigure(0,weight=1)
+            self.root.rowconfigure(1,weight=1)
+        else:
+            self._content_root=self.root
         self.primary=tk.StringVar(value="Ready")
         self.secondary=tk.StringVar(value="No simulation is running.")
         self.progress_text=tk.StringVar(value="Ready")
@@ -460,6 +479,77 @@ class BakeWindow:
             self.root.deiconify()
         self.root.protocol("WM_DELETE_WINDOW",self._request_window_close)
 
+    def _build_linux_titlebar(self,mode):
+        self._linux_app_icon=self._app_icon.subsample(16,16)
+        self._linux_veyra_icon=self._veyra_icon.subsample(99,99)
+        bar=tk.Frame(self.root,width=390,height=self.LINUX_TITLEBAR_HEIGHT,
+                     bg="#000000",highlightthickness=0)
+        bar.grid(row=0,column=0,sticky="ew"); bar.grid_propagate(False)
+        left=tk.Frame(bar,bg="#000000"); left.pack(side="left",fill="y")
+        icon=(self._linux_veyra_icon if mode is CompanionMode.VEYRA
+              else self._linux_app_icon)
+        self._linux_title_icon=tk.Label(left,image=icon,bg="#000000",borderwidth=0)
+        self._linux_title_icon.pack(side="left",padx=(8,3))
+        self._linux_title_text=tk.Label(
+            left,text="Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
+            else "Cloth NeXt Bake",bg="#000000",fg=TEXT,
+            font=(UI_FONT,9),borderwidth=0)
+        self._linux_title_text.pack(side="left",padx=(3,0))
+        controls=tk.Frame(bar,bg="#000000"); controls.pack(side="right",fill="y")
+        minimize=tk.Label(controls,text="—",bg="#000000",fg=TEXT,width=5,
+                          font=(UI_FONT,10))
+        maximize=tk.Label(controls,text="□",bg="#000000",fg="#5f6368",width=5,
+                          font=(UI_FONT,10))
+        self._linux_close=tk.Label(controls,text="×",bg="#000000",fg=TEXT,
+                                   width=5,font=(UI_FONT,12))
+        for control in (minimize,maximize,self._linux_close):
+            control.pack(side="left",fill="y")
+        minimize.bind("<Button-1>",lambda _event:self._minimize_linux())
+        self._linux_close.bind("<Button-1>",lambda _event:self._request_window_close())
+        self._linux_close.bind("<Enter>",self._hover_linux_close)
+        self._linux_close.bind("<Leave>",self._leave_linux_close)
+        for widget in (bar,left,self._linux_title_icon,self._linux_title_text):
+            widget.bind("<ButtonPress-1>",self._start_linux_drag)
+            widget.bind("<B1-Motion>",self._drag_linux_window)
+
+    def _set_window_title(self,mode):
+        title="Cloth NeXt Veyra" if mode is CompanionMode.VEYRA else "Cloth NeXt Bake"
+        self.root.title(title)
+        if self._custom_titlebar:
+            self._linux_title_text.configure(text=title)
+            self._linux_title_icon.configure(
+                image=self._linux_veyra_icon if mode is CompanionMode.VEYRA
+                else self._linux_app_icon)
+
+    def _set_linux_close_enabled(self,enabled):
+        if not self._custom_titlebar:return
+        self._linux_close_enabled=bool(enabled)
+        self._linux_close.configure(
+            fg=TEXT if enabled else "#5f6368",bg="#000000")
+
+    def _hover_linux_close(self,_event=None):
+        if getattr(self,"_linux_close_enabled",True):
+            self._linux_close.configure(bg="#c42b1c",fg=TEXT)
+
+    def _leave_linux_close(self,_event=None):
+        enabled=getattr(self,"_linux_close_enabled",True)
+        self._linux_close.configure(bg="#000000",fg=TEXT if enabled else "#5f6368")
+
+    def _start_linux_drag(self,event):
+        self._linux_drag_origin=(event.x_root-self.root.winfo_x(),
+                                 event.y_root-self.root.winfo_y())
+
+    def _drag_linux_window(self,event):
+        offset_x,offset_y=self._linux_drag_origin
+        self.root.geometry(f"+{event.x_root-offset_x}+{event.y_root-offset_y}")
+
+    def _minimize_linux(self):
+        self.root.overrideredirect(False); self.root.iconify()
+        self.root.bind("<Map>",self._restore_linux_titlebar,add="+")
+
+    def _restore_linux_titlebar(self,_event=None):
+        self.root.after_idle(lambda:self.root.overrideredirect(True))
+
     def _request_window_close(self):
         """Keep an active job attached; Cancel is its controlled exit path."""
         if self._last_snapshot.active:
@@ -469,8 +559,8 @@ class BakeWindow:
 
     def _center_on_screen(self):
         width=max(390,self.root.winfo_width())
-        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
-        height=details_window_height(self._details_visible,requested)
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight()-self._chrome_height)
+        height=details_window_height(self._details_visible,requested)+self._chrome_height
         x=max(0,(self.root.winfo_screenwidth()-width)//2)
         y=max(0,(self.root.winfo_screenheight()-height)//2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -481,18 +571,18 @@ class BakeWindow:
         except (TypeError,ValueError): mode=CompanionMode.BAKE
         try:
             self._mode=mode
-            self.root.title("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
-                            else "Cloth NeXt Bake")
+            self._set_window_title(mode)
             self.root.iconphoto(
                 True,self._veyra_icon if mode is CompanionMode.VEYRA
                 else self._app_icon)
             self.particles.set_mode(mode)
             already_visible=bool(
                 self.root.winfo_ismapped() and self.root.winfo_viewable())
-            self.root.minsize(390,COMPACT_HEIGHT)
+            compact_height=COMPACT_HEIGHT+self._chrome_height
+            self.root.minsize(390,compact_height)
             self.root.update_idletasks()
             if self.root.winfo_width()<100 or self.root.winfo_height()<80:
-                self.root.geometry(f"390x{COMPACT_HEIGHT}"); self.root.update_idletasks()
+                self.root.geometry(f"390x{compact_height}"); self.root.update_idletasks()
             if not already_visible:
                 self._center_on_screen()
                 self.root.deiconify()
@@ -586,8 +676,9 @@ class BakeWindow:
         style.map("CN.TButton",background=[("active","#444950"),("disabled",PANEL)],foreground=[("disabled","#6f747a")])
 
     def _build(self):
-        self.root.columnconfigure(0,weight=1); self.root.rowconfigure(0,weight=1)
-        outer=ttk.Frame(self.root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
+        self._content_root.columnconfigure(0,weight=1)
+        self._content_root.rowconfigure(0,weight=1)
+        outer=ttk.Frame(self._content_root,style="CN.TFrame",padding=(6,5,6,4)); outer.grid(sticky="nsew")
         outer.columnconfigure(0,weight=1); outer.rowconfigure(1,weight=1)
         body=ttk.Frame(outer,style="CN.TFrame"); body.grid(row=0,column=0,sticky="ew")
         icon_box=tk.Frame(body,bg=PANEL,highlightbackground=BORDER,highlightthickness=1,width=78,height=74)
@@ -826,8 +917,8 @@ class BakeWindow:
         """Keep content from displacing the fixed bottom controls."""
         self.root.update_idletasks()
         width=max(390,self.root.winfo_width())
-        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight())
-        height=details_window_height(self._details_visible,requested)
+        requested=max(COMPACT_HEIGHT,self.root.winfo_reqheight()-self._chrome_height)
+        height=details_window_height(self._details_visible,requested)+self._chrome_height
         self.root.geometry(
             f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
 
@@ -921,9 +1012,9 @@ class BakeWindow:
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
         _set_window_close_enabled(self.root,not snapshot.active)
+        self._set_linux_close_enabled(not snapshot.active)
         self._mode=snapshot.companion_mode
-        self.root.title("Cloth NeXt Veyra" if self._mode is CompanionMode.VEYRA
-                        else "Cloth NeXt Bake")
+        self._set_window_title(self._mode)
         self.root.iconphoto(
             True,self._veyra_icon if self._mode is CompanionMode.VEYRA
             else self._app_icon)

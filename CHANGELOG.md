@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.8 - 2026-09-28
+
+- Redesign Welcome, What's New, and the startup splash around the new monochrome cloth artwork, crisp identity assets, compact layouts, rounded controls, and black title bars.
+- Give the Bake Companion matching Windows and Linux behavior, including a visible Cancel action and a disabled native close control while a job is active.
+- Add and verify the complete Linux release path with a native Companion, Blender 5.1.2 packaging, installation smoke tests, and a real Gaia 0.22 simulation.
+
 ## 2.8.7 - 2026-09-27
 
 - Reuse the checkpoint's verified Scene payload during Resume so animated Colliders and Pins are not captured and exported a second time.

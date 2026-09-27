@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.8",
+  "title": "What's New in Cloth NeXt 2.8.8",
+  "subtitle": "A sharper interface and verified Linux support.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Refined onboarding",
+      "description": "Welcome, What's New, and the startup splash now share crisp identity assets, compact layouts, rounded controls, and black title bars."
+    },
+    {
+      "icon": "icons/close.png",
+      "title": "Consistent Bake controls",
+      "description": "Windows and Linux keep Cancel available while disabling the native close control during active work."
+    },
+    {
+      "icon": "icons/play.png",
+      "title": "Verified Linux release path",
+      "description": "The native Companion, Blender 5.1.2 package, installation flow, and a real Gaia 0.22 simulation have been validated on Linux."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}
