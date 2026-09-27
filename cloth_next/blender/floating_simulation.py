@@ -29,7 +29,8 @@ _animation_from = 1.0
 _animation_start_time = None
 _ANIMATION_DURATION = 0.135
 _RESUME_ANIMATION_DURATION = 0.18
-_RESUME_EXTENSION = 62
+_RESUME_EXTENSION = 36
+_RESUME_PULL_EXTENSION = 220
 _resume_slide = 0.0
 _resume_animation_from = 0.0
 _resume_animation_target = False
@@ -387,9 +388,11 @@ def _draw():
         resume_ready = _resume_available(context)
         resume_fraction = _resume_fraction(context)
         if resume_fraction > 0.0:
-            _rounded(shader, batch_for_shader, x+(bake_x+68)*s, y+8*s,
-                     (14 + _RESUME_EXTENSION*resume_fraction)*s, h-16*s,
-                     17*s, _DIR_READY)
+            # The complete green pill begins behind Bake. Its left cap remains
+            # fully covered, so the visible part reads as a pull-out layer.
+            _rounded(shader, batch_for_shader, x+(bake_x+66)*s, y+12*s,
+                     (16 + _RESUME_EXTENSION*resume_fraction)*s,
+                     h-24*s, 15*s, _DIR_READY)
         # Paint Bake last so Resume appears to slide out from behind it.
         _rounded(shader, batch_for_shader, x+bake_x*s, y+8*s, 82*s, h-16*s,
                  17*s, _BLUE if bake_ready else (0.12, 0.13, 0.14, 0.88))
@@ -407,16 +410,13 @@ def _draw():
             82*s, round(14*s),
             _TEXT if (snapshot.active and snapshot.can_cancel) or
             (model and model.enabled) else _MUTED)
-        resume_frame = _resume_frame(context)
         if resume_ready and resume_fraction >= 0.55:
             alpha = min(1.0, (resume_fraction - 0.55) / 0.45)
             resume_text = (*_TEXT[:3], alpha)
-            _centered_glyph(blf, "◷", x+(bake_x+94)*s, y+27*s,
+            _centered_glyph(
+                blf, "◷",
+                x+(bake_x+82+_RESUME_EXTENSION/2)*s, y+27*s,
                             round(17*s), resume_text)
-            if resume_frame is not None:
-                _centered_label(blf, str(resume_frame), x+(bake_x+105)*s,
-                                y+23*s-1.5*(s/_LAYOUT_SCALE), 36*s,
-                                round(12*s), resume_text)
         quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
@@ -613,7 +613,7 @@ def _draw_pull(context, bounds, blf, shader, batch):
     gesture = operator.gesture
     armed = gesture.state == "ARMED"
     if getattr(operator, "kind", "detach") == "resume":
-        extension = (38 + 160*gesture.progress)*s
+        extension = (38 + _RESUME_PULL_EXTENSION*gesture.progress)*s
         right = x + bounds[2] + extension
         color = (0.02, .62, .82, 1.0) if armed else (0.02, .42, .62, .96)
         _rounded(shader, batch, x+bounds[2]-27*s, y+10*s,
@@ -621,12 +621,15 @@ def _draw_pull(context, bounds, blf, shader, batch):
         _centered_glyph(blf, "◷", right-17*s, y+h/2,
                         round(18*s), _TEXT)
         if armed:
-            text = _fit_label(blf, "Release to resume",
-                              max(0., extension-42*s), round(13*s))
-            blf.size(0, round(13*s))
+            frame = _resume_frame(context)
+            text = (f"Let go to resume from frame {frame}"
+                    if frame is not None else "Let go to resume")
+            size = round(12*s)
+            text = _fit_label(blf, text, max(0., extension-42*s), size)
+            blf.size(0, size)
             width, _ = blf.dimensions(0, text)
             _label(blf, text, right-35*s-width, y+23*s,
-                   round(13*s), _TEXT)
+                   size, _TEXT)
         return
     extension = (38 + 160*gesture.progress)*s
     left = x-extension

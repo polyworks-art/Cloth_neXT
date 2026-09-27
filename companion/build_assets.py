@@ -9,7 +9,9 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "cloth_next" / "assets" / "icons"
-IDENTITY_SOURCE = ROOT / "assets" / "Logo_CN.png"
+# The Companion and Blender chrome are dark, so the guide's inverted mark is
+# the correct application icon variant.
+IDENTITY_SOURCE = ROOT / "assets" / "Logo_CN_BW.png"
 STATUS_SOURCE = ROOT / "assets" / "solver_status_icons"
 TARGET = ROOT / "companion" / "assets"
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
@@ -69,14 +71,18 @@ def _scale_about_center(icon: Image.Image, scale: float) -> Image.Image:
 
 def _build_app_icon(source: Image.Image) -> Image.Image:
     rgba=source.convert("RGBA")
+    alpha=rgba.getchannel("A")
+    visible_color=next(pixel[:3] for pixel in rgba.get_flattened_data()
+                       if pixel[3])
     scale=min(APP_ICON_SIZE[0]/rgba.width,APP_ICON_SIZE[1]/rgba.height)
-    fitted=rgba.resize(
+    fitted=alpha.resize(
         (max(1,round(rgba.width*scale)),max(1,round(rgba.height*scale))),
         Image.Resampling.LANCZOS)
-    canvas=Image.new("RGBA",APP_ICON_SIZE,(255,255,255,0))
-    canvas.alpha_composite(
-        fitted,((APP_ICON_SIZE[0]-fitted.width)//2,
-                (APP_ICON_SIZE[1]-fitted.height)//2))
+    mask=Image.new("L",APP_ICON_SIZE,0)
+    mask.paste(fitted,((APP_ICON_SIZE[0]-fitted.width)//2,
+                       (APP_ICON_SIZE[1]-fitted.height)//2))
+    canvas=Image.new("RGBA",APP_ICON_SIZE,(*visible_color,0))
+    canvas.putalpha(mask)
     return canvas
 
 def _build_status_icon(source: Path) -> Image.Image:

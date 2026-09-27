@@ -3,6 +3,7 @@ import subprocess
 from PIL import Image
 
 from companion.build_assets import build
+from tools.build_brand_assets import build as build_brand_assets
 from companion.build_assets import (APP_ICON_SIZE, PARTICLE_ASSETS,
                                     PARTICLE_SUBPIXEL_ASSETS,
                                     PARTICLE_SUBPIXEL_PHASES,
@@ -14,15 +15,43 @@ from cloth_next.bake.status import BakeSnapshot,BakeState
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_identity_sources_are_tightly_cropped_to_visible_alpha():
+def test_all_identity_derivatives_are_deterministic_from_primary_mark():
+    source = ROOT / "assets" / "CN_new_Logo.svg"
+    assert 'viewBox="0 0 497 476"' in source.read_text(encoding="utf-8")
+    outputs = (
+        ROOT / "assets" / "Logo_CN.png",
+        ROOT / "assets" / "Logo_CN_BW.png",
+        ROOT / "assets" / "LOGO_addon.png",
+        ROOT / "assets" / "Cloth_neXt_icon.svg",
+        ROOT / "assets" / "cloth-next-white.svg",
+        ROOT / "assets" / "cloth_next_icons" / "cloth_next.svg",
+        ROOT / "cloth_next" / "assets" / "icons" / "cloth_next.png",
+        ROOT / "cloth_next" / "resources" / "onboarding" / "assets" /
+        "cloth-next-logo.png",
+        ROOT / "cloth_next" / "resources" / "onboarding" / "assets" /
+        "cloth-next-logo-splash.png",
+        ROOT / "cloth_next" / "resources" / "onboarding" / "assets" /
+        "cloth-next-logo.svg",
+        ROOT / "cloth_next" / "resources" / "onboarding" / "icons" /
+        "logo.png",
+    )
+    before = {path: path.read_bytes() for path in outputs}
+    build_brand_assets()
+    assert before == {path: path.read_bytes() for path in outputs}
+
+
+def test_identity_sources_follow_primary_mark_clear_space_and_color():
     color = ROOT / "assets" / "Logo_CN.png"
     monochrome = ROOT / "assets" / "Logo_CN_BW.png"
-    for path, expected_size in ((color, (1368, 1534)),
-                                (monochrome, (1367, 1532))):
+    for path, expected_rgb in ((color, (17, 17, 17)),
+                               (monochrome, (245, 245, 243))):
         with Image.open(path) as image:
             rgba = image.convert("RGBA")
-            assert rgba.getchannel("A").getbbox() == (0, 0, *expected_size)
-            assert rgba.size == expected_size
+            bounds = rgba.getchannel("A").getbbox()
+            assert rgba.size == (1024, 1024)
+            assert bounds == (128, 131, 896, 893)
+            assert all(pixel[:3] == expected_rgb
+                       for pixel in rgba.get_flattened_data() if pixel[3])
     assert (ROOT / "assets" / "LOGO_addon.png").read_bytes() == color.read_bytes()
 
 
@@ -38,16 +67,14 @@ def test_companion_assets_reuse_approved_identity_and_bake_icons():
         for name in ("cloth_next.png", "cloth_next.ico")}
     source = ROOT / "cloth_next" / "assets" / "icons"
     with Image.open(target / "cloth_next.png") as actual, \
-            Image.open(ROOT / "assets" / "Logo_CN.png") as approved:
+            Image.open(ROOT / "assets" / "Logo_CN_BW.png") as approved:
         rgba = actual.convert("RGBA")
         visible_bounds = rgba.getchannel("A").getbbox()
         assert actual.size == APP_ICON_SIZE == (256, 256)
-        assert visible_bounds == (14, 0, 242, 256)
-        assert visible_bounds[2] - visible_bounds[0] == round(
-            approved.width * APP_ICON_SIZE[1] / approved.height)
-        assert any(pixel[2] > pixel[0]
-                   for pixel in rgba.get_flattened_data()
-                   if pixel[3])
+        assert visible_bounds == (29, 30, 226, 226)
+        assert approved.size == (1024, 1024)
+        assert all(pixel[:3] == (245, 245, 243)
+                   for pixel in rgba.get_flattened_data() if pixel[3])
     with Image.open(target/"bake.png") as derived, Image.open(source/"bake.png") as approved:
         assert derived.getchannel("A").tobytes() == approved.convert("RGBA").getchannel("A").tobytes()
         assert derived.getpixel((derived.width//2,derived.height//2))[:3] in {(217,154,50),(0,0,0)}
@@ -104,7 +131,9 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
             assert visible, path
         if path.name == "gaia_engine.png":
             continue
-        assert all(pixel[:3] == (255, 255, 255) for pixel in visible), path
+        expected = ((245, 245, 243) if path.name == "cloth_next.png"
+                    else (255, 255, 255))
+        assert all(pixel[:3] == expected for pixel in visible), path
 
 
 def test_gaia_engine_brand_icon_is_small_and_transparent():

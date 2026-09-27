@@ -34,8 +34,11 @@ def load_content(mode: str, version: str | None = None,
 
 
 class InfoWindow:
-    WIDTH = 820
-    HEIGHT = 500
+    SCALE = 0.8
+    DESIGN_WIDTH = 820
+    DESIGN_HEIGHT = 500
+    WIDTH = round(DESIGN_WIDTH * SCALE)
+    HEIGHT = round(DESIGN_HEIGHT * SCALE)
 
     def __init__(self, mode: str, content: dict, *, root=None,
                  content_root: Path | None = None, splash_ms: int = 0,
@@ -97,6 +100,7 @@ class InfoWindow:
         try:
             image = tk.PhotoImage(file=str(
                 self.content_root / "assets" / "wireframe-cloth.png"))
+            image = image.zoom(4, 4).subsample(5, 5)
             self._images.append(image)
             self._background = image
         except (OSError, tk.TclError):
@@ -106,6 +110,8 @@ class InfoWindow:
                 self.content_root / "assets" / "cloth-next-logo.png"))
             self._brand_logo_large = tk.PhotoImage(file=str(
                 self.content_root / "assets" / "cloth-next-logo-splash.png"))
+            self._brand_logo = self._brand_logo.zoom(4, 4).subsample(5, 5)
+            self._brand_logo_large = self._brand_logo_large.zoom(4, 4).subsample(5, 5)
             self._images.extend((self._brand_logo, self._brand_logo_large))
         except (OSError, tk.TclError):
             self._brand_logo = None
@@ -126,21 +132,28 @@ class InfoWindow:
     def _text(self, x, y, text, *, size=12, color=WHITE, weight="normal",
               anchor="nw", width=None):
         return self.canvas.create_text(
-            x, y, text=text, fill=color, font=(UI_FONT, size, weight),
-            anchor=anchor, width=width, justify="left")
+            self._p(x), self._p(y), text=text, fill=color,
+            font=(UI_FONT, max(6, round(size * self.SCALE)), weight),
+            anchor=anchor, width=self._p(width) if width is not None else None,
+            justify="left")
+
+    def _p(self, value):
+        return round(value * self.SCALE)
 
     def _brand(self, x=42, y=32, *, large=False):
         scale = 1.35 if large else 1.0
         w = 76 if large else 58
         logo = self._brand_logo_large if large else self._brand_logo
         if logo is not None:
-            self.canvas.create_image(x, y, image=logo, anchor="nw")
+            self.canvas.create_image(self._p(x), self._p(y), image=logo,
+                                     anchor="nw")
         self._text(x + w + int(16 * scale), y - int(7 * scale), "Cloth NeXt",
                    size=42 if large else 31, weight="bold")
 
     def _draw_version(self):
         if self.version:
-            self._text(self.WIDTH - 24, self.HEIGHT - 18, f"v{self.version}",
+            self._text(self.DESIGN_WIDTH - 24, self.DESIGN_HEIGHT - 18,
+                       f"v{self.version}",
                        size=10, color=MUTED, anchor="se")
 
     def _build_splash(self):
@@ -149,9 +162,11 @@ class InfoWindow:
         self._text(170, 254, "C L O T H   S I M U L A T I O N   F O R   B L E N D E R",
                    size=8, color=MUTED)
         self._text(42, 414, "Initializing...", size=10, weight="bold")
-        self.canvas.create_rectangle(42, 440, 310, 447, fill=LINE, outline="")
-        self._progress = self.canvas.create_rectangle(42, 440, 42, 447,
-                                                      fill=WHITE, outline="")
+        self.canvas.create_rectangle(self._p(42), self._p(440), self._p(310),
+                                     self._p(447), fill=LINE, outline="")
+        self._progress = self.canvas.create_rectangle(
+            self._p(42), self._p(440), self._p(42), self._p(447),
+            fill=WHITE, outline="")
         self._draw_version()
         self._splash_started = time.monotonic()
         self._animate_progress()
@@ -160,7 +175,8 @@ class InfoWindow:
         elapsed = (time.monotonic() - self._splash_started) * 1000
         fraction = min(1.0, elapsed / max(1, self.splash_ms))
         eased = 1 - (1 - fraction) ** 3
-        self.canvas.coords(self._progress, 42, 440, 42 + 268 * eased, 447)
+        self.canvas.coords(self._progress, self._p(42), self._p(440),
+                           self._p(42 + 268 * eased), self._p(447))
         if fraction < 1:
             self._schedule(32, self._animate_progress)
         else:
@@ -219,17 +235,22 @@ class InfoWindow:
                    width=410)
         y = 215
         for item in self._release_items():
-            self.canvas.create_rectangle(44, y + 2, 70, y + 28,
+            self.canvas.create_rectangle(self._p(44), self._p(y + 2),
+                                         self._p(70), self._p(y + 28),
                                          fill=PANEL, outline=LINE)
             try:
                 icon = tk.PhotoImage(file=str(self.content_root / item["icon"]))
                 self._images.append(icon)
-                self.canvas.create_image(57, y + 15, image=icon, anchor="center")
+                icon = icon.zoom(4, 4).subsample(5, 5)
+                self._images[-1] = icon
+                self.canvas.create_image(self._p(57), self._p(y + 15),
+                                         image=icon, anchor="center")
             except (KeyError, OSError, tk.TclError):
                 self._text(57, y + 15, "◇", size=11, anchor="center")
             self._text(82, y + 15, item["title"], size=9, weight="bold",
                        width=365, anchor="w")
-            self.canvas.create_line(82, y + 29, 450, y + 29, fill=LINE)
+            self.canvas.create_line(self._p(82), self._p(y + 29),
+                                    self._p(450), self._p(y + 29), fill=LINE)
             y += 34
         self._button(42, 438, 158, 30, "Continue", self.close, primary=True)
         self._button(212, 438, 178, 30, "View Full Changelog",
@@ -238,15 +259,17 @@ class InfoWindow:
             self.canvas, text="Show this after updates",
             variable=self._show_after_updates, command=self._write_preference,
             bg=BG, fg=MUTED, activebackground=BG, activeforeground=WHITE,
-            selectcolor=PANEL, font=(UI_FONT, 9), borderwidth=0,
+            selectcolor=PANEL, font=(UI_FONT, self._p(9)), borderwidth=0,
             highlightthickness=0, cursor="hand2")
-        self.canvas.create_window(42, 486, window=self._checkbox, anchor="w")
+        self.canvas.create_window(self._p(42), self._p(486),
+                                  window=self._checkbox, anchor="w")
 
     def _button(self, x, y, width, height, label, command, *, primary=False):
         fill = WHITE if primary else PANEL
         color = BG if primary else WHITE
         rectangle = self.canvas.create_rectangle(
-            x, y, x + width, y + height, fill=fill,
+            self._p(x), self._p(y), self._p(x + width), self._p(y + height),
+            fill=fill,
             outline=WHITE if primary else LINE, width=1)
         text = self._text(x + width // 2, y + height // 2, label, size=10,
                           color=color, weight="bold", anchor="center")

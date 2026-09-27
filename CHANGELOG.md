@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.6 - 2026-09-27
+
+- Refresh the Cloth NeXt identity assets from one canonical source mark, with consistent clear space and dark-surface variants across Blender, onboarding, and the Companion.
+- Reduce the Welcome, What's New, and transition splash window by 20% while preserving their layout and content hierarchy.
+- Reduce the green Resume segment to a compact clock-only pill that emerges from behind Bake with four-pixel vertical inset.
+- Move the verified checkpoint frame into the armed pull-out message: `Let go to resume from frame XX`.
+
 ## 2.8.5 - 2026-09-26
 
 - Stop scheduling full scene validation from property changes and dependency-graph updates; these paths now only mark validation state dirty.

@@ -1,7 +1,7 @@
-# Cloth NeXt 2.8.5
+# Cloth NeXt 2.8.6
 
-Cloth NeXt 2.8.5 removes automatic full-scene validation from idle interaction. Assigning Cloth NeXt, changing a property, moving an object, or receiving a dependency-graph update now performs only a lightweight dirty-state update.
+Cloth NeXt 2.8.6 refreshes the product identity from one canonical source mark and applies consistent spacing and dark-surface variants throughout Blender, onboarding, and the Companion. Welcome, What's New, and the transition splash are now 20% smaller while preserving their layout.
 
-Topology hashing, pin membership scans, evaluated-mesh snapshots, and collider validation now run only when Validate, Bake, or Rebake explicitly needs an authoritative scene snapshot. This prevents periodic UI pauses on dense meshes while preserving strict validation before simulation.
+Pull to Resume is now more compact: the green clock-only pill emerges from behind Bake with a four-pixel vertical inset. The verified checkpoint frame appears only when the gesture is armed, in the message `Let go to resume from frame XX`.
 
 Published to the configured private repository. The external PPF Contact Solver is not bundled.

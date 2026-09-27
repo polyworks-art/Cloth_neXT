@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.6",
+  "title": "What's New in Cloth NeXt 2.8.6",
+  "subtitle": "A cleaner identity and a more focused Pull to Resume.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/logo.png",
+      "title": "One consistent Cloth NeXt identity",
+      "description": "The refreshed mark now uses consistent clear space and dark-surface variants, with Welcome and What's New presented in a more compact window."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "A compact clock-only Resume pill",
+      "description": "The green Resume control now emerges cleanly from behind Bake while keeping the toolbar focused and compact."
+    },
+    {
+      "icon": "icons/play.png",
+      "title": "Frame details appear when needed",
+      "description": "Arm the pull gesture to see exactly which verified checkpoint frame will resume before you let go."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

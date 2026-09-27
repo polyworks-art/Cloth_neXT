@@ -159,3 +159,13 @@ def test_toolbar_background_expands_with_resume_segment(pull, monkeypatch):
     f._resume_animation_target = True
     _x, _y, width, _height, scale = f._bounds(c)
     assert width == pytest.approx((230 + 66 + f._RESUME_EXTENSION) * scale)
+
+
+def test_resume_extension_is_icon_only_and_frame_moves_to_pullout():
+    from pathlib import Path
+    source = (Path(__file__).parents[1] / "cloth_next" / "blender" /
+              "floating_simulation.py").read_text(encoding="utf-8")
+    assert "_RESUME_EXTENSION = 36" in source
+    assert 'f"Let go to resume from frame {frame}"' in source
+    assert "_centered_label(blf, str(resume_frame)" not in source
+    assert "y+12*s" in source and "h-24*s" in source

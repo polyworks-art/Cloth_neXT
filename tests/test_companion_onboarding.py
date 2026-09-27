@@ -7,6 +7,11 @@ import pytest
 
 from companion import app
 from companion.onboarding_window import InfoWindow, load_content
+
+
+def test_info_window_is_twenty_percent_smaller():
+    assert InfoWindow.SCALE == 0.8
+    assert (InfoWindow.WIDTH, InfoWindow.HEIGHT) == (656, 400)
 from cloth_next.onboarding import default_resource_root
 
 
