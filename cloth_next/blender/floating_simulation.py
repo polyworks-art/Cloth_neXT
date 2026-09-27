@@ -249,6 +249,15 @@ def _rounded(shader, batch_for_shader, x, y, w, h, r, color):
     batch_for_shader(shader, "TRIS", {"pos": verts}, indices=indices).draw(shader)
 
 
+def _bake_resume_vertical_geometry(y, height, scale):
+    """Return pixel-aligned Bake/Resume edges with a true four-UI-pixel inset."""
+    bake_bottom = round(y + 8 * scale)
+    bake_top = round(y + height - 8 * scale)
+    inset = max(1, round(4 * scale / _LAYOUT_SCALE))
+    return (bake_bottom, bake_top - bake_bottom,
+            bake_bottom + inset, bake_top - bake_bottom - 2 * inset)
+
+
 def _pull_fade_mesh(x, y, w, h, radius, color):
     """Rounded pill with horizontal opacity fading beneath the fixed logo."""
     import math
@@ -387,14 +396,16 @@ def _draw():
                           (not snapshot.active and model and model.enabled))
         resume_ready = _resume_available(context)
         resume_fraction = _resume_fraction(context)
+        bake_y, bake_height, resume_y, resume_height = (
+            _bake_resume_vertical_geometry(y, h, s))
         if resume_fraction > 0.0:
             # The complete green pill begins behind Bake. Its left cap remains
             # fully covered, so the visible part reads as a pull-out layer.
-            _rounded(shader, batch_for_shader, x+(bake_x+66)*s, y+12*s,
+            _rounded(shader, batch_for_shader, x+(bake_x+66)*s, resume_y,
                      (16 + _RESUME_EXTENSION*resume_fraction)*s,
-                     h-24*s, 15*s, _DIR_READY)
+                     resume_height, 15*s, _DIR_READY)
         # Paint Bake last so Resume appears to slide out from behind it.
-        _rounded(shader, batch_for_shader, x+bake_x*s, y+8*s, 82*s, h-16*s,
+        _rounded(shader, batch_for_shader, x+bake_x*s, bake_y, 82*s, bake_height,
                  17*s, _BLUE if bake_ready else (0.12, 0.13, 0.14, 0.88))
         _rounded(shader, batch_for_shader, x+105*s, y+37*s, 18*s, 18*s,
                  9*s, _DIR_READY if directory_ok else _DIR_MISSING)

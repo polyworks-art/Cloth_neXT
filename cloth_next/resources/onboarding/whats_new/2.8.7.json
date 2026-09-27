@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.7",
+  "title": "What's New in Cloth NeXt 2.8.7",
+  "subtitle": "Faster Resume and a safer Bake window.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Resume without repeated Collider export",
+      "description": "Resume reuses the checkpoint's verified Scene data instead of capturing animated Colliders and Pins a second time."
+    },
+    {
+      "icon": "icons/close.png",
+      "title": "Controlled Bake cancellation",
+      "description": "The native window close button stays disabled during active work, keeping Cancel as the safe interruption path."
+    },
+    {
+      "icon": "icons/play.png",
+      "title": "Accurate capture status",
+      "description": "Force-only preparation is now reported as Force capture rather than an animated Collider export."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

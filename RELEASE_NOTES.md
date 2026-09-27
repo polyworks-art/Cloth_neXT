@@ -1,7 +1,7 @@
-# Cloth NeXt 2.8.6
+# Cloth NeXt 2.8.7
 
-Cloth NeXt 2.8.6 refreshes the product identity from one canonical source mark and applies consistent spacing and dark-surface variants throughout Blender, onboarding, and the Companion. Welcome, What's New, and the transition splash are now 20% smaller while preserving their layout.
+Cloth NeXt 2.8.7 makes Resume and unchanged re-bakes more efficient and keeps the Bake window's status honest. Resume now reuses the checkpoint's verified Scene payload instead of capturing animated Colliders and Pins again. Recovery retains the exact encoded Scene by content hash for reliable reuse.
 
-Pull to Resume is now more compact: the green clock-only pill emerges from behind Bake with a four-pixel vertical inset. The verified checkpoint frame appears only when the gesture is armed, in the message `Let go to resume from frame XX`.
+The Bake window's native close button is disabled while work is active so Cancel remains the controlled interruption path. Force-only timeline capture is now identified correctly and no longer appears as an animated Collider export.
 
 Published to the configured private repository. The external PPF Contact Solver is not bundled.

@@ -250,3 +250,12 @@ def test_solver_project_build_is_not_labeled_as_running_simulation():
         app.BakeActivity.BUILDING_CONTACTS] == "Building contact constraints"
     from cloth_next.bake.status import PHASE_ACTIVITIES
     assert PHASE_ACTIVITIES["BUILDING"] is app.BakeActivity.BUILDING_CONTACTS
+
+
+def test_native_close_is_blocked_only_while_a_job_is_active():
+    init=inspect.getsource(app.BakeWindow.__init__)
+    request=inspect.getsource(app.BakeWindow._request_window_close)
+    show=inspect.getsource(app.BakeWindow.show)
+    assert 'self.root.protocol("WM_DELETE_WINDOW",self._request_window_close)' in init
+    assert "self._last_snapshot.active" in request
+    assert "_set_window_close_enabled(self.root,not snapshot.active)" in show

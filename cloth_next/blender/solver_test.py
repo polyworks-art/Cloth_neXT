@@ -5803,7 +5803,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
 def _build_run_plan_impl(context, *, animated_pin_samples=None,
                          force_capture: ForceCapture | None = None,
                          collider_captures=None,
-                         snapshot: ValidationSnapshot | None = None) -> RunPlan:
+                         snapshot: ValidationSnapshot | None = None,
+                         scene_source_key: str | None = None) -> RunPlan:
     """Freeze the run inputs from one authoritative validation.
 
     ``snapshot`` is the :class:`ValidationSnapshot` the Bake start already
@@ -5818,8 +5819,11 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # preference is not authoritative and can change as a side effect of the
     # first real resolution; the resolved installation/protocol/schema are.
     resolved_for_cache = resolve_solver(context)
-    source_key, source_reason = _scene_source_key(
-        context, snapshot, resolved_for_cache)
+    if scene_source_key is None:
+        source_key, source_reason = _scene_source_key(
+            context, snapshot, resolved_for_cache)
+    else:
+        source_key, source_reason = scene_source_key, "recovery scene identity"
     if _export_timing_sink is not None:
         _export_timing_sink["scene_source_key_safe"] = (
             1.0 if source_key else 0.0)
@@ -6291,7 +6295,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
 def build_run_plan(context, *, animated_pin_samples=None,
                    force_capture: ForceCapture | None = None,
                    collider_captures=None,
-                   snapshot: ValidationSnapshot | None = None) -> RunPlan:
+                   snapshot: ValidationSnapshot | None = None,
+                   scene_source_key: str | None = None) -> RunPlan:
     """Build and time a pure worker plan from one validation snapshot."""
     global _export_timing_sink, _export_cache_event_sink
     started = time.monotonic()
@@ -6305,11 +6310,24 @@ def build_run_plan(context, *, animated_pin_samples=None,
         plan = _build_run_plan_impl(
             context, animated_pin_samples=animated_pin_samples,
             force_capture=force_capture,
-            collider_captures=collider_captures, snapshot=snapshot)
-        if (snapshot is not None and plan.scene_cache_key
-                and not timings.get("scene_early_cache_hit")):
-            _store_scene_plan_cache(
-                context, snapshot, plan, plan.scene_cache_key)
+            collider_captures=collider_captures, snapshot=snapshot,
+            scene_source_key=scene_source_key)
+        if snapshot is not None and not timings.get("scene_early_cache_hit"):
+            cache_keys = []
+            if plan.scene_cache_key:
+                cache_keys.append(plan.scene_cache_key)
+            recovery_settings = getattr(
+                context.scene, "cloth_next_recovery", None)
+            if (bool(getattr(recovery_settings, "enabled", False))
+                    and plan.scene.data_hash not in cache_keys):
+                # Unsafe scripted/rigged scenes may intentionally have no
+                # reusable source recipe. Recovery can still retain the exact
+                # encoded Scene under its content hash, which is also the
+                # durable Recovery scene identity in that case.
+                cache_keys.append(plan.scene.data_hash)
+            for cache_key in cache_keys:
+                _store_scene_plan_cache(
+                    context, snapshot, plan, cache_key)
     finally:
         _export_timing_sink = previous
         _export_cache_event_sink = previous_cache_events
@@ -9245,6 +9263,26 @@ def begin_production_bake(context) -> tuple[str, bool]:
             _require_cache_directories(
                 tuple(entry.obj for entry in snapshot.deformables))
             bake_range=snapshot.bake_range
+            recovery_settings = getattr(
+                context.scene, "cloth_next_recovery", None)
+            resume_source_key = ""
+            if bool(getattr(recovery_settings, "resume_requested", False)):
+                selected_root = Path(str(getattr(
+                    recovery_settings, "recovery_directory", "") or ""))
+                selected = recovery.load_project(
+                    selected_root / recovery.METADATA_NAME)
+                if selected is not None:
+                    resume_source_key = str(
+                        selected.identity.scene_key or "")
+            # Resume continues the already-built solver project. Prefer the
+            # exact hash-verified Scene payload that created it before any
+            # animated timeline is evaluated a second time.
+            if (resume_source_key and _verified_early_scene_available(
+                    snapshot, resume_source_key)):
+                plan = build_run_plan(
+                    context, snapshot=snapshot,
+                    scene_source_key=resume_source_key)
+                return _continue_production_bake(context, job_id, plan)
             source_key, _source_reason = _scene_source_key(
                 context, snapshot)
             if _verified_early_scene_available(snapshot, source_key):
@@ -9325,12 +9363,16 @@ def begin_production_bake(context) -> tuple[str, bool]:
                 _suspend_pin_capture_playback(capture)
                 _pin_capture=capture
                 _pending_job_id=job_id
-                activity = (BakeActivity.CAPTURING_PIN_TARGETS
-                            if animated_targets else
-                            BakeActivity.CAPTURING_COLLIDER_MOTION)
-                message = ("Opening Bake window before animated Pin capture"
-                           if animated_targets else
-                           "Opening Bake window before animated Collider capture")
+                if colliders_to_capture:
+                    activity = BakeActivity.CAPTURING_COLLIDER_MOTION
+                    capture_kind = "animated Collider"
+                elif animated_targets:
+                    activity = BakeActivity.CAPTURING_PIN_TARGETS
+                    capture_kind = "animated Pin"
+                else:
+                    activity = BakeActivity.CAPTURING_FORCE_MOTION
+                    capture_kind = "animated Force"
+                message = f"Opening Bake window before {capture_kind} capture"
                 shared_controller.update(status_message=message,
                     activity_code=activity,
                     progress_current=0,progress_total=len(points))
@@ -9505,12 +9547,20 @@ def _pin_capture_pump():
         frame = point.frame
         has_colliders = bool(state["collider_states"])
         has_pins = bool(state["targets"])
-        if has_colliders and has_pins:
-            capture_label = "Capturing animated Pins and Colliders"
-        elif has_colliders:
-            capture_label = "Exporting animated Collider"
-        else:
-            capture_label = "Capturing animated Pin targets"
+        has_forces = state["force_capture"] is None
+        capture_names = []
+        if has_pins:
+            capture_names.append("Pins")
+        if has_colliders:
+            capture_names.append("Colliders")
+        if has_forces:
+            capture_names.append("Forces")
+        capture_label = f"Capturing animated {' and '.join(capture_names)}"
+        activity = (BakeActivity.CAPTURING_COLLIDER_MOTION
+                    if has_colliders else
+                    BakeActivity.CAPTURING_PIN_TARGETS
+                    if has_pins else
+                    BakeActivity.CAPTURING_FORCE_MOTION)
         # Publish the exact sub-frame sample before Blender evaluates it.
         # Expensive modifiers can otherwise leave the previous whole-frame
         # label visible long enough to make 8 samples/frame look stalled.
@@ -9518,9 +9568,7 @@ def _pin_capture_pump():
             status_message=(f"{capture_label} - sample {point_index + 1} / "
                             f"{len(state['points'])} - frame "
                             f"{float(point.position):g}"),
-            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
-                           if has_colliders
-                           else BakeActivity.CAPTURING_PIN_TARGETS),
+            activity_code=activity,
             progress_current=point_index,
             progress_total=len(state["points"]))
         scene.frame_set(frame, subframe=point.subframe)
@@ -9604,9 +9652,7 @@ def _pin_capture_pump():
             status_message=(f"{capture_label} - sample {point_index + 1} / "
                             f"{len(state['points'])} - frame "
                             f"{float(point.position):g}"),
-            activity_code=(BakeActivity.CAPTURING_COLLIDER_MOTION
-                           if state["collider_states"]
-                           else BakeActivity.CAPTURING_PIN_TARGETS),
+            activity_code=activity,
             progress_current=point_index + 1,
             progress_total=len(state["points"]))
         if point_index + 1 < len(state["points"]):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import inspect
 import json
 import sys
 import threading
@@ -3835,3 +3836,19 @@ def test_bake_window_diagnostic_object_label_uses_affected_objects(
         degenerate_faces=())
 
     assert module._diagnostic_object_label(result) == "Shorts"
+
+
+def test_resume_reuses_verified_scene_before_animated_collider_capture(
+        blender_env):
+    source = inspect.getsource(blender_env.solver_test.begin_production_bake)
+    resume_lookup = source.index("resume_source_key")
+    collider_capture = source.index("_load_cached_animated_colliders")
+    assert resume_lookup < collider_capture
+    assert "scene_source_key=resume_source_key" in source
+
+
+def test_force_only_timeline_is_not_labeled_as_collider_export(blender_env):
+    source = inspect.getsource(blender_env.solver_test._pin_capture_pump)
+    assert 'has_forces = state["force_capture"] is None' in source
+    assert "BakeActivity.CAPTURING_FORCE_MOTION" in source
+    assert 'capture_names.append("Forces")' in source

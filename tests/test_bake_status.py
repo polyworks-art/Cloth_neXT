@@ -114,6 +114,8 @@ def test_typed_activity_round_trip_and_backward_compatibility():
     assert ACTIVITY_LABELS[BakeActivity.BUILDING_PC2] == "Building PC2 cache"
     assert ACTIVITY_LABELS[BakeActivity.CAPTURING_COLLIDER_MOTION] == \
         "Capturing animated Colliders"
+    assert ACTIVITY_LABELS[BakeActivity.CAPTURING_FORCE_MOTION] == \
+        "Capturing animated Forces"
 
 
 def test_thread_safe_reads_are_complete_snapshots():

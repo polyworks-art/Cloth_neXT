@@ -168,4 +168,12 @@ def test_resume_extension_is_icon_only_and_frame_moves_to_pullout():
     assert "_RESUME_EXTENSION = 36" in source
     assert 'f"Let go to resume from frame {frame}"' in source
     assert "_centered_label(blf, str(resume_frame)" not in source
-    assert "y+12*s" in source and "h-24*s" in source
+    assert "_bake_resume_vertical_geometry(y, h, s)" in source
+
+
+def test_resume_vertical_inset_is_four_pixel_aligned(pull):
+    floating, _context, _targets = pull
+    bake_y, bake_height, resume_y, resume_height = (
+        floating._bake_resume_vertical_geometry(18.2, 35.1, 0.65))
+    assert resume_y - bake_y == 4
+    assert (bake_y + bake_height) - (resume_y + resume_height) == 4

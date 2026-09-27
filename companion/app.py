@@ -265,6 +265,27 @@ def _set_bake_window_topmost(root, enabled):
             hwnd,insert_after,0,0,0,0,0x0001|0x0002|0x0010)
     except (AttributeError,OSError):pass
 
+def _set_window_close_enabled(root, enabled):
+    """Enable or grey the native Windows close command when available."""
+    if sys.platform!="win32":return
+    try:
+        root.update_idletasks()
+        user32=ctypes.windll.user32
+        get_parent=user32.GetParent
+        get_parent.argtypes=(ctypes.c_void_p,)
+        get_parent.restype=ctypes.c_void_p
+        get_menu=user32.GetSystemMenu
+        get_menu.argtypes=(ctypes.c_void_p,ctypes.c_int)
+        get_menu.restype=ctypes.c_void_p
+        hwnd=get_parent(root.winfo_id()) or root.winfo_id()
+        menu=get_menu(hwnd,False)
+        if menu:
+            # MF_BYCOMMAND | (MF_ENABLED or MF_GRAYED), SC_CLOSE
+            flags=0x00000000 if enabled else 0x00000001
+            user32.EnableMenuItem(menu,0xF060,flags)
+            user32.DrawMenuBar(hwnd)
+    except (AttributeError,OSError):pass
+
 PARTICLE_ASSETS=("particle_bake_12.png","particle_cloth_16.png",
     "particle_collider_12.png","particle_collision_16.png",
     "particle_pinning_12.png","particle_solver_16.png",
@@ -437,7 +458,14 @@ class BakeWindow:
         self._center_on_screen()
         if os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") != "hidden":
             self.root.deiconify()
-        self.root.protocol("WM_DELETE_WINDOW",self.close)
+        self.root.protocol("WM_DELETE_WINDOW",self._request_window_close)
+
+    def _request_window_close(self):
+        """Keep an active job attached; Cancel is its controlled exit path."""
+        if self._last_snapshot.active:
+            self.root.bell()
+            return
+        self.close()
 
     def _center_on_screen(self):
         width=max(390,self.root.winfo_width())
@@ -892,6 +920,7 @@ class BakeWindow:
 
     def show(self,snapshot: BakeSnapshot):
         self._last_snapshot=snapshot
+        _set_window_close_enabled(self.root,not snapshot.active)
         self._mode=snapshot.companion_mode
         self.root.title("Cloth NeXt Veyra" if self._mode is CompanionMode.VEYRA
                         else "Cloth NeXt Bake")

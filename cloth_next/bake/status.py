@@ -51,6 +51,7 @@ class BakeActivity(str, Enum):
     FINISHED="FINISHED"; ERROR="ERROR"; UNKNOWN="UNKNOWN"
     CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
     CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
+    CAPTURING_FORCE_MOTION="CAPTURING_FORCE_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
 
@@ -69,6 +70,7 @@ ACTIVITY_LABELS = {
     BakeActivity.UNKNOWN:"Running solver",
     BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
     BakeActivity.CAPTURING_COLLIDER_MOTION:"Capturing animated Colliders",
+    BakeActivity.CAPTURING_FORCE_MOTION:"Capturing animated Forces",
     BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
     BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
 }

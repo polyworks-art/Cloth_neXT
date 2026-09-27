@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.7 - 2026-09-27
+
+- Reuse the checkpoint's verified Scene payload during Resume so animated Colliders and Pins are not captured and exported a second time.
+- Retain recovery Scene payloads by content hash, including scenes whose scripted dependencies deliberately cannot use the normal early-export recipe.
+- Disable and visibly grey the native Bake-window close button while a job is active; Cancel remains the controlled interruption path.
+- Report Force-only timeline capture accurately instead of incorrectly showing an animated Collider export.
+
 ## 2.8.6 - 2026-09-27
 
 - Refresh the Cloth NeXt identity assets from one canonical source mark, with consistent clear space and dark-surface variants across Blender, onboarding, and the Companion.
