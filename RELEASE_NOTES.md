@@ -1,7 +1,7 @@
-# Cloth NeXt 2.8.8
+# Cloth NeXt 2.8.9
 
-Cloth NeXt 2.8.8 refreshes Welcome, What's New, and the startup splash with the new monochrome cloth artwork, crisp identity assets, compact layouts, rounded controls, and consistent black title bars.
+Cloth NeXt 2.8.9 introduces Object Attachments for Cloth and Soft Body simulations. Select source vertices in Edit Mode, choose another Cloth NeXt Cloth or Soft Body target, and create persistent barycentric surface attachments that bake through the normal multi-object solver path.
 
-The Bake Companion now provides matching Windows and Linux behavior: Cancel remains available during an active job while the native close control is disabled. The Linux release path has been validated through native Companion checks, Blender 5.1.2 packaging and installation, and a real Gaia 0.22 simulation.
+Attachments include a transform-aware viewport overlay and fail-safe topology validation. Renamed objects remain connected through stable identities, while deleted objects, changed roles, stale topology, or invalid indices produce an actionable Needs Rebuild result instead of reaching the solver. This release also fixes the transition so the startup splash image is not reused by Welcome or What's New.
 
-Published to the configured private repository. The external PPF Contact Solver is not bundled.
+The external PPF Contact Solver is not bundled.

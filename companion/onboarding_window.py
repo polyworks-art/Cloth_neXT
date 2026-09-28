@@ -220,10 +220,10 @@ class InfoWindow:
             self._brand_logo = None
             self._brand_logo_large = None
 
-    def _paint_background(self):
+    def _paint_background(self, *, splash=False):
         self.canvas.delete("all")
         self.canvas.configure(bg=BG)
-        if self.splash_ms and self._splash_background is not None:
+        if splash and self._splash_background is not None:
             self.canvas.create_image(0, 0, image=self._splash_background,
                                      anchor="nw")
         elif self._background is not None:
@@ -260,7 +260,7 @@ class InfoWindow:
                        size=10, color=MUTED, anchor="se")
 
     def _build_splash(self):
-        self._paint_background()
+        self._paint_background(splash=True)
         self._brand(72, 112, large=True)
         self._text(72, 292, "C L O T H   S I M U L A T I O N   F O R   B L E N D E R",
                    size=8, color=MUTED)

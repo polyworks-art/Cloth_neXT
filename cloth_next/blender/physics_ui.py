@@ -39,6 +39,7 @@ from ..solver_quality import (
 )
 from ..updater.addon_versions import parse_version
 from . import (beta_tools, collider_proxy, icon_registry, object_properties,
+               object_attachments,
                physics_operators, validation_state)
 from .addon_identity import addon_preferences
 from .playback_cache import has_cloth_next_playback_marker
@@ -2469,6 +2470,46 @@ class CLOTHNEXT_PT_diagnostics(_ClothNextSubpanel, bpy.types.Panel):
                              text="Open Logs", icon="FILE_FOLDER")
 
 
+class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
+    bl_label = "Object Attachments"
+    bl_idname = "CLOTHNEXT_PT_object_attachments"
+    roles = {"CLOTH", "SOFT_BODY"}
+    bl_options = {"DEFAULT_CLOSED"}
+    header_icon = "pinning"
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        layout.prop(scene, "cloth_next_attachment_target", text="Target")
+        row = layout.row(align=True)
+        row.operator(object_attachments.CLOTHNEXT_OT_create_object_attachment.bl_idname,
+                     text="Create From Selection", icon="LINKED")
+        source_id = str(context.object.cloth_next.persistent_export_id)
+        shown = False
+        for index, item in enumerate(scene.cloth_next_object_attachments):
+            if source_id not in {str(item.source_persistent_id),
+                                 str(item.target_persistent_id)}:
+                continue
+            shown = True
+            box = layout.box()
+            header = box.row(align=True)
+            header.prop(item, "enabled", text="")
+            header.prop(item, "name", text="")
+            header.prop(item, "show_overlay", text="", icon="HIDE_OFF")
+            remove = header.operator(
+                object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
+                text="", icon="REMOVE")
+            remove.index = index
+            box.prop(item, "stiffness")
+            box.label(text=f"{len(item.points)} attachment points")
+            if item.needs_rebuild:
+                box.label(text=item.status_message or "Needs Rebuild",
+                          icon="ERROR")
+        if not shown:
+            layout.label(text="Edit the source mesh, select vertices, then create.",
+                         icon="INFO")
+
+
 class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Maintenance"
     bl_idname = "CLOTHNEXT_PT_maintenance"
@@ -2549,6 +2590,7 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_PT_cable_rope_rest_shape,
            CLOTHNEXT_PT_pressure,
            CLOTHNEXT_PT_sewing,
+           CLOTHNEXT_PT_object_attachments,
            CLOTHNEXT_PT_damping,
            CLOTHNEXT_PT_collision, CLOTHNEXT_PT_friction_regions,
            CLOTHNEXT_PT_collision_timing,

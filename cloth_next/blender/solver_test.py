@@ -55,6 +55,7 @@ from .addon_identity import addon_preferences, package_addon_id
 
 from .. import manifest_version
 from .. import export_identity, recovery
+from ..attachments import AttachmentError
 from .. import intersection_diagnostics
 from .. import intersection_auto_fix
 from ..export_cache import ExportPayloadCache, deterministic_key
@@ -143,7 +144,7 @@ from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths
 from ..updater.solver_registry import load_registry
-from . import (collider_proxy, companion_manager, modal_lock,
+from . import (collider_proxy, companion_manager, modal_lock, object_attachments,
                object_properties, validation_state)
 from .playback_cache import (
     INPUT_DEFORMER_STATE_KEY,
@@ -2388,6 +2389,7 @@ class ValidationSnapshot:
     timings: dict[str, float] = field(default_factory=dict)
     boundary_vertices: object = ()
     boundary_triangles: object = ()
+    object_attachments: tuple = ()
 
 
 def _validate_scene_single(context) -> ValidationSnapshot:
@@ -2601,6 +2603,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             "shape": mesh_geometry_signature(getattr(obj, "data", None)),
             "animation": _animation_signature(obj),
         } for obj in collider_objs]
+        attachment_snapshot = object_attachments.snapshot_enabled(
+            context.scene, entries)
         geometry_fp = cache_metadata.deterministic_hash({
             "deformables": [{
                 "object_key": validation_state.object_key(entry.obj),
@@ -2610,10 +2614,12 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
                     entry.pin_membership.vertex_indices,
                     vertex_count=entry.pin_membership.source_vertex_count),
             } for entry in entries],
-            "colliders": collider_geometry})
+            "colliders": collider_geometry,
+            "object_attachments": [asdict(attachment) for attachment, _s, _t
+                                   in attachment_snapshot]})
     except (SceneValidationError, ClothNextError, MaterialValidationError,
             DeformableMaterialError, CurveRodError, BakeRangeError,
-            TypeError, ValueError) as exc:
+            AttachmentError, TypeError, ValueError) as exc:
         message = (exc.record.user_message if isinstance(exc, ClothNextError)
                    else str(exc))
         if validation_subject is None:
@@ -2658,7 +2664,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         deformables=tuple(entries), gravity_blender=gravity_blender,
         wind_blender=wind_blender,
         boundary_vertices=first.boundary_vertices,
-        boundary_triangles=first.boundary_triangles)
+        boundary_triangles=first.boundary_triangles,
+        object_attachments=attachment_snapshot)
 
 
 def validate_scene(context) -> ValidationSnapshot:
@@ -5198,6 +5205,7 @@ def _encode_cached_param(context, snapshot, force_capture, pin_configs,
         cache, "param", key,
         lambda: encode_multi_deformable_param(
             settings, dynamics, colliders,
+            object_attachments=snapshot.object_attachments,
             contact_enabled=snapshot.contact_enabled,
             schema_version=schema_version,
             protocol_version=protocol_version))
@@ -5703,6 +5711,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         **_recovery_param_kwargs(scene))
     param_payload, param_hash = encode_multi_deformable_param(
         settings, param_dynamics, collider_specs,
+        object_attachments=snapshot.object_attachments,
         contact_enabled=snapshot.contact_enabled,
         schema_version=wire_schema, protocol_version=wire_protocol)
     param_cache_key = _param_source_key(

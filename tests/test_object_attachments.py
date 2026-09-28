@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import pytest
+from types import SimpleNamespace
+
+from cloth_next.attachments import (
+    AttachmentError, AttachmentPoint, ObjectAttachment,
+    closest_point_on_triangle, closest_surface_point,
+    topology_fingerprint, wire_entry,
+)
+from cloth_next.ppf.adapters import ADAPTERS
+from cloth_next.materials import ShellMaterialSettings
+from cloth_next.materials.deformables import SoftBodyMaterialSettings
+from cloth_next.ppf.schema.params import (
+    SimulationSettings, build_multi_deformable_param_payload,
+    encode_multi_deformable_param)
+from cloth_next.ppf.schema import envelope
+
+
+def _attachment(source_role="CLOTH", target_role="SOFT_BODY"):
+    return ObjectAttachment(
+        "relation", "Sleeve to Body", "source-uuid", "target-uuid",
+        source_role, target_role, 1.0,
+        (AttachmentPoint(2, (0, 1, 2), (0.2, 0.3, 0.5),
+                         (1.0, 2.0, 3.0), (4.0, 5.0, 6.0)),))
+
+
+@pytest.mark.parametrize("source_role,target_role", [
+    ("CLOTH", "CLOTH"), ("CLOTH", "SOFT_BODY"),
+    ("SOFT_BODY", "CLOTH"), ("SOFT_BODY", "SOFT_BODY"),
+])
+def test_all_v1_role_directions_encode(source_role, target_role):
+    payload = wire_entry(_attachment(source_role, target_role),
+                         source_vertex_count=3, target_vertex_count=3)
+    assert payload["ind"] == [[2, 2, 2, 0, 1, 2]]
+    assert payload["w"] == [[1.0, 0.0, 0.0, 0.2, 0.3, 0.5]]
+    assert payload["source_points"] == [[1.0, 2.0, 3.0]]
+    assert payload["target_points"] == [[4.0, 5.0, 6.0]]
+    assert payload["stitch_stiffness"] == 1.0
+
+
+@pytest.mark.parametrize("role", ["ROD", "RIGID_BODY", "COLLIDER", "STATIC"])
+def test_unsupported_roles_are_rejected(role):
+    with pytest.raises(AttachmentError):
+        wire_entry(_attachment(role, "CLOTH"),
+                   source_vertex_count=3, target_vertex_count=3)
+
+
+def test_invalid_indices_and_weights_are_never_encoded():
+    invalid = ObjectAttachment(
+        "relation", "Bad", "source", "target", "CLOTH", "CLOTH", 1.0,
+        (AttachmentPoint(9, (0, 1, 2), (0.2, 0.2, 0.2),
+                         (0, 0, 0), (0, 0, 0)),))
+    with pytest.raises(AttachmentError):
+        wire_entry(invalid, source_vertex_count=3, target_vertex_count=3)
+
+
+def test_topology_fingerprint_changes_with_connectivity():
+    assert topology_fingerprint(4, ((0, 1, 2), (0, 2, 3))) != (
+        topology_fingerprint(4, ((0, 1, 3), (1, 2, 3))))
+
+
+def test_closest_point_is_barycentric_on_triangle():
+    point, weights = closest_point_on_triangle(
+        (0.25, 0.25, 2.0), (0, 0, 0), (1, 0, 0), (0, 1, 0))
+    assert point == pytest.approx((0.25, 0.25, 0.0))
+    assert sum(weights) == pytest.approx(1.0)
+    assert weights == pytest.approx((0.5, 0.25, 0.25))
+
+
+def test_closest_surface_selects_triangle_not_nearest_vertex():
+    vertices = ((0, 0, 0), (10, 0, 0), (0, 10, 0),
+                (20, 0, 0), (21, 0, 0), (20, 1, 0))
+    triangle, weights, point = closest_surface_point(
+        (4, 4, 1), vertices, ((3, 4, 5), (0, 1, 2)))
+    assert triangle == (0, 1, 2)
+    assert point == pytest.approx((4, 4, 0))
+    assert sum(weights) == pytest.approx(1.0)
+
+
+def test_multiple_source_vertices_keep_distinct_barycentric_targets():
+    vertices = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
+    results = [closest_surface_point(point, vertices, ((0, 1, 2),))
+               for point in ((0.1, 0.1, 1), (0.7, 0.1, 1))]
+    assert results[0][1] != results[1][1]
+
+
+def test_every_supported_protocol_adapter_declares_attachment_support():
+    assert ADAPTERS
+    assert all(adapter.object_attachments for adapter in ADAPTERS.values())
+
+
+def test_attachment_is_integrated_in_normal_multi_deformable_params():
+    attachment = _attachment()
+    payload = build_multi_deformable_param_payload(
+        SimulationSettings(3, 24.0, (0.0, 0.0, -9.81)),
+        (("cloth", "source-uuid", "SHELL", ShellMaterialSettings(), None),
+         ("body", "target-uuid", "SOLID", SoftBodyMaterialSettings(), None)),
+        (), object_attachments=((attachment, 3, 3),),
+        schema_version=2, protocol_version="0.22")
+    assert payload["cross_stitch"][0]["source_points"] == [[1.0, 3.0, -2.0]]
+    assert payload["cross_stitch"][0]["target_points"] == [[4.0, 6.0, -5.0]]
+
+
+def test_encoded_blob_contains_exact_cross_object_record():
+    attachment = _attachment("SOFT_BODY", "CLOTH")
+    blob, _digest = encode_multi_deformable_param(
+        SimulationSettings(3, 24.0, (0.0, 0.0, -9.81)),
+        (("body", "source-uuid", "SOLID", SoftBodyMaterialSettings(), None),
+         ("cloth", "target-uuid", "SHELL", ShellMaterialSettings(), None)),
+        (), object_attachments=((attachment, 3, 3),),
+        schema_version=2, protocol_version="0.22")
+    decoded = envelope.loads_envelope(
+        blob, envelope.KIND_PARAM, schema_version=2)
+    record = decoded["cross_stitch"][0]
+    assert record["source_uuid"] == "source-uuid"
+    assert record["target_uuid"] == "target-uuid"
+    assert record["ind"] == [[2, 2, 2, 0, 1, 2]]
+    assert record["w"] == [[1.0, 0.0, 0.0, 0.2, 0.3, 0.5]]
+    assert record["stitch_stiffness"] == 1.0
+
+
+def test_scene_relationship_survives_rename_and_invalidates_on_delete(
+        blender_env):
+    env = blender_env
+    env.registration.register()
+    from cloth_next.blender import object_attachments
+    source = env.bpy.types.Object("Source")
+    target = env.bpy.types.Object("Target")
+    for obj, role, identity in ((source, "CLOTH", "source-id"),
+                                (target, "SOFT_BODY", "target-id")):
+        obj.cloth_next.enabled = True
+        obj.cloth_next.role = role
+        obj.cloth_next.persistent_export_id = identity
+    scene = env.bpy.types.Scene()
+    scene.objects = [source, target]
+    vertices = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
+    triangles = ((0, 1, 2),)
+    entries = tuple(SimpleNamespace(
+        obj=obj, role=obj.cloth_next.role, boundary_vertices=vertices,
+        boundary_triangles=triangles) for obj in (source, target))
+    item = scene.cloth_next_object_attachments.add()
+    item.identifier, item.name = "id", "Source to Target"
+    item.enabled = True
+    item.source_persistent_id, item.target_persistent_id = "source-id", "target-id"
+    item.source_role, item.target_role = "CLOTH", "SOFT_BODY"
+    item.source_topology = topology_fingerprint(3, triangles)
+    item.target_topology = topology_fingerprint(3, triangles)
+    point = item.points.add()
+    point.source_index = 0
+    point.target_triangle = (0, 1, 2)
+    point.target_weights = (0.5, 0.25, 0.25)
+    point.source_point = (0, 0, 0)
+    point.target_point = (0.25, 0.25, 0)
+
+    source.name, target.name = "Renamed Source", "Renamed Target"
+    assert len(object_attachments.snapshot_enabled(scene, entries)) == 1
+    target.cloth_next.role = "CLOTH"
+    entries[1].role = "CLOTH"
+    with pytest.raises(AttachmentError, match="role changed"):
+        object_attachments.snapshot_enabled(scene, entries)
+    target.cloth_next.role = "SOFT_BODY"
+    entries[1].role = "SOFT_BODY"
+    item.enabled = False
+    assert object_attachments.snapshot_enabled(scene, entries) == ()
+    item.enabled = True
+    scene.objects.remove(target)
+    with pytest.raises(AttachmentError, match="Needs Rebuild"):
+        object_attachments.snapshot_enabled(scene, entries)
+    assert item.needs_rebuild
+    scene.cloth_next_object_attachments.remove(0)
+    assert len(scene.cloth_next_object_attachments) == 0
+    env.registration.unregister()
+
+
+def test_overlay_handler_lifecycle_is_reload_safe(blender_env):
+    env = blender_env
+    from cloth_next.blender import object_attachments
+    env.registration.register()
+    handle = object_attachments._draw_handle
+    assert handle is not None
+    object_attachments.register()
+    assert object_attachments._draw_handle is handle
+    env.registration.unregister()
+    assert object_attachments._draw_handle is None

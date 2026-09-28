@@ -46,6 +46,12 @@ class _PropDef:
             return None
         if self.kind == "COLLECTION":
             return _FakeCollection(self.keywords["type"], id_data)
+        if self.kind in {"FLOAT_VECTOR", "INT_VECTOR"}:
+            default = self.keywords.get("default")
+            if default is not None:
+                return tuple(default)
+            zero = 0.0 if self.kind == "FLOAT_VECTOR" else 0
+            return tuple(zero for _ in range(int(self.keywords.get("size", 3))))
         return self.keywords.get("default")
 
     def _name_on(self, owner):
@@ -242,6 +248,8 @@ def make_module() -> types.ModuleType:
         StringProperty=lambda **kw: _PropDef("STRING", **kw),
         IntProperty=lambda **kw: _PropDef("INT", **kw),
         FloatProperty=lambda **kw: _PropDef("FLOAT", **kw),
+        FloatVectorProperty=lambda **kw: _PropDef("FLOAT_VECTOR", **kw),
+        IntVectorProperty=lambda **kw: _PropDef("INT_VECTOR", **kw),
         PointerProperty=lambda **kw: _PropDef("POINTER", **kw),
         CollectionProperty=lambda **kw: _PropDef("COLLECTION", **kw))
 

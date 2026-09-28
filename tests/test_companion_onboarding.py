@@ -52,3 +52,27 @@ def test_info_window_close_terminates_its_ui_process_cleanly():
     window.root = SimpleNamespace(destroy=lambda: destroyed.append(True))
     window.close()
     assert destroyed == [True]
+
+
+def test_destination_never_reuses_splash_background_after_transition():
+    painted = []
+
+    class Canvas:
+        def delete(self, *_args):
+            pass
+
+        def configure(self, **_kwargs):
+            pass
+
+        def create_image(self, *_args, **kwargs):
+            painted.append(kwargs["image"])
+
+    window = InfoWindow.__new__(InfoWindow)
+    window.canvas = Canvas()
+    window._splash_background = "gaia"
+    window._background = "wireframe"
+
+    window._paint_background(splash=True)
+    window._paint_background()
+
+    assert painted == ["gaia", "wireframe"]

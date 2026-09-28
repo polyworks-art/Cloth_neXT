@@ -265,6 +265,19 @@ class SimulationSettings:
                 previous = time_seconds
 
 
+def _protocol_adapter(protocol_version: str, schema_version: int):
+    from ..compatibility import protocol_profile
+    from ..adapters import ADAPTERS, PARAM_ENCODER_COMPATIBILITY
+    profile = protocol_profile(protocol_version, str(schema_version))
+    adapter_id = (profile.adapter_id if profile is not None else
+                  PARAM_ENCODER_COMPATIBILITY.get((protocol_version,
+                                                   str(schema_version))))
+    if adapter_id is None:
+        raise ParamEncodeError(
+            f"unsupported solver protocol {protocol_version!r}")
+    return ADAPTERS[adapter_id]
+
+
 def _scene_wire_params(settings: SimulationSettings,
                        contact_enabled: bool, *,
                        schema_version: int = 1,
@@ -298,15 +311,8 @@ def _scene_wire_params(settings: SimulationSettings,
         "friction-mode": FRICTION_MODE,
         "disable-contact": not bool(contact_enabled),
     }
-    from ..compatibility import protocol_profile
-    from ..adapters import ADAPTERS, PARAM_ENCODER_COMPATIBILITY
-    profile = protocol_profile(protocol_version, str(schema_version))
-    adapter_id = (profile.adapter_id if profile is not None else
-                  PARAM_ENCODER_COMPATIBILITY.get((protocol_version, str(schema_version))))
-    if adapter_id is None:
-        raise ParamEncodeError(
-            f"unsupported solver protocol {protocol_version!r}")
-    ADAPTERS[adapter_id].adapt_scene_params(scene, settings.quality)
+    _protocol_adapter(protocol_version, schema_version).adapt_scene_params(
+        scene, settings.quality)
     if settings.auto_save_interval:
         scene["auto-save"] = int(settings.auto_save_interval)
     if settings.keep_saved_states:
@@ -451,6 +457,7 @@ def build_deformable_param_payload(
 
 def build_multi_deformable_param_payload(
         settings: SimulationSettings, deformables, colliders, *,
+        object_attachments=(),
         contact_enabled: bool = True,
         schema_version: int = 1,
         protocol_version: str = LEGACY_PARAM_PROTOCOL) -> dict:
@@ -500,6 +507,19 @@ def build_multi_deformable_param_payload(
     ], "pin_config": pin_config}
     if schema_version == 2:
         payload["time_scale"] = float(settings.time_scale)
+    if object_attachments:
+        if not _protocol_adapter(protocol_version,
+                                 schema_version).object_attachments:
+            raise ParamEncodeError(
+                "the selected solver version does not support Object Attachments")
+        from ...attachments import wire_entry
+        from ..coordinates import blender_position_to_ppf
+        payload["cross_stitch"] = [wire_entry(
+            attachment,
+            source_vertex_count=source_count,
+            target_vertex_count=target_count,
+            position_transform=blender_position_to_ppf)
+            for attachment, source_count, target_count in object_attachments]
     return _attach_dynamic_params(payload, settings)
 
 
@@ -524,11 +544,14 @@ def encode_deformable_param(
 
 def encode_multi_deformable_param(
         settings: SimulationSettings, deformables, colliders, *,
+        object_attachments=(),
         contact_enabled: bool = True,
         schema_version: int = 1,
         protocol_version: str = LEGACY_PARAM_PROTOCOL) -> tuple[bytes, str]:
     payload = build_multi_deformable_param_payload(
-        settings, deformables, colliders, contact_enabled=contact_enabled,
+        settings, deformables, colliders,
+        object_attachments=object_attachments,
+        contact_enabled=contact_enabled,
         schema_version=schema_version, protocol_version=protocol_version)
     blob = envelope.dumps_envelope(
         envelope.KIND_PARAM, payload, schema_version=schema_version)

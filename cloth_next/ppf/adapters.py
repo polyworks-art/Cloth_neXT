@@ -14,6 +14,7 @@ class ProtocolAdapter:
     id: str
     supported_schema: str
     legacy_ccd: bool = False
+    object_attachments: bool = True
 
     def adapt_scene_params(self, scene: dict, quality: object) -> None:
         if self.legacy_ccd:

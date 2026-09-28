@@ -24,7 +24,7 @@ else
   arguments=(
     -m companion.app
     --mode "$([[ "$mode" == "splash" ]] && echo welcome || echo "$mode")"
-    --version 2.8.8
+    --version 2.8.9
     --content-root "$content_root"
   )
   if [[ "$mode" == "splash" ]]; then

@@ -1127,6 +1127,13 @@ def reset_settings(settings) -> None:
 def attach_to_object() -> None:
     """Attach the settings to every object; requires the class registered."""
     bpy.types.Scene.cloth_next_collision_groups = bpy.props.CollectionProperty(type=CLOTHNEXT_PG_shared_collision)
+    from . import object_attachments
+    bpy.types.Scene.cloth_next_object_attachments = bpy.props.CollectionProperty(
+        type=object_attachments.CLOTHNEXT_PG_object_attachment)
+    bpy.types.Scene.cloth_next_object_attachment_index = bpy.props.IntProperty(
+        default=0, min=0)
+    bpy.types.Scene.cloth_next_attachment_target = bpy.props.PointerProperty(
+        type=bpy.types.Object, poll=object_attachments._eligible_object)
     bpy.types.Object.cloth_next = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_object_settings)
     bpy.types.Scene.cloth_next_quality = bpy.props.PointerProperty(
@@ -1138,6 +1145,11 @@ def attach_to_object() -> None:
 
 
 def detach_from_object() -> None:
+    for name in ("cloth_next_attachment_target",
+                 "cloth_next_object_attachment_index",
+                 "cloth_next_object_attachments"):
+        if hasattr(bpy.types.Scene, name):
+            delattr(bpy.types.Scene, name)
     if hasattr(bpy.types.Scene, "cloth_next_collision_groups"):
         del bpy.types.Scene.cloth_next_collision_groups
     if hasattr(bpy.types.Scene, "cloth_next_solver"):

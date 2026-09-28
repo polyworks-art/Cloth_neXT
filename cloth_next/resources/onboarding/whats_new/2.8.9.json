@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.8.9",
+  "title": "What's New in Cloth NeXt 2.8.9",
+  "subtitle": "Attach deformable objects directly in the viewport.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Object Attachments",
+      "description": "Attach selected Cloth or Soft Body vertices barycentrically to another deformable surface and bake through the normal multi-object workflow."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Visible and safe",
+      "description": "A transform-aware viewport overlay shows every connection, while stale topology is stopped with a clear Needs Rebuild status."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Clean onboarding transition",
+      "description": "Welcome and What's New now reliably return to their intended wireframe artwork after the startup splash."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

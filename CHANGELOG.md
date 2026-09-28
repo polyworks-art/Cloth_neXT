@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.9 - 2026-09-28
+
+- Add persistent Object Attachments between Cloth and Soft Body objects, created from selected source vertices and barycentrically projected onto the target surface.
+- Integrate validated attachment records into the normal multi-deformable PPF export, including SOLID surface anchors, topology invalidation, and a transform-aware viewport overlay.
+- Keep the splash artwork exclusive to startup so Welcome and What's New reliably use their intended wireframe background after the transition.
+
 ## 2.8.8 - 2026-09-28
 
 - Redesign Welcome, What's New, and the startup splash around the new monochrome cloth artwork, crisp identity assets, compact layouts, rounded controls, and black title bars.
