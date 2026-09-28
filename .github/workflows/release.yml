@@ -107,7 +107,7 @@ jobs:
         shell: bash
         run: |
           CHANNEL="${{ needs.candidate.outputs.channel }}"
-          case "$CHANNEL" in stable|beta) ;; *) echo "unsupported tagged release channel" >&2; exit 1 ;; esac
+          case "$CHANNEL" in stable|beta|dev) ;; *) echo "unsupported tagged release channel" >&2; exit 1 ;; esac
           TARGETS="$CLOTH_NEXT_PUBLICATION_TARGETS"
           for TARGET in $TARGETS; do
             python tools/build_extension_repository.py --zip "dist/${{ needs.candidate.outputs.zip-name }}" --sha256 "${{ needs.candidate.outputs.zip-sha256 }}" --channel "$TARGET" --site-dir site --blender "$CLOTH_NEXT_BLENDER"

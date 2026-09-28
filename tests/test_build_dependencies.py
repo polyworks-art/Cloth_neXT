@@ -78,3 +78,8 @@ def test_stable_and_beta_publish_only_through_pages():
     assert "RELEASE_NOTES.md" in release
     assert "push origin HEAD:gh-pages" in release
     assert "No GitHub Release was created." in release
+
+
+def test_tagged_release_accepts_numeric_dev_channel_for_unified_repository():
+    release=workflow("release.yml")
+    assert 'case "$CHANNEL" in stable|beta|dev)' in release
