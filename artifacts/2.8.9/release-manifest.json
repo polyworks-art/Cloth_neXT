@@ -1,0 +1,18 @@
+{
+  "cloth_next_version": "2.8.9",
+  "git_tag": "2.8.9",
+  "git_commit": "d5cc9be4b9c226f9e55956fb1e8114558502bea0",
+  "release_channel": "dev",
+  "build_date": "2026-09-28T16:37:50.585013+00:00",
+  "blender_minimum_version": "5.0.0",
+  "platform": "windows-x64",
+  "required_ppf_protocol": [
+    "0.13",
+    "0.18",
+    "0.22"
+  ],
+  "solver_compatibility_manifest_version": 3,
+  "solver_bundled": false,
+  "extension_zip_sha256": "5efb79511bd784b881940206980eb0eed404ac31f708787d908dd7d60a70d571",
+  "extension_zip_name": "cloth_next-2.8.9-windows-x64.zip"
+}
