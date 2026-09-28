@@ -40,6 +40,27 @@ def test_non_windows_topmost_keeps_portable_tk_flag(monkeypatch):
     assert calls == [("-topmost", False)]
 
 
+def test_linux_topmost_restores_z_order_without_stealing_focus(monkeypatch):
+    callbacks=[]
+    root=SimpleNamespace(
+        attributes=lambda *_args:None,
+        bind=lambda event,callback,add=None:(callbacks.append(
+            (event,callback,add)) or "binding"),
+        unbind=lambda *_args:None,
+        after_idle=lambda callback:callback(),
+        lift=lambda:callbacks.append("lift"))
+    monkeypatch.setattr(app.sys,"platform","linux")
+
+    app._set_bake_window_topmost(root,True)
+    callbacks[0][1]()
+    app._set_bake_window_topmost(root,False)
+
+    assert callbacks[0][0]=="<FocusOut>"
+    assert callbacks[0][2]=="+"
+    assert callbacks.count("lift")==2
+    assert root._cloth_next_topmost_binding is None
+
+
 def test_linux_readiness_dispatches_wm_mapping_event():
     source = inspect.getsource(app.BakeWindow.enter_bake_mode)
     assert 'sys.platform.startswith("linux")' in source

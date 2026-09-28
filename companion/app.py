@@ -255,6 +255,18 @@ def _match_windows_title_bar(root, light=False, background_color=None):
 def _set_bake_window_topmost(root, enabled):
     """Set passive bake-window Z order without repeatedly stealing focus."""
     root.attributes("-topmost",bool(enabled))
+    if sys.platform.startswith("linux"):
+        binding=getattr(root,"_cloth_next_topmost_binding",None)
+        if binding is not None and hasattr(root,"unbind"):
+            root.unbind("<FocusOut>",binding)
+            root._cloth_next_topmost_binding=None
+        if enabled and hasattr(root,"bind"):
+            def restore_z_order(_event=None):
+                root.after_idle(root.lift)
+            root._cloth_next_topmost_binding=root.bind(
+                "<FocusOut>",restore_z_order,add="+")
+            root.after_idle(root.lift)
+        return
     if sys.platform!="win32":return
     try:
         root.update_idletasks()
