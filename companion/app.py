@@ -594,9 +594,21 @@ class BakeWindow:
                 self.root.after_idle(self.root.focus_force)
             if sys.platform.startswith("linux"):
                 # X11 window managers acknowledge mapping asynchronously.
-                # Process that MapNotify once before reporting readiness;
-                # update_idletasks alone does not dispatch window events.
-                self.root.update()
+                # Process MapNotify/_NET_WM_STATE events before reporting
+                # readiness. A single update is racy under a freshly started
+                # real window manager.
+                readiness_deadline=time.monotonic()+2.0
+                while True:
+                    self.root.update()
+                    visible=bool(
+                        self.root.winfo_ismapped() and self.root.winfo_viewable())
+                    topmost=bool(self.root.attributes("-topmost"))
+                    if visible and topmost:
+                        break
+                    if (os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden"
+                            or time.monotonic() >= readiness_deadline):
+                        break
+                    time.sleep(0.025)
             else:
                 self.root.update_idletasks()
             visible=bool(self.root.winfo_ismapped() and self.root.winfo_viewable())
