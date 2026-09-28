@@ -29,7 +29,11 @@
 .brand{text-transform:none;letter-spacing:.13em}
 .result-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
 .visual:after{pointer-events:none}
-.video-toggle{position:absolute;z-index:3;right:var(--pad);top:24px;padding:9px 13px;border:1px solid var(--warm);background:rgba(3,3,3,.72);color:var(--text);font:11px var(--sans);cursor:pointer}
+.video-toggle{position:absolute;z-index:3;right:var(--pad);top:24px;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--warm);border-radius:50%;background:rgba(3,3,3,.6);color:var(--text);cursor:pointer}
+.video-toggle svg{width:14px;height:14px;fill:currentColor}
+.video-toggle .pause-icon,.video-toggle.is-playing .play-icon{display:none}
+.video-toggle.is-playing .pause-icon{display:block}
+.video-toggle:hover{background:rgba(199,162,122,.16)}
 .video-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .story-row .workflow-slot{min-height:0;padding:0;background:#303030}
 .workflow-shot{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center top;border:0;box-shadow:none}
@@ -49,7 +53,7 @@
 
 <section class="visual" aria-labelledby="result-title">
   <video class="result-video" muted loop playsinline preload="metadata" aria-label="Cloth neXt cloth simulation"><source src="result-film.mp4" type="video/mp4"></video>
-  <button class="video-toggle" type="button" aria-label="Play simulation video">Play film</button>
+  <button class="video-toggle" type="button" aria-label="Play simulation video"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path class="play-icon" d="M4 2 14 8 4 14Z"/><path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z"/></svg></button>
   <div class="visual-copy" data-reveal><p class="eyebrow">The result</p><h2 id="result-title">Real cloth. Real contact.<br><span class="accent">Real production geometry.</span></h2><p class="proof-note">Cloth neXt simulation</p></div>
 </section>
 
@@ -77,7 +81,7 @@
 
 <section class="visual" aria-labelledby="beyond-title">
   <video class="result-video" muted loop playsinline preload="metadata" aria-label="Cloth neXt soft body simulation"><source src="softbody-film.mp4" type="video/mp4"></video>
-  <button class="video-toggle" type="button" aria-label="Play soft body simulation video">Play film</button>
+  <button class="video-toggle" type="button" aria-label="Play soft body simulation video"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path class="play-icon" d="M4 2 14 8 4 14Z"/><path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z"/></svg></button>
   <div class="visual-copy" data-reveal><p class="eyebrow">Beyond cloth</p><h2 id="beyond-title">You came for cloth.<br><span class="accent">The rest comes with it.</span></h2><p class="proof-note">Soft bodies · Cables · Rigid bodies + forces</p></div>
 </section>
 
@@ -105,7 +109,7 @@
     else video.pause();
   };
   const label = () => {
-    toggle.textContent = video.paused ? 'Play film' : 'Pause film';
+    toggle.classList.toggle('is-playing', !video.paused);
     toggle.setAttribute('aria-label', `${video.paused ? 'Play' : 'Pause'} ${videoName}`);
   };
   video.addEventListener('play', label);
