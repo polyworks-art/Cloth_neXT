@@ -67,6 +67,12 @@ def _real_wm_exercise(blender_window: str) -> dict:
                 f"probe={probe_received_focus}, blender={blender_regained_focus}")
 
         # Exercise the actual installed Details control after both focus changes.
+        # XTEST pointer events target screen coordinates, so explicitly activate
+        # the Companion first just as a user would before interacting with it.
+        # This avoids a race where Openbox completes Blender's restack after the
+        # pointer has already been positioned over the Companion.
+        _command("xdotool", "windowactivate", "--sync", companion,
+                 timeout=5.0)
         _command("xdotool", "mousemove", "--window", companion, "45",
                  str(compact["height"] - 16), "click", "1")
         deadline = time.monotonic() + 3.0
