@@ -42,11 +42,14 @@ def test_non_windows_topmost_keeps_portable_tk_flag(monkeypatch):
 
 def test_linux_topmost_restores_z_order_without_stealing_focus(monkeypatch):
     callbacks=[]
+    scheduled=[]
     root=SimpleNamespace(
         attributes=lambda *_args:None,
         bind=lambda event,callback,add=None:(callbacks.append(
             (event,callback,add)) or "binding"),
         unbind=lambda *_args:None,
+        after=lambda delay,callback:(scheduled.append((delay,callback)) or "timer"),
+        after_cancel=lambda timer:callbacks.append(("cancel",timer)),
         after_idle=lambda callback:callback(),
         lift=lambda:callbacks.append("lift"))
     monkeypatch.setattr(app.sys,"platform","linux")
@@ -58,7 +61,10 @@ def test_linux_topmost_restores_z_order_without_stealing_focus(monkeypatch):
     assert callbacks[0][0]=="<FocusOut>"
     assert callbacks[0][2]=="+"
     assert callbacks.count("lift")==2
+    assert scheduled[0][0]==100
+    assert ("cancel","timer") in callbacks
     assert root._cloth_next_topmost_binding is None
+    assert root._cloth_next_topmost_timer is None
 
 
 def test_linux_readiness_dispatches_wm_mapping_event():

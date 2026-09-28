@@ -256,16 +256,27 @@ def _set_bake_window_topmost(root, enabled):
     """Set passive bake-window Z order without repeatedly stealing focus."""
     root.attributes("-topmost",bool(enabled))
     if sys.platform.startswith("linux"):
+        timer=getattr(root,"_cloth_next_topmost_timer",None)
+        if timer is not None and hasattr(root,"after_cancel"):
+            try:
+                root.after_cancel(timer)
+            except (ValueError,TypeError):
+                pass
+            root._cloth_next_topmost_timer=None
         binding=getattr(root,"_cloth_next_topmost_binding",None)
         if binding is not None and hasattr(root,"unbind"):
             root.unbind("<FocusOut>",binding)
             root._cloth_next_topmost_binding=None
         if enabled and hasattr(root,"bind"):
+            def maintain_z_order():
+                root.lift()
+                root._cloth_next_topmost_timer=root.after(
+                    100,maintain_z_order)
             def restore_z_order(_event=None):
                 root.after_idle(root.lift)
             root._cloth_next_topmost_binding=root.bind(
                 "<FocusOut>",restore_z_order,add="+")
-            root.after_idle(root.lift)
+            root.after_idle(maintain_z_order)
         return
     if sys.platform!="win32":return
     try:
