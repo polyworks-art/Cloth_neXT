@@ -71,19 +71,26 @@ def _real_wm_exercise(blender_window: str) -> dict:
         # the custom-chrome Companion first. It is an override-redirect window
         # and therefore cannot be activated through the window manager.
         _command("xdotool", "windowraise", companion, timeout=5.0)
-        _command("xdotool", "mousemove", "--sync", "--window", companion,
-                 "45", str(compact["height"] - 20), timeout=5.0)
-        # Let the X server finish the raise/move before emitting a complete
-        # physical click. A combined move+click can race Openbox's restack.
+        # Let the X server finish the raise before emitting a physical click.
+        # Tk/ttk button metrics vary with the CI runner's installed fonts, so
+        # probe only the lower-left Details-control area instead of assuming
+        # one theme-specific centre coordinate.
         time.sleep(0.25)
-        _command("xdotool", "mousedown", "1", timeout=5.0)
-        time.sleep(0.05)
-        _command("xdotool", "mouseup", "1", timeout=5.0)
         deadline = time.monotonic() + 3.0
         expanded = _geometry(companion)
-        while expanded["height"] <= compact["height"] and time.monotonic() < deadline:
-            time.sleep(0.05)
-            expanded = _geometry(companion)
+        for y in range(max(1,compact["height"]-60),compact["height"]-4,7):
+            for x in (20,40,60,80):
+                _command("xdotool", "mousemove", "--sync", "--window",
+                         companion,str(x),str(y),timeout=5.0)
+                _command("xdotool", "click", "--clearmodifiers", "1",
+                         timeout=5.0)
+                time.sleep(0.08)
+                expanded = _geometry(companion)
+                if expanded["height"] > compact["height"]:
+                    break
+            if (expanded["height"] > compact["height"]
+                    or time.monotonic() >= deadline):
+                break
         if expanded["height"] <= compact["height"]:
             raise RuntimeError(
                 f"Details did not expand: compact={compact}, expanded={expanded}")
