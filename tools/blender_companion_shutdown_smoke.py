@@ -71,8 +71,14 @@ def _real_wm_exercise(blender_window: str) -> dict:
         # the custom-chrome Companion first. It is an override-redirect window
         # and therefore cannot be activated through the window manager.
         _command("xdotool", "windowraise", companion, timeout=5.0)
-        _command("xdotool", "mousemove", "--window", companion, "45",
-                 str(compact["height"] - 16), "click", "1")
+        _command("xdotool", "mousemove", "--sync", "--window", companion,
+                 "45", str(compact["height"] - 20), timeout=5.0)
+        # Let the X server finish the raise/move before emitting a complete
+        # physical click. A combined move+click can race Openbox's restack.
+        time.sleep(0.25)
+        _command("xdotool", "mousedown", "1", timeout=5.0)
+        time.sleep(0.05)
+        _command("xdotool", "mouseup", "1", timeout=5.0)
         deadline = time.monotonic() + 3.0
         expanded = _geometry(companion)
         while expanded["height"] <= compact["height"] and time.monotonic() < deadline:
