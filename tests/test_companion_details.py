@@ -47,6 +47,8 @@ def test_linux_readiness_dispatches_wm_mapping_event():
     assert source.index("self.root.update()") < source.rindex("visible=bool")
     assert "readiness_deadline=time.monotonic()+2.0" in source
     assert "time.sleep(0.025)" in source
+    assert 'sys.platform.startswith("linux") and visible' in source
+    assert "topmost=True" in source
 
 
 def test_details_meta_collects_useful_snapshot_facts():

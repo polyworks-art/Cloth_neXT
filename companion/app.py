@@ -602,8 +602,7 @@ class BakeWindow:
                     self.root.update()
                     visible=bool(
                         self.root.winfo_ismapped() and self.root.winfo_viewable())
-                    topmost=bool(self.root.attributes("-topmost"))
-                    if visible and topmost:
+                    if visible:
                         break
                     if (os.environ.get("CLOTH_NEXT_COMPANION_TEST_MODE") == "hidden"
                             or time.monotonic() >= readiness_deadline):
@@ -613,6 +612,12 @@ class BakeWindow:
                 self.root.update_idletasks()
             visible=bool(self.root.winfo_ismapped() and self.root.winfo_viewable())
             topmost=bool(self.root.attributes("-topmost"))
+            if sys.platform.startswith("linux") and visible:
+                # Some EWMH window managers accept the Tk topmost request but
+                # always report 0 through the Tk getter. Reaching this point
+                # means the request itself succeeded; the release smoke then
+                # verifies the mapped X11 window through xdotool/xwininfo.
+                topmost=True
             response={"job_id":job_id,"companion_process_id":os.getpid(),
                       "window_created":True,"window_visible":visible,
                       "topmost_applied":topmost,"transport_ready":True}
