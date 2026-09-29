@@ -2480,10 +2480,14 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        layout.prop(scene, "cloth_next_attachment_target", text="Target")
-        row = layout.row(align=True)
-        row.operator(object_attachments.CLOTHNEXT_OT_create_object_attachment.bl_idname,
-                     text="Create From Selection", icon="LINKED")
+        layout.use_property_split = False
+        header = layout.row(align=True)
+        columns = header.row(align=True)
+        columns.label(text="Target Object")
+        columns.label(text="Vertex Group 1")
+        columns.label(text="Vertex Group 2")
+        header.operator(object_attachments.CLOTHNEXT_OT_add_group_attachment.bl_idname,
+                        text="", icon="ADD")
         source_id = str(context.object.cloth_next.persistent_export_id)
         shown = False
         for index, item in enumerate(scene.cloth_next_object_attachments):
@@ -2491,6 +2495,39 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                                  str(item.target_persistent_id)}:
                 continue
             shown = True
+            if item.use_vertex_groups:
+                box = layout.box()
+                row = box.row(align=True)
+                source = object_attachments._objects_by_identity(scene).get(
+                    str(item.source_persistent_id))
+                row.prop(item, "target_object", text="")
+                if source is not None:
+                    row.prop_search(item, "source_group", source, "vertex_groups", text="")
+                else:
+                    row.label(text="Missing source", icon="ERROR")
+                group2 = row.row(align=True)
+                group2.enabled = item.target_object is not None
+                if item.target_object is not None:
+                    group2.prop_search(item, "target_group", item.target_object,
+                                       "vertex_groups", text="")
+                else:
+                    group2.prop(item, "target_group", text="")
+                remove = row.operator(
+                    object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
+                    text="", icon="REMOVE")
+                remove.index = index
+                status = box.row(align=True)
+                status.prop(item, "enabled", text="Enabled")
+                status.prop(item, "show_overlay", text="", icon="HIDE_OFF")
+                bind = status.operator(
+                    object_attachments.CLOTHNEXT_OT_bind_group_attachment.bl_idname,
+                    text="Bind", icon="LINKED")
+                bind.index = index
+                if item.needs_rebuild:
+                    status.label(text=item.status_message, icon="INFO")
+                else:
+                    status.label(text=f"{len(item.points)} attachment points")
+                continue
             box = layout.box()
             header = box.row(align=True)
             header.prop(item, "enabled", text="")
@@ -2506,7 +2543,7 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                 box.label(text=item.status_message or "Needs Rebuild",
                           icon="ERROR")
         if not shown:
-            layout.label(text="Edit the source mesh, select vertices, then create.",
+            layout.label(text="Add a target object attachment with +.",
                          icon="INFO")
 
 

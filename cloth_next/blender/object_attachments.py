@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import uuid
+import hashlib
 
 import bpy
 
 from .. import export_identity
 from ..attachments import (AttachmentError, AttachmentPoint, DEFAULT_STIFFNESS,
-                           ObjectAttachment, SUPPORTED_ROLES,
+                           ObjectAttachment, SUPPORTED_ROLES, VertexSearch,
                            closest_surface_point, topology_fingerprint,
                            validate_attachment)
 
@@ -26,6 +27,19 @@ class CLOTHNEXT_PG_attachment_point(bpy.types.PropertyGroup):
         size=3, default=(1.0, 0.0, 0.0))
     source_point: bpy.props.FloatVectorProperty(size=3)
     target_point: bpy.props.FloatVectorProperty(size=3)
+
+
+def _eligible_object(_self, obj):
+    settings = getattr(obj, "cloth_next", None)
+    return bool(obj and getattr(obj, "type", "") == "MESH" and settings
+                and settings.enabled and settings.role in SUPPORTED_ROLES)
+
+
+def _group_changed(item, context):
+    if not item.use_vertex_groups:
+        return
+    item.needs_rebuild = True
+    item.status_message = "Selection changed. Bind vertex groups to update the attachment."
 
 
 class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
@@ -46,12 +60,17 @@ class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     status_message: bpy.props.StringProperty(default="")
     show_overlay: bpy.props.BoolProperty(default=True)
     points: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_point)
-
-
-def _eligible_object(_self, obj):
-    settings = getattr(obj, "cloth_next", None)
-    return bool(obj and getattr(obj, "type", "") == "MESH" and settings
-                and settings.enabled and settings.role in SUPPORTED_ROLES)
+    use_vertex_groups: bpy.props.BoolProperty(default=False)
+    group_signature: bpy.props.StringProperty(default="")
+    target_object: bpy.props.PointerProperty(
+        name="Target Object", type=bpy.types.Object, poll=_eligible_object,
+        update=_group_changed)
+    source_group: bpy.props.StringProperty(
+        name="Vertex Group 1", description="Vertices on the source object to attach",
+        update=_group_changed)
+    target_group: bpy.props.StringProperty(
+        name="Vertex Group 2", description="Target vertices to attach to; nearest vertex is used",
+        update=_group_changed)
 
 
 def _objects_by_identity(scene):
@@ -70,6 +89,134 @@ def _mesh_triangles(obj):
     triangles = tuple(tuple(int(index) for index in tri.vertices)
                       for tri in mesh.loop_triangles)
     return vertices, triangles
+
+
+def _group_indices(obj, name, label):
+    group = obj.vertex_groups.get(name) if name else None
+    if group is None:
+        raise AttachmentError(f"Choose {label} on {obj.name}")
+    indices = tuple(v.index for v in obj.data.vertices
+                    if any(g.group == group.index and g.weight > 0
+                           for g in v.groups))
+    if not indices:
+        raise AttachmentError(f"{label} has no vertices with positive weight")
+    return indices
+
+
+def _rebuild_groups(item, scene):
+    source = _objects_by_identity(scene).get(str(item.source_persistent_id))
+    target = item.target_object
+    if not _eligible_object(None, source):
+        raise AttachmentError("Source must be an enabled Cloth or Soft Body")
+    if not _eligible_object(None, target):
+        raise AttachmentError("Choose a Cloth or Soft Body target object")
+    if source is target:
+        raise AttachmentError("Choose a different target object")
+    for obj in (source, target):
+        if obj.mode == "EDIT":
+            obj.update_from_editmode()
+    source_indices = _group_indices(source, item.source_group, "Vertex Group 1")
+    target_indices = _group_indices(target, item.target_group, "Vertex Group 2")
+    source_vertices, source_triangles = _mesh_triangles(source)
+    target_vertices, target_triangles = _mesh_triangles(target)
+    # Store a real target triangle with one-hot weights for each chosen vertex.
+    # This keeps the existing solver wire format and topology validation intact.
+    incident = {}
+    for triangle in target_triangles:
+        for index in triangle:
+            incident.setdefault(index, triangle)
+    if any(index not in incident for index in target_indices):
+        raise AttachmentError("Vertex Group 2 contains vertices without surface faces")
+    search = VertexSearch(target_vertices, target_indices)
+    prepared = []
+    for index in source_indices:
+        point = source_vertices[index]
+        nearest = search.nearest(point)
+        triangle = incident[nearest]
+        weights = tuple(1.0 if i == nearest else 0.0 for i in triangle)
+        prepared.append((index, triangle, weights, point, target_vertices[nearest]))
+    item.source_name, item.target_name = source.name, target.name
+    item.name = f"{source.name} → {target.name}"
+    item.source_role, item.target_role = source.cloth_next.role, target.cloth_next.role
+    item.target_persistent_id = target.cloth_next.persistent_export_id
+    item.source_topology = topology_fingerprint(len(source_vertices), source_triangles)
+    item.target_topology = topology_fingerprint(len(target_vertices), target_triangles)
+    item.group_signature = _group_signature(source_indices, target_indices)
+    item.points.clear()
+    for index, triangle, weights, source_point, target_point in prepared:
+        point = item.points.add()
+        point.source_index, point.target_triangle = index, triangle
+        point.target_weights = weights
+        point.source_point, point.target_point = source_point, target_point
+    item.needs_rebuild = False
+    item.status_message = "Ready"
+    _ensure_draw_handler()
+
+
+def _group_signature(source_indices, target_indices):
+    return hashlib.sha256(repr((source_indices, target_indices)).encode()).hexdigest()
+
+
+def _validate_groups(item, scene):
+    source = _objects_by_identity(scene).get(str(item.source_persistent_id))
+    target = item.target_object
+    if not _eligible_object(None, source) or not _eligible_object(None, target):
+        raise AttachmentError("Source and target must be enabled Cloth or Soft Body objects")
+    if target.cloth_next.persistent_export_id != item.target_persistent_id:
+        raise AttachmentError("Target changed. Bind vertex groups again")
+    for obj in (source, target):
+        if obj.mode == "EDIT":
+            obj.update_from_editmode()
+    signature = _group_signature(
+        _group_indices(source, item.source_group, "Vertex Group 1"),
+        _group_indices(target, item.target_group, "Vertex Group 2"))
+    if item.needs_rebuild or signature != item.group_signature or not item.points:
+        raise AttachmentError("Vertex groups changed or are unbound. Bind vertex groups again")
+
+
+class CLOTHNEXT_OT_bind_group_attachment(bpy.types.Operator):
+    bl_idname = "clothnext.bind_group_attachment"
+    bl_label = "Bind Vertex Groups"
+    bl_description = "Explicitly bind the selected groups at their current positions"
+    bl_options = {"REGISTER", "UNDO"}
+    index: bpy.props.IntProperty(default=-1)
+
+    def execute(self, context):
+        items = context.scene.cloth_next_object_attachments
+        if not 0 <= self.index < len(items):
+            return {"CANCELLED"}
+        item = items[self.index]
+        try:
+            export_identity.ensure_unique_persistent_ids(context.scene.objects)
+            _rebuild_groups(item, context.scene)
+        except AttachmentError as exc:
+            item.needs_rebuild = True
+            item.status_message = str(exc)
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_add_group_attachment(bpy.types.Operator):
+    bl_idname = "clothnext.add_group_attachment"
+    bl_label = "Add Object Attachment"
+    bl_description = "Add a target object and choose a vertex group on each object"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _eligible_object(None, context.object)
+
+    def execute(self, context):
+        export_identity.ensure_unique_persistent_ids(context.scene.objects)
+        item = context.scene.cloth_next_object_attachments.add()
+        item.identifier = uuid.uuid4().hex
+        item.source_persistent_id = context.object.cloth_next.persistent_export_id
+        item.source_name = context.object.name
+        item.use_vertex_groups = True
+        item.needs_rebuild = True
+        item.status_message = "Choose a target object and both vertex groups"
+        return {"FINISHED"}
 
 
 class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
@@ -161,6 +308,13 @@ def snapshot_enabled(scene, deformable_entries):
     for item in getattr(scene, "cloth_next_object_attachments", ()):
         if not bool(item.enabled):
             continue
+        if item.use_vertex_groups:
+            try:
+                _validate_groups(item, scene)
+            except AttachmentError as exc:
+                item.needs_rebuild = True
+                item.status_message = str(exc)
+                raise AttachmentError(f"{item.name}: {exc}") from exc
         source = objects.get(str(item.source_persistent_id))
         target = objects.get(str(item.target_persistent_id))
         source_entry = entries.get(str(item.source_persistent_id))
@@ -295,5 +449,7 @@ def unregister():
 
 CLASSES = (CLOTHNEXT_PG_attachment_point,
            CLOTHNEXT_PG_object_attachment,
+           CLOTHNEXT_OT_add_group_attachment,
+           CLOTHNEXT_OT_bind_group_attachment,
            CLOTHNEXT_OT_create_object_attachment,
            CLOTHNEXT_OT_remove_object_attachment)

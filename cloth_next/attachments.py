@@ -102,6 +102,41 @@ def closest_surface_point(point, vertices, triangles):
     return best[1], best[2], best[3]
 
 
+class VertexSearch:
+    """Balanced 3D k-d tree with deterministic index tie-breaking."""
+
+    def __init__(self, vertices, indices):
+        def build(rows, depth=0):
+            if not rows:
+                return None
+            axis = depth % 3
+            rows.sort(key=lambda row: (row[0][axis], row[1]))
+            middle = len(rows) // 2
+            return (rows[middle], axis, build(rows[:middle], depth + 1),
+                    build(rows[middle + 1:], depth + 1))
+        self.root = build([(tuple(vertices[i]), i) for i in indices])
+        if self.root is None:
+            raise AttachmentError("Target vertex group is empty")
+
+    def nearest(self, point):
+        best = (math.inf, math.inf)
+
+        def visit(node):
+            nonlocal best
+            if node is None:
+                return
+            (position, index), axis, left, right = node
+            distance = sum((a - b) ** 2 for a, b in zip(point, position))
+            best = min(best, (distance, index))
+            delta = point[axis] - position[axis]
+            near, far = (left, right) if delta < 0 else (right, left)
+            visit(near)
+            if delta * delta <= best[0]:
+                visit(far)
+        visit(self.root)
+        return best[1]
+
+
 def topology_fingerprint(vertex_count: int, triangles) -> str:
     canonical = {
         "version": 1,

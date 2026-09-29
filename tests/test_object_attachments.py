@@ -183,3 +183,84 @@ def test_overlay_handler_lifecycle_is_reload_safe(blender_env):
     assert object_attachments._draw_handle is handle
     env.registration.unregister()
     assert object_attachments._draw_handle is None
+
+
+def test_vertex_group_attachment_limits_both_ends_and_refreshes(blender_env, monkeypatch):
+    env = blender_env
+    env.registration.register()
+    from cloth_next.blender import object_attachments
+
+    class Identity:
+        def __matmul__(self, point):
+            return point
+
+    def mesh_object(name, coordinates, members):
+        group = SimpleNamespace(index=0)
+        vertices = [SimpleNamespace(
+            index=i, co=co, groups=[SimpleNamespace(group=0, weight=1.0)]
+            if i in members else []) for i, co in enumerate(coordinates)]
+        return SimpleNamespace(
+            name=name, type="MESH", mode="OBJECT", matrix_world=Identity(),
+            vertex_groups={"Attach": group},
+            cloth_next=SimpleNamespace(enabled=True, role="CLOTH",
+                                       persistent_export_id=name),
+            data=SimpleNamespace(vertices=vertices, calc_loop_triangles=lambda: None,
+                                 loop_triangles=[SimpleNamespace(vertices=(0, 1, 2))]))
+
+    source = mesh_object("source", ((.1, 0, 0), (1, 0, 0), (0, 1, 0)), {0})
+    target = mesh_object("target", ((0, 0, 0), (2, 0, 0), (0, 2, 0)), {1})
+    scene = env.bpy.types.Scene()
+    monkeypatch.setattr(env.bpy.context, "scene", scene, raising=False)
+    scene.objects = [source, target]
+    item = scene.cloth_next_object_attachments.add()
+    item.source_persistent_id = "source"
+    item.target_object = target
+    item.source_group = item.target_group = "Attach"
+    item.use_vertex_groups = True
+    object_attachments._rebuild_groups(item, scene)
+    assert len(item.points) == 1
+    assert item.points[0].source_index == 0
+    assert item.points[0].target_triangle == (0, 1, 2)
+    assert item.points[0].target_weights == (0.0, 1.0, 0.0)
+    assert item.points[0].target_point == (2, 0, 0)
+    assert not item.needs_rebuild
+
+    # Moving geometry must not silently choose a different target at bake time.
+    source.data.vertices[0].co = (100, 100, 100)
+    object_attachments._validate_groups(item, scene)
+    assert item.points[0].target_weights == (0.0, 1.0, 0.0)
+
+    target.data.vertices[1].groups.clear()
+    target.data.vertices[2].groups = [SimpleNamespace(group=0, weight=1)]
+    with pytest.raises(AttachmentError, match="changed or are unbound"):
+        object_attachments._validate_groups(item, scene)
+    assert item.points[0].target_weights == (0.0, 1.0, 0.0)
+    object_attachments._rebuild_groups(item, scene)
+    assert item.points[0].target_weights == (0.0, 0.0, 1.0)
+    target.data.vertices[2].groups[0].weight = 0
+    with pytest.raises(AttachmentError, match="no vertices"):
+        object_attachments._rebuild_groups(item, scene)
+    item.target_group = "Missing"
+    with pytest.raises(AttachmentError, match="Choose Vertex Group 2"):
+        object_attachments._rebuild_groups(item, scene)
+    item.target_object = source
+    with pytest.raises(AttachmentError, match="different target"):
+        object_attachments._rebuild_groups(item, scene)
+    env.registration.unregister()
+
+
+def test_vertex_search_matches_brute_force_and_breaks_ties():
+    import random
+    from cloth_next.attachments import VertexSearch
+    rng = random.Random(7)
+    vertices = [tuple(rng.uniform(-10, 10) for _ in range(3)) for _ in range(1000)]
+    indices = tuple(range(0, 1000, 3))
+    search = VertexSearch(vertices, indices)
+    for _ in range(100):
+        point = tuple(rng.uniform(-12, 12) for _ in range(3))
+        expected = min(indices, key=lambda i: (
+            sum((a - b) ** 2 for a, b in zip(point, vertices[i])), i))
+        assert search.nearest(point) == expected
+    assert VertexSearch(((1, 0, 0), (-1, 0, 0)), (1, 0)).nearest((0, 0, 0)) == 0
+    with pytest.raises(AttachmentError, match="empty"):
+        VertexSearch((), ())

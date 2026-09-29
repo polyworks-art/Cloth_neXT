@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.0 - 2026-09-29
+
+- Replace selection-based Object Attachments with a compact target and two-vertex-group workflow in Object Mode.
+- Bind source vertices explicitly to the nearest eligible target-group vertices and preserve those pairs through animation, save, reload, and bake.
+- Detect changed, renamed, empty, or deleted groups and targets without silently rebinding the attachment.
+- Use a spatial search to keep attachment creation responsive for large vertex groups.
+
 ## 2.8.9 - 2026-09-28
 
 - Add persistent Object Attachments between Cloth and Soft Body objects, created from selected source vertices and barycentrically projected onto the target surface.

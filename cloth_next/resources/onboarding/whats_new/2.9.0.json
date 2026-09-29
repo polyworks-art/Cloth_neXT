@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.0",
+  "title": "What's New in Cloth NeXt 2.9.0",
+  "subtitle": "Bind deformable objects with two vertex groups.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Vertex group attachments",
+      "description": "Choose a target object, Vertex Group 1 on the source, and Vertex Group 2 on the target directly in Object Mode."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Explicit and stable",
+      "description": "Bind once at the current positions. Animation and bake validation preserve the chosen vertex pairs instead of silently rebuilding them."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Fast validation",
+      "description": "A spatial search handles large groups efficiently, while changed or missing groups produce a clear rebuild message."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}
