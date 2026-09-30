@@ -9,7 +9,7 @@ import uuid
 import bpy
 
 from .. import export_identity
-from ..attachments import (AttachmentPoint, ObjectAttachment,
+from ..attachments import (AttachmentError, AttachmentPoint, ObjectAttachment,
                            topology_fingerprint, shortest_mesh_path)
 from ..bake.controller import shared_controller
 from ..sewing import SewingError, interaction_visible, path_mapping
@@ -246,6 +246,7 @@ class CLOTHNEXT_OT_edit_sewing(bpy.types.Operator):
             _editor_view_handle = bpy.types.SpaceView3D.draw_handler_add(_draw_editor, (), "WINDOW", "POST_VIEW")
             _editor_text_handle = bpy.types.SpaceView3D.draw_handler_add(_draw_editor_text, (), "WINDOW", "POST_PIXEL")
         context.window_manager.modal_handler_add(self); self.window.cursor_modal_set("CROSSHAIR")
+        self._redraw()
         return {"RUNNING_MODAL"}
 
     def _cache(self, obj):
@@ -276,6 +277,22 @@ class CLOTHNEXT_OT_edit_sewing(bpy.types.Operator):
         return shortest_mesh_path(vertices, edges, start, end,
                                   boundary_edges=boundary, interior_penalty=8.0)
 
+    def preview_paths(self):
+        """Confirmed paths plus the live endpoint-to-hover path."""
+        side_a, side_b = tuple(self.a), tuple(self.b)
+        try:
+            if self.stage == "A_END" and self.hover is not None:
+                side_a = self._path(self.source, side_a[0], self.hover)
+            elif self.stage == "B_END" and self.hover is not None:
+                side_b = self._path(self.target, side_b[0], self.hover)
+        except AttachmentError:
+            pass
+        return tuple(side_a), tuple(side_b)
+
+    def _redraw(self):
+        from .linked_colliders import redraw
+        redraw(self.window)
+
     def modal(self, context, event):
         if event.type in {"ESC", "RIGHTMOUSE", "WINDOW_DEACTIVATE"} and event.value == "PRESS":
             self.finish(); return {"CANCELLED"}
@@ -285,9 +302,11 @@ class CLOTHNEXT_OT_edit_sewing(bpy.types.Operator):
             return {"PASS_THROUGH"}
         obj = self.source if self.stage.startswith("A") else self.target
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"} and obj:
-            self.hover = self._pick(context, event, obj); return {"RUNNING_MODAL"}
+            self.hover = self._pick(context, event, obj)
+            self._redraw(); return {"RUNNING_MODAL"}
         if event.type == "F" and event.value == "PRESS" and self.a and self.b:
-            self.b.reverse(); self.feedback = "Direction flipped"; return {"RUNNING_MODAL"}
+            self.b.reverse(); self.feedback = "Direction flipped"
+            self._redraw(); return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and event.value == "PRESS":
             if self.stage == "TARGET":
                 viewport = self._viewport(event)
@@ -298,18 +317,20 @@ class CLOTHNEXT_OT_edit_sewing(bpy.types.Operator):
                         target = object_at(context, event, region)
                     if _eligible(None, target):
                         self.target = target; self._cache(target); self.stage = "B_START"
-                        self.feedback = "Click Side B start vertex"
+                        self.hover = None; self.feedback = "Click Side B start vertex"
+                self._redraw()
                 return {"RUNNING_MODAL"}
             index = self._pick(context, event, obj) if obj else None
             if index is None: return {"RUNNING_MODAL"}
             if self.stage == "A_START": self.a=[index]; self.stage="A_END"; self.feedback="Click Side A end vertex"
             elif self.stage == "A_END":
                 if index == self.a[0]: return {"RUNNING_MODAL"}
-                self.a=list(self._path(self.source,self.a[0],index)); self.stage="TARGET"; self.feedback="Click Side B object (may be the same object)"
+                self.a=list(self._path(self.source,self.a[0],index)); self.stage="TARGET"; self.hover=None; self.feedback="Click Side B object (may be the same object)"
             elif self.stage == "B_START": self.b=[index]; self.stage="B_END"; self.feedback="Click Side B end vertex"
             elif self.stage == "B_END":
                 if index == self.b[0]: return {"RUNNING_MODAL"}
-                self.b=list(self._path(self.target,self.b[0],index)); self.stage="PREVIEW"; self.feedback="Enter Commit | F Flip | Esc Cancel"
+                self.b=list(self._path(self.target,self.b[0],index)); self.stage="PREVIEW"; self.hover=None; self.feedback="Enter Commit | F Flip | Esc Cancel"
+            self._redraw()
             return {"RUNNING_MODAL"}
         if event.type in {"RET", "NUMPAD_ENTER"} and event.value == "PRESS" and self.stage == "PREVIEW":
             try: item = _commit(self.scene, self.source, self.target, self.a, self.b)
@@ -321,7 +342,7 @@ class CLOTHNEXT_OT_edit_sewing(bpy.types.Operator):
         global _editor_view_handle, _editor_text_handle
         if self.finished: return
         self.finished=True; _editor_sessions.pop(self.key, None)
-        try: self.window.cursor_modal_restore()
+        try: self.window.cursor_modal_restore(); self._redraw()
         except Exception: pass
         if not _editor_sessions:
             for handle in (_editor_view_handle, _editor_text_handle):
@@ -337,18 +358,72 @@ def _draw_editor():
         from gpu_extras.batch import batch_for_shader
         op = next(iter(_editor_sessions.values()), None)
         if op is None: return
-        lines=[]
-        for obj, path in ((op.source,op.a),(op.target,op.b)):
-            if obj and len(path)>1:
-                positions=op.cache[obj][0]
-                for a,b in zip(path,path[1:]): lines.extend((positions[a],positions[b]))
-        if op.stage == "PREVIEW":
-            sv,tv=op.cache[op.source][0],op.cache[op.target][0]
-            for a,b in path_mapping(sv,op.a,tv,op.b): lines.extend((sv[a],tv[b]))
-        if lines:
-            shader=gpu.shader.from_builtin("UNIFORM_COLOR"); batch=batch_for_shader(shader,"LINES",{"pos":lines})
-            shader.bind(); shader.uniform_float("color",(.1,.8,1,.9)); batch.draw(shader)
-    except Exception: pass
+        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set("LESS_EQUAL")
+
+        # Full original-mesh wireframe and vertex overlay, matching the
+        # Object Attachment authoring workflow.
+        for obj, color, alpha in ((op.source, (.05, .7, .95), .55),
+                                  (op.target, (.95, .42, .12), .65)):
+            if obj is None:
+                continue
+            positions, edges = op.cache[obj][0:2]
+            if edges:
+                batch = batch_for_shader(shader, "LINES", {"pos": positions},
+                                         indices=edges)
+                shader.bind(); shader.uniform_float("color", (*color, alpha))
+                batch.draw(shader)
+            if positions:
+                batch = batch_for_shader(shader, "POINTS", {"pos": positions})
+                shader.bind(); shader.uniform_float("color", (*color, .8))
+                gpu.state.point_size_set(4.0); batch.draw(shader)
+
+        side_a, side_b = op.preview_paths()
+        for obj, path, color in ((op.source, side_a, (.05, .9, 1.0)),
+                                 (op.target, side_b, (1.0, .5, .12))):
+            if obj is None or not path:
+                continue
+            positions = op.cache[obj][0]
+            points = [positions[index] for index in path]
+            batch = batch_for_shader(shader, "POINTS", {"pos": points})
+            shader.bind(); shader.uniform_float("color", (*color, 1.0))
+            gpu.state.point_size_set(8.0); batch.draw(shader)
+            if len(points) > 1:
+                indices = tuple((index, index + 1)
+                                for index in range(len(points) - 1))
+                batch = batch_for_shader(shader, "LINES", {"pos": points},
+                                         indices=indices)
+                gpu.state.line_width_set(3.0); batch.draw(shader)
+
+        active = op.source if op.stage.startswith("A") else op.target
+        if active is not None and op.hover is not None:
+            point = op.cache[active][0][op.hover]
+            batch = batch_for_shader(shader, "POINTS", {"pos": (point,)})
+            shader.bind(); shader.uniform_float("color", (1.0, 1.0, .25, 1.0))
+            gpu.state.point_size_set(11.0); batch.draw(shader)
+
+        # Display correspondence while Side B is still being previewed.
+        if op.target is not None and len(side_a) > 1 and len(side_b) > 1:
+            source_positions = op.cache[op.source][0]
+            target_positions = op.cache[op.target][0]
+            connections = []
+            for source, target in path_mapping(
+                    source_positions, side_a, target_positions, side_b,
+                    flipped=False):
+                connections.extend((source_positions[source],
+                                    target_positions[target]))
+            batch = batch_for_shader(shader, "LINES", {"pos": connections})
+            shader.bind(); shader.uniform_float("color", (.35, .95, .55, .9))
+            gpu.state.line_width_set(2.0); batch.draw(shader)
+    except Exception:
+        pass
+    finally:
+        try:
+            gpu.state.point_size_set(1.0); gpu.state.line_width_set(1.0)
+            gpu.state.depth_test_set("NONE"); gpu.state.blend_set("NONE")
+        except Exception:
+            pass
 
 
 def _draw_editor_text():
