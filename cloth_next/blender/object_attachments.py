@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-import uuid
 import hashlib
+import time
+import uuid
 
 import bpy
 
@@ -12,7 +13,9 @@ from .. import export_identity
 from ..attachments import (AttachmentError, AttachmentPoint, DEFAULT_STIFFNESS,
                            ObjectAttachment, SUPPORTED_ROLES, VertexSearch,
                            closest_surface_point, topology_fingerprint,
-                           validate_attachment)
+                           spatial_vertex_mapping, validate_attachment)
+from ..bake.controller import shared_controller
+from . import validation_state
 
 try:
     import bmesh
@@ -29,6 +32,10 @@ class CLOTHNEXT_PG_attachment_point(bpy.types.PropertyGroup):
     target_point: bpy.props.FloatVectorProperty(size=3)
 
 
+class CLOTHNEXT_PG_attachment_vertex(bpy.types.PropertyGroup):
+    index: bpy.props.IntProperty(default=0, min=0)
+
+
 def _eligible_object(_self, obj):
     settings = getattr(obj, "cloth_next", None)
     return bool(obj and getattr(obj, "type", "") == "MESH" and settings
@@ -36,18 +43,25 @@ def _eligible_object(_self, obj):
 
 
 def _group_changed(item, context):
+    validation_state.mark_all_settings_dirty()
     if not item.use_vertex_groups:
         return
     item.needs_rebuild = True
     item.status_message = "Selection changed. Bind vertex groups to update the attachment."
 
 
+def _settings_changed(_item, _context):
+    validation_state.mark_all_settings_dirty()
+
+
 class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     identifier: bpy.props.StringProperty(default="")
     name: bpy.props.StringProperty(default="Object Attachment")
-    enabled: bpy.props.BoolProperty(default=True)
+    enabled: bpy.props.BoolProperty(
+        default=True, update=_settings_changed)
     stiffness: bpy.props.FloatProperty(
-        name="Stiffness", default=DEFAULT_STIFFNESS, min=0.0)
+        name="Strength", default=DEFAULT_STIFFNESS, min=0.0,
+        update=_settings_changed)
     source_persistent_id: bpy.props.StringProperty(default="")
     target_persistent_id: bpy.props.StringProperty(default="")
     source_name: bpy.props.StringProperty(default="")
@@ -60,6 +74,8 @@ class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     status_message: bpy.props.StringProperty(default="")
     show_overlay: bpy.props.BoolProperty(default=True)
     points: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_point)
+    source_vertices: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_vertex)
+    target_vertices: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_vertex)
     use_vertex_groups: bpy.props.BoolProperty(default=False)
     group_signature: bpy.props.StringProperty(default="")
     target_object: bpy.props.PointerProperty(
@@ -89,6 +105,75 @@ def _mesh_triangles(obj):
     triangles = tuple(tuple(int(index) for index in tri.vertices)
                       for tri in mesh.loop_triangles)
     return vertices, triangles
+
+
+def _selected_indices(item, side):
+    stored = tuple(int(row.index) for row in getattr(item, f"{side}_vertices", ()))
+    if stored:
+        return stored
+    if side == "source":
+        return tuple(sorted({int(point.source_index) for point in item.points}))
+    result = set()
+    for point in item.points:
+        weights = tuple(map(float, point.target_weights))
+        triangle = tuple(map(int, point.target_triangle))
+        result.add(triangle[max(range(3), key=lambda index: weights[index])])
+    return tuple(sorted(result))
+
+
+def _fill_indices(collection, indices):
+    collection.clear()
+    for index in sorted(set(map(int, indices))):
+        collection.add().index = index
+
+
+def _prepare_mapping(source, target, source_indices, target_indices):
+    source_vertices, source_triangles = _mesh_triangles(source)
+    target_vertices, target_triangles = _mesh_triangles(target)
+    incident = {}
+    for triangle in target_triangles:
+        for index in triangle:
+            incident.setdefault(index, triangle)
+    if any(index not in incident for index in target_indices):
+        raise AttachmentError("Selected target vertices must belong to a surface face")
+    mapping = spatial_vertex_mapping(
+        source_vertices, source_indices, target_vertices, target_indices)
+    prepared = []
+    for source_index, target_index in mapping:
+        triangle = incident[target_index]
+        weights = tuple(1.0 if index == target_index else 0.0
+                        for index in triangle)
+        prepared.append((source_index, triangle, weights,
+                         source_vertices[source_index], target_vertices[target_index]))
+    return source_vertices, source_triangles, target_vertices, target_triangles, prepared
+
+
+def _commit_attachment(scene, source, target, source_indices, target_indices):
+    export_identity.ensure_unique_persistent_ids(scene.objects)
+    source_vertices, source_triangles, target_vertices, target_triangles, prepared = (
+        _prepare_mapping(source, target, source_indices, target_indices))
+    item = scene.cloth_next_object_attachments.add()
+    item.identifier = uuid.uuid4().hex
+    item.name = f"{source.name} → {target.name}"
+    item.source_name, item.target_name = source.name, target.name
+    item.source_role, item.target_role = source.cloth_next.role, target.cloth_next.role
+    item.source_persistent_id = source.cloth_next.persistent_export_id
+    item.target_persistent_id = target.cloth_next.persistent_export_id
+    item.target_object = target
+    item.source_topology = topology_fingerprint(len(source_vertices), source_triangles)
+    item.target_topology = topology_fingerprint(len(target_vertices), target_triangles)
+    _fill_indices(item.source_vertices, source_indices)
+    _fill_indices(item.target_vertices, target_indices)
+    for source_index, triangle, weights, source_point, target_point in prepared:
+        point = item.points.add()
+        point.source_index, point.target_triangle = source_index, triangle
+        point.target_weights = weights
+        point.source_point, point.target_point = source_point, target_point
+    item.status_message = "Ready"
+    scene.cloth_next_object_attachment_index = len(scene.cloth_next_object_attachments) - 1
+    validation_state.mark_all_settings_dirty()
+    _ensure_draw_handler()
+    return item
 
 
 def _group_indices(obj, name, label):
@@ -142,6 +227,8 @@ def _rebuild_groups(item, scene):
     item.source_topology = topology_fingerprint(len(source_vertices), source_triangles)
     item.target_topology = topology_fingerprint(len(target_vertices), target_triangles)
     item.group_signature = _group_signature(source_indices, target_indices)
+    _fill_indices(item.source_vertices, source_indices)
+    _fill_indices(item.target_vertices, target_indices)
     item.points.clear()
     for index, triangle, weights, source_point, target_point in prepared:
         point = item.points.add()
@@ -260,6 +347,7 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
         item.target_role = str(target.cloth_next.role)
         item.source_persistent_id = str(source.cloth_next.persistent_export_id)
         item.target_persistent_id = str(target.cloth_next.persistent_export_id)
+        item.target_object = target
         source_vertices, source_triangles = _mesh_triangles(source)
         item.source_topology = topology_fingerprint(
             len(source_vertices), source_triangles)
@@ -275,6 +363,7 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
             point.target_weights = weights
             point.source_point = tuple(source_point)
             point.target_point = closest
+        _fill_indices(item.source_vertices, (vertex.index for vertex in selected))
         context.scene.cloth_next_object_attachment_index = (
             len(context.scene.cloth_next_object_attachments) - 1)
         _ensure_draw_handler()
@@ -282,11 +371,329 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
         return {"FINISHED"}
 
 
+_editor_sessions = {}
+_editor_view_handle = None
+_editor_text_handle = None
+
+
+def _editor_operator():
+    window = getattr(bpy.context, "window", None)
+    return _editor_sessions.get(window.as_pointer()) if window else None
+
+
+def _editor_draw_view():  # pragma: no cover - Blender GPU callback
+    operator = _editor_operator()
+    if operator is None:
+        return
+    try:
+        import gpu
+        from gpu_extras.batch import batch_for_shader
+        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set("LESS_EQUAL")
+        for obj, color, alpha in operator._wire_specs():
+            positions, edges = operator.mesh_cache[obj][0:2]
+            if edges:
+                batch = batch_for_shader(shader, "LINES", {"pos": positions}, indices=edges)
+                shader.bind(); shader.uniform_float("color", (*color, alpha)); batch.draw(shader)
+        for obj, indices, color in operator._point_specs():
+            positions = operator.mesh_cache.get(obj, ((),))[0]
+            points = [positions[index] for index in indices if 0 <= index < len(positions)]
+            if points:
+                batch = batch_for_shader(shader, "POINTS", {"pos": points})
+                shader.bind(); shader.uniform_float("color", (*color, 1.0))
+                gpu.state.point_size_set(8.0); batch.draw(shader)
+        lines = operator.preview_lines()
+        if lines:
+            batch = batch_for_shader(shader, "LINES", {"pos": lines})
+            shader.bind(); shader.uniform_float("color", (.35, .95, .55, .9))
+            gpu.state.line_width_set(2.0); batch.draw(shader)
+    finally:
+        try:
+            gpu.state.point_size_set(1.0); gpu.state.line_width_set(1.0)
+            gpu.state.depth_test_set("NONE"); gpu.state.blend_set("NONE")
+        except Exception:
+            pass
+
+
+def _editor_draw_text():  # pragma: no cover - Blender text callback
+    operator = _editor_operator()
+    if operator is None:
+        return
+    import blf
+    labels = {
+        "SOURCE_VERTEX_SELECT": ("SOURCE", "Select attachment vertices"),
+        "TARGET_OBJECT_SELECT": ("TARGET", "Click a Cloth NeXt target object"),
+        "TARGET_VERTEX_SELECT": ("TARGET VERTICES", "Select attachment vertices"),
+    }
+    title, instruction = labels.get(operator.stage, ("ATTACHMENT", ""))
+    blf.position(0, 28, 72, 0); blf.size(0, 18); blf.draw(0, title)
+    blf.position(0, 28, 50, 0); blf.size(0, 13); blf.draw(0, instruction)
+    blf.position(0, 28, 30, 0); blf.size(0, 12)
+    blf.draw(0, "LMB Select | Shift Add | B Box Select | Enter Continue | Esc Cancel")
+    if operator.feedback and time.monotonic() < operator.feedback_until:
+        blf.position(0, 28, 92, 0); blf.size(0, 13); blf.draw(0, operator.feedback)
+
+
+def _stop_editor_handlers():
+    global _editor_view_handle, _editor_text_handle
+    if _editor_sessions:
+        return
+    for name in ("_editor_view_handle", "_editor_text_handle"):
+        handle = globals()[name]
+        if handle is not None:
+            try:
+                bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
+            except Exception:
+                pass
+            globals()[name] = None
+
+
+class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
+    """Selection-independent, two-stage artist attachment editor."""
+    bl_idname = "clothnext.edit_attachment"
+    bl_label = "Add Attachment"
+    bl_description = "Select source and target vertices directly in the viewport"
+    bl_options = {"INTERNAL", "BLOCKING"}
+
+    @classmethod
+    def poll(cls, context):
+        return (getattr(context, "mode", "OBJECT") == "OBJECT"
+                and _eligible_object(None, context.object)
+                and not shared_controller.snapshot().active)
+
+    def invoke(self, context, event):
+        global _editor_view_handle, _editor_text_handle
+        if not self.poll(context) or context.window.as_pointer() in _editor_sessions:
+            return {"CANCELLED"}
+        self.window, self.screen, self.workspace = context.window, context.window.screen, context.window.workspace
+        self.scene, self.view_layer, self.source = context.scene, context.view_layer, context.object
+        self.target = None
+        self.stage = "SOURCE_VERTEX_SELECT"
+        self.source_selection, self.target_selection = set(), set()
+        self.hovered_vertex = None
+        self.feedback, self.feedback_until = "", 0.0
+        self.box_start = None
+        self.mesh_cache = {}
+        self.projection_cache = {}
+        self._finished = False
+        self.key = self.window.as_pointer()
+        _editor_sessions[self.key] = self
+        try:
+            self._cache_mesh(self.source)
+            if _editor_view_handle is None:
+                _editor_view_handle = bpy.types.SpaceView3D.draw_handler_add(
+                    _editor_draw_view, (), "WINDOW", "POST_VIEW")
+                _editor_text_handle = bpy.types.SpaceView3D.draw_handler_add(
+                    _editor_draw_text, (), "WINDOW", "POST_PIXEL")
+            context.window_manager.modal_handler_add(self)
+            self.window.cursor_modal_set("CROSSHAIR")
+        except Exception:
+            self.finish()
+            raise
+        self._redraw()
+        return {"RUNNING_MODAL"}
+
+    def _cache_mesh(self, obj):
+        positions = tuple(tuple(obj.matrix_world @ vertex.co) for vertex in obj.data.vertices)
+        edges = tuple(tuple(map(int, edge.vertices)) for edge in obj.data.edges)
+        self.mesh_cache[obj] = (positions, edges)
+
+    def _wire_specs(self):
+        result = [(self.source, (.05, .7, .95), .25 if self.target else .65)]
+        if self.target is not None:
+            result.append((self.target, (.95, .42, .12), .7))
+        return result
+
+    def _point_specs(self):
+        result = [(self.source, self.source_selection, (.05, .85, 1.0))]
+        if self.target is not None:
+            result.append((self.target, self.target_selection, (1.0, .45, .12)))
+        if self.hovered_vertex is not None:
+            obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
+            if obj is not None:
+                result.append((obj, (self.hovered_vertex,), (1.0, 1.0, .45)))
+        return result
+
+    def preview_lines(self):
+        if self.target is None or not self.source_selection or not self.target_selection:
+            return ()
+        source_positions = self.mesh_cache[self.source][0]
+        target_positions = self.mesh_cache[self.target][0]
+        try:
+            mapping = spatial_vertex_mapping(source_positions, self.source_selection,
+                                             target_positions, self.target_selection)
+        except AttachmentError:
+            return ()
+        return tuple(position for source, target in mapping
+                     for position in (source_positions[source], target_positions[target]))
+
+    def _alive(self):
+        try:
+            return (self.window in tuple(bpy.context.window_manager.windows)
+                    and self.window.screen == self.screen and self.window.workspace == self.workspace
+                    and self.window.scene == self.scene and self.window.view_layer == self.view_layer
+                    and self.source in tuple(self.scene.objects)
+                    and _eligible_object(None, self.source)
+                    and (self.target is None or self.target in tuple(self.scene.objects))
+                    and not shared_controller.snapshot().active)
+        except (ReferenceError, AttributeError):
+            return False
+
+    def _redraw(self):
+        from .linked_colliders import redraw
+        redraw(self.window)
+
+    def _feedback(self, message):
+        self.feedback, self.feedback_until = message, time.monotonic() + 1.8
+
+    def _viewport(self, context, event):
+        from .linked_colliders import viewport_at
+        area, region = viewport_at(self.window, event)
+        if area is None:
+            return None
+        return area, region, (event.mouse_x - region.x, event.mouse_y - region.y)
+
+    def _screen_vertices(self, context, area, region, obj):
+        from bpy_extras import view3d_utils
+        with context.temp_override(window=self.window, area=area, region=region):
+            rv3d = context.region_data
+            matrix = tuple(value for row in rv3d.view_matrix for value in row)
+            key = (obj, area.as_pointer(), region.as_pointer(), matrix,
+                   region.width, region.height)
+            projected = self.projection_cache.get(key)
+            if projected is None:
+                projected = tuple(view3d_utils.location_3d_to_region_2d(
+                    region, rv3d, position) for position in self.mesh_cache[obj][0])
+                self.projection_cache = {key: projected}
+            return projected
+
+    def _pick_vertex(self, context, event):
+        viewport = self._viewport(context, event)
+        obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
+        if viewport is None or obj is None:
+            return None
+        area, region, mouse = viewport
+        projected = self._screen_vertices(context, area, region, obj)
+        candidates = [((point.x-mouse[0])**2 + (point.y-mouse[1])**2, index)
+                      for index, point in enumerate(projected) if point is not None]
+        if not candidates:
+            return None
+        distance, index = min(candidates)
+        return index if distance <= 12.0 ** 2 else None
+
+    def _box_select(self, context, event):
+        viewport = self._viewport(context, event)
+        obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
+        if viewport is None or obj is None:
+            return
+        area, region, end = viewport
+        start = self.box_start
+        left, right = sorted((start[0], end[0])); bottom, top = sorted((start[1], end[1]))
+        selected = {index for index, point in enumerate(
+            self._screen_vertices(context, area, region, obj))
+            if point is not None and left <= point.x <= right and bottom <= point.y <= top}
+        destination = self.source_selection if obj is self.source else self.target_selection
+        if not event.shift:
+            destination.clear()
+        destination.update(selected)
+
+    def modal(self, context, event):
+        if _editor_sessions.get(getattr(self, "key", None)) is not self:
+            return {"CANCELLED"}
+        if not self._alive() or event.type == "WINDOW_DEACTIVATE" or (
+                event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS"):
+            self.finish(); return {"CANCELLED"}
+        if event.type in {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"} or event.type.startswith("NUMPAD"):
+            self.projection_cache.clear()
+            return {"PASS_THROUGH"}
+        if event.type == "B" and event.value == "PRESS" and self.stage != "TARGET_OBJECT_SELECT":
+            viewport = self._viewport(context, event)
+            if viewport is not None:
+                self.box_start = viewport[2]
+            return {"RUNNING_MODAL"}
+        if self.box_start is not None and event.type == "LEFTMOUSE" and event.value == "RELEASE":
+            self._box_select(context, event); self.box_start = None; self._redraw()
+            return {"RUNNING_MODAL"}
+        if self.box_start is not None and event.type == "LEFTMOUSE":
+            return {"RUNNING_MODAL"}
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
+            if self.stage != "TARGET_OBJECT_SELECT":
+                self.hovered_vertex = self._pick_vertex(context, event)
+            self._redraw(); return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+            if self.stage == "TARGET_OBJECT_SELECT":
+                viewport = self._viewport(context, event)
+                target = None
+                if viewport is not None:
+                    area, region, _ = viewport
+                    from .linked_colliders import object_at
+                    with context.temp_override(window=self.window, area=area, region=region):
+                        target = object_at(context, event, region)
+                if target is self.source or not _eligible_object(None, target):
+                    self._feedback("Choose another enabled Cloth or Soft Body mesh")
+                else:
+                    self.target = target; self._cache_mesh(target)
+                    self.stage = "TARGET_VERTEX_SELECT"; self.hovered_vertex = None
+                self._redraw(); return {"RUNNING_MODAL"}
+            index = self._pick_vertex(context, event)
+            if index is not None:
+                selection = self.source_selection if self.stage == "SOURCE_VERTEX_SELECT" else self.target_selection
+                if not event.shift:
+                    selection.clear()
+                if event.shift and index in selection:
+                    selection.remove(index)
+                else:
+                    selection.add(index)
+                self._redraw()
+            return {"RUNNING_MODAL"}
+        if event.type in {"RET", "NUMPAD_ENTER"} and event.value == "PRESS":
+            if self.stage == "SOURCE_VERTEX_SELECT":
+                if not self.source_selection:
+                    self._feedback("Select at least one source vertex")
+                else:
+                    self.stage = "TARGET_OBJECT_SELECT"; self.hovered_vertex = None
+            elif self.stage == "TARGET_VERTEX_SELECT":
+                if not self.target_selection:
+                    self._feedback("Select at least one target vertex")
+                else:
+                    try:
+                        item = _commit_attachment(self.scene, self.source, self.target,
+                                                  self.source_selection, self.target_selection)
+                    except AttachmentError as exc:
+                        self._feedback(str(exc)); return {"RUNNING_MODAL"}
+                    count = len(item.points); self.finish()
+                    self.report({"INFO"}, f"Created attachment with {count} connections")
+                    return {"FINISHED"}
+            self._redraw(); return {"RUNNING_MODAL"}
+        return {"RUNNING_MODAL"}
+
+    def finish(self):
+        if getattr(self, "_finished", False):
+            return
+        self._finished = True
+        if _editor_sessions.get(getattr(self, "key", None)) is self:
+            del _editor_sessions[self.key]
+        self.mesh_cache = {}; self.projection_cache = {}; self.source = self.target = None
+        try:
+            self.window.cursor_modal_restore(); self._redraw()
+        except (ReferenceError, AttributeError):
+            pass
+        _stop_editor_handlers()
+
+    def cancel(self, context):
+        self.finish()
+
+
 class CLOTHNEXT_OT_remove_object_attachment(bpy.types.Operator):
     bl_idname = "clothnext.remove_object_attachment"
     bl_label = "Remove Object Attachment"
     bl_options = {"UNDO"}
     index: bpy.props.IntProperty(default=-1, options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        return not shared_controller.snapshot().active
 
     def execute(self, context):
         items = context.scene.cloth_next_object_attachments
@@ -296,6 +703,7 @@ class CLOTHNEXT_OT_remove_object_attachment(bpy.types.Operator):
             items.remove(index)
             context.scene.cloth_next_object_attachment_index = max(
                 0, min(index, len(items) - 1))
+            validation_state.mark_all_settings_dirty()
         return {"FINISHED"}
 
 
@@ -433,12 +841,34 @@ def _ensure_draw_handler():
             _draw_overlay, (), "WINDOW", "POST_VIEW")
 
 
+def _cancel_editor_sessions(*_args):
+    for operator in tuple(_editor_sessions.values()):
+        operator.finish()
+
+
+_persistent = getattr(getattr(bpy.app, "handlers", None), "persistent", lambda fn: fn)
+_cancel_editor_sessions = _persistent(_cancel_editor_sessions)
+
+
 def register():
     _ensure_draw_handler()
+    handlers = getattr(bpy.app, "handlers", None)
+    if handlers is not None:
+        for name in ("load_pre", "undo_pre"):
+            rows = getattr(handlers, name, None)
+            if rows is not None and _cancel_editor_sessions not in rows:
+                rows.append(_cancel_editor_sessions)
 
 
 def unregister():
     global _draw_handle
+    _cancel_editor_sessions()
+    handlers = getattr(bpy.app, "handlers", None)
+    if handlers is not None:
+        for name in ("load_pre", "undo_pre"):
+            rows = getattr(handlers, name, None)
+            if rows is not None and _cancel_editor_sessions in rows:
+                rows.remove(_cancel_editor_sessions)
     if _draw_handle is not None:
         try:
             bpy.types.SpaceView3D.draw_handler_remove(_draw_handle, "WINDOW")
@@ -448,8 +878,10 @@ def unregister():
 
 
 CLASSES = (CLOTHNEXT_PG_attachment_point,
+           CLOTHNEXT_PG_attachment_vertex,
            CLOTHNEXT_PG_object_attachment,
            CLOTHNEXT_OT_add_group_attachment,
            CLOTHNEXT_OT_bind_group_attachment,
            CLOTHNEXT_OT_create_object_attachment,
+           CLOTHNEXT_OT_edit_attachment,
            CLOTHNEXT_OT_remove_object_attachment)

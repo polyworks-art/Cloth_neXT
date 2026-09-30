@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from cloth_next.attachments import (
     AttachmentError, AttachmentPoint, ObjectAttachment,
     closest_point_on_triangle, closest_surface_point,
-    topology_fingerprint, wire_entry,
+    spatial_vertex_mapping, topology_fingerprint, wire_entry,
 )
 from cloth_next.ppf.adapters import ADAPTERS
 from cloth_next.materials import ShellMaterialSettings
@@ -15,6 +15,39 @@ from cloth_next.ppf.schema.params import (
     SimulationSettings, build_multi_deformable_param_payload,
     encode_multi_deformable_param)
 from cloth_next.ppf.schema import envelope
+
+
+def test_spatial_mapping_single_and_empty_selection():
+    vertices = ((0, 0, 0),)
+    assert spatial_vertex_mapping(vertices, (0,), vertices, (0,)) == ((0, 0),)
+    with pytest.raises(AttachmentError, match="Source vertex selection is empty"):
+        spatial_vertex_mapping(vertices, (), vertices, (0,))
+    with pytest.raises(AttachmentError, match="Target vertex selection is empty"):
+        spatial_vertex_mapping(vertices, (0,), vertices, ())
+
+
+def test_spatial_mapping_is_deterministic_and_click_order_independent():
+    source = ((0, 0, 0), (10, 0, 0), (5, 0, 0))
+    target = ((10.1, 0, 0), (.1, 0, 0), (5.1, 0, 0))
+    expected = ((0, 1), (1, 0), (2, 2))
+    assert spatial_vertex_mapping(source, (2, 0, 1), target, (2, 1, 0)) == expected
+    assert spatial_vertex_mapping(source, (1, 2, 0), target, (0, 2, 1)) == expected
+
+
+def test_spatial_mapping_unequal_counts_reuses_only_when_required():
+    source = ((0, 0, 0), (2, 0, 0), (9, 0, 0))
+    target = ((0, 0, 0), (10, 0, 0))
+    mapping = spatial_vertex_mapping(source, (0, 1, 2), target, (0, 1))
+    assert len(mapping) == 3
+    assert len({source_index for source_index, _ in mapping}) == 3
+    assert {target_index for _, target_index in mapping} == {0, 1}
+
+
+def test_spatial_mapping_uses_supplied_world_space_positions():
+    source_world = ((100, 0, 0), (110, 0, 0))
+    target_world = ((109, 0, 0), (101, 0, 0))
+    assert spatial_vertex_mapping(source_world, (0, 1), target_world, (0, 1)) == (
+        (0, 1), (1, 0))
 
 
 def _attachment(source_role="CLOTH", target_role="SOFT_BODY"):

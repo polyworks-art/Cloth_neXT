@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.0
+# Cloth NeXt 2.9.1
 
-Cloth NeXt 2.9.0 makes Object Attachments direct and predictable. Add an attachment in Object Mode, choose the target object, select Vertex Group 1 on the source and Vertex Group 2 on the target, then bind the relationship explicitly.
+Cloth NeXt 2.9.1 turns Object Attachments into a dedicated artist-facing viewport workflow. Click Add Attachment, select source vertices directly on a wireframe overlay, choose another Cloth or Soft Body object, and select its target vertices. Live GPU connection lines preview the result before anything is committed.
 
-Bound vertex pairs remain stable during animation and at bake time. Group edits, renamed groups, deleted targets, role changes, and topology changes stop with an actionable rebuild message instead of silently changing the connection. A spatial search keeps binding responsive for large vertex groups.
+Mappings are deterministic, based on world-space proximity, and remain useful when source and target counts differ. The source owns the editable Attachment and solver-backed Strength; the target shows only a read-only reference. Rename-safe object pointers, topology fingerprints, active-bake locks, and complete modal cleanup keep the relationship predictable through normal production changes.
 
-Attachments support Cloth and Soft Body in every source and target combination, persist through save and reload, and bake through the normal multi-object solver path.
+Existing vertex-group Attachments remain compatible and continue to bake through the established multi-object solver path.
 
 The external PPF Contact Solver is not bundled.

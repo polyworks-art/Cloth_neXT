@@ -2481,22 +2481,20 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
         layout = self.layout
         scene = context.scene
         layout.use_property_split = False
-        header = layout.row(align=True)
-        columns = header.row(align=True)
-        columns.label(text="Target Object")
-        columns.label(text="Vertex Group 1")
-        columns.label(text="Vertex Group 2")
-        header.operator(object_attachments.CLOTHNEXT_OT_add_group_attachment.bl_idname,
-                        text="", icon="ADD")
         source_id = str(context.object.cloth_next.persistent_export_id)
-        shown = False
+        owned = []
+        referenced = []
         for index, item in enumerate(scene.cloth_next_object_attachments):
-            if source_id not in {str(item.source_persistent_id),
-                                 str(item.target_persistent_id)}:
-                continue
-            shown = True
+            if source_id == str(item.source_persistent_id):
+                owned.append((index, item))
+            elif source_id == str(item.target_persistent_id):
+                referenced.append(item)
+
+        controls = layout.column()
+        controls.enabled = not shared_controller.snapshot().active
+        for index, item in owned:
             if item.use_vertex_groups:
-                box = layout.box()
+                box = controls.box()
                 row = box.row(align=True)
                 source = object_attachments._objects_by_identity(scene).get(
                     str(item.source_persistent_id))
@@ -2528,7 +2526,7 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                 else:
                     status.label(text=f"{len(item.points)} attachment points")
                 continue
-            box = layout.box()
+            box = controls.box()
             header = box.row(align=True)
             header.prop(item, "enabled", text="")
             header.prop(item, "name", text="")
@@ -2537,14 +2535,30 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                 object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
                 text="", icon="REMOVE")
             remove.index = index
-            box.prop(item, "stiffness")
-            box.label(text=f"{len(item.points)} attachment points")
+            target = getattr(item, "target_object", None)
+            box.label(text=f"Target        {target.name if target else item.target_name or 'Missing'}")
+            source_count = len(object_attachments._selected_indices(item, "source"))
+            target_count = len(object_attachments._selected_indices(item, "target"))
+            box.label(text=f"Vertices      {source_count} ↔ {target_count}")
+            box.prop(item, "stiffness", text="Strength", slider=True)
+            box.prop(item, "show_overlay", text="Show Overlay")
             if item.needs_rebuild:
                 box.label(text=item.status_message or "Needs Rebuild",
                           icon="ERROR")
-        if not shown:
-            layout.label(text="Add a target object attachment with +.",
-                         icon="INFO")
+        controls.operator(object_attachments.CLOTHNEXT_OT_edit_attachment.bl_idname,
+                          text="Add Attachment", icon="ADD")
+        if not owned:
+            layout.label(text="No source-owned attachments", icon="INFO")
+        if referenced:
+            layout.separator()
+            layout.label(text="Referenced by:")
+            objects = object_attachments._objects_by_identity(scene)
+            for item in referenced:
+                source = objects.get(str(item.source_persistent_id))
+                row = layout.row()
+                row.enabled = False
+                row.label(text=f"{source.name if source else item.source_name or 'Missing'} → {context.object.name}",
+                          icon="LINKED")
 
 
 class CLOTHNEXT_PT_maintenance(_ClothNextSubpanel, bpy.types.Panel):

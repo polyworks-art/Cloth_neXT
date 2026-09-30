@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.1",
+  "title": "What's New in Cloth NeXt 2.9.1",
+  "subtitle": "Create Attachments directly in the viewport.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Viewport Attachment editor",
+      "description": "Select source vertices, pick a target object, and select target vertices without entering Edit Mode or managing vertex groups."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Live spatial mapping",
+      "description": "GPU overlay lines preview deterministic world-space connections before the Attachment is created."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Clear ownership",
+      "description": "Edit Strength and delete from the source object while targets display a rename-safe read-only reference."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

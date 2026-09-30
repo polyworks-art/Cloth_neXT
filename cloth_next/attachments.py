@@ -137,6 +137,55 @@ class VertexSearch:
         return best[1]
 
 
+def spatial_vertex_mapping(source_vertices, source_indices,
+                           target_vertices, target_indices):
+    """Map selected source vertices to selected targets in world space.
+
+    A deterministic global greedy pass avoids click-order dependence and uses
+    each target at most once while targets remain.  If there are more source
+    vertices than targets, the remaining sources reuse their nearest target;
+    this matches the solver's one-constraint-per-source representation.
+    """
+    sources = sorted({int(index) for index in source_indices}, key=lambda index: (
+        tuple(map(float, source_vertices[index])), index))
+    targets = sorted({int(index) for index in target_indices}, key=lambda index: (
+        tuple(map(float, target_vertices[index])), index))
+    if not sources:
+        raise AttachmentError("Source vertex selection is empty")
+    if not targets:
+        raise AttachmentError("Target vertex selection is empty")
+
+    def distance(source, target):
+        return sum((float(a) - float(b)) ** 2 for a, b in zip(
+            source_vertices[source], target_vertices[target]))
+
+    available_sources, available_targets, result = set(sources), set(targets), []
+    if max(len(sources), len(targets)) <= 256:
+        # Better global choices for the small boundary selections artists
+        # normally make.  The cap prevents cubic behaviour on dense meshes.
+        while available_sources and available_targets:
+            _, source, target = min(
+                (distance(source, target), source, target)
+                for source in available_sources for target in available_targets)
+            result.append((source, target))
+            available_sources.remove(source)
+            available_targets.remove(target)
+    else:
+        # Deterministic O(source*target) bounded-memory fallback.
+        for source in sources:
+            if not available_targets:
+                break
+            target = min(available_targets,
+                         key=lambda index: (distance(source, index), index))
+            result.append((source, target))
+            available_sources.remove(source)
+            available_targets.remove(target)
+    for source in sorted(available_sources):
+        target = min(targets, key=lambda index: (distance(source, index), index))
+        result.append((source, target))
+    return tuple(sorted(result))
+
+
 def topology_fingerprint(vertex_count: int, triangles) -> str:
     canonical = {
         "version": 1,

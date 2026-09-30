@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.1 - 2026-09-30
+
+- Replace technical vertex-group setup with a dedicated three-stage viewport Attachment editor for source vertices, target picking, and target vertices.
+- Preview deterministic world-space vertex mappings with cached GPU wireframes, selection points, and connection lines without creating scene geometry.
+- Keep each Attachment authoritative on its source object while presenting read-only references on targets, including rename-safe object links and topology validation.
+- Expose the solver-backed stitch stiffness as Strength, preserve legacy attachments, and cleanly cancel modal sessions across undo, reload, workspace changes, and add-on shutdown.
+
 ## 2.9.0 - 2026-09-29
 
 - Replace selection-based Object Attachments with a compact target and two-vertex-group workflow in Object Mode.
