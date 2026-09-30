@@ -15,7 +15,7 @@ from cloth_next.veyra.model import CompanionMode, VeyraStep
 from companion.app import BakeWindow
 
 parser=argparse.ArgumentParser(); parser.add_argument(
-    "--mode",choices=("bake","veyra","splash","welcome","whats-new"),default="bake")
+    "--mode",choices=("bake","error","veyra","splash","welcome","whats-new"),default="bake")
 args=parser.parse_args()
 if args.mode in {"splash","welcome","whats-new"}:
     from companion.onboarding_window import InfoWindow, load_content
@@ -37,7 +37,16 @@ snapshot=(BakeSnapshot(state=BakeState.STARTING_RUN,job_kind=BakeJobKind.VEYRA,
     status_title="Simulating cloth",status_message="Simulating frame 7 of 240",
     activity_code=BakeActivity.SOLVING_CONSTRAINTS,
     elapsed_seconds=2,estimated_remaining_seconds=66,can_cancel=True))
-if args.mode in {"bake","veyra"}: window.show(snapshot)
+if args.mode=="error":
+    snapshot=BakeSnapshot(state=BakeState.ERROR,error_code="CNX-E100",
+        status_title="Error",error_summary=(
+            "The previous Cloth NeXt cache path could not be authenticated. Rebake was not started."),
+        error_details=("Stage: Bake workflow startup\n"
+            "What to do: Check the previous cache reference before rebaking. "
+            "Keep the previous result until the new Bake succeeds; do not remove unrelated files."))
+if args.mode in {"bake","error","veyra"}:
+    window.show(snapshot)
+    if args.mode=="error" and not window._details_visible:window._toggle_details()
 window.root.update_idletasks(); window.root.update(); window.root.lift(); window.root.attributes("-topmost",True)
 for _ in range(6):
     window.root.update_idletasks(); window.root.update(); time.sleep(.2)

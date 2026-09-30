@@ -72,6 +72,23 @@ def has_simulation_modifier_marker(obj, modifier) -> bool:
     stored_name = str(_property(obj, OBJECT_SIMULATION_NAME_KEY, "") or "")
     return bool(stored_name and stored_name == str(getattr(modifier, "name", "")))
 
+def is_unbaked_simulation_modifier(obj, modifier) -> bool:
+    """Recognize the pass-through boundary before it has any playback cache.
+
+    Blender can persist an unset FILE_PATH as a relative directory (//..\\).
+    This is not a previous bake. Never treat an ownership-marked or recorded
+    playback file as a placeholder, even if its path is invalid or missing.
+    """
+    if not has_simulation_modifier_marker(obj, modifier):
+        return False
+    if (_property(obj, "cloth_next_cache_path", "")
+            or _property(obj, OBJECT_OWNERSHIP_KEY, "")
+            or _property(modifier, "cloth_next_owner", "")):
+        return False
+    value = str(getattr(modifier, "filepath", "") or "").strip()
+    return not value or value.endswith(("/", "\\"))
+
+
 def simulation_modifiers(obj) -> tuple:
     return tuple(modifier for modifier in getattr(obj, "modifiers", ())
                  if has_simulation_modifier_marker(obj, modifier))

@@ -756,14 +756,18 @@ class BakeWindow:
         self.details_panel.grid(row=1,column=0,sticky="nsew",pady=(5,0))
         self.details_panel.grid_remove()
         self.diagnostics_section=tk.Frame(self.details_panel,bg=PANEL)
-        tk.Label(self.diagnostics_section,textvariable=self.primary,bg=PANEL,
-                 fg=TEXT,font=(UI_SEMIBOLD,9),anchor="w").pack(fill="x")
-        tk.Label(self.diagnostics_section,textvariable=self.secondary,bg=PANEL,fg=MUTED,
+        self.error_summary_label=tk.Label(self.diagnostics_section,textvariable=self.primary,bg=PANEL,
+                 fg=TEXT,font=(UI_SEMIBOLD,9),anchor="w",justify="left",wraplength=350)
+        self.error_summary_label.pack(fill="x")
+        self.error_detail_label=tk.Label(self.diagnostics_section,textvariable=self.secondary,bg=PANEL,fg=MUTED,
                  font=(UI_FONT,8),anchor="w",justify="left",
-                 wraplength=350).pack(fill="x",pady=(2,0))
-        tk.Label(self.diagnostics_section,textvariable=self.details_meta_text,bg=PANEL,
+                 wraplength=350)
+        self.error_detail_label.pack(fill="x",pady=(2,0))
+        self.error_meta_label=tk.Label(self.diagnostics_section,textvariable=self.details_meta_text,bg=PANEL,
                  fg=MUTED,font=(UI_FONT,8),anchor="w",justify="left",
-                 wraplength=350).pack(fill="x",pady=(3,0))
+                 wraplength=350)
+        self.error_meta_label.pack(fill="x",pady=(3,0))
+        self.diagnostics_section.bind("<Configure>",self._resize_diagnostics)
         self.error_docs_link=tk.Label(
             self.diagnostics_section,text="",bg=PANEL,fg=AMBER,
             activebackground=PANEL,activeforeground="#efbd69",
@@ -952,6 +956,15 @@ class BakeWindow:
                 self.solver_stat_vars[key].set(value)
                 label_widget.grid()
                 value_widget.grid()
+
+    def _resize_diagnostics(self,event):
+        """Wrap every diagnostic row to the actual available panel width."""
+        width=max(1,int(event.width))
+        for label in (self.error_summary_label,self.error_detail_label,self.error_meta_label):
+            if int(label.cget("wraplength")) != width:
+                label.configure(wraplength=width)
+        if self._details_visible:
+            self.root.after_idle(self._fit_window_to_content)
 
     def _fit_window_to_content(self):
         """Keep content from displacing the fixed bottom controls."""

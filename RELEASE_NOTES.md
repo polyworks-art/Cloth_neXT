@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.5
+# Cloth NeXt 2.9.6
 
-Cloth NeXt 2.9.5 fixes Sewing intersections caused by unequal path subdivisions. Instead of rounding multiple source vertices onto one target vertex, seams now match normalized rest-arc positions along target edges using the solver's existing barycentric stitch representation. This avoids collapsing adjacent seam vertices and applies to existing saved Sewing paths when rebaking. The editor and persistent overlay show the interpolated connections.
+Cloth NeXt 2.9.6 fixes a Bake-start failure caused by empty Cloth NeXt simulation modifiers. Blender can save their unset cache field as a relative directory; this is now recognized as an unbaked pass-through boundary rather than an old cache that needs authentication. Recorded playback caches still require ownership checks, and unrelated files remain protected.
 
-Valid solver-reported errors are no longer mislabeled as a lost solver connection. Runtime intersections identify the affected Blender frame and preserve available contact diagnostics. Actual network failures remain distinct.
+The Bake Companion now wraps error summaries, recommendations, and metadata to the actual available panel width. The details window adjusts its height to the wrapped content, preventing long summaries from running past the window edge.
 
-The reported Sewing scene completed the full bake range through frame 250 with collisions enabled and Strength 100. This verifies the mapping fix for that scene, not a guarantee against every possible geometry intersection. Blender export and regression tests cover unequal subdivisions and flipped paths.
+The affected saved scene passed cache preparation and simulated through frame 40. Regression tests cover empty boundaries, rejection of unauthenticated recorded caches, and diagnostic wrapping; the error layout was also inspected in the real Companion window. The Sewing mapping and solver-error fixes from 2.9.5 remain included.
 
 The external PPF Contact Solver is not modified or bundled. Update through Blender's native extension manager and rebake existing caches to use the fix.

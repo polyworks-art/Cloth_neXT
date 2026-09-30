@@ -155,6 +155,19 @@ def test_companion_is_centered_before_first_visible_frame():
         "self.root.deiconify()")
 
 
+def test_diagnostic_rows_wrap_to_the_actual_panel_width():
+    calls=[]
+    labels=[SimpleNamespace(cget=lambda key:350,configure=lambda **values:calls.append(values))
+            for _ in range(3)]
+    window=SimpleNamespace(error_summary_label=labels[0],error_detail_label=labels[1],
+        error_meta_label=labels[2],_details_visible=False)
+    app.BakeWindow._resize_diagnostics(window,SimpleNamespace(width=280))
+    assert calls == [{"wraplength":280}]*3
+    build=inspect.getsource(app.BakeWindow._build)
+    assert 'self.diagnostics_section.bind("<Configure>",self._resize_diagnostics)' in build
+    assert 'justify="left",wraplength=350' in build
+
+
 def test_details_height_uses_requested_content_height():
     source=inspect.getsource(app.BakeWindow._fit_window_to_content)
     assert "self.root.winfo_reqheight()" in source

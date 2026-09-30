@@ -152,6 +152,7 @@ from .playback_cache import (
     OBJECT_OWNERSHIP_KEY,
     has_cloth_next_playback_marker,
     has_simulation_modifier_marker,
+    is_unbaked_simulation_modifier,
     ensure_simulation_modifier,
     simulation_modifiers,
     is_cloth_next_playback_modifier,
@@ -6680,6 +6681,8 @@ def prepare_cache_for_new_run(plan: RunPlan) -> None:
                     "The previous Cable / Rope cache could not be replaced. "
                     "Rebake was not started.")
     for mod in owned:
+        if is_unbaked_simulation_modifier(obj, mod):
+            continue
         value = str(getattr(mod, "filepath", "") or "")
         if not value:
             continue

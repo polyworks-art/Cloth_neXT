@@ -1,0 +1,23 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.6",
+  "title": "What's New in Cloth NeXt 2.9.6",
+  "subtitle": "Reliable Bake startup and readable error messages.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Unbaked scenes can start",
+      "description": "Empty simulation modifiers saved with a directory reference no longer trigger the previous-cache authentication error. Recorded playback caches remain protected."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Errors stay inside the window",
+      "description": "Long error summaries, recommendations, and metadata wrap to the available panel width. The details window grows to fit the wrapped message."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

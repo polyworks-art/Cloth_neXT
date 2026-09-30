@@ -56,6 +56,7 @@ for obj in bpy.context.scene.objects:
             bpy.context.view_layer.objects.active = obj
 try:
     plan = solver_test.build_run_plan(bpy.context)
+    solver_test.prepare_cache_for_new_run(plan)
     report["params"] = envelope.loads_envelope(
         plan.scene.param_payload, envelope.KIND_PARAM, schema_version=2)
     frames = []

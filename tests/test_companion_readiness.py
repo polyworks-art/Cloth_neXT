@@ -255,6 +255,24 @@ def test_modal_lock_requires_matching_ready_token_and_release_is_idempotent(
     assert not lock.active()
 
 
+def test_unbaked_boundary_directory_is_not_treated_as_a_previous_cache(blender_env, tmp_path):
+    env=blender_env; env.registration.register(); module=env.solver_test
+    from cloth_next.blender.playback_cache import ensure_simulation_modifier
+    obj=env.bpy.types.Object(name="Cloth",type="MESH")
+    env.bpy.data.objects[obj.name]=obj
+    mod=ensure_simulation_modifier(obj)
+    mod.filepath="//..\\"
+    plan=SimpleNamespace(cloth_object_name="Cloth",pc2_path=tmp_path/"cn_test_cloth_new.pc2")
+    module.prepare_cache_for_new_run(plan)
+    assert mod in obj.modifiers
+    assert mod.filepath == "//..\\"
+    module.mark_owned_playback(obj,mod,mod.filepath)
+    with pytest.raises(module.SceneValidationError,match="could not be authenticated"):
+        module.prepare_cache_for_new_run(plan)
+    assert mod in obj.modifiers
+    env.registration.unregister()
+
+
 def test_cache_replacement_rejects_external_path_and_preserves_result(
         blender_env, tmp_path):
     env=blender_env; env.registration.register(); module=env.solver_test

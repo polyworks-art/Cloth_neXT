@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.6 - 2026-09-30
+
+- Allow Bake startup with unbaked Cloth NeXt simulation modifiers whose unset cache field was saved by Blender as a relative directory. Preserve authentication checks for recorded playback caches and unrelated files.
+- Wrap error summaries, recommendations, and metadata to the actual Companion panel width; grow the details window to fit wrapped content.
+- Add regression coverage for unbaked boundaries and protected playback paths, plus a real-window error-layout capture.
+
 ## 2.9.5 - 2026-09-30
 
 - Match Sewing paths by normalized rest-arc positions on target edges. Unequal subdivisions no longer collapse adjacent source vertices onto one target vertex and cause seam intersections.
