@@ -13,7 +13,8 @@ from .. import export_identity
 from ..attachments import (AttachmentError, AttachmentPoint, DEFAULT_STIFFNESS,
                            ObjectAttachment, SUPPORTED_ROLES, VertexSearch,
                            closest_surface_point, topology_fingerprint,
-                           spatial_vertex_mapping, validate_attachment)
+                           shortest_mesh_path, topology_vertex_mapping,
+                           validate_attachment)
 from ..bake.controller import shared_controller
 from . import validation_state
 
@@ -136,8 +137,11 @@ def _prepare_mapping(source, target, source_indices, target_indices):
             incident.setdefault(index, triangle)
     if any(index not in incident for index in target_indices):
         raise AttachmentError("Selected target vertices must belong to a surface face")
-    mapping = spatial_vertex_mapping(
-        source_vertices, source_indices, target_vertices, target_indices)
+    source_edges = tuple(tuple(map(int, edge.vertices)) for edge in source.data.edges)
+    target_edges = tuple(tuple(map(int, edge.vertices)) for edge in target.data.edges)
+    mapping = topology_vertex_mapping(
+        source_vertices, source_indices, source_edges,
+        target_vertices, target_indices, target_edges)
     prepared = []
     for source_index, target_index in mapping:
         triangle = incident[target_index]
@@ -430,7 +434,7 @@ def _editor_draw_text():  # pragma: no cover - Blender text callback
     blf.position(0, 28, 72, 0); blf.size(0, 18); blf.draw(0, title)
     blf.position(0, 28, 50, 0); blf.size(0, 13); blf.draw(0, instruction)
     blf.position(0, 28, 30, 0); blf.size(0, 12)
-    blf.draw(0, "LMB Select | Shift Add | B Box Select | Enter Continue | Esc Cancel")
+    blf.draw(0, "LMB Select | Shift Add | B Path Select | Enter Continue | Esc Cancel")
     if operator.feedback and time.monotonic() < operator.feedback_until:
         blf.position(0, 28, 92, 0); blf.size(0, 13); blf.draw(0, operator.feedback)
 
@@ -473,7 +477,9 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         self.source_selection, self.target_selection = set(), set()
         self.hovered_vertex = None
         self.feedback, self.feedback_until = "", 0.0
-        self.box_start = None
+        self.path_anchor = None
+        self.path_select = False
+        self.path_additive = False
         self.mesh_cache = {}
         self.projection_cache = {}
         self._finished = False
@@ -521,8 +527,9 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         source_positions = self.mesh_cache[self.source][0]
         target_positions = self.mesh_cache[self.target][0]
         try:
-            mapping = spatial_vertex_mapping(source_positions, self.source_selection,
-                                             target_positions, self.target_selection)
+            mapping = topology_vertex_mapping(
+                source_positions, self.source_selection, self.mesh_cache[self.source][1],
+                target_positions, self.target_selection, self.mesh_cache[self.target][1])
         except AttachmentError:
             return ()
         return tuple(position for source, target in mapping
@@ -582,22 +589,6 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         distance, index = min(candidates)
         return index if distance <= 12.0 ** 2 else None
 
-    def _box_select(self, context, event):
-        viewport = self._viewport(context, event)
-        obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
-        if viewport is None or obj is None:
-            return
-        area, region, end = viewport
-        start = self.box_start
-        left, right = sorted((start[0], end[0])); bottom, top = sorted((start[1], end[1]))
-        selected = {index for index, point in enumerate(
-            self._screen_vertices(context, area, region, obj))
-            if point is not None and left <= point.x <= right and bottom <= point.y <= top}
-        destination = self.source_selection if obj is self.source else self.target_selection
-        if not event.shift:
-            destination.clear()
-        destination.update(selected)
-
     def modal(self, context, event):
         if _editor_sessions.get(getattr(self, "key", None)) is not self:
             return {"CANCELLED"}
@@ -608,14 +599,9 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
             self.projection_cache.clear()
             return {"PASS_THROUGH"}
         if event.type == "B" and event.value == "PRESS" and self.stage != "TARGET_OBJECT_SELECT":
-            viewport = self._viewport(context, event)
-            if viewport is not None:
-                self.box_start = viewport[2]
-            return {"RUNNING_MODAL"}
-        if self.box_start is not None and event.type == "LEFTMOUSE" and event.value == "RELEASE":
-            self._box_select(context, event); self.box_start = None; self._redraw()
-            return {"RUNNING_MODAL"}
-        if self.box_start is not None and event.type == "LEFTMOUSE":
+            self.path_select, self.path_anchor = True, None
+            self.path_additive = bool(event.shift)
+            self._feedback("Path Select: click the start and end vertices")
             return {"RUNNING_MODAL"}
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             if self.stage != "TARGET_OBJECT_SELECT":
@@ -639,12 +625,32 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
             index = self._pick_vertex(context, event)
             if index is not None:
                 selection = self.source_selection if self.stage == "SOURCE_VERTEX_SELECT" else self.target_selection
-                if not event.shift:
-                    selection.clear()
-                if event.shift and index in selection:
-                    selection.remove(index)
+                if self.path_select:
+                    if self.path_anchor is None:
+                        self.path_anchor = index
+                        self.hovered_vertex = index
+                        self._feedback("Path Select: click the end vertex")
+                    else:
+                        obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
+                        try:
+                            path = shortest_mesh_path(
+                                self.mesh_cache[obj][0], self.mesh_cache[obj][1],
+                                self.path_anchor, index)
+                        except AttachmentError as exc:
+                            self._feedback(str(exc))
+                        else:
+                            if not self.path_additive and not event.shift:
+                                selection.clear()
+                            selection.update(path)
+                            self._feedback(f"Selected path with {len(path)} vertices")
+                        self.path_select, self.path_anchor = False, None
                 else:
-                    selection.add(index)
+                    if not event.shift:
+                        selection.clear()
+                    if event.shift and index in selection:
+                        selection.remove(index)
+                    else:
+                        selection.add(index)
                 self._redraw()
             return {"RUNNING_MODAL"}
         if event.type in {"RET", "NUMPAD_ENTER"} and event.value == "PRESS":

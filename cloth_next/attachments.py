@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import heapq
 import json
 import math
 
@@ -36,6 +37,12 @@ class ObjectAttachment:
     target_role: str
     stiffness: float
     points: tuple[AttachmentPoint, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SelectionTopology:
+    kind: str
+    paths: tuple[tuple[int, ...], ...] = ()
 
 
 def _add(a, b):
@@ -184,6 +191,169 @@ def spatial_vertex_mapping(source_vertices, source_indices,
         target = min(targets, key=lambda index: (distance(source, index), index))
         result.append((source, target))
     return tuple(sorted(result))
+
+
+def selected_topology(vertices, indices, edges) -> SelectionTopology:
+    """Classify and order components in the original selected-edge graph."""
+    selected = set(map(int, indices))
+    if not selected:
+        return SelectionTopology("EMPTY")
+    adjacency = {index: set() for index in selected}
+    for edge in edges:
+        a, b = map(int, edge)
+        if a in selected and b in selected:
+            adjacency[a].add(b)
+            adjacency[b].add(a)
+
+    def vertex_key(index):
+        return tuple(map(float, vertices[index])), index
+
+    components = []
+    unseen = set(selected)
+    while unseen:
+        seed = min(unseen, key=vertex_key)
+        component, stack = set(), [seed]
+        while stack:
+            current = stack.pop()
+            if current in component:
+                continue
+            component.add(current)
+            unseen.discard(current)
+            stack.extend(adjacency[current] - component)
+        components.append(component)
+    components.sort(key=lambda component: min(vertex_key(i) for i in component))
+
+    paths = []
+    for component in components:
+        if len(component) == 1:
+            paths.append((next(iter(component)),))
+            continue
+        degrees = {index: len(adjacency[index] & component) for index in component}
+        if all(degree == 2 for degree in degrees.values()):
+            return SelectionTopology("LOOP")
+        endpoints = [index for index, degree in degrees.items() if degree == 1]
+        if (len(endpoints) != 2
+                or any(degree not in {1, 2} for degree in degrees.values())):
+            return SelectionTopology("BRANCHED")
+        start = min(endpoints, key=vertex_key)
+        ordered, previous, current = [], None, start
+        while current is not None:
+            ordered.append(current)
+            candidates = (adjacency[current] & component) - ({previous} if previous is not None else set())
+            following = min(candidates, key=vertex_key) if candidates else None
+            previous, current = current, following
+        if len(ordered) != len(component):
+            return SelectionTopology("BRANCHED")
+        paths.append(tuple(ordered))
+    return SelectionTopology("PATHS", tuple(paths))
+
+
+def _normalized_arc(vertices, path):
+    if len(path) == 1:
+        return (0.0,)
+    lengths = [0.0]
+    for first, second in zip(path, path[1:]):
+        lengths.append(lengths[-1] + math.sqrt(sum(
+            (float(a) - float(b)) ** 2
+            for a, b in zip(vertices[first], vertices[second]))))
+    if lengths[-1] <= 1.0e-12:
+        return tuple(index / (len(path) - 1) for index in range(len(path)))
+    return tuple(value / lengths[-1] for value in lengths)
+
+
+def _ordered_path_mapping(source_vertices, source_path,
+                          target_vertices, target_path):
+    """Return the lower-cost whole-path orientation with monotone pairing."""
+    source_arc = _normalized_arc(source_vertices, source_path)
+
+    def candidate(oriented_target):
+        target_arc = _normalized_arc(target_vertices, oriented_target)
+        mapping = []
+        previous = 0
+        for source, parameter in zip(source_path, source_arc):
+            target_offset = min(
+                range(previous, len(oriented_target)),
+                key=lambda offset: (abs(parameter - target_arc[offset]), offset))
+            previous = target_offset
+            mapping.append((source, oriented_target[target_offset]))
+        cost = sum(sum((float(a) - float(b)) ** 2 for a, b in zip(
+            source_vertices[source], target_vertices[target]))
+                   for source, target in mapping)
+        return cost, tuple(mapping)
+
+    forward = candidate(tuple(target_path))
+    reverse = candidate(tuple(reversed(target_path)))
+    return min((forward, reverse), key=lambda row: (row[0], row[1]))[1]
+
+
+def topology_vertex_mapping(source_vertices, source_indices, source_edges,
+                            target_vertices, target_indices, target_edges):
+    """Use ordered original-mesh paths, isolated from the generic fallback."""
+    source_topology = selected_topology(
+        source_vertices, source_indices, source_edges)
+    target_topology = selected_topology(
+        target_vertices, target_indices, target_edges)
+    if source_topology.kind == "EMPTY":
+        raise AttachmentError("Source vertex selection is empty")
+    if target_topology.kind == "EMPTY":
+        raise AttachmentError("Target vertex selection is empty")
+    if "LOOP" in {source_topology.kind, target_topology.kind}:
+        raise AttachmentError(
+            "Closed-loop Attachment selections are not supported; select an open path")
+    if (source_topology.kind != "PATHS" or target_topology.kind != "PATHS"
+            or len(source_topology.paths) != len(target_topology.paths)):
+        return spatial_vertex_mapping(
+            source_vertices, source_indices, target_vertices, target_indices)
+
+    def centroid(vertices, path):
+        return tuple(sum(float(vertices[index][axis]) for index in path) / len(path)
+                     for axis in range(3))
+
+    source_centers = tuple(centroid(source_vertices, path)
+                           for path in source_topology.paths)
+    target_centers = tuple(centroid(target_vertices, path)
+                           for path in target_topology.paths)
+    component_mapping = spatial_vertex_mapping(
+        source_centers, range(len(source_centers)),
+        target_centers, range(len(target_centers)))
+    result = []
+    for source_component, target_component in component_mapping:
+        result.extend(_ordered_path_mapping(
+            source_vertices, source_topology.paths[source_component],
+            target_vertices, target_topology.paths[target_component]))
+    return tuple(sorted(result))
+
+
+def shortest_mesh_path(vertices, edges, start, end):
+    """Deterministic geometric shortest path over original mesh edges."""
+    start, end = int(start), int(end)
+    if start == end:
+        return (start,)
+    adjacency = {index: [] for index in range(len(vertices))}
+    for edge in edges:
+        a, b = map(int, edge)
+        distance = math.sqrt(sum((float(x) - float(y)) ** 2
+                                 for x, y in zip(vertices[a], vertices[b])))
+        adjacency[a].append((b, distance))
+        adjacency[b].append((a, distance))
+    distances = {start: 0.0}
+    routes = {start: (start,)}
+    queue = [(0.0, (start,), start)]
+    while queue:
+        distance, route, current = heapq.heappop(queue)
+        if (distance, route) != (distances.get(current), routes.get(current)):
+            continue
+        if current == end:
+            return route
+        for neighbor, edge_length in sorted(adjacency[current]):
+            candidate = distance + edge_length
+            candidate_route = route + (neighbor,)
+            if (candidate, candidate_route) < (
+                    distances.get(neighbor, math.inf), routes.get(neighbor, ())):
+                distances[neighbor] = candidate
+                routes[neighbor] = candidate_route
+                heapq.heappush(queue, (candidate, candidate_route, neighbor))
+    raise AttachmentError("Selected path endpoints are disconnected")
 
 
 def topology_fingerprint(vertex_count: int, triangles) -> str:

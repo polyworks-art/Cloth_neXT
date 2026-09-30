@@ -6,7 +6,8 @@ from types import SimpleNamespace
 from cloth_next.attachments import (
     AttachmentError, AttachmentPoint, ObjectAttachment,
     closest_point_on_triangle, closest_surface_point,
-    spatial_vertex_mapping, topology_fingerprint, wire_entry,
+    selected_topology, shortest_mesh_path, spatial_vertex_mapping,
+    topology_fingerprint, topology_vertex_mapping, wire_entry,
 )
 from cloth_next.ppf.adapters import ADAPTERS
 from cloth_next.materials import ShellMaterialSettings
@@ -48,6 +49,86 @@ def test_spatial_mapping_uses_supplied_world_space_positions():
     target_world = ((109, 0, 0), (101, 0, 0))
     assert spatial_vertex_mapping(source_world, (0, 1), target_world, (0, 1)) == (
         (0, 1), (1, 0))
+
+
+def test_ordered_parallel_paths_never_cross_with_random_target_indices():
+    source = tuple((float(index), 0.0, 0.0) for index in range(5))
+    source_edges = tuple((index, index + 1) for index in range(4))
+    # Spatial order is 3, 1, 4, 0, 2; index order is deliberately unrelated.
+    target = ((3.0, 1.0, 0.0), (1.0, 1.0, 0.0), (4.0, 1.0, 0.0),
+              (0.0, 1.0, 0.0), (2.0, 1.0, 0.0))
+    target_order = (3, 1, 4, 0, 2)
+    target_edges = tuple(zip(target_order, target_order[1:]))
+    mapping = topology_vertex_mapping(
+        source, (4, 1, 3, 0, 2), source_edges,
+        target, tuple(reversed(target_order)), target_edges)
+    assert mapping == ((0, 3), (1, 1), (2, 4), (3, 0), (4, 2))
+    ranks = {vertex: rank for rank, vertex in enumerate(target_order)}
+    mapped_ranks = [ranks[target_index] for _, target_index in mapping]
+    assert mapped_ranks == sorted(mapped_ranks)
+
+
+def test_ordered_paths_choose_one_complete_lower_cost_orientation():
+    source = tuple((float(index), 0.0, 0.0) for index in range(4))
+    target = tuple((float(3 - index), 1.0, 0.0) for index in range(4))
+    edges = ((0, 1), (1, 2), (2, 3))
+    mapping = topology_vertex_mapping(
+        source, (3, 2, 1, 0), edges, target, (0, 1, 2, 3), edges)
+    assert mapping == ((0, 3), (1, 2), (2, 1), (3, 0))
+
+
+def test_unequal_ordered_paths_are_monotone_by_normalized_arc_length():
+    source = ((0.0, 0, 0), (1.0, 0, 0), (2.0, 0, 0), (3.0, 0, 0))
+    target = tuple((index * .6, 1.0, 0.0) for index in range(6))
+    source_edges = ((0, 1), (1, 2), (2, 3))
+    target_edges = tuple((index, index + 1) for index in range(5))
+    mapping = topology_vertex_mapping(
+        source, range(4), source_edges, target, range(6), target_edges)
+    target_indices = [target_index for _, target_index in mapping]
+    assert target_indices == sorted(target_indices)
+    assert target_indices == [0, 2, 3, 5]
+
+
+def test_ordered_mapping_uses_transformed_world_positions_and_is_deterministic():
+    source = ((10.0, 0, 0), (11.0, 0, 0), (12.0, 0, 0))
+    target = ((12.0, 2, 0), (11.0, 2, 0), (10.0, 2, 0))
+    edges = ((0, 1), (1, 2))
+    first = topology_vertex_mapping(source, (2, 0, 1), edges,
+                                    target, (1, 2, 0), edges)
+    second = topology_vertex_mapping(source, (1, 2, 0), edges,
+                                     target, (0, 1, 2), edges)
+    assert first == second == ((0, 2), (1, 1), (2, 0))
+
+
+def test_disconnected_and_branched_selections_use_spatial_fallback():
+    vertices = ((0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0))
+    disconnected = topology_vertex_mapping(
+        vertices, range(4), ((0, 1), (2, 3)),
+        vertices, range(4), ((0, 1),))
+    assert disconnected == spatial_vertex_mapping(vertices, range(4), vertices, range(4))
+    branched_edges = ((0, 1), (0, 2), (0, 3))
+    branched = topology_vertex_mapping(
+        vertices, range(4), branched_edges,
+        vertices, range(4), branched_edges)
+    assert branched == spatial_vertex_mapping(vertices, range(4), vertices, range(4))
+
+
+def test_loop_selection_is_rejected_instead_of_randomly_broken():
+    vertices = ((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0))
+    loop = ((0, 1), (1, 2), (2, 3), (3, 0))
+    assert selected_topology(vertices, range(4), loop).kind == "LOOP"
+    with pytest.raises(AttachmentError, match="Closed-loop"):
+        topology_vertex_mapping(vertices, range(4), loop,
+                                vertices, range(4), loop)
+
+
+def test_path_select_uses_original_edges_and_deterministic_shortest_route():
+    vertices = ((0, 0, 0), (1, 0, 0), (2, 0, 0),
+                (0, 2, 0), (1, 2, 0), (2, 2, 0))
+    edges = ((0, 1), (1, 2), (0, 3), (3, 4), (4, 5), (5, 2))
+    assert shortest_mesh_path(vertices, edges, 0, 2) == (0, 1, 2)
+    with pytest.raises(AttachmentError, match="disconnected"):
+        shortest_mesh_path(vertices, ((0, 1),), 0, 5)
 
 
 def _attachment(source_role="CLOTH", target_role="SOFT_BODY"):
