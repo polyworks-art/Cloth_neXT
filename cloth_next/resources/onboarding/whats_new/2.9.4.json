@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.4",
+  "title": "What's New in Cloth NeXt 2.9.4",
+  "subtitle": "Consistent Sewing Strength for intra- and cross-object seams.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Strength per seam",
+      "description": "Intra-object seams now use their own Strength value, matching the cross-object workflow."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Firmer Sewing by default",
+      "description": "New seams start at Strength 100, calibrated for firm closure. Existing seam values are preserved; set them to 100 and rebake to use the new setting."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Shared dynamic stitch export",
+      "description": "Intra- and cross-object seams use the same solver representation, including single-object bakes. Strength 0 omits the seam."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

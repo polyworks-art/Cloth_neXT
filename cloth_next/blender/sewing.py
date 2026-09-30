@@ -12,7 +12,8 @@ from .. import export_identity
 from ..attachments import (AttachmentError, AttachmentPoint, ObjectAttachment,
                            topology_fingerprint, shortest_mesh_path)
 from ..bake.controller import shared_controller
-from ..sewing import SewingError, interaction_visible, path_mapping
+from ..sewing import (SewingError, interaction_visible, path_mapping,
+                      solver_stitch_stiffness)
 from . import validation_state
 
 
@@ -42,8 +43,10 @@ class CLOTHNEXT_PG_sewing_definition(bpy.types.PropertyGroup):
     source_topology: bpy.props.StringProperty(default="")
     target_topology: bpy.props.StringProperty(default="")
     flipped: bpy.props.BoolProperty(default=False)
-    strength: bpy.props.FloatProperty(name="Strength", default=100.0, min=0.0,
-                                      update=_settings_changed)
+    strength: bpy.props.FloatProperty(
+        name="Strength", default=100.0, min=0.0, soft_max=100.0,
+        description="Seam pull strength (100 is a firm production seam)",
+        update=_settings_changed)
     status_message: bpy.props.StringProperty(default="Ready")
     side_a: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_sewing_vertex)
     side_b: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_sewing_vertex)
@@ -124,11 +127,11 @@ def _commit(scene, source, target, side_a, side_b, flipped=False):
 
 
 def snapshot_enabled(scene, deformable_entries):
-    """Return explicit intra pairs and solver-compatible cross attachments."""
+    """Return dynamic stitch entries for intra- and cross-object Sewing."""
     objects = _objects(scene)
     entries = {str(row.obj.cloth_next.persistent_export_id): row
                for row in deformable_entries}
-    intra, cross = {}, []
+    stitches = []
     for item in getattr(scene, "cloth_next_sewing_definitions", ()):
         if not item.enabled:
             continue
@@ -156,32 +159,43 @@ def snapshot_enabled(scene, deformable_entries):
         pairs = tuple((int(row.source_index), int(row.target_index))
                       for row in item.mapping)
         if source is target:
-            intra.setdefault(str(item.source_persistent_id), []).extend(pairs)
-        else:
-            target.data.calc_loop_triangles()
-            incident = {}
-            for tri in target.data.loop_triangles:
-                triangle = tuple(map(int, tri.vertices))
-                for index in triangle:
-                    incident.setdefault(index, triangle)
-            points = []
-            for source_index, target_index in pairs:
-                triangle = incident.get(target_index)
-                if triangle is None:
-                    raise SewingError(f"{item.name}: target path is not on a surface")
-                weights = tuple(1.0 if i == target_index else 0.0 for i in triangle)
-                points.append(AttachmentPoint(
-                    source_index, triangle, weights,
-                    tuple(source.matrix_world @ source.data.vertices[source_index].co),
-                    tuple(target.matrix_world @ target.data.vertices[target_index].co)))
-            attachment = ObjectAttachment(
-                item.identifier, item.name, export_identity.export_uuid(source),
-                export_identity.export_uuid(target), "CLOTH", "CLOTH",
-                float(item.strength), tuple(points))
-            cross.append((attachment, len(source_entry.boundary_vertices),
-                          len(target_entry.boundary_vertices)))
+            pairs = tuple((a, b) for a, b in pairs if a != b)
+        if not pairs:
+            raise SewingError(f"{item.name}: the seam has no distinct vertex pairs")
+        stiffness = solver_stitch_stiffness(item.strength)
+        if stiffness == 0.0:
+            item.status_message = "Inactive (Strength 0)"
+            continue
+        # Use Gaia's explicit six-slot stitch representation for both intra-
+        # and cross-object definitions. The old intra path silently discarded
+        # the definition's Strength and reused the object's legacy loose-edge
+        # stiffness. Both endpoints below remain live simulated vertices;
+        # source_points/target_points are diagnostics, not world-space pins.
+        target.data.calc_loop_triangles()
+        incident = {}
+        for tri in target.data.loop_triangles:
+            triangle = tuple(map(int, tri.vertices))
+            for index in triangle:
+                incident.setdefault(index, triangle)
+        points = []
+        for source_index, target_index in pairs:
+            triangle = incident.get(target_index)
+            if triangle is None:
+                raise SewingError(f"{item.name}: target path is not on a surface")
+            weights = tuple(1.0 if i == target_index else 0.0 for i in triangle)
+            points.append(AttachmentPoint(
+                source_index, triangle, weights,
+                tuple(source.matrix_world @ source.data.vertices[source_index].co),
+                tuple(target.matrix_world @ target.data.vertices[target_index].co)))
+        attachment = ObjectAttachment(
+            item.identifier, item.name, export_identity.export_uuid(source),
+            export_identity.export_uuid(target), "CLOTH", "CLOTH",
+            stiffness, tuple(points),
+            allow_same_object=True)
+        stitches.append((attachment, len(source_entry.boundary_vertices),
+                         len(target_entry.boundary_vertices)))
         item.status_message = "Ready"
-    return ({key: tuple(value) for key, value in intra.items()}, tuple(cross))
+    return ({}, tuple(stitches))
 
 
 class CLOTHNEXT_OT_remove_sewing(bpy.types.Operator):

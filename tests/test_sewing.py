@@ -4,7 +4,8 @@ import pytest
 
 from cloth_next.attachments import shortest_mesh_path
 from cloth_next.sewing import (SewingError, interaction_visible,
-                               merge_stitch_pairs, path_mapping)
+                               merge_stitch_pairs, path_mapping,
+                               solver_stitch_stiffness)
 
 
 def test_sewing_path_mapping_preserves_or_flips_artist_direction():
@@ -42,3 +43,11 @@ def test_overlay_is_temporarily_suppressed_without_mutating_user_setting():
     assert not interaction_visible(True, True, playback=True)
     assert not interaction_visible(True, True, baking=True)
     assert not interaction_visible(False, True)
+
+
+def test_artist_strength_is_calibrated_to_solver_force_units():
+    assert solver_stitch_stiffness(0.0) == 0.0
+    assert solver_stitch_stiffness(100.0) == 50_000.0
+    for invalid in (-1.0, float("inf"), float("nan")):
+        with pytest.raises(SewingError, match="finite.*negative"):
+            solver_stitch_stiffness(invalid)

@@ -523,7 +523,7 @@ def test_param_payload_extends_legacy_golden_with_audited_mappings():
         legacy_static.pop("friction") * 0.5)
     assert current_shell.pop("shrink-x") == float32_wire(1.0)
     assert current_shell.pop("shrink-y") == float32_wire(1.0)
-    assert current_shell.pop("stitch-stiffness") == float32_wire(1.0)
+    assert current_shell.pop("stitch-stiffness") == float32_wire(100.0)
     assert current_shell.pop("plasticity") == float32_wire(0.0)
     assert current_shell.pop("plasticity-threshold") == float32_wire(0.05)
     assert current_shell.pop("bend-plasticity") == float32_wire(0.0)

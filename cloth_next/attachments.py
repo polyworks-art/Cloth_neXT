@@ -37,6 +37,9 @@ class ObjectAttachment:
     target_role: str
     stiffness: float
     points: tuple[AttachmentPoint, ...]
+    # Explicit Sewing can join two paths of the same dynamic cloth. Regular
+    # Object Attachments retain their distinct-object validation.
+    allow_same_object: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,7 +385,8 @@ def validate_attachment(attachment: ObjectAttachment, *,
         raise AttachmentError("target must be Cloth or Soft Body")
     if not attachment.source_uuid or not attachment.target_uuid:
         raise AttachmentError("source and target UUIDs are required")
-    if attachment.source_uuid == attachment.target_uuid:
+    if (attachment.source_uuid == attachment.target_uuid
+            and not attachment.allow_same_object):
         raise AttachmentError("source and target must be different objects")
     if not math.isfinite(attachment.stiffness) or attachment.stiffness < 0.0:
         raise AttachmentError("stiffness must be a finite non-negative value")

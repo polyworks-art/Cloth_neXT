@@ -4,12 +4,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from .attachments import AttachmentError, ordered_path_mapping
 
 
 class SewingError(AttachmentError):
     """A Sewing definition is invalid or cannot be exported safely."""
+
+
+# Gaia consumes an unnormalised force factor. Its reference example uses
+# 50,000 for a firm seam; the artist-facing control intentionally stays 0..100.
+SEWING_STRENGTH_TO_SOLVER = 500.0
+
+
+def solver_stitch_stiffness(strength: float) -> float:
+    """Convert artist-facing Sewing Strength to Gaia's raw force units."""
+    value = float(strength)
+    if not math.isfinite(value) or value < 0.0:
+        raise SewingError("Sewing Strength must be finite and cannot be negative")
+    return value * SEWING_STRENGTH_TO_SOLVER
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +36,7 @@ class SewingDefinition:
     side_b: tuple[int, ...]
     mapping: tuple[tuple[int, int], ...]
     flipped: bool = False
-    strength: float = 1.0
+    strength: float = 100.0
 
     @property
     def cross_object(self):

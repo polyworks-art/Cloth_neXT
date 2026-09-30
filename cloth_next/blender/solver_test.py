@@ -5486,7 +5486,9 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 # inputs during playback. Restore them for both Pin sampling
                 # and mesh export so a Re-Bake uses the authored rig pose.
                 precomputed = (animated_pin_samples.get(obj.name)
-                               if isinstance(animated_pin_samples, dict) else None)
+                               if isinstance(animated_pin_samples, dict)
+                               else animated_pin_samples
+                               if len(snapshot.deformables) == 1 else None)
                 pin_snapshot = _capture_animated_pin(
                     context, obj, bake_range, entry.pin_membership, precomputed)
                 _validate_deformable_modifier_path(obj, pin_snapshot)
@@ -5860,7 +5862,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             force_capture)
         if cached is not None:
             return cached
-    if len(snapshot.deformables) > 1:
+    if len(snapshot.deformables) > 1 or snapshot.object_attachments:
         plan = _build_multi_run_plan(
             context, snapshot, animated_pin_samples=animated_pin_samples,
             force_capture=force_capture,

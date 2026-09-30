@@ -153,6 +153,18 @@ def test_all_v1_role_directions_encode(source_role, target_role):
     assert payload["stitch_stiffness"] == 1.0
 
 
+def test_same_object_stitches_require_explicit_sewing_opt_in():
+    from dataclasses import replace
+
+    intra = replace(_attachment("CLOTH", "CLOTH"), target_uuid="source-uuid")
+    with pytest.raises(AttachmentError, match="different objects"):
+        wire_entry(intra, source_vertex_count=3, target_vertex_count=3)
+    payload = wire_entry(replace(intra, allow_same_object=True),
+                         source_vertex_count=3, target_vertex_count=3)
+    assert payload["source_uuid"] == payload["target_uuid"]
+    assert payload["w"] == [[1.0, 0.0, 0.0, 0.2, 0.3, 0.5]]
+
+
 @pytest.mark.parametrize("role", ["ROD", "RIGID_BODY", "COLLIDER", "STATIC"])
 def test_unsupported_roles_are_rejected(role):
     with pytest.raises(AttachmentError):

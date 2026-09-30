@@ -132,8 +132,10 @@ each carry their own friction/gap/offset.
 | Contact Response Model | Scene `cloth_next_quality.contact_barrier` | `barrier` | Artist choices Smooth / Firm / Sharp map to `cubic` / `quad` / `log` |
 | Enable Pressure / Pressure | Object `pressure.enable_inflate` / `pressure.inflate_pressure` | `pressure` (SHELL only) | float32; configured non-negative value when enabled, otherwise `0.0` |
 | Shrink | Object `pressure.shrink_percent` | `shrink-x`, `shrink-y` (SHELL only) | Uniform rest-shape contraction; `5%` encodes both axes as `0.95`. Non-zero Shrink disables `strain-limit`, as required by PPF. |
-| Sewing | Object `pressure.sewing_enabled` | Scene-object `stitch` (SHELL only) | When enabled, every mesh edge unused by a face becomes one canonical PPF stitch pair. |
-| Sewing Strength | Object `pressure.sewing_stiffness` | `stitch-stiffness` (SHELL only) | Direct non-negative float32 stiffness; default `1.0`. |
+| Path Sewing | Scene `cloth_next_sewing_definitions` | Param `cross_stitch` (SHELL only) | Explicit dynamic vertex pairs for both intra- and cross-object seams. Same-object entries use the same six-slot solver representation; neither endpoint is a world-space pin. |
+| Path Sewing Strength | Seam `strength` | Entry `stitch_stiffness` | Artist strength multiplied by `500`; default `100` gives raw solver force factor `50,000`. Strength `0` omits the seam. Independent values per seam, including multiple seams on one object. |
+| Legacy loose-edge Sewing | Object `pressure.sewing_enabled` | Scene-object `stitch` (SHELL only) | Compatibility path: every mesh edge unused by a face becomes one canonical PPF stitch pair. |
+| Legacy Sewing Strength | Object `pressure.sewing_stiffness` | `stitch-stiffness` (SHELL only) | Direct non-negative float32 stiffness; default `100.0`. |
 | Gravity | `gravity` | Sum of Gravity Empty local `-Z` vectors, or Blender scene gravity when no Gravity Empty is enabled | axis-swapped to solver Y-up |
 | Wind Force Empty | `wind` | Sum of enabled Wind Empty local `+Z` vectors | axis-swapped to solver Y-up |
 | Air Density Force Empty | `air-density` | Sum of enabled Air Density Empty values | solver aerodynamic density |

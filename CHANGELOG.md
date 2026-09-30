@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.4 - 2026-09-30
+
+- Apply independent Strength values to intra-object seams as well as cross-object seams.
+- Default new Sewing definitions to Strength 100 and calibrate the artist control to the solver's raw force units for firm closure.
+- Export explicit intra-object seams through the same dynamic six-slot stitch path as cross-object seams, including single-object bakes.
+- Omit zero-strength seams and filter self-pairs at shared intra-path endpoints.
+- Add real-solver regression coverage for seam closure and free fall with intra, cross, and combined seams.
+
 ## 2.9.3 - 2026-09-30
 
 - Show complete source and target wireframe overlays with pickable vertex points throughout Sewing authoring.
