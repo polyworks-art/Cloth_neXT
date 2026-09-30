@@ -388,7 +388,7 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
         description="Treat edges that are not used by any face as Sewing "
                     "springs and pull their endpoints together")
     sewing_stiffness: bpy.props.FloatProperty(
-        name="Sewing Strength", default=1.0, min=0.0, soft_max=10.0,
+        name="Sewing Strength", default=100.0, min=0.0, soft_max=100.0,
         precision=3, update=_on_settings_update,
         description="Sewing stiffness for Sewing edges. Higher values close "
                     "seams more strongly against gravity and collisions")

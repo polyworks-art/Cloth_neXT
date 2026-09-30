@@ -76,7 +76,7 @@ def test_shrink_defaults_validation_and_fingerprint():
 
 def test_sewing_defaults_wire_mapping_validation_and_fingerprint():
     assert not DEFAULT_SHELL_SETTINGS.sewing_enabled
-    assert DEFAULT_SHELL_SETTINGS.sewing_stiffness == 1.0
+    assert DEFAULT_SHELL_SETTINGS.sewing_stiffness == 100.0
     sewn = replace(DEFAULT_SHELL_SETTINGS, sewing_enabled=True,
                     sewing_stiffness=2.5)
     assert shell_wire_params(sewn)["stitch-stiffness"] == float32_wire(2.5)

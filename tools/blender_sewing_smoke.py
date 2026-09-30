@@ -41,6 +41,8 @@ def main():
     intra = sewing._commit(bpy.context.scene, first, first, (0, 1, 2), (3, 4, 5))
     cross = sewing._commit(bpy.context.scene, first, second, (0, 1, 2), (3, 4, 5))
     assert len(intra.mapping) == len(cross.mapping) == 3
+    assert first.cloth_next.pressure.sewing_stiffness == 100.0
+    assert cross.strength == 100.0
     intra_pairs, cross_records = sewing.snapshot_enabled(
         bpy.context.scene, (entry(first), entry(second)))
     assert len(intra_pairs[first.cloth_next.persistent_export_id]) == 3

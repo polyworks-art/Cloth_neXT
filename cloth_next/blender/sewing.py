@@ -42,7 +42,7 @@ class CLOTHNEXT_PG_sewing_definition(bpy.types.PropertyGroup):
     source_topology: bpy.props.StringProperty(default="")
     target_topology: bpy.props.StringProperty(default="")
     flipped: bpy.props.BoolProperty(default=False)
-    strength: bpy.props.FloatProperty(name="Strength", default=1.0, min=0.0,
+    strength: bpy.props.FloatProperty(name="Strength", default=100.0, min=0.0,
                                       update=_settings_changed)
     status_message: bpy.props.StringProperty(default="Ready")
     side_a: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_sewing_vertex)
