@@ -56,6 +56,7 @@ from .addon_identity import addon_preferences, package_addon_id
 from .. import manifest_version
 from .. import export_identity, recovery
 from ..attachments import AttachmentError
+from ..sewing import SewingError, merge_stitch_pairs
 from .. import intersection_diagnostics
 from .. import intersection_auto_fix
 from ..export_cache import ExportPayloadCache, deterministic_key
@@ -144,7 +145,7 @@ from ..topology import mesh_topology_signature as _hash_mesh_topology
 from ..topology import pin_indices_signature
 from ..updater.install_paths import ManagedSolverPaths
 from ..updater.solver_registry import load_registry
-from . import (collider_proxy, companion_manager, modal_lock, object_attachments,
+from . import (collider_proxy, companion_manager, modal_lock, object_attachments, sewing,
                object_properties, validation_state)
 from .playback_cache import (
     INPUT_DEFORMER_STATE_KEY,
@@ -2390,6 +2391,7 @@ class ValidationSnapshot:
     boundary_vertices: object = ()
     boundary_triangles: object = ()
     object_attachments: tuple = ()
+    explicit_sewing: dict = field(default_factory=dict)
 
 
 def _validate_scene_single(context) -> ValidationSnapshot:
@@ -2605,6 +2607,9 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         } for obj in collider_objs]
         attachment_snapshot = object_attachments.snapshot_enabled(
             context.scene, entries)
+        explicit_sewing, sewing_attachments = sewing.snapshot_enabled(
+            context.scene, entries)
+        attachment_snapshot = tuple(attachment_snapshot) + tuple(sewing_attachments)
         geometry_fp = cache_metadata.deterministic_hash({
             "deformables": [{
                 "object_key": validation_state.object_key(entry.obj),
@@ -2616,10 +2621,11 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             } for entry in entries],
             "colliders": collider_geometry,
             "object_attachments": [asdict(attachment) for attachment, _s, _t
-                                   in attachment_snapshot]})
+                                   in attachment_snapshot],
+            "explicit_sewing": explicit_sewing})
     except (SceneValidationError, ClothNextError, MaterialValidationError,
             DeformableMaterialError, CurveRodError, BakeRangeError,
-            AttachmentError, TypeError, ValueError) as exc:
+            AttachmentError, SewingError, TypeError, ValueError) as exc:
         message = (exc.record.user_message if isinstance(exc, ClothNextError)
                    else str(exc))
         if validation_subject is None:
@@ -2665,7 +2671,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         wind_blender=wind_blender,
         boundary_vertices=first.boundary_vertices,
         boundary_triangles=first.boundary_triangles,
-        object_attachments=attachment_snapshot)
+        object_attachments=attachment_snapshot,
+        explicit_sewing=explicit_sewing)
 
 
 def validate_scene(context) -> ValidationSnapshot:
@@ -5521,6 +5528,9 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                             f"{obj.name} has {len(hanging)} Sewing vertex/vertices "
                             "that are not part of any face and therefore carry no "
                             f"surface mass. {selection_note}")
+                stitch_pairs = merge_stitch_pairs(
+                    stitch_pairs, snapshot.explicit_sewing.get(
+                        str(obj.cloth_next.persistent_export_id), ()))
             else:
                 stitch_pairs = ()
             if (pin_snapshot.enabled and
@@ -5941,6 +5951,10 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                         f"{cloth_obj.name} has {len(hanging)} Sewing "
                         "vertex/vertices that are not part of any face and "
                         f"therefore carry no surface mass. {selection_note}")
+            if deformable_role == "CLOTH":
+                stitch_pairs = merge_stitch_pairs(
+                    stitch_pairs, snapshot.explicit_sewing.get(
+                        str(cloth_obj.cloth_next.persistent_export_id), ()))
             pin_snapshot=_capture_animated_pin(context,cloth_obj,bake_range,
                                                pin_membership,animated_pin_samples)
         animated = tuple(

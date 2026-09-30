@@ -261,8 +261,8 @@ def _normalized_arc(vertices, path):
     return tuple(value / lengths[-1] for value in lengths)
 
 
-def _ordered_path_mapping(source_vertices, source_path,
-                          target_vertices, target_path):
+def ordered_path_mapping(source_vertices, source_path,
+                         target_vertices, target_path, *, flipped=None):
     """Return the lower-cost whole-path orientation with monotone pairing."""
     source_arc = _normalized_arc(source_vertices, source_path)
 
@@ -283,6 +283,8 @@ def _ordered_path_mapping(source_vertices, source_path,
 
     forward = candidate(tuple(target_path))
     reverse = candidate(tuple(reversed(target_path)))
+    if flipped is not None:
+        return (reverse if flipped else forward)[1]
     return min((forward, reverse), key=lambda row: (row[0], row[1]))[1]
 
 
@@ -318,22 +320,26 @@ def topology_vertex_mapping(source_vertices, source_indices, source_edges,
         target_centers, range(len(target_centers)))
     result = []
     for source_component, target_component in component_mapping:
-        result.extend(_ordered_path_mapping(
+        result.extend(ordered_path_mapping(
             source_vertices, source_topology.paths[source_component],
             target_vertices, target_topology.paths[target_component]))
     return tuple(sorted(result))
 
 
-def shortest_mesh_path(vertices, edges, start, end):
+def shortest_mesh_path(vertices, edges, start, end, *, boundary_edges=(),
+                       interior_penalty=1.0):
     """Deterministic geometric shortest path over original mesh edges."""
     start, end = int(start), int(end)
     if start == end:
         return (start,)
     adjacency = {index: [] for index in range(len(vertices))}
+    boundary = {tuple(sorted(map(int, edge))) for edge in boundary_edges}
     for edge in edges:
         a, b = map(int, edge)
         distance = math.sqrt(sum((float(x) - float(y)) ** 2
                                  for x, y in zip(vertices[a], vertices[b])))
+        if boundary and tuple(sorted((a, b))) not in boundary:
+            distance *= max(1.0, float(interior_penalty))
         adjacency[a].append((b, distance))
         adjacency[b].append((a, distance))
     distances = {start: 0.0}

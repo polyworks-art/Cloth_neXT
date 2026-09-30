@@ -39,7 +39,7 @@ from ..solver_quality import (
 )
 from ..updater.addon_versions import parse_version
 from . import (beta_tools, collider_proxy, icon_registry, object_properties,
-               object_attachments,
+               object_attachments, sewing,
                physics_operators, validation_state)
 from .addon_identity import addon_preferences
 from .playback_cache import has_cloth_next_playback_marker
@@ -1455,12 +1455,41 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
     header_icon = "sewing"
 
     def draw(self, context):
-        pressure = context.object.cloth_next.pressure
-        self.layout.use_property_split = True
-        self.layout.prop(pressure, "sewing_enabled", text="Enable Sewing")
-        strength = self.layout.row()
-        strength.enabled = pressure.sewing_enabled
-        strength.prop(pressure, "sewing_stiffness")
+        layout, scene = self.layout, context.scene
+        header = layout.row(align=True)
+        header.prop(scene, "cloth_next_show_sewing", text="Show Sewing", toggle=True)
+        header.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname,
+                        text="Add Sewing", icon="ADD")
+        objects = sewing._objects(scene)
+        for index, item in enumerate(scene.cloth_next_sewing_definitions):
+            source = objects.get(str(item.source_persistent_id))
+            if source is not context.object:
+                continue
+            box = layout.box()
+            row = box.row(align=True)
+            row.prop(item, "ui_expanded", text="", emboss=False,
+                     icon="TRIA_DOWN" if item.ui_expanded else "TRIA_RIGHT")
+            row.prop(item, "enabled", text="")
+            row.label(text=item.name, icon="MOD_CLOTH")
+            row.prop(item, "show_overlay", text="", icon="HIDE_OFF")
+            remove = row.operator(sewing.CLOTHNEXT_OT_remove_sewing.bl_idname,
+                                  text="", icon="X")
+            remove.index = index
+            if item.ui_expanded:
+                details = box.column(align=True)
+                details.label(text=f"Side A: {item.source_name} ({len(item.side_a)} vertices)")
+                details.label(text=f"Side B: {item.target_name} ({len(item.side_b)} vertices)")
+                details.label(text=f"Connections: {len(item.mapping)}")
+                if item.source_persistent_id == item.target_persistent_id:
+                    details.prop(context.object.cloth_next.pressure,
+                                 "sewing_stiffness", text="Object Sewing Strength")
+                else:
+                    details.prop(item, "strength")
+                flip = details.operator(sewing.CLOTHNEXT_OT_flip_sewing.bl_idname,
+                                        text="Flip Direction", icon="ARROW_LEFTRIGHT")
+                flip.index = index
+                if item.status_message != "Ready":
+                    details.label(text=item.status_message, icon="ERROR")
 
 
 class CLOTHNEXT_PT_collision(_ClothNextSubpanel, bpy.types.Panel):

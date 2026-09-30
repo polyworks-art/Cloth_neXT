@@ -1128,12 +1128,19 @@ def attach_to_object() -> None:
     """Attach the settings to every object; requires the class registered."""
     bpy.types.Scene.cloth_next_collision_groups = bpy.props.CollectionProperty(type=CLOTHNEXT_PG_shared_collision)
     from . import object_attachments
+    from . import sewing
     bpy.types.Scene.cloth_next_object_attachments = bpy.props.CollectionProperty(
         type=object_attachments.CLOTHNEXT_PG_object_attachment)
     bpy.types.Scene.cloth_next_object_attachment_index = bpy.props.IntProperty(
         default=0, min=0)
     bpy.types.Scene.cloth_next_attachment_target = bpy.props.PointerProperty(
         type=bpy.types.Object, poll=object_attachments._eligible_object)
+    bpy.types.Scene.cloth_next_sewing_definitions = bpy.props.CollectionProperty(
+        type=sewing.CLOTHNEXT_PG_sewing_definition)
+    bpy.types.Scene.cloth_next_sewing_index = bpy.props.IntProperty(default=0, min=0)
+    bpy.types.Scene.cloth_next_show_sewing = bpy.props.BoolProperty(
+        name="Show Sewing", default=True,
+        description="Show and interact with Sewing paths in the 3D View")
     bpy.types.Object.cloth_next = bpy.props.PointerProperty(
         type=CLOTHNEXT_PG_object_settings)
     bpy.types.Scene.cloth_next_quality = bpy.props.PointerProperty(
@@ -1145,7 +1152,8 @@ def attach_to_object() -> None:
 
 
 def detach_from_object() -> None:
-    for name in ("cloth_next_attachment_target",
+    for name in ("cloth_next_show_sewing", "cloth_next_sewing_index",
+                 "cloth_next_sewing_definitions", "cloth_next_attachment_target",
                  "cloth_next_object_attachment_index",
                  "cloth_next_object_attachments"):
         if hasattr(bpy.types.Scene, name):

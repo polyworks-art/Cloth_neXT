@@ -20,7 +20,7 @@ import bpy
 
 from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, floating_simulation, icon_registry,
-               linked_colliders, object_attachments, object_properties,
+               linked_colliders, object_attachments, object_properties, sewing,
                physics_operators, physics_ui,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
@@ -33,6 +33,7 @@ _CLASSES = (
     + solver_preferences_ui.CLASSES
     + addon_update_operators.CLASSES
     + object_attachments.CLASSES
+    + sewing.CLASSES
     + object_properties.CLASSES
     + collider_proxy.CLASSES
     + linked_colliders.CLASSES
@@ -63,6 +64,7 @@ def _steps() -> list[tuple]:
     steps.append((object_properties.attach_to_object,
                   object_properties.detach_from_object))
     steps.append((object_attachments.register, object_attachments.unregister))
+    steps.append((sewing.register, sewing.unregister))
     steps.append((linked_colliders.register, linked_colliders.unregister))
     steps.append((pin_constraints.install_runtime_hooks,
                   pin_constraints.uninstall_runtime_hooks))

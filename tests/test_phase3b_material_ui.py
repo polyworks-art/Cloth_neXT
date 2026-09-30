@@ -405,7 +405,7 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
         env.physics_ui.CLOTHNEXT_PT_pressure:
             ["enable_inflate", "inflate_pressure"],
         env.physics_ui.CLOTHNEXT_PT_sewing:
-            ["sewing_enabled", "sewing_stiffness"],
+            ["cloth_next_show_sewing"],
     }
     for panel_type, props in expected.items():
         panel = panel_type()
