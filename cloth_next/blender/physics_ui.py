@@ -2493,8 +2493,24 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
         controls = layout.column()
         controls.enabled = not shared_controller.snapshot().active
         for index, item in owned:
+            source_count = len(object_attachments._selected_indices(item, "source"))
+            target_count = len(object_attachments._selected_indices(item, "target"))
+            box = controls.box()
+            header = box.row(align=True)
+            header.alert = item.needs_rebuild
+            header.prop(item, "ui_expanded", text="", emboss=False,
+                        icon="TRIA_DOWN" if item.ui_expanded else "TRIA_RIGHT")
+            header.prop(item, "enabled", text="")
+            header.prop(item, "name", text="")
+            header.label(text=f"{source_count} ↔ {target_count}")
+            header.prop(item, "show_overlay", text="", icon="HIDE_OFF")
+            remove = header.operator(
+                object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
+                text="", icon="REMOVE")
+            remove.index = index
+            if not item.ui_expanded:
+                continue
             if item.use_vertex_groups:
-                box = controls.box()
                 row = box.row(align=True)
                 source = object_attachments._objects_by_identity(scene).get(
                     str(item.source_persistent_id))
@@ -2510,13 +2526,7 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                                        "vertex_groups", text="")
                 else:
                     group2.prop(item, "target_group", text="")
-                remove = row.operator(
-                    object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
-                    text="", icon="REMOVE")
-                remove.index = index
                 status = box.row(align=True)
-                status.prop(item, "enabled", text="Enabled")
-                status.prop(item, "show_overlay", text="", icon="HIDE_OFF")
                 bind = status.operator(
                     object_attachments.CLOTHNEXT_OT_bind_group_attachment.bl_idname,
                     text="Bind", icon="LINKED")
@@ -2526,22 +2536,10 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                 else:
                     status.label(text=f"{len(item.points)} attachment points")
                 continue
-            box = controls.box()
-            header = box.row(align=True)
-            header.prop(item, "enabled", text="")
-            header.prop(item, "name", text="")
-            header.prop(item, "show_overlay", text="", icon="HIDE_OFF")
-            remove = header.operator(
-                object_attachments.CLOTHNEXT_OT_remove_object_attachment.bl_idname,
-                text="", icon="REMOVE")
-            remove.index = index
             target = getattr(item, "target_object", None)
             box.label(text=f"Target        {target.name if target else item.target_name or 'Missing'}")
-            source_count = len(object_attachments._selected_indices(item, "source"))
-            target_count = len(object_attachments._selected_indices(item, "target"))
             box.label(text=f"Vertices      {source_count} ↔ {target_count}")
             box.prop(item, "stiffness", text="Strength", slider=True)
-            box.prop(item, "show_overlay", text="Show Overlay")
             if item.needs_rebuild:
                 box.label(text=item.status_message or "Needs Rebuild",
                           icon="ERROR")

@@ -73,6 +73,9 @@ class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     target_topology: bpy.props.StringProperty(default="")
     needs_rebuild: bpy.props.BoolProperty(default=False)
     status_message: bpy.props.StringProperty(default="")
+    ui_expanded: bpy.props.BoolProperty(
+        name="Show Attachment Details", default=False,
+        description="Expand this Attachment's settings")
     show_overlay: bpy.props.BoolProperty(default=True)
     points: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_point)
     source_vertices: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_vertex)
