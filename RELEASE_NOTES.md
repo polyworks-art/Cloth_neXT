@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.1
+# Cloth NeXt 2.9.2
 
-Cloth NeXt 2.9.1 turns Object Attachments into a dedicated artist-facing viewport workflow. Click Add Attachment, select source vertices directly on a wireframe overlay, choose another Cloth or Soft Body object, and select its target vertices. Live GPU connection lines preview the result before anything is committed.
+Cloth NeXt 2.9.2 replaces the old loose-edge Sewing controls with a direct viewport workflow. Choose two endpoints for Side A and two for Side B; Cloth NeXt follows the shortest original-mesh path between each pair, preferring boundary edges where possible, and previews the resulting stitch direction before it is committed.
 
-Mappings are deterministic, based on world-space proximity, and remain useful when source and target counts differ. The source owns the editable Attachment and solver-backed Strength; the target shows only a read-only reference. Rename-safe object pointers, topology fingerprints, active-bake locks, and complete modal cleanup keep the relationship predictable through normal production changes.
+Sewing works within one Cloth object or between two Cloth objects. Persistent definitions include compact expandable rows, independent overlay visibility, directional flipping, topology safety, and the solver-backed strength appropriate to the selected relationship. The global Show Sewing switch hides the display without changing simulation data, while playback and active bakes suppress it temporarily.
 
-Existing vertex-group Attachments remain compatible and continue to bake through the established multi-object solver path.
+Legacy loose-edge stitches remain readable and export through the established backend. Explicit stitches are deduplicated against them so existing files continue to simulate without duplicate constraints.
 
 The external PPF Contact Solver is not bundled.

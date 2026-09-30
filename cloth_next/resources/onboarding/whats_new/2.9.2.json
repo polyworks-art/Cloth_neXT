@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.2",
+  "title": "What's New in Cloth NeXt 2.9.2",
+  "subtitle": "Create directional Sewing paths directly in the viewport.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Endpoint-based Sewing",
+      "description": "Pick two endpoints on each side and Cloth NeXt follows a deterministic, boundary-aware shortest path between them."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Directional path mapping",
+      "description": "Preview correspondence lines and flip their direction before committing the seam."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Intra- and cross-object seams",
+      "description": "Persist, validate, display, and bake seams within one Cloth object or between two Cloth objects."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

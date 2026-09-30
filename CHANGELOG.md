@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.2 - 2026-09-30
+
+- Replace the legacy loose-edge Sewing controls with an interactive two-sided viewport workflow for Cloth objects.
+- Build each sewing side from two endpoints using deterministic shortest paths with boundary-edge preference and a live GPU preview.
+- Support persistent intra-object and cross-object seams, directional flipping, compact expandable rows, topology validation, and solver-native export.
+- Keep legacy loose-edge stitches compatible as a hidden backend while deduplicating them against explicit Sewing definitions.
+
 ## 2.9.1 - 2026-09-30
 
 - Replace technical vertex-group setup with a dedicated three-stage viewport Attachment editor for source vertices, target picking, and target vertices.
