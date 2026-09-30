@@ -75,7 +75,7 @@ from ..veyra.regions import (RegionCandidate, RegionCandidateBatch,
 from ..veyra.weld import (TopologyTransaction, WeldVertex,
                           plan_safe_welds)
 from ..core.errors import ClothNextError, ErrorRecord
-from ..core.error_codes import classify_error
+from ..core.error_codes import ERROR_CODES, classify_error
 from ..core.logging import get_logger, log_with_context
 from ..core.safe_delete import (
     DeleteFailedError,
@@ -6828,13 +6828,20 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
     """Translate technical solver failures into actionable Blender language."""
     record = exc.record
     technical = record.technical_message
+    runtime_intersection = re.search(
+        r"Intersection detected:\s*advance failed at frame (\d+)",
+        technical, re.IGNORECASE)
     enriched = (_convert_solver_violations(plan, exc)
                 if enriched is None else enriched)
     mapped = tuple(getattr(enriched, "violations", enriched or ()))
     if mapped:
         summary, action = intersection_diagnostics.artist_message(mapped[0])
+        if runtime_intersection:
+            action = ERROR_CODES["CNX-E162"].action
         detail_lines = [
-            "Stage: initial solver-pose intersection validation",
+            ("Stage: simulation intersection detection"
+             if runtime_intersection else
+             "Stage: initial solver-pose intersection validation"),
             f"Cause: {summary}",
             f"What to do: {action}",
             f"Reported violations: {enriched.detected_count}",
@@ -6849,6 +6856,12 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
             detail_lines.append(
                 f"{number}. {violation.classification}: {names}; "
                 f"combined pair={violation.combined_pair}")
+        if runtime_intersection:
+            solver_frame = int(runtime_intersection.group(1))
+            blender_frame = plan.frame_start + solver_frame
+            summary = f"Intersection detected at Blender frame {blender_frame}."
+            detail_lines.extend((f"Solver frame: {solver_frame}",
+                                 f"Blender frame: {blender_frame}"))
         return summary, "\n".join(detail_lines)
     intersections = re.search(
         r"(\d+)\s+self[- ]intersections?\s*\((\d+)\s+tri-tri\)",
@@ -6863,6 +6876,16 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
             "What to do: Run Validate, then repair the marked intersecting "
             "geometry before baking again.")
         return summary, details
+    if runtime_intersection:
+        solver_frame = int(runtime_intersection.group(1))
+        blender_frame = plan.frame_start + solver_frame
+        return (
+            f"Intersection detected at Blender frame {blender_frame}.",
+            "Stage: simulation intersection detection\n"
+            f"Solver frame: {solver_frame}\n"
+            f"Blender frame: {blender_frame}\n"
+            "Cause: Intersecting geometry prevented the simulation from advancing.\n"
+            f"What to do: {ERROR_CODES['CNX-E162'].action}")
     collision_detection = re.search(
         r"(?:Continuous collision detection failed:\s*)?"
         r"advance failed at frame (\d+).*?ccd\s*=\s*false",

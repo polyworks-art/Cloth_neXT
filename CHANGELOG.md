@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.5 - 2026-09-30
+
+- Match Sewing paths by normalized rest-arc positions on target edges. Unequal subdivisions no longer collapse adjacent source vertices onto one target vertex and cause seam intersections.
+- Apply the corrected mapping to existing saved paths at export and show interpolated connections in the editor and persistent overlay.
+- Distinguish valid solver-reported failures from actual connection loss; show runtime intersections with the affected Blender frame and preserve contact diagnostics.
+- Verified the reported Sewing scene through frame 250 with collisions enabled and Strength 100, plus regression tests for unequal path subdivisions.
+
 ## 2.9.4 - 2026-09-30
 
 - Apply independent Strength values to intra-object seams as well as cross-object seams.

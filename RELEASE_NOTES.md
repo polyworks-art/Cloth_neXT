@@ -1,11 +1,9 @@
-# Cloth NeXt 2.9.4
+# Cloth NeXt 2.9.5
 
-Cloth NeXt 2.9.4 corrects Sewing Strength for the path-based workflow. Intra-object seams now use the Strength of their own seam definition, just like cross-object seams, instead of silently inheriting the old object-wide loose-edge stiffness.
+Cloth NeXt 2.9.5 fixes Sewing intersections caused by unequal path subdivisions. Instead of rounding multiple source vertices onto one target vertex, seams now match normalized rest-arc positions along target edges using the solver's existing barycentric stitch representation. This avoids collapsing adjacent seam vertices and applies to existing saved Sewing paths when rebaking. The editor and persistent overlay show the interpolated connections.
 
-New seams default to Strength 100. The artist control is calibrated to the solver's raw force units: 100 produces a firm seam using a force factor of 50,000. Strength 0 disables the seam's force. Existing authored Strength values are preserved; set existing seams to 100 and rebake to use the firmer setting.
+Valid solver-reported errors are no longer mislabeled as a lost solver connection. Runtime intersections identify the affected Blender frame and preserve available contact diagnostics. Actual network failures remain distinct.
 
-Explicit intra- and cross-object seams share the same dynamic stitch representation, including a bake with only one Cloth object. The existing wireframe overlay, path preview, compact rows, directional flipping, and legacy loose-edge compatibility remain available.
+The reported Sewing scene completed the full bake range through frame 250 with collisions enabled and Strength 100. This verifies the mapping fix for that scene, not a guarantee against every possible geometry intersection. Blender export and regression tests cover unequal subdivisions and flipped paths.
 
-Real-solver regression tests verify rapid closure and free fall for intra, cross, and combined seams. The separately reported scene-specific floating behavior has not been reproduced, so this release does not claim a verified fix for that issue.
-
-The external PPF Contact Solver is not bundled.
+The external PPF Contact Solver is not modified or bundled. Update through Blender's native extension manager and rebake existing caches to use the fix.

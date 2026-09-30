@@ -834,7 +834,7 @@ def test_failed_status_loads_structured_violations_from_build_sidecar(
     assert error.violations == (expected,)
 
 
-def test_failed_simulation_loads_runtime_intersection_records(tmp_path):
+def test_failed_simulation_loads_runtime_intersection_records(tmp_path, monkeypatch):
     scene = _scene()
     work_directory = tmp_path / "run"
     sidecar = (
@@ -859,11 +859,23 @@ def test_failed_simulation_loads_runtime_intersection_records(tmp_path):
         work_directory=work_directory,
         external_address=wire.ServerAddress("127.0.0.1", 9))
 
-    error = session._fail_from_status(
-        {"status": "FAILED", "error": (
-            "Intersection detected: advance failed at frame 1")},
-        "simulating")
+    def status_response(*args, allow_server_error=False, **kwargs):
+        assert allow_server_error
+        return {"error": "Intersection detected: advance failed at frame 1"}
 
+    monkeypatch.setattr(wire, "send_tcmd", status_response)
+    session._address = wire.ServerAddress("127.0.0.1", 9)
+    response = session._poll_status()
+    assert response["status"] == "FAILED"
+    assert session.diagnostics.status_success_count == 1
+    assert session.diagnostics.status_failure_count == 0
+    assert session.diagnostics.transport_failure_phase == ""
+    monkeypatch.setattr(session, "_request", lambda *args: None)
+    with pytest.raises(ClothNextError) as caught:
+        session._simulate_and_fetch()
+    error = caught.value
+
+    assert error.record.category is ErrorCategory.SIMULATION
     assert len(error.violations) == 1
     assert error.violations[0]["tris"] == [triangle]
     assert error.violations[0]["detection_method"] == (

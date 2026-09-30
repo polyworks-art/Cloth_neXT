@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from bisect import bisect_right
 import math
 
-from .attachments import AttachmentError, ordered_path_mapping
+from .attachments import AttachmentError, ordered_path_mapping, _normalized_arc
 
 
 class SewingError(AttachmentError):
@@ -52,6 +53,35 @@ def path_mapping(source_vertices, side_a, target_vertices, side_b, *, flipped=No
         raise SewingError("A sewing path may not visit a vertex twice")
     return ordered_path_mapping(source_vertices, first, target_vertices, second,
                                 flipped=flipped)
+
+
+def sampled_path_mapping(source_vertices, side_a, target_vertices, side_b, *, flipped=False):
+    """Match rest-length coordinates to points on target edges, not vertices.
+
+    Nearest-vertex rounding collapses adjacent source vertices when the target
+    has fewer subdivisions. Barycentric edge samples keep those vertices at
+    distinct positions while using the existing six-slot cross-stitch protocol.
+    Each result is (source vertex, target edge start, target edge end, fraction).
+    """
+    first, second = tuple(map(int, side_a)), tuple(map(int, side_b))
+    path_mapping(source_vertices, first, target_vertices, second, flipped=flipped)
+    if flipped:
+        second = tuple(reversed(second))
+    source_arc = _normalized_arc(source_vertices, first)
+    target_arc = _normalized_arc(target_vertices, second)
+    result = []
+    for index, parameter in zip(first, source_arc):
+        offset = min(max(bisect_right(target_arc, parameter) - 1, 0), len(second) - 2)
+        width = target_arc[offset + 1] - target_arc[offset]
+        fraction = (parameter - target_arc[offset]) / width if width > 1e-12 else 0.0
+        result.append((index, second[offset], second[offset + 1],
+                       min(1.0, max(0.0, fraction))))
+    return tuple(result)
+
+
+def sampled_target_point(vertices, first, second, fraction):
+    return tuple((1.0 - fraction) * float(a) + fraction * float(b)
+                 for a, b in zip(vertices[first], vertices[second]))
 
 
 def interaction_visible(master, item_overlay, *, playback=False, baking=False):

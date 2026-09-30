@@ -566,7 +566,7 @@ class SolverSession:
                 captured[target] = str(value).strip()
         self.diagnostics.solver_telemetry = captured
 
-    def _status(self, *, allow_server_error: bool = False) -> dict:
+    def _status(self, *, allow_server_error: bool = True) -> dict:
         assert self._address is not None
         started = time.monotonic()
         self.diagnostics.status_request_count += 1
@@ -610,6 +610,11 @@ class SolverSession:
         self.diagnostics.transport_failure_phase = ""
         self.diagnostics.last_successful_command = "status"
         self.diagnostics.command_in_flight = ""
+        # Status errors are successful transport responses. Route them through
+        # the normal failed-status decoder, including contact sidecars, rather
+        # than treating them as network failures. Some servers omit status.
+        if response.get("error"):
+            response = {**response, "status": STATUS_FAILED}
         status = str(response.get("status", ""))
         self._capture_solver_details(response)
         self.diagnostics.note_status(status)

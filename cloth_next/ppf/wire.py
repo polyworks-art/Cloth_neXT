@@ -200,8 +200,16 @@ def _parse_json_line(line: bytes) -> dict:
 def _reject_server_error(parsed: dict, operation: str) -> dict:
     error_value = parsed.get("error")
     if error_value:
-        raise _error(f"The solver rejected the {operation} request.",
-                     f"server error during {operation}: {error_value}")
+        # A valid server response is not a lost connection. Keep simulation
+        # failures out of transport retry/process-loss handling.
+        raise ClothNextError(ErrorRecord.create(
+            category=ErrorCategory.SIMULATION,
+            user_message=f"The solver rejected the {operation} request.",
+            technical_message=f"server error during {operation}: {error_value}",
+            recommended_action="Inspect the reported solver error and scene, then retry.",
+            recoverable=True,
+            context={"operation": operation},
+        ))
     return parsed
 
 

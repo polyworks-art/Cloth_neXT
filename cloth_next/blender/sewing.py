@@ -13,7 +13,7 @@ from ..attachments import (AttachmentError, AttachmentPoint, ObjectAttachment,
                            topology_fingerprint, shortest_mesh_path)
 from ..bake.controller import shared_controller
 from ..sewing import (SewingError, interaction_visible, path_mapping,
-                      solver_stitch_stiffness)
+                      sampled_path_mapping, sampled_target_point, solver_stitch_stiffness)
 from . import validation_state
 
 
@@ -156,12 +156,6 @@ def snapshot_enabled(scene, deformable_entries):
         if reason:
             item.status_message = f"Needs Rebuild: {reason}"
             raise SewingError(f"{item.name}: {item.status_message}")
-        pairs = tuple((int(row.source_index), int(row.target_index))
-                      for row in item.mapping)
-        if source is target:
-            pairs = tuple((a, b) for a, b in pairs if a != b)
-        if not pairs:
-            raise SewingError(f"{item.name}: the seam has no distinct vertex pairs")
         stiffness = solver_stitch_stiffness(item.strength)
         if stiffness == 0.0:
             item.status_message = "Inactive (Strength 0)"
@@ -175,18 +169,30 @@ def snapshot_enabled(scene, deformable_entries):
         incident = {}
         for tri in target.data.loop_triangles:
             triangle = tuple(map(int, tri.vertices))
-            for index in triangle:
-                incident.setdefault(index, triangle)
+            for a, b in zip(triangle, triangle[1:] + triangle[:1]):
+                incident.setdefault(tuple(sorted((a, b))), triangle)
+        source_vertices, _, _ = _mesh(source)
+        target_vertices, _, _ = _mesh(target)
+        samples = sampled_path_mapping(
+            source_vertices, tuple(row.index for row in item.side_a),
+            target_vertices, tuple(row.index for row in item.side_b),
+            flipped=bool(item.flipped))
         points = []
-        for source_index, target_index in pairs:
-            triangle = incident.get(target_index)
+        for source_index, a, b, fraction in samples:
+            if source is target and ((source_index == a and fraction == 0.0)
+                                     or (source_index == b and fraction == 1.0)):
+                continue
+            triangle = incident.get(tuple(sorted((a, b))))
             if triangle is None:
                 raise SewingError(f"{item.name}: target path is not on a surface")
-            weights = tuple(1.0 if i == target_index else 0.0 for i in triangle)
+            weights = tuple((1.0 - fraction if i == a else
+                             fraction if i == b else 0.0) for i in triangle)
             points.append(AttachmentPoint(
                 source_index, triangle, weights,
-                tuple(source.matrix_world @ source.data.vertices[source_index].co),
-                tuple(target.matrix_world @ target.data.vertices[target_index].co)))
+                source_vertices[source_index],
+                sampled_target_point(target_vertices, a, b, fraction)))
+        if not points:
+            raise SewingError(f"{item.name}: the seam has no distinct vertex pairs")
         attachment = ObjectAttachment(
             item.identifier, item.name, export_identity.export_uuid(source),
             export_identity.export_uuid(target), "CLOTH", "CLOTH",
@@ -422,11 +428,11 @@ def _draw_editor():
             source_positions = op.cache[op.source][0]
             target_positions = op.cache[op.target][0]
             connections = []
-            for source, target in path_mapping(
+            for source, a, b, fraction in sampled_path_mapping(
                     source_positions, side_a, target_positions, side_b,
                     flipped=False):
                 connections.extend((source_positions[source],
-                                    target_positions[target]))
+                                    sampled_target_point(target_positions, a, b, fraction)))
             batch = batch_for_shader(shader, "LINES", {"pos": connections})
             shader.bind(); shader.uniform_float("color", (.35, .95, .55, .9))
             gpu.state.line_width_set(2.0); batch.draw(shader)
@@ -471,7 +477,10 @@ def _draw_overlay():
             for rows,positions in ((item.side_a,sv),(item.side_b,tv)):
                 path=[row.index for row in rows]
                 for a,b in zip(path,path[1:]): lines.extend((positions[a],positions[b]))
-            for pair in item.mapping: lines.extend((sv[pair.source_index],tv[pair.target_index]))
+            for source_index,a,b,fraction in sampled_path_mapping(
+                    sv, tuple(row.index for row in item.side_a),
+                    tv, tuple(row.index for row in item.side_b), flipped=item.flipped):
+                lines.extend((sv[source_index], sampled_target_point(tv,a,b,fraction)))
         if lines:
             shader=gpu.shader.from_builtin("UNIFORM_COLOR"); batch=batch_for_shader(shader,"LINES",{"pos":lines})
             shader.bind(); shader.uniform_float("color",(.1,.9,1,.8)); batch.draw(shader)

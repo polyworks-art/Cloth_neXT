@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from cloth_next.core.errors import ClothNextError
+from cloth_next.core.errors import ClothNextError, ErrorCategory
 from cloth_next.ppf import wire
 from cloth_next.ppf.transport import TransportConfig
 
@@ -134,6 +134,29 @@ def test_send_tcmd_rejects_server_error(make_server):
     with pytest.raises(ClothNextError,
                        match="server error during|recv failed"):
         wire.send_tcmd(server.address, CONFIG, "proj", wire.REQUEST_START)
+
+
+def test_server_error_is_not_a_transport_failure(make_server):
+    def handler(connection, received):
+        received.append(_read_tcmd(connection))
+        connection.sendall(b'{"error": "Intersection detected: advance failed at frame 16"}\n')
+
+    server = make_server(handler)
+    with pytest.raises(ClothNextError) as caught:
+        wire.send_tcmd(server.address, CONFIG, "proj")
+    assert caught.value.record.category is ErrorCategory.SIMULATION
+    assert "transport_failure_phase" not in caught.value.record.technical_message
+    assert "Intersection detected" in caught.value.record.technical_message
+
+
+def test_status_can_preserve_server_error_payload(make_server):
+    def handler(connection, received):
+        received.append(_read_tcmd(connection))
+        connection.sendall(b'{"status": "FAILED", "error": "Intersection detected"}\n')
+
+    server = make_server(handler)
+    response = wire.send_tcmd(server.address, CONFIG, "proj", allow_server_error=True)
+    assert response == {"status": "FAILED", "error": "Intersection detected"}
 
 
 @pytest.mark.parametrize("payload", [b"not json\n", b'["array"]\n', b"\xff\xfe\n"])

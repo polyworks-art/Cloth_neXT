@@ -5,6 +5,7 @@ import pytest
 from cloth_next.attachments import shortest_mesh_path
 from cloth_next.sewing import (SewingError, interaction_visible,
                                merge_stitch_pairs, path_mapping,
+                               sampled_path_mapping, sampled_target_point,
                                solver_stitch_stiffness)
 
 
@@ -23,6 +24,26 @@ def test_sewing_rejects_degenerate_or_repeated_paths():
         path_mapping(vertices, (0,), vertices, (0, 1))
     with pytest.raises(SewingError, match="visit a vertex twice"):
         path_mapping(vertices, (0, 1, 0), vertices, (0, 1))
+
+
+@pytest.mark.parametrize("flipped", [False, True])
+def test_unequal_subdivisions_do_not_collapse_source_vertices(flipped):
+    source = tuple((i / 11, 0, 0) for i in range(12))
+    target = tuple((i / 9, 1, 0) for i in range(10))
+    samples = sampled_path_mapping(source, range(12), target, range(10), flipped=flipped)
+    positions = [sampled_target_point(target, a, b, t) for _, a, b, t in samples]
+    expected = [(1 - i / 11 if flipped else i / 11) for i in range(12)]
+    assert [point[0] for point in positions] == pytest.approx(expected)
+    assert len(set(positions)) == 12
+    assert [index for index, *_ in samples] == list(range(12))
+
+
+def test_interpolated_sewing_uses_rest_arc_length_not_index_spacing():
+    source = ((0, 0, 0), (.25, 0, 0), (1, 0, 0))
+    target = ((0, 1, 0), (.5, 1, 0), (1, 1, 0))
+    samples = sampled_path_mapping(source, (0, 1, 2), target, (0, 1, 2))
+    assert samples[1] == (1, 0, 1, .5)
+    assert sampled_target_point(target, *samples[1][1:]) == (.25, 1, 0)
 
 
 def test_boundary_preference_avoids_short_interior_shortcut():

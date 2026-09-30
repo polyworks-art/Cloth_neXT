@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.5",
+  "title": "What's New in Cloth NeXt 2.9.5",
+  "subtitle": "Safer Sewing mapping and clearer simulation errors.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Unequal Sewing paths",
+      "description": "Seams interpolate along target edges instead of collapsing multiple source vertices onto one target vertex. Existing paths use the fix when rebaked."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clear intersection errors",
+      "description": "Solver-reported intersections show the affected Blender frame instead of a misleading connection-lost message. Actual connection failures remain separate."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Matching viewport previews",
+      "description": "The Sewing editor and persistent overlay display the interpolated seam connections used by the solver. Update and rebake to use the fix."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

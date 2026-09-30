@@ -955,6 +955,36 @@ def test_failed_worker_leaves_unusable_failure_record(blender_env, monkeypatch,
     assert not path.exists()
 
 
+@pytest.mark.parametrize("mapped", [False, True])
+def test_runtime_intersection_names_blender_frame_and_cause(blender_env, monkeypatch, mapped):
+    plan = SimpleNamespace(frame_start=10)
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="The solver reported a failure while simulating.",
+        technical_message="server status FAILED during simulating: Intersection detected: advance failed at frame 16",
+        recommended_action="Retry."))
+
+    enriched = None
+    if mapped:
+        violation = SimpleNamespace(
+            elements=(SimpleNamespace(object_name="Cloth"),),
+            classification="SELF_INTERSECTION", combined_pair=(0, 1))
+        enriched = SimpleNamespace(
+            violations=(violation,), detected_count=1, detailed_count=1,
+            mapped_count=1, mapping_warning="")
+        monkeypatch.setattr(
+            blender_env.solver_test.intersection_diagnostics, "artist_message",
+            lambda item: ("Cloth intersects itself.", "Repair initial geometry."))
+    summary, details = blender_env.solver_test._present_worker_error(
+        plan, error, enriched=enriched)
+
+    assert summary == "Intersection detected at Blender frame 26."
+    assert "Stage: simulation intersection detection" in details
+    assert "Solver frame: 16" in details
+    assert "Time Step" in details
+    assert "connection" not in summary.lower()
+
+
 def test_convergence_failure_names_blender_frame_and_action(blender_env):
     module = blender_env.solver_test
     plan = SimpleNamespace(frame_start=1)
