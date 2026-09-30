@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.3 - 2026-09-30
+
+- Show complete source and target wireframe overlays with pickable vertex points throughout Sewing authoring.
+- Preview the boundary-aware path continuously from the chosen start vertex to the currently hovered endpoint.
+- Display live correspondence lines while Side B is still being chosen instead of waiting until the seam is committed.
+
 ## 2.9.2 - 2026-09-30
 
 - Replace the legacy loose-edge Sewing controls with an interactive two-sided viewport workflow for Cloth objects.

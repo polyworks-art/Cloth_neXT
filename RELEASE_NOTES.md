@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.2
+# Cloth NeXt 2.9.3
 
-Cloth NeXt 2.9.2 replaces the old loose-edge Sewing controls with a direct viewport workflow. Choose two endpoints for Side A and two for Side B; Cloth NeXt follows the shortest original-mesh path between each pair, preferring boundary edges where possible, and previews the resulting stitch direction before it is committed.
+Cloth NeXt 2.9.3 makes the interactive Sewing workflow fully visible while authoring. The source object now receives a blue wireframe and vertex overlay; after target selection, the target receives an orange overlay. Every pickable original-mesh vertex remains visible without creating helper geometry.
 
-Sewing works within one Cloth object or between two Cloth objects. Persistent definitions include compact expandable rows, independent overlay visibility, directional flipping, topology safety, and the solver-backed strength appropriate to the selected relationship. The global Show Sewing switch hides the display without changing simulation data, while playback and active bakes suppress it temporarily.
+After selecting the first endpoint, the highlighted boundary-aware path follows the currently hovered vertex. While choosing Side B, green correspondence lines update live between both paths, so direction and mapping can be judged before the seam is committed.
 
-Legacy loose-edge stitches remain readable and export through the established backend. Explicit stitches are deduplicated against them so existing files continue to simulate without duplicate constraints.
+This release retains the intra-object and cross-object Sewing export, topology validation, directional flipping, compact rows, and legacy loose-edge compatibility introduced in 2.9.2.
 
 The external PPF Contact Solver is not bundled.

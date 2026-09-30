@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.3",
+  "title": "What's New in Cloth NeXt 2.9.3",
+  "subtitle": "See Sewing paths and connections while you create them.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/link.png",
+      "title": "Complete wireframe overlay",
+      "description": "Source and target objects display color-coded original-mesh wires and pickable vertex points throughout Sewing authoring."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live path preview",
+      "description": "The highlighted shortest path follows the hovered endpoint before the second click confirms it."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Connections before commit",
+      "description": "Green correspondence lines update while Side B is being chosen, making the final mapping visible immediately."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}
