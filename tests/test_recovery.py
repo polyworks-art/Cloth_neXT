@@ -3,6 +3,7 @@ import gzip
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -43,8 +44,10 @@ def test_atomic_metadata_retries_transient_windows_replace_denial(
             raise PermissionError(13, "sharing violation")
         real_replace(source, target)
 
-    monkeypatch.setattr("cloth_next.recovery.os.name", "nt")
-    monkeypatch.setattr("cloth_next.recovery.os.replace", flaky_replace)
+    # Simulate only recovery's Windows retry branch. Mutating the shared os
+    # module also makes pathlib/pytest construct WindowsPath on Linux.
+    recovery_os = SimpleNamespace(**{**vars(os), "name": "nt", "replace": flaky_replace})
+    monkeypatch.setattr("cloth_next.recovery.os", recovery_os)
     monkeypatch.setattr("cloth_next.recovery.time.sleep", lambda _delay: None)
 
     from cloth_next.recovery import _atomic_json
