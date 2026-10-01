@@ -76,3 +76,39 @@ def test_authoritative_flip_conversion_separates_points_and_world_velocity(blend
     np.testing.assert_array_equal(v,[[2,3,4]])
     with pytest.raises(ValueError,match='Non-finite'):
         module.flip_sample_to_world([[np.nan,0,0]],[[1,0,0]],matrix)
+
+
+@pytest.mark.parametrize('mode', ['POSITIONS', 'CONSTANT_X', 'DIRECTION', 'MAGNITUDE'])
+def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch, tmp_path, mode):
+    from contextlib import nullcontext
+    module = sys.modules['cloth_next.blender.water_flow']
+    field = reconstruct([[.5,.5,.5]], [[2,0,0]], [0,0,0], [1,1,1], [3,3,3])
+    path = tmp_path / 'preview.gaia'
+    write_water_container(path, {}, [(1,0,field)])
+    settings = SimpleNamespace(water_flow_enabled=True, water_flow_show_vectors=True,
+        water_flow_container=str(path), water_flow_vector_stride=1,
+        water_flow_vector_scale=.2, water_flow_influence=1., water_flow_velocity_scale=1.,
+        water_flow_debug_mode=mode, water_flow_show_bounds=True)
+    monkeypatch.setattr(module.bpy, 'context', SimpleNamespace(
+        object=SimpleNamespace(cloth_next=settings), scene=SimpleNamespace(frame_current=1)))
+    monkeypatch.setattr(module.bpy.path, 'abspath', lambda value: value)
+    uploads = []
+    shader = SimpleNamespace(bind=lambda: None, uniform_float=lambda *args: None)
+    gpu = SimpleNamespace(shader=SimpleNamespace(from_builtin=lambda name: shader),
+        matrix=SimpleNamespace(push_pop=nullcontext, push_pop_projection=nullcontext,
+            load_matrix=lambda matrix: None, load_projection_matrix=lambda matrix: None),
+        state=SimpleNamespace(point_size_set=lambda value: None))
+    def batch(_shader, primitive, attributes):
+        values = attributes['pos']
+        assert values.dtype == np.float32 and values.flags.c_contiguous
+        uploads.append((primitive, values.copy()))
+        return SimpleNamespace(draw=lambda shader: None)
+    monkeypatch.setitem(sys.modules, 'gpu', gpu)
+    monkeypatch.setitem(sys.modules, 'gpu_extras.batch', SimpleNamespace(batch_for_shader=batch))
+    module._preview.clear()
+    module._draw_vectors(_region=SimpleNamespace(view_matrix=np.eye(4), window_matrix=np.eye(4)))
+    assert len(uploads) == 2
+    assert uploads[0][0] == ('POINTS' if mode == 'POSITIONS' else 'LINES')
+    np.testing.assert_allclose(uploads[0][1][0], [.5,.5,.5])
+    if mode != 'POSITIONS':
+        np.testing.assert_allclose(uploads[0][1][1]-uploads[0][1][0], [.2,0,0] if mode != 'MAGNITUDE' else [.4,0,0], atol=1e-7)

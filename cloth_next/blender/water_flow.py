@@ -389,7 +389,10 @@ def _draw_vectors(_region=None):
                     bounds_vertices=np.asarray([corners[i] for a in range(8) for bit in (1,2,4)
                         if a < (a^bit) for i in (a,a^bit)])
             _preview.clear()
-            _preview[key]=(primitive,vertices,bounds_vertices)
+            # GPU vertex buffers require 32-bit floats. NumPy float64 buffers
+            # can be reinterpreted as float32 components by Blender's upload.
+            _preview[key]=(primitive,np.ascontiguousarray(vertices,dtype=np.float32),
+                           np.ascontiguousarray(bounds_vertices,dtype=np.float32))
         import gpu
         from gpu_extras.batch import batch_for_shader
         shader=gpu.shader.from_builtin('UNIFORM_COLOR')

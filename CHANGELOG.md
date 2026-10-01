@@ -3,7 +3,7 @@
 ## 2.9.9 - 2026-10-01
 
 - Correct evaluated FLIP cache coordinates and invalidate outdated Water Flow field provenance.
-- Bound viewport vector lengths and add occupied-position, direction and constant +X diagnostics.
+- Fix malformed GPU vector uploads by using contiguous float32 coordinates; bound lengths and add occupied-position, direction and constant +X diagnostics.
 - Restore a separate GAIA Water Flow card, invert its icon and use GAIA Flow as the preparation window title.
 - Fix GAIA 0.23 installer validation of repeated upstream documentation.
 - Persist onboarding seen state across file loads and restarts.

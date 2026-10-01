@@ -79,7 +79,17 @@ def capture():
                     data=np.asarray(pixels).reshape(700,1000,4)
                     cyan=(data[:,:,0]<80)&(data[:,:,1]>100)&(data[:,:,2]>200)
                     print('CYAN PIXELS',mode,int(np.count_nonzero(cyan)),flush=True)
-                    assert np.count_nonzero(cyan) > 0, f'{mode}: no visible overlay pixels'
+                    assert np.count_nonzero(cyan) > 50, f'{mode}: no visible overlay pixels'
+                    # Compare GPU raster extents with projected CPU endpoints.
+                    vertices=next(iter(water_flow._preview.values()))[1]
+                    assert vertices.dtype == np.float32 and vertices.flags.c_contiguous
+                    homogeneous=np.column_stack((vertices,np.ones(len(vertices))))
+                    clip=homogeneous@np.asarray(projection@view).T
+                    assert (clip[:,3]>0).all()
+                    screen=(clip[:,:2]/clip[:,3,None]+1)*np.asarray((500.,350.))
+                    yy,xx=np.nonzero(cyan)
+                    actual=np.column_stack((xx,yy))
+                    assert (actual>=screen.min(0)-5).all() and (actual<=screen.max(0)+5).all(), f'{mode}: GPU pixels extend beyond projected endpoints'
                     image=bpy.data.images.new('Water Audit Capture',width=1000,height=700,alpha=True)
                     image.pixels.foreach_set((data.astype(np.float32)/255.).reshape(-1))
                     image.filepath_raw=scene.render.filepath;image.file_format='PNG';image.save()
