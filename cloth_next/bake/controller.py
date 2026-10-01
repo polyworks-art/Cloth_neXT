@@ -21,7 +21,9 @@ class InvalidTransition(ValueError):
 _NEXT = {
     BakeState.IDLE: {BakeState.PREPARING},
     BakeState.PREPARING: {BakeState.STARTING_COMPANION, BakeState.STARTING_RUN,
-                          BakeState.EXPORTING, BakeState.CANCELLING, BakeState.ERROR},
+                          BakeState.PREPARING_WATER, BakeState.EXPORTING, BakeState.CANCELLING, BakeState.ERROR},
+    BakeState.PREPARING_WATER: {BakeState.PREPARING, BakeState.FINISHED,
+                               BakeState.CANCELLING, BakeState.ERROR},
     BakeState.STARTING_COMPANION: {BakeState.WAITING_FOR_COMPANION,
                                    BakeState.CANCELLING, BakeState.ERROR},
     BakeState.WAITING_FOR_COMPANION: {BakeState.COMPANION_READY,
@@ -29,7 +31,7 @@ _NEXT = {
     BakeState.COMPANION_READY: {BakeState.STARTING_RUN, BakeState.CANCELLING,
                                 BakeState.ERROR},
     BakeState.STARTING_RUN: {BakeState.EXPORTING, BakeState.FINISHED,
-                             BakeState.CANCELLING, BakeState.ERROR},
+                             BakeState.PREPARING_WATER, BakeState.CANCELLING, BakeState.ERROR},
     BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.CANCELLING, BakeState.ERROR},
     # STARTING_SOLVER -> SIMULATING stays for the display-only UI preview;
     # the real run goes through UPLOADING and BUILDING.
@@ -52,6 +54,7 @@ _NEXT = {
 }
 
 _ERROR_STAGE = {
+    BakeState.PREPARING_WATER: ("Water Flow preparation", "Check the FLIP velocity bake and output folder, then retry."),
     BakeState.PREPARING: ("scene validation", "Correct the highlighted Cloth NeXt scene setting, then retry."),
     BakeState.STARTING_COMPANION: ("Bake window startup", "Restart the Bake window or Blender, then retry."),
     BakeState.WAITING_FOR_COMPANION: ("Bake window handshake", "Close stale Bake windows and retry."),
@@ -91,6 +94,8 @@ class BakeController:
                 changes.setdefault("estimated_remaining_seconds", None)
                 changes.setdefault("progress_current", 0)
                 changes.setdefault("progress_total", None)
+                changes.setdefault("preparation_current", 0)
+                changes.setdefault("preparation_total", None)
                 changes.setdefault("current_frame", None)
                 changes.setdefault("frame_start", None)
                 changes.setdefault("frame_end", None)

@@ -793,7 +793,8 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         items=(("24", "Auto", "24 samples along the longest domain axis"),
                ("16", "Low", "16 samples"), ("32", "Medium", "32 samples"),
                ("48", "High", "48 samples; sequence upload memory limit applies")))
-    water_flow_container: bpy.props.StringProperty(name="GAIA Container", subtype='FILE_PATH', default='', update=_on_settings_update)
+    water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',
+        description="Where should the File be placed?", update=_on_settings_update)
     water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False)
     water_flow_vector_stride: bpy.props.IntProperty(name="Vector Spacing", default=4, min=1, max=32)
     water_flow_vector_scale: bpy.props.FloatProperty(name="Vector Scale", default=.1, min=0., max=10.)

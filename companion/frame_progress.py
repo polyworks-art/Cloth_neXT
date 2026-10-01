@@ -123,6 +123,7 @@ class CurrentFrameProgressEstimator:
         if state is not BakeState.SIMULATING or frame is None:
             if state in {
                     BakeState.IDLE, BakeState.PREPARING,
+                    BakeState.PREPARING_WATER,
                     BakeState.STARTING_SOLVER, BakeState.CANCELLING,
                     BakeState.CANCELLED, BakeState.ERROR,
                     BakeState.FINISHED}:

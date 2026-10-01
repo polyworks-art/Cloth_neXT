@@ -220,12 +220,22 @@ def solver_details(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
 
 def progress_display_text(snapshot: BakeSnapshot) -> str:
     """Render frame text only when the snapshot carries a real frame."""
+    if water_preparation_display(snapshot):
+        if snapshot.state is BakeState.FINISHED: return 'Water Flow ready'
+        if snapshot.state is BakeState.CANCELLED: return 'Water Flow cancelled'
+        if snapshot.state is BakeState.ERROR: return 'Water Flow failed'
+        return f'Water Flow · {snapshot.progress_fraction:.0%}' if snapshot.progress_total else 'Preparing Water Flow'
     if snapshot.current_frame is not None and snapshot.progress_total:
         return (f"Frame {snapshot.current_frame} · "
                 f"{snapshot.progress_current} / {snapshot.progress_total}")
     if snapshot.progress_total:
         return f"{snapshot.progress_fraction:.0%}"
     return snapshot.status_title or "Ready"
+
+
+def water_preparation_display(snapshot):
+    return (snapshot.job_kind is BakeJobKind.WATER_FIELD
+            or snapshot.state is BakeState.PREPARING_WATER)
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -891,7 +901,7 @@ class BakeWindow:
 
     def _tick_status_fill(self):
         if self._closed:return
-        if self._mode is not CompanionMode.VEYRA:
+        if self._mode is not CompanionMode.VEYRA and not getattr(self, '_water_display', False):
             self._frame_progress_state=self._frame_progress.tick()
         self._status_fill_phase=(
             self._status_fill_phase+0.055)%1.0
@@ -976,12 +986,28 @@ class BakeWindow:
             f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
 
     def _toggle_details(self):
+        if getattr(self, '_water_display', False): return
         self._details_visible=not self._details_visible
         if self._details_visible:self.details_panel.grid()
         else:self.details_panel.grid_remove()
         self.details_button.configure(
             text="Hide" if self._details_visible else "Details")
         self._fit_window_to_content()
+
+    def _set_water_display(self, enabled):
+        previous = getattr(self, '_water_display', False)
+        self._water_display = enabled
+        if enabled:
+            self.details_button.pack_forget()
+            if self._details_visible:
+                self._details_visible = False
+                self.details_panel.grid_remove()
+                self._fit_window_to_content()
+            self.status_tooltip.text = 'Water Flow preparation progress'
+        elif previous:
+            self.details_button.configure(text='Details')
+            self.details_button.pack(side='left')
+            self.status_tooltip.text = 'Contacts · Newton steps · Linear iterations'
     def _cancel(self):
         if self._mode is CompanionMode.VEYRA:self._veyra_cancel.set()
         self.transport.request_cancel(); self.primary.set("Cancelling…"); self.cancel.state(["disabled"])
@@ -1063,6 +1089,11 @@ class BakeWindow:
             self.progress.configure(highlightbackground="#777777")
 
     def show(self,snapshot: BakeSnapshot):
+        water_display = water_preparation_display(snapshot) or (
+            getattr(self, '_water_display', False)
+            and self._last_snapshot.job_id == snapshot.job_id
+            and snapshot.state in {BakeState.CANCELLING, BakeState.CANCELLED, BakeState.ERROR})
+        self._set_water_display(water_display)
         self._last_snapshot=snapshot
         _set_window_close_enabled(self.root,not snapshot.active)
         self._set_linux_close_enabled(not snapshot.active)
@@ -1078,6 +1109,10 @@ class BakeWindow:
             self._frame_progress_state=FrameProgress(
                 min(1.0,max(0.0,current/total)) if total else 0.0,
                 indeterminate=not bool(total))
+        elif water_display:
+            total = snapshot.preparation_total
+            fraction = min(1., max(0., snapshot.preparation_current/total)) if total else 0.
+            self._frame_progress_state=FrameProgress(fraction, indeterminate=not bool(total))
         else:
             self._frame_progress_state=self._frame_progress.observe(snapshot)
         self.root.update_idletasks()
@@ -1087,7 +1122,7 @@ class BakeWindow:
                   else snapshot.progress_fraction)
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
-        modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA}
+        modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA, BakeJobKind.WATER_FIELD}
                  and snapshot.active
                  and self._job_modal)
         if modal != self._job_modal:

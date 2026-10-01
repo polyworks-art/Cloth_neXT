@@ -6,7 +6,7 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cloth_next
-from cloth_next.blender.water_flow import CLOTHNEXT_PT_water_flow
+from cloth_next.blender.water_flow import CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display
 
 controls = set()
 operators = set()
@@ -15,7 +15,7 @@ operators = set()
 class Layout:
     enabled = True
 
-    def column(self):
+    def column(self, **kwargs):
         return self
 
     def prop(self, owner, name):
@@ -25,7 +25,10 @@ class Layout:
     def label(self, **kwargs):
         pass
 
-    def operator(self, identifier):
+    def separator(self):
+        pass
+
+    def operator(self, identifier, **kwargs):
         assert identifier == 'cloth_next.prepare_water_flow'
         assert bpy.ops.cloth_next.prepare_water_flow.get_rna_type()
         operators.add(identifier)
@@ -43,6 +46,10 @@ try:
     assert CLOTHNEXT_PT_water_flow.poll(context)
     assert bpy.types.CLOTHNEXT_PT_water_flow.bl_context == 'physics'
     CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
+    CLOTHNEXT_PT_water_flow_display.draw(SimpleNamespace(layout=Layout()), context)
+    assert bpy.types.CLOTHNEXT_PT_water_flow.bl_parent_id == 'CLOTHNEXT_PT_physics'
+    assert obj.cloth_next.bl_rna.properties['water_flow_container'].name == 'GAIA Path'
+    assert obj.cloth_next.bl_rna.properties['water_flow_container'].description == 'Where should the File be placed?'
     assert controls == {
         'water_flow_enabled', 'water_flow_domain', 'water_flow_influence',
         'water_flow_velocity_scale', 'water_flow_resolution', 'water_flow_container',

@@ -11,7 +11,7 @@ from ..gaia.solver_fields import official_grid_payload
 
 
 class FLIPWaterFlowProvider:
-    def __init__(self, context, domain, frames):
+    def __init__(self, context, domain, frames, *, hash_sources=True):
         from mathutils import Vector
         if (domain is None or getattr(getattr(domain, 'flip_fluid', None),
                                      'object_type', '') != 'TYPE_DOMAIN'):
@@ -50,10 +50,13 @@ class FLIPWaterFlowProvider:
                          'baked_fps': baked_fps, 'time_scale': timing.get('time_scale'),
                          'sampling': 'all-liquid-particles' if self.mode == 'FLUID_PARTICLES' else 'surface-only'}
         # Hash both positions and velocity: a same-size overwrite must invalidate.
+        self.source_paths = []
         for frame in frames:
             for pattern in (self.position_pattern, self.velocity_pattern):
                 path = self.root / pattern.format(frame)
                 if not path.is_file(): raise ValueError(f'FLIP requested frame/velocity is missing: {path.name}')
+                self.source_paths.append(path)
+                if not hash_sources: continue
                 digest = hashlib.sha256()
                 with path.open('rb') as stream:
                     for chunk in iter(lambda: stream.read(1024*1024), b''): digest.update(chunk)
@@ -110,11 +113,28 @@ def water_settings_record(obj):
             'container': s.water_flow_container}
 
 
+def water_container_destination(value, object_name):
+    """Accept a destination folder or a new filename; no existing file needed."""
+    path = Path(bpy.path.abspath(value))
+    if path.is_dir() or value.endswith(('/', '\\')):
+        safe_name = ''.join(c if c.isalnum() or c in '-_' else '_' for c in object_name)
+        path = path / f'{safe_name or "Cloth"}_WaterFlow.gaia'
+    elif path.suffix.lower() != '.gaia':
+        path = path.with_suffix('.gaia')
+    return path
+
+
 def prepare_container(context, obj, first, last):
+    from . import water_preparation
+    ready = water_preparation.prepared_container(obj, first, last)
+    if ready is not None:
+        return ready
     s = obj.cloth_next
     if not s.water_flow_container:
-        raise ValueError('Choose an output .gaia container path for Water Flow')
-    path = Path(bpy.path.abspath(s.water_flow_container))
+        raise ValueError('Choose an output folder or new .gaia filename; the file is created by Prepare')
+    path = water_container_destination(s.water_flow_container, obj.name)
+    if Path(bpy.path.abspath(s.water_flow_container)) != path:
+        s.water_flow_container = str(path)
     frames = range(int(first), int(last)+1)
     provider = FLIPWaterFlowProvider(context, s.water_flow_domain, frames)
     fps = context.scene.render.fps / context.scene.render.fps_base
@@ -187,15 +207,35 @@ def apply_water_payload(context, payload, resolved, first, last):
 class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
     bl_idname = 'cloth_next.prepare_water_flow'
     bl_label = 'Prepare .gaia Water Field'
+    _job_id = ''
+    @classmethod
+    def poll(cls, context):
+        from ..bake.controller import shared_controller
+        return CLOTHNEXT_PT_water_flow.poll(context) and not shared_controller.snapshot().active
     def execute(self, context):
-        obj = context.object
+        from . import water_preparation
         try:
-            prepare_container(context, obj, obj.cloth_next.bake_start, obj.cloth_next.bake_end)
+            obj = context.object
+            self._job_id = water_preparation.start(context, (obj,),
+                obj.cloth_next.bake_start, obj.cloth_next.bake_end)
         except Exception as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
-        self.report({'INFO'}, 'Water field saved in .gaia container')
-        return {'FINISHED'}
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+    def modal(self, context, event):
+        from . import water_preparation
+        from ..bake.controller import shared_controller
+        from ..bake.status import BakeState
+        if not water_preparation.active(self._job_id):
+            state = shared_controller.snapshot().state
+            return {'FINISHED'} if state is BakeState.FINISHED else {'CANCELLED'}
+        if event.type == 'ESC':
+            shared_controller.request_cancel()
+        return {'RUNNING_MODAL'}
+    def cancel(self, context):
+        from . import water_preparation
+        water_preparation.cancel(self._job_id)
 
 
 class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
@@ -204,21 +244,55 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'physics'
+    bl_parent_id = 'CLOTHNEXT_PT_physics'
+    bl_options = {'DEFAULT_CLOSED'}
+    def draw_header(self, context):
+        from . import icon_registry
+        self.layout.label(text='', **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
     @classmethod
     def poll(cls, context):
         obj = context.object
         return obj and hasattr(obj, 'cloth_next') and obj.cloth_next.enabled and obj.cloth_next.role == 'CLOTH'
     def draw(self, context):
+        from ..bake.controller import shared_controller
+        from . import icon_registry
         s, layout = context.object.cloth_next, self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.enabled = not shared_controller.snapshot().active
         layout.prop(s, 'water_flow_enabled')
-        body = layout.column()
+        body = layout.column(align=True)
         body.enabled = s.water_flow_enabled
         for key in ('water_flow_domain', 'water_flow_influence', 'water_flow_velocity_scale',
                     'water_flow_resolution', 'water_flow_container'):
             body.prop(s, key)
-        body.label(text='Flow uses the existing scene air-drag model')
-        body.operator('cloth_next.prepare_water_flow')
-        body.prop(s, 'water_flow_show_vectors')
+        if not s.water_flow_container:
+            body.label(text='Uses the Cloth cache folder')
+        body.separator()
+        body.operator('cloth_next.prepare_water_flow', text='Prepare Water Flow',
+                      **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
+
+
+class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
+    bl_label = 'Flow Display'
+    bl_idname = 'CLOTHNEXT_PT_water_flow_display'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'physics'
+    bl_parent_id = 'CLOTHNEXT_PT_water_flow'
+    bl_options = {'DEFAULT_CLOSED'}
+    @classmethod
+    def poll(cls, context):
+        return CLOTHNEXT_PT_water_flow.poll(context)
+    def draw(self, context):
+        from ..bake.controller import shared_controller
+        s, layout = context.object.cloth_next, self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.enabled = s.water_flow_enabled and not shared_controller.snapshot().active
+        layout.prop(s, 'water_flow_show_vectors')
+        body = layout.column(align=True)
+        body.enabled = s.water_flow_show_vectors
         if s.water_flow_show_vectors:
             body.prop(s, 'water_flow_vector_stride')
             body.prop(s, 'water_flow_vector_scale')
@@ -268,10 +342,12 @@ def register():
 
 def unregister():
     global _handle
+    from . import water_preparation
+    water_preparation.shutdown()
     if _handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_handle,'WINDOW')
         _handle=None
     _preview.clear()
 
 
-CLASSES = (CLOTHNEXT_OT_prepare_water_flow, CLOTHNEXT_PT_water_flow)
+CLASSES = (CLOTHNEXT_OT_prepare_water_flow, CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)

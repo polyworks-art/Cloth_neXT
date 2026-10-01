@@ -54,6 +54,8 @@ def main():
         source.cloth_next.collider_motion = "ANIMATED"
         source.cloth_next.collider_capture_mode = "DEFORMING"
         source.cloth_next.collider_samples_per_frame = 2
+        # Match the boundary created by the artist's Collider setup.
+        solver_test.ensure_simulation_modifier(source)
 
         source.shape_key_add(name="Basis")
         deform = source.shape_key_add(name="Deform")

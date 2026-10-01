@@ -148,7 +148,7 @@ def _publish(snapshot) -> None:
         except (OSError, TypeError, ValueError) as exc:
             _log("transport", "Bake status publication failed",
                  error_type=type(exc).__name__, error=str(exc)[:2048])
-    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE,
+    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.WATER_FIELD,
                                                        BakeJobKind.VEYRA}
             and snapshot.state is BakeState.ERROR):
         modal_lock.release(snapshot.job_id)
@@ -156,7 +156,7 @@ def _publish(snapshot) -> None:
              job_id=snapshot.job_id,
              error_code=getattr(snapshot,"error_code","") or "CNX-E199")
         return
-    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE,
+    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.WATER_FIELD,
                                                        BakeJobKind.VEYRA}
             and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.8 - 2026-10-01
+
+- Prepare Water Flow through the existing Bake Window with worker-based source checks, reconstruction, progress and cancellation; hide Details during preparation.
+- Hand off prepared fields to the same production Bake job without repeating synchronous source hashing.
+- Accept folders and new file names in GAIA Path, append the .gaia extension and default to the Cloth cache folder.
+- Align Water Flow Physics controls, separate Flow Display and use the supplied monochrome GAIA icon.
+- Restore the scene frame on completion or cancellation and stop preparation before file load or add-on shutdown.
+
 ## 2.9.7 - 2026-10-01
 
 - Add GAIA Water Flow: reconstruct supported velocity fields from baked FLIP liquid particles through the official GAIA 0.23 force-field interface.

@@ -43,3 +43,26 @@ def test_debug_vectors_match_encoded_field():
     assert len(a)==1
     np.testing.assert_allclose(a,[[.5,.5,.5]])
     np.testing.assert_allclose(b-a,[[.5,0,0]])
+
+
+def test_new_water_container_filename_gets_extension(blender_env, monkeypatch, tmp_path):
+    module = sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(module.bpy.path, 'abspath', lambda value: value)
+    destination = module.water_container_destination(str(tmp_path / 'NewFlow'), 'Plane')
+    assert destination == tmp_path / 'NewFlow.gaia'
+    assert not destination.exists()
+
+
+def test_water_output_folder_creates_new_object_filename(blender_env, monkeypatch, tmp_path):
+    module = sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(module.bpy.path, 'abspath', lambda value: value)
+    assert module.water_container_destination(str(tmp_path), 'Cloth / A') == tmp_path / 'Cloth___A_WaterFlow.gaia'
+
+
+def test_water_destination_never_overwrites_selected_source_file(blender_env, monkeypatch, tmp_path):
+    module = sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(module.bpy.path, 'abspath', lambda value: value)
+    source = tmp_path / 'Watertest.blend'
+    source.write_bytes(b'original scene')
+    assert module.water_container_destination(str(source), 'Plane') == tmp_path / 'Watertest.gaia'
+    assert source.read_bytes() == b'original scene'

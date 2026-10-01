@@ -17,6 +17,7 @@ from ..veyra.model import CompanionMode, VeyraStep
 class BakeState(str, Enum):
     IDLE = "IDLE"
     PREPARING = "PREPARING"
+    PREPARING_WATER = "PREPARING_WATER"
     STARTING_COMPANION = "STARTING_COMPANION"
     WAITING_FOR_COMPANION = "WAITING_FOR_COMPANION"
     COMPANION_READY = "COMPANION_READY"
@@ -38,6 +39,7 @@ class BakeJobKind(str, Enum):
     SOLVER_TEST = "SOLVER_TEST"
     BAKE = "BAKE"
     VEYRA = "VEYRA"
+    WATER_FIELD = "WATER_FIELD"
 
 class BakeActivity(str, Enum):
     IDLE="IDLE"; VALIDATING="VALIDATING"; CAPTURING_GEOMETRY="CAPTURING_GEOMETRY"
@@ -54,6 +56,7 @@ class BakeActivity(str, Enum):
     CAPTURING_FORCE_MOTION="CAPTURING_FORCE_MOTION"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
+    PREPARING_WATER="PREPARING_WATER"
 
 ACTIVITY_LABELS = {
     BakeActivity.IDLE:"Waiting for a Bake", BakeActivity.VALIDATING:"Validating Blender scene",
@@ -73,16 +76,20 @@ ACTIVITY_LABELS = {
     BakeActivity.CAPTURING_FORCE_MOTION:"Capturing animated Forces",
     BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
     BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
+    BakeActivity.PREPARING_WATER:"Preparing Water Flow",
 }
 
 PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":BakeActivity.ENCODING_SCENE,
+    "PREPARING_WATER":BakeActivity.PREPARING_WATER,
     "STARTING_SOLVER":BakeActivity.STARTING_SOLVER, "UPLOADING":BakeActivity.ENCODING_SCENE,
     "BUILDING":BakeActivity.BUILDING_CONTACTS, "SIMULATING":BakeActivity.ADVANCING_SIMULATION,
     "FETCHING":BakeActivity.READING_RESULTS, "IMPORTING":BakeActivity.BUILDING_PC2}
 
 
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
+_TITLES[BakeState.PREPARING_WATER] = "Preparing Water Flow"
 _ACTIVE = {BakeState.PREPARING, BakeState.STARTING_COMPANION,
+           BakeState.PREPARING_WATER,
            BakeState.WAITING_FOR_COMPANION, BakeState.COMPANION_READY,
            BakeState.STARTING_RUN, BakeState.EXPORTING,
            BakeState.STARTING_SOLVER, BakeState.UPLOADING,
@@ -154,6 +161,8 @@ class BakeSnapshot:
     state: BakeState = BakeState.IDLE
     progress_current: int = 0
     progress_total: int | None = None
+    preparation_current: int = 0
+    preparation_total: int | None = None
     current_frame: int | None = None
     frame_start: int | None = None
     frame_end: int | None = None
@@ -256,7 +265,7 @@ class BakeSnapshot:
             values["veyra_step"] = VeyraStep(step) if step else None
         except (TypeError, ValueError):
             values["veyra_step"] = None
-        for key in ("progress_current", "current_frame", "frame_start",
+        for key in ("progress_current", "preparation_current", "current_frame", "frame_start",
                     "frame_end", "solver_process_id", "veyra_step_index",
                     "veyra_step_current"):
             if key in values and values[key] is not None:
@@ -271,6 +280,9 @@ class BakeSnapshot:
         if "progress_total" in values and values["progress_total"] is not None:
             try: values["progress_total"] = max(0, int(values["progress_total"]))
             except (TypeError, ValueError): values["progress_total"] = None
+        if "preparation_total" in values and values["preparation_total"] is not None:
+            try: values["preparation_total"] = max(0, int(values["preparation_total"]))
+            except (TypeError, ValueError): values["preparation_total"] = None
         if "veyra_step_total" in values and values["veyra_step_total"] is not None:
             try: values["veyra_step_total"] = max(0, int(values["veyra_step_total"]))
             except (TypeError, ValueError): values["veyra_step_total"] = None

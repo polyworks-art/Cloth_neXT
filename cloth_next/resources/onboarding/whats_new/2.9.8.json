@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.8",
+  "title": "What's New in Cloth NeXt 2.9.8",
+  "subtitle": "Water Flow preparation in the Bake Window.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Prepare Water Flow with progress",
+      "description": "Prepare .gaia water fields in the existing Bake Window. Source checks and reconstruction run in a worker, with progress and cancellation available."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Choose where the new file belongs",
+      "description": "GAIA Path accepts a new file name or a folder. Leave it empty to use the Cloth cache folder; the derived container uses the .gaia extension."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "A consistent Water Flow card",
+      "description": "Aligned Physics controls, a separate Flow Display section and the new monochrome GAIA icon make the tools easier to scan."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

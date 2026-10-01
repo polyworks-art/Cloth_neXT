@@ -8419,7 +8419,8 @@ def _delayed_recovery_refresh() -> float | None:
 @persistent
 def _on_load_pre_reset_overlay(*_args) -> None:
     """Drop file-bound diagnostics and opaque GPU handles before file load."""
-    from . import intersection_overlay
+    from . import intersection_overlay, water_preparation
+    water_preparation.shutdown()
     intersection_overlay.reset_runtime()
 
 
@@ -9290,7 +9291,7 @@ def _require_cache_directories(deformables) -> None:
             "temporary folder and lost when Blender restarts.")
 
 
-def begin_production_bake(context) -> tuple[str, bool]:
+def begin_production_bake(context, *, _water_job_id=None) -> tuple[str, bool]:
     """Validate and reserve production Bake without worker or modal lock."""
     global _pending_plan, _pending_job_id, _pin_capture
     global _ram_auto_cancel_triggered
@@ -9300,9 +9301,18 @@ def begin_production_bake(context) -> tuple[str, bool]:
     # Cancellation belongs to one Bake attempt. It may still be set after a
     # previous Cancel or add-on shutdown, while animated Collider capture runs
     # before _start_prepared_run() gets a chance to clear it.
-    _cancel_event.clear()
+    if _water_job_id is None:
+        _cancel_event.clear()
     _ram_auto_cancel_triggered = False
-    job_id = _begin_controller(BakeJobKind.BAKE)
+    if _water_job_id is None:
+        job_id = _begin_controller(BakeJobKind.BAKE)
+    else:
+        owner = shared_controller.snapshot()
+        if owner.job_id != _water_job_id or owner.state is not BakeState.PREPARING_WATER:
+            raise SessionCancelled()
+        job_id = _water_job_id
+        shared_controller.transition(BakeState.PREPARING, job_id=job_id, job_kind=BakeJobKind.BAKE,
+                                     status_message='Water Flow ready; preparing Cloth')
     if not modal_lock.reserve(job_id):
         shared_controller.fail(
             "Another Cloth NeXt Bake generation already owns startup.",
@@ -9329,6 +9339,17 @@ def begin_production_bake(context) -> tuple[str, bool]:
         # topology once and scans the pin group once. Everything downstream
         # (pin capture, run plan, fingerprints, cache check) reuses it.
         snapshot=validate_scene(context) if objects else None
+        if snapshot is not None and _water_job_id is None:
+            from . import water_preparation
+            water_objects = tuple(entry.obj for entry in snapshot.deformables
+                if getattr(entry.obj.cloth_next, 'water_flow_enabled', False)
+                and entry.obj.cloth_next.role == 'CLOTH')
+            if water_objects:
+                _require_cache_directories(tuple(entry.obj for entry in snapshot.deformables))
+                water_preparation.start(context, water_objects, snapshot.bake_range.start,
+                    snapshot.bake_range.end, job_id=job_id, wait_for_window=open_preparation_window,
+                    on_complete=lambda: begin_production_bake(context, _water_job_id=job_id))
+                return job_id, True
         animated_colliders = ()
         cached_colliders = {}
         if snapshot is not None:
@@ -9868,6 +9889,9 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
+    from . import water_preparation
+    if water_preparation.cancel():
+        return
     # Latch first. Export/startup ownership can move between controller,
     # pending-plan and worker state during this call; no branch may lose the
     # artist's Cancel request while that hand-off is in progress.
@@ -9903,6 +9927,8 @@ def shutdown(join_timeout: float = 30.0) -> bool:
     happens inside the session worker.
     """
     global _worker, _active_plan, _unsubscribe, _pending_plan, _pending_job_id, _pin_capture
+    from . import water_preparation
+    water_preparation.shutdown()
     _restore_live_playback()
     _clear_intersection_diagnostics()
     if _pending_job_id:
@@ -10131,7 +10157,8 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             self.report({"ERROR"}, message); return {"CANCELLED"}
         self.report({"INFO"}, "Opening Bake window…" if waiting
                     else "Cloth NeXt bake started in Blender.")
-        if _pin_capture is not None:
+        from . import water_preparation
+        if _pin_capture is not None or water_preparation.active():
             manager = getattr(context, "window_manager", None)
             if manager is not None and hasattr(manager, "event_timer_add"):
                 self._capture_modal_cleaned = False
@@ -10157,7 +10184,8 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
             window.cursor_modal_restore()
 
     def modal(self, context, event):
-        if _pin_capture is None:
+        from . import water_preparation
+        if _pin_capture is None and not water_preparation.active():
             self._cleanup_capture_modal(context)
             return ({"CANCELLED"} if shared_controller.snapshot().state
                     is BakeState.CANCELLED else {"FINISHED"})

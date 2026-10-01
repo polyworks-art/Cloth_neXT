@@ -161,6 +161,9 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
             assert visible, path
         if path.name == "gaia_engine.png":
             continue
+        if path.name == 'gaia_water.png':
+            assert all(p[0] == p[1] == p[2] for p in visible)
+            continue
         expected = ((245, 245, 243) if path.name == "cloth_next.png"
                     else (255, 255, 255))
         assert all(pixel[:3] == expected for pixel in visible), path

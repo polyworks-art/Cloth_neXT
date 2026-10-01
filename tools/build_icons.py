@@ -11,7 +11,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "cloth_next_icons"
 TARGET = ROOT / "cloth_next" / "assets" / "icons"
-REQUIRED = ("cloth_next", "cloth", "rod", "soft_body", "collider", "force", "solver", "quality", "physical",
+REQUIRED = ("cloth_next", "gaia_water", "cloth", "rod", "soft_body", "collider", "force", "solver", "quality", "physical",
             "damping", "collision", "pressure", "pinning", "cache", "advanced",
             "bake", "play", "pause", "cancel", "success", "warning", "error",
             "info", "folder", "timer", "setup", "shape", "rest_shape",
@@ -28,7 +28,7 @@ def _color(name: str) -> tuple[int, int, int]:
     return BRAND_WHITE if name == "cloth_next" else WHITE
 
 
-def _render(source: Path, color: tuple[int, int, int] = WHITE) -> bytes:
+def _render(source: Path, color: tuple[int, int, int] = WHITE, *, preserve_colors=False) -> bytes:
     try:
         import resvg_py
     except ImportError as exc:
@@ -37,6 +37,12 @@ def _render(source: Path, color: tuple[int, int, int] = WHITE) -> bytes:
                                      height=SIZE[1], skip_system_fonts=True)
     with Image.open(BytesIO(rendered)) as image:
         image = image.convert("RGBA")
+        if preserve_colors:
+            canvas = Image.new('RGBA', SIZE, (0,0,0,0))
+            canvas.alpha_composite(image, ((SIZE[0]-image.width)//2, (SIZE[1]-image.height)//2))
+            output = BytesIO()
+            canvas.save(output, format='PNG', optimize=False, compress_level=9)
+            return output.getvalue()
         # Blender does not theme custom preview pixels. Render the single
         # approved icon family as white so it remains legible in the default
         # dark UI; antialiasing stays encoded in the original alpha channel.
@@ -65,7 +71,10 @@ def validate() -> None:
                     raise ValueError(f"invalid runtime icon: {output}")
                 rgba = image.convert("RGBA")
                 expected = _color(name)
-                if any(pixel[:3] != expected
+                if name == 'gaia_water':
+                    if any(not (p[0] == p[1] == p[2]) for p in rgba.get_flattened_data() if p[3]):
+                        raise ValueError(f'GAIA icon must remain monochrome: {output}')
+                elif any(pixel[:3] != expected
                        for pixel in rgba.get_flattened_data() if pixel[3]):
                     raise ValueError(
                         f"runtime icon has wrong color {expected}: {output}")
@@ -76,7 +85,7 @@ def build() -> None:
     if missing: raise ValueError("missing required SVG concepts: " + ", ".join(missing))
     TARGET.mkdir(parents=True, exist_ok=True)
     for name in REQUIRED:
-        data = _render(SOURCE / f"{name}.svg", _color(name))
+        data = _render(SOURCE / f"{name}.svg", _color(name), preserve_colors=name=='gaia_water')
         with Image.open(BytesIO(data)) as image:
             if image.format != "PNG" or image.size != SIZE:
                 raise ValueError(f"renderer produced invalid {name}.png")

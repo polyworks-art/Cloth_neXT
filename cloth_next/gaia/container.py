@@ -35,7 +35,7 @@ def _array(data):
     return np.frombuffer(data, dtype=dtype, offset=stream.tell()).reshape(shape, order='F' if order else 'C')
 
 
-def write_water_container(path, metadata, frames):
+def write_water_container(path, metadata, frames, *, check_cancel=None):
     path = Path(path)
     if path.suffix.lower() != '.gaia':
         raise ValueError('GAIA caches must use the .gaia extension')
@@ -46,6 +46,7 @@ def write_water_container(path, metadata, frames):
         with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
             previous = None
             for number, time, field in frames:
+                if check_cancel is not None: check_cancel()
                 if not np.isfinite(time) or (previous is not None and time <= previous):
                     raise ValueError('GAIA frame times must strictly increase')
                 previous = time
@@ -60,6 +61,7 @@ def write_water_container(path, metadata, frames):
             if not manifest['frames']:
                 raise ValueError('GAIA water sequence is empty')
             archive.writestr('manifest.json', json.dumps(manifest, allow_nan=False))
+        if check_cancel is not None: check_cancel()
         os.replace(temporary, path)
     finally:
         if temporary.exists(): temporary.unlink()

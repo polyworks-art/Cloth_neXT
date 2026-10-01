@@ -1,10 +1,12 @@
 # GAIA Water Flow — first implementation
 
-Water Flow reconstructs a time-dependent velocity grid from baked FLIP liquid particles and their `flip_velocity` attribute. It submits the result through GAIA 0.23's existing `air-velocity` force-field interface. Neither GAIA nor FLIP source was modified; no release was built or installed.
+Water Flow reconstructs a time-dependent velocity grid from baked FLIP liquid particles and their `flip_velocity` attribute. It submits the result through GAIA 0.23's existing `air-velocity` force-field interface. Neither GAIA nor FLIP source is modified or bundled.
 
 ## Artist workflow
 
-Enable GAIA Water Flow on an individual Cloth object, select its baked FLIP Domain, choose Influence, Velocity Scale, grid resolution and a `.gaia` cache path, then prepare the cache and run the existing GAIA workflow. Optional debug vectors show the reconstructed contribution. Velocity export must be present in the requested bake frames. Current Cloth FPS must match baked FLIP FPS; animated FPS and explicit retiming are rejected.
+Enable GAIA Water Flow on an individual Cloth object, select its baked FLIP Domain, choose Influence, Velocity Scale, grid resolution and GAIA Path, then prepare the cache and run the existing GAIA workflow. Optional debug vectors show the reconstructed contribution. Velocity export must be present in the requested bake frames. Current Cloth FPS must match baked FLIP FPS; animated FPS and explicit retiming are rejected.
+
+GAIA Path accepts a folder or a new file name and creates a `.gaia` container. An empty path uses the normal Cloth cache folder. Its tooltip is "Where should the File be placed?". Preparation uses the existing Bake Window with its two progress bars and Cancel button; Details is hidden. Hashing and reconstruction run in a Blender-free worker, while a timer captures one FLIP frame at a time on the main thread. Production Bake performs the same preparation before continuing on the same job, reusing the verified result. Completion, cancellation and shutdown restore the original scene frame.
 
 Influence scales the reconstructed velocity contribution; Velocity Scale changes its magnitude. GAIA's existing scene air density and air friction govern the resulting relative drag. There is no independent water-only drag coefficient in this implementation. This is an approximation using the official relative air-velocity model, not CFD water pressure, buoyancy or quadratic hydrodynamic drag.
 
@@ -26,7 +28,7 @@ The unchanged official Windows CUDA solver was exercised with zero flow, constan
 
 The real FLIP-field test used source frames 150–154 and the original Plane topology (2,704 vertices, 5,202 triangles). The original Plane lay outside water support at that time. A separate fixture translated by `(2, 2, 0)` metres therefore tested immersion without modifying the user's scene. Over four simulation frames it moved an additional mean **0.1627 m along X**, with maximum displacement 0.3902 m. Control and flow runs each took about 8.4 seconds. This test deliberately omitted pins, collider and gravity; it does not certify the complete original-scene setup.
 
-The full Python regression suite passed 2,062 tests, with 19 skips and three artifact tests deselected. The 17 Water Flow tests also passed after the final timing, upload-budget and array-read changes. A real Blender source registration/reload smoke test passed. Interactive GPU overlay appearance and a full Water Flow cancel/resume/Start Fresh scene run remain unverified.
+The preparation regression suite passed 2,074 tests, with seven skips and 15 integration/artifact tests deselected. A real Blender preparation test with source frames 1–3 verified cache creation, reuse and cancellation, with a maximum main-thread pump duration of approximately 80 ms. The actual preparation window was captured and verified to hide Details. The 17 Water Flow tests also passed after the final timing, upload-budget and array-read changes. A real Blender source registration/reload smoke test passed. Interactive GPU overlay appearance and a full Water Flow cancel/resume/Start Fresh scene run remain unverified.
 
 ## Scope
 

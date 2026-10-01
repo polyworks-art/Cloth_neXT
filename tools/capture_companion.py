@@ -15,7 +15,7 @@ from cloth_next.veyra.model import CompanionMode, VeyraStep
 from companion.app import BakeWindow
 
 parser=argparse.ArgumentParser(); parser.add_argument(
-    "--mode",choices=("bake","error","veyra","splash","welcome","whats-new"),default="bake")
+    "--mode",choices=("bake","water","error","veyra","splash","welcome","whats-new"),default="bake")
 args=parser.parse_args()
 if args.mode in {"splash","welcome","whats-new"}:
     from companion.onboarding_window import InfoWindow, load_content
@@ -44,9 +44,18 @@ if args.mode=="error":
         error_details=("Stage: Bake workflow startup\n"
             "What to do: Check the previous cache reference before rebaking. "
             "Keep the previous result until the new Bake succeeds; do not remove unrelated files."))
-if args.mode in {"bake","error","veyra"}:
+if args.mode=="water":
+    snapshot=BakeSnapshot(state=BakeState.PREPARING_WATER,job_kind=BakeJobKind.WATER_FIELD,
+        progress_current=617,progress_total=750,preparation_current=117,preparation_total=250,
+        status_title='Preparing Water Flow',status_message='Reconstructing flow',
+        activity_code=BakeActivity.PREPARING_WATER,
+        activity_label='Reconstructing flow · 117 / 250',elapsed_seconds=42,can_cancel=True,
+        job_id='water-capture')
+if args.mode in {"bake","water","error","veyra"}:
     window.show(snapshot)
     if args.mode=="error" and not window._details_visible:window._toggle_details()
+    if args.mode=='water':
+        assert not window.details_button.winfo_manager(), 'Details button must be hidden'
 window.root.update_idletasks(); window.root.update(); window.root.lift(); window.root.attributes("-topmost",True)
 for _ in range(6):
     window.root.update_idletasks(); window.root.update(); time.sleep(.2)
