@@ -58,6 +58,10 @@ def release_name(installation) -> str:
     """Return a verified codename, or preserve the stored fallback name."""
     entry = _entry_for_installation(installation)
     if entry is not None:
+        # Different protocol generations may share a product codename. Use
+        # their explicit manifest display names without renaming old entries.
+        if sum(item.release_name == entry.release_name for item in _releases()) > 1:
+            return entry.display_name or entry.release_name
         return entry.release_name
     name = installation.display_name.replace("PPF Contact Solver", "Simulation Solver")
     return re.sub(r"\bPPF\b", "Solver", name, flags=re.IGNORECASE)

@@ -1,10 +1,30 @@
 {
   "manifest_version": 3,
-  "cloth_next_version": "2.9.6",
+  "cloth_next_version": "2.9.7",
   "platforms": {
     "linux-x86_64": {
       "default_release_id": "ppf-0.22-gaia",
       "releases": [
+        {
+          "id": "ppf-0.23-gaia",
+          "codename": "Gaia",
+          "display_name": "Gaia 0.23",
+          "channel": "current",
+          "downloadable": true,
+          "adapter_id": "official-gaia-schema2",
+          "integration_recipe_id": "gaia-023-official",
+          "solver_package_version": "0.1.0",
+          "protocol_version": "0.23",
+          "schema_version": "2",
+          "official_repository": "st-tech/ppf-contact-solver",
+          "official_release_tag": "2026-09-27-20-44",
+          "official_asset_name": "ppf-contact-solver-2026-09-27-20-44-linux-x86_64.tar.gz",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-27-20-44/ppf-contact-solver-2026-09-27-20-44-linux-x86_64.tar.gz",
+          "download_size": 646442979,
+          "sha256": "cec7c8e6ad47f1040fbbe4c84869bde2dad82e4721180be258daa7f3f6fd9f91",
+          "archive_layout_version": 2,
+          "health_check_required": true
+        },
         {
           "id": "ppf-0.22-gaia",
           "codename": "Gaia",
@@ -30,6 +50,26 @@
     "windows-x86_64": {
       "default_release_id": "ppf-0.22-gaia",
       "releases": [
+        {
+          "id": "ppf-0.23-gaia",
+          "codename": "Gaia",
+          "display_name": "Gaia 0.23",
+          "channel": "current",
+          "downloadable": true,
+          "adapter_id": "official-gaia-schema2",
+          "integration_recipe_id": "gaia-023-official",
+          "solver_package_version": "0.1.0",
+          "protocol_version": "0.23",
+          "schema_version": "2",
+          "official_repository": "st-tech/ppf-contact-solver",
+          "official_release_tag": "2026-09-27-20-44",
+          "official_asset_name": "ppf-contact-solver-2026-09-27-20-44-win64.zip",
+          "official_asset_url": "https://github.com/st-tech/ppf-contact-solver/releases/download/2026-09-27-20-44/ppf-contact-solver-2026-09-27-20-44-win64.zip",
+          "download_size": 405398963,
+          "sha256": "fd3f43aa7e9849526b5113da558443a074039231ba700edfc953b6c83eb990d4",
+          "archive_layout_version": 2,
+          "health_check_required": true
+        },
         {
           "id": "ppf-0.13-stable",
           "codename": "Velune",

@@ -695,6 +695,11 @@ class RunPlan:
     solver_input: intersection_diagnostics.SolverInputSnapshot | None = None
     backend_id: str = "PPF"
 
+    def __post_init__(self):
+        if self.backend_id == "PPF":
+            from ..ppf.official_scene_bridge import prepare_for_solver
+            object.__setattr__(self, "scene", prepare_for_solver(self.scene, self.resolved))
+
 
 def _plan_deformables(plan: RunPlan) -> tuple[DeformablePlan, ...]:
     deformables = getattr(plan, "deformables", ())
@@ -2194,6 +2199,9 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         *force_settings,
         str(_scene_fps(context)),
     ))
+    if getattr(cloth_obj.cloth_next, "water_flow_enabled", False):
+        from .water_flow import water_settings_record
+        record += "\0" + json.dumps(water_settings_record(cloth_obj), sort_keys=True)
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
 
 
@@ -5371,6 +5379,10 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             tuple(target.uuid for target in target_plans),
             schema_version=_resolved_wire_contract(resolved)[0],
             protocol_version=_resolved_wire_contract(resolved)[1])
+        from .water_flow import apply_water_payload
+        param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+            snapshot.bake_range.start, snapshot.bake_range.end)
+        param_hash = water_hash or param_hash
         param_key = _param_source_key(
             context, snapshot, force_capture,
             tuple(target.uuid for target in target_plans),
@@ -5727,6 +5739,10 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         object_attachments=snapshot.object_attachments,
         contact_enabled=snapshot.contact_enabled,
         schema_version=wire_schema, protocol_version=wire_protocol)
+    from .water_flow import apply_water_payload
+    param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = water_hash or param_hash
     param_cache_key = _param_source_key(
         context, snapshot, force_capture, tuple(uuids),
         tuple(item[1] for item in collider_specs),
@@ -6183,6 +6199,10 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         tuple(item[1] for item in collider_specs), (pin_config,))
     param_payload, param_hash = _cached_payload(
         payload_cache, "param", param_cache_key, encode_param_payload)
+    from .water_flow import apply_water_payload
+    param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = water_hash or param_hash
     # Reused from the single authoritative validation — the topology is not
     # hashed and the pin group is not scanned a second time here.
     settings_fp = snapshot.settings_fingerprint
@@ -6365,6 +6385,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
 
 
 def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
+    from ..ppf.official_scene_bridge import recovery_param_hash
     settings = getattr(context.scene, "cloth_next_recovery", None)
     # The persistent export-cache recipe is optional. Complex evaluated scenes
     # can deliberately decline that cache while still producing canonical
@@ -6400,7 +6421,7 @@ def _configure_recovery(context, snapshot, plan: RunPlan) -> RunPlan:
         # canonical encoded PARAM payload remains byte-for-byte identical.
         # Using the recipe here made Resume reject its own freshly-created
         # checkpoint as "Material or solver settings changed".
-        param_key=plan.scene.param_hash,
+        param_key=recovery_param_hash(plan.scene),
         export_uuids=tuple(sorted(
             [target.uuid for target in targets]
             + [export_identity.export_uuid(obj)
@@ -12121,6 +12142,18 @@ class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
             project = recovery.owned_project_root(metadata, record)
             cleanup_failures = []
             if project is not None:
+                from ..ppf.project_links import remove_link_for_owned_target
+                try:
+                    remove_link_for_owned_target(
+                        Path(record.server_data_root), project, record.project_id,
+                        required=record.identity.protocol_version == "0.23")
+                except (ClothNextError, OSError) as exc:
+                    settings = context.scene.cloth_next_recovery
+                    settings.status = "Cleanup Failed"
+                    settings.status_detail = (exc.record.user_message
+                                              if isinstance(exc, ClothNextError) else str(exc))
+                    self.report({"ERROR"}, settings.status_detail)
+                    return {"CANCELLED"}
                 outcome = delete_owned(
                     project, root=Path(record.server_data_root),
                     ownership_authenticated=True,

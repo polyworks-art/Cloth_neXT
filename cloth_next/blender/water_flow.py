@@ -1,0 +1,277 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Read baked FLIP mesh attributes; generic GAIA adapter knows no FLIP objects."""
+import hashlib
+import json
+from pathlib import Path
+import bpy
+import numpy as np
+from ..gaia.water_field import reconstruct, grid_dimensions, fingerprint
+from ..gaia.container import GaiaContainer, write_water_container
+from ..gaia.solver_fields import official_grid_payload
+
+
+class FLIPWaterFlowProvider:
+    def __init__(self, context, domain, frames):
+        from mathutils import Vector
+        if (domain is None or getattr(getattr(domain, 'flip_fluid', None),
+                                     'object_type', '') != 'TYPE_DOMAIN'):
+            raise ValueError('Select a baked FLIP Fluids Domain')
+        self.context, self.domain = context, domain
+        self.properties = domain.flip_fluid.domain
+        d = self.properties
+        self.root = Path(d.cache.get_cache_abspath()) / 'bakefiles'
+        if not self.root.is_dir(): raise ValueError('FLIP cache is missing or not baked')
+        export = self.root.parent / 'export' / 'flipdata.sim'
+        if not export.is_file(): raise ValueError('FLIP bake timing metadata is missing')
+        timing = json.loads(export.read_text(encoding='utf-8'))['domain_data']['simulation']
+        rate = timing['frames_per_second']
+        if rate.get('is_animated'):
+            raise ValueError('Animated FLIP frame rates are not supported for Water Flow')
+        baked_fps = float(rate['data'])
+        cloth_fps = context.scene.render.fps / context.scene.render.fps_base
+        if not np.isfinite(baked_fps) or abs(baked_fps-cloth_fps)>1e-6:
+            raise ValueError('FLIP bake FPS differs from Cloth FPS; explicit retiming is not supported yet')
+        # Actual baked files are authoritative even if the .blend was last
+        # saved before enabling velocity export for a completed rebake.
+        first = next(iter(frames))
+        if (self.root / f'fluidparticlesvelocity{first:06d}.ffp3').is_file():
+            self.mode, self.cache = 'FLUID_PARTICLES', d.mesh_cache.particles
+            self.position_pattern, self.velocity_pattern = 'fluidparticles{:06d}.ffp3', 'fluidparticlesvelocity{:06d}.ffp3'
+        elif (self.root / f'velocity{first:06d}.bobj').is_file():
+            self.mode, self.cache = 'SURFACE_VELOCITY', d.mesh_cache.surface
+            self.position_pattern, self.velocity_pattern = '{:06d}.bobj', 'velocity{:06d}.bobj'
+        else:
+            raise ValueError('FLIP velocity data is not available. Enable Fluid Particle Velocity Attributes and rebake FLIP.')
+        matrix = np.asarray(domain.matrix_world, float)
+        if not np.isfinite(matrix).all() or abs(np.linalg.det(matrix[:3,:3])) < 1e-12:
+            raise ValueError('Invalid FLIP Domain transform')
+        self.identity = {'mode': self.mode, 'cache': str(self.root.resolve()),
+                         'domain': domain.name, 'matrix': matrix.tolist(), 'sources': [],
+                         'baked_fps': baked_fps, 'time_scale': timing.get('time_scale'),
+                         'sampling': 'all-liquid-particles' if self.mode == 'FLUID_PARTICLES' else 'surface-only'}
+        # Hash both positions and velocity: a same-size overwrite must invalidate.
+        for frame in frames:
+            for pattern in (self.position_pattern, self.velocity_pattern):
+                path = self.root / pattern.format(frame)
+                if not path.is_file(): raise ValueError(f'FLIP requested frame/velocity is missing: {path.name}')
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    for chunk in iter(lambda: stream.read(1024*1024), b''): digest.update(chunk)
+                self.identity['sources'].append([path.name, digest.hexdigest()])
+        corners = np.asarray([tuple(domain.matrix_world @ Vector(p)) for p in domain.bound_box])
+        self.minimum, self.maximum = corners.min(axis=0), corners.max(axis=0)
+
+    def sample(self, frame):
+        self.context.scene.frame_set(frame)
+        previous = self.cache.enable_velocity_attribute
+        percentages = ('ffp3_surface_import_percentage', 'ffp3_boundary_import_percentage',
+                       'ffp3_interior_import_percentage') if self.mode == 'FLUID_PARTICLES' else ()
+        saved_percentages = {name: getattr(self.cache, name) for name in percentages}
+        try:
+            # Display/import option only, restored immediately; neither bake
+            # settings nor source cache is written.
+            self.cache.enable_velocity_attribute = True
+            for name in percentages: setattr(self.cache, name, 1.0)
+            self.cache.load_frame(frame, force_load=True, depsgraph=self.context.evaluated_depsgraph_get())
+        finally:
+            self.cache.enable_velocity_attribute = previous
+            for name, value in saved_percentages.items(): setattr(self.cache, name, value)
+        obj = self.cache.get_cache_object()
+        if obj is None or obj.type != 'MESH': raise ValueError('FLIP fluid cache object is unavailable')
+        mesh = obj.data
+        attr = mesh.attributes.get('flip_velocity')
+        if attr is None or attr.domain != 'POINT' or attr.data_type != 'FLOAT_VECTOR':
+            raise ValueError(f'FLIP flip_velocity is missing at frame {frame}; rebake with Velocity Attributes')
+        count = len(mesh.vertices)
+        if not count or len(attr.data) != count: raise ValueError(f'No usable fluid samples at frame {frame}')
+        p, v = np.empty(count*3, np.float32), np.empty(count*3, np.float32)
+        mesh.vertices.foreach_get('co', p)
+        attr.data.foreach_get('vector', v)
+        matrix = np.asarray(obj.matrix_world, float)
+        p = p.reshape(-1,3) @ matrix[:3,:3].T + matrix[:3,3]
+        # FLIP documents flip_velocity as physical world velocity in m/s;
+        # its loader writes attribute data directly. Do not translate or
+        # multiply by the cache object's display scale a second time.
+        return p, v.reshape(-1,3)
+
+
+def water_settings_record(obj):
+    s = obj.cloth_next
+    if not getattr(s, 'water_flow_enabled', False): return None
+    domain = s.water_flow_domain
+    source = None
+    if domain is not None and hasattr(domain, 'flip_fluid') and domain.flip_fluid.object_type == 'TYPE_DOMAIN':
+        cache = Path(domain.flip_fluid.domain.cache.get_cache_abspath())
+        stats = cache / 'flipstats.data'
+        source = {'cache': str(cache), 'matrix': [list(row) for row in domain.matrix_world],
+                  'bake_stat': [stats.stat().st_size, stats.stat().st_mtime_ns] if stats.is_file() else None}
+    return {'domain': domain.name if domain else None, 'source': source, 'influence': s.water_flow_influence,
+            'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
+            'container': s.water_flow_container}
+
+
+def prepare_container(context, obj, first, last):
+    s = obj.cloth_next
+    if not s.water_flow_container:
+        raise ValueError('Choose an output .gaia container path for Water Flow')
+    path = Path(bpy.path.abspath(s.water_flow_container))
+    frames = range(int(first), int(last)+1)
+    provider = FLIPWaterFlowProvider(context, s.water_flow_domain, frames)
+    fps = context.scene.render.fps / context.scene.render.fps_base
+    dims = grid_dimensions(provider.minimum, provider.maximum, int(s.water_flow_resolution))
+    metadata = {'provider': provider.identity, 'frames': [first,last], 'fps': fps,
+                'dimensions': dims, 'algorithm': 'trilinear-splat-support-v1',
+                'field_format': 'gaia-0.23', 'physical_velocity_units': 'm/s'}
+    metadata['fingerprint'] = fingerprint(metadata)
+    if path.is_file():
+        try:
+            with GaiaContainer(path) as cached:
+                if cached.manifest['water']['fingerprint'] == metadata['fingerprint']:
+                    # Validate all frame checksums before accepting reuse.
+                    for index in range(len(cached.manifest['frames'])): cached.frame(index)
+                    return path
+        except (ValueError, KeyError, OSError):
+            raise ValueError('Derived .gaia cache is corrupted; choose a new container path or rebuild it')
+    original = context.scene.frame_current
+    def sequence():
+        for frame in frames:
+            positions, velocities = provider.sample(frame)
+            field = reconstruct(positions, velocities, provider.minimum, provider.maximum, dims)
+            yield frame, (frame-first)/fps, field
+    try:
+        write_water_container(path, metadata, sequence())
+    finally:
+        context.scene.frame_set(original)
+    return path
+
+
+def apply_water_payload(context, payload, resolved, first, last):
+    """Disabled fast path returns the original payload/hash without FLIP I/O."""
+    targets = [obj for obj in context.scene.objects if hasattr(obj, 'cloth_next')
+               and obj.cloth_next.enabled and obj.cloth_next.role == 'CLOTH'
+               and getattr(obj.cloth_next, 'water_flow_enabled', False)]
+    if not targets: return payload, None
+    if str(getattr(resolved, 'protocol_version', '')) != '0.23':
+        raise ValueError('Water Flow requires official GAIA 0.23')
+    from ..ppf.schema import envelope
+    raw = payload.read_bytes() if isinstance(payload, Path) else payload
+    tree = envelope.loads_envelope(raw, envelope.KIND_PARAM, schema_version=2)
+    grids = []
+    for obj in targets:
+        indices = [i for i, (params, names, uuids) in enumerate(tree['group']) if obj.name in names]
+        if len(indices) != 1: raise ValueError('Water Flow target is not present in the solver scene')
+        index = indices[0]
+        params, names, _ = tree['group'][index]
+        if len(names) != 1:
+            raise ValueError('Water Flow currently requires an individual solver material group per target')
+        path = prepare_container(context, obj, first, last)
+        with GaiaContainer(path) as container:
+            field = official_grid_payload(container, [index], influence=obj.cloth_next.water_flow_influence,
+                                          velocity_scale=obj.cloth_next.water_flow_velocity_scale)
+        grids.extend(field['grids'])
+        params['force-field-weight'] = 1.0
+    # Keep the existing ambient drag coefficients: zero contribution/outside
+    # water then reproduces the ordinary simulation, including its air damping.
+    if float(tree['scene'].get('air-density', .001)) <= 0:
+        raise ValueError('Water Flow velocity drag requires positive scene Air Density')
+    existing = tree.setdefault('force_field', {'grids': [], 'scripts': []})
+    existing.setdefault('grids', []).extend(grids)
+    from ..gaia.solver_fields import MAX_UPLOAD_BYTES
+    total_bytes = sum(int(np.prod(g['shape'])) * 4 for g in existing['grids'])
+    if total_bytes > MAX_UPLOAD_BYTES:
+        raise ValueError('Combined Water Flow fields exceed the 32 MiB schedule upload budget')
+    data = envelope.dumps_envelope(envelope.KIND_PARAM, tree, schema_version=2)
+    return data, hashlib.sha256(data).hexdigest()
+
+
+class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
+    bl_idname = 'cloth_next.prepare_water_flow'
+    bl_label = 'Prepare .gaia Water Field'
+    def execute(self, context):
+        obj = context.object
+        try:
+            prepare_container(context, obj, obj.cloth_next.bake_start, obj.cloth_next.bake_end)
+        except Exception as exc:
+            self.report({'ERROR'}, str(exc))
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Water field saved in .gaia container')
+        return {'FINISHED'}
+
+
+class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
+    bl_label = 'GAIA Water Flow'
+    bl_idname = 'CLOTHNEXT_PT_water_flow'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'physics'
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and hasattr(obj, 'cloth_next') and obj.cloth_next.enabled and obj.cloth_next.role == 'CLOTH'
+    def draw(self, context):
+        s, layout = context.object.cloth_next, self.layout
+        layout.prop(s, 'water_flow_enabled')
+        body = layout.column()
+        body.enabled = s.water_flow_enabled
+        for key in ('water_flow_domain', 'water_flow_influence', 'water_flow_velocity_scale',
+                    'water_flow_resolution', 'water_flow_container'):
+            body.prop(s, key)
+        body.label(text='Flow uses the existing scene air-drag model')
+        body.operator('cloth_next.prepare_water_flow')
+        body.prop(s, 'water_flow_show_vectors')
+        if s.water_flow_show_vectors:
+            body.prop(s, 'water_flow_vector_stride')
+            body.prop(s, 'water_flow_vector_scale')
+
+
+_handle = None
+_preview = {}
+
+
+def _draw_vectors():
+    obj = bpy.context.object
+    if obj is None or not hasattr(obj, 'cloth_next'): return
+    s = obj.cloth_next
+    if not s.water_flow_enabled or not s.water_flow_show_vectors or not s.water_flow_container: return
+    path = Path(bpy.path.abspath(s.water_flow_container))
+    if not path.is_file(): return
+    try:
+        key = (str(path), path.stat().st_mtime_ns, bpy.context.scene.frame_current,
+               s.water_flow_vector_stride, s.water_flow_vector_scale,
+               s.water_flow_influence, s.water_flow_velocity_scale)
+        if key not in _preview:
+            from ..gaia.water_field import debug_vectors
+            with GaiaContainer(path) as c:
+                records=c.manifest['frames']
+                index=min(range(len(records)),key=lambda i:abs(records[i]['frame']-bpy.context.scene.frame_current))
+                a,b=debug_vectors(c.frame(index),s.water_flow_vector_stride,
+                                  s.water_flow_vector_scale*s.water_flow_influence*s.water_flow_velocity_scale)
+            _preview.clear()
+            _preview[key]=np.stack((a,b),axis=1).reshape(-1,3)
+        import gpu
+        from gpu_extras.batch import batch_for_shader
+        shader=gpu.shader.from_builtin('UNIFORM_COLOR')
+        batch=batch_for_shader(shader,'LINES',{'pos':_preview[key]})
+        shader.bind()
+        shader.uniform_float('color',(.1,.6,1.,1.))
+        batch.draw(shader)
+    except (OSError,ValueError,KeyError):
+        return
+
+
+def register():
+    global _handle
+    if (_handle is None and not getattr(bpy.app, 'background', False)
+            and hasattr(bpy.types, 'SpaceView3D')):
+        _handle=bpy.types.SpaceView3D.draw_handler_add(_draw_vectors,(),'WINDOW','POST_VIEW')
+
+
+def unregister():
+    global _handle
+    if _handle is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(_handle,'WINDOW')
+        _handle=None
+    _preview.clear()
+
+
+CLASSES = (CLOTHNEXT_OT_prepare_water_flow, CLOTHNEXT_PT_water_flow)

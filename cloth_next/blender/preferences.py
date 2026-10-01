@@ -875,7 +875,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=(
                 f"{active.display_name} · Protocol "
                 f"{active.protocol_version} · Schema {active.schema_version}"))
-            if active.protocol_version in {"0.22", "0.18"}:
+            if active.protocol_version in {"0.22", "0.23", "0.18"}:
                 from ..ppf.backend_selection import available_backend_choices
                 backend = box.row()
                 backend.enabled = not session_active

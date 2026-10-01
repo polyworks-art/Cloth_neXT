@@ -1,6 +1,8 @@
 from pathlib import Path
 import subprocess
+import shutil
 from PIL import Image
+import pytest
 
 from companion.build_assets import build
 from tools.build_brand_assets import build as build_brand_assets
@@ -15,6 +17,15 @@ from cloth_next.bake.status import BakeSnapshot,BakeState
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture
+def generated_assets(tmp_path, monkeypatch):
+    """Build real assets without repeatedly overwriting checked-in outputs."""
+    import companion.build_assets as assets
+    target = tmp_path / "companion-assets"
+    monkeypatch.setattr(assets, "TARGET", target)
+    return target
+
+
 def _identity_signature(path):
     if path.suffix.lower() != ".png":
         return path.read_bytes()
@@ -23,7 +34,8 @@ def _identity_signature(path):
         return rgba.size, rgba.mode, rgba.tobytes()
 
 
-def test_all_identity_derivatives_are_deterministic_from_primary_mark():
+def test_all_identity_derivatives_are_deterministic_from_primary_mark(tmp_path, monkeypatch):
+    import tools.build_brand_assets as brand_assets
     source = ROOT / "assets" / "CN_new_Logo.svg"
     assert 'viewBox="0 0 497 476"' in source.read_text(encoding="utf-8")
     outputs = (
@@ -43,9 +55,19 @@ def test_all_identity_derivatives_are_deterministic_from_primary_mark():
         ROOT / "cloth_next" / "resources" / "onboarding" / "icons" /
         "logo.png",
     )
-    before = {path: _identity_signature(path) for path in outputs}
+    # Keep the checked-in assets read-only during regression runs. Compare
+    # real generated outputs with their approved originals and a second build.
+    before = {path.relative_to(ROOT): _identity_signature(path) for path in outputs}
+    generated = tmp_path / "brand-assets"
+    for path in outputs:
+        target = generated / path.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+    monkeypatch.setattr(brand_assets, "ROOT", generated)
     build_brand_assets()
-    assert before == {path: _identity_signature(path) for path in outputs}
+    assert before == {relative: _identity_signature(generated / relative) for relative in before}
+    build_brand_assets()
+    assert before == {relative: _identity_signature(generated / relative) for relative in before}
 
 
 def test_identity_sources_follow_primary_mark_clear_space_and_color():
@@ -63,9 +85,9 @@ def test_identity_sources_follow_primary_mark_clear_space_and_color():
     assert (ROOT / "assets" / "LOGO_addon.png").read_bytes() == color.read_bytes()
 
 
-def test_companion_assets_reuse_approved_identity_and_bake_icons():
+def test_companion_assets_reuse_approved_identity_and_bake_icons(generated_assets):
     build()
-    target = ROOT / "companion" / "assets"
+    target = generated_assets
     first_identity = {
         name: (target / name).read_bytes()
         for name in ("cloth_next.png", "cloth_next.ico")}
@@ -97,8 +119,8 @@ def test_generated_companion_executable_is_not_committed():
     executables=[path for path in tracked if path.lower().endswith(".exe")]
     assert executables == []
 
-def test_particle_assets_are_deterministic_translucent_icons():
-    build(); target=ROOT/"companion"/"assets"
+def test_particle_assets_are_deterministic_translucent_icons(generated_assets):
+    build(); target=generated_assets
     all_particles={**PARTICLE_ASSETS,**PARTICLE_SUBPIXEL_ASSETS}
     before={name:(target/name).read_bytes() for name in all_particles}; build()
     assert before == {name:(target/name).read_bytes() for name in all_particles}
@@ -117,8 +139,8 @@ def test_particle_assets_are_deterministic_translucent_icons():
     assert len(set(phases)) == 16
 
 
-def test_solver_status_assets_are_deterministic_opaque_white_icons():
-    build(); target=ROOT/"companion"/"assets"
+def test_solver_status_assets_are_deterministic_opaque_white_icons(generated_assets):
+    build(); target=generated_assets
     before={name:(target/name).read_bytes() for name in STATUS_ASSETS}; build()
     assert before == {name:(target/name).read_bytes() for name in STATUS_ASSETS}
     for name in STATUS_ASSETS:

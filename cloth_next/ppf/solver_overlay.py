@@ -434,6 +434,10 @@ INTEGRATION_RECIPES = MappingProxyType({
         (_GAIA_SCENE_MAPPED, 'elif key == "lock-translation":',
          'statistics_input_path = os.path.join(path, "statistics_input.cbor")'),
         "gaia"),
+    "gaia-023-official": IntegrationRecipe(
+        "gaia-023-official", "0.23", "2", "2026-09-27-20-44",
+        ".cloth-next-official-integration-0.23-schema-2",
+        ("Per-stitch-row stiffness (M,)", "def set_stitch("), "none"),
 })
 
 
@@ -458,6 +462,16 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
     if recipe is not None:
         if (recipe.protocol, recipe.schema, recipe.release_tag) != identity:
             raise SolverOverlayError("integration recipe does not match the release")
+        if recipe.overlay == "none":
+            # Official-only integration: inspect, never patch or write markers.
+            frontend = bundle_root / "frontend"
+            scene = frontend / "_scene_.py"
+            if not scene.is_file() or not (frontend / "build_worker.py").is_file():
+                raise SolverOverlayError("official frontend files are missing")
+            source = scene.read_text(encoding="utf-8")
+            if any(source.count(anchor) != 1 for anchor in recipe.anchors):
+                raise SolverOverlayError("official public scene API does not match this release")
+            return
         marker = bundle_root / recipe.marker_name
         diagnostics_marker = bundle_root / (f".cloth-next-{OVERLAY_VERSION}-gaia"
                                           if recipe.overlay == "gaia"

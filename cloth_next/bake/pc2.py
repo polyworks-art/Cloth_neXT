@@ -16,6 +16,7 @@ from typing import Sequence
 import numpy as np
 
 from ..core.safe_delete import delete_owned
+from ..core.filesystem_paths import io_path
 
 PC2_MAGIC = b"POINTCACHE2\0"
 PC2_VERSION = 1
@@ -60,17 +61,17 @@ class StreamingPc2Writer:
         self.flush_seconds = 0.0
         self.validation_seconds = 0.0
         self._finished = False
-        self.final_path.parent.mkdir(parents=True, exist_ok=True)
+        io_path(self.final_path.parent).mkdir(parents=True, exist_ok=True)
         self.temporary_path = (
             Path(resume_path) if resume_path is not None
             else self.final_path.with_name(
                 f".{self.final_path.name}.{uuid.uuid4().hex}.tmp"))
         try:
-            if self.temporary_path.exists():
+            if io_path(self.temporary_path).exists():
                 self._resume_existing()
             else:
-                self.temporary_path.parent.mkdir(parents=True, exist_ok=True)
-                self._stream = self.temporary_path.open("xb")
+                io_path(self.temporary_path.parent).mkdir(parents=True, exist_ok=True)
+                self._stream = io_path(self.temporary_path).open("xb")
                 written = self._stream.write(_header_bytes(self.header))
                 if written != PC2_HEADER_SIZE:
                     raise OSError("short PC2 header write")
@@ -80,7 +81,7 @@ class StreamingPc2Writer:
             raise
 
     def _resume_existing(self) -> None:
-        stream = self.temporary_path.open("r+b")
+        stream = io_path(self.temporary_path).open("r+b")
         raw = stream.read(PC2_HEADER_SIZE)
         if raw != _header_bytes(self.header):
             stream.close()
@@ -151,9 +152,9 @@ class StreamingPc2Writer:
             os.fsync(self._stream.fileno())
             self.flush_seconds = time.monotonic() - step
             self._stream.close()
-            if self.final_path.exists():
-                os.link(self.final_path, backup)
-            os.replace(self.temporary_path, self.final_path)
+            if io_path(self.final_path).exists():
+                os.link(io_path(self.final_path), io_path(backup))
+            os.replace(io_path(self.temporary_path), io_path(self.final_path))
             step = time.monotonic()
             verified = read_header(self.final_path)
             self.validation_seconds = time.monotonic() - step
@@ -165,12 +166,12 @@ class StreamingPc2Writer:
             self._finished = True
             return verified
         except Exception:
-            if backup.exists():
+            if io_path(backup).exists():
                 try:
-                    os.replace(backup, self.final_path)
+                    os.replace(io_path(backup), io_path(self.final_path))
                 except OSError:
                     pass
-            elif self.final_path.exists() and not self.temporary_path.exists():
+            elif io_path(self.final_path).exists() and not io_path(self.temporary_path).exists():
                 delete_owned(
                     self.final_path, root=self.final_path.parent,
                     ownership_authenticated=True,
@@ -234,7 +235,7 @@ def write_pc2(path: Path, frames: Sequence[Sequence[Sequence[float]]], *,
 
 
 def read_header(path: Path) -> Pc2Header:
-    with path.open("rb") as stream:
+    with io_path(path).open("rb") as stream:
         raw = stream.read(PC2_HEADER_SIZE)
         stream.seek(0, 2)
         actual_size = stream.tell()
@@ -257,7 +258,7 @@ def read_header(path: Path) -> Pc2Header:
 def partial_frame_count(path: Path, expected: Pc2Header) -> int:
     """Validate a resumable partial file and return complete frame count."""
     path = Path(path)
-    with path.open("rb") as stream:
+    with io_path(path).open("rb") as stream:
         raw = stream.read(PC2_HEADER_SIZE)
         stream.seek(0, 2)
         size = stream.tell()
@@ -280,7 +281,7 @@ def live_complete_frame_count(path: Path, expected: Pc2Header) -> int:
     the next frame. The caller must also cap this count to a flushed worker
     event before exposing a frame to Blender.
     """
-    with Path(path).open("rb") as stream:
+    with io_path(path).open("rb") as stream:
         raw = stream.read(PC2_HEADER_SIZE)
         stream.seek(0, 2)
         size = stream.tell()
@@ -296,7 +297,7 @@ def iter_frames(path: Path):
     """Yield validated PC2 frames one at a time as ``(N, 3)`` float arrays."""
     header = read_header(path)
     frame_bytes = header.vertex_count * 12
-    with path.open("rb") as stream:
+    with io_path(path).open("rb") as stream:
         stream.seek(PC2_HEADER_SIZE)
         for index in range(header.frame_count):
             raw = stream.read(frame_bytes)

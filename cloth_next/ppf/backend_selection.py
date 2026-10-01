@@ -21,7 +21,7 @@ BACKEND_CHOICES = ("AUTO", "CUDA", "ROCM", "CPU")
 
 def available_backend_choices(protocol_version: str, root: Path) -> tuple[str, ...]:
     """Return packaged choices for the selected verified generation."""
-    if protocol_version == "0.22" and (
+    if protocol_version in {"0.22", "0.23"} and (
             root / "target" / "cpu" / "release" / EXECUTABLE_NAME).is_file():
         return tuple(choice for choice in BACKEND_CHOICES
                      if choice == "AUTO" or (
@@ -42,7 +42,7 @@ def executable_for_choice(root: Path, protocol_version: str,
     if choice not in available:
         raise ValueError(f"{choice} is not available in the selected solver release")
     if choice == "AUTO":
-        return (preferred_executable(root) if protocol_version == "0.22"
+        return (preferred_executable(root) if protocol_version in {"0.22", "0.23"}
                 else root / "target" / "release" / EXECUTABLE_NAME)
     if protocol_version == "0.18":
         return root / "target" / "release" / EXECUTABLE_NAME

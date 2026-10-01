@@ -45,7 +45,11 @@ def test_valid_manifest_parses():
     assert manifest.entry_for(PLATFORM).official_release_tag == "2026-09-21-21-32"
     releases = manifest.releases_for(PLATFORM)
     assert [(item.protocol_version, item.schema_version) for item in releases] == [
-        ("0.13", "2"), ("0.18", "2"), ("0.22", "2")]
+        ("0.23", "2"), ("0.13", "2"), ("0.18", "2"), ("0.22", "2")]
+    official, *releases = releases
+    assert official.adapter_id == "official-gaia-schema2"
+    assert official.download_size == 405398963
+    assert official.sha256 == "fd3f43aa7e9849526b5113da558443a074039231ba700edfc953b6c83eb990d4"
     assert releases[1].official_release_tag == "2026-08-12-15-47"
     assert releases[1].download_size == 447922058
     assert releases[1].sha256 == (

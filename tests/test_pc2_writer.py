@@ -21,6 +21,23 @@ def _frames(frame_count=8, vertex_count=4):
             for f in range(frame_count)]
 
 
+def test_long_path_partial_resume_publish_and_safe_cleanup(tmp_path):
+    from cloth_next.core.filesystem_paths import io_path
+    from cloth_next.core.safe_delete import delete_owned
+    root = tmp_path / ("a" * 100) / ("b" * 100)
+    path, partial = root / "cache.pc2", root / "partial.pc2"
+    writer = pc2.StreamingPc2Writer(path, vertex_count=1, frame_count=2, resume_path=partial)
+    writer.write_frame(((0, 0, 0),)); writer.preserve()
+    assert pc2.partial_frame_count(partial, pc2.Pc2Header(1, 0.0, 1.0, 2)) == 1
+    writer = pc2.StreamingPc2Writer(path, vertex_count=1, frame_count=2, resume_path=partial)
+    writer.write_frame(((0, 0, 1),)); writer.finalize()
+    assert pc2.read_header(path).frame_count == 2
+    assert len(list(pc2.iter_frames(path))) == 2
+    outcome = delete_owned(root, root=tmp_path, ownership_authenticated=True,
+                           recursive=True, lifecycle_stage="TEST", artifact_type="long_pc2")
+    assert outcome.success and not io_path(root).exists()
+
+
 def test_write_and_read_header(tmp_path):
     path = tmp_path / "cache.pc2"
     header = pc2.write_pc2(path, _frames())

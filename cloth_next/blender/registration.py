@@ -25,7 +25,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
-               viewport_colors)
+               viewport_colors, water_flow)
 
 _CLASSES = (
     preferences.CLASSES
@@ -45,6 +45,7 @@ _CLASSES = (
     + physics_ui.CLASSES
     + floating_simulation.CLASSES
     + pin_constraints.CLASSES
+    + water_flow.CLASSES
 )
 
 _registered = False
@@ -65,6 +66,7 @@ def _steps() -> list[tuple]:
                   object_properties.detach_from_object))
     steps.append((object_attachments.register, object_attachments.unregister))
     steps.append((sewing.register, sewing.unregister))
+    steps.append((water_flow.register, water_flow.unregister))
     steps.append((linked_colliders.register, linked_colliders.unregister))
     steps.append((pin_constraints.install_runtime_hooks,
                   pin_constraints.uninstall_runtime_hooks))

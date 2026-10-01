@@ -19,6 +19,7 @@ import time
 import uuid
 
 from .logging import get_logger, log_with_context
+from .filesystem_paths import io_path, resolved_path
 
 
 TOMBSTONE_PREFIX = ".clothnext-delete-"
@@ -84,20 +85,21 @@ class DeleteResult:
 
 def _resolved_contained(path: Path, root: Path, *, allow_root: bool) \
         -> tuple[Path, Path]:
-    resolved_root = Path(root).expanduser().resolve()
-    resolved_path = Path(path).expanduser().resolve()
+    resolved_root = resolved_path(root.expanduser())
+    resolved_target = resolved_path(path.expanduser())
     try:
-        resolved_path.relative_to(resolved_root)
+        resolved_target.relative_to(resolved_root)
     except (OSError, ValueError) as exc:
         raise UnsafeDeleteError(
             "refusing Cloth NeXt cleanup outside the authenticated root") from exc
-    if resolved_path == resolved_root and not allow_root:
+    if resolved_target == resolved_root and not allow_root:
         raise UnsafeDeleteError(
             "refusing to delete the authenticated root without explicit scope")
-    return resolved_path, resolved_root
+    return resolved_target, resolved_root
 
 
 def _delete_once(path: Path, *, recursive: bool) -> None:
+    path = io_path(path)
     if recursive and path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
     else:
@@ -105,7 +107,7 @@ def _delete_once(path: Path, *, recursive: bool) -> None:
 
 
 def _replace_once(source: Path, target: Path) -> None:
-    os.replace(source, target)
+    os.replace(io_path(source), io_path(target))
 
 
 def _failure_kind(exc: OSError, *, windows: bool) -> DeleteFailureKind:

@@ -19,6 +19,9 @@ from __future__ import annotations
 import logging
 import json
 import re
+import os
+import subprocess
+from copy import deepcopy
 import threading
 import time
 import uuid as uuid_module
@@ -305,6 +308,8 @@ class SessionScene:
     deformable_type: str = "SHELL"
     deformable_world_matrix: tuple | None = None
     deformables: tuple[SessionDeformable, ...] = ()
+    # CNX-owned binding state; never serialized as an unknown solver field.
+    official_bridge_json: str = ""
 
     @property
     def dynamic_objects(self) -> tuple[SessionDeformable, ...]:
@@ -415,6 +420,9 @@ class SessionDiagnostics:
     solver_backend: str = ""
     solver_device: str = ""
     solver_telemetry: dict[str, str] = field(default_factory=dict)
+    # Successful allowances are independent of violations and error state.
+    exemptions: tuple[object, ...] = ()
+    additive_status_fields: dict[str, object] = field(default_factory=dict)
 
     def note_status(self, status: str) -> None:
         if not self.status_transitions or self.status_transitions[-1] != status:
@@ -449,6 +457,9 @@ class SolverSession:
                  status_reconnect_retries: int =
                  _STATUS_RECONNECT_RETRIES) -> None:
         self.resolved = resolved
+        from ..ppf.official_scene_bridge import prepare_for_solver, uses_official_bridge
+        scene = prepare_for_solver(scene, resolved)
+        self._official_bridge = uses_official_bridge(resolved)
         self.scene = scene
         self.work_directory = work_directory
         self.transport = transport or TransportConfig(connect_timeout=5.0,
@@ -467,6 +478,9 @@ class SolverSession:
         self._recovery_record: recovery.ProjectRecord | None = None
         self._known_saved_states: tuple[int, ...] = ()
         self._manager: SolverProcessManager | None = None
+        self._project_link = None
+        self._health_project_link = None
+        self._delete_link_after_join = False
         self._address: wire.ServerAddress | None = external_address
         self._logger = get_logger("solver.session")
         self._indices_by_uuid: dict[str, np.ndarray] = {}
@@ -538,6 +552,12 @@ class SolverSession:
 
     def _capture_solver_details(self, response: dict) -> None:
         """Capture verified identity and only values reported by status summary."""
+        exemptions = response.get("exemptions", [])
+        if isinstance(exemptions, list):
+            self.diagnostics.exemptions = tuple(deepcopy(exemptions))
+        known = {"status", "protocol_version", "error", "crash_kind", "frame", "exemptions"}
+        self.diagnostics.additive_status_fields = deepcopy(
+            {key: value for key, value in response.items() if key not in known})
         summary = response.get("summary")
         if not isinstance(summary, dict):
             summary = {}
@@ -1441,7 +1461,7 @@ class SolverSession:
             environment["CARGO_TARGET_DIR"] = str(backend_identity[1])
         # Pin the per-project server data below our own work directory so
         # the run's cache never lands in unrelated user locations.
-        environment["PPF_CTS_DATA_ROOT"] = str(server_data)
+        environment["PPF_CTS_DATA_ROOT"] = "" if self._official_bridge else str(server_data)
         port = free_port()
         config = SolverProcessConfig(
             executable_path=executable,
@@ -1458,6 +1478,14 @@ class SolverSession:
         # Startup errors are classified before start_owned_and_wait returns.
         # Keep the selected endpoint available to that diagnostic path too.
         self._address = wire.ServerAddress(config.host, config.port)
+        if self._official_bridge:
+            from ..ppf.project_links import ProjectLink, canonical_project_path
+            project_link = ProjectLink(
+                canonical_project_path(executable, self.scene.project_name),
+                (server_data / self.scene.project_name).resolve(),
+                owned_root=server_data.resolve(), project_name=self.scene.project_name)
+            project_link.ensure()
+            self._project_link = project_link
         health_project = self.scene.project_name
         if self._recovery is not None and self._recovery.resume:
             # The saved project's terminal status describes the deliberately
@@ -1465,7 +1493,20 @@ class SolverSession:
             # server identity on an isolated name, then reconcile the real
             # recovery project after readiness has been established.
             health_project = f"{self.scene.project_name}_health_probe"
+            if self._official_bridge:
+                health_link = ProjectLink(
+                    self._project_link.path.with_name(health_project),
+                    (server_data / "health" / health_project).resolve(),
+                    owned_root=server_data.resolve(), project_name=health_project)
+                health_link.ensure()
+                self._health_project_link = health_link
         health = start_owned_and_wait(self._manager, health_project)
+        if self._official_bridge:
+            response = self._status()
+            observed = Path(str(response["root"])).absolute()
+            if observed != self._project_link.path:
+                raise self._project_link._fail(
+                    f"server project path differs from prepared alias: {observed}", owned=True)
         if backend_identity is not None:
             try:
                 verify_backend_status(backend_identity, self._status())
@@ -1591,6 +1632,51 @@ class SolverSession:
                                      f"no READY status within "
                                      f"{self._build_timeout}s")
             time.sleep(self._poll_interval)
+
+    def _apply_official_bindings(self) -> None:
+        if not self._official_bridge:
+            return
+        document = json.loads(self.scene.official_bridge_json)
+        if not document["stitches"] and not document["face_friction"]:
+            return
+        if self._manager is None or self.resolved.executable_path is None:
+            raise _session_error(
+                "This solver needs a local official frontend for Sewing.",
+                "official per-row API requires the selected local installation",
+                category=ErrorCategory.PROTOCOL_COMPATIBILITY)
+        root = bundle_root_for(self.resolved.executable_path)
+        python = (root / "python" / "python.exe" if os.name == "nt"
+                  else root / "python" / "bin" / "python3")
+        if not python.is_file():
+            raise _session_error("The official solver Python runtime is missing.", str(python),
+                                 category=ErrorCategory.SOLVER_INSTALLATION)
+        bindings = self.work_directory / "official-scene-bindings.json"
+        bindings.write_text(self.scene.official_bridge_json, encoding="utf-8")
+        worker = Path(__file__).resolve().parents[1] / "ppf" / "official_scene_worker.py"
+        project_root = self._server_data_root() / self.scene.project_name
+        log = self.work_directory / "official-scene-bindings.log"
+        self._event("BUILDING", "Preserving authored seam strengths", indeterminate=True)
+        options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+        with log.open("wb") as stream:
+            process = subprocess.Popen(
+                [str(python), str(worker), "--project-name", self.scene.project_name,
+                 "--project-root", str(project_root), "--bindings", str(bindings)],
+                cwd=root, env=self._manager.config.subprocess_environment(),
+                stdout=stream, stderr=stream, stdin=subprocess.DEVNULL, shell=False, **options)
+            deadline = time.monotonic() + self._build_timeout
+            try:
+                while process.poll() is None:
+                    self._check_cancel()
+                    if time.monotonic() >= deadline:
+                        raise _session_error("Official scene preparation timed out.", str(log))
+                    time.sleep(self._poll_interval)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+        if process.returncode != 0:
+            detail = log.read_text(encoding="utf-8", errors="replace")[-8192:]
+            raise _session_error("The official solver could not preserve this scene.", detail)
 
     def _fetch_output_map(self) -> results.OutputMap:
         assert self._address is not None
@@ -2173,6 +2259,16 @@ class SolverSession:
     def _delete_project(self) -> None:
         if self._address is None:
             return
+        if self._project_link is not None:
+            # TCMD delete removes the alias, not necessarily its target. CNX
+            # is the sole alias authority; defer removal until all owned
+            # processes have been joined by the existing process manager.
+            self._delete_link_after_join = True
+            try:
+                self._request(wire.REQUEST_TERMINATE)
+            except ClothNextError:
+                pass
+            return
         try:
             self._request(REQUEST_DELETE_ALIAS)
         except ClothNextError:
@@ -2181,6 +2277,7 @@ class SolverSession:
     def _stop_owned(self) -> None:
         manager = self._manager
         if manager is None:
+            self._cleanup_project_link()
             return
         self.diagnostics.termination_requested = True
         self._capture_process_tails()
@@ -2198,6 +2295,37 @@ class SolverSession:
         # session from falsely claiming no owned process remains.
         if self._manager is manager:
             self._manager = None
+        self._cleanup_project_link()
+
+    def _cleanup_project_link(self) -> None:
+        """Reentrant cleanup after the process manager has confirmed join."""
+        if self._manager is not None:
+            raise _session_error("The solver is still running.",
+                                 "project alias cleanup refused before process join")
+        if self._health_project_link is not None:
+            self._cleanup_link_target(self._health_project_link)
+            self._health_project_link = None
+        if self._delete_link_after_join and self._project_link is not None:
+            self._cleanup_link_target(self._project_link)
+            self._delete_link_after_join = False
+            if self._recovery_record is not None and self._recovery is not None:
+                self._recovery_record = recovery.transition(
+                    self._recovery.metadata_path, self._recovery_record,
+                    recovery.ProjectState.DELETED)
+
+    @staticmethod
+    def _cleanup_link_target(link) -> None:
+        link.validate_target_ownership()
+        link.remove()
+        from ..ppf.project_links import inspect_project_link
+        if inspect_project_link(link.target).kind not in {"directory", "absent"}:
+            raise link._fail("owned project target changed type before cleanup", owned=True)
+        outcome = delete_owned(
+            link.target, root=link.root, ownership_authenticated=True,
+            recursive=True, lifecycle_stage="PPF_SESSION_FINALIZE",
+            artifact_type="solver_project")
+        if not outcome.success:
+            raise link._fail(outcome.technical_diagnostic(), owned=True)
 
     # -- entry point ---------------------------------------------------------
 
@@ -2300,6 +2428,7 @@ class SolverSession:
                     return self.diagnostics
             self._check_cancel()
             step = time.monotonic()
+            self._apply_official_bindings()
             self._simulate_and_fetch(resume=resuming)
             self.diagnostics.timings["simulation_and_import"] = time.monotonic() - step
             completed = True
@@ -2383,7 +2512,7 @@ class SolverSession:
             try:
                 if (self._recovery is None or completed) and not preserved:
                     self._delete_project()
-                    if (self._recovery_record is not None
+                    if (self._project_link is None and self._recovery_record is not None
                             and self._recovery is not None):
                         try:
                             self._recovery_record = recovery.transition(

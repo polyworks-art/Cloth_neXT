@@ -1,9 +1,11 @@
-# Cloth NeXt 2.9.6
+# Cloth NeXt 2.9.7
 
-Cloth NeXt 2.9.6 fixes a Bake-start failure caused by empty Cloth NeXt simulation modifiers. Blender can save their unset cache field as a relative directory; this is now recognized as an unbaked pass-through boundary rather than an old cache that needs authentication. Recorded playback caches still require ownership checks, and unrelated files remain protected.
+Cloth NeXt 2.9.7 introduces the first GAIA Water Flow implementation. Baked FLIP liquid particles and their velocity attributes are reconstructed into a time-dependent field and applied through official GAIA 0.23 force fields, sampled at current simulated cloth positions.
 
-The Bake Companion now wraps error summaries, recommendations, and metadata to the actual available panel width. The details window adjusts its height to the wrapped content, preventing long summaries from running past the window edge.
+Select a Cloth object and open Physics > GAIA Water Flow. Enable the feature, select the baked FLIP Domain, set Influence, Velocity Scale and resolution, choose a `.gaia` container path, then prepare the water field. Optional viewport vectors show the reconstructed contribution. Use GAIA 0.23 and ensure the FLIP bake exports fluid-particle velocity attributes.
 
-The affected saved scene passed cache preparation and simulated through frame 40. Regression tests cover empty boundaries, rejection of unauthenticated recorded caches, and diagnostic wrapping; the error layout was also inspected in the real Companion window. The Sewing mapping and solver-error fixes from 2.9.5 remain included.
+Derived fields and source fingerprints are stored in checksum-verified `.gaia` containers. Empty support and positions outside the field add no flow. Bake and Cloth FPS must match. Schedules have a 32 MiB uncompressed upload limit; reduce resolution or the frame range when necessary. The effect uses GAIA's existing scene air-density and air-friction model; independent water drag and production streaming are not included.
 
-The external PPF Contact Solver is not modified or bundled. Update through Blender's native extension manager and rebake existing caches to use the fix.
+The unchanged official CUDA solver passed synthetic field checks and a test with actual FLIP data. The immersion fixture showed an additional mean 0.1627 m displacement along X over four simulated frames. The original source Plane was outside the water in those frames, so the fixture was translated before simulation without editing the source scene. Full original-scene Water Flow cancel/resume acceptance and interactive debug-vector appearance remain unverified.
+
+Wetness, buoyancy, tearing and two-way fluid coupling are not part of this release. The external PPF/GAIA solver and FLIP Fluids are not modified or bundled. Update through Blender's native extension manager.

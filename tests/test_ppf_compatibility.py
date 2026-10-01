@@ -35,8 +35,12 @@ def test_gaia_and_lumen_share_verified_wire_adapter_but_not_identity():
     assert validate_versions("0.22", "2", "0.1.0", profile=gaia).fully_compatible
     assert not validate_versions("0.22", "2", "0.1.0", profile=lumen).fully_compatible
     assert not validate_versions("0.18", "2", "0.1.0", profile=gaia).fully_compatible
-    assert protocol_profile("0.23", "2") is None
-    assert not validate_versions("0.23", "2", "0.1.0").fully_compatible
+    official = protocol_profile("0.23", "2")
+    assert official.adapter_id == "official-gaia-schema2"
+    assert validate_versions("0.23", "2", "0.1.0").fully_compatible
+    assert not validate_versions("0.23", "2", "0.1.0", profile=gaia).fully_compatible
+    assert protocol_profile("0.24", "2") is None
+    assert not validate_versions("0.24", "2", "0.1.0").fully_compatible
 
 
 def test_retired_protocol_is_rejected():

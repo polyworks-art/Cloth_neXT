@@ -1,0 +1,28 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.7",
+  "title": "What's New in Cloth NeXt 2.9.7",
+  "subtitle": "The first GAIA Water Flow tools.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Cloth responds to baked flow",
+      "description": "Use baked FLIP liquid-particle velocities with GAIA 0.23. The field is sampled at the cloth's current position and uses GAIA's existing scene drag model."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Water Flow controls in Physics",
+      "description": "Select a FLIP Domain and adjust Influence, Velocity Scale and field resolution. Prepare a .gaia cache and enable viewport vectors to inspect the flow."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Reusable .gaia containers",
+      "description": "Derived fields carry source fingerprints and checksums. Matching bake FPS and a bounded schedule keep this first implementation predictable."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

@@ -64,3 +64,20 @@ def test_gaia_backend_status_fields_are_additive():
     })
     assert parsed.protocol_version == "0.22"
     assert parsed.wire_status is WireStatus.READY
+    assert parsed.additional_fields["future_upstream_field"] == {"any": "value"}
+
+
+def test_023_exemptions_are_successful_independent_additive_data():
+    record = {"type": "existing_intersection", "count": 123,
+              "pairs": [{"a": [[0, 0, 0]], "b": [[1, 1, 1]]}],
+              "future_record_field": {"quality": "exact"}}
+    raw = {"protocol_version": "0.23", "status": "READY",
+           "exemptions": [record], "future_top_level": [1, 2, 3]}
+    parsed = parse_status(raw)
+    assert not parsed.error and not parsed.crash_kind
+    assert parsed.exemptions == (record,)
+    assert parsed.exemptions[0]["count"] != len(parsed.exemptions[0]["pairs"])
+    assert parsed.additional_fields["future_top_level"] == [1, 2, 3]
+    record["count"] = 0
+    assert parsed.exemptions[0]["count"] == 123
+    assert parse_status({"protocol_version": "0.22", "status": "READY"}).exemptions == ()

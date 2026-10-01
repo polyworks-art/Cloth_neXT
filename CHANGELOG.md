@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.7 - 2026-10-01
+
+- Add GAIA Water Flow: reconstruct supported velocity fields from baked FLIP liquid particles through the official GAIA 0.23 force-field interface.
+- Add Physics controls for the FLIP Domain, Influence, Velocity Scale, resolution, `.gaia` preparation and optional viewport debug vectors.
+- Store derived water fields and provenance in checksum-verified `.gaia` containers with atomic replacement.
+- Integrate official GAIA 0.23 alongside existing solver choices, with isolated runtime and cache lifecycle handling.
+- Validate actual FLIP fields with the unchanged official CUDA solver. Separate water drag and production streaming remain deferred.
+
 ## 2.9.6 - 2026-09-30
 
 - Allow Bake startup with unbaked Cloth NeXt simulation modifiers whose unset cache field was saved by Blender as a relative directory. Preserve authentication checks for recorded playback caches and unrelated files.

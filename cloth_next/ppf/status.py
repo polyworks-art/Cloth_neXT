@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from copy import deepcopy
 from enum import Enum
 
 from ..core.state import ApplicationState
@@ -29,6 +30,8 @@ class ParsedStatus:
     error: str = ""
     crash_kind: str = ""
     frame: int = 0
+    exemptions: tuple[object, ...] = ()
+    additional_fields: dict[str, object] = field(default_factory=dict)
 
 
 def parse_status(response: dict[str, object]) -> ParsedStatus:
@@ -44,12 +47,18 @@ def parse_status(response: dict[str, object]) -> ParsedStatus:
         raise ValueError("response error must be text")
     if crash_kind is not None and not isinstance(crash_kind, str):
         raise ValueError("response crash_kind must be text")
+    exemptions = response.get("exemptions", [])
+    if not isinstance(exemptions, list):
+        raise ValueError("response exemptions must be a list")
     return ParsedStatus(
         wire_status=WireStatus(status),
         protocol_version=protocol,
         error=error or "",
         crash_kind=crash_kind or "",
         frame=int(response.get("frame", 0)),
+        exemptions=tuple(deepcopy(exemptions)),
+        additional_fields=deepcopy({key: value for key, value in response.items()
+            if key not in {"protocol_version", "status", "error", "crash_kind", "frame", "exemptions"}}),
     )
 
 

@@ -19,6 +19,7 @@ import tempfile
 import time
 
 from .core.safe_delete import cleanup_tombstones, delete_owned
+from .core.filesystem_paths import io_path, resolved_path
 
 RECOVERY_SCHEMA_VERSION = 2
 # Schema 3 used the identical project/checkpoint wire layout, but recorded the
@@ -176,16 +177,17 @@ def metadata_path(cache_directory: Path, scene_key: str) -> Path:
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
+    with io_path(path).open("rb") as stream:
         for chunk in iter(lambda: stream.read(4 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
 
 
 def _atomic_json(path: Path, value: object) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    io_path(path.parent).mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+        prefix=f".{path.name}.", suffix=".tmp",
+        dir=io_path(path.parent, reserved_length=len(path.name) + 32))
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             json.dump(value, stream, sort_keys=True, separators=(",", ":"))
@@ -197,7 +199,7 @@ def _atomic_json(path: Path, value: object) -> None:
         # step for a short, bounded period.
         for attempt in range(6):
             try:
-                os.replace(temporary, path)
+                os.replace(temporary, io_path(path))
                 break
             except PermissionError:
                 if os.name != "nt" or attempt == 5:
@@ -213,7 +215,7 @@ def _atomic_json(path: Path, value: object) -> None:
 
 
 def cleanup_temporary_files(root: Path) -> tuple[Path, ...]:
-    root = Path(root).resolve()
+    root = resolved_path(root)
     cleanup_tombstones(
         root, ownership_authenticated=True,
         lifecycle_stage="RECOVERY_START", recursive=True)
@@ -277,13 +279,13 @@ def _record_from_dict(value: dict, *, stored_schema_version: int | None = None) 
 def _verified_checkpoint(record: CheckpointRecord) -> bool:
     path = Path(record.checkpoint_path)
     try:
-        if (record.integrity != "VERIFIED" or not path.is_file()
+        if (record.integrity != "VERIFIED" or not io_path(path).is_file()
                 or record.checkpoint_size <= 0
-                or path.stat().st_size != record.checkpoint_size
+                or io_path(path).stat().st_size != record.checkpoint_size
                 or _sha256(path) != record.checkpoint_sha256):
             return False
         if path.suffix == ".gz":
-            with gzip.open(path, "rb") as stream:
+            with gzip.open(io_path(path), "rb") as stream:
                 return bool(stream.read(1))
         return True
     except (OSError, EOFError):
@@ -323,8 +325,8 @@ def create_project(path: Path, *, project_id: str,
         -> ProjectRecord:
     record = ProjectRecord(
         project_id=str(project_id), state=ProjectState.NEW,
-        identity=identity, server_data_root=str(Path(server_data_root).resolve()),
-        project_root=str(Path(project_root).resolve()),
+        identity=identity, server_data_root=str(resolved_path(server_data_root)),
+        project_root=str(resolved_path(project_root)),
         partial_pc2=tuple(sorted(partial_pc2)))
     return publish_project(path, record)
 
@@ -332,7 +334,7 @@ def create_project(path: Path, *, project_id: str,
 def load_project(path: Path, *, verify_checkpoints: bool = True) \
         -> ProjectRecord | None:
     try:
-        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        raw = json.loads(io_path(path).read_text(encoding="utf-8"))
         stored_schema_version = int(raw["schema_version"])
         if stored_schema_version not in _READABLE_RECOVERY_SCHEMA_VERSIONS:
             return None
@@ -359,7 +361,7 @@ def load_project(path: Path, *, verify_checkpoints: bool = True) \
             updated_at=float(value["updated_at"]),
             error=str(value.get("error", "")),
             generation=int(value.get("generation", 0)))
-        if not Path(record.project_root).is_dir():
+        if not io_path(record.project_root).is_dir():
             return replace(record, state=ProjectState.ABANDONED,
                            error="Recovery project missing")
         return record
@@ -396,14 +398,14 @@ def checkpoint_path(project_root: Path, frame: int) -> Path:
 
 def owned_server_data_root(metadata_path: Path) -> Path:
     """The only solver-data root a Recovery record may authorize deleting."""
-    return (Path(metadata_path).resolve().parent / "server-data").resolve()
+    return resolved_path(resolved_path(metadata_path).parent / "server-data")
 
 
 def owned_project_root(metadata_path: Path, record: ProjectRecord) -> Path | None:
     """Return a proven Cloth NeXt project root, never a metadata-trusted path."""
     expected_server = owned_server_data_root(metadata_path)
-    server = Path(record.server_data_root).resolve()
-    project = Path(record.project_root).resolve()
+    server = resolved_path(record.server_data_root)
+    project = resolved_path(record.project_root)
     if server != expected_server or project == server:
         return None
     if server not in project.parents:
@@ -416,15 +418,15 @@ def owned_checkpoint_path(metadata_path: Path, record: ProjectRecord,
     project = owned_project_root(metadata_path, record)
     if project is None:
         return None
-    candidate = Path(item.checkpoint_path).resolve()
-    expected = checkpoint_path(project, item.frame).resolve()
+    candidate = resolved_path(item.checkpoint_path)
+    expected = resolved_path(checkpoint_path(project, item.frame))
     return candidate if candidate == expected else None
 
 
 def owned_partial_path(metadata_path: Path, uuid: str, value: str) -> Path | None:
-    partial_root = (Path(metadata_path).resolve().parent / "partials").resolve()
-    candidate = Path(value).resolve()
-    expected = (partial_root / f"{uuid}.pc2.partial").resolve()
+    partial_root = resolved_path(resolved_path(metadata_path).parent / "partials")
+    candidate = resolved_path(value)
+    expected = resolved_path(partial_root / f"{uuid}.pc2.partial")
     return candidate if candidate == expected else None
 
 
@@ -436,12 +438,12 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
     for frame_value in sorted({int(value) for value in saved_states}):
         state_path = checkpoint_path(Path(record.project_root), frame_value)
         try:
-            if not state_path.is_file() or state_path.stat().st_size <= 0:
+            if not io_path(state_path).is_file() or io_path(state_path).stat().st_size <= 0:
                 continue
-            with gzip.open(state_path, "rb") as stream:
+            with gzip.open(io_path(state_path), "rb") as stream:
                 if not stream.read(1):
                     continue
-            size = state_path.stat().st_size
+            size = io_path(state_path).stat().st_size
             digest = _sha256(state_path)
         except (OSError, EOFError):
             continue
@@ -452,7 +454,7 @@ def confirm_saved_states(path: Path, record: ProjectRecord,
         by_frame[frame_value] = CheckpointRecord(
             frame=frame_value, project_id=record.project_id,
             identity=record.identity, created_at=time.time(),
-            checkpoint_path=str(state_path.resolve()),
+            checkpoint_path=str(resolved_path(state_path)),
             checkpoint_size=size, checkpoint_sha256=digest)
     confirmed = tuple(sorted(
         by_frame.values(), key=lambda item: (item.frame, item.created_at)))
@@ -485,13 +487,13 @@ def publish_checkpoint(cache_directory: Path, identity: RecoveryIdentity, *,
                        frame: int, project_id: str,
                        checkpoint_path: Path) -> CheckpointRecord:
     """Legacy helper retained for tests and metadata migration tooling."""
-    checkpoint = Path(checkpoint_path).resolve()
-    if not checkpoint.is_file():
+    checkpoint = resolved_path(checkpoint_path)
+    if not io_path(checkpoint).is_file():
         raise FileNotFoundError(checkpoint)
     record = CheckpointRecord(
         frame=int(frame), project_id=str(project_id), identity=identity,
         created_at=time.time(), checkpoint_path=str(checkpoint),
-        checkpoint_size=checkpoint.stat().st_size,
+        checkpoint_size=io_path(checkpoint).stat().st_size,
         checkpoint_sha256=_sha256(checkpoint))
     root = recovery_root(cache_directory, identity.scene_key)
     metadata = root / METADATA_NAME
@@ -511,7 +513,7 @@ def publish_checkpoint(cache_directory: Path, identity: RecoveryIdentity, *,
 def load_records(path: Path) -> tuple[CheckpointRecord, ...]:
     """Read either legacy checkpoint-only or project lifecycle metadata."""
     try:
-        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        raw = json.loads(io_path(path).read_text(encoding="utf-8"))
         stored_schema_version = int(raw["schema_version"])
         if stored_schema_version not in _READABLE_RECOVERY_SCHEMA_VERSIONS:
             return ()

@@ -40,11 +40,13 @@ def installation(tmp_path: Path, *, installation_id: str, display_name: str,
 def test_bundled_releases_have_expected_codenames():
     releases = load_bundled_manifest().releases_for(PLATFORM)
     assert [(entry.protocol_version, entry.release_name) for entry in releases] == [
+        ("0.23", "Gaia"),
         ("0.13", "Velune"),
         ("0.18", "Lumen"),
         ("0.22", "Gaia"),
     ]
-    assert all(entry.codename == entry.display_name for entry in releases)
+    assert releases[0].display_name == "Gaia 0.23"
+    assert all(entry.codename == entry.display_name for entry in releases[1:])
 
 
 def test_retired_installation_is_preserved_but_supported_release_is_renamed(
@@ -114,6 +116,18 @@ def test_unknown_solver_keeps_stored_name(blender_env, tmp_path):
         release_tag=None,
     )
     assert naming.release_name(unknown) == "Custom Experimental Solver"
+
+
+def test_gaia_generations_remain_distinct_without_registry_mutation(blender_env, tmp_path):
+    import cloth_next.blender.solver_release_naming as naming
+
+    old = installation(tmp_path, installation_id="gaia22", display_name="Gaia",
+                       protocol="0.22", schema="2", release_tag="2026-09-21-21-32")
+    new = installation(tmp_path, installation_id="gaia23", display_name="Gaia",
+                       protocol="0.23", schema="2", release_tag="2026-09-27-20-44")
+    assert naming.release_name(old) == "Gaia"
+    assert naming.release_name(new) == "Gaia 0.23"
+    assert new.display_name == "Gaia"
 
 
 def test_registration_installs_and_restores_naming_adapter(blender_env):

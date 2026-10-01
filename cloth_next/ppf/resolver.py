@@ -78,8 +78,15 @@ class SolverResolver:
         if not layout.executable_path.is_file():
             return None
         package, protocol, schema = self._version_probe(layout.executable_path)
+        executable = layout.executable_path
+        if protocol in {"0.22", "0.23"} and (
+                layout.root_directory / "target" / "cpu" / "release" / executable.name).is_file():
+            from .backend_selection import preferred_executable
+            executable = preferred_executable(layout.root_directory)
+            if self._version_probe(executable) != (package, protocol, schema):
+                return None
         metadata = layout.source_metadata() if layout.source_metadata_path.is_file() else None
-        return ResolvedSolver(mode, layout.root_directory, layout.executable_path, package,
+        return ResolvedSolver(mode, layout.root_directory, executable, package,
             protocol, schema, ConnectionOwnership.OWNED_PROCESS, metadata, writable)
 
     def resolve(self, context: SolverResolutionContext) -> ResolvedSolver | None:
@@ -112,7 +119,7 @@ class SolverResolver:
             executable = selected.executable
             from .layout import EXECUTABLE_NAME
             if (selected.root / "target" / "cpu" / "release"
-                    / EXECUTABLE_NAME).is_file() and selected.protocol_version == "0.22":
+                    / EXECUTABLE_NAME).is_file() and selected.protocol_version in {"0.22", "0.23"}:
                 from .backend_selection import executable_for_choice
                 executable = executable_for_choice(
                     selected.root, selected.protocol_version,

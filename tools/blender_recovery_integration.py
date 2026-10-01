@@ -39,6 +39,15 @@ def _load_addon(args):
     os.environ["CLOTH_NEXT_PPF_EXECUTABLE"] = str(args.solver)
     from cloth_next.blender import registration, solver_test
     registration.register()
+    # The persistent user selection takes priority over a development env var.
+    # This isolated fixture must use its explicitly requested real executable,
+    # without changing the user's registry or applying another solver's overlay.
+    from cloth_next.ppf.resolver import SolverResolver, SolverResolutionContext
+    resolved = SolverResolver(solver_test._version_probe).resolve(
+        SolverResolutionContext(development_executable=args.solver.resolve()))
+    if resolved is None:
+        raise RuntimeError("the explicitly requested real solver is unavailable")
+    solver_test.resolve_solver = lambda _context: resolved
     return solver_test
 
 
@@ -50,8 +59,9 @@ def _make_scene(args):
         location=(0.0, 0.0, 1.0))
     cloth = bpy.context.object
     cloth.name = "Recovery Cloth"
-    cloth.cloth_next.enabled = True
-    cloth.cloth_next.role = "CLOTH"
+    # Exercise the regular authoring path: it creates the required simulation
+    # boundary modifier as well as the role/settings. Never bypass validation.
+    assert bpy.ops.clothnext.quick_assign_role("EXEC_DEFAULT", role="CLOTH") == {"FINISHED"}
     cloth.cloth_next.bake_start = 1
     cloth.cloth_next.bake_end = 24
     cloth.cloth_next.cache_directory = str(args.cache)
@@ -114,6 +124,36 @@ def _plan(solver_test, context):
     return solver_test.build_run_plan(context, snapshot=snapshot)
 
 
+def _verify_project_alias(args, plan, *, preserved):
+    """Check the real link and target, not merely the worker's terminal flag."""
+    from cloth_next.ppf.project_links import canonical_project_path, inspect_project_link
+    from cloth_next.core.filesystem_paths import io_path, resolved_path
+    from cloth_next import recovery
+    options = plan.recovery_options
+    assert options is not None
+    record = recovery.load_project(options.metadata_path)
+    assert record is not None
+    if record.identity.protocol_version != "0.23":
+        return {"applicable": False}
+    root = options.metadata_path.parent / "server-data"
+    target = root / record.project_id
+    alias = canonical_project_path(args.solver.resolve(), record.project_id)
+    marker = root / ".project-links" / (record.project_id + ".json")
+    value = json.loads(io_path(marker).read_text(encoding="utf-8"))
+    state = inspect_project_link(alias)
+    assert value["canonical"] == str(alias) and value["target"] == str(resolved_path(target))
+    if preserved:
+        assert value["phase"] == "COMMITTED" and io_path(target).is_dir()
+        assert state.kind in {"junction", "symlink"} and state.target == str(resolved_path(target))
+    else:
+        assert value["phase"] == "REMOVED" and state.kind == "absent"
+        assert not os.path.lexists(io_path(target))
+        raw = json.loads(io_path(options.metadata_path).read_text(encoding="utf-8"))
+        assert raw["project"]["state"] == recovery.ProjectState.DELETED.value
+    return {"preserved": preserved, "alias_state": state.kind,
+            "marker_phase": value["phase"], "target_exists": io_path(target).exists()}
+
+
 def cancel_phase(args, solver_test):
     cloth = _make_scene(args)
     args.cache.mkdir(parents=True, exist_ok=True)
@@ -143,6 +183,7 @@ def cancel_phase(args, solver_test):
         "saved_states": [item.frame for item in record.checkpoints],
         "partial_pc2": dict(record.partial_pc2),
         "blend": str(args.blend), "event_count": len(messages),
+        "project_alias": _verify_project_alias(args, plan, preserved=True),
     }
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
@@ -346,6 +387,7 @@ def resume_phase(args, solver_test):
         "upload_seconds": diagnostics.timings.get("upload", 0.0),
         "fetched_frames": diagnostics.fetched_frames,
         "headers": headers, "event_count": len(messages),
+        "project_alias": _verify_project_alias(args, plan, preserved=False),
     }
     if args.report.is_file():
         existing = json.loads(args.report.read_text(encoding="utf-8"))
@@ -405,6 +447,7 @@ def fresh_phase(args, solver_test):
         "fetched_frames": diagnostics.fetched_frames,
         "cleanup_issues": diagnostics.cleanup_issues,
         "event_count": len(messages),
+        "project_alias": _verify_project_alias(args, plan, preserved=False),
     }
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
