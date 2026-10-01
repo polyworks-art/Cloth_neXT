@@ -84,3 +84,18 @@ def test_whats_new_checkbox_persists_through_tokenized_handoff(blender_env,
         encoding="utf-8")
     assert manager._poll_startup() is None
     assert preferences.show_whats_new_after_updates is False
+
+
+def test_seen_state_survives_unsaved_preferences_and_scene_reload(blender_env, monkeypatch, tmp_path):
+    from cloth_next.blender import onboarding_manager as manager
+    from cloth_next.onboarding import SeenState
+    path = tmp_path / 'onboarding-seen.json'
+    monkeypatch.setattr(manager, '_state_path', lambda: path)
+    prefs = SimpleNamespace(onboarding_state='')
+    manager._write_state(SeenState().mark_seen('welcome', '2.9.8'), prefs)
+    assert path.is_file()
+    reopened_preferences = SimpleNamespace(onboarding_state='')
+    assert manager._state(reopened_preferences).next_screen('2.9.8') is None
+    assert manager._state(reopened_preferences).next_screen('2.9.7') is None
+    assert manager._state(reopened_preferences).next_screen('2.9.9') == 'whats-new'
+    assert not list(tmp_path.glob('*.tmp'))

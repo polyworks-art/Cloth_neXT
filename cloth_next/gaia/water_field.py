@@ -109,14 +109,33 @@ def solver_grid(field):
     return minimum, maximum, np.ascontiguousarray(values, dtype='<f4')
 
 
-def debug_vectors(field, stride=4, scale=.1):
-    """Sparse world-space line endpoints from the actual reconstructed field."""
-    if stride < 1 or not np.isfinite(scale) or scale < 0:
-        raise ValueError('Invalid debug vector density or scale')
+def debug_samples(field, stride=4, threshold=.01):
+    """Occupied grid nodes in Blender world space, never solver indices."""
+    if stride < 1 or not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError('Invalid debug sampling')
     d,h,w = field.influence.shape
     z,y,x = np.mgrid[0:d:stride, 0:h:stride, 0:w:stride]
     indices = np.stack((x,y,z),axis=-1).reshape(-1,3)
     values = field.contribution[z,y,x].reshape(-1,3)
-    mask = np.linalg.norm(values,axis=1)>1e-6
+    mask = field.influence[z,y,x].reshape(-1) > threshold
     starts = np.asarray(field.minimum)+(np.asarray(field.maximum)-field.minimum)*indices/(np.asarray((w,h,d))-1)
-    return starts[mask], starts[mask]+values[mask]*scale
+    return starts[mask], values[mask]
+
+
+def debug_vectors(field, stride=4, scale=.1, *, mode='MAGNITUDE', physical_scale=1.):
+    """Bounded display endpoints; physical field/encoder remain untouched."""
+    if (not np.isfinite((scale,physical_scale)).all() or scale < 0 or physical_scale < 0
+            or mode not in {'MAGNITUDE','DIRECTION','CONSTANT_X'}):
+        raise ValueError('Invalid debug vector scale or mode')
+    starts, values = debug_samples(field, stride)
+    if mode == 'CONSTANT_X':
+        values = np.broadcast_to([1.,0.,0.], values.shape).copy()
+    else:
+        values = values * physical_scale
+    speed = np.linalg.norm(values,axis=1)
+    mask = speed > 1e-6
+    starts, values, speed = starts[mask], values[mask], speed[mask]
+    spacing = (np.asarray(field.maximum)-field.minimum)/(np.asarray(field.velocity.shape[:3][::-1])-1)
+    cap = min(1., 2.*float(spacing.min()))
+    length = np.minimum(scale if mode in {'DIRECTION','CONSTANT_X'} else speed*scale, cap)
+    return starts, starts + values/np.maximum(speed[:,None],1e-30)*np.asarray(length)[...,None]

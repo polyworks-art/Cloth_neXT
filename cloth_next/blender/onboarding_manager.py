@@ -18,7 +18,7 @@ import bpy
 
 from .. import manifest_version
 from ..bake.companion_bundle import validate_bundle
-from ..onboarding import SeenState, load_welcome, load_whats_new
+from ..onboarding import SeenState, load_welcome, load_whats_new, version_key
 from .addon_identity import addon_preferences
 
 _START_DELAY_SECONDS = 1.25
@@ -33,14 +33,51 @@ def _preferences():
     return addon_preferences(bpy.context, __package__)
 
 
+def _state_path():
+    try:
+        root = bpy.utils.user_resource('CONFIG')
+        return Path(root) / 'cloth_next' / 'onboarding-seen.json' if root else None
+    except (AttributeError, TypeError):
+        return None
+
+
+def _merge_seen(a, b):
+    versions = tuple(dict.fromkeys((*a.seen_versions, *b.seen_versions)))[-24:]
+    highest = max((v for v in (a.highest_version,b.highest_version) if v),
+                  key=version_key, default='')
+    return SeenState(a.welcome_seen or b.welcome_seen, versions, highest)
+
+
 def _state(preferences=None) -> SeenState:
     preferences = preferences or _preferences()
-    return SeenState.from_json(getattr(preferences, "onboarding_state", ""))
+    value = SeenState.from_json(getattr(preferences, 'onboarding_state', ''))
+    path = _state_path()
+    if path is not None:
+        try:
+            value = _merge_seen(value, SeenState.from_json(path.read_text(encoding='utf-8')))
+        except OSError:
+            pass
+    return value
 
 
 def _write_state(value: SeenState, preferences=None) -> None:
     preferences = preferences or _preferences()
+    value = _merge_seen(_state(preferences), value)
     preferences.onboarding_state = value.to_json()
+    path = _state_path()
+    if path is not None:
+        temporary = None
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                    dir=path.parent, prefix='.onboarding-seen-', suffix='.tmp', delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(value.to_json())
+            os.replace(temporary, path)
+        except OSError as exc:
+            LOG.warning('Could not persist Cloth NeXt onboarding state: %s', exc)
+        finally:
+            if temporary is not None: temporary.unlink(missing_ok=True)
 
 
 def companion_info_command(mode: str, version: str | None = None, *,
@@ -108,7 +145,7 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
     _pending.append((process, temporary, ready, token, mode, version, manual,
                      time.monotonic() + 20, preference, False))
     if not bpy.app.timers.is_registered(_poll_startup):
-        bpy.app.timers.register(_poll_startup, first_interval=0.1)
+        bpy.app.timers.register(_poll_startup, first_interval=0.1, persistent=True)
     return True, "Welcome opened" if mode == "welcome" else "What's New opened"
 
 
@@ -176,7 +213,7 @@ def register() -> None:
             bpy.app.timers.unregister(callback)
     _stale_timers.clear()
     if _pending and not bpy.app.timers.is_registered(_poll_startup):
-        bpy.app.timers.register(_poll_startup, first_interval=0.1)
+        bpy.app.timers.register(_poll_startup, first_interval=0.1, persistent=True)
     if not getattr(bpy.app, "background", False) and not bpy.app.timers.is_registered(
             _startup_pulse):
         bpy.app.timers.register(_startup_pulse, first_interval=_START_DELAY_SECONDS)

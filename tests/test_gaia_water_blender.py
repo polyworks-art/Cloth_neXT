@@ -66,3 +66,13 @@ def test_water_destination_never_overwrites_selected_source_file(blender_env, mo
     source.write_bytes(b'original scene')
     assert module.water_container_destination(str(source), 'Plane') == tmp_path / 'Watertest.gaia'
     assert source.read_bytes() == b'original scene'
+
+
+def test_authoritative_flip_conversion_separates_points_and_world_velocity(blender_env):
+    module=sys.modules['cloth_next.blender.water_flow']
+    matrix=np.asarray([[0,-2,0,10],[2,0,0,20],[0,0,3,30],[0,0,0,1.]])
+    p,v=module.flip_sample_to_world([[1,2,3]],[[2,3,4]],matrix)
+    np.testing.assert_allclose(p,[[6,22,39]])
+    np.testing.assert_array_equal(v,[[2,3,4]])
+    with pytest.raises(ValueError,match='Non-finite'):
+        module.flip_sample_to_world([[np.nan,0,0]],[[1,0,0]],matrix)

@@ -263,3 +263,26 @@ def test_gaia_recipe_applies_only_to_its_exact_release(tmp_path):
     with pytest.raises(solver_overlay.SolverOverlayError, match="does not match"):
         solver_overlay.apply_solver_overlay(
             tmp_path, **{**kwargs, "official_release_tag": "other"})
+
+
+def test_gaia_023_accepts_repeated_documentation_without_modifying_frontend(tmp_path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    scene = frontend / "_scene_.py"
+    source = "\n".join((
+        "# Per-stitch-row stiffness (M,), parallel to stitch_ind/stitch_w.",
+        "# Per-stitch-row stiffness (M,), resolved from its owning object.",
+        "stiffness = np.asarray(self._stitch_stiffness, dtype=np.float32)",
+        "if stiffness.shape != (n_stitch,):", "def set_stitch("))
+    scene.write_text(source)
+    (frontend / "build_worker.py").write_text("official worker")
+    solver_overlay.apply_solver_overlay(tmp_path, protocol_version="0.23",
+        schema_version="2", official_release_tag="2026-09-27-20-44", managed=True,
+        integration_recipe_id="gaia-023-official")
+    assert scene.read_text() == source
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["frontend"]
+    scene.write_text(source.replace("if stiffness.shape != (n_stitch,):", ""))
+    with pytest.raises(solver_overlay.SolverOverlayError, match="public scene API"):
+        solver_overlay.apply_solver_overlay(tmp_path, protocol_version="0.23",
+            schema_version="2", official_release_tag="2026-09-27-20-44", managed=True,
+            integration_recipe_id="gaia-023-official")

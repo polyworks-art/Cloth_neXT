@@ -110,3 +110,38 @@ def test_public_held_adapter_two_frames(tmp_path):
 def test_memory_gate():
     with pytest.raises(ValueError,match='memory'):
         reconstruct([[.5,.5,.5]],[[1,0,0]],[0,0,0],[1,1,1],[256,256,256])
+
+
+def test_debug_occupancy_points_constant_x_and_bounded_length():
+    from cloth_next.gaia.water_field import debug_samples, debug_vectors
+    v=np.full((3,3,3,3),100.,np.float32)
+    occupancy=np.zeros((3,3,3),np.float32);occupancy[1,1,1]=1
+    f=WaterVelocityField((10,20,30),(12,22,32),v,occupancy)
+    p,values=debug_samples(f,1)
+    np.testing.assert_array_equal(p,[[11,21,31]])
+    before=f.velocity.copy()
+    for mode in ('MAGNITUDE','DIRECTION','CONSTANT_X'):
+        a,b=debug_vectors(f,1,10.,mode=mode,physical_scale=10.)
+        np.testing.assert_array_equal(a,p)
+        assert np.linalg.norm(b-a,axis=1).max()<=1.+1e-6
+    a,b=debug_vectors(f,1,.2,mode='CONSTANT_X')
+    np.testing.assert_allclose(b-a,[[.2,0,0]])
+    # Occupied zero-velocity cells are still present in points-only mode.
+    f.velocity[:]=0
+    assert len(debug_samples(f,1)[0])==1
+    f.velocity[:]=before
+    np.testing.assert_array_equal(f.velocity,before)
+
+
+def test_asymmetric_grid_every_node_has_one_axis_conversion():
+    from cloth_next.ppf.coordinates import blender_position_to_ppf,blender_vector_to_ppf
+    shape=(3,4,5)
+    z,y,x=np.indices(shape)
+    v=np.stack((x+2*y,3*y+z,4*z+x),axis=-1).astype(np.float32)
+    f=WaterVelocityField((10,20,30),(14,26,34),v,np.ones(shape,np.float32))
+    lo,hi,encoded=solver_grid(f)
+    for zz,yy,xx in np.ndindex(shape):
+        world=np.asarray(f.minimum)+(np.asarray(f.maximum)-f.minimum)*[xx,yy,zz]/[4,3,2]
+        solver=np.asarray(blender_position_to_ppf(world))
+        solver_index=np.rint((solver-lo)/(np.asarray(hi)-lo)*[4,2,3]).astype(int)
+        np.testing.assert_array_equal(encoded[solver_index[2],solver_index[1],solver_index[0]],blender_vector_to_ppf(v[zz,yy,xx]))

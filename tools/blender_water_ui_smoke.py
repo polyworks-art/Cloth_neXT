@@ -47,16 +47,17 @@ try:
     assert bpy.types.CLOTHNEXT_PT_water_flow.bl_context == 'physics'
     CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
     CLOTHNEXT_PT_water_flow_display.draw(SimpleNamespace(layout=Layout()), context)
-    assert bpy.types.CLOTHNEXT_PT_water_flow.bl_parent_id == 'CLOTHNEXT_PT_physics'
+    assert not getattr(bpy.types.CLOTHNEXT_PT_water_flow, 'bl_parent_id', '')
     assert obj.cloth_next.bl_rna.properties['water_flow_container'].name == 'GAIA Path'
     assert obj.cloth_next.bl_rna.properties['water_flow_container'].description == 'Where should the File be placed?'
     assert controls == {
         'water_flow_enabled', 'water_flow_domain', 'water_flow_influence',
         'water_flow_velocity_scale', 'water_flow_resolution', 'water_flow_container',
+        'water_flow_debug_mode', 'water_flow_show_bounds',
         'water_flow_show_vectors', 'water_flow_vector_stride', 'water_flow_vector_scale',
     }, controls
     assert operators == {'cloth_next.prepare_water_flow'}
-    print('WATER FLOW UI PASS: registered Physics panel, nine RNA controls and preparation operator')
+    print('WATER FLOW UI PASS: registered Physics panel, eleven RNA controls and preparation operator')
 finally:
     cloth_next.unregister()
 assert not hasattr(bpy.types, 'CLOTHNEXT_PT_water_flow')

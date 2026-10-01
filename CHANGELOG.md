@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.9 - 2026-10-01
+
+- Correct evaluated FLIP cache coordinates and invalidate outdated Water Flow field provenance.
+- Bound viewport vector lengths and add occupied-position, direction and constant +X diagnostics.
+- Restore a separate GAIA Water Flow card, invert its icon and use GAIA Flow as the preparation window title.
+- Fix GAIA 0.23 installer validation of repeated upstream documentation.
+- Persist onboarding seen state across file loads and restarts.
+
 ## 2.9.8 - 2026-10-01
 
 - Prepare Water Flow through the existing Bake Window with worker-based source checks, reconstruction, progress and cancellation; hide Details during preparation.

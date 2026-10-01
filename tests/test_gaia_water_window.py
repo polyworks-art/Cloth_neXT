@@ -1,7 +1,21 @@
 from types import SimpleNamespace
 from cloth_next.bake.controller import BakeController
-from cloth_next.bake.status import BakeJobKind, BakeSnapshot, BakeState
+from cloth_next.bake.status import BakeJobKind, BakeSnapshot, BakeState, CompanionMode
 from companion.app import BakeWindow, progress_display_text
+
+
+def test_water_title_returns_to_bake_title_after_preparation():
+    native_titles, custom_titles = [], []
+    window = SimpleNamespace(
+        root=SimpleNamespace(title=native_titles.append), _custom_titlebar=True,
+        _linux_title_text=SimpleNamespace(configure=lambda **kw: custom_titles.append(kw['text'])),
+        _linux_title_icon=SimpleNamespace(configure=lambda **kw: None),
+        _linux_veyra_icon=None, _linux_app_icon=None)
+    for water in (False, True, False):
+        window._water_display = water
+        BakeWindow._set_window_title(window, CompanionMode.BAKE)
+    assert native_titles == ['Cloth NeXt Bake', 'GAIA Flow', 'Cloth NeXt Bake']
+    assert custom_titles == native_titles
 
 
 def test_water_window_hides_details_button_instead_of_disabling_it():

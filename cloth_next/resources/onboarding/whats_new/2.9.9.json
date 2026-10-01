@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.9",
+  "title": "What's New in Cloth NeXt 2.9.9",
+  "subtitle": "Corrected Water Flow coordinates and clearer previews.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Aligned Water Flow fields",
+      "description": "Evaluate FLIP cache transforms before sampling. Newly prepared fields use corrected world coordinates; outdated fields require preparation again."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Readable flow previews",
+      "description": "Bound vector lengths and inspect sample positions, directions or a constant +X diagnostic. Water Flow has its own card and an inverted GAIA icon."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Solver installation and startup fixes",
+      "description": "Correct GAIA 0.23 installation validation, persist onboarding seen state, and title the preparation window GAIA Flow."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

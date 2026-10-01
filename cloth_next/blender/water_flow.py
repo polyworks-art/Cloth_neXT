@@ -10,6 +10,23 @@ from ..gaia.container import GaiaContainer, write_water_container
 from ..gaia.solver_fields import official_grid_payload
 
 
+WATER_COORDINATE_RECIPE = 'flip-evaluated-world-v2'
+
+
+def flip_sample_to_world(positions, velocities, matrix_world):
+    """FLIP mesh-local points; baked world-axis physical m/s vectors.
+
+    The FLIP loader shifts/scales the *mesh* and writes velocity attributes
+    unchanged. Translation, display rotation and display scale never apply
+    to these already exported physical velocity components.
+    """
+    p, v, matrix = np.asarray(positions, float), np.asarray(velocities, float), np.asarray(matrix_world, float)
+    if (p.ndim != 2 or p.shape[1] != 3 or v.shape != p.shape or matrix.shape != (4,4)
+            or not np.isfinite(p).all() or not np.isfinite(v).all() or not np.isfinite(matrix).all()):
+        raise ValueError('Non-finite or invalid FLIP position/velocity/transform')
+    return p @ matrix[:3,:3].T + matrix[:3,3], v.copy()
+
+
 class FLIPWaterFlowProvider:
     def __init__(self, context, domain, frames, *, hash_sources=True):
         from mathutils import Vector
@@ -47,6 +64,7 @@ class FLIPWaterFlowProvider:
             raise ValueError('Invalid FLIP Domain transform')
         self.identity = {'mode': self.mode, 'cache': str(self.root.resolve()),
                          'domain': domain.name, 'matrix': matrix.tolist(), 'sources': [],
+                         'coordinate_recipe': WATER_COORDINATE_RECIPE,
                          'baked_fps': baked_fps, 'time_scale': timing.get('time_scale'),
                          'sampling': 'all-liquid-particles' if self.mode == 'FLUID_PARTICLES' else 'surface-only'}
         # Hash both positions and velocity: a same-size overwrite must invalidate.
@@ -62,10 +80,28 @@ class FLIPWaterFlowProvider:
                     for chunk in iter(lambda: stream.read(1024*1024), b''): digest.update(chunk)
                 self.identity['sources'].append([path.name, digest.hexdigest()])
         corners = np.asarray([tuple(domain.matrix_world @ Vector(p)) for p in domain.bound_box])
-        self.minimum, self.maximum = corners.min(axis=0), corners.max(axis=0)
+        # A domain transform changed after baking can leave the loader's
+        # parenting decomposition pending on its first import. Settle it with
+        # one evaluated import before taking the authoritative grid transform.
+        self._load_frame(first)
+        obj = self._load_frame(first)
+        self.cache_matrix = np.asarray(obj.matrix_world, float).copy()
+        # The displayed FLIP cache can extend beyond the domain after a
+        # post-bake rotation. Cover its actual transformed cached grid too.
+        b = self.cache.bounds
+        cache_corners = np.asarray([(x,y,z) for x in (0.,b.width)
+            for y in (0.,b.height) for z in (0.,b.depth)])
+        cache_world, _ = flip_sample_to_world(cache_corners, np.zeros_like(cache_corners), self.cache_matrix)
+        all_corners = np.concatenate((corners,cache_world))
+        self.minimum, self.maximum = all_corners.min(axis=0), all_corners.max(axis=0)
+        self.identity['cache_matrix'] = self.cache_matrix.tolist()
+        self.identity['bounds'] = [self.minimum.tolist(), self.maximum.tolist()]
 
-    def sample(self, frame):
+    def _load_frame(self, frame):
         self.context.scene.frame_set(frame)
+        # FLIP's frame handler changes cache parenting/transforms. Evaluate
+        # those before a forced import, then evaluate that import as well.
+        self.context.view_layer.update()
         previous = self.cache.enable_velocity_attribute
         percentages = ('ffp3_surface_import_percentage', 'ffp3_boundary_import_percentage',
                        'ffp3_interior_import_percentage') if self.mode == 'FLUID_PARTICLES' else ()
@@ -76,11 +112,18 @@ class FLIPWaterFlowProvider:
             self.cache.enable_velocity_attribute = True
             for name in percentages: setattr(self.cache, name, 1.0)
             self.cache.load_frame(frame, force_load=True, depsgraph=self.context.evaluated_depsgraph_get())
+            self.context.view_layer.update()
         finally:
             self.cache.enable_velocity_attribute = previous
             for name, value in saved_percentages.items(): setattr(self.cache, name, value)
         obj = self.cache.get_cache_object()
         if obj is None or obj.type != 'MESH': raise ValueError('FLIP fluid cache object is unavailable')
+        return obj
+
+    def sample(self, frame):
+        obj = self._load_frame(frame)
+        if not np.allclose(np.asarray(obj.matrix_world), self.cache_matrix, rtol=0., atol=1e-5):
+            raise ValueError('FLIP cache transform changes across frames; Water Flow requires fixed grid bounds')
         mesh = obj.data
         attr = mesh.attributes.get('flip_velocity')
         if attr is None or attr.domain != 'POINT' or attr.data_type != 'FLOAT_VECTOR':
@@ -91,11 +134,11 @@ class FLIPWaterFlowProvider:
         mesh.vertices.foreach_get('co', p)
         attr.data.foreach_get('vector', v)
         matrix = np.asarray(obj.matrix_world, float)
-        p = p.reshape(-1,3) @ matrix[:3,:3].T + matrix[:3,3]
+        p, v = flip_sample_to_world(p.reshape(-1,3), v.reshape(-1,3), matrix)
         # FLIP documents flip_velocity as physical world velocity in m/s;
         # its loader writes attribute data directly. Do not translate or
         # multiply by the cache object's display scale a second time.
-        return p, v.reshape(-1,3)
+        return p, v
 
 
 def water_settings_record(obj):
@@ -172,7 +215,12 @@ def apply_water_payload(context, payload, resolved, first, last):
                and getattr(obj.cloth_next, 'water_flow_enabled', False)]
     if not targets: return payload, None
     if str(getattr(resolved, 'protocol_version', '')) != '0.23':
-        raise ValueError('Water Flow requires official GAIA 0.23')
+        from .solver_test import SceneValidationError
+        current = str(getattr(resolved, 'protocol_version', '') or 'unknown')
+        raise SceneValidationError(
+            f'Water Flow requires official GAIA 0.23; the active solver is {current}. '
+            'Open Cloth NeXt Preferences > Solver Installations and select GAIA 0.23. '
+            'If it is not installed, use Download Official Solver first.')
     from ..ppf.schema import envelope
     raw = payload.read_bytes() if isinstance(payload, Path) else payload
     tree = envelope.loads_envelope(raw, envelope.KIND_PARAM, schema_version=2)
@@ -244,7 +292,6 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'physics'
-    bl_parent_id = 'CLOTHNEXT_PT_physics'
     bl_options = {'DEFAULT_CLOSED'}
     def draw_header(self, context):
         from . import icon_registry
@@ -294,6 +341,8 @@ class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
         body = layout.column(align=True)
         body.enabled = s.water_flow_show_vectors
         if s.water_flow_show_vectors:
+            body.prop(s, 'water_flow_debug_mode')
+            body.prop(s, 'water_flow_show_bounds')
             body.prop(s, 'water_flow_vector_stride')
             body.prop(s, 'water_flow_vector_scale')
 
@@ -302,7 +351,7 @@ _handle = None
 _preview = {}
 
 
-def _draw_vectors():
+def _draw_vectors(_region=None):
     obj = bpy.context.object
     if obj is None or not hasattr(obj, 'cloth_next'): return
     s = obj.cloth_next
@@ -312,23 +361,54 @@ def _draw_vectors():
     try:
         key = (str(path), path.stat().st_mtime_ns, bpy.context.scene.frame_current,
                s.water_flow_vector_stride, s.water_flow_vector_scale,
-               s.water_flow_influence, s.water_flow_velocity_scale)
+               s.water_flow_influence, s.water_flow_velocity_scale,
+               s.water_flow_debug_mode, s.water_flow_show_bounds)
         if key not in _preview:
             from ..gaia.water_field import debug_vectors
             with GaiaContainer(path) as c:
+                provider=c.manifest['water'].get('provider', {})
+                if provider.get('mode') in {'FLUID_PARTICLES','SURFACE_VELOCITY'} and provider.get('coordinate_recipe') != WATER_COORDINATE_RECIPE:
+                    return  # Old derived coordinates must be rebuilt before display.
                 records=c.manifest['frames']
                 index=min(range(len(records)),key=lambda i:abs(records[i]['frame']-bpy.context.scene.frame_current))
-                a,b=debug_vectors(c.frame(index),s.water_flow_vector_stride,
-                                  s.water_flow_vector_scale*s.water_flow_influence*s.water_flow_velocity_scale)
+                field=c.frame(index)
+                from ..gaia.water_field import debug_samples
+                if s.water_flow_debug_mode == 'POSITIONS':
+                    vertices,_=debug_samples(field,s.water_flow_vector_stride)
+                    primitive='POINTS'
+                else:
+                    a,b=debug_vectors(field,s.water_flow_vector_stride,s.water_flow_vector_scale,
+                        mode=s.water_flow_debug_mode,
+                        physical_scale=s.water_flow_influence*s.water_flow_velocity_scale)
+                    vertices=np.stack((a,b),axis=1).reshape(-1,3)
+                    primitive='LINES'
+                bounds_vertices=[]
+                if s.water_flow_show_bounds:
+                    corners=np.asarray([(x,y,z) for x in (field.minimum[0],field.maximum[0])
+                        for y in (field.minimum[1],field.maximum[1]) for z in (field.minimum[2],field.maximum[2])])
+                    bounds_vertices=np.asarray([corners[i] for a in range(8) for bit in (1,2,4)
+                        if a < (a^bit) for i in (a,a^bit)])
             _preview.clear()
-            _preview[key]=np.stack((a,b),axis=1).reshape(-1,3)
+            _preview[key]=(primitive,vertices,bounds_vertices)
         import gpu
         from gpu_extras.batch import batch_for_shader
         shader=gpu.shader.from_builtin('UNIFORM_COLOR')
-        batch=batch_for_shader(shader,'LINES',{'pos':_preview[key]})
-        shader.bind()
-        shader.uniform_float('color',(.1,.6,1.,1.))
-        batch.draw(shader)
+        primitive,vertices,bounds_vertices=_preview[key]
+        region=_region or bpy.context.region_data
+        if region is None: return
+        # Explicit world-space matrices; do not inherit another overlay's model transform.
+        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():
+            gpu.matrix.load_matrix(region.view_matrix)
+            gpu.matrix.load_projection_matrix(region.window_matrix)
+            shader.bind()
+            shader.uniform_float('color',(.1,.6,1.,1.))
+            if len(vertices):
+                if primitive == 'POINTS': gpu.state.point_size_set(3.)
+                batch_for_shader(shader,primitive,{'pos':vertices}).draw(shader)
+                if primitive == 'POINTS': gpu.state.point_size_set(1.)
+            if len(bounds_vertices):
+                shader.uniform_float('color',(1.,.6,.1,1.))
+                batch_for_shader(shader,'LINES',{'pos':bounds_vertices}).draw(shader)
     except (OSError,ValueError,KeyError):
         return
 

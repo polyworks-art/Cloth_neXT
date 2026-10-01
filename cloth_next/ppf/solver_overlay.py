@@ -437,7 +437,8 @@ INTEGRATION_RECIPES = MappingProxyType({
     "gaia-023-official": IntegrationRecipe(
         "gaia-023-official", "0.23", "2", "2026-09-27-20-44",
         ".cloth-next-official-integration-0.23-schema-2",
-        ("Per-stitch-row stiffness (M,)", "def set_stitch("), "none"),
+        ("stiffness = np.asarray(self._stitch_stiffness, dtype=np.float32)",
+         "if stiffness.shape != (n_stitch,):", "def set_stitch("), "none"),
 })
 
 

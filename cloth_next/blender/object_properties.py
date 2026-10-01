@@ -796,6 +796,14 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',
         description="Where should the File be placed?", update=_on_settings_update)
     water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False)
+    water_flow_debug_mode: bpy.props.EnumProperty(name="Vector Display",
+        items=(('MAGNITUDE', 'Magnitude', 'Bounded physical velocity display'),
+               ('DIRECTION', 'Direction Only', 'Normalized direction with fixed display length'),
+               ('POSITIONS', 'Sample Positions Only', 'Diagnostic occupied grid origins, without lines'),
+               ('CONSTANT_X', 'Constant +X Test', 'Diagnostic Blender +X vectors; solver field is unchanged')),
+        default='MAGNITUDE')
+    water_flow_show_bounds: bpy.props.BoolProperty(name="Field Bounds", default=False,
+        description="Show the reconstructed field bounds in Blender world space")
     water_flow_vector_stride: bpy.props.IntProperty(name="Vector Spacing", default=4, min=1, max=32)
     water_flow_vector_scale: bpy.props.FloatProperty(name="Vector Scale", default=.1, min=0., max=10.)
 

@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.8
+# Cloth NeXt 2.9.9
 
-Water Flow preparation now uses the existing Bake Window with progress, cancellation and two familiar progress bars. Details is hidden during preparation. Source hashing and field reconstruction run in a worker; Blender captures one FLIP frame at a time on its main thread. Production Bake prepares the fields and continues using the same job.
+Water Flow now evaluates FLIP cache transforms before converting particle positions to world coordinates. This corrects the offset found in the supplied test scene. Existing fields with outdated coordinate provenance must be prepared again. Physical velocity components and the single Blender-to-GAIA axis conversion are preserved.
 
-GAIA Path accepts a folder or a new file name; the container is created with the .gaia extension. Leave the path empty to use the Cloth cache directory. Water Flow controls now follow the Cloth Physics layout, Flow Display has its own section, and the card uses the supplied monochrome GAIA icon.
+Viewport vectors have bounded lengths, with sample-position, direction and constant +X diagnostics. GAIA Water Flow is a separate card with an inverted supplied icon. The preparation window is titled GAIA Flow; normal Bake retains Cloth NeXt Bake.
 
-Preparation restores the original scene frame and stops before file load or add-on shutdown. A real FLIP-scene smoke test verified preparation, cache reuse and cancellation without changing the source scene or cache. The measured maximum main-thread capture step for this short test was approximately 80 ms; larger scenes may take longer per frame.
+GAIA 0.23 installation validation now accepts repeated upstream documentation while still checking the required implementation. Onboarding seen state is stored durably to prevent repeat splash screens when opening files.
 
-Use GAIA 0.23 and baked FLIP fluid-particle velocities. The existing 32 MiB upload limit and scene drag model still apply. Independent water drag, production streaming, wetness, buoyancy, tearing and two-way coupling remain outside this release. Full original-scene simulation cancel/resume and interactive vector appearance remain unverified. Update through Blender's native extension manager.
+Validation includes unit regressions, real Blender UI/preparation checks, numerical source-to-grid-to-GAIA comparisons, and unchanged official CUDA solver checks for constant +X and an actual FLIP field. Full original-scene cancel/resume acceptance remains unverified. Use GAIA 0.23 and baked FLIP particle velocities. Update through Blender's native extension manager, then prepare existing Water Flow fields again.

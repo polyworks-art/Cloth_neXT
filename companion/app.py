@@ -546,7 +546,9 @@ class BakeWindow:
             widget.bind("<B1-Motion>",self._drag_linux_window)
 
     def _set_window_title(self,mode):
-        title="Cloth NeXt Veyra" if mode is CompanionMode.VEYRA else "Cloth NeXt Bake"
+        title=("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
+               else "GAIA Flow" if getattr(self, '_water_display', False)
+               else "Cloth NeXt Bake")
         self.root.title(title)
         if self._custom_titlebar:
             self._linux_title_text.configure(text=title)
