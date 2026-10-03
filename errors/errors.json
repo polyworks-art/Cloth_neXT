@@ -249,6 +249,12 @@
       "action": "Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup."
     },
     {
+      "code": "CNX-E147",
+      "stage": "Water Flow",
+      "cause": "Water Flow grid or sequence exceeds its memory budget",
+      "action": "Check the reported grid and memory estimate. Shorten the Bake duration or choose a smaller field. Preparing a .gaia cache alone is frame-wise."
+    },
+    {
       "code": "CNX-E150",
       "stage": "Project build",
       "cause": "Unclassified solver project build failure",
