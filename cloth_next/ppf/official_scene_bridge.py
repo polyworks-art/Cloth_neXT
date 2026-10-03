@@ -120,6 +120,12 @@ def prepare_scene(scene, *, enabled: bool):
 
 def recovery_param_hash(scene) -> str:
     """Independent seam strengths remain part of the resume compatibility gate."""
+    water=getattr(scene,'water_stream_json','')
+    if water:
+        document=json.dumps({'param_hash':scene.param_hash,
+            'official_bridge':scene.official_bridge_json,'water_stream':json.loads(water)},
+            sort_keys=True,separators=(',',':'))
+        return hashlib.sha256(document.encode('utf-8')).hexdigest()
     if not scene.official_bridge_json:
         return scene.param_hash
     return hashlib.sha256(scene.official_bridge_json.encode("utf-8")).hexdigest()

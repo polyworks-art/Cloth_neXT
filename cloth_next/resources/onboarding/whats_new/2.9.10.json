@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.10",
+  "title": "What's New in Cloth NeXt 2.9.10",
+  "subtitle": "Detailed Water Flow, streamed through your full bake.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Water Flow through the full sequence",
+      "description": "Stream current and next prepared water fields through official GAIA 0.23 while retaining smooth time interpolation and the running cloth simulation."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "More spatial detail",
+      "description": "Auto starts at 100 samples on the longest axis. Medium, High and Extreme use 100, 150 and 200, with physical grid spacing and explicit memory checks."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Resume with the correct water frame",
+      "description": "Cancellation and Blender restart preserve the checkpoint and source window. Start Fresh reuses valid prepared .gaia caches."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

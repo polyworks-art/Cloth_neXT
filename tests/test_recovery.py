@@ -25,6 +25,20 @@ def identity(**changes):
     return replace(value, **changes)
 
 
+def test_water_stream_state_survives_reload_and_start_fresh(tmp_path):
+    root=tmp_path/'server'/'project';root.mkdir(parents=True)
+    path=tmp_path/'metadata.json'
+    record=create_project(path,project_id='project',identity=identity(),
+                          server_data_root=root.parent,project_root=root)
+    state={'boundary':20,'targets':[{'cache_fingerprint':'prepared-cache',
+           'source_frames':[140,141],'times':[20/24,21/24]}]}
+    record=transition(path,record,ProjectState.RUNNING,water_stream_state=state)
+    assert load_project(path).water_stream_state==state
+    fresh=create_project(path,project_id='project',identity=identity(),
+                         server_data_root=root.parent,project_root=root)
+    assert fresh.water_stream_state=={} and load_project(path).water_stream_state=={}
+
+
 def checkpoint(tmp_path: Path, name: str, payload=b"state") -> Path:
     path = tmp_path / name
     path.write_bytes(payload)

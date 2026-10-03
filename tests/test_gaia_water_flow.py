@@ -19,6 +19,49 @@ def test_constant_velocity_preserved_and_empty_water_zero():
     assert f.influence[1,1,1] == 1
 
 
+def test_auto_floor_and_isotropic_rectangular_presets():
+    from cloth_next.gaia.water_field import grid_plan, resolution_target
+    assert resolution_target('24') == 100  # saved legacy Auto
+    for selection, target in [('AUTO',100),('100',100),('150',150),('200',200),('CUSTOM',175)]:
+        info=grid_plan([0,0,0],[10,6,1.5],selection,175)
+        assert info['dimensions'] == (target, int(np.ceil(.6*target)), int(np.ceil(.15*target)))
+        assert info['voxel_size'] == 10/target
+        assert info['encoded_bytes'] == info['total_cells']*12
+        assert info['estimated_working_bytes'] > info['field_bytes']+info['encoded_bytes']
+    assert grid_plan([0,0,0],[1,1,.00001])['dimensions'] == (100,100,2)
+    assert grid_plan([0,0,0],[10,6,1.5],source_voxel_size=.05)['dimensions'] == (200,120,30)
+    assert grid_plan([0,0,0],[10,6,1.5],source_voxel_size=.5)['dimensions'] == (100,60,15)
+    assert grid_plan([-4,-4,0],[4,4,4],source_voxel_size=float(np.float32(.08)))['dimensions']==(100,100,50)
+
+
+def test_giant_custom_rejected_before_allocating(monkeypatch):
+    from cloth_next.gaia.water_field import grid_plan
+    monkeypatch.setattr(np,'zeros',lambda *a,**k:pytest.fail('allocated before safety check'))
+    with pytest.raises(ValueError,match='requested resolution 1000.*1000 x 1000 x 1000.*estimated working memory'):
+        grid_plan([0,0,0],[1,1,1],'CUSTOM',1000)
+
+
+def test_adaptive_overlay_density_does_not_change_simulation():
+    from cloth_next.gaia.water_field import display_stride, debug_vectors
+    assert display_stride((100,60,15),1)==5
+    assert display_stride((200,120,30),4)==10
+    assert display_stride((100,60,15),16)==16
+    f=field();before=f.velocity.copy()
+    debug_vectors(f,display_stride((200,120,30)),.1)
+    np.testing.assert_array_equal(f.velocity,before)
+
+
+def test_overlay_buckets_preserve_thin_occupied_layer():
+    from cloth_next.gaia.water_field import debug_samples
+    v=np.zeros((50,100,100,3),np.float32);v[...,0]=2
+    m=np.zeros((50,100,100),np.float32);m[2,:,:]=1
+    f=WaterVelocityField((0,0,0),(8,8,4),v,m)
+    points,values=debug_samples(f,5)
+    assert len(points)==400
+    np.testing.assert_allclose(points[:,2],8/49)
+    np.testing.assert_array_equal(values,np.tile([2,0,0],(400,1)))
+
+
 def test_deterministic_weighted_vectors_and_speed_bound():
     args = ([[.25,.5,.5],[.75,.5,.5]], [[2,1,0],[4,-1,0]], [0,0,0], [1,1,1], [3,3,3])
     a, b = reconstruct(*args), reconstruct(*args)

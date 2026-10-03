@@ -70,7 +70,8 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         contact_enabled: bool = True, frame_count: int | None = None,
         face_friction: tuple[float, ...] = (),
         cloth_divisions: int = fixture.CLOTH_DIVISIONS,
-        resolution=None) -> dict:
+        resolution=None, water_path=None, water_first=1) -> dict:
+    output_dir=output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     cloth, collider = fixture.vertical_slice_fixture()
     if cloth_divisions != fixture.CLOTH_DIVISIONS:
@@ -79,6 +80,17 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         cloth = fixture.FixtureMesh(
             fixture.CLOTH_NAME, vertices, triangles,
             (0.0, 0.0, fixture.CLOTH_HEIGHT))
+    water_metadata=None
+    if water_path is not None:
+        from cloth_next.gaia.container import GaiaContainer
+        with GaiaContainer(water_path) as container:water_metadata=container.manifest['water']
+        fps=float(water_metadata['fps'])
+        vertices=tuple((0.,y,z) for y in (-.05,0.,.05) for z in (-.05,0.,.05))
+        triangles=[]
+        for y in range(2):
+            for z in range(2):
+                a=3*y+z;triangles.extend(((a,a+1,a+4),(a,a+4,a+3)))
+        cloth=fixture.FixtureMesh('Water Audit Cloth',vertices,tuple(triangles),(3.3,-3.1,.2))
     frame_count = (fixture.FRAME_END - fixture.FRAME_START + 1
                    if frame_count is None else int(frame_count))
     if frame_count < 2:
@@ -106,7 +118,7 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
     data_payload, data_hash = encode_scene(
         scene_cloth, scene_collider, schema_version=schema_version)
     settings = SimulationSettings(frame_count=frame_count, fps=fps,
-                                  gravity_blender=fixture.DEFAULT_GRAVITY)
+                                  gravity_blender=(0.,0.,0.) if water_path else fixture.DEFAULT_GRAVITY)
     param_payload, param_hash = encode_param(
         settings, cloth.name, cloth_uuid, collider.name, collider_uuid,
         shell=shell_material, static=static_material,
@@ -126,6 +138,19 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         frame_count=frame_count,
         data_payload=data_payload, param_payload=param_payload,
         data_hash=data_hash, param_hash=param_hash)
+    if water_path is not None:
+        from dataclasses import replace
+        from cloth_next.ppf.schema import envelope
+        tree=envelope.loads_envelope(param_payload,envelope.KIND_PARAM,schema_version=schema_version)
+        tree['group'][0][0]['force-field-weight']=1.
+        tree['scene']['air-density']=.1;tree['scene']['air-friction']=1.
+        payload=envelope.dumps_envelope(envelope.KIND_PARAM,tree,schema_version=schema_version)
+        descriptor={'version':1,'first':water_first,'last':water_first+frame_count-1,'fps':fps,
+                    'targets':[{'path':str(Path(water_path).resolve()),
+                    'fingerprint':water_metadata['fingerprint'],'groups':[0],
+                    'dimensions':water_metadata['dimensions'],'influence':1.,'velocity_scale':1.}]}
+        scene=replace(scene,param_payload=payload,param_hash=envelope.payload_sha256(payload),
+                      water_stream_json=json.dumps(descriptor,sort_keys=True))
 
     frames: list[SolverFrame] = []
     events: list[str] = []

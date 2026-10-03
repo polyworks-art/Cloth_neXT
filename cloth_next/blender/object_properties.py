@@ -789,10 +789,14 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_settings_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", default=1., min=0., max=10., update=_on_settings_update)
-    water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="24", update=_on_settings_update,
-        items=(("24", "Auto", "24 samples along the longest domain axis"),
-               ("16", "Low", "16 samples"), ("32", "Medium", "32 samples"),
-               ("48", "High", "48 samples; sequence upload memory limit applies")))
+    water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_settings_update,
+        items=(("AUTO", "Auto", "At least 100 samples along the longest field axis", 0),
+               ("100", "Medium", "100 samples along the longest field axis", 2),
+               ("150", "High", "150 samples along the longest field axis", 3),
+               ("200", "Extreme", "200 samples along the longest field axis", 4),
+               ("CUSTOM", "Custom", "Explicit longest-axis detail; minimum 100", 5)))
+    water_flow_custom_resolution: bpy.props.IntProperty(name="Longest Axis", default=100,
+        min=100, max=4096, update=_on_settings_update)
     water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',
         description="Where should the File be placed?", update=_on_settings_update)
     water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False)

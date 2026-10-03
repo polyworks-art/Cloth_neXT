@@ -334,6 +334,7 @@ class SolverProcessManager:
         self._log_pending = {"stdout": b"", "stderr": b""}
         self._job: _WindowsJob | None = None
         self._process_group: _PosixProcessGroup | None = None
+        self._helpers: list[tuple[subprocess.Popen, _PosixProcessGroup | None]] = []
         self._contact_peak = 0
         self._contact_last = 0
         self._contact_samples = 0
@@ -593,9 +594,59 @@ class SolverProcessManager:
         self._drain(final=True)
         return self.poll()
 
+    def start_owned_helper(self, arguments, *, cwd, log_file, startup_gate):
+        """Attach a gated frontend helper to this existing launch's ownership.
+
+        The helper must wait for ``startup_gate`` before creating a native
+        process. Publication follows assignment to the kill-on-close job.
+        """
+        if self.ownership is not ConnectionOwnership.OWNED_PROCESS:
+            raise PermissionError('external server cannot own frontend helpers')
+        if self._process is None or self._process.poll() is not None:
+            raise RuntimeError('frontend helper requires a live owned solver launch')
+        gate=Path(startup_gate)
+        if gate.exists():
+            raise ValueError('frontend helper startup gate must be fresh')
+        group=_PosixProcessGroup() if os.name=='posix' else None
+        options=({'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt'
+                 else {'start_new_session':True} if os.name=='posix' else {})
+        with Path(log_file).open('wb') as stream:
+            process=subprocess.Popen(arguments,cwd=cwd,
+                env=self.config.subprocess_environment(),stdout=stream,stderr=stream,
+                stdin=subprocess.DEVNULL,shell=False,**options)
+        try:
+            if self._job is not None:self._job.assign(process)
+            if group is not None:group.assign(process)
+            self._helpers.append((process,group))
+            with gate.open('x',encoding='ascii') as stream:
+                stream.write(self._launch_id)
+        except BaseException:
+            process.kill();process.wait(timeout=self.config.shutdown_timeout)
+            if group is not None:group.close()
+            raise
+        return process
+
+    def _stop_helpers(self):
+        for process,group in self._helpers:
+            if process.poll() is None:
+                if group is not None and group.active:group.terminate()
+                else:process.terminate()
+                try:process.wait(timeout=self.config.shutdown_timeout)
+                except subprocess.TimeoutExpired:
+                    if group is not None and group.active:group.kill()
+                    else:process.kill()
+                    process.wait(timeout=self.config.shutdown_timeout)
+            else:process.wait()
+            if group is not None:
+                if not group.wait_empty(self.config.shutdown_timeout):
+                    group.kill();group.wait_empty(self.config.shutdown_timeout)
+                group.close()
+        self._helpers.clear()
+
     def stop(self) -> ProcessPoll:
         if self.ownership is not ConnectionOwnership.OWNED_PROCESS:
             raise PermissionError("external server must never be stopped by Cloth NeXt")
+        self._stop_helpers()
         process = self._process
         if process is None:
             result = self.poll()

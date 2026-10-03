@@ -11,8 +11,6 @@ from ..bake.controller import shared_controller
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..bake.transport import EnterBakeMode
 from ..gaia.preparation import PreparationCancelled, WaterPreparationWorker, source_stamp
-from ..gaia.water_field import grid_dimensions
-from ..gaia.solver_fields import MAX_UPLOAD_BYTES
 from . import companion_manager, modal_lock
 
 _job = None
@@ -64,6 +62,8 @@ def start(context, objects, first, last, *, job_id=None, on_complete=None, wait_
         if not objects: raise ValueError('No Water Flow Cloth object selected')
         for obj in objects:
             s = obj.cloth_next
+            if not s.water_flow_resolution:
+                s.water_flow_resolution='AUTO'  # obsolete saved Low enum value
             value = s.water_flow_container
             if not value:
                 value = getattr(s, 'cache_directory', '')
@@ -87,7 +87,7 @@ def start(context, objects, first, last, *, job_id=None, on_complete=None, wait_
                 'subframe':float(getattr(context.scene, 'frame_subframe', 0)),
                 'started':time.monotonic(), 'deadline':time.monotonic()+companion_manager.STARTUP_TIMEOUT_SECONDS,
                 'waiting':bool(wait_for_window), 'standalone':standalone,
-                'complete':on_complete, 'error':None, 'upload_bytes':0}
+                'complete':on_complete, 'error':None}
         if bpy.app.timers.is_registered(_pump): bpy.app.timers.unregister(_pump)
         bpy.app.timers.register(_pump, first_interval=.05)
         return job_id
@@ -149,7 +149,7 @@ def _finish(state, *, cancelled=False, error=None):
 
 
 def _pump():
-    from .water_flow import FLIPWaterFlowProvider, water_settings_record
+    from .water_flow import FLIPWaterFlowProvider, water_settings_record, water_grid_plan
     state = _job
     if state is None: return None
     worker = state['worker']
@@ -181,14 +181,14 @@ def _pump():
             frames = range(state['first'], state['last']+1)
             provider = FLIPWaterFlowProvider(state['context'], obj.cloth_next.water_flow_domain,
                                              frames, hash_sources=False)
-            dims = grid_dimensions(provider.minimum, provider.maximum, int(obj.cloth_next.water_flow_resolution))
-            state['upload_bytes'] += len(frames)*dims[0]*dims[1]*dims[2]*3*4
-            if state['upload_bytes'] > MAX_UPLOAD_BYTES:
-                raise ValueError('Water Flow exceeds 32 MiB; lower resolution or shorten the frame range')
+            layout = water_grid_plan(provider,obj.cloth_next)
+            dims = layout['dimensions']
+            # Prepared animation stays on disk. Runtime validates its bounded
+            # two-frame held window instead of uploading a temporal schedule.
             fps = state['context'].scene.render.fps/state['context'].scene.render.fps_base
             metadata = {'provider':provider.identity, 'frames':[state['first'],state['last']], 'fps':fps,
-                        'dimensions':dims, 'algorithm':'trilinear-splat-support-v1',
-                        'field_format':'gaia-0.23', 'physical_velocity_units':'m/s'}
+                        'dimensions':dims, 'algorithm':'trilinear-splat-support-v2',
+                        'field_format':'gaia-0.23', 'physical_velocity_units':'m/s', 'grid_layout':layout}
             state['provider'] = provider
             state['settings'] = water_settings_record(obj)
             worker = WaterPreparationWorker(Path(obj.cloth_next.water_flow_container), metadata,

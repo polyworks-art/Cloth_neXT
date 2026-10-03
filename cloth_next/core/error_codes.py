@@ -66,6 +66,7 @@ _ROWS = (
     ("CNX-E144", "Scene upload", "Uploaded payload hash or identity mismatch", "Repair the solver installation and retry with a fresh Bake."),
     ("CNX-E145", "Scene upload", "Malformed or oversized solver response", "Repair or update the solver to the supported protocol version."),
     ("CNX-E146", "Solver connection", "solver control server exited while an owned solver descendant remained active", "Keep the diagnostic log and retry after Cloth NeXt confirms owned-process cleanup."),
+    ("CNX-E147", "Water Flow", "Water Flow grid or sequence exceeds its memory budget", "Check the reported grid and memory estimate. Shorten the Bake duration or choose a smaller field. Preparing a .gaia cache alone is frame-wise."),
     ("CNX-E150", "Project build", "Unclassified solver project build failure", "Inspect scene geometry and the solver diagnostic log."),
     ("CNX-E151", "Project build", "Solver rejected project build", "Inspect geometry, materials, Pins, Constraints, Friction Regions, and Forces in the diagnostic log."),
     ("CNX-E152", "Project build", "Project build timed out", "Simplify the scene or increase stability/performance headroom, then retry."),
@@ -127,6 +128,7 @@ def _compile_rules(rows):
 
 
 _CAUSE_RULES = _compile_rules((
+    (r"water flow.*(?:memory limit|32 mib|upload budget)|water grid exceeds.*memory limit", "CNX-E147"),
     (r"ram .*?(?:limit|threshold)|auto.?cancel.*ram|memory safety|"
      r"(?:cuda|gpu|solver)?.*out of memory|memory allocation (?:failed|error)",
      "CNX-E166"),

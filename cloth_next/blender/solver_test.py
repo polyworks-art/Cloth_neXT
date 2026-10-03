@@ -5379,8 +5379,8 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             tuple(target.uuid for target in target_plans),
             schema_version=_resolved_wire_contract(resolved)[0],
             protocol_version=_resolved_wire_contract(resolved)[1])
-        from .water_flow import apply_water_payload
-        param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+        from .water_flow import apply_water_stream_payload
+        param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
             snapshot.bake_range.start, snapshot.bake_range.end)
         param_hash = water_hash or param_hash
         param_key = _param_source_key(
@@ -5400,7 +5400,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             collider_specs[0][1] if collider_specs else "",
             snapshot.bake_range.output_count,
             lookup.path, param_payload, lookup.digest, param_hash,
-            deformables=tuple(session_targets))
+            deformables=tuple(session_targets),water_stream_json=water_stream_json)
         if _export_timing_sink is not None:
             _export_timing_sink["scene_early_cache_hit"] = 1.0
             # These counters intentionally count exported object artifacts,
@@ -5739,8 +5739,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         object_attachments=snapshot.object_attachments,
         contact_enabled=snapshot.contact_enabled,
         schema_version=wire_schema, protocol_version=wire_protocol)
-    from .water_flow import apply_water_payload
-    param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+    from .water_flow import apply_water_stream_payload
+    param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)
     param_hash = water_hash or param_hash
     param_cache_key = _param_source_key(
@@ -5753,7 +5753,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         collider_specs[0][0] if collider_specs else "",
         collider_specs[0][1] if collider_specs else "",
         frame_count, data_payload, param_payload,
-        data_hash, param_hash, deformables=tuple(session_dynamics))
+        data_hash, param_hash, deformables=tuple(session_dynamics),water_stream_json=water_stream_json)
     scene_identity = {
         "settings_fingerprint": snapshot.settings_fingerprint,
         "geometry_fingerprint": snapshot.geometry_fingerprint,
@@ -6199,8 +6199,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         tuple(item[1] for item in collider_specs), (pin_config,))
     param_payload, param_hash = _cached_payload(
         payload_cache, "param", param_cache_key, encode_param_payload)
-    from .water_flow import apply_water_payload
-    param_payload, water_hash = apply_water_payload(context, param_payload, resolved,
+    from .water_flow import apply_water_stream_payload
+    param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)
     param_hash = water_hash or param_hash
     # Reused from the single authoritative validation — the topology is not
@@ -6307,7 +6307,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                          "SOLID" if deformable_role == "SOFT_BODY" else
                          "PDRD" if deformable_role == "RIGID_BODY" else
                          "SHELL"),
-        deformable_world_matrix=solver_world_matrix(cloth_world))
+        deformable_world_matrix=solver_world_matrix(cloth_world),water_stream_json=water_stream_json)
 
     configured_cache = str(getattr(cloth_obj.cloth_next,
                                    "cache_directory", "") or "").strip()

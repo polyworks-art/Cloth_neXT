@@ -99,7 +99,10 @@ def _resolved_contained(path: Path, root: Path, *, allow_root: bool) \
 
 
 def _delete_once(path: Path, *, recursive: bool) -> None:
-    path = io_path(path)
+    # Even a short root can contain descendants beyond MAX_PATH. Python 3.13's
+    # rmtree ignores FileNotFoundError from walking those unprefixed paths and
+    # then fails with a misleading "directory not empty" at the root.
+    path = io_path(path, reserved_length=248 if recursive else 0)
     if recursive and path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
     else:

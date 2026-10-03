@@ -119,6 +119,7 @@ class ProjectRecord:
     updated_at: float = field(default_factory=time.time)
     error: str = ""
     generation: int = 0
+    water_stream_state: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,6 +310,7 @@ def _project_dict(record: ProjectRecord) -> dict:
             "updated_at": record.updated_at,
             "error": record.error,
             "generation": record.generation,
+            "water_stream_state": record.water_stream_state,
         },
     }
 
@@ -360,7 +362,8 @@ def load_project(path: Path, *, verify_checkpoints: bool = True) \
             created_at=float(value["created_at"]),
             updated_at=float(value["updated_at"]),
             error=str(value.get("error", "")),
-            generation=int(value.get("generation", 0)))
+            generation=int(value.get("generation", 0)),
+            water_stream_state=dict(value.get("water_stream_state", {})))
         if not io_path(record.project_root).is_dir():
             return replace(record, state=ProjectState.ABANDONED,
                            error="Recovery project missing")
@@ -373,6 +376,7 @@ def transition(path: Path, record: ProjectRecord, state: ProjectState, *,
                last_frame: int | None = None,
                checkpoints: tuple[CheckpointRecord, ...] | None = None,
                partial_pc2: tuple[tuple[str, str], ...] | None = None,
+               water_stream_state: dict | None = None,
                error: str = "") -> ProjectRecord:
     state = ProjectState(state)
     if state != record.state and state not in _TRANSITIONS[record.state]:
@@ -387,6 +391,8 @@ def transition(path: Path, record: ProjectRecord, state: ProjectState, *,
                      else checkpoints),
         partial_pc2=(record.partial_pc2 if partial_pc2 is None
                      else tuple(sorted(partial_pc2))),
+        water_stream_state=(record.water_stream_state if water_stream_state is None
+                            else dict(water_stream_state)),
         error=str(error), generation=record.generation + 1)
     return publish_project(path, updated)
 

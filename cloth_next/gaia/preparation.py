@@ -80,10 +80,12 @@ class WaterPreparationWorker:
             self.events.put(('Reconstructing flow', i, len(self.frames), frame, len(self.paths)+i))
             positions, velocities = sample
             field = reconstruct(positions, velocities, self.minimum, self.maximum,
-                                self.metadata['dimensions'])
+                                self.metadata['dimensions'],
+                                support_threshold=self.metadata.get('grid_layout',{}).get('support_threshold',1.))
             del sample, positions, velocities
             self.check_cancel()
             yield frame, (frame-self.frames[0])/self.metadata['fps'], field
+            del field
             self.progress('Reconstructing flow', i+1, len(self.frames), frame)
         self._check_sources()
 

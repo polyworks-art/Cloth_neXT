@@ -49,6 +49,31 @@ def pump(module):
         time.sleep(.005)
 
 
+def test_standalone_cache_not_rejected_by_sequence_upload_budget(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    from cloth_next.gaia import solver_fields
+    monkeypatch.setattr(solver_fields,'MAX_UPLOAD_BYTES',1)
+    try:
+        module.start(context,(obj,),1,2,wait_for_window=False)
+        pump(module)
+        assert c.snapshot().state is BakeState.FINISHED
+        assert len(samples)==2
+    finally:module.shutdown()
+
+
+def test_production_preparation_does_not_apply_whole_schedule_budget(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    from cloth_next.gaia import solver_fields
+    monkeypatch.setattr(solver_fields,'MAX_UPLOAD_BYTES',1)
+    try:
+        job=c.transition(BakeState.PREPARING).job_id
+        module.start(context,(obj,),1,2,job_id=job,wait_for_window=False)
+        pump(module)
+        state=c.snapshot()
+        assert state.state is BakeState.FINISHED and len(samples)==2
+    finally:module.shutdown()
+
+
 def test_timer_capture_uses_main_thread_and_normal_cloth_folder(blender_env, monkeypatch, tmp_path):
     module, c, context, obj, samples = fixture(blender_env, monkeypatch, tmp_path)
     try:

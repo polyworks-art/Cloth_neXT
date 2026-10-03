@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import shutil
 import tempfile
 import uuid
 
@@ -327,7 +328,7 @@ def ensure_project_link(canonical, target, *, owned_root, project_name):
     return ProjectLink(canonical, target, owned_root=owned_root, project_name=project_name).ensure()
 
 
-def canonical_project_path(executable: Path, project_name: str) -> Path:
+def canonical_project_path(executable: Path, project_name: str, *, environment=None) -> Path:
     """Official normal data-directory ABI, before the first project query.
 
     Preparing the alias first avoids adopting an ordinary directory that a
@@ -337,10 +338,12 @@ def canonical_project_path(executable: Path, project_name: str) -> Path:
     repository = executable.parent.parent.parent
     stamp = repository / ".git" / "branch_name.txt"
     branch = stamp.read_text(encoding="utf-8").strip() if stamp.is_file() else ""
-    if not branch:
+    if not branch and os.path.lexists(repository/'.git'):
         try:
-            result = subprocess.run(["git", "-C", str(repository), "branch", "--show-current"],
-                                    capture_output=True, text=True, timeout=10)
+            git=shutil.which('git',path=environment.get('PATH','')) if environment is not None else 'git'
+            if git is None:raise FileNotFoundError('git is absent from solver environment')
+            result = subprocess.run([git, "-C", str(repository), "branch", "--show-current"],
+                                    capture_output=True, text=True, timeout=10,env=environment)
             branch = result.stdout.strip() if result.returncode == 0 else ""
         except (OSError, subprocess.SubprocessError):
             branch = ""

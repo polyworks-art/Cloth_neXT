@@ -7,9 +7,10 @@ import math
 import os
 from pathlib import Path
 import uuid
+import time
 import zipfile
 import numpy as np
-from .water_field import WaterVelocityField, MAX_FRAME_BYTES
+from .water_field import WaterVelocityField, MAX_FRAME_BYTES, grid_diagnostics
 
 SCHEMA = 1
 
@@ -52,12 +53,18 @@ def write_water_container(path, metadata, frames, *, check_cancel=None):
                 previous = time
                 record = {'frame': int(number), 'time': float(time), 'min': field.minimum,
                           'max': field.maximum, 'arrays': {}}
+                record['diagnostics']=grid_diagnostics(field.minimum,field.maximum,
+                    field.velocity.shape[:3][::-1],particle_count=field.source_particle_count,
+                    requested=metadata.get('grid_layout',{}).get('requested_resolution'))
+                record['diagnostics']['source_particle_count']=field.source_particle_count
+                record['diagnostics']['occupied_cells']=int(np.count_nonzero(field.influence>.01))
                 for name, array in (('velocity', field.velocity), ('influence', field.influence)):
                     data = _bytes(array)
                     member = f'water/{len(manifest["frames"]):06d}/{name}.npy'
                     archive.writestr(member, data)
                     record['arrays'][name] = {'member': member, 'sha256': hashlib.sha256(data).hexdigest()}
                 manifest['frames'].append(record)
+                del field, array, data
             if not manifest['frames']:
                 raise ValueError('GAIA water sequence is empty')
             archive.writestr('manifest.json', json.dumps(manifest, allow_nan=False))
@@ -94,13 +101,23 @@ class GaiaContainer:
     def frame(self, index):
         record = self.manifest['frames'][index]
         arrays = {}
+        timings={'read_seconds':0.,'decode_validate_seconds':0.}
         for name, entry in record['arrays'].items():
+            started=time.perf_counter()
             data = self._read(entry['member'], MAX_FRAME_BYTES+1024)
+            timings['read_seconds']+=time.perf_counter()-started
+            started=time.perf_counter()
             if hashlib.sha256(data).hexdigest() != entry['sha256']:
                 raise ValueError('Corrupted GAIA water cache checksum')
             arrays[name] = _array(data)
-        return WaterVelocityField(tuple(record['min']), tuple(record['max']),
-                                  arrays['velocity'], arrays['influence'])
+            timings['decode_validate_seconds']+=time.perf_counter()-started
+        started=time.perf_counter()
+        field=WaterVelocityField(tuple(record['min']), tuple(record['max']),
+                                  arrays['velocity'], arrays['influence'],
+                                  record.get('diagnostics',{}).get('source_particle_count',0))
+        timings['decode_validate_seconds']+=time.perf_counter()-started
+        self.last_frame_timings=timings
+        return field
 
     def close(self): self.archive.close()
     def __enter__(self): return self

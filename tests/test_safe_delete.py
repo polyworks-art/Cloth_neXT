@@ -119,3 +119,15 @@ def test_unsafe_or_unowned_paths_are_rejected(tmp_path):
             ownership_authenticated=False, lifecycle_stage="TEST",
             artifact_type="playback_cache")
     assert outside.read_bytes() == b"artist"
+
+@pytest.mark.skipif(safe_delete.os.name != 'nt', reason='Windows MAX_PATH regression')
+def test_recursive_delete_prefixes_short_root_with_long_descendants(tmp_path):
+    root = tmp_path / 'owned'
+    child = root / ('a' * 90) / ('b' * 90) / ('c' * 90)
+    safe_delete.io_path(child).mkdir(parents=True)
+    safe_delete.io_path(child / 'frame.bin').write_bytes(b'owned')
+    result = safe_delete.delete_owned(
+        root, root=tmp_path, ownership_authenticated=True, recursive=True,
+        lifecycle_stage='TEST', artifact_type='solver_project')
+    assert result.removed and result.attempts == 1
+    assert not root.exists()

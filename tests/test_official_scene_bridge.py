@@ -16,6 +16,15 @@ class InputScene:
     data_hash: str
     param_hash: str
     official_bridge_json: str = ""
+    water_stream_json: str = ""
+
+
+def test_water_fingerprint_and_time_offset_gate_existing_recovery_identity():
+    original=scene()
+    one=replace(original,water_stream_json=json.dumps({'first':120,'fingerprint':'one'}))
+    two=replace(original,water_stream_json=json.dumps({'first':120,'fingerprint':'two'}))
+    shifted=replace(original,water_stream_json=json.dumps({'first':121,'fingerprint':'one'}))
+    assert len({recovery_param_hash(v) for v in (original,one,two,shifted)})==4
 
 
 def scene(strengths=(100.0, 450.0), *, legacy=False):

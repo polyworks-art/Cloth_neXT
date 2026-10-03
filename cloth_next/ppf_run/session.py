@@ -310,6 +310,7 @@ class SessionScene:
     deformables: tuple[SessionDeformable, ...] = ()
     # CNX-owned binding state; never serialized as an unknown solver field.
     official_bridge_json: str = ""
+    water_stream_json: str = ""
 
     @property
     def dynamic_objects(self) -> tuple[SessionDeformable, ...]:
@@ -1481,7 +1482,8 @@ class SolverSession:
         if self._official_bridge:
             from ..ppf.project_links import ProjectLink, canonical_project_path
             project_link = ProjectLink(
-                canonical_project_path(executable, self.scene.project_name),
+                canonical_project_path(executable, self.scene.project_name,
+                    environment=config.subprocess_environment()),
                 (server_data / self.scene.project_name).resolve(),
                 owned_root=server_data.resolve(), project_name=self.scene.project_name)
             project_link.ensure()
@@ -1774,6 +1776,8 @@ class SolverSession:
         return SolverFrame(frame, first, positions_by_uuid)
 
     def _simulate_and_fetch(self, *, resume: bool = False) -> None:
+        if self.scene.water_stream_json:
+            return self._stream_water_and_fetch(resume=resume)
         total = self.scene.solver_frame_count
         if resume:
             assert self._address is not None
@@ -1872,6 +1876,106 @@ class SolverSession:
             self.diagnostics.timings["simulation_wait"] = (
                 self.diagnostics.timings.get("simulation_wait", 0.0)
                 + time.monotonic() - wait_step)
+
+    def _stream_water_and_fetch(self, *, resume=False):
+        """Keep output validation/PC2 sinks; delegate public holds to owned Python."""
+        if self._manager is None or self.resolved.executable_path is None:
+            raise _session_error('Water Flow streaming requires a local GAIA solver.',
+                                 'No owned official frontend process manager')
+        root=bundle_root_for(self.resolved.executable_path)
+        python=root/('python/python.exe' if os.name=='nt' else 'python/bin/python3')
+        if not python.is_file():
+            raise _session_error('The official solver Python runtime is missing.',str(python))
+        run_id=uuid_module.uuid4().hex
+        directory=self.work_directory/('water-stream-'+run_id)
+        directory.mkdir(parents=True)
+        descriptor=directory/'descriptor.json';params=directory/'params.cbor'
+        status_file=directory/'status.json';cancel_file=directory/'cancel';gate=directory/'owned'
+        descriptor.write_text(self.scene.water_stream_json,encoding='utf-8')
+        params.write_bytes(self.scene.param_payload)
+        log=directory/'helper.log'
+        boundary=0
+        if resume:
+            if self._recovery_record is None or not self._recovery_record.checkpoints:
+                raise _session_error('Water Flow recovery has no verified checkpoint.',
+                                     'Cannot infer a resume boundary from UI progress')
+            boundary=max(item.frame for item in self._recovery_record.checkpoints)
+        worker=Path(__file__).resolve().parents[1]/'ppf'/'water_stream_worker.py'
+        process=self._manager.start_owned_helper([
+            str(python),str(worker),'--project-name',self.scene.project_name,
+            '--project-root',str(self._server_data_root()/self.scene.project_name),
+            '--descriptor',str(descriptor),'--params',str(params),'--status',str(status_file),
+            '--cancel',str(cancel_file),'--startup-gate',str(gate),
+            '--resume-boundary',str(boundary),
+            '--native-worker',str(_native_worker_path(self.resolved.executable_path))],
+            cwd=root,log_file=log,startup_gate=gate)
+        total=self.scene.solver_frame_count
+        fetched=set(self._recovery.completed_solver_frames if resume and self._recovery else ())
+        output_map=None;last_state=None;deadline=time.monotonic()+self._simulate_timeout
+        try:
+            while True:
+                self._check_cancel()
+                # Native progress belongs to the official frontend's held run.
+                # Control-server status adoption assumes its own run script;
+                # polling it here can misclassify a healthy held process.
+                poll=self._manager.poll()
+                if not poll.running:raise self._manager.early_exit_error(poll)
+                state={}
+                if status_file.is_file():
+                    try:state=json.loads(status_file.read_text(encoding='utf-8'))
+                    except (OSError,ValueError):pass
+                phase=state.get('phase','STARTING')
+                available=state.get('boundary',boundary)
+                if type(available) is not int or not boundary<=available<=total:
+                    raise _session_error('Invalid Water Flow streaming progress.',repr(state))
+                if state and state!=last_state:
+                    deadline=time.monotonic()+self._simulate_timeout
+                    last_state=state
+                    if self._recovery is not None and self._recovery_record is not None:
+                        self._recovery_record=recovery.transition(
+                            self._recovery.metadata_path,self._recovery_record,
+                            self._recovery_record.state,water_stream_state=state)
+                    if available>0 and output_map is None:output_map=self._fetch_output_map()
+                    for frame in range(1,available+1):
+                        if frame in fetched:continue
+                        self._check_cancel()
+                        self._frame_sink(self._fetch_frame(output_map,frame))
+                        fetched.add(frame);self.diagnostics.fetched_frames.append(frame)
+                        self.diagnostics.last_fetched_frame=frame
+                        self.diagnostics.last_completed_logical_frame=frame
+                    source=json.loads(self.scene.water_stream_json)['first']+available
+                    self._event('SIMULATING',f'Water Flow source frame {source}',
+                                frame_current=available,frame_total=total)
+                if phase=='FAILED':
+                    raise _session_error('Water Flow cache streaming failed.',str(state.get('error','')))
+                if phase=='CANCELLED':raise SessionCancelled()
+                if phase=='FINISHED':
+                    if len(fetched)!=total:
+                        raise _session_error('Water Flow finished without every output frame.',repr(sorted(fetched)))
+                    process.wait(timeout=30.)
+                    if process.returncode!=0:
+                        raise _session_error('Water Flow helper failed during cleanup.',str(log))
+                    return
+                if process.poll() is not None:
+                    detail=log.read_text(encoding='utf-8',errors='replace')[-8192:]
+                    raise _session_error('Water Flow helper exited before completion.',detail)
+                if time.monotonic()>deadline:
+                    raise _session_error('Water Flow streaming stalled.',repr(state))
+                time.sleep(self._poll_interval)
+        finally:
+            if process.poll() is None:
+                cancel_file.touch()
+                try:process.wait(timeout=min(self._simulate_timeout,35.))
+                except subprocess.TimeoutExpired:pass  # manager.stop reaps the owned tree
+            if self._recovery is not None and self._recovery_record is not None:
+                if status_file.is_file():
+                    try:
+                        state=json.loads(status_file.read_text(encoding='utf-8'))
+                        self._recovery_record=recovery.transition(
+                            self._recovery.metadata_path,self._recovery_record,
+                            self._recovery_record.state,water_stream_state=state)
+                    except (OSError,ValueError):pass
+                self._sync_checkpoints({'saved_states':self._checkpoint_frames_on_disk()})
 
     def _cancel_server_side(self) -> None:
         """State-aware cancellation: cancel_build during builds, terminate
@@ -2385,7 +2489,10 @@ class SolverSession:
                 response = self._status(allow_server_error=True)
                 server_state = reconcile_resume_server_state(response)
                 self.diagnostics.note_status(server_state.status)
-                if not server_state.may_resume:
+                water_resume=(bool(self.scene.water_stream_json)
+                              and server_state.status==STATUS_READY
+                              and bool(self._recovery_record and self._recovery_record.checkpoints))
+                if not server_state.may_resume and not water_resume:
                     raise _session_error(
                         "Recovery could not resume the saved solver project.",
                         f"recovery_server_state={server_state.state.value}; "
@@ -2397,7 +2504,9 @@ class SolverSession:
                     raise _session_error(
                         "The saved solver project does not match this Bake.",
                         "server data/param hash differs from recovery identity")
-                if not self._saved_states(response):
+                saved=self._saved_states(response)
+                if self.scene.water_stream_json:saved=self._checkpoint_frames_on_disk()
+                if not saved:
                     raise _session_error(
                         "The recovery project has no confirmed Saved State.",
                         "server status has no saved_states")

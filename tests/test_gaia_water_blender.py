@@ -90,7 +90,7 @@ def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch,
         water_flow_vector_scale=.2, water_flow_influence=1., water_flow_velocity_scale=1.,
         water_flow_debug_mode=mode, water_flow_show_bounds=True)
     monkeypatch.setattr(module.bpy, 'context', SimpleNamespace(
-        object=SimpleNamespace(cloth_next=settings), scene=SimpleNamespace(frame_current=1)))
+        object=SimpleNamespace(name='Cloth',cloth_next=settings), scene=SimpleNamespace(frame_current=1)))
     monkeypatch.setattr(module.bpy.path, 'abspath', lambda value: value)
     uploads = []
     shader = SimpleNamespace(bind=lambda: None, uniform_float=lambda *args: None)
@@ -112,3 +112,43 @@ def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch,
     np.testing.assert_allclose(uploads[0][1][0], [.5,.5,.5])
     if mode != 'POSITIONS':
         np.testing.assert_allclose(uploads[0][1][1]-uploads[0][1][0], [.2,0,0] if mode != 'MAGNITUDE' else [.4,0,0], atol=1e-7)
+
+
+def test_streaming_disabled_fast_path_has_no_cache_or_solver_dependency(blender_env, monkeypatch):
+    module = sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(module, 'prepare_container', lambda *a: pytest.fail('disabled streaming read cache'))
+    context = SimpleNamespace(scene=SimpleNamespace(objects=[]))
+    payload = object()
+    assert module.apply_water_stream_payload(context, payload, None, 120, 200) == (payload, None, '')
+
+
+def test_production_exports_cache_identity_and_weights_without_schedule(blender_env, monkeypatch, tmp_path):
+    from cloth_next.gaia.water_field import fingerprint
+    from cloth_next.ppf.models import ConnectionOwnership
+    module = sys.modules['cloth_next.blender.water_flow']
+    field = reconstruct([[.5, .5, .5]], [[2, 0, 0]], [0, 0, 0], [1, 1, 1], [3, 3, 3])
+    metadata = {'fps': 24., 'dimensions': [3, 3, 3], 'field_format': 'gaia-0.23',
+                'physical_velocity_units': 'm/s'}
+    metadata['fingerprint'] = fingerprint(metadata)
+    path = tmp_path / 'prepared.gaia'
+    write_water_container(path, metadata, [(120, 0., field), (121, 1 / 24., field)])
+    calls = []
+    monkeypatch.setattr(module, 'prepare_container', lambda *a: (calls.append(a), path)[1])
+    settings = SimpleNamespace(enabled=True, role='CLOTH', water_flow_enabled=True,
+                               water_flow_influence=.5, water_flow_velocity_scale=2.)
+    context = SimpleNamespace(scene=SimpleNamespace(
+        objects=[SimpleNamespace(name='Cloth', cloth_next=settings)],
+        render=SimpleNamespace(fps=24, fps_base=1)))
+    payload = envelope.dumps_envelope(envelope.KIND_PARAM, {
+        'scene': {'air-density': .001}, 'group': [[{}, ['Cloth'], ['uuid']]]}, schema_version=2)
+    resolved = SimpleNamespace(protocol_version='0.23', ownership=ConnectionOwnership.OWNED_PROCESS)
+    data, digest, descriptor = module.apply_water_stream_payload(context, payload, resolved, 120, 121)
+    tree = envelope.loads_envelope(data, envelope.KIND_PARAM, schema_version=2)
+    import json
+    document = json.loads(descriptor)
+    assert 'force_field' not in tree
+    assert tree['group'][0][0]['force-field-weight'] == 1.
+    assert document['first'] == 120 and document['last'] == 121
+    assert document['targets'][0]['fingerprint'] == metadata['fingerprint']
+    assert document['targets'][0]['groups'] == [0] and len(calls) == 1
+    assert len(digest) == 64

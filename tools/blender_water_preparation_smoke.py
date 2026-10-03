@@ -17,7 +17,7 @@ original_subframe = bpy.context.scene.frame_subframe
 output = root/'dist'/'water-preparation-real.gaia'
 settings = SimpleNamespace(water_flow_enabled=True, enabled=True, role='CLOTH',
     water_flow_domain=bpy.context.scene.objects['FLIP Domain'], water_flow_influence=1.,
-    water_flow_velocity_scale=1., water_flow_resolution='16', water_flow_container=str(output),
+    water_flow_velocity_scale=1., water_flow_resolution='AUTO', water_flow_container=str(output),
     cache_directory='')
 obj = SimpleNamespace(name='Water Preparation Smoke', cloth_next=settings)
 captures = []

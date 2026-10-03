@@ -37,8 +37,8 @@ def test_worker_converts_bounded_samples_and_reuses_verified_cache(tmp_path, mon
     from cloth_next.gaia import preparation
     threads = []
     original = preparation.reconstruct
-    monkeypatch.setattr(preparation, 'reconstruct', lambda *args: (
-        threads.append(threading.get_ident()) or original(*args)))
+    monkeypatch.setattr(preparation, 'reconstruct', lambda *args,**kwargs: (
+        threads.append(threading.get_ident()) or original(*args,**kwargs)))
     job = worker(tmp_path).start()
     assert feed(job) == [1, 2]
     assert job.error is None
@@ -94,3 +94,27 @@ def test_cancellation_before_commit_keeps_old_file(tmp_path):
         pass
     assert path.read_bytes() == b'old cache'
     assert not list(tmp_path.glob('*.tmp'))
+
+
+def test_previous_field_released_before_next_reconstruction(tmp_path,monkeypatch):
+    import weakref
+    from cloth_next.gaia import preparation
+    original=preparation.reconstruct
+    previous=[]
+    def checked(*args,**kwargs):
+        if previous:assert previous[-1]() is None, 'retained previous high-resolution frame'
+        field=original(*args,**kwargs);previous.append(weakref.ref(field));return field
+    monkeypatch.setattr(preparation,'reconstruct',checked)
+    job=worker(tmp_path,frames=(1,2,3)).start()
+    assert feed(job)==[1,2,3] and job.error is None
+    assert previous[-1]() is None
+
+
+def test_new_grid_recipe_invalidates_old_cache(tmp_path):
+    complete=worker(tmp_path).start();feed(complete)
+    changed=worker(tmp_path)
+    changed.metadata['grid_layout']={'recipe':'isotropic-longest-axis-v2','dimensions':[3,3,3]}
+    changed.start()
+    assert feed(changed)==[1,2] and changed.error is None
+    with GaiaContainer(changed.path) as cache:
+        assert cache.manifest['water']['grid_layout']['recipe']=='isotropic-longest-axis-v2'

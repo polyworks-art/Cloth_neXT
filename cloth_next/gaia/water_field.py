@@ -3,9 +3,15 @@
 from dataclasses import dataclass
 import hashlib
 import json
+import math
+import logging
 import numpy as np
 
-MAX_FRAME_BYTES = 32 * 1024 * 1024
+MIN_LONGEST_AXIS_RESOLUTION = 100
+GRID_RECIPE = 'isotropic-longest-axis-v2'
+MAX_FRAME_BYTES = 128 * 1024 * 1024
+MAX_WORKING_BYTES = 512 * 1024 * 1024
+LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -14,6 +20,7 @@ class WaterVelocityField:
     maximum: tuple
     velocity: np.ndarray  # D,H,W,3; Blender world axes, physical m/s
     influence: np.ndarray  # D,H,W, support of liquid samples
+    source_particle_count: int = 0
 
     def __post_init__(self):
         v, m = np.asarray(self.velocity), np.asarray(self.influence)
@@ -37,11 +44,71 @@ def fingerprint(document):
                                     allow_nan=False).encode()).hexdigest()
 
 
-def grid_dimensions(minimum, maximum, longest=32):
+def grid_dimensions(minimum, maximum, longest=MIN_LONGEST_AXIS_RESOLUTION):
     span = np.asarray(maximum, float) - np.asarray(minimum, float)
-    if not np.isfinite(span).all() or np.any(span <= 0) or not 2 <= longest <= 128:
+    if span.shape != (3,) or not np.isfinite(span).all() or np.any(span <= 0) or not 2 <= longest <= 4096:
         raise ValueError('Invalid water bounds or resolution')
-    return tuple(int(v) for v in np.maximum(2, np.ceil(span/span.max()*(longest-1)).astype(int)+1))
+    # GAIA interpolates inclusive boundary nodes, requiring at least two.
+    return tuple(int(v) for v in np.maximum(2, np.ceil(span/span.max()*longest-1e-12)))
+
+
+def resolution_target(selection='AUTO', custom=100):
+    presets = {'AUTO':100, '100':100, '150':150, '200':200,
+               '24':100, '16':100, '32':100, '48':150}
+    value = int(custom) if selection == 'CUSTOM' else presets.get(str(selection), int(selection) if str(selection).isdigit() else None)
+    if value is None or value < 1:
+        raise ValueError('Invalid Water Flow resolution preset')
+    return max(MIN_LONGEST_AXIS_RESOLUTION, value)
+
+
+def grid_diagnostics(minimum, maximum, dimensions, *, particle_count=0, requested=None):
+    dims = tuple(int(v) for v in dimensions)
+    span = np.asarray(maximum,float)-np.asarray(minimum,float)
+    if len(dims) != 3 or min(dims) < 2 or not np.isfinite(span).all() or np.any(span <= 0):
+        raise ValueError('Invalid Water Flow grid layout')
+    cells = math.prod(dims)
+    return {'recipe':GRID_RECIPE, 'requested_resolution':requested, 'dimensions':dims,
+        'bounds':[list(minimum),list(maximum)], 'voxel_size':float(span.max()/max(dims)),
+        'node_spacing':(span/(np.asarray(dims)-1)).tolist(), 'total_cells':cells,
+        'field_bytes':cells*16, 'encoded_bytes':cells*12,
+        'estimated_working_bytes':cells*96+max(0,int(particle_count))*72+32*1024*1024}
+
+
+def check_grid_memory(info):
+    if info['field_bytes'] > MAX_FRAME_BYTES or info['estimated_working_bytes'] > MAX_WORKING_BYTES:
+        raise ValueError(f"Water Flow memory limit: requested resolution {info['requested_resolution']}, "
+            f"grid {' x '.join(map(str,info['dimensions']))}, "
+            f"estimated working memory {info['estimated_working_bytes']/1024**2:.1f} MiB "
+            f"(limit {MAX_WORKING_BYTES/1024**2:.0f} MiB). Choose a smaller resolution.")
+
+
+def grid_plan(minimum, maximum, selection='AUTO', custom=100, *, source_voxel_size=None):
+    target = resolution_target(selection,custom)
+    if str(selection) in {'AUTO','24'} and source_voxel_size is not None:
+        if not np.isfinite(source_voxel_size) or source_voxel_size <= 0:
+            raise ValueError('Invalid FLIP source voxel size')
+        ratio=float(np.max(np.asarray(maximum)-minimum))/source_voxel_size
+        # FLIP exposes dx through float32 RNA; avoid an accidental extra
+        # sample caused solely by 0.08 becoming 0.079999998.
+        target=max(target,int(math.ceil(ratio-1e-6*max(1.,ratio))))
+    if target > 4096:
+        raise ValueError(f'Water Flow requested resolution {target} exceeds the supported sizing limit 4096')
+    dims = grid_dimensions(minimum,maximum,target)
+    info = grid_diagnostics(minimum,maximum,dims,requested=target)
+    info['selection']=str(selection)
+    info['source_voxel_size']=source_voxel_size
+    reference=grid_dimensions(minimum,maximum,MIN_LONGEST_AXIS_RESOLUTION)
+    # Particle mass per node scales with physical voxel volume. Keep the
+    # reference occupancy criterion fixed in physical space when refining.
+    info['support_threshold']=float(np.prod((np.asarray(reference)-1)/(np.asarray(dims)-1)))
+    check_grid_memory(info)
+    LOG.info('Water Flow Grid: %s, %s cells, voxel %.6g m, estimated working memory %.1f MiB',
+        dims, info['total_cells'], info['voxel_size'], info['estimated_working_bytes']/1024**2)
+    return info
+
+
+def display_stride(dimensions, selected=4, target=20):
+    return max(1,int(selected),int(math.ceil(max(dimensions)/target)))
 
 
 def reconstruct(positions, velocities, minimum, maximum, dimensions,
@@ -62,9 +129,9 @@ def reconstruct(positions, velocities, minimum, maximum, dimensions,
             or not np.isfinite(support_threshold) or support_threshold <= 0
             or not np.isfinite(max_speed) or max_speed <= 0):
         raise ValueError('No usable particles, invalid velocity data, bounds or reconstruction settings')
-    count = int(np.prod(dims))
-    if count * 32 > MAX_FRAME_BYTES:
-        raise ValueError('Water grid exceeds reconstruction memory limit; lower resolution')
+    count = math.prod(map(int,dims))
+    info = grid_diagnostics(lo,hi,dims,particle_count=len(p),requested=int(dims.max()))
+    check_grid_memory(info)
     speed = np.linalg.norm(v, axis=1)
     v = v * np.minimum(1., max_speed / np.maximum(speed, 1e-30))[:, None]
     density, momentum = np.zeros(count), np.zeros((count, 3))
@@ -94,7 +161,7 @@ def reconstruct(positions, velocities, minimum, maximum, dimensions,
     shape = tuple(dims[::-1])
     influence = np.minimum(1., density/support_threshold)
     return WaterVelocityField(tuple(lo), tuple(hi), velocity.reshape(*shape, 3).astype('<f4'),
-                              influence.reshape(shape).astype('<f4'))
+                              influence.reshape(shape).astype('<f4'),len(p))
 
 
 def solver_grid(field):
@@ -114,12 +181,18 @@ def debug_samples(field, stride=4, threshold=.01):
     if stride < 1 or not np.isfinite(threshold) or not 0 <= threshold <= 1:
         raise ValueError('Invalid debug sampling')
     d,h,w = field.influence.shape
-    z,y,x = np.mgrid[0:d:stride, 0:h:stride, 0:w:stride]
-    indices = np.stack((x,y,z),axis=-1).reshape(-1,3)
-    values = field.contribution[z,y,x].reshape(-1,3)
-    mask = field.influence[z,y,x].reshape(-1) > threshold
+    z,y,x = np.nonzero(field.influence > threshold)
+    if stride > 1 and len(x):
+        # One occupied representative per display bucket. A regular slice
+        # can entirely miss thin water between its sampled Z planes.
+        bucket=((z//stride)*math.ceil(h/stride)+y//stride)*math.ceil(w/stride)+x//stride
+        order=np.lexsort((-field.influence[z,y,x],bucket))
+        chosen=order[np.r_[True,np.diff(bucket[order])!=0]]
+        x,y,z=x[chosen],y[chosen],z[chosen]
+    indices = np.stack((x,y,z),axis=-1)
+    values = field.velocity[z,y,x]*field.influence[z,y,x,None]
     starts = np.asarray(field.minimum)+(np.asarray(field.maximum)-field.minimum)*indices/(np.asarray((w,h,d))-1)
-    return starts[mask], values[mask]
+    return starts, values
 
 
 def debug_vectors(field, stride=4, scale=.1, *, mode='MAGNITUDE', physical_scale=1.):

@@ -1,5 +1,6 @@
 """Separate Blender instance: capture real GPU overlays without saving the user's scene."""
 import sys,math,traceback
+import argparse
 from pathlib import Path
 import bpy
 import gpu
@@ -27,7 +28,10 @@ obj=scene.objects['Plane']
 bpy.context.view_layer.objects.active=obj
 s=obj.cloth_next
 s.enabled=True;s.role='CLOTH';s.water_flow_enabled=True;s.water_flow_show_vectors=True
-s.water_flow_container=str(ROOT/'dist/water-coordinate-audit.gaia')
+parser=argparse.ArgumentParser();parser.add_argument('--container',default=str(ROOT/'dist/water-coordinate-audit.gaia'))
+parser.add_argument('--prefix',default='water-overlay')
+args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+s.water_flow_container=args.container
 s.water_flow_vector_stride=1;s.water_flow_vector_scale=.2;s.water_flow_show_bounds=True
 window=bpy.context.window
 area=next(a for a in window.screen.areas if a.type=='VIEW_3D')
@@ -57,7 +61,7 @@ def capture():
             cloth_next.unregister();bpy.ops.wm.quit_blender();return None
         mode=modes[i];s.water_flow_debug_mode=mode
         area.tag_redraw()
-        scene.render.filepath=str(ROOT/'dist'/('water-overlay-'+mode.lower()+'.png'))
+        scene.render.filepath=str(ROOT/'dist'/(args.prefix+'-'+mode.lower()+'.png'))
         with bpy.context.temp_override(window=window,area=area,region=region,object=obj,active_object=obj):
             from cloth_next.blender import water_flow
             offscreen=gpu.types.GPUOffScreen(1000,700)

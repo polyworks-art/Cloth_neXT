@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.10 - 2026-10-03
+
+- Stream current and next prepared GAIA Water Flow frames through official 0.23 held updates, preserving temporal interpolation without an animation-sized upload.
+- Raise Auto spatial detail to a longest-axis minimum of 100 and offer Medium/High/Extreme at 100/150/200 with isotropic sizing and explicit memory guards.
+- Preserve source offsets, cancellation checkpoints and cache identity through Blender restart/Resume; Start Fresh reuses valid prepared .gaia caches.
+- Improve occupied-region flow previews and separate preparation limits from the unchanged whole-schedule upload budget.
+- Fix authenticated solver-project cleanup when nested Windows paths exceed MAX_PATH.
+- Verify the real 250-frame Auto sequence, production 150/200 windows, numerical equivalence and bounded memory with the unchanged official solver.
+
 ## 2.9.9 - 2026-10-01
 
 - Correct evaluated FLIP cache coordinates and invalidate outdated Water Flow field provenance.

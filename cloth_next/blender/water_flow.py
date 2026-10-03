@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import bpy
 import numpy as np
-from ..gaia.water_field import reconstruct, grid_dimensions, fingerprint
+from ..gaia.water_field import reconstruct, grid_plan, fingerprint, display_stride
 from ..gaia.container import GaiaContainer, write_water_container
 from ..gaia.solver_fields import official_grid_payload
 
@@ -153,7 +153,18 @@ def water_settings_record(obj):
                   'bake_stat': [stats.stat().st_size, stats.stat().st_mtime_ns] if stats.is_file() else None}
     return {'domain': domain.name if domain else None, 'source': source, 'influence': s.water_flow_influence,
             'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
+            'custom_resolution':getattr(s,'water_flow_custom_resolution',100),
             'container': s.water_flow_container}
+
+
+def water_grid_plan(provider, settings):
+    source_voxel=None
+    dx=getattr(getattr(getattr(provider,'cache',None),'bounds',None),'dx',None)
+    if dx is not None:
+        scale=float(np.linalg.norm(provider.cache_matrix[:3,:3],axis=0).min())
+        source_voxel=float(dx)*scale
+    return grid_plan(provider.minimum,provider.maximum,settings.water_flow_resolution or 'AUTO',
+                     getattr(settings,'water_flow_custom_resolution',100),source_voxel_size=source_voxel)
 
 
 def water_container_destination(value, object_name):
@@ -181,10 +192,11 @@ def prepare_container(context, obj, first, last):
     frames = range(int(first), int(last)+1)
     provider = FLIPWaterFlowProvider(context, s.water_flow_domain, frames)
     fps = context.scene.render.fps / context.scene.render.fps_base
-    dims = grid_dimensions(provider.minimum, provider.maximum, int(s.water_flow_resolution))
+    layout = water_grid_plan(provider,s)
+    dims = layout['dimensions']
     metadata = {'provider': provider.identity, 'frames': [first,last], 'fps': fps,
-                'dimensions': dims, 'algorithm': 'trilinear-splat-support-v1',
-                'field_format': 'gaia-0.23', 'physical_velocity_units': 'm/s'}
+                'dimensions': dims, 'algorithm': 'trilinear-splat-support-v2',
+                'field_format': 'gaia-0.23', 'physical_velocity_units': 'm/s', 'grid_layout':layout}
     metadata['fingerprint'] = fingerprint(metadata)
     if path.is_file():
         try:
@@ -199,13 +211,53 @@ def prepare_container(context, obj, first, last):
     def sequence():
         for frame in frames:
             positions, velocities = provider.sample(frame)
-            field = reconstruct(positions, velocities, provider.minimum, provider.maximum, dims)
+            field = reconstruct(positions, velocities, provider.minimum, provider.maximum, dims,
+                                support_threshold=layout['support_threshold'])
             yield frame, (frame-first)/fps, field
+            del field, positions, velocities
     try:
         write_water_container(path, metadata, sequence())
     finally:
         context.scene.frame_set(original)
     return path
+
+
+def apply_water_stream_payload(context, payload, resolved, first, last):
+    """Export weights and CNX-owned cache identities, never a whole schedule."""
+    targets=[obj for obj in context.scene.objects if hasattr(obj,'cloth_next')
+             and obj.cloth_next.enabled and obj.cloth_next.role=='CLOTH'
+             and getattr(obj.cloth_next,'water_flow_enabled',False)]
+    if not targets:return payload,None,''
+    from ..ppf.models import ConnectionOwnership
+    if (str(getattr(resolved,'protocol_version',''))!='0.23'
+            or resolved.ownership is not ConnectionOwnership.OWNED_PROCESS):
+        raise ValueError('Water Flow streaming requires a local official GAIA 0.23 installation')
+    from ..ppf.schema import envelope
+    from ..gaia.streaming import WaterStreamReader
+    raw=payload.read_bytes() if isinstance(payload,Path) else payload
+    tree=envelope.loads_envelope(raw,envelope.KIND_PARAM,schema_version=2)
+    fps=context.scene.render.fps/context.scene.render.fps_base
+    descriptor={'version':1,'first':int(first),'last':int(last),'fps':fps,'targets':[]}
+    for obj in targets:
+        indices=[i for i,(_,names,_) in enumerate(tree['group']) if obj.name in names]
+        if len(indices)!=1:raise ValueError('Water Flow target is missing from the solver scene')
+        index=indices[0];params,names,_=tree['group'][index]
+        if len(names)!=1:raise ValueError('Water Flow requires an individual material group per target')
+        path=prepare_container(context,obj,first,last)
+        with GaiaContainer(path) as container:digest=container.manifest['water']['fingerprint']
+        with WaterStreamReader(path,first=int(first),last=int(last),fps=fps,
+                               expected_fingerprint=digest) as reader:
+            descriptor['targets'].append({'path':str(Path(path).resolve()),
+                'fingerprint':digest,'groups':[index],'dimensions':list(reader.dimensions),
+                'influence':obj.cloth_next.water_flow_influence,
+                'velocity_scale':obj.cloth_next.water_flow_velocity_scale})
+        params['force-field-weight']=1.
+    if float(tree['scene'].get('air-density',.001))<=0:
+        raise ValueError('Water Flow velocity drag requires positive scene Air Density')
+    data=envelope.dumps_envelope(envelope.KIND_PARAM,tree,schema_version=2)
+    import json
+    return data,hashlib.sha256(data).hexdigest(),json.dumps(descriptor,sort_keys=True,
+                                                        separators=(',',':'),allow_nan=False)
 
 
 def apply_water_payload(context, payload, resolved, first, last):
@@ -313,6 +365,8 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         for key in ('water_flow_domain', 'water_flow_influence', 'water_flow_velocity_scale',
                     'water_flow_resolution', 'water_flow_container'):
             body.prop(s, key)
+            if key == 'water_flow_resolution' and s.water_flow_resolution == 'CUSTOM':
+                body.prop(s,'water_flow_custom_resolution')
         if not s.water_flow_container:
             body.label(text='Uses the Cloth cache folder')
         body.separator()
@@ -345,10 +399,20 @@ class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
             body.prop(s, 'water_flow_show_bounds')
             body.prop(s, 'water_flow_vector_stride')
             body.prop(s, 'water_flow_vector_scale')
+            info = _diagnostics.get(context.object.name)
+            if info:
+                body.separator()
+                body.label(text=f"Frame: {info['frame']}")
+                body.label(text='Grid: '+' x '.join(map(str,info['dimensions'])))
+                body.label(text=f"Voxel: {info['voxel_size']:.5g} m")
+                body.label(text=f"Occupied: {info['occupied_cells']:,} / {info['total_cells']:,}")
+                body.label(text=f"Estimated memory: {info['estimated_working_bytes']/1024**2:.1f} MiB")
+                body.label(text='Bounds: '+str(info['bounds']))
 
 
 _handle = None
 _preview = {}
+_diagnostics = {}
 
 
 def _draw_vectors(_region=None):
@@ -367,17 +431,27 @@ def _draw_vectors(_region=None):
             from ..gaia.water_field import debug_vectors
             with GaiaContainer(path) as c:
                 provider=c.manifest['water'].get('provider', {})
-                if provider.get('mode') in {'FLUID_PARTICLES','SURFACE_VELOCITY'} and provider.get('coordinate_recipe') != WATER_COORDINATE_RECIPE:
-                    return  # Old derived coordinates must be rebuilt before display.
+                if provider.get('mode') in {'FLUID_PARTICLES','SURFACE_VELOCITY'}:
+                    from ..gaia.water_field import GRID_RECIPE
+                    if (provider.get('coordinate_recipe') != WATER_COORDINATE_RECIPE or
+                            c.manifest['water'].get('grid_layout',{}).get('recipe') != GRID_RECIPE):
+                        return  # Rebuild old derived coordinates/resolution before display.
                 records=c.manifest['frames']
                 index=min(range(len(records)),key=lambda i:abs(records[i]['frame']-bpy.context.scene.frame_current))
                 field=c.frame(index)
                 from ..gaia.water_field import debug_samples
+                from ..gaia.water_field import grid_diagnostics
+                dims=field.velocity.shape[:3][::-1]
+                info=records[index].get('diagnostics') or grid_diagnostics(field.minimum,field.maximum,dims)
+                info['occupied_cells']=int(np.count_nonzero(field.influence>.01))
+                info['frame']=records[index]['frame']
+                _diagnostics[obj.name]=info
+                stride=display_stride(dims,s.water_flow_vector_stride)
                 if s.water_flow_debug_mode == 'POSITIONS':
-                    vertices,_=debug_samples(field,s.water_flow_vector_stride)
+                    vertices,_=debug_samples(field,stride)
                     primitive='POINTS'
                 else:
-                    a,b=debug_vectors(field,s.water_flow_vector_stride,s.water_flow_vector_scale,
+                    a,b=debug_vectors(field,stride,s.water_flow_vector_scale,
                         mode=s.water_flow_debug_mode,
                         physical_scale=s.water_flow_influence*s.water_flow_velocity_scale)
                     vertices=np.stack((a,b),axis=1).reshape(-1,3)
@@ -431,6 +505,7 @@ def unregister():
         bpy.types.SpaceView3D.draw_handler_remove(_handle,'WINDOW')
         _handle=None
     _preview.clear()
+    _diagnostics.clear()
 
 
 CLASSES = (CLOTHNEXT_OT_prepare_water_flow, CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)
