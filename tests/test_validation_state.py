@@ -330,8 +330,10 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    # Validation, role colors, recovery, New Look image-cache, and linked Collider repair.
-    assert len(handlers.load_post) == 5
+    # Validation, role colors, recovery, image-cache, linked Colliders, and orphan attachments.
+    assert len(handlers.load_post) == 6
+    assert sum(f.__name__ == "_prune_deleted_attachments"
+               for f in handlers.load_post) == 1
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_viewport_handler", False)]) == 1
     assert len([f for f in handlers.load_post
