@@ -153,6 +153,11 @@ for perspective, projection in ((False, ortho), (True, persp)):
     assert operator._visible_candidates() == (0,), perspective
     assert operator._points[0] == operator._points[1]
     assert operator._visible_candidates() == (0,)  # cached visibility result
+    # A small brush inside a large face must hit its surface, even when
+    # the face center is outside the circle; the rear layer stays protected.
+    operator._cursor, operator._radius = (420, 400), 4
+    assert operator._visible_candidates() == (0,)
+    operator._cursor, operator._radius = (400, 400), 40
 cloth_next.unregister()
 assert not selector._sessions
 print('MATERIAL_ZONES_SMOKE_OK: save/load, transfer, deletion, quad/ngon mapping, exact 10/100 boundary, topology/shared-mesh refusal, reversed-normal same-mesh layers, scene occluder, PERSP/ORTHO center projection and occlusion')

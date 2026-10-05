@@ -34,9 +34,9 @@ limited UI, not a claim that every omitted key is inherently global in PPF.
 ## Edit Selection
 
 Use **Edit Selection** in Object Mode with a 3D Viewport open. The tool uses
-the first 3D Viewport in that window. It stays within the Cloth NeXt workflow.
+the invoking 3D Viewport, or the first 3D Viewport when started from Properties.
 
-- Hold/drag **LMB** to assign visible face-center points inside the circle.
+- Hold/drag **LMB** to assign visible face surfaces inside the circle.
 - **Shift + LMB** removes faces from this zone and returns them to Base.
 - The **mouse wheel** changes only the brush radius.
 - **Enter** commits the staged assignment; **Esc** discards it.
@@ -44,9 +44,9 @@ the first 3D Viewport in that window. It stays within the Cloth NeXt workflow.
 
 Small points identify face centers; larger blue points show visible centers
 under the brush. Assigned faces have a translucent blue overlay. Polygon
-overlap alone does not select a face. For non-planar or concave polygons, the
-Blender median center is projected onto that polygon's tessellated surface,
-giving a stable surface trigger.
+overlap alone does not select a face: surface samples must hit visible geometry.
+Visible centers supplement these hits for small faces. For non-planar or concave
+polygons, center markers are projected onto the polygon's tessellated surface.
 
 There is **no selection through cloth folds or other visible geometry** and
 no Select Through toggle. Blender's X-Ray setting does not authorize selection
@@ -97,3 +97,5 @@ See [implementation and validation report](MATERIAL_ZONES_VALIDATION.md).
 The mandatory regression uses adjacent triangles sharing two vertices:
 base bend **10.0**, zone bend **100.0**. Both the managed scalar expansion and
 the real official frontend's native input binder preserve these exact values.
+
+Selection displays the mesh immediately before the Cloth NeXt modifier. Downstream modifiers such as Solidify and Subdivision are temporarily hidden and restored on confirmation, cancellation or cleanup. They remain valid after Cloth NeXt. Upstream topology must still map to the authored faces. Surface hits also select large or partly visible faces whose center is outside the brush.

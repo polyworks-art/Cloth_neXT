@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.12",
+  "title": "What's New in Cloth NeXt 2.9.12",
+  "subtitle": "More reliable Material Zone selection.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Select the surface under your brush",
+      "description": "Direct visible-surface hits improve selection of large and partly visible faces, even when their centers are outside the brush."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Keep downstream modifiers",
+      "description": "Selection uses the mesh before Cloth NeXt. Solidify, Subdivision and later modifiers are temporarily hidden and restored when selection ends."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

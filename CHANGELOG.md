@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.12 - 2026-10-05
+
+- Select Material Zone faces with direct visible-surface hits, including large and partly occluded faces whose centers fall outside the brush.
+- Pick and display geometry before the Cloth NeXt simulation modifier; allow downstream Solidify, Subdivision and other modifiers.
+- Restore downstream modifier visibility after confirmation, cancellation and selector cleanup.
+- Prefer the invoking viewport when starting selection and verify perspective, orthographic and X-Ray selection in real Blender.
+
 ## 2.9.11 - 2026-10-05
 
 - Add persistent Material Zones with independent Stretch Resistance, Bend Resistance, Friction, Shape Damping and Fold Damping overrides.

@@ -14,6 +14,7 @@ import bpy
 from mathutils import Quaternion, Vector
 import cloth_next
 from cloth_next.blender import material_zones as data, material_zone_selector as selector
+from cloth_next.blender.playback_cache import ensure_simulation_modifier
 
 OUT = Path(__file__).resolve().parents[1] / '.tmp_verify/material-zones-viewport.json'
 cloth_next.register()
@@ -28,6 +29,12 @@ bpy.context.collection.objects.link(obj)
 bpy.context.view_layer.objects.active = obj
 obj.select_set(True)
 obj.cloth_next.enabled = True
+boundary = ensure_simulation_modifier(obj)
+solidify = obj.modifiers.new('Downstream Solidify', 'SOLIDIFY')
+solidify.thickness = .25
+subdivision = obj.modifiers.new('Downstream Subdivision', 'SUBSURF')
+subdivision.levels = 1
+initial_flags = tuple((modifier, modifier.show_viewport) for modifier in obj.modifiers)
 bpy.ops.clothnext.add_material_zone()
 identity = obj.cloth_next.material_zones[0].identity
 token = obj.cloth_next.material_zones[0].token
@@ -56,6 +63,8 @@ def tick():
                 dispatch = 'INVOKE_DEFAULT' if projection == 'ORTHO' else 'EXEC_DEFAULT'
                 assert bpy.ops.clothnext.edit_material_zone_selection(dispatch, identity=identity) == {'RUNNING_MODAL'}
                 active = next(iter(selector._sessions))
+                assert not solidify.show_viewport and not subdivision.show_viewport
+                assert len(active._centers) == 2
                 area.tag_redraw()
             elif phase == 2:
                 active._project()
@@ -76,6 +85,7 @@ def tick():
                 finish = 'ESC' if projection == 'ORTHO' else 'RET'
                 active.modal(bpy.context, event(finish))
                 assert not active._handles and not selector._sessions
+                assert all(modifier.show_viewport == flag for modifier, flag in initial_flags)
                 assert data.read_owners(mesh) == ((0, 0) if finish == 'ESC' else (token, 0))
                 reports.append({'projection': projection, 'xray': True, 'front_only': True,
                                 'gpu_batches_drawn': True, 'finish': finish, 'cleanup': True})

@@ -34,9 +34,11 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
             self.report({'ERROR'}, 'Finish the current selection or active Bake before editing Material Zones.')
             return {'CANCELLED'}
         self._handles = []
+        self._modifier_states = []
         self._closed = False
         self._obj, self._mesh = context.object, context.object.data
-        self._area = next((a for a in context.screen.areas if a.type == 'VIEW_3D'), None)
+        self._area = (context.area if context.area and context.area.type == 'VIEW_3D'
+                      else next((a for a in context.screen.areas if a.type == 'VIEW_3D'), None))
         if self._area is None:
             self.report({'ERROR'}, 'Open a 3D Viewport to edit Material Zone selections.')
             return {'CANCELLED'}
@@ -58,6 +60,18 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
             self._start = self._owners = data.validate_ownership(self._obj)
             self._mesh_identity = self._obj.cloth_next.material_zone_mesh_id
             self._assignment_digest = self._obj.cloth_next.material_zone_digest
+            # Display and pick the same pre-simulation surface that Bake exports.
+            from .playback_cache import simulation_modifiers
+            boundaries = simulation_modifiers(self._obj)
+            if len(boundaries) > 1:
+                raise ZoneError('Keep one Cloth NeXt simulation modifier before editing Material Zones.')
+            if boundaries:
+                modifiers = tuple(self._obj.modifiers)
+                boundary = next(i for i, modifier in enumerate(modifiers) if modifier == boundaries[0])
+                for modifier in modifiers[boundary:]:
+                    self._modifier_states.append((modifier, modifier.show_viewport))
+                    modifier.show_viewport = False
+                context.view_layer.update()
             self._rebuild(context)
             self._handles.append(bpy.types.SpaceView3D.draw_handler_add(self._draw_world, (), 'WINDOW', 'POST_VIEW'))
             self._handles.append(bpy.types.SpaceView3D.draw_handler_add(self._draw_circle, (), 'WINDOW', 'POST_PIXEL'))
@@ -117,7 +131,7 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
                 is_target = original == self._obj and not instance.is_instance
                 if is_target:
                     if data.signature(mesh) != self._topology:
-                        raise ZoneError('Evaluated topology differs from authored faces. Apply topology modifiers, clear selections and reselect faces.')
+                        raise ZoneError('Topology before Cloth NeXt differs from authored faces. Apply upstream topology modifiers, clear selections and reselect faces.')
                     from mathutils.geometry import closest_point_on_tri
                     # A non-planar quad's median need not lie on its visible
                     # tessellation. Project it onto its own polygon's surface;
@@ -208,7 +222,35 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
                                                      (True, index), self._epsilon)
             if self._visibility[index]:
                 result.append(index)
-        return tuple(result)
+        # Surface samples make partially visible and large faces selectable even
+        # when their center lies outside the brush or behind an occluder.
+        # The combined scene BVH always picks the first surface, never through.
+        selected = set(result)
+        x, y = self._cursor
+        spacing = max(8.0, self._radius / 12.0)
+        steps = math.ceil(self._radius / spacing)
+        samples = [(x, y)]
+        samples.extend((x+dx*spacing, y+dy*spacing)
+                       for dx in range(-steps, steps+1)
+                       for dy in range(-steps, steps+1)
+                       if (dx*spacing)**2+(dy*spacing)**2 <= self._radius**2)
+        for point in samples:
+            if not (0 <= point[0] < self._region.width and 0 <= point[1] < self._region.height):
+                continue
+            origin = region_2d_to_origin_3d(self._region, self._rv3d, point,
+                                          clamp=max(1.0, self._space.clip_end))
+            direction = region_2d_to_vector_3d(self._region, self._rv3d, point)
+            hit = self._raycast(origin, direction)
+            if hit is None or not hit[0][0]:
+                continue
+            depth = -(self._rv3d.view_matrix @ hit[1]).z
+            if self._rv3d.is_perspective:
+                if not self._space.clip_start <= depth <= self._space.clip_end:
+                    continue
+            elif abs(depth) > self._space.clip_end:
+                continue
+            selected.add(hit[0][1])
+        return tuple(sorted(selected))
 
     def modal(self, context, event):
         try:
@@ -339,6 +381,12 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
         except (ReferenceError, AttributeError):
             pass
         finally:
+            for modifier, viewport in getattr(self, '_modifier_states', ()):
+                try:
+                    modifier.show_viewport = viewport
+                except ReferenceError:
+                    pass
+            self._modifier_states = []
             for handle in self._handles:
                 try:
                     bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
