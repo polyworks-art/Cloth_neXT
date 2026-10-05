@@ -204,7 +204,7 @@ def _launch() -> tuple[bool, str, bool]:
         session_root.parent, ownership_authenticated=True,
         lifecycle_stage="COMPANION_STARTUP", recursive=True)
     _session_artifacts = SessionArtifacts(session_root)
-    command += ["--port", str(_server.port), "--token", _server.token,
+    command += ["--port", str(_server.port), f"--token={_server.token}",
                 "--session-root", str(session_root)]
     try:
         _process = subprocess.Popen(command, cwd=root, shell=False)

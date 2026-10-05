@@ -105,7 +105,7 @@ def companion_info_command(mode: str, version: str | None = None, *,
     command += ["--show-after-updates", "1" if show_after_updates else "0"]
     if preference_path is not None and preference_token is not None:
         command += ["--preference-path", str(preference_path),
-                    "--preference-token", preference_token]
+                    f"--preference-token={preference_token}"]
     return command
 
 

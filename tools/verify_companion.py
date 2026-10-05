@@ -8,6 +8,7 @@ import sys
 import time
 import tomllib
 import tempfile
+import secrets
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -64,9 +65,9 @@ def main():
     exe = ROOT / "companion" / "dist" / platform_spec().companion_build_name
     if not exe.is_file():
         raise SystemExit("development Companion executable missing")
-    server = LocalSocketServer()
+    server = LocalSocketServer(token="-" + secrets.token_urlsafe(32))
     process = subprocess.Popen(
-        [str(exe), "--port", str(server.port), "--token", server.token]
+        [str(exe), "--port", str(server.port), f"--token={server.token}"]
     )
     try:
         end = time.time() + 15

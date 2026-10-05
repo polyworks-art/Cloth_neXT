@@ -2,6 +2,7 @@
 
 ## 2.9.13 - 2026-10-05
 
+- Fix Companion authentication argument parsing when random tokens begin with a hyphen; exercise this case in release smoke tests.
 - Make Material Zone overlays more visible and lift their drawing slightly above the surface.
 - Honor Cancel during synchronous Bake preparation, animation capture, Companion waiting and the worker handoff; clean owned buffers, evaluations and reservations.
 - Reuse independently verified static Collider geometry when Softbody material values change; invalidate on collider geometry or dependency changes.

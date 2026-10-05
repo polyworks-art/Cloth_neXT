@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import secrets
+from functools import partial
 import importlib
 import os
 from pathlib import Path
@@ -123,6 +125,9 @@ def main() -> None:
     companion_manager = importlib.import_module(
         cloth_next.__name__ + ".blender.companion_manager")
 
+    # Force the valid token prefix that previously broke argparse startup.
+    companion_manager.LocalSocketServer = partial(
+        companion_manager.LocalSocketServer, token="-" + secrets.token_urlsafe(32))
     job = shared_controller.transition(
         BakeState.PREPARING, job_kind=BakeJobKind.BAKE,
         status_message="Companion shutdown smoke").job_id
