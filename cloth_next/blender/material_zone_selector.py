@@ -330,16 +330,24 @@ class CLOTHNEXT_OT_edit_material_zone_selection(data.ZoneOperator, bpy.types.Ope
             shader.uniform_float('color', (0, 0, 0, 0))
             occluders.draw(shader)
             gpu.state.depth_mask_set(False)
-            if self._gpu_faces:
-                shader.uniform_float('color', (0.12, 0.65, 0.95, 0.25))
-                self._gpu_faces.draw(shader)
-            gpu.state.point_size_set(3)
-            shader.uniform_float('color', (0.9, 0.9, 0.9, 0.95))
-            centers.draw(shader)
-            if self._hover:
-                gpu.state.point_size_set(7)
-                shader.uniform_float('color', (0.2, 0.75, 1.0, 1.0))
-                batch_for_shader(shader, 'POINTS', {'pos': [self._centers[i] for i in self._hover]}).draw(shader)
+            # Lift only the drawing toward the viewer. Picking and the scene
+            # depth prepass keep the exact surface, including in X-Ray view.
+            # View-facing bias works for reversed winding and both projections.
+            from mathutils import Vector
+            toward_view = self._rv3d.view_matrix.inverted().to_3x3() @ Vector((0, 0, 1))
+            lift = toward_view.normalized() * (self._epsilon * 4)
+            with gpu.matrix.push_pop():
+                gpu.matrix.translate(lift)
+                if self._gpu_faces:
+                    shader.uniform_float('color', (0.08, 0.58, 1.0, 0.45))
+                    self._gpu_faces.draw(shader)
+                gpu.state.point_size_set(4)
+                shader.uniform_float('color', (0.95, 0.95, 1.0, 1.0))
+                centers.draw(shader)
+                if self._hover:
+                    gpu.state.point_size_set(8)
+                    shader.uniform_float('color', (0.15, 0.85, 1.0, 1.0))
+                    batch_for_shader(shader, 'POINTS', {'pos': [self._centers[i] for i in self._hover]}).draw(shader)
         except Exception:
             self._cleanup(restore=True)
             raise

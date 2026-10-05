@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.13 - 2026-10-05
+
+- Make Material Zone overlays more visible and lift their drawing slightly above the surface.
+- Honor Cancel during synchronous Bake preparation, animation capture, Companion waiting and the worker handoff; clean owned buffers, evaluations and reservations.
+- Reuse independently verified static Collider geometry when Softbody material values change; invalidate on collider geometry or dependency changes.
+- Ignore downstream modifiers in solver-input cache dependency identity.
+- Add a reversible Appear Solid Softbody checkbox with persistent restoration of previous material values.
+- Verify cancellation through authenticated IPC and Softbody preset persistence, collider reuse and geometry/transform invalidation in real Blender.
+
 ## 2.9.12 - 2026-10-05
 
 - Select Material Zone faces with direct visible-surface hits, including large and partly occluded faces whose centers fall outside the brush.

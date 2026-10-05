@@ -1,0 +1,40 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.13",
+  "title": "What's New in Cloth NeXt 2.9.13",
+  "subtitle": "Responsive preparation and easier Softbody authoring.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Cancel during preparation",
+      "description": "Stop preparation before the solver starts, with cleanup of temporary geometry, capture data and Bake reservations."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Reuse Collider geometry",
+      "description": "Changing Softbody material values reuses verified static Collider geometry. The Bake window clearly shows reuse or export."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Appear Solid",
+      "description": "Give Softbodies a stiff, shape-preserving material with one checkbox. Turning it off restores your previous values, even after saving and reopening."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clearer Material Zone overlays",
+      "description": "Stronger highlights sit slightly above the surface so selections are easier to see."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

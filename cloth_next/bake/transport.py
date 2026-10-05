@@ -220,6 +220,24 @@ class LocalSocketServer:
             try: client.sendall(data)
             except OSError: pass
     def shutdown_companion(self): self._send("shutdown")
+    def consume_cancel_request(self) -> bool:
+        """Drain only Cancel, preserving handshake/progress message order.
+
+        Preparation can run synchronously on Blender's main thread while the
+        authenticated IPC reader keeps enqueueing requests in the background.
+        """
+        with self.requests.mutex:
+            pending = self.requests.queue
+            retained = [item for item in pending
+                        if (item.get("type") if isinstance(item, dict) else item) != "cancel_request"]
+            count = len(pending) - len(retained)
+            if count:
+                pending.clear()
+                pending.extend(retained)
+                self.requests.unfinished_tasks -= count
+                self.requests.not_full.notify_all()
+            return bool(count)
+
     def poll_request(self):
         try: return self.requests.get_nowait()
         except Empty: return None

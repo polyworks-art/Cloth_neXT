@@ -11,6 +11,7 @@ from ..bake.controller import shared_controller
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..bake.transport import EnterBakeMode
 from ..gaia.preparation import PreparationCancelled, WaterPreparationWorker, source_stamp
+from ..ppf_run.session import SessionCancelled
 from . import companion_manager, modal_lock
 
 _job = None
@@ -136,6 +137,14 @@ def _finish(state, *, cancelled=False, error=None):
     elif state['complete'] is not None:
         try:
             state['complete']()
+        except SessionCancelled:
+            owner = shared_controller.snapshot()
+            if owner.job_id == state['id'] and owner.state is not BakeState.CANCELLED:
+                if owner.state is not BakeState.CANCELLING:
+                    shared_controller.request_cancel()
+                shared_controller.transition(BakeState.CANCELLED,
+                    status_message='Bake preparation cancelled')
+            modal_lock.release(state['id'])
         except Exception as exc:
             if shared_controller.snapshot().state is not BakeState.ERROR:
                 shared_controller.fail(str(exc), traceback.format_exc())

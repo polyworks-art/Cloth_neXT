@@ -695,7 +695,49 @@ class CLOTHNEXT_PG_rod_settings(bpy.types.PropertyGroup):
                     "Disable for an initially straight rest shape")
 
 
+def _apply_soft_body_appear_solid(settings, enabled):
+    """Reversible shape-preserving Softbody material shortcut."""
+    import json
+    soft = settings.soft_body
+    values = {"stretch_resistance": 1e7, "poisson_ratio": 0.45,
+              "volume_scale": 1.0, "stretch_plasticity_enabled": False,
+              "stretch_plasticity_rate": 0.0,
+              "stretch_plasticity_threshold_percent": 5.0}
+    if enabled:
+        if not soft.appear_solid_backup:
+            previous = {name: getattr(soft, name) for name in values}
+            previous["shape_damping"] = settings.damping.shape_damping
+            soft.appear_solid_backup = json.dumps(previous, sort_keys=True)
+        for name, value in values.items():
+            setattr(soft, name, value)
+        settings.damping.shape_damping = 0.05
+    elif soft.appear_solid_backup:
+        try:
+            previous = json.loads(soft.appear_solid_backup)
+            for name in values:
+                if name in previous:
+                    setattr(soft, name, previous[name])
+            if "shape_damping" in previous:
+                settings.damping.shape_damping = previous["shape_damping"]
+        except (ValueError, TypeError):
+            pass
+        soft.appear_solid_backup = ""
+
+
+def _on_soft_body_appear_solid(self, context):
+    settings = getattr(getattr(self, "id_data", None), "cloth_next", None)
+    if settings is not None:
+        _apply_soft_body_appear_solid(settings, self.appear_solid)
+    _on_settings_update(self, context)
+
+
 class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
+    appear_solid: bpy.props.BoolProperty(name="Appear Solid", default=False,
+        update=_on_soft_body_appear_solid,
+        description="Use high elastic stiffness, preserve rest volume and disable "
+                    "permanent deformation for a rigid-looking Softbody. "
+                    "Disable to restore the previous material values")
+    appear_solid_backup: bpy.props.StringProperty(default="", options={'HIDDEN'})
     volume_density: bpy.props.FloatProperty(name="Volume Density", default=100.0,
         min=0.01, max=10000.0, update=_on_settings_update,
         description="Mass per unit volume. Higher values make the object feel heavier")

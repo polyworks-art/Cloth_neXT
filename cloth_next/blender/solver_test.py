@@ -589,8 +589,31 @@ def _ensure_solver_static(scene_colliders, collider_specs):
 def _on_controller_snapshot(snapshot) -> None:
     """Any CANCELLING transition (panel, HUD, or companion IPC) reaches the
     worker through the shared cancel event."""
-    if snapshot.state is BakeState.CANCELLING and _worker is not None:
+    if snapshot.state is BakeState.CANCELLING:
         _cancel_event.set()
+
+
+def _check_preparation_cancel() -> None:
+    """Observe IPC Cancel even while synchronous export prevents timer polling."""
+    owner = shared_controller.snapshot()
+    if owner.state not in {BakeState.PREPARING, BakeState.CANCELLING}:
+        return
+    if companion_manager.consume_preparation_cancel():
+        _cancel_event.set()
+        if owner.state is not BakeState.CANCELLING:
+            shared_controller.request_cancel()
+    if _cancel_event.is_set() or shared_controller.snapshot().state is BakeState.CANCELLING:
+        raise SessionCancelled()
+
+
+def _finish_preparation_cancel(job_id, message="Bake preparation cancelled"):
+    modal_lock.release(job_id)
+    owner = shared_controller.snapshot()
+    if owner.job_id != job_id or owner.state is BakeState.CANCELLED:
+        return
+    if owner.state is not BakeState.CANCELLING:
+        shared_controller.request_cancel()
+    shared_controller.transition(BakeState.CANCELLED, status_message=message)
 
 
 class SceneValidationError(ValueError):
@@ -1113,6 +1136,7 @@ def _force_vectors(context) -> tuple[tuple[float, float, float],
 
 def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
     """Evaluated local vertices + loop triangles, original vertex order."""
+    _check_preparation_cancel()
     if obj.type != "MESH":
         raise SceneValidationError(f"{obj.name} is not a mesh object.")
     if any(mod.type == "CLOTH" for mod in obj.modifiers):
@@ -1157,6 +1181,7 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
                         triangles[int(np.flatnonzero(invalid)[0])])
             raise SceneValidationError(
                 f"{obj.name} produced an invalid triangle {tri}.")
+        _check_preparation_cancel()
         return vertices, triangles
     finally:
         evaluated.to_mesh_clear()
@@ -1164,6 +1189,7 @@ def _extract_mesh(obj, depsgraph, *, needs_edges: bool):
 
 def _extract_source_mesh(obj, *, needs_edges: bool):
     """Original mesh data before every modifier in the artist's stack."""
+    _check_preparation_cancel()
     if obj.type != "MESH":
         raise SceneValidationError(f"{obj.name} is not a mesh object.")
     mesh = getattr(obj, "data", None)
@@ -1178,6 +1204,7 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
         raise SceneValidationError(f"{obj.name} has no faces.")
     vertices = tuple((v.co.x, v.co.y, v.co.z) for v in mesh.vertices)
     for position in vertices:
+        _check_preparation_cancel()
         if any(not math.isfinite(c) for c in position):
             raise SceneValidationError(
                 f"{obj.name} contains non-finite vertex coordinates.")
@@ -1187,10 +1214,12 @@ def _extract_source_mesh(obj, *, needs_edges: bool):
         raise SceneValidationError(
             f"{obj.name} cannot be triangulated into a shell.")
     for tri in triangles:
+        _check_preparation_cancel()
         if len(set(tri)) != 3 or any(
                 not 0 <= index < vertex_count for index in tri):
             raise SceneValidationError(
                 f"{obj.name} produced an invalid triangle {tri}.")
+    _check_preparation_cancel()
     return vertices, triangles
 
 
@@ -1318,9 +1347,12 @@ def _remove_boundary_evaluation_copy(temporary):
 
 def _extract_deformable_mesh(context, obj, *, needs_edges: bool):
     """Bake-Start geometry immediately before the simulation boundary."""
+    _check_preparation_cancel()
     with _evaluate_through_solver_input_modifiers(context, obj) as input_obj:
         if input_obj is None:
+            _check_preparation_cancel()
             return _extract_source_mesh(obj, needs_edges=needs_edges)
+        _check_preparation_cancel()
         return _extract_mesh(
             input_obj, context.evaluated_depsgraph_get(), needs_edges=needs_edges)
 
@@ -1339,10 +1371,12 @@ def _evaluated_deformable_signatures(context, obj):
 
 def _evaluated_deformable_snapshot(context, obj):
     """Boundary signatures plus the geometry that produced them."""
+    _check_preparation_cancel()
     cutoff = _solver_input_modifier_cutoff(obj)
     if simulation_modifiers(obj) and cutoff < 0:
         mesh = getattr(obj, "data", None)
         if mesh is None:
+            _check_preparation_cancel()
             return (_hash_mesh_topology(mesh), mesh_geometry_signature(mesh),
                     (), ())
         mesh.calc_loop_triangles()
@@ -1361,6 +1395,7 @@ def _evaluated_deformable_snapshot(context, obj):
         else:  # lightweight test adapter lacks the loop-triangle bulk array
             triangles = tuple(tuple(item.vertices)
                               for item in mesh.loop_triangles)
+        _check_preparation_cancel()
         return topology, shape_hash.hexdigest(), vertices, triangles
     vertices, triangles = _extract_deformable_mesh(
         context, obj, needs_edges=True)
@@ -1379,6 +1414,7 @@ def _evaluated_deformable_snapshot(context, obj):
             :_solver_input_modifier_cutoff(obj) + 1]),
         separators=(",", ":")).encode("utf-8"))
     shape = shape_hash.hexdigest()
+    _check_preparation_cancel()
     return topology, shape, vertices, triangles
 
 
@@ -2429,6 +2465,7 @@ class ValidationSnapshot:
     boundary_triangles: object = ()
     object_attachments: tuple = ()
     explicit_sewing: dict = field(default_factory=dict)
+    collider_source_signatures: dict = field(default_factory=dict)
 
 
 def _validate_scene_single(context) -> ValidationSnapshot:
@@ -2442,6 +2479,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
     readable message) and returned so the Bake path can reuse it without
     scanning anything a second time.
     """
+    _check_preparation_cancel()
     cloth_obj, collider_objs = _enabled_objects_for_bake(context)
     _reject_animated_static_colliders(collider_objs)
     collider_obj = collider_objs[0] if collider_objs else None
@@ -2496,10 +2534,14 @@ def _validate_scene_single(context) -> ValidationSnapshot:
             context, cloth_obj, collider_objs, shell, statics, contact_enabled,
             preset_identifier, quality)
         collider_geometry = []
+        collider_source_signatures = {}
         for collider in collider_objs:
+            _check_preparation_cancel()
+            shape = mesh_geometry_signature(getattr(collider, "data", None))
+            collider_source_signatures[collider.name] = shape
             collider_geometry.append({
                 "object_key": validation_state.object_key(collider),
-                "shape": mesh_geometry_signature(getattr(collider, "data", None)),
+                "shape": shape,
                 "animation": _animation_signature(collider),
             })
         scene_geometry_signature = cache_metadata.deterministic_hash({
@@ -2528,6 +2570,7 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         inspect_attached_cache(
             cloth_obj, settings_fingerprint=settings_fp,
             geometry_fingerprint=geometry_fp)
+    _check_preparation_cancel()
     return ValidationSnapshot(
         cloth_obj=cloth_obj, collider_obj=collider_obj,
         collider_objs=collider_objs, bake_range=bake_range,
@@ -2538,11 +2581,13 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         settings_fingerprint=settings_fp, geometry_fingerprint=geometry_fp,
         combined_fingerprint=bake_fingerprint(settings_fp, geometry_fp),
         boundary_vertices=(boundary_vertices if role != "ROD" else ()),
-        boundary_triangles=(boundary_triangles if role != "ROD" else ()))
+        boundary_triangles=(boundary_triangles if role != "ROD" else ()),
+        collider_source_signatures=collider_source_signatures)
 
 
 def _validate_scene_impl(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
+    _check_preparation_cancel()
     _sync_enabled_proxy_settings(context)
     deformable_objs, collider_objs = _enabled_objects_for_solve(context)
     _reject_animated_static_colliders(collider_objs)
@@ -2559,6 +2604,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         validation_state.object_key(obj): validation_state.record_for(obj)
         for obj in deformable_objs}
     for obj in deformable_objs:
+        _check_preparation_cancel()
         validation_state.mark_validating(obj)
     validation_subject = None
     try:
@@ -2579,6 +2625,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         materials = []
         presets = []
         for obj in deformable_objs:
+            _check_preparation_cancel()
             validation_subject = obj
             material, _static, _contact, preset = _snapshot_materials(
                 obj, collider_objs[0] if collider_objs else None)
@@ -2591,6 +2638,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         gravity_blender, wind_blender = _force_vectors(context)
         entries = []
         for obj, material, preset in zip(deformable_objs, materials, presets):
+            _check_preparation_cancel()
             validation_subject = obj
             role = str(obj.cloth_next.role)
             if role == "ROD":
@@ -2678,6 +2726,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             raise
         raise SceneValidationError(message) from exc
     for entry in entries:
+        _check_preparation_cancel()
         validation_state.store_valid(
             entry.obj, pin_count=len(entry.pin_membership.vertex_indices),
             pin_group=entry.pin_membership.group_name,
@@ -2692,6 +2741,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
     first = entries[0]
     preset_identifier = (first.preset_identifier if len(entries) == 1
                          else f"MULTI_OBJECT_{len(entries)}")
+    _check_preparation_cancel()
     return ValidationSnapshot(
         cloth_obj=first.obj,
         collider_obj=collider_objs[0] if collider_objs else None,
@@ -2709,15 +2759,19 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         boundary_vertices=first.boundary_vertices,
         boundary_triangles=first.boundary_triangles,
         object_attachments=attachment_snapshot,
-        explicit_sewing=explicit_sewing)
+        explicit_sewing=explicit_sewing,
+        collider_source_signatures={obj.name: row["shape"]
+            for obj, row in zip(collider_objs, collider_geometry)})
 
 
 def validate_scene(context) -> ValidationSnapshot:
     """Timed authoritative validation snapshot."""
+    _check_preparation_cancel()
     started = time.monotonic()
     from .material_zones import validate_ownership, update_counts
     from ..materials.zones import ZoneError
     for obj in context.scene.objects:
+        _check_preparation_cancel()
         settings = getattr(obj, 'cloth_next', None)
         if settings and getattr(settings, 'enabled', False) and getattr(settings, 'material_zones', ()):
             if settings.role != 'CLOTH' or obj.type != 'MESH':
@@ -2726,7 +2780,15 @@ def validate_scene(context) -> ValidationSnapshot:
                 update_counts(obj, validate_ownership(obj), dirty=False)
             except ZoneError as exc:
                 raise SceneValidationError(str(exc)) from exc
-    snapshot = _validate_scene_impl(context)
+    try:
+        snapshot = _validate_scene_impl(context)
+    except SessionCancelled:
+        for obj in context.scene.objects:
+            settings = getattr(obj, 'cloth_next', None)
+            if settings is not None and getattr(settings, 'enabled', False):
+                validation_state.mark_geometry_dirty(obj)
+        raise
+    _check_preparation_cancel()
     return replace(snapshot, timings={
         **snapshot.timings,
         "validation": time.monotonic() - started,
@@ -3114,7 +3176,12 @@ def _safe_object_dependency_identity(
     if not safe:
         return False, {}, f"{obj.name} data: {reason}"
     modifiers = []
-    for modifier in getattr(obj, "modifiers", ()):
+    authored_modifiers = tuple(getattr(obj, "modifiers", ()))
+    boundaries = simulation_modifiers(obj)
+    if boundaries:
+        boundary_index = _modifier_index(obj, boundaries[0])
+        authored_modifiers = authored_modifiers[:boundary_index]
+    for modifier in authored_modifiers:
         if not bool(getattr(modifier, "show_viewport", True)):
             continue
         if is_cloth_next_playback_modifier(obj, modifier):
@@ -3343,12 +3410,15 @@ def _safe_frame_change_handler_identity():
 
 def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
     """Return a fail-closed early Scene key after authoritative validation."""
+    _check_preparation_cancel()
     if (not getattr(snapshot, "deformables", ())
             or not getattr(snapshot, "geometry_fingerprint", "")):
+        _check_preparation_cancel()
         return None, "Incomplete validation snapshot"
     handlers_safe, handler_identity, reason = (
         _safe_frame_change_handler_identity())
     if not handlers_safe:
+        _check_preparation_cancel()
         return None, reason
     objects = []
     ordered = sorted(
@@ -3360,9 +3430,11 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
             for obj in snapshot.collider_objs)),
         key=lambda entry: export_identity.export_uuid(entry.obj))
     for entry in ordered:
+        _check_preparation_cancel()
         obj = entry.obj
         safe, dependencies, reason = _safe_object_dependency_identity(obj)
         if not safe:
+            _check_preparation_cancel()
             return None, reason
         role = str(obj.cloth_next.role)
         row = {
@@ -3463,6 +3535,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
         # implementation invalidates the previous export.
         "frame_handlers": handler_identity,
     }
+    _check_preparation_cancel()
     return deterministic_key("scene", identity), "safe source identity"
 
 
@@ -3521,8 +3594,10 @@ def _log_gravity_capture(samples, bake_range) -> None:
 
 def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCapture:
     """Sample native Blender Force keyframes and build PPF dyn_param tracks."""
+    _check_preparation_cancel()
     direct = _capture_simple_force_fcurves(context, bake_range)
     if direct is not None:
+        _check_preparation_cancel()
         return direct
     scene = context.scene
     original = int(scene.frame_current)
@@ -3531,6 +3606,7 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
     active_scalar_types = set()
     try:
         for frame in range(bake_range.start, bake_range.end + 1):
+            _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
             # frame_set updates the dependency graph immediately; repeating a
@@ -3543,6 +3619,7 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
         scene.frame_set(original)
         _depsgraph_update(context)
     _log_gravity_capture(samples, bake_range)
+    _check_preparation_cancel()
     return _force_capture_from_samples(
         samples, active_scalar_types, bake_range, fps)
 
@@ -3681,6 +3758,7 @@ def _solver_position(matrix,position):
 
 def _capture_animated_pin(context,cloth_obj,bake_range,membership,
                           precomputed=None):
+    _check_preparation_cancel()
     advanced_rows = tuple(getattr(
         cloth_obj.cloth_next, "advanced_pin_targets", ()))
     advanced = bool(advanced_rows) or bool(getattr(
@@ -3693,10 +3771,12 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
                 fps=_scene_fps(context),
                 pull_weights=membership.pull_weights)
     if not membership.enabled or mode is PinMode.STATIC:
+        _check_preparation_cancel()
         return StaticPinSnapshot(membership.enabled,membership.group_name,
             membership.source_object_id,membership.source_vertex_count,
             membership.vertex_indices,**common)
     if precomputed is not None:
+        _check_preparation_cancel()
         return StaticPinSnapshot(True,membership.group_name,membership.source_object_id,
             membership.source_vertex_count,membership.vertex_indices,
             samples=tuple(precomputed),**common)
@@ -3711,6 +3791,7 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
             bake_range.start, bake_range.end,
             collider_samples=(COLLIDER_SAMPLES_PER_FRAME,))
         for point in points:
+            _check_preparation_cancel()
             frame = point.frame
             scene.frame_set(frame, subframe=point.subframe)
             _depsgraph_update(context)
@@ -3758,6 +3839,7 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
             finally:evaluated.to_mesh_clear()
     finally:
         scene.frame_set(original); _depsgraph_update(context)
+    _check_preparation_cancel()
     return StaticPinSnapshot(True,membership.group_name,membership.source_object_id,
         membership.source_vertex_count,membership.vertex_indices,
         samples=tuple(samples),**common)
@@ -4081,6 +4163,7 @@ def _capture_transform_only_collider_motion(
         context, collider_obj, bake_range: BakeFrameRange
 ) -> ColliderMotionCapture:
     """Export one mesh and sample matrices without per-sample ``to_mesh()``."""
+    _check_preparation_cancel()
     scene = context.scene
     original_frame = int(scene.frame_current)
     original_subframe = float(getattr(scene, "frame_subframe", 0.0))
@@ -4101,6 +4184,7 @@ def _capture_transform_only_collider_motion(
                       if cutoff >= 0 else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
+            _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
             scene.frame_set(frame, subframe=subframe)
@@ -4125,6 +4209,7 @@ def _capture_transform_only_collider_motion(
                     progress_total=len(sample_points))
         translations, quaternions, scales = [], [], []
         for matrix in matrices:
+            _check_preparation_cancel()
             translation, quaternion, scale = _matrix_trs(matrix)
             if (quaternions and sum(a * b for a, b in
                                     zip(quaternions[-1], quaternion)) < 0.0):
@@ -4132,6 +4217,7 @@ def _capture_transform_only_collider_motion(
             translations.append(translation)
             quaternions.append(quaternion)
             scales.append(scale)
+        _check_preparation_cancel()
         return ColliderMotionCapture(
             "RIGID_ANIMATED", vertices, triangles, matrices[0],
             {**metadata, "translation": translations,
@@ -4151,7 +4237,9 @@ def _capture_transform_only_collider_motion(
 def _capture_collider_motion(context, collider_obj,
                              bake_range: BakeFrameRange) -> ColliderMotionCapture:
     """Capture and classify one animated Collider on Blender's main thread."""
+    _check_preparation_cancel()
     if _effective_collider_capture_mode(collider_obj) == "TRANSFORM_ONLY":
+        _check_preparation_cancel()
         return _capture_transform_only_collider_motion(
             context, collider_obj, bake_range)
     scene = context.scene
@@ -4183,6 +4271,7 @@ def _capture_collider_motion(context, collider_obj,
                       if cutoff >= 0 else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
+            _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
             # A frame-level update is sufficient for visible progress. Avoid
@@ -4311,11 +4400,13 @@ def _capture_collider_motion(context, collider_obj,
                 ownership_authenticated=True,
                 lifecycle_stage="COLLIDER_CAPTURE_RIGID",
                 artifact_type="collider_memmap")
+            _check_preparation_cancel()
             return result
 
         local_samples.flush()
         identity = tuple(tuple(1.0 if row == column else 0.0
                                for column in range(4)) for row in range(4))
+        _check_preparation_cancel()
         return ColliderMotionCapture(
             "DEFORMING_ANIMATED",
             tuple(tuple(float(value) for value in row)
@@ -4350,8 +4441,10 @@ def _capture_animated_colliders_shared(
     use different sample rates.  Blender is touched only by this main-thread
     function and ``frame_set`` is called once per union point.
     """
+    _check_preparation_cancel()
     colliders = tuple(collider_objs)
     if not colliders:
+        _check_preparation_cancel()
         return {}
     fps = _scene_fps(context)
     rates = {
@@ -4383,6 +4476,7 @@ def _capture_animated_colliders_shared(
     captures: dict[str, ColliderMotionCapture] = {}
     try:
         for obj in colliders:
+            _check_preparation_cancel()
             mode = _effective_collider_capture_mode(obj)
             timeline = timelines[obj.name]
             count = len(timeline.points)
@@ -4405,6 +4499,7 @@ def _capture_animated_colliders_shared(
             _export_timing_sink["sample_plan_points"] = float(len(union))
         capture_started = time.perf_counter()
         for point_index, point in enumerate(union):
+            _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
             context.scene.frame_set(point.frame, subframe=point.subframe)
@@ -4517,6 +4612,7 @@ def _capture_animated_colliders_shared(
                     progress_current=point_index + 1,
                     progress_total=len(union))
         for obj in colliders:
+            _check_preparation_cancel()
             state = states[obj.name]
             matrices = state["matrices"]
             metadata = state["metadata"]
@@ -4570,6 +4666,7 @@ def _capture_animated_colliders_shared(
             _export_timing_sink["capture_seconds"] = (
                 _export_timing_sink.get("capture_seconds", 0.0) +
                 time.perf_counter() - capture_started)
+        _check_preparation_cancel()
         return captures
     except Exception:
         for capture in captures.values():
@@ -4593,43 +4690,54 @@ def _capture_animated_colliders_shared(
 def _begin_collider_pump(colliders, bake_range, fps):
     """Mutable main-thread state used by the asynchronous union pump."""
     result = {}
-    for obj in colliders:
-        cutoff = _solver_input_modifier_cutoff(obj)
-        evaluation_obj = (_make_boundary_evaluation_copy(bpy.context, obj, cutoff)
-                          if cutoff >= 0 else obj)
-        rate = int(getattr(
-            obj.cloth_next, "collider_samples_per_frame",
-            COLLIDER_SAMPLES_PER_FRAME))
-        timeline = build_collider_timeline(
-            bake_range.start, bake_range.end,
-            samples_per_frame=rate, fps=fps)
-        points = timeline.points
-        result[obj.name] = {
-            "obj": evaluation_obj, "source_obj": obj,
-            "temporary_obj": evaluation_obj if evaluation_obj is not obj else None,
-            "points": {
-                point.position: index for index, point in enumerate(points)},
-            "metadata": {
-                "time": list(timeline.times),
-                "_sample_frame_offset": list(timeline.frame_offsets),
-                "_logical_frame_count": timeline.logical_frame_count,
-                "_samples_per_frame": timeline.samples_per_frame,
-                "_capture_fps": timeline.fps,
-            },
-            "mode": _effective_collider_capture_mode(obj),
-            "matrices": [], "vertices": None, "triangles": None,
-            "topology": None, "topology_buffers": None,
-            "topology_mode": _collider_topology_check_mode(obj),
-            "samples": None, "path": None, "deforming": False,
-            "sample_count": len(points),
-        }
+    temporaries = []
+    try:
+        for obj in colliders:
+            _check_preparation_cancel()
+            cutoff = _solver_input_modifier_cutoff(obj)
+            evaluation_obj = (_make_boundary_evaluation_copy(bpy.context, obj, cutoff)
+                              if cutoff >= 0 else obj)
+            if evaluation_obj is not obj:
+                temporaries.append(evaluation_obj)
+            rate = int(getattr(
+                obj.cloth_next, "collider_samples_per_frame",
+                COLLIDER_SAMPLES_PER_FRAME))
+            timeline = build_collider_timeline(
+                bake_range.start, bake_range.end,
+                samples_per_frame=rate, fps=fps)
+            points = timeline.points
+            result[obj.name] = {
+                "obj": evaluation_obj, "source_obj": obj,
+                "temporary_obj": evaluation_obj if evaluation_obj is not obj else None,
+                "points": {
+                    point.position: index for index, point in enumerate(points)},
+                "metadata": {
+                    "time": list(timeline.times),
+                    "_sample_frame_offset": list(timeline.frame_offsets),
+                    "_logical_frame_count": timeline.logical_frame_count,
+                    "_samples_per_frame": timeline.samples_per_frame,
+                    "_capture_fps": timeline.fps,
+                },
+                "mode": _effective_collider_capture_mode(obj),
+                "matrices": [], "vertices": None, "triangles": None,
+                "topology": None, "topology_buffers": None,
+                "topology_mode": _collider_topology_check_mode(obj),
+                "samples": None, "path": None, "deforming": False,
+                "sample_count": len(points),
+            }
+    except Exception:
+        for temporary in temporaries:
+            _remove_boundary_evaluation_copy(temporary)
+        raise
     return result
 
 
 def _pump_collider_point(depsgraph, point, states):
     """Capture all Colliders needing this exact rational sample point."""
+    _check_preparation_cancel()
     count = evaluated_count = mesh_count = 0
     for state in states.values():
+        _check_preparation_cancel()
         sample_index = state["points"].get(point.position)
         if sample_index is None:
             continue
@@ -4711,6 +4819,7 @@ def _pump_collider_point(depsgraph, point, states):
                 local @ transform[:3, :3].T + transform[:3, 3])
         finally:
             evaluated.to_mesh_clear()
+    _check_preparation_cancel()
     return count, evaluated_count, mesh_count
 
 
@@ -4718,6 +4827,7 @@ def _finish_collider_pump(states):
     captures = {}
     try:
         for name, state in states.items():
+            _check_preparation_cancel()
             matrices = state["matrices"]
             metadata = state["metadata"]
             frame_offsets = metadata["_sample_frame_offset"]
@@ -4766,7 +4876,7 @@ def _finish_collider_pump(states):
         return captures
     finally:
         for state in states.values():
-            _remove_boundary_evaluation_copy(state.get("temporary_obj"))
+            _remove_boundary_evaluation_copy(state.pop("temporary_obj", None))
 
 
 def _cleanup_collider_pump(states):
@@ -4834,7 +4944,7 @@ def _payload_cache_for(obj) -> ExportPayloadCache:
     return ExportPayloadCache(root / ".cloth_next_export")
 
 
-def _animated_collider_cache_key(context, obj, bake_range):
+def _animated_collider_cache_key(context, obj, bake_range, *, source_geometry=None):
     """Fail-closed key for one reusable animated Collider capture."""
     safe, dependencies, reason = _safe_object_dependency_identity(
         obj, collider_capture=True)
@@ -4850,7 +4960,8 @@ def _animated_collider_cache_key(context, obj, bake_range):
         "export_uuid_schema": export_identity.EXPORT_UUID_SCHEMA_VERSION,
         "uuid": export_identity.export_uuid(obj),
         "name": str(getattr(obj, "name_full", getattr(obj, "name", ""))),
-        "source_geometry": mesh_geometry_signature(getattr(obj, "data", None)),
+        "source_geometry": (source_geometry if source_geometry is not None else
+                            mesh_geometry_signature(getattr(obj, "data", None))),
         "dependencies": dependencies,
         "frame_change_handlers": handler_identity,
         "animation": _animation_signature(obj),
@@ -4865,6 +4976,51 @@ def _animated_collider_cache_key(context, obj, bake_range):
         "fps": _scene_fps(context),
     }
     return deterministic_key("collider", identity), "safe collider identity"
+
+
+def _static_collider_geometry(context, obj, bake_range, snapshot):
+    """Reuse each static Collider independently of deformable materials/Scene."""
+    _check_preparation_cancel()
+    key, reason = _animated_collider_cache_key(context, obj, bake_range,
+        source_geometry=snapshot.collider_source_signatures.get(obj.name))
+    key = (deterministic_key("collider", {"static_geometry_schema": 1,
+                                          "source_key": key}) if key else None)
+    cache = _payload_cache_for(snapshot.cloth_obj)
+    capture = None
+    if key:
+        capture, reason = _load_animated_collider_capture(cache, key)
+        if capture is not None and capture.motion_type != "STATIC":
+            capture = None
+            reason = "static collider cache type mismatch"
+    if capture is not None:
+        _check_preparation_cancel()
+        if _export_timing_sink is not None:
+            _export_timing_sink["static_collider_cache_hits"] = (
+                _export_timing_sink.get("static_collider_cache_hits", 0) + 1)
+        if _export_cache_event_sink is not None:
+            _export_cache_event_sink[f"collider:{obj.name}"] = "reused verified geometry"
+        shared_controller.update(status_message=f"Reusing Collider geometry · {obj.name}",
+                                 activity_code=BakeActivity.CAPTURING_GEOMETRY)
+        return capture.vertices, capture.triangles, capture.transform
+    shared_controller.update(status_message=f"Exporting Collider geometry · {obj.name}",
+                             activity_code=BakeActivity.CAPTURING_GEOMETRY)
+    vertices, triangles = _extract_boundary_mesh(context, obj, needs_edges=False)
+    world = tuple(tuple(row) for row in obj.matrix_world)
+    _check_preparation_cancel()
+    if _export_timing_sink is not None:
+        _export_timing_sink["static_collider_cache_misses"] = (
+            _export_timing_sink.get("static_collider_cache_misses", 0) + 1)
+    if _export_cache_event_sink is not None:
+        _export_cache_event_sink[f"collider:{obj.name}"] = reason
+    if key:
+        try:
+            _store_animated_collider_capture(cache, key, ColliderMotionCapture(
+                "STATIC", vertices, triangles, world, {}))
+        except (OSError, ValueError, TypeError) as exc:
+            log_with_context(get_logger("export.cache"), 30,
+                             "Static collider cache write failed",
+                             {"object": obj.name, "error": str(exc)})
+    return vertices, triangles, world
 
 
 def _collider_capture_arrays(capture):
@@ -4939,12 +5095,15 @@ def _load_animated_collider_capture(cache, key):
 
 
 def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
+    _check_preparation_cancel()
     cloth_obj = getattr(snapshot, "cloth_obj", None)
     if cloth_obj is None:
+        _check_preparation_cancel()
         return {}, tuple(colliders), {}, None
     cache = _payload_cache_for(cloth_obj)
     hits, misses, keys = {}, [], {}
     for obj in colliders:
+        _check_preparation_cancel()
         key, reason = _animated_collider_cache_key(context, obj, bake_range)
         if key is not None:
             capture, reason = _load_animated_collider_capture(cache, key)
@@ -4964,6 +5123,7 @@ def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
         timings["animated_collider_cache_hits"] = float(len(hits))
         timings["animated_collider_cache_misses"] = float(len(misses))
         timings.setdefault("collider_sample_count", 0.0)
+    _check_preparation_cancel()
     return hits, tuple(misses), keys, cache
 
 
@@ -5510,10 +5670,12 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                           animated_pin_samples=None,
                           force_capture: ForceCapture | None = None,
                           collider_captures=None) -> RunPlan:
+    _check_preparation_cancel()
     scene = context.scene
     resolved = resolve_solver(context)
     wire_schema, wire_protocol = _resolved_wire_contract(resolved)
     for entry in snapshot.deformables:
+        _check_preparation_cancel()
         _require_zone_capability(entry.obj, resolved)
     if (any(_friction_region_settings(entry.obj)
             for entry in snapshot.deformables)
@@ -5531,6 +5693,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     try:
         scene.frame_set(bake_range.start)
         for entry in snapshot.deformables:
+            _check_preparation_cancel()
             obj = entry.obj
             with without_owned_playback(obj,
                                         lambda: _depsgraph_update(context)):
@@ -5609,14 +5772,14 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         if static_colliders:
             scene.frame_set(bake_range.start)
         for obj in snapshot.collider_objs:
+            _check_preparation_cancel()
             if str(object_properties.collider_motion_from(obj.cloth_next)) == "ANIMATED":
                 capture = animated_captures[obj.name]
                 collider_records.append((obj, capture.vertices,
                     capture.triangles, None, capture))
             else:
-                vertices, triangles = _extract_boundary_mesh(
-                    context, obj, needs_edges=False)
-                world = tuple(tuple(row) for row in obj.matrix_world)
+                vertices, triangles, world = _static_collider_geometry(
+                    context, obj, bake_range, snapshot)
                 if not matrix_is_finite_and_invertible(world):
                     raise SceneValidationError(
                         f"{obj.name} has a non-finite or non-invertible world matrix.")
@@ -5644,6 +5807,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                       "SOFT_BODY": GROUP_SOLID, "RIGID_BODY": GROUP_PDRD}
     for (entry, pin_snapshot, vertices, triangles, edges, world,
          stitch_pairs, uv_faces, face_friction) in dynamic_records:
+        _check_preparation_cancel()
         dynamic_uuid = export_identity.export_uuid(entry.obj)
         uuids.append(dynamic_uuid)
         group = group_for_role[entry.role]
@@ -5665,6 +5829,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     try:
         for (obj, vertices, triangles, world, capture), material in zip(
                 collider_records, snapshot.statics):
+            _check_preparation_cancel()
             collider_uuid = export_identity.export_uuid(obj)
             collider_specs.append((obj.name, collider_uuid, material))
             if capture is None:
@@ -5716,6 +5881,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             in collider_records})
         ordered_input = []
         for group in (GROUP_SHELL, GROUP_ROD, GROUP_SOLID, GROUP_PDRD):
+            _check_preparation_cancel()
             ordered_input.extend(
                 (item, role_for_group[group],
                  source_faces_by_uuid.get(item.uuid), False)
@@ -5817,6 +5983,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     for index, ((entry, pin_snapshot, vertices, _triangles, _edges, world,
                  stitch_pairs, _uv_faces, _face_friction), dynamic_uuid) in enumerate(
             zip(dynamic_records, uuids)):
+        _check_preparation_cancel()
         configured = str(getattr(entry.obj.cloth_next,
                                  "cache_directory", "") or "").strip()
         cache_dir = (Path(bpy.path.abspath(configured))
@@ -5893,6 +6060,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     topology hash and exactly one pin scan; when it is omitted (developer
     test run, direct call) this validates once, here.
     """
+    _check_preparation_cancel()
     scene = context.scene
     if snapshot is None:
         snapshot = validate_scene(context)
@@ -5921,12 +6089,14 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             context, snapshot, resolved_for_cache, source_key,
             force_capture)
         if cached is not None:
+            _check_preparation_cancel()
             return cached
     if len(snapshot.deformables) > 1 or snapshot.object_attachments:
         plan = _build_multi_run_plan(
             context, snapshot, animated_pin_samples=animated_pin_samples,
             force_capture=force_capture,
             collider_captures=collider_captures)
+        _check_preparation_cancel()
         return replace(plan, scene_cache_key=source_key or "")
     cloth_obj = snapshot.cloth_obj
     deformable_role = str(cloth_obj.cloth_next.role)
@@ -6032,14 +6202,14 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         if static_colliders:
             scene.frame_set(bake_range.start)
         for current in collider_objs:
+            _check_preparation_cancel()
             if str(object_properties.collider_motion_from(current.cloth_next)) == "ANIMATED":
                 capture = animated_captures[current.name]
                 collider_records.append((current, capture.vertices,
                                          capture.triangles, None, capture))
             else:
-                vertices, triangles = _extract_boundary_mesh(
-                    context, current, needs_edges=False)
-                world = tuple(tuple(row) for row in current.matrix_world)
+                vertices, triangles, world = _static_collider_geometry(
+                    context, current, bake_range, snapshot)
                 collider_records.append(
                     (current, vertices, triangles, world, None))
         cloth_world = tuple(tuple(row) for row in cloth_obj.matrix_world)
@@ -6055,6 +6225,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             (obj, world if world is not None else capture.transform)
             for obj, _vertices, _triangles, world, capture in collider_records]
         for obj, world in matrix_records:
+            _check_preparation_cancel()
             if not matrix_is_finite_and_invertible(world):
                 raise SceneValidationError(
                     f"{obj.name} has a non-finite or non-invertible world matrix.")
@@ -6100,6 +6271,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     motion_meta = []
     for (current, vertices, triangles, world, capture), material in zip(
             collider_records, statics):
+        _check_preparation_cancel()
         collider_uuid = export_identity.export_uuid(current)
         collider_specs.append((current.name, collider_uuid, material))
         if capture is None:
@@ -6192,13 +6364,16 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             group = ({"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
                       "SOFT_BODY": GROUP_SOLID,
                       "RIGID_BODY": GROUP_PDRD}[deformable_role])
+            _check_preparation_cancel()
             return encode_multi_deformable_scene_file(
                 ((scene_cloth, group),), scene_colliders,
                 work_directory / "scene.cbor",
                 progress=encoding_progress, schema_version=wire_schema)
           if deformable_role == "CLOTH":
+            _check_preparation_cancel()
             return encode_scene(
                 scene_cloth, scene_colliders, schema_version=wire_schema)
+          _check_preparation_cancel()
           return encode_deformable_scene(
                 scene_cloth, scene_colliders,
                 group_type=("ROD" if deformable_role == "ROD" else
@@ -6228,10 +6403,12 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         **_recovery_param_kwargs(scene))
     def encode_param_payload():
       if deformable_role == "CLOTH":
+        _check_preparation_cancel()
         return encode_multi_collider_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs, shell=shell,
             contact_enabled=contact_enabled, static_pin=pin_config,
             schema_version=wire_schema, protocol_version=wire_protocol)
+      _check_preparation_cancel()
       return encode_deformable_param(
             settings, cloth_obj.name, cloth_uuid, collider_specs,
             group_type=("ROD" if deformable_role == "ROD" else
@@ -6359,6 +6536,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     cache_directory = (Path(bpy.path.abspath(configured_cache))
                        if configured_cache else _cache_directory())
     pc2_path = cache_directory / f"cn_test_cloth_{project_name[10:]}.pc2"
+    _check_preparation_cancel()
     return RunPlan(scene=session_scene, resolved=resolved,
                    initial_local=cloth_vertices, world_matrix=cloth_world,
                    cloth_object_name=cloth_obj.name,
@@ -6389,6 +6567,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
                    snapshot: ValidationSnapshot | None = None,
                    scene_source_key: str | None = None) -> RunPlan:
     """Build and time a pure worker plan from one validation snapshot."""
+    _check_preparation_cancel()
     global _export_timing_sink, _export_cache_event_sink
     started = time.monotonic()
     timings = dict(getattr(snapshot, "timings", {}) if snapshot else {})
@@ -6426,6 +6605,7 @@ def build_run_plan(context, *, animated_pin_samples=None,
     plan = replace(
         plan, export_timings=timings,
         export_cache_events=cache_events)
+    _check_preparation_cancel()
     return _configure_recovery(context, snapshot, plan)
 
 
@@ -9022,14 +9202,21 @@ def _start_prepared_run(plan: RunPlan) -> None:
     global _worker, _active_plan, _run_started_at, _last_work_directory
     global _unsubscribe, _ram_auto_cancel_triggered
     import time as _time
+    owner = shared_controller.snapshot()
+    if owner.active and companion_manager.consume_preparation_cancel():
+        _cancel_event.set()
+        if owner.state is not BakeState.CANCELLING:
+            shared_controller.request_cancel()
+    if (_cancel_event.is_set() and
+            (shared_controller.snapshot().active or
+             shared_controller.snapshot().state is BakeState.CANCELLED)):
+        raise SessionCancelled()
     for target in _plan_deformables(plan):
         target.pc2_path.parent.mkdir(parents=True, exist_ok=True)
     plan.work_directory.mkdir(parents=True, exist_ok=True)
     _last_work_directory = plan.work_directory
-    # Clear only cancellation left by an older Bake. Once EXPORTING is
-    # published, Cancel from the panel, HUD, or Bake Window must remain latched
-    # for the lifetime of this attempt and reach the worker's first check.
-    _cancel_event.clear()
+    # A new attempt clears its latch in _begin_controller, never at the
+    # preparation-to-worker handoff where a fresh Cancel must survive.
     # Establish ownership before publishing EXPORTING. A synchronous Cancel
     # subscriber must see a real active plan, not classify this hand-off as an
     # orphaned controller state while startup continues behind it.
@@ -9257,6 +9444,7 @@ def _continue_contact_validation(context, *, veyra: bool = False) -> None:
 
 
 def _begin_controller(job_kind: BakeJobKind) -> str:
+    _cancel_event.clear()
     if shared_controller.snapshot().state is not BakeState.IDLE:
         shared_controller.reset()
     return shared_controller.transition(
@@ -9286,6 +9474,7 @@ def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> st
 
 def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     global _pending_plan,_pending_job_id,_ram_auto_cancel_enabled
+    _check_preparation_cancel()
     owner = shared_controller.snapshot()
     if owner.job_id != job_id or owner.state is not BakeState.PREPARING:
         raise SessionCancelled()
@@ -9299,6 +9488,7 @@ def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     except (KeyError,AttributeError):
         auto_launch=True; _ram_auto_cancel_enabled=True
         _ram_auto_cancel.configure(90,2)
+    _check_preparation_cancel()
     _pending_plan=plan; _pending_job_id=job_id
     if not auto_launch:
         shared_controller.transition(BakeState.STARTING_RUN,status_message="Starting Bake in Blender")
@@ -9308,10 +9498,17 @@ def _continue_production_bake(context,job_id,plan) -> tuple[str,bool]:
     shared_controller.transition(BakeState.STARTING_COMPANION,status_message="Starting Bake window")
     request=EnterBakeMode(job_id=job_id,blender_process_id=os.getpid(),
         frame_start=plan.frame_start,frame_end=plan.frame_end,preset_label=plan.preset_identifier)
+    if _cancel_event.is_set():
+        raise SessionCancelled()
     ok,message=companion_manager.begin_bake_mode(request)
     if not ok:
         _pending_plan=None; _pending_job_id=""; shared_controller.fail(message)
         raise SceneValidationError(message)
+    if companion_manager.consume_preparation_cancel():
+        _cancel_event.set()
+    if _cancel_event.is_set():
+        companion_manager.cancel_startup(job_id)
+        raise SessionCancelled()
     shared_controller.transition(BakeState.WAITING_FOR_COMPANION,
         status_message="Opening Bake window…",frame_start=plan.frame_start,frame_end=plan.frame_end)
     if not bpy.app.timers.is_registered(_startup_pump):bpy.app.timers.register(_startup_pump,first_interval=.05)
@@ -9383,7 +9580,9 @@ def begin_production_bake(context, *, _water_job_id=None) -> tuple[str, bool]:
         # One authoritative validation for the whole Bake start: it hashes the
         # topology once and scans the pin group once. Everything downstream
         # (pin capture, run plan, fingerprints, cache check) reuses it.
+        _check_preparation_cancel()
         snapshot=validate_scene(context) if objects else None
+        _check_preparation_cancel()
         if snapshot is not None and _water_job_id is None:
             from . import water_preparation
             water_objects = tuple(entry.obj for entry in snapshot.deformables
@@ -9526,6 +9725,11 @@ def begin_production_bake(context, *, _water_job_id=None) -> tuple[str, bool]:
             context, snapshot=snapshot,
             collider_captures=(cached_colliders
                                if animated_colliders else None))
+    except SessionCancelled:
+        _pending_plan = None
+        _pending_job_id = ""
+        _finish_preparation_cancel(job_id)
+        raise
     except (SceneValidationError, ClothNextError) as exc:
         modal_lock.release(job_id)
         message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
@@ -9541,7 +9745,13 @@ def begin_production_bake(context, *, _water_job_id=None) -> tuple[str, bool]:
         companion_manager.persist_bake_error(shared_controller.snapshot())
         raise SceneValidationError(
             f"{summary} Error code: {code}. Check the Bake logs.") from exc
-    return _continue_production_bake(context,job_id,plan)
+    try:
+        return _continue_production_bake(context,job_id,plan)
+    except SessionCancelled:
+        _pending_plan = None
+        _pending_job_id = ""
+        _finish_preparation_cancel(job_id)
+        raise
 
 
 def _suspend_pin_capture_playback(state) -> None:
@@ -9651,7 +9861,7 @@ def _pin_capture_pump():
     state_job = state.get("job_id", "")
     owner = shared_controller.snapshot()
     if state_job and (owner.job_id != state_job
-                      or owner.state is not BakeState.PREPARING):
+                      or owner.state not in {BakeState.PREPARING, BakeState.CANCELLING}):
         try:
             _cleanup_collider_pump(state.get("collider_states", {}))
         except Exception:
@@ -9666,6 +9876,7 @@ def _pin_capture_pump():
             _pending_job_id = ""
         return None
     try:
+        _check_preparation_cancel()
         if state.get("wait_for_companion"):
             status, message = companion_manager.preparation_status()
             if status == "READY":
@@ -9710,6 +9921,7 @@ def _pin_capture_pump():
             progress_current=point_index,
             progress_total=len(state["points"]))
         scene.frame_set(frame, subframe=point.subframe)
+        _check_preparation_cancel()
         depsgraph = context.evaluated_depsgraph_get()
         timings = state["snapshot"].timings
         timings["frame_set_count"] = timings.get(
@@ -9718,6 +9930,7 @@ def _pin_capture_pump():
             "depsgraph_evaluation_count", 0.0) + 1.0
         if state["targets"]:
             for object_name, membership in state["targets"]:
+                _check_preparation_cancel()
                 obj=bpy.data.objects.get(object_name)
                 if obj is None:
                     raise SceneValidationError(
@@ -9769,6 +9982,7 @@ def _pin_capture_pump():
                     "pin_sample_count", 0.0) + 1.0
                 timings["evaluated_get_count"] = timings.get(
                     "evaluated_get_count", 0.0) + 1.0
+        _check_preparation_cancel()
         if point.position.denominator == 1:
             if state["force_capture"] is None:
                 force_state, active_scalar_types = _force_state(
@@ -9793,6 +10007,7 @@ def _pin_capture_pump():
             activity_code=activity,
             progress_current=point_index + 1,
             progress_total=len(state["points"]))
+        _check_preparation_cancel()
         if point_index + 1 < len(state["points"]):
             state["point_index"] = point_index + 1
             return .005
@@ -9861,6 +10076,7 @@ def _pin_capture_pump():
         except Exception:
             pass
         _pin_capture=None; _pending_job_id=""
+        modal_lock.release(state_job)
         if shared_controller.snapshot().state is not BakeState.CANCELLING:
             shared_controller.request_cancel()
         shared_controller.transition(
@@ -9921,12 +10137,16 @@ def cancel_pending_startup() -> None:
     companion_manager.cancel_startup(job_id)
     if _pin_capture is not None:
         try:
+            _cleanup_collider_pump(_pin_capture.get("collider_states", {}))
+        except Exception:pass
+        try:
             _restore_pin_capture_state(_pin_capture)
         except Exception:pass
         _pin_capture=None
         if bpy.app.timers.is_registered(_pin_capture_pump):
             bpy.app.timers.unregister(_pin_capture_pump)
     _pending_plan = None; _pending_job_id = ""
+    modal_lock.release(job_id)
     if shared_controller.snapshot().state is not BakeState.CANCELLING:
         shared_controller.request_cancel()
     shared_controller.transition(BakeState.CANCELLED,
@@ -10194,6 +10414,9 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
         try:
             from . import solver_backends
             _job_id, waiting = solver_backends.begin_bake(context)
+        except SessionCancelled:
+            self.report({'INFO'}, "Bake preparation cancelled")
+            return {'CANCELLED'}
         except (SceneValidationError, ClothNextError, ValueError) as exc:
             message = exc.record.user_message if isinstance(exc, ClothNextError) else str(exc)
             snapshot = shared_controller.snapshot()

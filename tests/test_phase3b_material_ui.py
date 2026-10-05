@@ -471,7 +471,7 @@ def test_soft_body_uses_role_specific_material_shape_and_collision(
     material.layout = RecordingLayout()
     material.draw(context)
     assert material.layout.props == [
-        "volume_density", "stretch_resistance", "poisson_ratio",
+        "appear_solid", "volume_density", "stretch_resistance", "poisson_ratio",
         "volume_scale", "tetrahedralizer", "shape_damping",
         "stretch_plasticity_enabled", "stretch_plasticity_rate",
         "stretch_plasticity_threshold_percent"]

@@ -22,6 +22,31 @@ from tests import mesh_fixtures
 SOLVER_TEST_SOURCE = Path("cloth_next/blender/solver_test.py")
 
 
+def test_static_collider_reused_when_soft_body_stiffness_changes(env, monkeypatch, tmp_path):
+    scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=64, pinning=False)
+    module = env.solver_test
+    scene.cloth.cloth_next.cache_directory = str(tmp_path)
+    snapshot = module.validate_scene(scene.context)
+    calls = []
+
+    def extract(context, obj, *, needs_edges):
+        calls.append(obj.name)
+        return _fake_mesh(obj)
+
+    monkeypatch.setattr(module, '_extract_boundary_mesh', extract)
+    cold = module._static_collider_geometry(scene.context, scene.collider, snapshot.bake_range, snapshot)
+    scene.cloth.cloth_next.soft_body.stretch_resistance = 9000
+    warm = module._static_collider_geometry(scene.context, scene.collider, snapshot.bake_range, snapshot)
+    assert calls == [scene.collider.name]
+    for left, right in zip(cold, warm):
+        np.testing.assert_allclose(left, right)
+    # Hash verification rejects a damaged collider artifact and exports again.
+    artifact = next((tmp_path / '.cloth_next_export').rglob('vertices.f32'))
+    artifact.write_bytes(b'damaged')
+    module._static_collider_geometry(scene.context, scene.collider, snapshot.bake_range, snapshot)
+    assert calls == [scene.collider.name, scene.collider.name]
+
+
 def test_param_cache_identity_changes_with_dense_pin_trajectory(env):
     module = env.solver_test
     sparse = StaticPinConfig(

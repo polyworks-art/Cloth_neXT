@@ -312,6 +312,12 @@ def ensure_running() -> tuple[bool, str]:
     return launch()
 
 
+def consume_preparation_cancel() -> bool:
+    """Nonblocking Cancel check without running Blender timers or IPC handlers."""
+    consume = getattr(_server, "consume_cancel_request", None)
+    return bool(consume()) if consume is not None else False
+
+
 def preparation_status() -> tuple[str, str]:
     """Readiness of a preparation-only Companion launch.
 
@@ -413,10 +419,9 @@ def _pulse():
                                "Bake window startup failed.")))
         elif kind == "cancel_request":
             snapshot = shared_controller.snapshot()
-            if _pending_request is not None:
-                cancel_startup(_pending_request.job_id)
-            elif snapshot.can_cancel:
-                shared_controller.request_cancel()
+            if _pending_request is not None or snapshot.can_cancel:
+                from . import solver_test
+                solver_test.request_cancel()
         elif kind.startswith("veyra_"):
             payload = dict(message.get("payload", {}))
             job_id = str(payload.get("job_id", ""))
