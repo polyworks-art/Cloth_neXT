@@ -118,8 +118,12 @@ class SceneObject:
     stitch_pairs: tuple[tuple[int, int], ...] = ()
     uv_faces: tuple[tuple[tuple[float, float], ...], ...] = ()
     face_friction: tuple[float, ...] = ()
+    face_material_params: dict[str, tuple[float, ...]] | None = None
 
     def __post_init__(self) -> None:
+        if self.face_material_params:
+            from ...materials.zones import validate_tables
+            validate_tables(self.name, self.face_material_params, len(self.triangles))
         if not self.name.strip():
             raise SceneEncodeError("object name must not be empty")
         if not self.uuid.strip():
@@ -232,6 +236,10 @@ class SceneObject:
                 self.face_friction * PPF_FRICTION_SCALE if is_numpy else
                 [_float32(artist_friction_to_ppf(value))
                  for value in self.face_friction])
+        if self.face_material_params:
+            info["face_material_params"] = {
+                key: [_float32(value) for value in values]
+                for key, values in sorted(self.face_material_params.items())}
         if len(self.edges):
             is_numpy = (type(self.edges).__module__.split(".", 1)[0]
                         == "numpy")
@@ -379,8 +387,12 @@ def build_multi_deformable_scene_payload(deformables, collider, *,
             raise SceneEncodeError("deformables must be SceneObject values")
         if group_type not in grouped:
             raise SceneEncodeError(f"unsupported deformable group: {group_type}")
+        if deformable.face_material_params and group_type != GROUP_SHELL:
+            raise SceneEncodeError(f'{deformable.name}: Material Zones require Cloth/SHELL. Remove the zones.')
         grouped[group_type].append(deformable)
     colliders = _collider_sequence(collider)
+    if any(item.face_material_params for item in colliders):
+        raise SceneEncodeError('Collider Material Zones are unsupported. Remove the zones.')
     uuids = [item.uuid for item, _group in entries]
     uuids.extend(item.uuid for item in colliders)
     if len(set(uuids)) != len(uuids):

@@ -246,6 +246,26 @@ def _on_material_value_update(self, _context) -> None:
     mark_custom(_object_settings_of(self))
 
 
+def _on_zone_update(self, _context):
+    _mark_dirty(self)
+
+
+class CLOTHNEXT_PG_zone_override(bpy.types.PropertyGroup):
+    key: bpy.props.StringProperty(options={"HIDDEN"}, update=_on_zone_update)
+    value: bpy.props.FloatProperty(name="Value", default=0.0, min=0.0,
+                                   update=_on_zone_update)
+
+
+class CLOTHNEXT_PG_material_zone(bpy.types.PropertyGroup):
+    identity: bpy.props.StringProperty(options={"HIDDEN"})
+    token: bpy.props.IntProperty(default=0, options={"HIDDEN"})
+    name: bpy.props.StringProperty(name="Name", default="Material Zone", update=_on_zone_update)
+    enabled: bpy.props.BoolProperty(name="Enabled", default=True, update=_on_zone_update)
+    expanded: bpy.props.BoolProperty(default=True)
+    face_count: bpy.props.IntProperty(default=0, options={"HIDDEN"})
+    overrides: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_zone_override)
+
+
 class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
     """Cloth material — every field maps to a real PPF shell parameter."""
 
@@ -907,6 +927,10 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         type=CLOTHNEXT_PG_friction_region)
     friction_region_index: bpy.props.IntProperty(
         default=0, min=0, options={"HIDDEN"})
+    material_zones: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_material_zone)
+    material_zone_mesh_id: bpy.props.StringProperty(options={"HIDDEN"})
+    material_zone_digest: bpy.props.StringProperty(options={"HIDDEN"})
+    material_zone_status: bpy.props.StringProperty(options={"HIDDEN"})
     soft_constraints: bpy.props.CollectionProperty(
         type=CLOTHNEXT_PG_soft_constraint)
     soft_constraint_index: bpy.props.IntProperty(
@@ -1196,7 +1220,8 @@ def detach_from_object() -> None:
         del bpy.types.Object.cloth_next
 
 
-CLASSES = (CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
+CLASSES = (CLOTHNEXT_PG_zone_override, CLOTHNEXT_PG_material_zone,
+           CLOTHNEXT_PG_material_settings, CLOTHNEXT_PG_damping_settings,
            CLOTHNEXT_PG_pressure_settings,
            CLOTHNEXT_PG_shared_collision, CLOTHNEXT_PG_collision_settings, CLOTHNEXT_PG_friction_region,
            CLOTHNEXT_PG_soft_constraint,

@@ -1487,6 +1487,30 @@ def _friction_region_settings(obj) -> tuple[tuple[str, float], ...]:
                  for region in regions)
 
 
+def _zone_settings_record(obj):
+    from .material_zones import settings_record
+    return settings_record(obj)
+
+
+def _zone_export_tables(obj, triangles, shell, friction, resolved):
+    from .material_zones import require_capability, export_tables
+    from ..materials.zones import ZoneError
+    try:
+        require_capability(obj, resolved)
+        return export_tables(obj, triangles, shell, friction)
+    except ZoneError as exc:
+        raise SceneValidationError(str(exc)) from exc
+
+
+def _require_zone_capability(obj, resolved):
+    from .material_zones import require_capability
+    from ..materials.zones import ZoneError
+    try:
+        require_capability(obj, resolved)
+    except ZoneError as exc:
+        raise SceneValidationError(str(exc)) from exc
+
+
 def _extract_face_friction(
         obj, triangles, base_friction: float) -> tuple[float, ...]:
     """Blend Vertex Group targets and average vertex friction per triangle."""
@@ -2131,6 +2155,7 @@ def _world_matrix_record(obj) -> tuple[tuple[float, ...], ...]:
 
 def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                           contact_enabled, preset_identifier, quality) -> str:
+    from .material_zones import settings_record
     collider_objs = (collider_obj if isinstance(collider_obj, tuple)
                      else (() if collider_obj is None else (collider_obj,)))
     statics = (static if isinstance(static, tuple)
@@ -2202,6 +2227,9 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
     if getattr(cloth_obj.cloth_next, "water_flow_enabled", False):
         from .water_flow import water_settings_record
         record += "\0" + json.dumps(water_settings_record(cloth_obj), sort_keys=True)
+    zone_record = settings_record(cloth_obj)
+    if zone_record is not None:
+        record += '\0' + json.dumps(zone_record, sort_keys=True)
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
 
 
@@ -2687,6 +2715,17 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
 def validate_scene(context) -> ValidationSnapshot:
     """Timed authoritative validation snapshot."""
     started = time.monotonic()
+    from .material_zones import validate_ownership, update_counts
+    from ..materials.zones import ZoneError
+    for obj in context.scene.objects:
+        settings = getattr(obj, 'cloth_next', None)
+        if settings and getattr(settings, 'enabled', False) and getattr(settings, 'material_zones', ()):
+            if settings.role != 'CLOTH' or obj.type != 'MESH':
+                raise SceneValidationError(f'{obj.name}: Material Zones require Cloth/SHELL. Remove the zones before changing object type.')
+            try:
+                update_counts(obj, validate_ownership(obj), dirty=False)
+            except ZoneError as exc:
+                raise SceneValidationError(str(exc)) from exc
     snapshot = _validate_scene_impl(context)
     return replace(snapshot, timings={
         **snapshot.timings,
@@ -3378,6 +3417,7 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
                        if role == "CLOTH" else ""),
                 "friction_regions": list(
                     _friction_region_settings(obj)),
+                "material_zones": _zone_settings_record(obj),
                 "friction_base": (
                     float(entry.material.surface_grip)
                     if _friction_region_settings(obj) else None),
@@ -5473,6 +5513,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
     scene = context.scene
     resolved = resolve_solver(context)
     wire_schema, wire_protocol = _resolved_wire_contract(resolved)
+    for entry in snapshot.deformables:
+        _require_zone_capability(entry.obj, resolved)
     if (any(_friction_region_settings(entry.obj)
             for entry in snapshot.deformables)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
@@ -5609,7 +5651,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             entry.obj.name, dynamic_uuid, vertices, triangles,
             solver_world_matrix(world), pin_snapshot.vertex_indices,
             edges=edges, stitch_pairs=stitch_pairs,
-            uv_faces=uv_faces, face_friction=face_friction), group))
+            uv_faces=uv_faces, face_friction=face_friction,
+            face_material_params=_zone_export_tables(entry.obj, triangles, entry.material, face_friction, resolved)), group))
         param_dynamics.append((entry.obj.name, dynamic_uuid, group,
                                entry.material,
                                static_pin_config(pin_snapshot, schema_version=wire_schema)))
@@ -5904,6 +5947,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     # solver cannot leave behind a large temporary Collider buffer.
     resolved = resolve_solver(context)
     wire_schema, wire_protocol = _resolved_wire_contract(resolved)
+    _require_zone_capability(cloth_obj, resolved)
     if (_friction_region_settings(cloth_obj)
             and resolved.mode is not SolverMode.MANAGED_INSTALLATION):
         raise SceneValidationError(
@@ -6049,7 +6093,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                               pin_snapshot.vertex_indices, edges=cloth_edges,
                               stitch_pairs=stitch_pairs,
                               uv_faces=cloth_uv_faces,
-                              face_friction=cloth_face_friction)
+                              face_friction=cloth_face_friction,
+                              face_material_params=_zone_export_tables(cloth_obj, cloth_triangles, shell, cloth_face_friction, resolved))
     scene_colliders = []
     collider_specs = []
     motion_meta = []

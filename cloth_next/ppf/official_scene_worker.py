@@ -29,6 +29,31 @@ _spec.loader.exec_module(_bridge)
 bind_face_friction, bind_stiffness = _bridge.bind_face_friction, _bridge.bind_stiffness
 
 
+def apply_material_tables(binary, mapping, tables):
+    """Validate/bind all native triangle inputs before replacing any file."""
+    import numpy as np
+    binary = Path(binary)
+    keys = {key for row in tables for key in row['params']}
+    if keys - _bridge.MATERIAL_KEYS:
+        raise ValueError('unsupported Material Zone parameter')
+    prepared = []
+    if keys:
+        tri = np.fromfile(binary / 'tri.bin', dtype=np.uint64).reshape(-1, 3)
+    for key in sorted(keys):
+        path = binary / 'param' / f'tri-{key}.bin'
+        values = np.fromfile(path, dtype=np.float32)
+        rows = [{'uuid': row['uuid'], 'faces': row['faces'], 'values': row['params'][key]}
+                for row in tables if key in row['params']]
+        if any(len(row['faces']) != len(row['values']) for row in rows):
+            raise ValueError(f'Material Zone {key} triangle count mismatch')
+        prepared.append((path, bind_face_friction(tri, values, mapping, rows)))
+    for path, values in prepared:
+        temporary = path.with_suffix('.cnx-tmp')
+        values.tofile(temporary)
+        os.replace(temporary, path)
+        np.testing.assert_array_equal(np.fromfile(path, dtype=np.float32), values)
+
+
 def apply_bindings(project_name, project_root, document):
     import cbor2
     import numpy as np
@@ -84,6 +109,10 @@ def apply_bindings(project_name, project_root, document):
             temporary = path.with_suffix(".cnx-tmp")
             resolved.tofile(temporary)
             os.replace(temporary, path)
+        # Same exact vertex-map binding as legacy friction. Each audited native
+        # tri parameter input is replaced before the solver is launched.
+        tables = document.get("face_material_params", [])
+        apply_material_tables(binary, mapping, tables)
         return {"stitch_rows": len(document["stitches"]),
                 "painted_objects": len(document["face_friction"])}
     finally:

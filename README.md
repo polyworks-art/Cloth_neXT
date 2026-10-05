@@ -74,6 +74,8 @@ Cloth NeXt also provides a more guided and streamlined alternative for artists w
   each mapped one-to-one to a documented PPF solver parameter
 - A categorized library of 37 fabric presets, including 30 research-backed
   starting points derived from the MIT Fabric Properties Dataset
+- [Material Zones](docs/MATERIAL_ZONES.md): hard face selections with exact
+  triangle material overrides and a visible-center Circle Select tool
 - Scene Health checks, persistent CNX error codes, support reports, and
   authenticated cache recovery
 - CPU, RAM, and VRAM monitoring plus frame-performance history during Bake

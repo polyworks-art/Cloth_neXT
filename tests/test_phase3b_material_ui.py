@@ -53,6 +53,9 @@ class RecordingLayout:
     def row(self, align=False):
         return RecordingLayout(self.sink)
 
+    def separator(self):
+        pass
+
     def box(self):
         return RecordingLayout(self.sink)
 

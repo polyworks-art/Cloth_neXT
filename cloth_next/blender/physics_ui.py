@@ -1805,6 +1805,8 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         bend.prop(material, "bend_plasticity_rate")
         bend.prop(material, "bend_plasticity_threshold_degrees")
         bend.prop(material, "bend_rest_from_geometry")
+        from . import material_zones
+        material_zones.draw(layout, context)
 
 
 class CLOTHNEXT_PT_pinning(_ClothNextSubpanel, bpy.types.Panel):

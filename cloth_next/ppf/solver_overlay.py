@@ -3,10 +3,10 @@
 
 """Idempotent managed-frontend extensions owned by Cloth NeXt.
 
-The pinned PPF core already consumes a friction value for every triangle,
+The pinned PPF core consumes material parameter tables for every triangle,
 while its Python frontend expands one object scalar across all triangles.
-This narrowly scoped overlay preserves an optional ``face_friction`` scene
-array and substitutes it during that existing expansion. It is applied only
+This overlay preserves optional ``face_friction`` and audited
+``face_material_params`` arrays during that expansion. It is applied only
 to Cloth NeXt-managed solver installations, never external user installs.
 """
 
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
-OVERLAY_VERSION = "face-friction-intersection-preview-v9"
+OVERLAY_VERSION = "face-material-intersection-preview-v10"
 UPSTREAM_013_RELEASE = "2026-07-26-22-53"
 
 _DECODER_NEEDLE = '''                else:
@@ -93,6 +93,45 @@ _GAIA_SCENE_MAPPED_REPLACEMENT = '''                mapped = (
                             raise ValueError("invalid face_friction override")
                         mapped = face_friction
 '''
+# Preserve v9 text for migration of existing managed installations.
+_LEGACY_DECODER_REPLACEMENT = _DECODER_REPLACEMENT
+_LEGACY_SHELL_REPLACEMENT = _SCENE_SHELL_REPLACEMENT
+_LEGACY_GAIA_REPLACEMENT = _GAIA_SCENE_MAPPED_REPLACEMENT
+_DECODER_REPLACEMENT += '''
+                if _obj is not None and obj.get("face_material_params"):
+                    import numpy as np
+                    tables = obj["face_material_params"]
+                    allowed = {"young-mod", "bend", "friction",
+                               "deformation-damping", "bending-damping"}
+                    if group_type != "SHELL" or set(tables) - allowed:
+                        raise ValueError(f"{name}: unsupported face material parameters")
+                    checked = {}
+                    limits = {"young-mod": (0.0, 1e9), "friction": (0.0, 0.5)}
+                    for key, raw in tables.items():
+                        values = np.asarray(raw, dtype=np.float64)
+                        low, high = limits.get(key, (0.0, 3.4028234663852886e38))
+                        if (face is None or values.ndim != 1
+                                or len(values) != len(face)
+                                or not np.all(np.isfinite(values))
+                                or np.any(values < low) or np.any(values > high)
+                                or (key == "young-mod" and np.any(values <= 0))):
+                            raise ValueError(f"{name}: invalid triangle {key} array")
+                        checked[key] = values
+                    _obj._face_material_params = checked
+'''
+_SCENE_SHELL_REPLACEMENT = _SCENE_SHELL_REPLACEMENT.replace(
+    '                _extend_param(obj.param, concat_tri_param, tri_added, overrides)',
+    '                overrides = dict(overrides or {})\n'
+    '                overrides.update(getattr(obj, "_face_material_params", {}))\n'
+    '                _extend_param(obj.param, concat_tri_param, tri_added, overrides)')
+_GAIA_SCENE_MAPPED_REPLACEMENT += '''                if element_key == "F" and obj is not None:
+                    hard = getattr(obj, "_face_material_params", {}).get(key)
+                    if hard is not None:
+                        if key in obj.param_spatial or len(hard) != count:
+                            raise ValueError(f"invalid hard material override: {key}")
+                        mapped = hard
+'''
+
 _BUILD_WORKER_NEEDLE = '''                with open(os.path.join(root, "build_violations.json"), "w") as fp:
                     json.dump({"violations": violations}, fp)
 '''
@@ -365,6 +404,16 @@ def _upgrade_violation_overlay(path: Path) -> None:
     os.replace(temporary, path)
 
 
+def _upgrade_material_overlay(decoder: Path, scene: Path) -> None:
+    for path, old, new in (
+            (decoder, _LEGACY_DECODER_REPLACEMENT, _DECODER_REPLACEMENT),
+            (scene, _LEGACY_SHELL_REPLACEMENT, _SCENE_SHELL_REPLACEMENT),
+            (scene, _LEGACY_GAIA_REPLACEMENT, _GAIA_SCENE_MAPPED_REPLACEMENT)):
+        source = path.read_text(encoding='utf-8')
+        if new not in source and old in source:
+            _replace_once(path, ((old, new),))
+
+
 def apply_managed_solver_overlay(bundle_root: Path) -> None:
     root = Path(bundle_root)
     frontend = root / "frontend"
@@ -378,6 +427,7 @@ def apply_managed_solver_overlay(bundle_root: Path) -> None:
             or not build_worker.is_file()):
         raise SolverOverlayError("managed solver frontend files are missing")
     _upgrade_violation_overlay(scene)
+    _upgrade_material_overlay(decoder, scene)
     _replace_once(decoder, ((_DECODER_NEEDLE, _DECODER_REPLACEMENT),))
     _replace_once(scene, (
         (_SCENE_SIGNATURE, _SCENE_SIGNATURE_REPLACEMENT),
@@ -395,6 +445,7 @@ def _apply_gaia_overlay(bundle_root: Path) -> None:
     if marker.is_file():
         return
     frontend = bundle_root / "frontend"
+    _upgrade_material_overlay(frontend / '_decoder_.py', frontend / '_scene_.py')
     _replace_once(frontend / "_decoder_.py", (
         (_DECODER_NEEDLE, _DECODER_REPLACEMENT),))
     _replace_once(frontend / "_scene_.py", (

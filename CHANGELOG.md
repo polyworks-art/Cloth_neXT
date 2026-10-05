@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.11 - 2026-10-05
+
+- Add persistent Material Zones with independent Stretch Resistance, Bend Resistance, Friction, Shape Damping and Fold Damping overrides.
+- Add an occlusion-aware viewport brush with staged selection, Shift removal, Enter confirmation and Escape cancellation.
+- Preserve exact face ownership through triangulation and send per-triangle solver parameters without averaging across shared vertices.
+- Validate mesh ownership, topology, parameter ranges and managed solver compatibility before Bake.
+- Verify real Blender storage and viewport selection, regression coverage and exact native material tables with official GAIA 0.23.
+
 ## 2.9.10 - 2026-10-03
 
 - Stream current and next prepared GAIA Water Flow frames through official 0.23 held updates, preserving temporal interpolation without an animation-sized upload.

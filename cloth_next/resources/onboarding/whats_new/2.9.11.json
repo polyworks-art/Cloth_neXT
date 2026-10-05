@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.11",
+  "title": "What's New in Cloth NeXt 2.9.11",
+  "subtitle": "Different material behavior across one cloth object.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Material Zones",
+      "description": "Override stretch, bend, friction, shape damping and fold damping on selected faces. Other material controls inherit the object material."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Paint visible faces",
+      "description": "Brush faces in the viewport, use Shift to remove them, and adjust the radius with the wheel. Enter confirms; Escape discards."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Exact triangle materials",
+      "description": "Neighboring zones keep independent solver values even when their faces share vertices. Bake checks ownership and topology before export."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

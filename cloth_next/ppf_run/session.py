@@ -1639,7 +1639,8 @@ class SolverSession:
         if not self._official_bridge:
             return
         document = json.loads(self.scene.official_bridge_json)
-        if not document["stitches"] and not document["face_friction"]:
+        if (not document["stitches"] and not document["face_friction"]
+                and not document.get("face_material_params")):
             return
         if self._manager is None or self.resolved.executable_path is None:
             raise _session_error(

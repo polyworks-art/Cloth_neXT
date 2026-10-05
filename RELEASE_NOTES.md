@@ -1,11 +1,9 @@
-# Cloth NeXt 2.9.10
+# Cloth NeXt 2.9.11
 
-GAIA Water Flow now streams current and next source frames from prepared .gaia caches through official GAIA 0.23 held Force Field updates. Temporal interpolation and source-frame offsets are preserved without uploading the full animation or reconstructing FLIP particles during the cloth solve. The native solver continues in the same session; the existing whole-schedule limit is unchanged.
+Material Zones let different faces of one cloth object use independent Stretch Resistance, Bend Resistance, Friction, Shape Damping and Fold Damping. Other material controls inherit the object material. Zone definitions and face ownership persist in saved Blender files.
 
-Auto uses at least 100 samples on the longest axis. Medium, High and Extreme use 100, 150 and 200 with isotropic physical spacing, explicit memory limits and occupied-region preview sampling. The supplied scene's 100 x 100 x 50 field completes all 250 source frames through the production PC2 lifecycle. Tested 150 and 200 two-frame windows also pass actual production upload, output and cleanup.
+Use the viewport brush to select visible faces, Shift to remove assignments, the wheel to change radius, Enter to commit and Escape to discard. Occluded faces remain protected, including in X-Ray view. Bake validates topology and ownership before exporting exact per-triangle parameters; shared vertices do not blend neighboring zone values.
 
-Water Flow integrates with existing cancellation and Recovery. After restarting Blender, Resume loads the authenticated checkpoint's corresponding field window; Start Fresh resets simulation state while retaining the prepared environmental cache. Authenticated Windows project cleanup now handles long nested paths correctly. Water-disabled simulations keep their existing bake path.
+Validated with regression tests, real Blender save/load and viewport selection, and official GAIA 0.23 native material tables, including adjacent triangles with Bend Resistance 10 and 100. Full server-driven simulation validation remains limited by an installed frontend Windows junction cache-directory error; native table integration passes. See docs/MATERIAL_ZONES_VALIDATION.md for details.
 
-Validation: 2,115 regression tests passed before release preparation, plus real Blender cancel/restart/resume/Start Fresh tests, numerical whole-versus-stream controls, 10/250-frame memory comparisons and actual unchanged official CUDA solver runs. The long test uses the supplied water sequence with a representative small cloth, rather than the full original scene. GPU/device memory was not separately measured.
-
-Requires official GAIA 0.23 and baked FLIP velocity attributes. Update through Blender's native extension manager and prepare existing coarse Water Flow caches again for the new spatial recipe. The external solver is not modified or bundled.
+Update through Blender's native extension manager. Material Zones require a supported managed solver installation. The external solver is not modified or bundled.

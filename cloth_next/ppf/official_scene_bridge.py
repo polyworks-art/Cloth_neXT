@@ -17,6 +17,10 @@ import json
 import math
 from pathlib import Path
 
+# Standalone worker deliberately loads this file without a package namespace.
+MATERIAL_KEYS = frozenset(("young-mod", "bend", "friction",
+                          "deformation-damping", "bending-damping"))
+
 
 def uses_official_bridge(resolved) -> bool:
     from .compatibility import protocol_profile
@@ -64,8 +68,15 @@ def prepare_scene(scene, *, enabled: bool):
             if key in objects:
                 raise ValueError(f"duplicate export UUID: {key}")
             objects[key] = (group["type"], obj)
-    bindings, cross, friction = [], [], []
+    bindings, cross, friction, materials = [], [], [], []
     for uuid, (kind, obj) in objects.items():
+        tables = obj.pop("face_material_params", None)
+        if tables:
+            from ..materials.zones import validate_tables
+            if kind != "SHELL":
+                raise ValueError(f"{obj['name']}: Material Zones require Cloth/SHELL")
+            validate_tables(obj['name'], tables, len(obj['face']))
+            materials.append({"uuid": uuid, "faces": obj["face"], "params": tables})
         values = obj.pop("face_friction", None)
         if values is not None:
             if kind != "SHELL" or len(values) != len(obj["face"]):
@@ -106,9 +117,12 @@ def prepare_scene(scene, *, enabled: bool):
         params["cross_stitch"] = cross
     else:
         params.pop("cross_stitch", None)
-    document = json.dumps({"version": 1, "source_data_hash": scene.data_hash,
+    binding_document = {"version": 1, "source_data_hash": scene.data_hash,
                            "source_param_hash": scene.param_hash,
-                           "stitches": bindings, "face_friction": friction},
+                           "stitches": bindings, "face_friction": friction}
+    if materials:
+        binding_document["face_material_params"] = materials
+    document = json.dumps(binding_document,
                           sort_keys=True, separators=(",", ":"), allow_nan=False)
     wire_data = envelope.dumps_envelope(envelope.KIND_SCENE, data, schema_version=2)
     wire_param = envelope.dumps_envelope(envelope.KIND_PARAM, params, schema_version=2)
