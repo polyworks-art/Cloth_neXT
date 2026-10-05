@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.14",
+  "title": "What's New in Cloth NeXt 2.9.14",
+  "subtitle": "Clean attachment state after object deletion.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Deleted objects cleaned up",
+      "description": "Attachments to deleted source or target objects are removed automatically, so stale entries no longer block Bake."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Existing attachments preserved",
+      "description": "Objects temporarily unlinked from the scene keep their attachments. Cleanup also handles old files when opened."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

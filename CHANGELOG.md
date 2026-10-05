@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.14 - 2026-10-05
+
+- Remove orphaned Object Attachments automatically when their source or target object is deleted, including on file load and before Bake validation.
+- Preserve attachments to objects that still exist in Blender, including objects temporarily unlinked from the current scene.
+- Verify deletion cleanup and scene-unlink preservation in real Blender.
+
 ## 2.9.13 - 2026-10-05
 
 - Fix Companion authentication argument parsing when random tokens begin with a hyphen; exercise this case in release smoke tests.

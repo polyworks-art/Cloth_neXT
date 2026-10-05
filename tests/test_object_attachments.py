@@ -291,10 +291,7 @@ def test_scene_relationship_survives_rename_and_invalidates_on_delete(
     assert object_attachments.snapshot_enabled(scene, entries) == ()
     item.enabled = True
     scene.objects.remove(target)
-    with pytest.raises(AttachmentError, match="Needs Rebuild"):
-        object_attachments.snapshot_enabled(scene, entries)
-    assert item.needs_rebuild
-    scene.cloth_next_object_attachments.remove(0)
+    assert object_attachments.snapshot_enabled(scene, entries) == ()
     assert len(scene.cloth_next_object_attachments) == 0
     env.registration.unregister()
 

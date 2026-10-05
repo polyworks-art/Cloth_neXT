@@ -716,8 +716,41 @@ class CLOTHNEXT_OT_remove_object_attachment(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def prune_deleted_objects(scene, *, validating=False):
+    """Remove relations to deleted datablocks, preserving drafts/unlinked objects."""
+    if shared_controller.snapshot().active and not validating:
+        return 0
+    items = getattr(scene, "cloth_next_object_attachments", ())
+    if not items:
+        return 0
+    datablocks = getattr(bpy.data, "objects", ())
+    objects = list(datablocks.values() if isinstance(datablocks, dict) else datablocks)
+    objects.extend(scene.objects)
+    identities = {str(getattr(getattr(obj, "cloth_next", None),
+                              "persistent_export_id", "")) for obj in objects}
+    removed = 0
+    for index in range(len(items)-1, -1, -1):
+        item = items[index]
+        endpoints = (str(item.source_persistent_id), str(item.target_persistent_id))
+        if any(identity and identity not in identities for identity in endpoints):
+            items.remove(index)
+            removed += 1
+    if removed:
+        scene.cloth_next_object_attachment_index = max(0, min(
+            int(scene.cloth_next_object_attachment_index), len(items)-1))
+        validation_state.mark_all_settings_dirty()
+    return removed
+
+
+def _prune_deleted_attachments(*_args):
+    scenes = getattr(bpy.data, "scenes", ())
+    for scene in (scenes.values() if isinstance(scenes, dict) else scenes):
+        prune_deleted_objects(scene)
+
+
 def snapshot_enabled(scene, deformable_entries):
     """Validate and freeze enabled relations for one authoritative Bake."""
+    prune_deleted_objects(scene, validating=True)
     objects = _objects_by_identity(scene)
     entries = {str(entry.obj.cloth_next.persistent_export_id): entry
                for entry in deformable_entries}
@@ -857,10 +890,16 @@ def _cancel_editor_sessions(*_args):
 
 _persistent = getattr(getattr(bpy.app, "handlers", None), "persistent", lambda fn: fn)
 _cancel_editor_sessions = _persistent(_cancel_editor_sessions)
+_prune_deleted_attachments = _persistent(_prune_deleted_attachments)
 
 
 def register():
     _ensure_draw_handler()
+    validation_state.add_depsgraph_observer(_prune_deleted_attachments)
+    _prune_deleted_attachments()
+    rows = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
+    if rows is not None and _prune_deleted_attachments not in rows:
+        rows.append(_prune_deleted_attachments)
     handlers = getattr(bpy.app, "handlers", None)
     if handlers is not None:
         for name in ("load_pre", "undo_pre"):
@@ -872,6 +911,10 @@ def register():
 def unregister():
     global _draw_handle
     _cancel_editor_sessions()
+    validation_state.remove_depsgraph_observer(_prune_deleted_attachments)
+    rows = getattr(getattr(bpy.app, "handlers", None), "load_post", None)
+    if rows is not None and _prune_deleted_attachments in rows:
+        rows.remove(_prune_deleted_attachments)
     handlers = getattr(bpy.app, "handlers", None)
     if handlers is not None:
         for name in ("load_pre", "undo_pre"):
