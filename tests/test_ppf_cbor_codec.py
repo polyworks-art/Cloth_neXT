@@ -158,3 +158,24 @@ def test_encodings_match_shipped_cbor2():
     for sample in samples:
         assert dumps(sample) == cbor2.dumps(sample)
         assert cbor2.loads(dumps(sample)) == sample
+
+
+def test_compact_vec3_animation_decode_retains_exact_wire_bytes():
+    frames = np.arange(4 * 64 * 3, dtype=np.float32).reshape(4, 64, 3) / 7
+    wire = dumps({"frames": frames, "other": [[1.0, 2.0, 3.0]]})
+    compact = cbor_codec.loads(wire, compact_arrays=True)
+    assert all(isinstance(frame, np.ndarray) for frame in compact["frames"])
+    assert not compact["frames"][0].flags.writeable
+    np.testing.assert_array_equal(compact["frames"], frames)
+    assert compact["other"] == [[1.0, 2.0, 3.0]]
+    assert dumps(compact) == wire
+
+
+def test_compact_decode_falls_back_for_mixed_rows_and_rejects_truncation():
+    rows = [[float(i), 2.0, 3.0] for i in range(32)]
+    rows[17][1] = 2  # An integer marker must not be interpreted as float data.
+    wire = dumps(rows)
+    assert cbor_codec.loads(wire, compact_arrays=True) == rows
+    wire = dumps(np.ones((32, 3)))
+    with pytest.raises(CborError):
+        cbor_codec.loads(wire[:-1], compact_arrays=True)

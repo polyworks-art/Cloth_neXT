@@ -908,11 +908,11 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         ),
         description="How animated Collider geometry is captured")
     collider_samples_per_frame: bpy.props.IntProperty(
-        name="Motion Samples / Frame", default=8, min=1, max=32,
+        name="Motion Samples / Frame", default=1, min=1, max=32,
         update=_on_settings_update,
-        description="Animated Collider samples per Blender frame. Increase "
-                    "this for fast or strongly curved motion to prevent the "
-                    "interpolated Collider from crossing the cloth")
+        description="Animated Collider capture samples per Blender frame. "
+                    "The current solver uses one pose per whole frame; "
+                    "additional capture samples increase preparation time")
     collider_proxy_enabled: bpy.props.BoolProperty(
         name="Use Experimental Proxy", default=False,
         update=_on_settings_update,
@@ -1203,7 +1203,7 @@ def reset_settings(settings) -> None:
     settings.role = DEFAULT_ROLE
     settings.collider_motion = "STATIC"
     settings.collider_capture_mode = "AUTO"
-    settings.collider_samples_per_frame = 8
+    settings.collider_samples_per_frame = 1
     settings.collider_proxy_enabled = False
     settings.collider_proxy_type = "SIMPLE"
     settings.collider_cage_margin = 0.003

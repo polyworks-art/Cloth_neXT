@@ -3972,7 +3972,7 @@ def _collider_motion_digest(frame_offsets, samples, *, dtype="<f8") -> str:
     return digest.hexdigest()
 
 
-COLLIDER_SAMPLES_PER_FRAME = 8
+COLLIDER_SAMPLES_PER_FRAME = 1
 SCENE_EXPORT_CACHE_SCHEMA = 4
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 

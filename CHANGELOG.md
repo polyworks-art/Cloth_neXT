@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.15 - 2026-10-05
+
+- Default animated Collider capture to one sample per frame, including reset and fallback paths; preserve explicitly saved sample counts.
+- Explain that the current solver consumes whole-frame Collider poses rather than extra capture samples.
+- Keep dense Collider animation tables as compact read-only numeric views during official solver preparation instead of materializing Python lists and scalars.
+- Select whole-frame Collider poses through a strided view to avoid a full animation copy.
+- Verify exact CBOR byte preservation, malformed-input fallback and animated Collider bridge compatibility.
+
 ## 2.9.14 - 2026-10-05
 
 - Remove orphaned Object Attachments automatically when their source or target object is deleted, including on file load and before Bake validation.

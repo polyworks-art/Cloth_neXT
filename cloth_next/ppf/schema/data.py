@@ -302,7 +302,7 @@ class SceneObject:
                         f"{self.name}: animated Collider vert_frames has "
                         f"{len(frames)} samples; expected {indices[-1] + 1}")
                 try:
-                    animation["vert_frames"] = frames[list(indices)]
+                    animation["vert_frames"] = frames[::int(animation["_samples_per_frame"])]
                 except TypeError:
                     animation["vert_frames"] = [frames[index]
                                                 for index in indices]

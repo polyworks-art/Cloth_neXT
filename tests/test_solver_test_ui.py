@@ -2140,8 +2140,11 @@ def test_sewing_post_snap_closes_only_pairs_within_contact_range(blender_env):
 def test_animated_collider_samples_are_dense_and_include_exact_endpoints(
         blender_env):
     module = blender_env.solver_test
-    points = module._collider_sample_points(
+    default_points = module._collider_sample_points(
         module.BakeFrameRange(10, 11), 24)
+    assert len(default_points) == 2
+    points = module._collider_sample_points(
+        module.BakeFrameRange(10, 11), 24, samples_per_frame=8)
     assert len(points) == 9
     assert points[0] == (10, 0.0, 0.0)
     assert points[-1] == (11, 0.0, 1.0 / 24.0)

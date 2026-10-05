@@ -273,9 +273,10 @@ def dump(value: Any, stream: BinaryIO, *,
 # Decoding
 
 class _Reader:
-    __slots__ = ("data", "offset")
+    __slots__ = ("data", "offset", "compact_arrays")
 
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes, *, compact_arrays: bool = False) -> None:
+        self.compact_arrays = compact_arrays
         self.data = data
         self.offset = 0
 
@@ -332,6 +333,23 @@ def _decode_item(reader: _Reader, depth: int) -> Any:
         count = _decode_argument(reader, additional)
         if count > MAX_DECODE_ITEMS:
             raise CborError("array exceeds the decode bound")
+        # Scene animation uses fixed-width vec3 doubles. Keep these large
+        # tables as read-only views instead of millions of Python objects.
+        if reader.compact_arrays and count >= 16 and depth + 2 <= MAX_NESTING:
+            start = reader.offset
+            size = count * 28
+            if start + size <= len(reader.data):
+                import numpy as np
+                raw = np.frombuffer(reader.data, dtype=np.uint8,
+                                    count=size, offset=start).reshape(count, 28)
+                if (np.all(raw[:, 0] == 0x83)
+                        and np.all(raw[:, 1] == 0xFB)
+                        and np.all(raw[:, 10] == 0xFB)
+                        and np.all(raw[:, 19] == 0xFB)):
+                    reader.offset += size
+                    return np.ndarray((count, 3), dtype=">f8",
+                                      buffer=reader.data, offset=start + 2,
+                                      strides=(28, 9))
         return [_decode_item(reader, depth + 1) for _ in range(count)]
     if major == 5:
         count = _decode_argument(reader, additional)
@@ -362,9 +380,9 @@ def _decode_item(reader: _Reader, depth: int) -> Any:
                     "(tags are outside the verified subset)")
 
 
-def loads(data: bytes) -> Any:
+def loads(data: bytes, *, compact_arrays: bool = False) -> Any:
     """Decode a single CBOR item; trailing bytes are an error."""
-    reader = _Reader(bytes(data))
+    reader = _Reader(bytes(data), compact_arrays=compact_arrays)
     value = _decode_item(reader, 0)
     if reader.offset != len(reader.data):
         raise CborError(f"{len(reader.data) - reader.offset} trailing bytes "

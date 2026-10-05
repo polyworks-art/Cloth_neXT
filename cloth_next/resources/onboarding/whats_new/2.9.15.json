@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.15",
+  "title": "What's New in Cloth NeXt 2.9.15",
+  "subtitle": "Less capture work and faster animation encoding.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "One motion sample by default",
+      "description": "New and reset Collider settings capture one sample per Blender frame, matching the poses used by the current solver. Existing saved sample counts are retained."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Compact animation encoding",
+      "description": "Long Collider animations stay in compact numeric arrays during solver preparation, avoiding millions of Python objects and preserving exact wire bytes."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

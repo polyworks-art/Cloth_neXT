@@ -110,8 +110,9 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
 
 
 def loads_envelope(blob: bytes, expected_kind: str, *,
-                   schema_version: int = SCHEMA_VERSION) -> Any:
-    envelope = cbor_codec.loads(blob)
+                   schema_version: int = SCHEMA_VERSION,
+                   compact_arrays: bool = False) -> Any:
+    envelope = cbor_codec.loads(blob, compact_arrays=compact_arrays)
     if not isinstance(envelope, dict):
         raise EnvelopeError("envelope must be a CBOR map")
     version = envelope.get("version")

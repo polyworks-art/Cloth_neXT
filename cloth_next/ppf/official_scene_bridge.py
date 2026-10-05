@@ -56,7 +56,8 @@ def prepare_scene(scene, *, enabled: bool):
     from .schema import envelope
     raw_data = (scene.data_payload.read_bytes()
                 if isinstance(scene.data_payload, Path) else scene.data_payload)
-    data = envelope.loads_envelope(raw_data, envelope.KIND_SCENE, schema_version=2)
+    data = envelope.loads_envelope(raw_data, envelope.KIND_SCENE,
+                                   schema_version=2, compact_arrays=True)
     raw_param = (scene.param_payload.read_bytes()
                  if isinstance(scene.param_payload, Path) else scene.param_payload)
     params = envelope.loads_envelope(raw_param, envelope.KIND_PARAM,

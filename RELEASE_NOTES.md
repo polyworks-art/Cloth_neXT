@@ -1,7 +1,7 @@
-# Cloth NeXt 2.9.14
+# Cloth NeXt 2.9.15
 
-Object Attachments to deleted objects are removed automatically. Stale entries such as button.001 no longer block Bake with a source or target object no longer exists error. Cleanup runs after deletion, on file load and before Bake validation.
+Animated Collider capture now defaults to one sample per Blender frame. This matches the whole-frame poses consumed by the current solver. Existing explicitly saved sample counts remain unchanged; set these to 1 to reduce capture work.
 
-Attachments remain intact when an object still exists in Blender but is temporarily unlinked from the current scene. Incomplete attachment drafts are also retained.
+Official solver preparation retains dense Collider animation tables as compact read-only numeric views instead of expanding them into Python lists and individual numbers, then re-encoding them through slow scalar loops. Whole-frame selection also avoids a full animation copy. The wire format and animation timing remain unchanged.
 
-Validated with attachment regression tests and a real Blender deletion/unlink smoke test. Update through Blender's native extension manager. The external solver is not modified or bundled.
+A bounded local decode/re-encode benchmark improved from 0.90 seconds to 0.027 seconds with byte-identical output. This measures that stage, not an entire Bake. Regression tests cover the codec, solver bridge, animation timeline and Bake lifecycle. Update through Blender's native extension manager. The external solver is not modified or bundled.

@@ -160,3 +160,18 @@ def test_invalid_same_object_seam_is_not_dropped(field, value):
         "Param", params, schema_version=2))
     with pytest.raises(ValueError):
         prepare_scene(changed, enabled=True)
+
+
+def test_bridge_preserves_dense_collider_animation_wire_bytes():
+    original = scene()
+    data = envelope.loads_envelope(original.data_payload, "Scene", schema_version=2)
+    frames = np.arange(8 * 64 * 3, dtype=np.float32).reshape(8, 64, 3) / 11
+    data.append({"type": "STATIC", "object": [{
+        "uuid": "animated-collider", "name": "Collider",
+        "vert": frames[0], "face": [[0, 1, 2]],
+        "static_deform_animation": {"vert_frames": frames}}]})
+    source = envelope.dumps_envelope("Scene", data, schema_version=2)
+    prepared = prepare_scene(replace(original, data_payload=source), enabled=True)
+    result = envelope.loads_envelope(prepared.data_payload, "Scene", schema_version=2)
+    assert envelope.dumps_envelope("Scene", [result[-1]], schema_version=2) == (
+        envelope.dumps_envelope("Scene", [data[-1]], schema_version=2))
