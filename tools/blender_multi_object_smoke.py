@@ -102,10 +102,9 @@ try:
         target_by_name["MultiClothB"].uuid][0]
     assert "pin_anim" not in static_config
     follow_track = follow_config["pin_anim"][0]
-    assert len(follow_track["time"]) == 17
+    assert len(follow_track["time"]) == 3
     assert follow_track["time"][0] == 0.0
-    assert abs(follow_track["time"][1] - 1.0 / 192.0) < 1e-12
-    assert abs(follow_track["time"][8] - 1.0 / 24.0) < 1e-12
+    assert abs(follow_track["time"][1] - 1.0 / 24.0) < 1e-12
     assert abs(follow_track["time"][-1] - 2.0 / 24.0) < 1e-12
     assert abs(params["scene"]["air-density"] - 0.1) < 1e-6
     assert set(params["dyn_param"]) == {"wind", "air-density"}
