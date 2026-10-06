@@ -40,6 +40,8 @@
 @media(max-width:650px){.story-row .workflow-slot{height:570px}}
 .detail-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:55% center}
 @media(max-width:650px){.story-row .detail-slot{min-height:0;aspect-ratio:4/5}.detail-shot{object-position:center}}
+
+.speech-section{padding-top:62px;background:var(--bg)}.speech-section>.eyebrow{margin-inline:var(--pad);margin-bottom:24px}.speech-visual{min-height:0;aspect-ratio:1;background:var(--bg)}.speech-visual .result-video{object-fit:contain;mix-blend-mode:lighten}.speech-visual:after{background:linear-gradient(180deg,var(--bg),transparent 4%,transparent 96%,var(--bg))}.speech-caption{margin:0;padding:22px var(--pad) 48px;color:var(--quiet);font-size:9px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--line)}.sound-toggle{right:calc(var(--pad) + 54px)}.sound-toggle .sound-on,.sound-toggle.is-audible .sound-off{display:none}.sound-toggle.is-audible .sound-on{display:block}
 </style>
 </head>
 <body>
@@ -57,6 +59,8 @@
   <div class="visual-copy" data-reveal><p class="eyebrow">The result</p><h2 id="result-title">Real cloth. Real contact.<br><span class="accent">Real production geometry.</span></h2><p class="proof-note">Cloth neXt simulation</p></div>
 </section>
 
+
+
 <section class="section proof" aria-labelledby="proof-title">
   <div data-reveal><p class="eyebrow">Measured on the production sequence</p><h2 id="proof-title">A result.<br><span class="accent">Not a promise.</span></h2><p class="lede">Dense layered cloth against a complete animated character, resolved at the scale the shot demanded.</p></div>
   <div class="metrics" data-reveal><div class="metric"><strong>230k</strong><span>Cloth triangles</span></div><div class="metric"><strong>200k</strong><span>Character triangles</span></div><div class="metric"><strong>~100k</strong><span>Contacts</span></div><div class="metric"><strong>223</strong><span>Frames</span></div><div class="metric"><strong>~10 min</strong><span>Bake time</span></div></div>
@@ -65,6 +69,16 @@
 <section class="section manifesto" aria-labelledby="why-title">
   <div class="noise" aria-hidden="true"><span>rebake</span><span>intersections</span><span>proxy mesh</span><span>substeps?</span><span>exploding cloth</span></div>
   <div data-reveal><p class="eyebrow" style="justify-content:center">Why Cloth neXt exists</p><h2 id="why-title">Cloth should follow<br>the art direction.<br><span class="accent">Not rewrite it.</span></h2><p>Less time negotiating with the simulation. More time shaping the shot.</p></div>
+</section>
+
+<section class="speech-section" aria-label="Cloth neXt character film">
+  <p class="eyebrow" data-reveal>In motion</p>
+  <div class="visual speech-visual">
+    <video class="result-video" muted loop playsinline preload="metadata" poster="speech-square.webp" aria-label="Cloth neXt character film"><source src="speech-square.mp4" type="video/mp4"></video>
+    <button class="video-toggle" type="button" aria-label="Play character film"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path class="play-icon" d="M4 2 14 8 4 14Z"/><path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z"/></svg></button>
+    <button class="video-toggle sound-toggle" type="button" aria-label="Unmute character film" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M2 7h4l5-4v14l-5-4H2z"/><path class="sound-off" d="m14 6 1-1 3 4 3-4 1 1-3 4 3 4-1 1-3-4-3 4-1-1 3-4z" transform="translate(-2 0) scale(.9 1)"/><path class="sound-on" d="M13 6v2a3 3 0 0 1 0 4v2a5 5 0 0 0 0-8zM16 3v2a7 7 0 0 1 0 10v2a9 9 0 0 0 0-14z"/></svg></button>
+  </div>
+  <p class="speech-caption">Cloth neXt · Character film · Sound available</p>
 </section>
 
 <section class="story-row" aria-labelledby="workflow-title">
@@ -125,6 +139,21 @@
   document.addEventListener('visibilitychange', sync);
   motion.addEventListener('change', () => { manualPlay = false; sync(); });
   });
+})();
+
+(() => {
+  const section = document.querySelector('.speech-visual');
+  const video = section.querySelector('video');
+  const sound = section.querySelector('.sound-toggle');
+  const syncSound = () => {
+    const audible = !video.muted;
+    sound.classList.toggle('is-audible', audible);
+    sound.setAttribute('aria-pressed', String(audible));
+    sound.setAttribute('aria-label', `${audible ? 'Mute' : 'Unmute'} character film`);
+  };
+  sound.addEventListener('click', () => { video.muted = !video.muted; });
+  video.addEventListener('volumechange', syncSound);
+  syncSound();
 })();
 </script>
 </body>
