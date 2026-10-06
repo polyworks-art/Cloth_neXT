@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.16 - 2026-10-06
+
+- Attach Cloth and Soft Body to static, transform-animated and deforming Collider targets with Gaia 0.23.
+- Bind and preview evaluated Collider surfaces; freeze stable barycentric anchors at Bake Start and restore the user's frame/subframe.
+- Preserve bindings when a deformed quad changes display triangulation; reject incompatible surface topology and disabled targets.
+- Evaluate shape keys before a first-position simulation boundary and exclude downstream modifiers from animated Collider capture.
+- Verify static, moving and deforming Cloth anchors plus Soft Body anchors in real Blender/CUDA bakes.
+
 ## 2.9.15 - 2026-10-05
 
 - Default animated Collider capture to one sample per frame, including reset and fallback paths; preserve explicitly saved sample counts.

@@ -514,6 +514,13 @@ def build_multi_deformable_param_payload(
                 "the selected solver version does not support Object Attachments")
         from ...attachments import wire_entry
         from ..coordinates import blender_position_to_ppf
+        if (any(attachment.target_role == "COLLIDER"
+                for attachment, _source_count, _target_count in object_attachments)
+                and not _protocol_adapter(protocol_version,
+                                          schema_version).collider_attachments):
+            raise ParamEncodeError(
+                "Collider Attachments require Gaia 0.23; select Gaia 0.23 "
+                "in Cloth NeXt preferences")
         payload["cross_stitch"] = [wire_entry(
             attachment,
             source_vertex_count=source_count,

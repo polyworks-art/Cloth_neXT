@@ -1,7 +1,7 @@
-# Cloth NeXt 2.9.15
+# Cloth NeXt 2.9.16
 
-Animated Collider capture now defaults to one sample per Blender frame. This matches the whole-frame poses consumed by the current solver. Existing explicitly saved sample counts remain unchanged; set these to 1 to reduce capture work.
+Object Attachments now support enabled Collider targets with Gaia 0.23, including static, transform-animated and deforming Colliders. Cloth and Soft Body anchors follow the evaluated surface using stable vertex indices and barycentric weights.
 
-Official solver preparation retains dense Collider animation tables as compact read-only numeric views instead of expanding them into Python lists and individual numbers, then re-encoding them through slow scalar loops. Whole-frame selection also avoids a full animation copy. The wire format and animation timing remain unchanged.
+Binding, preview and Bake-start validation include armature and shape-key deformation. Normal changes to a deformed quad's display triangulation retain its binding; changes to vertex numbering or polygon connectivity require rebuilding the attachment. Apply topology-changing input modifiers before binding. Older solver versions show an explicit instruction to select Gaia 0.23 for Collider Attachments.
 
-A bounded local decode/re-encode benchmark improved from 0.90 seconds to 0.027 seconds with byte-identical output. This measures that stage, not an entire Bake. Regression tests cover the codec, solver bridge, animation timeline and Bake lifecycle. Update through Blender's native extension manager. The external solver is not modified or bundled.
+Shape keys are evaluated when the Cloth NeXt simulation boundary is first in the modifier stack, and animated Collider capture excludes downstream modifiers. Existing deformable-to-deformable Attachments remain supported. The external solver is neither modified nor bundled.

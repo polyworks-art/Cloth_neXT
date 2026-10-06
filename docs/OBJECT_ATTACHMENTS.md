@@ -1,9 +1,36 @@
-# Object Attachments v1
+# Object Attachments
 
-Object Attachments are persistent scene relationships between two enabled
-Cloth NeXt deformables. Version 1 deliberately supports only Cloth (PPF
-`SHELL`) and Soft Body (PPF `SOLID`) in all four source/target directions.
-Cable / Rope, Rigid Body, and Collider objects are not accepted.
+Object Attachments are persistent scene relationships from an enabled Cloth
+(PPF `SHELL`) or Soft Body (PPF `SOLID`) to another Cloth, Soft Body, or Collider.
+Collider targets require **Gaia 0.23**. Cable / Rope and Rigid Body endpoints,
+and Collider sources, are not accepted.
+
+## Collider targets
+
+The Target Object picker, vertex-group binding and viewport Attachment editor
+accept enabled Collider meshes. Static, transform-animated and deforming
+animated Colliders all use the existing native `cross_stitch` constraints.
+The Collider remains a `STATIC` scene group, and its existing transform or
+per-vertex animation drives the target surface. No replacement pin targets,
+solver modifications or duplicate collision meshes are introduced.
+
+Binding and viewport preview use the evaluated surface at the Cloth NeXt
+simulation-stack boundary, including armature and shape-key deformation.
+Bake validation freezes the barycentric anchors in the evaluated Bake-start
+pose and restores the user's timeline frame/subframe. The triangle indices
+and weights remain fixed while the target moves; they are not re-projected
+to different vertices during animation.
+
+The target's surface vertex numbering and triangle connectivity must remain
+unchanged. Apply topology-changing input modifiers before binding; changing
+topology after binding requires rebuilding the relationship. The target must
+be included as that same Collider in the Bake. A collision proxy which
+replaces the selected target is not automatically substituted for an anchor
+on the original mesh; use the actual exported Collider surface.
+
+Gaia 0.22 and older adapters reject Collider Attachments with an instruction
+to select Gaia 0.23. Existing Cloth/Soft Body Attachments retain their earlier
+solver compatibility.
 
 In Edit Mode, **Create From Selection** projects each selected source vertex
 onto the closest triangle of the chosen target. The relationship stores stable

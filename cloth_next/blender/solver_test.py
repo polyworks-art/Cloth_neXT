@@ -1308,7 +1308,8 @@ def _evaluate_through_solver_input_modifiers(context, obj):
     if not boundaries and cutoff < 0:
         yield None
         return
-    if boundaries and cutoff < 0:
+    if (boundaries and cutoff < 0
+            and getattr(getattr(obj, "data", None), "shape_keys", None) is None):
         # With the boundary first, the authored mesh is exactly the solver
         # input.  Avoid evaluating unrelated post-simulation modifiers.
         yield None
@@ -1373,7 +1374,8 @@ def _evaluated_deformable_snapshot(context, obj):
     """Boundary signatures plus the geometry that produced them."""
     _check_preparation_cancel()
     cutoff = _solver_input_modifier_cutoff(obj)
-    if simulation_modifiers(obj) and cutoff < 0:
+    if (simulation_modifiers(obj) and cutoff < 0
+            and getattr(getattr(obj, "data", None), "shape_keys", None) is None):
         mesh = getattr(obj, "data", None)
         if mesh is None:
             _check_preparation_cancel()
@@ -2585,6 +2587,37 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         collider_source_signatures=collider_source_signatures)
 
 
+def _snapshot_object_attachments(context, deformables, colliders, start_frame):
+    """Freeze surface anchors in the exact evaluated Bake-start pose."""
+    enabled = tuple(item for item in getattr(
+        context.scene, "cloth_next_object_attachments", ()) if item.enabled)
+    if not enabled:
+        return ()
+    target_ids = {str(item.target_persistent_id) for item in enabled}
+    scene = context.scene
+    original = int(getattr(scene, "frame_current", start_frame))
+    subframe = float(getattr(scene, "frame_subframe", 0.0))
+    try:
+        if hasattr(scene, "frame_set"):
+            scene.frame_set(start_frame)
+            _depsgraph_update(context)
+        collider_entries = []
+        for obj in colliders:
+            if str(obj.cloth_next.persistent_export_id) not in target_ids:
+                continue
+            _check_preparation_cancel()
+            vertices, triangles, surface_topology = object_attachments._collider_geometry(obj, context)
+            collider_entries.append(SimpleNamespace(
+                obj=obj, role="COLLIDER", boundary_vertices=vertices,
+                boundary_triangles=triangles, surface_topology=surface_topology))
+        return object_attachments.snapshot_enabled(
+            scene, deformables, collider_entries=collider_entries)
+    finally:
+        if hasattr(scene, "frame_set"):
+            scene.frame_set(original, subframe=subframe)
+            _depsgraph_update(context)
+
+
 def _validate_scene_impl(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
     _check_preparation_cancel()
@@ -2690,8 +2723,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             "shape": mesh_geometry_signature(getattr(obj, "data", None)),
             "animation": _animation_signature(obj),
         } for obj in collider_objs]
-        attachment_snapshot = object_attachments.snapshot_enabled(
-            context.scene, entries)
+        attachment_snapshot = _snapshot_object_attachments(
+            context, entries, collider_objs, ranges[0].start)
         explicit_sewing, sewing_attachments = sewing.snapshot_enabled(
             context.scene, entries)
         attachment_snapshot = tuple(attachment_snapshot) + tuple(sewing_attachments)
@@ -4181,7 +4214,7 @@ def _capture_transform_only_collider_motion(
     vertices = triangles = None
     cutoff = _solver_input_modifier_cutoff(collider_obj)
     evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
-                      if cutoff >= 0 else collider_obj)
+                      if cutoff >= 0 or simulation_modifiers(collider_obj) else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             _check_preparation_cancel()
@@ -4268,7 +4301,7 @@ def _capture_collider_motion(context, collider_obj,
     topology_check_mode = _collider_topology_check_mode(collider_obj)
     cutoff = _solver_input_modifier_cutoff(collider_obj)
     evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
-                      if cutoff >= 0 else collider_obj)
+                      if cutoff >= 0 or simulation_modifiers(collider_obj) else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             _check_preparation_cancel()
