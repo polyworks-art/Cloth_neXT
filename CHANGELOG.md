@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.20 - 2026-10-12
+
+- Remove Wind obstacle mesh capture and hashing from UI cache status, including the floating Bake button's redraw and background refresh paths.
+- Keep obstacle properties in the cheap settings fingerprint; move full mesh identity into explicit validation's geometry fingerprint.
+- Mark simulation geometry dirty when Scene-mode obstacles change, preserving cache checks without mesh scans in update handlers.
+- Verify single- and multi-target validation and 100 UI fingerprint checks without mesh capture. In the open character scene, a complete Bake status check dropped from 88.9 ms to 2.8 ms.
+
 ## 2.9.19 - 2026-10-12
 
 - Cache Wind preview vectors and GPU batches across unchanged viewport redraws.
