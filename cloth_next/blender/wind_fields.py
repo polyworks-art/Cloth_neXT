@@ -249,6 +249,15 @@ def _depsgraph_update_post(_scene, depsgraph):
                     if getattr(update,'is_updated_geometry',False)}
     if geometry_ids or any(getattr(update,'is_updated_transform',False) for update in updates):
         _invalidate_obstacles(frame_only=not geometry_ids, geometry_ids=geometry_ids)
+        # Scene-only obstacles have no Cloth NeXt settings, so the generic
+        # validation handler cannot attribute their edits to simulation targets.
+        # Mark recorded geometry dirty here without reading any mesh data.
+        if any(obj.cloth_next.force.wind_local and obj.cloth_next.force.wind_obstacles == 'SCENE'
+               for obj in force_objects(bpy.context)):
+            from . import validation_state
+            for obj in validation_state.cloth_next_objects(_scene):
+                if obj.cloth_next.role in {'CLOTH','SOFT_BODY','ROD','RIGID_BODY'}:
+                    validation_state.mark_geometry_dirty(obj)
 
 
 _depsgraph_update_post = getattr(bpy.app.handlers, 'persistent', lambda f: f)(_depsgraph_update_post)

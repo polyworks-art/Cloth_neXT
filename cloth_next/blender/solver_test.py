@@ -2231,7 +2231,7 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
     wind_obstacle_modes = {str(getattr(obj.cloth_next.force, "wind_obstacles", "NONE"))
         for obj in _enabled_force_objects(context) if getattr(obj.cloth_next.force, "wind_local", False)}
     if wind_obstacle_modes - {"NONE"}:
-        from .wind_obstacles import signature as wind_obstacle_signature
+        from .wind_obstacles import settings_signature as wind_obstacle_signature
         wind_obstacle_identity = wind_obstacle_signature(context, wind_obstacle_modes)
     force_settings = [json.dumps({
         "object_key": validation_state.object_key(obj),
@@ -2282,6 +2282,17 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
     if zone_record is not None:
         record += '\0' + json.dumps(zone_record, sort_keys=True)
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
+
+
+def _wind_obstacle_geometry_signature(context):
+    """Mesh-bearing identity belongs only to explicit validation/preparation."""
+    modes = {str(getattr(obj.cloth_next.force,'wind_obstacles','NONE'))
+             for obj in _enabled_force_objects(context)
+             if getattr(obj.cloth_next.force,'wind_local',False)}
+    if not modes - {'NONE'}:
+        return ''
+    from .wind_obstacles import signature
+    return signature(context,modes)
 
 
 def cheap_settings_fingerprint(context) -> str | None:
@@ -2559,11 +2570,15 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                 "shape": shape,
                 "animation": _animation_signature(collider),
             })
-        scene_geometry_signature = cache_metadata.deterministic_hash({
+        scene_geometry_record = {
             "deformable": deformable_shape_signature,
             "deformable_animation": _animation_signature(cloth_obj),
             "colliders": collider_geometry,
-        })
+        }
+        wind_geometry = _wind_obstacle_geometry_signature(context)
+        if wind_geometry:
+            scene_geometry_record['wind_obstacles'] = wind_geometry
+        scene_geometry_signature = cache_metadata.deterministic_hash(scene_geometry_record)
         geometry_fp = combine_geometry_fingerprint(
             scene_geometry_signature,
             pin_indices_signature(
@@ -2741,7 +2756,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         explicit_sewing, sewing_attachments = sewing.snapshot_enabled(
             context.scene, entries)
         attachment_snapshot = tuple(attachment_snapshot) + tuple(sewing_attachments)
-        geometry_fp = cache_metadata.deterministic_hash({
+        geometry_record = {
             "deformables": [{
                 "object_key": validation_state.object_key(entry.obj),
                 "shape": entry.shape_signature,
@@ -2753,7 +2768,11 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             "colliders": collider_geometry,
             "object_attachments": [asdict(attachment) for attachment, _s, _t
                                    in attachment_snapshot],
-            "explicit_sewing": explicit_sewing})
+            "explicit_sewing": explicit_sewing}
+        wind_geometry = _wind_obstacle_geometry_signature(context)
+        if wind_geometry:
+            geometry_record['wind_obstacles'] = wind_geometry
+        geometry_fp = cache_metadata.deterministic_hash(geometry_record)
     except (SceneValidationError, ClothNextError, MaterialValidationError,
             DeformableMaterialError, CurveRodError, BakeRangeError,
             AttachmentError, SewingError, TypeError, ValueError) as exc:

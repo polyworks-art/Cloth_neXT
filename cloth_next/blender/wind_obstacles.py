@@ -336,6 +336,23 @@ def preview_points(context, modes, minimum, maximum, *, budget=512):
     return points[indices], np.asarray(limits)[indices]
 
 
+def settings_signature(context, modes):
+    """Property-only obstacle identity, safe for panels and idle timers."""
+    if not modes or modes == {'NONE'}:
+        return ''
+    from . import solver_test
+    rows = []
+    for obj, matrix, identity, parent in candidates(context,'SCENE' if 'SCENE' in modes else 'COLLIDERS'):
+        safe, dependencies, reason = solver_test._safe_object_dependency_identity(obj,collider_capture=True)
+        rows.append({'name':obj.name_full,
+            'data':str(getattr(getattr(obj,'data',None),'name_full','')),
+            'matrix':[list(row) for row in (matrix if matrix is not None else obj.matrix_world)],
+            'instance':identity,'animation':solver_test._animation_signature(obj),
+            'parent_animation':solver_test._animation_signature(parent) if parent is not None else '',
+            'dependencies':dependencies,'safe':safe,'reason':reason})
+    return hashlib.sha256(json.dumps(rows,sort_keys=True).encode()).hexdigest()
+
+
 def signature(context, modes):
     """Include non-Collider scene obstacles in attached-cache identity."""
     if not modes or modes == {'NONE'}:
