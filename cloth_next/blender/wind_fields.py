@@ -2,6 +2,7 @@
 """Timeline Wind authoring, bounded GAIA export and live vector preview."""
 import hashlib
 import math
+import sys
 from pathlib import Path
 import bpy
 import numpy as np
@@ -31,7 +32,8 @@ def source_at(context, obj):
         return WindSource(tuple(matrix.translation), tuple(matrix.col[2][:3]),
             speed, force.wind_radius, force.wind_falloff, force.wind_turbulence,
             force.wind_turbulence_size, force.wind_noise_scale,
-            int.from_bytes(hashlib.sha256(obj.name_full.encode()).digest()[:4], 'little'))
+            int.from_bytes(hashlib.sha256(obj.name_full.encode()).digest()[:4], 'little'),
+            force.wind_obstacles, force.wind_wake_strength, force.wind_wake_length)
     except ValueError as exc:
         raise solver_test.SceneValidationError(f'{obj.name}: {exc}') from exc
 
@@ -61,6 +63,7 @@ def apply_wind_payload(context, payload, resolved, first, last):
         context.scene.frame_set(original[0], subframe=original[1])
     field = tree.setdefault('force_field', {'grids': [], 'scripts': []})
     used = sum(int(np.prod(grid['shape'])) * 4 for grid in field['grids'])
+    plans = []
     for obj in objects:
         records = samples[obj.name]
         centers = np.asarray([source.center for source in records])
@@ -73,13 +76,33 @@ def apply_wind_payload(context, payload, resolved, first, last):
         used += size
         if used > MAX_SCHEDULE_BYTES:
             raise solver_test.SceneValidationError('Local Wind schedule exceeds 32 MiB. Shorten the Bake range or lower Field Resolution; moving fields also need more grid space.')
-        points = sample_points(lo, hi, dims)
-        values = np.empty((len(records), *points.shape), dtype=np.float32)
-        for index, source in enumerate(records):
+        plans.append((obj, records, lo, hi, dims))
+    # Allocate only after the combined budget passes; obstacle BVHs live for
+    # one evaluated frame and are shared across emitters, not retained per time.
+    grids = [np.empty((len(records), int(dims[2]), int(dims[1]), int(dims[0]), 3), np.float32)
+             for _obj, records, _lo, _hi, dims in plans]
+    combined_lo = np.min([row[2] for row in plans], axis=0)
+    combined_hi = np.max([row[3] for row in plans], axis=0)
+    from .wind_obstacles import sampler
+    try:
+        for index, frame in enumerate(range(int(first), int(last) + 1)):
             solver_test._check_preparation_cancel()
-            values[index] = velocity(points, (source,), (first + index) / fps)
-        field['grids'].append(encode_grid(values, lo, hi, [index / fps for index in range(len(records))]))
-        del values, points
+            context.scene.frame_set(frame)
+            queries = {}
+            for grid, (_obj, records, lo, hi, dims) in zip(grids, plans):
+                source = records[index]
+                if source.obstacle_mode not in queries:
+                    queries[source.obstacle_mode] = sampler(context, source.obstacle_mode,
+                        combined_lo, combined_hi, cancel=solver_test._check_preparation_cancel)
+                points = sample_points(lo, hi, dims)
+                grid[index] = velocity(points, (source,), frame / fps, queries[source.obstacle_mode])
+                del points
+            del queries
+    finally:
+        context.scene.frame_set(original[0], subframe=original[1])
+    for grid, (_obj, records, lo, hi, _dims) in zip(grids, plans):
+        field['grids'].append(encode_grid(grid, lo, hi, [index / fps for index in range(len(records))]))
+    del grids
     for params, _names, _uuids in tree.get('group', ()):
         params.setdefault('force-field-weight', 1.)
     encoded = envelope.dumps_envelope(envelope.KIND_PARAM, tree, schema_version=2)
@@ -97,11 +120,24 @@ def preview(context):
     centers = np.asarray([tuple(obj.matrix_world.translation) for obj in visible])
     radii = np.asarray([obj.cloth_next.force.wind_radius for obj in visible])[:, None]
     lo = (centers - radii).min(axis=0); hi = (centers + radii).max(axis=0)
-    points = sample_points(lo, hi, (7, 7, 7))
     frame = context.scene.frame_current + context.scene.frame_subframe
     fps = solver_test._scene_fps(context)
-    flow = velocity(points, sources, frame / fps)
+    from .wind_obstacles import sampler, preview_points
     state, _active = solver_test._force_state(context, wind_frame=frame)
+    modes = {obj.cloth_next.force.wind_obstacles if obj.cloth_next.force.wind_local else 'NONE'
+             for obj in visible}
+    # Global Wind reaches scene geometry beyond a local emitter's radius.
+    if np.linalg.norm(state.wind) > 1e-6:
+        lo, hi = np.full(3,-np.inf), np.full(3,np.inf)
+    points, lengths = preview_points(context,modes,lo,hi)
+    if not len(points):
+        return np.empty((0,3),np.float32)
+    queries = {}
+    flow = np.zeros_like(points)
+    for source in sources:
+        if source.obstacle_mode not in queries:
+            queries[source.obstacle_mode] = sampler(context, source.obstacle_mode, lo, hi, cached=True)
+        flow += velocity(points, (source,), frame / fps, queries[source.obstacle_mode])
     # GAIA applies this modulation only to the legacy scene-wide Wind vector.
     starts = [obj.cloth_next.bake_start for obj in context.scene.objects
               if hasattr(obj, 'cloth_next') and obj.cloth_next.enabled
@@ -109,8 +145,7 @@ def preview(context):
     seconds = max(0., frame - min(starts, default=context.scene.frame_start)) / fps
     flow += np.asarray(state.wind) * (.875 + .125 * math.sin(30 * seconds))
     scale = visible[0].cloth_next.force.wind_vector_scale
-    spacing = float(np.min(hi - lo) / 6)
-    return arrow_lines(points, flow, scale, min(1., spacing * .8))
+    return arrow_lines(points, flow, scale, lengths)
 
 
 def redraw(_self=None, context=None):
@@ -155,6 +190,7 @@ def _draw():
 
 
 def _load_post(_unused):
+    _invalidate_obstacles()
     _remove_handler()
     _ensure_handler()
 
@@ -164,11 +200,28 @@ _load_post._clothnext_wind_overlay = True
 
 
 def _frame_change_post(_scene, _depsgraph=None):
+    _invalidate_obstacles()
     redraw()
 
 
 _frame_change_post = getattr(bpy.app.handlers, 'persistent', lambda f: f)(_frame_change_post)
 _frame_change_post._clothnext_wind_redraw = True
+
+
+def _invalidate_obstacles():
+    module = sys.modules.get(__package__ + '.wind_obstacles')
+    if module is not None:
+        module.invalidate()
+
+
+def _depsgraph_update_post(_scene, depsgraph):
+    if any(getattr(update, 'is_updated_geometry', False) or getattr(update, 'is_updated_transform', False)
+           for update in depsgraph.updates):
+        _invalidate_obstacles()
+
+
+_depsgraph_update_post = getattr(bpy.app.handlers, 'persistent', lambda f: f)(_depsgraph_update_post)
+_depsgraph_update_post._clothnext_wind_geometry = True
 
 
 def _remove_handler():
@@ -199,12 +252,19 @@ def register():
         if getattr(handler, '_clothnext_wind_redraw', False):
             bpy.app.handlers.frame_change_post.remove(handler)
     bpy.app.handlers.frame_change_post.append(_frame_change_post)
+    for handler in tuple(bpy.app.handlers.depsgraph_update_post):
+        if getattr(handler, '_clothnext_wind_geometry', False):
+            bpy.app.handlers.depsgraph_update_post.remove(handler)
+    bpy.app.handlers.depsgraph_update_post.append(_depsgraph_update_post)
     _ensure_handler()
 
 
 def unregister():
+    _invalidate_obstacles()
     _remove_handler()
     if _load_post in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_load_post)
     if _frame_change_post in bpy.app.handlers.frame_change_post:
         bpy.app.handlers.frame_change_post.remove(_frame_change_post)
+    if _depsgraph_update_post in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(_depsgraph_update_post)

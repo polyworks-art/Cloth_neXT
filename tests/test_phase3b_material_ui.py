@@ -920,7 +920,7 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     settings.force.wind_show_vectors = True
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
-    for name in ("wind_radius", "wind_falloff", "wind_turbulence", "wind_turbulence_size", "wind_resolution", "wind_vector_scale"):
+    for name in ("wind_radius", "wind_falloff", "wind_turbulence", "wind_turbulence_size", "wind_resolution", "wind_vector_scale", "wind_obstacles", "wind_wake_strength", "wind_wake_length"):
         assert name in panel.layout.props
     assert "Scrub or play the timeline to preview Wind" in panel.layout.labels
     env.registration.unregister()

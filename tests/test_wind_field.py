@@ -61,6 +61,12 @@ def test_preview_arrows_are_float32_bounded_and_point_along_wind():
     assert np.linalg.norm(arrows, axis=1).max() <= .5
 
 
+def test_preview_arrows_follow_each_object_cluster_display_limit():
+    arrows = arrow_lines([[0,0,0],[10,0,0]],[[100,0,0],[100,0,0]],.2,[.1,.5])
+    np.testing.assert_allclose(arrows[1],[.1,0,0])
+    np.testing.assert_allclose(arrows[7],[10.5,0,0])
+
+
 @pytest.mark.parametrize('kwargs', [{'radius':0}, {'noise_size':0}, {'falloff':.5}, {'speed':float('nan')}])
 def test_invalid_sources_fail_before_sampling(kwargs):
     with pytest.raises(ValueError):

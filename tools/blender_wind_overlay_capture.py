@@ -22,6 +22,9 @@ obj.cloth_next.enabled = True; obj.cloth_next.role = 'FORCE'
 force = obj.cloth_next.force
 force.gravity_strength = 0; force.wind_local = True; force.wind_radius = 2
 force.wind_turbulence = 2; force.wind_strength = 2; force.wind_show_vectors = True
+force.wind_obstacles = 'SCENE'
+obstacle = bpy.data.objects.get('Cube')
+obstacle.location.x = .5; obstacle.scale = (.25,.6,.6)
 obj.rotation_euler.y = math.pi / 2
 force.keyframe_insert('wind_strength', frame=1)
 force.wind_strength = 4; force.keyframe_insert('wind_strength', frame=60)
@@ -51,6 +54,16 @@ def capture():
                         framebuffer.clear(color=(.025,.025,.035,1), depth=1.)
                         gpu.state.viewport_set(0,0,800,600)
                         gpu.state.scissor_test_set(False)
+                        # Outline the actual obstacle for a legible capture.
+                        from gpu_extras.batch import batch_for_shader
+                        corners = np.asarray([tuple(obstacle.matrix_world @ Vector(c)) for c in obstacle.bound_box],np.float32)
+                        edges = [corners[i] for a in range(8) for bit in (1,2,4)
+                                 if a<(a^bit) for i in (a,a^bit)]
+                        with gpu.matrix.push_pop(),gpu.matrix.push_pop_projection():
+                            gpu.matrix.load_matrix(view); gpu.matrix.load_projection_matrix(projection)
+                            shader = gpu.shader.from_builtin('UNIFORM_COLOR'); shader.bind()
+                            shader.uniform_float('color',(.5,.55,.6,1))
+                            batch_for_shader(shader,'LINES',{'pos':np.asarray(edges,np.float32)}).draw(shader)
                         wind_fields.draw(SimpleNamespace(view_matrix=view, window_matrix=projection))
                         pixels = np.asarray(framebuffer.read_color(0,0,800,600,4,0,'UBYTE')).reshape(600,800,4)
                         cyan = (pixels[:,:,0]<90) & (pixels[:,:,1]>100) & (pixels[:,:,2]>150)

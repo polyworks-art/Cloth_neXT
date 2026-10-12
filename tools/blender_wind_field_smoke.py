@@ -16,6 +16,9 @@ from cloth_next.ppf.schema import envelope
 
 registration.register()
 try:
+    preview_object = bpy.data.objects.get('Cube')
+    preview_object.scale = (.15,.15,.15)
+    preview_object.location.x = .3
     wind_fields.register(); wind_fields.register()
     assert bpy.app.handlers.frame_change_post.count(wind_fields._frame_change_post) == 1
     assert bpy.app.handlers.load_post.count(wind_fields._load_post) == 1
@@ -25,6 +28,7 @@ try:
     force = obj.cloth_next.force
     force.gravity_strength = 0; force.wind_local = True
     force.wind_radius = 1; force.wind_resolution = 5
+    force.wind_obstacles = 'NONE'; force.wind_vector_scale = .005
     force.wind_show_vectors = True; force.air_density = .1
     obj.rotation_euler.y = math.pi / 2
     force.wind_strength = 1; force.keyframe_insert('wind_strength', frame=1)

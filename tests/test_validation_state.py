@@ -329,7 +329,8 @@ def test_validation_is_the_only_thing_that_scans(env):
 
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
-    assert len(handlers.depsgraph_update_post) == 1
+    assert len(handlers.depsgraph_update_post) == 2
+    assert sum(getattr(f, "_clothnext_wind_geometry", False) for f in handlers.depsgraph_update_post) == 1
     # Validation, role colors, recovery, image-cache, linked Colliders,
     # orphan attachments and the Wind preview.
     assert len(handlers.load_post) == 7

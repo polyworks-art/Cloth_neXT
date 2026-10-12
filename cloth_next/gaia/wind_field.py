@@ -20,19 +20,25 @@ class WindSource:
     noise_size: float
     noise_time: float
     seed: int
+    obstacle_mode: str = 'NONE'
+    wake_strength: float = .35
+    wake_length: float = 3.
 
     def __post_init__(self):
         values = (*self.center, *self.direction, self.speed, self.radius,
-                  self.falloff, self.turbulence, self.noise_size, self.noise_time)
+                  self.falloff, self.turbulence, self.noise_size, self.noise_time,
+                  self.wake_strength, self.wake_length)
         if (len(self.center) != 3 or len(self.direction) != 3
                 or not np.isfinite(values).all() or self.speed < 0
                 or self.radius <= 0 or self.falloff < 1 or self.turbulence < 0
                 or self.noise_size <= 0 or self.noise_time <= 0
+                or self.obstacle_mode not in {'NONE', 'COLLIDERS', 'SCENE'}
+                or not 0 <= self.wake_strength <= 2 or self.wake_length <= 0
                 or np.linalg.norm(self.direction) < 1e-12):
             raise ValueError('Invalid local Wind source')
 
 
-def velocity(points, sources, seconds):
+def velocity(points, sources, seconds, obstacles=None):
     """Sum smooth spherical sources and bounded swirling Fourier modes."""
     points = np.asarray(points, dtype=np.float64)
     if points.ndim < 2 or points.shape[-1] != 3 or not np.isfinite(points).all() or not math.isfinite(seconds):
@@ -55,7 +61,12 @@ def velocity(points, sources, seconds):
                 phase = np.einsum('...i,i->...', relative, wave) * (2 * math.pi / source.noise_size)
                 phase += seconds * (2 * math.pi / source.noise_time) + digest[24] / 255 * 2 * math.pi
                 flow += source.turbulence / 8 * np.cos(phase)[..., None] * axis
-        result += flow * weight[..., None]
+        contribution = flow * weight[..., None]
+        if obstacles is not None and source.obstacle_mode != 'NONE':
+            from .wind_obstacles import obstacle_velocity
+            contribution = obstacle_velocity(points, contribution, source, seconds,
+                obstacles, wake_strength=source.wake_strength, wake_length=source.wake_length)
+        result += contribution
     return result
 
 
@@ -89,11 +100,13 @@ def arrow_lines(points, vectors, scale, maximum_length):
     """Bounded float32 world-space arrows; display scale never changes physics."""
     points = np.asarray(points, float).reshape(-1, 3)
     vectors = np.asarray(vectors, float).reshape(-1, 3)
-    if points.shape != vectors.shape or not np.isfinite((points, vectors)).all() or scale <= 0 or maximum_length <= 0:
+    maximum_length = np.broadcast_to(np.asarray(maximum_length,float), (len(points),))
+    if points.shape != vectors.shape or not np.isfinite((points, vectors)).all() or not np.isfinite(scale) or scale <= 0 or not np.isfinite(maximum_length).all() or np.any(maximum_length <= 0):
         raise ValueError('Invalid Wind preview vectors')
     speed = np.linalg.norm(vectors, axis=1)
     mask = speed > 1e-6
     points, vectors, speed = points[mask], vectors[mask], speed[mask]
+    maximum_length = maximum_length[mask]
     if not len(points):
         return np.empty((0, 3), dtype=np.float32)
     direction = vectors / speed[:, None]

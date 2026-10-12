@@ -2227,6 +2227,12 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             "world_matrix": world,
             "material": static_wire_params(material),
         }, sort_keys=True, separators=(",", ":")))
+    wind_obstacle_identity = ""
+    wind_obstacle_modes = {str(getattr(obj.cloth_next.force, "wind_obstacles", "NONE"))
+        for obj in _enabled_force_objects(context) if getattr(obj.cloth_next.force, "wind_local", False)}
+    if wind_obstacle_modes - {"NONE"}:
+        from .wind_obstacles import signature as wind_obstacle_signature
+        wind_obstacle_identity = wind_obstacle_signature(context, wind_obstacle_modes)
     force_settings = [json.dumps({
         "object_key": validation_state.object_key(obj),
         "type": str(obj.cloth_next.force.force_type),
@@ -2240,7 +2246,8 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             obj.cloth_next.force, "wind_strength", 0.0)),
         "local_wind": {key: getattr(obj.cloth_next.force, key, None) for key in (
             "wind_local", "wind_radius", "wind_falloff", "wind_turbulence",
-            "wind_turbulence_size", "wind_resolution")},
+            "wind_turbulence_size", "wind_resolution", "wind_obstacles",
+            "wind_wake_strength", "wind_wake_length")},
         "wind_variation": float(getattr(obj.cloth_next.force,
                                          "wind_variation", 0.0)),
         "wind_noise_scale": float(getattr(obj.cloth_next.force,
@@ -2265,6 +2272,7 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                    separators=(",", ":")),
         *collider_settings,
         *force_settings,
+        wind_obstacle_identity,
         str(_scene_fps(context)),
     ))
     if getattr(cloth_obj.cloth_next, "water_flow_enabled", False):

@@ -976,6 +976,10 @@ def _draw_complete_force_controls(
         vector.prop(force, "wind_turbulence")
         vector.prop(force, "wind_turbulence_size")
         vector.prop(force, "wind_resolution")
+        vector.prop(force, "wind_obstacles")
+        if force.wind_obstacles != 'NONE':
+            vector.prop(force, "wind_wake_strength")
+            vector.prop(force, "wind_wake_length")
     vector.prop(force, "wind_show_vectors")
     if force.wind_show_vectors:
         vector.prop(force, "wind_vector_scale")

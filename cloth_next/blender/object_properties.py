@@ -804,6 +804,18 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_resolution: bpy.props.IntProperty(
         name="Field Resolution", default=13, min=5, max=33, options=set(), update=_on_settings_update,
         description="Grid nodes across the Wind source diameter; higher resolution captures smaller swirls")
+    wind_obstacles: bpy.props.EnumProperty(
+        name="Obstacles", default="COLLIDERS", options=set(), update=_on_settings_update,
+        items=(("NONE", "Off", "Wind ignores geometry"),
+               ("COLLIDERS", "Cloth NeXt Colliders", "React to enabled Collider surfaces"),
+               ("SCENE", "Scene Geometry", "React to scene surfaces, including objects without Collider setup; simulated targets are excluded")),
+        description="Geometry used for approximate Wind shadows, surface deflection and wakes")
+    wind_wake_strength: bpy.props.FloatProperty(
+        name="Wake Strength", default=.35, min=0., max=2., update=_on_settings_update,
+        description="Swirling velocity behind obstacles relative to incoming Wind; zero keeps the shadow and deflection")
+    wind_wake_length: bpy.props.FloatProperty(
+        name="Wake Length", default=3., min=.1, soft_max=10., update=_on_settings_update,
+        description="Wake recovery distance relative to obstacle size, limited to the Wind field radius")
     wind_show_vectors: bpy.props.BoolProperty(
         name="Show Wind Vectors", default=False, options=set(), update=_on_wind_preview_update,
         description="Preview combined Wind at the current timeline frame without baking")

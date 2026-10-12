@@ -69,7 +69,6 @@ def _steps() -> list[tuple]:
     steps.append((object_attachments.register, object_attachments.unregister))
     steps.append((sewing.register, sewing.unregister))
     steps.append((water_flow.register, water_flow.unregister))
-    steps.append((wind_fields.register, wind_fields.unregister))
     steps.append((material_zone_selector.register, material_zone_selector.unregister))
     steps.append((linked_colliders.register, linked_colliders.unregister))
     steps.append((pin_constraints.install_runtime_hooks,
@@ -88,9 +87,10 @@ def _steps() -> list[tuple]:
     steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
-    # last and detached first, and idempotent, so a reload cannot leave a
+    # late and detached early, and idempotent, so a reload cannot leave a
     # duplicate behind.
     steps.append((validation_state.register, validation_state.unregister))
+    steps.append((wind_fields.register, wind_fields.unregister))
     steps.append((solver_test.install_recovery_ui_handler,
                   solver_test.uninstall_recovery_ui_handler))
     steps.append((solver_test.synchronize_playback_input_deformers,
