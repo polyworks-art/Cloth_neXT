@@ -2602,6 +2602,8 @@ class CLOTHNEXT_PT_object_attachments(_ClothNextSubpanel, bpy.types.Panel):
                           icon="ERROR")
         controls.operator(object_attachments.CLOTHNEXT_OT_edit_attachment.bl_idname,
                           text="Add Attachment", icon="ADD")
+        controls.operator(object_attachments.CLOTHNEXT_OT_edit_attachment.bl_idname,
+                          text="Smart Attach", icon="SNAP_VERTEX").smart = True
         if not owned:
             layout.label(text="No source-owned attachments", icon="INFO")
         if referenced:
