@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.19 - 2026-10-12
+
+- Cache Wind preview vectors and GPU batches across unchanged viewport redraws.
+- Reuse static obstacle geometry and repeated surface queries across frames; invalidate edited geometry and bound cache memory.
+- Avoid temporary mesh copies and repeated whole-scene evaluations when an evaluated Collider already matches its input boundary.
+- Accelerate preview BVH construction and prune irrelevant obstacle queries with vectorized spatial bounds.
+- Verify the fix in an open animated character scene: Scene-mode timeline steps dropped from 5.39 s to 87 ms, and three-frame Wind preparation from 8.22 s to 0.41 s, with byte-identical exported fields.
+
 ## 2.9.18 - 2026-10-12
 
 - Add local Wind and Turbulence fields with animated radius, falloff and swirling airflow.

@@ -1,9 +1,11 @@
-# Cloth NeXt 2.9.18
+# Cloth NeXt 2.9.19
 
-Author local Wind and Turbulence on Cloth NeXt Force Emptys. Animate direction, strength, radius and falloff, then enable Show Wind Vectors to inspect airflow on the timeline before Bake. Arrows stay near selected geometry, including moving objects and collection instances, with empty gaps left clear.
+Improve Wind performance during viewport navigation, timeline preview and Bake preparation. Unchanged redraws reuse vector buffers and GPU batches instead of repeating geometry and airflow queries.
 
-Choose Obstacles Off, Cloth NeXt Colliders or Scene Geometry. Optional response diverts airflow near surfaces, weakens it behind obstacles and adds an animated swirling wake. Wake Strength and Wake Length control the effect. This is a bounded one-way airflow approximation rather than a CFD solve; active simulation targets do not shield themselves using previous Bake results.
+Static obstacles reuse cached geometry across frames. Geometry edits and animation update the affected surfaces, while bounded query caches and spatial tests avoid unnecessary work. Collider surfaces that already match their simulation input boundary no longer create temporary objects or trigger repeated whole-scene dependency updates. Preview meshes with uniform transforms use Blender's native BVH construction.
 
-Local fields require GAIA 0.23 and positive Air Density. Animated air-velocity grids preserve existing Water Flow base fields; legacy global Wind remains available. Combined field schedules are limited to 32 MiB before allocation. Validation includes 2,174 passing source tests, real Blender timeline and obstacle checks, GPU captures and native CUDA airflow comparisons.
+The fix was measured in an open animated character scene with approximately 169,000 triangles and Grooms disabled. Timeline steps fell from 663 ms to 48 ms in Collider mode and from 5.39 s to 87 ms in Scene mode. Three-frame Wind preparation fell from 8.22 s to 0.41 s in Scene mode, with byte-identical exported payloads. Dense animated scenes can still exceed realtime frame budgets; these measurements cover Wind preparation rather than native simulation time.
+
+Validation includes 2,174 passing source tests, real Blender cache invalidation, transformed obstacle queries, timeline and cancellation checks, and GPU overlay captures.
 
 Update through Blender's native extension manager and restart Blender. The external solver is not modified or bundled.

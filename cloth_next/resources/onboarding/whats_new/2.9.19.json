@@ -1,0 +1,15 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.19",
+  "title": "What's New in Cloth NeXt 2.9.19",
+  "subtitle": "Faster Wind preview and preparation.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/refresh.png", "title": "Responsive viewport navigation", "description": "Wind arrows reuse their geometry and drawing buffers when the scene has not changed."},
+    {"icon": "icons/check.png", "title": "Faster timeline and Bake preparation", "description": "Reuse static obstacles and avoid repeated whole-scene evaluations while preserving animated geometry updates."}
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}
