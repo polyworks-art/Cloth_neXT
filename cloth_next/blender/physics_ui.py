@@ -969,6 +969,17 @@ def _draw_complete_force_controls(
     vector.prop(force, "wind_strength", text="Wind")
     vector.prop(force, "wind_variation", text="Wind Variation")
     vector.prop(force, "wind_noise_scale", text="Noise Scale")
+    vector.prop(force, "wind_local")
+    if force.wind_local:
+        vector.prop(force, "wind_radius")
+        vector.prop(force, "wind_falloff")
+        vector.prop(force, "wind_turbulence")
+        vector.prop(force, "wind_turbulence_size")
+        vector.prop(force, "wind_resolution")
+    vector.prop(force, "wind_show_vectors")
+    if force.wind_show_vectors:
+        vector.prop(force, "wind_vector_scale")
+        vector.label(text="Scrub or play the timeline to preview Wind")
     environment = layout.column(align=True)
     environment.label(text="Aerodynamic Forces")
     environment.prop(force, "air_density", text="Air Density")
@@ -982,7 +993,8 @@ def _draw_complete_force_controls(
     layout.label(
         text=f"Gravity: world axis · Wind: {direction_prefix}local +Z",
         **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
-    layout.label(text="Rotate the Empty to aim Wind only")
+    layout.label(text=("Move and rotate the Empty to aim local Wind"
+                       if force.wind_local else "Rotate the Empty to aim Wind only"))
     layout.label(text="Properties and rotation can be keyframed")
 
 

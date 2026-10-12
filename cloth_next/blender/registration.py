@@ -25,7 +25,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
-               viewport_colors, water_flow, material_zones, material_zone_selector)
+               viewport_colors, water_flow, wind_fields, material_zones, material_zone_selector)
 
 _CLASSES = (
     preferences.CLASSES
@@ -69,6 +69,7 @@ def _steps() -> list[tuple]:
     steps.append((object_attachments.register, object_attachments.unregister))
     steps.append((sewing.register, sewing.unregister))
     steps.append((water_flow.register, water_flow.unregister))
+    steps.append((wind_fields.register, wind_fields.unregister))
     steps.append((material_zone_selector.register, material_zone_selector.unregister))
     steps.append((linked_colliders.register, linked_colliders.unregister))
     steps.append((pin_constraints.install_runtime_hooks,

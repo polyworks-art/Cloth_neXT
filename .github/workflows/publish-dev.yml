@@ -36,8 +36,8 @@ jobs:
       - run: pip install -r requirements-build.txt
       - run: python tools/prepare_dev_build.py --version "${{ inputs.version }}" --commit "${{ inputs.ref }}" --run-id "${{ github.run_id }}"
       - run: python tools/validate_release_policy.py --phase pre-build --tag "${{ inputs.version }}"
-      - name: Intersection diagnostics regression tests
-        run: pytest tests/test_intersection_diagnostics.py tests/test_solver_session.py tests/test_solver_test_ui.py -q
+      - name: Wind and intersection diagnostics regression tests
+        run: pytest tests/test_wind_field.py tests/test_intersection_diagnostics.py tests/test_solver_session.py tests/test_solver_test_ui.py -q
       - name: Mandatory source and secret checks
         shell: pwsh
         run: |
@@ -62,6 +62,7 @@ jobs:
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_pull_detach_smoke.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_linked_colliders_smoke.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_intersection_batch_smoke.py'
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_wind_field_smoke.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_water_ui_smoke.py'
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"

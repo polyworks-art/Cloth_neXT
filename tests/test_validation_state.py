@@ -330,8 +330,11 @@ def test_validation_is_the_only_thing_that_scans(env):
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
     assert len(handlers.depsgraph_update_post) == 1
-    # Validation, role colors, recovery, image-cache, linked Colliders, and orphan attachments.
-    assert len(handlers.load_post) == 6
+    # Validation, role colors, recovery, image-cache, linked Colliders,
+    # orphan attachments and the Wind preview.
+    assert len(handlers.load_post) == 7
+    assert sum(getattr(f, "_clothnext_wind_overlay", False) for f in handlers.load_post) == 1
+    assert sum(getattr(f, "_clothnext_wind_redraw", False) for f in handlers.frame_change_post) == 1
     assert sum(f.__name__ == "_prune_deleted_attachments"
                for f in handlers.load_post) == 1
     assert len([f for f in handlers.load_post
@@ -360,6 +363,7 @@ def test_unregister_removes_every_handler(blender_env):
     handlers = env.bpy.app.handlers
     assert handlers.depsgraph_update_post == []
     assert handlers.load_post == []
+    assert handlers.frame_change_post == []
 
 
 def test_reload_cycle_creates_no_duplicate_handlers(blender_env):

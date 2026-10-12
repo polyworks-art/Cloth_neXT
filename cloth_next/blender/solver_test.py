@@ -1043,6 +1043,8 @@ def _force_state(context, *, wind_frame: int | None = None) \
         if hasattr(force, "gravity_strength"):
             gravity_strength = float(force.gravity_strength)
             wind_strength = float(force.wind_strength)
+            if bool(getattr(force, "wind_local", False)):
+                wind_strength = 0.0
             variation = float(force.wind_variation)
             noise_scale = float(getattr(force, "wind_noise_scale", 3.0))
             values = (gravity_strength, wind_strength, variation, noise_scale)
@@ -1050,7 +1052,7 @@ def _force_state(context, *, wind_frame: int | None = None) \
                    for value in values):
                 raise SceneValidationError(
                     f"{obj.name}: directional Force value is invalid.")
-            if wind_frame is not None and variation:
+            if wind_frame is not None and variation and not bool(getattr(force, "wind_local", False)):
                 wind_strength = max(
                     0.0, wind_strength + variation * _wind_oscillation(
                         obj, wind_frame, _scene_fps(context), noise_scale))
@@ -2236,6 +2238,9 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             obj.cloth_next.force, "gravity_axis", "Z_NEG")),
         "wind_strength": float(getattr(
             obj.cloth_next.force, "wind_strength", 0.0)),
+        "local_wind": {key: getattr(obj.cloth_next.force, key, None) for key in (
+            "wind_local", "wind_radius", "wind_falloff", "wind_turbulence",
+            "wind_turbulence_size", "wind_resolution")},
         "wind_variation": float(getattr(obj.cloth_next.force,
                                          "wind_variation", 0.0)),
         "wind_noise_scale": float(getattr(obj.cloth_next.force,
@@ -3659,6 +3664,8 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
 
 def _simple_force_fcurves(obj):
     """Return an Action's safe scalar curves, or ``None`` to fail closed."""
+    if bool(getattr(obj.cloth_next.force, "wind_local", False)):
+        return None
     animation = getattr(obj, "animation_data", None)
     action = getattr(animation, "action", None)
     if (getattr(animation, "drivers", ()) or
@@ -5612,6 +5619,10 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             tuple(target.uuid for target in target_plans),
             schema_version=_resolved_wire_contract(resolved)[0],
             protocol_version=_resolved_wire_contract(resolved)[1])
+        from .wind_fields import apply_wind_payload
+        param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+            snapshot.bake_range.start, snapshot.bake_range.end)
+        param_hash = wind_hash or param_hash
         from .water_flow import apply_water_stream_payload
         param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
             snapshot.bake_range.start, snapshot.bake_range.end)
@@ -5981,6 +5992,10 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         object_attachments=snapshot.object_attachments,
         contact_enabled=snapshot.contact_enabled,
         schema_version=wire_schema, protocol_version=wire_protocol)
+    from .wind_fields import apply_wind_payload
+    param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = wind_hash or param_hash
     from .water_flow import apply_water_stream_payload
     param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)
@@ -6454,6 +6469,10 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         tuple(item[1] for item in collider_specs), (pin_config,))
     param_payload, param_hash = _cached_payload(
         payload_cache, "param", param_cache_key, encode_param_payload)
+    from .wind_fields import apply_wind_payload
+    param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = wind_hash or param_hash
     from .water_flow import apply_water_stream_payload
     param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)

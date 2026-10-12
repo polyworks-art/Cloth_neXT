@@ -780,7 +780,36 @@ class CLOTHNEXT_PG_rigid_body_settings(bpy.types.PropertyGroup):
                     "more mass and make impacts feel heavier")
 
 
+def _on_wind_preview_update(self, context):
+    from . import wind_fields
+    wind_fields.redraw(self, context)
+
+
 class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
+    wind_local: bpy.props.BoolProperty(
+        name="Local Wind Field", default=False, options=set(), update=_on_settings_update,
+        description="Emit spatial Wind and Turbulence around this Empty; requires GAIA 0.23")
+    wind_radius: bpy.props.FloatProperty(
+        name="Radius", default=2., min=.01, soft_max=20., subtype="DISTANCE", unit="LENGTH", update=_on_settings_update,
+        description="Distance from the Empty where local Wind reaches zero")
+    wind_falloff: bpy.props.FloatProperty(
+        name="Falloff", default=2., min=1., soft_max=8., update=_on_settings_update,
+        description="Higher values concentrate Wind closer to the Empty")
+    wind_turbulence: bpy.props.FloatProperty(
+        name="Turbulence", default=0., min=0., soft_max=10., update=_on_settings_update,
+        description="Maximum additional spatial swirling air speed")
+    wind_turbulence_size: bpy.props.FloatProperty(
+        name="Swirl Size", default=1., min=.01, soft_max=10., subtype="DISTANCE", unit="LENGTH", update=_on_settings_update,
+        description="World-space size of the turbulent swirls")
+    wind_resolution: bpy.props.IntProperty(
+        name="Field Resolution", default=13, min=5, max=33, options=set(), update=_on_settings_update,
+        description="Grid nodes across the Wind source diameter; higher resolution captures smaller swirls")
+    wind_show_vectors: bpy.props.BoolProperty(
+        name="Show Wind Vectors", default=False, options=set(), update=_on_wind_preview_update,
+        description="Preview combined Wind at the current timeline frame without baking")
+    wind_vector_scale: bpy.props.FloatProperty(
+        name="Vector Scale", default=.15, min=.001, soft_max=1., options=set(), update=_on_wind_preview_update,
+        description="Display length per unit of air speed; does not change the simulation")
     # Kept for loading older files. The unified Force panel no longer exposes
     # or uses a single active type.
     force_type: bpy.props.EnumProperty(
