@@ -1,11 +1,11 @@
-# Cloth NeXt 2.9.21
+# Cloth NeXt 2.9.22
 
-Wind on Cloth NeXt Force Emptys now always uses a local field. The global/local toggle is removed, including the effect of saved old toggle values. Existing positions, directions and strength values are retained; Wind fades to zero at Radius, which defaults to 2 m. Adjust Radius to cover the intended area when updating a scene that previously used global Wind. Fields require GAIA 0.23 and positive Air Density.
+Smart Attach binds each selected source vertex to the nearest target surface vertex in world space. In Object Mode, choose Smart Attach, select source vertices, press Enter and click the target object. Closed source loops are supported, and multiple sources may share a target vertex. Bindings remain fixed during animation. Manual Add Attachment retains its open-path source/target selection workflow.
 
-The revised controls group field shape, gusts and turbulence, obstacle response, preview quality, and aerodynamic response. Speed, Radius and Falloff stay directly visible. Wind animated from zero is captured, while static gravity-only sources skip Wind export.
+Attachment overlays reuse anchor geometry and GPU batches while navigating an unchanged scene. Endpoint edits, frame changes, attachment changes, load and undo invalidate the cache. Collider previews reuse their evaluated mesh when no visible modifiers follow the simulation boundary, avoiding unnecessary temporary geometry evaluation.
 
-Bake preparation now reports Wind animation capture, Sampling local Wind, and field encoding with completed work counts. Geometry work without a known total stays indeterminate instead of displaying a fixed zero percent. Cancel preserves the original frame and subframe and does not report unfinished Wind work as complete.
+Material Zones can add multiple distinct property overrides reliably. Add Property no longer reuses Blender's previous property key or remove action, including after deleting an override.
 
-Validation includes 2,175 passing source tests, real Blender export and cancellation regressions, animated Wind from zero, ignored legacy toggles, multi-object grid export, cache status checks, and a visual inspection of the actual controls. The external solver is not modified or bundled.
+Validation covers nearest-vertex closed-loop binding, persistent Attachment data, a single Collider anchor evaluation over 100 unchanged redraws, cache invalidation and multiple zone overrides with add/remove/add in real Blender.
 
 Update through Blender's native extension manager and restart Blender. The external solver is not modified or bundled.

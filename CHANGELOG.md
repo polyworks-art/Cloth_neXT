@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.22 - 2026-10-12
+
+- Add Smart Attach: select source vertices, press Enter and click the target object to bind each source to its nearest target surface vertex in world space. Closed source loops are supported.
+- Cache Attachment overlay anchors and GPU batches across unchanged viewport redraws; invalidate on endpoint edits, frame changes, attachment changes, load and undo.
+- Reuse evaluated Collider geometry for Attachment previews when no visible modifiers follow the simulation boundary.
+- Fix Material Zones Add Property reusing the previous property or remove action; allow repeated additions of distinct overrides.
+- Verify closed-loop nearest-vertex bindings, persistent Attachment data, bounded overlay evaluations and multiple Material Zone overrides in real Blender regression tests.
+
 ## 2.9.21 - 2026-10-12
 
 - Make Wind on Force Emptys always local and remove the global/local toggle; ignore saved legacy toggle values.
