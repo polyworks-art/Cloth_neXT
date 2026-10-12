@@ -15,7 +15,7 @@ try:
             location=((index%4-1.5)*.6,(index//4-2.5)*.5,0))
     bpy.ops.object.empty_add()
     obj=bpy.context.object; obj.cloth_next.enabled=True; obj.cloth_next.role='FORCE'
-    force=obj.cloth_next.force; force.wind_local=True; force.wind_strength=3
+    force=obj.cloth_next.force; force.wind_strength=3
     force.wind_radius=3; force.wind_obstacles='SCENE'; force.wind_show_vectors=True
     force.wind_resolution=13; force.wind_turbulence=.3
     obj.rotation_euler.y=math.pi/2

@@ -1043,8 +1043,6 @@ def _force_state(context, *, wind_frame: int | None = None) \
         if hasattr(force, "gravity_strength"):
             gravity_strength = float(force.gravity_strength)
             wind_strength = float(force.wind_strength)
-            if bool(getattr(force, "wind_local", False)):
-                wind_strength = 0.0
             variation = float(force.wind_variation)
             noise_scale = float(getattr(force, "wind_noise_scale", 3.0))
             values = (gravity_strength, wind_strength, variation, noise_scale)
@@ -1052,10 +1050,9 @@ def _force_state(context, *, wind_frame: int | None = None) \
                    for value in values):
                 raise SceneValidationError(
                     f"{obj.name}: directional Force value is invalid.")
-            if wind_frame is not None and variation and not bool(getattr(force, "wind_local", False)):
-                wind_strength = max(
-                    0.0, wind_strength + variation * _wind_oscillation(
-                        obj, wind_frame, _scene_fps(context), noise_scale))
+            # Wind is authored as a local air-velocity field. Keep it out of
+            # the legacy scene-wide vector to avoid applying it twice.
+            wind_strength = 0.0
             axis = (0.0, 0.0, 0.0)
             if wind_strength:
                 matrix = obj.matrix_world
@@ -2228,8 +2225,9 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             "material": static_wire_params(material),
         }, sort_keys=True, separators=(",", ":")))
     wind_obstacle_identity = ""
+    from .wind_fields import has_wind
     wind_obstacle_modes = {str(getattr(obj.cloth_next.force, "wind_obstacles", "NONE"))
-        for obj in _enabled_force_objects(context) if getattr(obj.cloth_next.force, "wind_local", False)}
+        for obj in _enabled_force_objects(context) if getattr(obj.cloth_next.force, "wind_radius", None) is not None and has_wind(obj)}
     if wind_obstacle_modes - {"NONE"}:
         from .wind_obstacles import settings_signature as wind_obstacle_signature
         wind_obstacle_identity = wind_obstacle_signature(context, wind_obstacle_modes)
@@ -2245,7 +2243,7 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
         "wind_strength": float(getattr(
             obj.cloth_next.force, "wind_strength", 0.0)),
         "local_wind": {key: getattr(obj.cloth_next.force, key, None) for key in (
-            "wind_local", "wind_radius", "wind_falloff", "wind_turbulence",
+            "wind_radius", "wind_falloff", "wind_turbulence",
             "wind_turbulence_size", "wind_resolution", "wind_obstacles",
             "wind_wake_strength", "wind_wake_length")},
         "wind_variation": float(getattr(obj.cloth_next.force,
@@ -2286,9 +2284,10 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
 
 def _wind_obstacle_geometry_signature(context):
     """Mesh-bearing identity belongs only to explicit validation/preparation."""
+    from .wind_fields import has_wind
     modes = {str(getattr(obj.cloth_next.force,'wind_obstacles','NONE'))
              for obj in _enabled_force_objects(context)
-             if getattr(obj.cloth_next.force,'wind_local',False)}
+             if getattr(obj.cloth_next.force,'wind_radius',None) is not None and has_wind(obj)}
     if not modes - {'NONE'}:
         return ''
     from .wind_obstacles import signature
@@ -3691,7 +3690,7 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
 
 def _simple_force_fcurves(obj):
     """Return an Action's safe scalar curves, or ``None`` to fail closed."""
-    if bool(getattr(obj.cloth_next.force, "wind_local", False)):
+    if getattr(obj.cloth_next.force, "wind_radius", None) is not None:
         return None
     animation = getattr(obj, "animation_data", None)
     action = getattr(animation, "action", None)

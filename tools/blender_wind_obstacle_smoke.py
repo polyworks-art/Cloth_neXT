@@ -23,7 +23,7 @@ try:
     emitter = bpy.context.object; emitter.name = 'Wind'
     emitter.cloth_next.enabled = True; emitter.cloth_next.role = 'FORCE'
     force = emitter.cloth_next.force
-    force.wind_local = True; force.wind_strength = 3; force.wind_radius = 3
+    force.wind_strength = 3; force.wind_radius = 3
     force.wind_resolution = 13; force.wind_show_vectors = True
     force.gravity_strength = 0; force.air_density = .1
     emitter.rotation_euler.y = math.pi/2

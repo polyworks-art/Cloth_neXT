@@ -906,17 +906,20 @@ def test_force_setup_shows_all_mapped_controls_together(blender_env):
     settings.enabled = True
     settings.role = "FORCE"
     panel = env.physics_ui.CLOTHNEXT_PT_setup()
-    expected_props = ["gravity_strength", "gravity_axis", "wind_strength", "wind_variation", "wind_noise_scale",
-                      "wind_local", "wind_show_vectors",
+    expected_props = ["gravity_strength", "gravity_axis", "wind_strength", "wind_radius", "wind_falloff",
+                      "wind_variation", "wind_noise_scale", "wind_turbulence", "wind_turbulence_size",
+                      "wind_obstacles", "wind_wake_strength", "wind_wake_length", "wind_show_vectors", "wind_resolution",
                       "air_density", "air_friction", "vertex_air_damp"]
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))
     assert panel.layout.props == expected_props
-    assert "Forces" in panel.layout.labels
-    assert "Aerodynamic Forces" in panel.layout.labels
+    assert "Wind Field" in panel.layout.labels
+    assert "Gusts & Turbulence" in panel.layout.labels
+    assert "Air Response" in panel.layout.labels
+    assert 'wind_local' not in panel.layout.props
+    assert not hasattr(settings.force,'wind_local')
     assert panel.layout.operators == []
     assert all(name != "force_type" for name, _text in panel.layout.prop_texts)
-    settings.force.wind_local = True
     settings.force.wind_show_vectors = True
     panel.layout = RecordingLayout()
     panel.draw(_context(obj))

@@ -15,7 +15,8 @@ try:
     obstacle=bpy.context.object
     bpy.ops.object.empty_add()
     force=bpy.context.object; force.cloth_next.enabled=True; force.cloth_next.role='FORCE'
-    force.cloth_next.force.wind_local=True; force.cloth_next.force.wind_obstacles='SCENE'
+    force.cloth_next.force.wind_strength=2
+    force.cloth_next.force.wind_obstacles='SCENE'
     bpy.context.view_layer.update()
     profile=cProfile.Profile(); profile.enable()
     before=solver_test.cheap_settings_fingerprint(bpy.context)

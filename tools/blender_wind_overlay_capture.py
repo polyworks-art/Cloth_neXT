@@ -20,7 +20,7 @@ bpy.ops.object.empty_add()
 obj = bpy.context.object
 obj.cloth_next.enabled = True; obj.cloth_next.role = 'FORCE'
 force = obj.cloth_next.force
-force.gravity_strength = 0; force.wind_local = True; force.wind_radius = 2
+force.gravity_strength = 0; force.wind_radius = 2
 force.wind_turbulence = 2; force.wind_strength = 2; force.wind_show_vectors = True
 force.wind_obstacles = 'SCENE'
 obstacle = bpy.data.objects.get('Cube')

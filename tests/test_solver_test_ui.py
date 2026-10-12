@@ -1133,7 +1133,8 @@ def test_unified_force_values_are_applied_together(blender_env, local_wind):
     state, active = module._force_state(context)
 
     assert state.gravity == (0.0, 0.0, -4.0)
-    assert state.wind == ((0.0, 0.0, 0.0) if local_wind else (0.0, 0.0, 2.5))
+    # A saved old toggle value cannot restore the global Wind path.
+    assert state.wind == (0.0, 0.0, 0.0)
     assert state.air_density == pytest.approx(0.8)
     assert state.air_friction == pytest.approx(0.3)
     assert state.vertex_air_damp == pytest.approx(0.15)

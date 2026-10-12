@@ -786,9 +786,6 @@ def _on_wind_preview_update(self, context):
 
 
 class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
-    wind_local: bpy.props.BoolProperty(
-        name="Local Wind Field", default=False, options=set(), update=_on_settings_update,
-        description="Emit spatial Wind and Turbulence around this Empty; requires GAIA 0.23")
     wind_radius: bpy.props.FloatProperty(
         name="Radius", default=2., min=.01, soft_max=20., subtype="DISTANCE", unit="LENGTH", update=_on_settings_update,
         description="Distance from the Empty where local Wind reaches zero")
@@ -851,7 +848,7 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_strength: bpy.props.FloatProperty(
         name="Wind", default=0.0, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="Wind speed along the Empty's local +Z axis; aerodynamic force also depends on Air Density")
+        description="Local air speed along the Empty's +Z axis, fading to zero at Radius; aerodynamic force also depends on Air Density")
     wind_variation: bpy.props.FloatProperty(
         name="Strength Variation", default=0.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_settings_update,
@@ -859,7 +856,7 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_noise_scale: bpy.props.FloatProperty(
         name="Noise Scale", default=3.0, min=0.1, soft_max=20.0,
         precision=2, subtype="TIME", unit="TIME", update=_on_settings_update,
-        description="Time scale of Wind Variation in seconds; higher values create slower, broader gusts, while lower values create faster changes")
+        description="Time scale of gusts and swirling Wind in seconds; higher values create slower changes")
     air_density: bpy.props.FloatProperty(
         name="Air Density", default=0.01, min=0.0, soft_max=0.01,
         precision=4, update=_on_settings_update,

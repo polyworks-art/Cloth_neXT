@@ -21,6 +21,17 @@ def force_objects(context):
                  and obj.cloth_next.role == 'FORCE')
 
 
+def has_wind(obj):
+    """Skip static gravity-only sources, retaining animated Wind from zero."""
+    force = obj.cloth_next.force
+    if any(float(getattr(force,key,0.)) != 0. for key in
+           ('wind_strength','wind_variation','wind_turbulence')):
+        return True
+    animation = getattr(obj,'animation_data',None)
+    return bool(animation and (getattr(animation,'action',None)
+                or getattr(animation,'drivers',()) or getattr(animation,'nla_tracks',())))
+
+
 def source_at(context, obj):
     from . import solver_test
     evaluated = obj.evaluated_get(context.evaluated_depsgraph_get())
@@ -29,8 +40,8 @@ def source_at(context, obj):
     frame = context.scene.frame_current + context.scene.frame_subframe
     speed = float(force.wind_strength)
     if force.wind_variation:
-        speed += force.wind_variation * solver_test._wind_oscillation(
-            obj, frame, solver_test._scene_fps(context), force.wind_noise_scale)
+        speed = max(0.,speed + force.wind_variation * solver_test._wind_oscillation(
+            obj, frame, solver_test._scene_fps(context), force.wind_noise_scale))
     try:
         return WindSource(tuple(matrix.translation), tuple(matrix.col[2][:3]),
             speed, force.wind_radius, force.wind_falloff, force.wind_turbulence,
@@ -44,15 +55,15 @@ def source_at(context, obj):
 def apply_wind_payload(context, payload, resolved, first, last):
     from . import solver_test
     from ..ppf.schema import envelope
-    objects = [obj for obj in force_objects(context) if obj.cloth_next.force.wind_local]
+    objects = [obj for obj in force_objects(context) if has_wind(obj)]
     if not objects:
         return payload, None
     if str(getattr(resolved, 'protocol_version', '')) != '0.23':
-        raise solver_test.SceneValidationError('Local Wind and Turbulence require official GAIA 0.23. Select it in Solver Installations.')
+        raise solver_test.SceneValidationError('Wind fields require official GAIA 0.23. Select it in Solver Installations.')
     raw = payload.read_bytes() if isinstance(payload, Path) else payload
     tree = envelope.loads_envelope(raw, envelope.KIND_PARAM, schema_version=2)
     if float(tree['scene'].get('air-density', .001)) <= 0:
-        raise solver_test.SceneValidationError('Local Wind needs positive Air Density.')
+        raise solver_test.SceneValidationError('Wind needs positive Air Density.')
     original = context.scene.frame_current, context.scene.frame_subframe
     samples = {obj.name: [] for obj in objects}
     fps = solver_test._scene_fps(context)
@@ -154,7 +165,7 @@ def preview(context):
         tuple(obj.cloth_next.bake_start for obj in context.scene.objects
               if hasattr(obj,'cloth_next') and obj.cloth_next.enabled),
         tuple((obj.as_pointer(), source_at(context,obj),
-        obj.cloth_next.force.wind_local, obj.cloth_next.force.wind_show_vectors,
+        obj.cloth_next.force.wind_show_vectors,
         obj.cloth_next.force.wind_vector_scale) for obj in forces))
     if _preview_cache is not None and _preview_cache[0] == key:
         return _preview_cache[1]
@@ -170,7 +181,7 @@ def _compute_preview(context):
     visible = [obj for obj in forces if obj.cloth_next.force.wind_show_vectors]
     if not visible:
         return np.empty((0, 3), np.float32)
-    sources = [source_at(context, obj) for obj in forces if obj.cloth_next.force.wind_local]
+    sources = [source_at(context, obj) for obj in forces if has_wind(obj)]
     centers = np.asarray([tuple(obj.matrix_world.translation) for obj in visible])
     radii = np.asarray([obj.cloth_next.force.wind_radius for obj in visible])[:, None]
     lo = (centers - radii).min(axis=0); hi = (centers + radii).max(axis=0)
@@ -178,8 +189,7 @@ def _compute_preview(context):
     fps = solver_test._scene_fps(context)
     from .wind_obstacles import sampler, preview_points
     state, _active = solver_test._force_state(context, wind_frame=frame)
-    modes = {obj.cloth_next.force.wind_obstacles if obj.cloth_next.force.wind_local else 'NONE'
-             for obj in visible}
+    modes = {obj.cloth_next.force.wind_obstacles for obj in visible}
     # Global Wind reaches scene geometry beyond a local emitter's radius.
     if np.linalg.norm(state.wind) > 1e-6:
         lo, hi = np.full(3,-np.inf), np.full(3,np.inf)
@@ -284,7 +294,7 @@ def _depsgraph_update_post(_scene, depsgraph):
         # Scene-only obstacles have no Cloth NeXt settings, so the generic
         # validation handler cannot attribute their edits to simulation targets.
         # Mark recorded geometry dirty here without reading any mesh data.
-        if any(obj.cloth_next.force.wind_local and obj.cloth_next.force.wind_obstacles == 'SCENE'
+        if any(has_wind(obj) and obj.cloth_next.force.wind_obstacles == 'SCENE'
                for obj in force_objects(bpy.context)):
             from . import validation_state
             for obj in validation_state.cloth_next_objects(_scene):

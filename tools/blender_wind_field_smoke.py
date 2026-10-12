@@ -26,7 +26,9 @@ try:
     obj = bpy.context.object
     obj.cloth_next.enabled = True; obj.cloth_next.role = 'FORCE'
     force = obj.cloth_next.force
-    force.gravity_strength = 0; force.wind_local = True
+    force.gravity_strength = 0
+    assert not hasattr(force,'wind_local')
+    force['wind_local'] = False  # Saved legacy toggle is ignored after update.
     force.wind_radius = 1; force.wind_resolution = 5
     force.wind_obstacles = 'NONE'; force.wind_vector_scale = .005
     force.wind_show_vectors = True; force.air_density = .1
@@ -87,6 +89,17 @@ try:
         solver_test.shared_controller = original_controller; detach()
     assert scene.frame_current == 3 and scene.frame_subframe == .25
     assert max(item.progress_current for item in interrupted) < 11, 'Cancelled preparation reported completion'
+    # Wind is always local, including a source animated from zero speed.
+    force.wind_strength=0; force.keyframe_insert('wind_strength',frame=1)
+    force.wind_strength=3; force.keyframe_insert('wind_strength',frame=5)
+    scene.frame_set(1)
+    assert wind_fields.has_wind(obj)
+    from_zero,_=wind_fields.apply_wind_payload(bpy.context,payload,SimpleNamespace(protocol_version='0.23'),1,5)
+    zero_grid=envelope.loads_envelope(from_zero,envelope.KIND_PARAM,schema_version=2)['force_field']['grids'][0]
+    zero_data=np.frombuffer(zlib.decompress(zero_grid['data']),'<f4').reshape(zero_grid['shape'])
+    assert np.max(np.abs(zero_data[0]))==0 and np.max(np.abs(zero_data[-1]))>0
+    force.wind_strength=1; force.keyframe_insert('wind_strength',frame=1)
+    scene.frame_set(3,subframe=.25)
     assert scene.frame_current == 3 and scene.frame_subframe == .25
     result = envelope.loads_envelope(encoded, envelope.KIND_PARAM, schema_version=2)
     grid = result['force_field']['grids'][0]
@@ -144,7 +157,8 @@ try:
     finally:
         solver_test._check_preparation_cancel = check
     assert scene.frame_current == 3 and scene.frame_subframe == .25
-    force.wind_local = False
+    force.wind_strength = 0; force.wind_variation = 0; force.wind_turbulence = 0
+    obj.animation_data_clear()
     unchanged, digest = wind_fields.apply_wind_payload(bpy.context, payload, SimpleNamespace(protocol_version='0.22'), 1, 5)
     assert unchanged is payload and digest is None
     print('CLOTH_NEXT_WIND_FIELD_SMOKE_PASS')

@@ -962,43 +962,48 @@ def _draw_complete_force_controls(
         layout, settings, *, direction_prefix: str = "") -> None:
     """Draw every Force type directly, without an active-type selector."""
     force = settings.force
-    vector = layout.column(align=True)
-    vector.label(text="Forces")
+    vector = layout.box().column(align=True)
+    vector.label(text="Gravity", icon="WORLD")
     vector.prop(force, "gravity_strength", text="Gravity")
     vector.prop(force, "gravity_axis", text="Gravity Axis")
-    vector.prop(force, "wind_strength", text="Wind")
-    vector.prop(force, "wind_variation", text="Wind Variation")
-    vector.prop(force, "wind_noise_scale", text="Noise Scale")
-    vector.prop(force, "wind_local")
-    if force.wind_local:
-        vector.prop(force, "wind_radius")
-        vector.prop(force, "wind_falloff")
-        vector.prop(force, "wind_turbulence")
-        vector.prop(force, "wind_turbulence_size")
-        vector.prop(force, "wind_resolution")
-        vector.prop(force, "wind_obstacles")
-        if force.wind_obstacles != 'NONE':
-            vector.prop(force, "wind_wake_strength")
-            vector.prop(force, "wind_wake_length")
-    vector.prop(force, "wind_show_vectors")
+    wind = layout.box().column(align=True)
+    wind.label(text="Wind Field", icon="FORCE_WIND")
+    wind.prop(force, "wind_strength", text="Speed")
+    wind.prop(force, "wind_radius", text="Radius")
+    wind.prop(force, "wind_falloff", text="Falloff", slider=True)
+    wind.separator()
+    wind.label(text=f"Direction · {direction_prefix}local +Z", icon="ORIENTATION_LOCAL")
+    wind.label(text="Move and rotate the Empty to aim Wind")
+    motion = layout.box().column(align=True)
+    motion.label(text="Gusts & Turbulence", icon="FORCE_TURBULENCE")
+    motion.prop(force, "wind_variation", text="Gust Strength")
+    motion.prop(force, "wind_noise_scale", text="Motion Timing")
+    motion.separator()
+    motion.prop(force, "wind_turbulence", text="Swirl Strength")
+    motion.prop(force, "wind_turbulence_size", text="Swirl Size")
+    obstacles = layout.box().column(align=True)
+    obstacles.label(text="Obstacle Response", icon="MOD_PHYSICS")
+    obstacles.prop(force, "wind_obstacles", text="Geometry")
+    if force.wind_obstacles != 'NONE':
+        obstacles.prop(force, "wind_wake_strength", text="Wake Strength", slider=True)
+        obstacles.prop(force, "wind_wake_length", text="Wake Length")
+    preview = layout.box().column(align=True)
+    preview.label(text="Preview & Quality", icon="HIDE_OFF")
+    preview.prop(force, "wind_show_vectors", text="Show Vectors")
     if force.wind_show_vectors:
-        vector.prop(force, "wind_vector_scale")
-        vector.label(text="Scrub or play the timeline to preview Wind")
-    environment = layout.column(align=True)
-    environment.label(text="Aerodynamic Forces")
+        preview.prop(force, "wind_vector_scale", text="Arrow Scale")
+        preview.label(text="Scrub or play the timeline to preview Wind")
+    preview.prop(force, "wind_resolution", text="Field Resolution")
+    environment = layout.box().column(align=True)
+    environment.label(text="Air Response", icon="PHYSICS")
     environment.prop(force, "air_density", text="Air Density")
     environment.prop(force, "air_friction", text="Air Friction")
     environment.prop(force, "vertex_air_damp", text="Vertex Air Damping")
-    if force.wind_strength > 0.0 and force.air_density <= 0.001:
+    if (force.wind_strength > 0.0 or force.wind_variation > 0.0 or force.wind_turbulence > 0.0) and force.air_density <= 0.001:
         warning = layout.box()
         warning.alert = True
         warning.label(text="Wind needs a higher Air Density", icon="ERROR")
         warning.label(text="Use 0.01 for visible aerodynamic force")
-    layout.label(
-        text=f"Gravity: world axis · Wind: {direction_prefix}local +Z",
-        **icon_registry.icon_kwargs("force", "ORIENTATION_LOCAL"))
-    layout.label(text=("Move and rotate the Empty to aim local Wind"
-                       if force.wind_local else "Rotate the Empty to aim Wind only"))
     layout.label(text="Properties and rotation can be keyframed")
 
 
