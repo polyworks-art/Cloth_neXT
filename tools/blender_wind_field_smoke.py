@@ -37,6 +37,7 @@ try:
     obj.location.x = .2; obj.keyframe_insert('location', frame=5)
     scene = bpy.context.scene
     scene.frame_set(1); before = wind_fields.preview(bpy.context)
+    assert wind_fields.preview(bpy.context) is before, 'Unchanged redraw resampled Wind geometry'
     first = wind_fields.source_at(bpy.context, obj)
     scene.frame_set(5); after = wind_fields.preview(bpy.context)
     last = wind_fields.source_at(bpy.context, obj)

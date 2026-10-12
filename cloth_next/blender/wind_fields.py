@@ -10,6 +10,8 @@ from ..gaia.wind_field import (WindSource, velocity, sample_points, encode_grid,
                                arrow_lines, MAX_SCHEDULE_BYTES)
 
 _handle = None
+_preview_cache = None
+_gpu_cache = None
 
 
 def force_objects(context):
@@ -110,6 +112,26 @@ def apply_wind_payload(context, payload, resolved, first, last):
 
 
 def preview(context):
+    """Reuse vectors on redraw; only field/scene changes resample geometry."""
+    global _preview_cache
+    forces = force_objects(context)
+    if not any(obj.cloth_next.force.wind_show_vectors for obj in forces):
+        return np.empty((0,3),np.float32)
+    key = (context.scene.as_pointer(), context.scene.frame_current,
+        context.scene.frame_subframe, context.scene.render.fps, context.scene.render.fps_base,
+        tuple(obj.cloth_next.bake_start for obj in context.scene.objects
+              if hasattr(obj,'cloth_next') and obj.cloth_next.enabled),
+        tuple((obj.as_pointer(), source_at(context,obj),
+        obj.cloth_next.force.wind_local, obj.cloth_next.force.wind_show_vectors,
+        obj.cloth_next.force.wind_vector_scale) for obj in forces))
+    if _preview_cache is not None and _preview_cache[0] == key:
+        return _preview_cache[1]
+    result = _compute_preview(context)
+    _preview_cache = (key,result)
+    return result
+
+
+def _compute_preview(context):
     """Read the current evaluated frame; never bake, change frame or start a solver."""
     from . import solver_test
     forces = force_objects(context)
@@ -157,6 +179,7 @@ def redraw(_self=None, context=None):
 
 
 def draw(region=None, context=None):
+    global _gpu_cache
     context = context or bpy.context
     if getattr(getattr(context.space_data, 'overlay', None), 'show_overlays', True) is False:
         return
@@ -168,7 +191,10 @@ def draw(region=None, context=None):
         return
     import gpu
     from gpu_extras.batch import batch_for_shader
-    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+    if _gpu_cache is None or _gpu_cache[0] is not vertices:
+        shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        _gpu_cache = (vertices,shader,batch_for_shader(shader,'LINES',{'pos':vertices}))
+    _vertices, shader, batch = _gpu_cache
     blend, depth, width = gpu.state.blend_get(), gpu.state.depth_test_get(), gpu.state.line_width_get()
     try:
         with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():
@@ -177,7 +203,7 @@ def draw(region=None, context=None):
             gpu.state.blend_set('ALPHA'); gpu.state.depth_test_set('NONE')
             gpu.state.line_width_set(2.)
             shader.bind(); shader.uniform_float('color', (.15, .8, 1., .85))
-            batch_for_shader(shader, 'LINES', {'pos': vertices}).draw(shader)
+            batch.draw(shader)
     finally:
         gpu.state.blend_set(blend); gpu.state.depth_test_set(depth); gpu.state.line_width_set(width)
 
@@ -200,7 +226,7 @@ _load_post._clothnext_wind_overlay = True
 
 
 def _frame_change_post(_scene, _depsgraph=None):
-    _invalidate_obstacles()
+    _invalidate_obstacles(frame_only=True)
     redraw()
 
 
@@ -208,16 +234,21 @@ _frame_change_post = getattr(bpy.app.handlers, 'persistent', lambda f: f)(_frame
 _frame_change_post._clothnext_wind_redraw = True
 
 
-def _invalidate_obstacles():
+def _invalidate_obstacles(**kwargs):
+    global _preview_cache, _gpu_cache
+    _preview_cache = None
+    _gpu_cache = None
     module = sys.modules.get(__package__ + '.wind_obstacles')
     if module is not None:
-        module.invalidate()
+        module.invalidate(**kwargs)
 
 
 def _depsgraph_update_post(_scene, depsgraph):
-    if any(getattr(update, 'is_updated_geometry', False) or getattr(update, 'is_updated_transform', False)
-           for update in depsgraph.updates):
-        _invalidate_obstacles()
+    updates = tuple(depsgraph.updates)
+    geometry_ids = {update.id.original.as_pointer() for update in updates
+                    if getattr(update,'is_updated_geometry',False)}
+    if geometry_ids or any(getattr(update,'is_updated_transform',False) for update in updates):
+        _invalidate_obstacles(frame_only=not geometry_ids, geometry_ids=geometry_ids)
 
 
 _depsgraph_update_post = getattr(bpy.app.handlers, 'persistent', lambda f: f)(_depsgraph_update_post)

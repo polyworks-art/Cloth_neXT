@@ -11,6 +11,8 @@ from ..gaia.wind_obstacles import ObstacleSamples
 from ..gaia.wind_field import sample_points
 
 _cache = {}
+_surface_cache = {}
+_sample_cache = {}
 _building = False
 
 
@@ -51,9 +53,17 @@ def candidates(context, mode, *, include_targets=False):
     return tuple(result)
 
 
-def invalidate(*_args):
+def invalidate(*_args, frame_only=False, geometry_ids=None):
     if not _building:
         _cache.clear()
+        if not frame_only:
+            if geometry_ids is None:
+                _surface_cache.clear()
+            else:
+                for key in tuple(_surface_cache):
+                    if key[0] in geometry_ids or key[1] in geometry_ids:
+                        del _surface_cache[key]
+            _sample_cache.clear()
 
 
 @dataclass(frozen=True)
@@ -67,23 +77,76 @@ class Surface:
     maximum: np.ndarray
 
 
+class WorldTree:
+    """Exact world-space queries on a local BVH under a uniform transform."""
+    def __init__(self, tree, matrix, scale):
+        self.tree = tree
+        self.matrix = matrix.copy()
+        self.inverse = matrix.inverted()
+        self.normal = self.inverse.to_3x3().transposed()
+        self.sign = -1. if matrix.determinant() < 0 else 1.
+        self.scale = scale
+
+    def _result(self, hit):
+        point, normal, face, distance = hit
+        if point is None:
+            return hit
+        normal = (self.normal @ normal).normalized() * self.sign
+        return self.matrix @ point, normal, face, distance * self.scale
+
+    def find_nearest(self, point, distance=float('inf')):
+        return self._result(self.tree.find_nearest(self.inverse @ point, distance/self.scale))
+
+    def ray_cast(self, point, direction, distance):
+        local_direction = (self.inverse.to_3x3() @ direction).normalized()
+        return self._result(self.tree.ray_cast(self.inverse @ point,local_direction,distance/self.scale))
+
+
 class MeshSampler:
     def __init__(self, surfaces, cancel=None):
         self.surfaces, self.cancel = tuple(surfaces), cancel
 
     def sample(self, points, direction, reach):
+        if self.cancel is not None:
+            self.cancel()
+        digest = hashlib.sha256()
+        for values in (points, direction, reach):
+            digest.update(np.asarray(values, dtype='<f8').tobytes())
+        key = (tuple(id(surface) for surface in self.surfaces), digest.digest())
+        if key in _sample_cache:
+            return _sample_cache[key][1]
         count = len(points)
         distance = np.full(count, np.inf); normal = np.zeros((count, 3))
         center = np.zeros((count, 3)); scale = np.ones(count)
         inside = np.zeros(count, bool); blocked = np.full(count, np.inf)
         hit_scale = np.ones(count); hit_center = np.zeros((count, 3))
         backwards = Vector(tuple(-direction))
-        for index, point in enumerate(points):
-            if self.cancel is not None and index % 128 == 0:
-                self.cancel()
-            origin = Vector(tuple(point))
-            for surface in self.surfaces:
-                nearest, face_normal, _face, d = surface.tree.find_nearest(origin)
+        ray_points = points - direction * 1e-6
+        for surface in self.surfaces:
+            # Vectorized AABB tests avoid Python/BVH queries for irrelevant
+            # objects. Exact nearest/ray tests remain unchanged after pruning.
+            delta = np.maximum(0., np.maximum(surface.minimum-points, points-surface.maximum))
+            nearest_mask = np.sum(delta*delta,axis=1) <= distance*distance
+            ray_min = np.zeros(count); ray_max = np.asarray(reach).copy()
+            ray_mask = reach > 1e-6
+            for axis in range(3):
+                component = -direction[axis]
+                if abs(component) < 1e-12:
+                    ray_mask &= (ray_points[:,axis] >= surface.minimum[axis]) & (ray_points[:,axis] <= surface.maximum[axis])
+                else:
+                    a = (surface.minimum[axis]-ray_points[:,axis])/component
+                    b = (surface.maximum[axis]-ray_points[:,axis])/component
+                    ray_min = np.maximum(ray_min,np.minimum(a,b))
+                    ray_max = np.minimum(ray_max,np.maximum(a,b))
+            ray_mask &= ray_min <= ray_max
+            for iteration, index in enumerate(np.flatnonzero(nearest_mask | ray_mask)):
+                if self.cancel is not None and iteration % 128 == 0:
+                    self.cancel()
+                point = points[index]; origin = Vector(tuple(point))
+                if nearest_mask[index]:
+                    nearest, face_normal, _face, d = surface.tree.find_nearest(origin)
+                else:
+                    nearest = None
                 if nearest is not None:
                     n = np.asarray(face_normal) * surface.normal_sign
                     if surface.closed and float((point - np.asarray(nearest)) @ n) < -1e-6:
@@ -91,20 +154,33 @@ class MeshSampler:
                     if d < distance[index]:
                         distance[index] = d; normal[index] = n
                         center[index] = surface.center; scale[index] = surface.scale
-                if reach[index] <= 1e-6:
+                if not ray_mask[index]:
                     continue
                 hit, _n, _face, hit_distance = surface.tree.ray_cast(
                     origin + backwards * 1e-6, backwards, float(reach[index]))
                 if hit is not None and hit_distance < blocked[index]:
                     blocked[index] = max(0., hit_distance)
                     hit_scale[index] = surface.scale; hit_center[index] = surface.center
-        return ObstacleSamples(distance, normal, center, scale, inside, blocked, hit_scale, hit_center)
+        result = ObstacleSamples(distance, normal, center, scale, inside, blocked, hit_scale, hit_center)
+        # Bound retained query buffers; Surface objects remain strongly held
+        # by the entry, preventing recycled identity keys from matching.
+        if count <= 16384:
+            if len(_sample_cache) >= 8:
+                _sample_cache.pop(next(iter(_sample_cache)))
+            _sample_cache[key] = (self.surfaces, result)
+        return result
 
 
 def sampler(context, mode, minimum, maximum, *, cached=False, cancel=None, include_targets=False):
     global _building
     if mode == 'NONE':
         return MeshSampler((), cancel)
+    stale = [key for key in _surface_cache if key[3] is not None
+             and (key[3],key[4]) != (context.scene.frame_current,context.scene.frame_subframe)]
+    for key in stale:
+        del _surface_cache[key]
+    if stale:
+        _sample_cache.clear()
     include_targets = include_targets and mode == 'SCENE'
     selected = candidates(context, mode, include_targets=include_targets)
     key = (context.scene.as_pointer(), context.scene.frame_current,
@@ -127,18 +203,69 @@ def sampler(context, mode, minimum, maximum, *, cached=False, cancel=None, inclu
             bounds = np.asarray([tuple(matrix @ Vector(corner)) for corner in evaluated.bound_box])
             if np.any(bounds.max(axis=0) < lo) or np.any(bounds.min(axis=0) > hi):
                 continue
+            data = getattr(obj, 'data', None)
+            # Animated/deformed geometry keeps a frame-specific key. Static
+            # meshes reuse their tree across frames and export/preview modes.
+            dynamic = bool(obj.modifiers or getattr(data,'shape_keys',None))
+            surface_key = (obj.as_pointer(), data.as_pointer() if data else 0,
+                tuple(value for row in matrix for value in row),
+                context.scene.frame_current if dynamic else None,
+                context.scene.frame_subframe if dynamic else None,
+                include_targets and getattr(getattr(obj,'cloth_next',None),'role',None) in {'CLOTH','SOFT_BODY','ROD','RIGID_BODY'},cached)
+            if surface_key in _surface_cache:
+                surfaces.append(_surface_cache[surface_key])
+                continue
             # Preview target locations may follow an attached Bake cache;
             # obstacle physics always uses the prescribed input surface.
             settings = getattr(obj, 'cloth_next', None)
             target = include_targets and settings is not None and settings.enabled and settings.role in {'CLOTH','SOFT_BODY','ROD','RIGID_BODY'}
             from contextlib import nullcontext
-            evaluation = nullcontext(obj) if target else solver_test._evaluate_through_solver_input_modifiers(context, obj)
+            boundaries = solver_test.simulation_modifiers(obj)
+            # Scene-only geometry has no simulation boundary. A Collider's
+            # boundary is a passthrough; if no visible modifiers follow it,
+            # its evaluated mesh already equals the prescribed input mesh.
+            direct = target or not boundaries
+            if boundaries and settings is not None and settings.role == 'COLLIDER':
+                boundary_index = list(obj.modifiers).index(boundaries[0])
+                direct = not any(modifier.show_viewport for modifier in list(obj.modifiers)[boundary_index+1:])
+            evaluation = nullcontext(obj) if direct else solver_test._evaluate_through_solver_input_modifiers(context, obj)
             with evaluation as boundary:
                 evaluated = (boundary or obj).evaluated_get(context.evaluated_depsgraph_get())
                 matrix = instance_matrix if instance_matrix is not None else evaluated.matrix_world.copy()
                 mesh = evaluated.to_mesh()
                 try:
                     mesh.calc_loop_triangles()
+                    if not len(mesh.loop_triangles):
+                        continue
+                    linear = np.asarray(matrix,float)[:3,:3]
+                    gram = linear.T @ linear
+                    uniform_scale = float(np.sqrt(max(0.,np.trace(gram)/3)))
+                    uniform = uniform_scale > 1e-12 and np.allclose(gram,np.eye(3)*uniform_scale**2,rtol=1e-6,atol=1e-12*uniform_scale**2)
+                    native_tree = None
+                    if uniform and cached and evaluated.type == 'MESH':
+                        try:
+                            native_tree = BVHTree.FromObject(evaluated,context.evaluated_depsgraph_get())
+                        except (ValueError,RuntimeError):
+                            pass
+                    if native_tree is not None:
+                        # Build in Blender's C code rather than copying all
+                        # mesh coordinates/triangles into Python lists.
+                        tree = WorldTree(native_tree,matrix,uniform_scale)
+                        edge_indices = np.empty(len(mesh.loops),dtype=np.int32)
+                        mesh.loops.foreach_get('edge_index',edge_indices)
+                        counts = np.bincount(edge_indices,minlength=len(mesh.edges))
+                        closed = bool(len(mesh.polygons) and np.all(counts[counts>0] == 2))
+                        world_bounds = np.asarray([tuple(matrix @ Vector(corner)) for corner in evaluated.bound_box])
+                        minimum,maximum = world_bounds.min(axis=0),world_bounds.max(axis=0)
+                        if len(mesh.loop_triangles):
+                            surface = Surface(tree,(minimum+maximum)*.5,
+                                max(.01,float(np.linalg.norm(maximum-minimum))*.25),
+                                -1. if matrix.determinant()<0 else 1.,closed,minimum,maximum)
+                            surfaces.append(surface)
+                            if len(_surface_cache)>=64:
+                                _surface_cache.pop(next(iter(_surface_cache))); _sample_cache.clear()
+                            _surface_cache[surface_key]=surface
+                        continue
                     vertices = np.empty((len(mesh.vertices), 3), dtype=np.float64)
                     mesh.vertices.foreach_get('co', vertices.reshape(-1))
                     triangles = np.empty((len(mesh.loop_triangles), 3), dtype=np.int32)
@@ -148,17 +275,25 @@ def sampler(context, mode, minimum, maximum, *, cached=False, cancel=None, inclu
             if not len(triangles):
                 continue
             transform = np.asarray(matrix, float)
-            vertices = vertices @ transform[:3, :3].T + transform[:3, 3]
+            # A three-column mesh transform is faster without dispatching a
+            # threaded BLAS job (especially on large animated characters).
+            vertices = np.einsum('ij,kj->ik', vertices, transform[:3,:3], optimize=False) + transform[:3,3]
             if not np.isfinite(vertices).all():
                 raise solver_test.SceneValidationError(f'{obj.name}: invalid Wind obstacle geometry')
             edges = np.concatenate((triangles[:, [0,1]], triangles[:, [1,2]], triangles[:, [2,0]]))
-            _unique, counts = np.unique(np.sort(edges, axis=1), axis=0, return_counts=True)
+            edges = edges.astype(np.uint64)
+            packed = (np.minimum(edges[:,0],edges[:,1]) << np.uint64(32)) | np.maximum(edges[:,0],edges[:,1])
+            _unique, counts = np.unique(packed, return_counts=True)
             span = vertices.max(axis=0) - vertices.min(axis=0)
             surfaces.append(Surface(BVHTree.FromPolygons(vertices.tolist(), triangles.tolist(), all_triangles=True),
                 (vertices.max(axis=0) + vertices.min(axis=0)) * .5,
                 max(.01, float(np.linalg.norm(span)) * .25),
                 -1. if matrix.determinant() < 0 else 1., bool(np.all(counts == 2)),
                 vertices.min(axis=0), vertices.max(axis=0)))
+            if len(_surface_cache) >= 64:
+                _surface_cache.pop(next(iter(_surface_cache)))
+                _sample_cache.clear()
+            _surface_cache[surface_key] = surfaces[-1]
     finally:
         _building = False
     if cached:

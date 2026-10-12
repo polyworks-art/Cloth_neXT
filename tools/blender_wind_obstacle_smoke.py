@@ -47,6 +47,35 @@ try:
     later = velocity(points,[source],.7,query)
     assert not np.allclose(modified[0,1:],later[0,1:]), 'Wake does not evolve with time'
     assert len(wind_obstacles._cache) == 1
+    # Fast native local BVHs must agree with world-space export queries,
+    # including rotated, mirrored and scaled meshes.
+    original_scale = obstacle.scale.copy()
+    obstacle.scale = (-.5,.5,.5); obstacle.rotation_euler.z = .4
+    bpy.context.view_layer.update()
+    fast = wind_obstacles.sampler(bpy.context,'SCENE',(-3,-3,-3),(3,3,3),cached=True)
+    exact = wind_obstacles.sampler(bpy.context,'SCENE',(-3,-3,-3),(3,3,3))
+    probe = np.random.default_rng(42).uniform(-2,2,(300,3))
+    direction = np.asarray((1.,0,0)); reach = np.full(len(probe),5.)
+    a_samples, b_samples = fast.sample(probe,direction,reach), exact.sample(probe,direction,reach)
+    for name in a_samples.__dataclass_fields__:
+        # Nearest points on cube edges/corners can tie across several faces;
+        # local/world BVHs may choose different valid face normals there.
+        if name == 'normal':
+            np.testing.assert_allclose(np.linalg.norm(a_samples.normal,axis=1),1,atol=2e-6)
+            continue
+        np.testing.assert_allclose(getattr(a_samples,name),getattr(b_samples,name),atol=2e-6)
+    assert fast.sample(probe,direction,reach) is a_samples, 'Repeated static queries missed cache'
+    from mathutils import Vector
+    face_points = np.asarray([tuple(obstacle.matrix_world @ Vector(tuple(axis*sign*1.1)))
+                              for axis in np.eye(3) for sign in (-1,1)])
+    np.testing.assert_allclose(fast.sample(face_points,direction,np.full(6,5.)).normal,
+        exact.sample(face_points,direction,np.full(6,5.)).normal,atol=2e-6)
+    surface = fast.surfaces[0]
+    scene.frame_set(2)
+    reused = wind_obstacles.sampler(bpy.context,'SCENE',(-3,-3,-3),(3,3,3),cached=True)
+    assert reused.surfaces[0] is surface, 'Static geometry rebuilt on frame change'
+    obstacle.scale = original_scale; obstacle.rotation_euler.z = 0
+    scene.frame_set(1); bpy.context.view_layer.update()
     obstacle.scale.x = -.25; bpy.context.view_layer.update()
     mirrored = wind_obstacles.sampler(bpy.context,'SCENE',(-3,-3,-3),(3,3,3))
     np.testing.assert_allclose(velocity(points,[source],1/24,mirrored)[3],[0,0,0],atol=1e-9)
