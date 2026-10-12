@@ -1,6 +1,6 @@
 # Local Wind and timeline preview
 
-This feature is prepared on `codex/wind-vector-overlay`; it is not part of the published 2.9.17 package.
+This feature is included in Cloth NeXt 2.9.18.
 
 Enable **Local Wind Field** on a Cloth NeXt Force Empty. Wind follows its local +Z direction and fades to zero at **Radius**. **Falloff** concentrates the flow around the Empty. **Turbulence** adds bounded, spatially varying swirling air velocity; **Swirl Size** sets its spatial wavelength and the existing **Noise Scale** sets its temporal period. Animate the Empty or these physical properties normally.
 

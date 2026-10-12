@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.18 - 2026-10-12
+
+- Add local Wind and Turbulence fields with animated radius, falloff and swirling airflow.
+- Preview Wind vectors before Bake on the timeline, near geometry selected by the obstacle mode and without arrows across empty gaps.
+- Add optional Collider or Scene Geometry obstacle response with surface deflection, downstream shadows and animated wakes, including collection instances.
+- Export bounded frame-sampled air-velocity grids for GAIA 0.23; preserve legacy global Wind and Water Flow base fields.
+- Verify Blender timeline, obstacle geometry, cancellation, GPU overlays and native CUDA airflow response.
+
 ## 2.9.17 - 2026-10-12
 
 - Fix missing intersection overlays after failed Bakes with official frontend diagnostics: unpack grouped triangle pairs before attributing them to source objects and faces.

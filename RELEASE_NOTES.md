@@ -1,9 +1,9 @@
-# Cloth NeXt 2.9.17
+# Cloth NeXt 2.9.18
 
-Fix missing intersection highlights after a Bake fails during scene validation. The official solver frontend can report many triangle pairs in one diagnostic record. Cloth NeXt now unpacks those pairs before mapping them to source objects and faces, so the viewport overlay can show the offending geometry for repair.
+Author local Wind and Turbulence on Cloth NeXt Force Emptys. Animate direction, strength, radius and falloff, then enable Show Wind Vectors to inspect airflow on the timeline before Bake. Arrows stay near selected geometry, including moving objects and collection instances, with empty gaps left clear.
 
-Cloth/Collider intersections retain both reported sides. Solver totals remain visible even when only some detailed previews are available. Individual modern diagnostic records remain supported.
+Choose Obstacles Off, Cloth NeXt Colliders or Scene Geometry. Optional response diverts airflow near surfaces, weakens it behind obstacles and adds an animated swirling wake. Wake Strength and Wake Length control the effect. This is a bounded one-way airflow approximation rather than a CFD solve; active simulation targets do not shield themselves using previous Bake results.
 
-The fix was checked against the actual failed scene's 39 reported pairs: all 39 mapped successfully and produced overlay geometry. Automated tests cover grouped and individual records, incomplete preview counts, the failed-Bake sidecar handoff and real Blender handler lifecycle. These checks are mandatory in the private release pipeline.
+Local fields require GAIA 0.23 and positive Air Density. Animated air-velocity grids preserve existing Water Flow base fields; legacy global Wind remains available. Combined field schedules are limited to 32 MiB before allocation. Validation includes 2,174 passing source tests, real Blender timeline and obstacle checks, GPU captures and native CUDA airflow comparisons.
 
-Update through Blender's native extension manager and restart Blender to load the corrected diagnostic mapper. The external solver is not modified or bundled.
+Update through Blender's native extension manager and restart Blender. The external solver is not modified or bundled.
