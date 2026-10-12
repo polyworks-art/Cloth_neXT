@@ -16,6 +16,8 @@ Local fields require official GAIA 0.23 and positive Air Density. They are expor
 
 Every output frame is sampled with its actual Blender pose and values; the original frame and subframe are restored even on cancellation. Bounds cover the moving source across the range, spacing follows the smallest source radius and selected Field Resolution, and combined uncompressed field schedules are limited to 32 MiB before allocation. Large source motion can increase grid size substantially. The solver interpolates grid nodes in space and samples in time: the viewport evaluator is continuous, so very coarse grids or rapid changes between frames can differ from the preview. Raise Field Resolution for small swirls.
 
+Bake preparation reports local Wind animation capture, **Sampling local Wind**, and field encoding separately. Progress counts completed capture frames, sampling frames and encoded sources, with updates throttled to ten per second and explicit phase boundaries. These are preparation work units, not simulated frames or a predicted time remaining. Geometry preparation without a known total stays indeterminate instead of showing a fixed zero percent. Cancel remains available during field capture, obstacle queries and between encoded sources.
+
 The native global Wind has its own multiplier, `0.875 + 0.125*sin(30*t)`, with `t` relative to Bake Start. Authored air-velocity fields bypass it. Replacing existing global Wind with a local field therefore intentionally changes its temporal response; the implementation preserves the legacy path and applies this multiplier only to the global contribution in the preview.
 
 Validation on 2026-10-12:

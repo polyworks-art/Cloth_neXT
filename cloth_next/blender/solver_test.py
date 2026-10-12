@@ -10125,7 +10125,7 @@ def _pin_capture_pump():
             status_message="Preparing evaluated geometry",
             activity_code=BakeActivity.CAPTURING_GEOMETRY,
             progress_current=0,
-            progress_total=1)
+            progress_total=None)
         # Cancel may arrive after the check at the beginning of this timer
         # tick. Do not continue into STARTING_COMPANION from CANCELLING after
         # an expensive final evaluated-frame capture.

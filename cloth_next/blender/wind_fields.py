@@ -3,6 +3,7 @@
 import hashlib
 import math
 import sys
+import time
 from pathlib import Path
 import bpy
 import numpy as np
@@ -55,12 +56,30 @@ def apply_wind_payload(context, payload, resolved, first, last):
     original = context.scene.frame_current, context.scene.frame_subframe
     samples = {obj.name: [] for obj in objects}
     fps = solver_test._scene_fps(context)
+    from ..bake.status import BakeState, BakeActivity
+    total = 2 * (int(last)-int(first)+1) + len(objects)
+    last_report = [-float('inf')]
+    def report(current, activity, detail, *, force=False):
+        now = time.monotonic()
+        if not force and now-last_report[0] < .1:
+            return
+        status = solver_test.shared_controller.snapshot()
+        if status.state not in {BakeState.PREPARING,BakeState.EXPORTING,BakeState.STARTING_RUN}:
+            return
+        last_report[0] = now
+        solver_test.shared_controller.update(activity_code=activity,
+            activity_label='',activity_detail=detail,status_message=detail,
+            current_frame=None,progress_current=current,progress_total=total,
+            estimated_remaining_seconds=None)
+    report(0,BakeActivity.CAPTURING_FORCE_MOTION,'Capturing local Wind animation',force=True)
     try:
         for frame in range(int(first), int(last) + 1):
             solver_test._check_preparation_cancel()
             context.scene.frame_set(frame)
             for obj in objects:
                 samples[obj.name].append(source_at(context, obj))
+            report(frame-int(first)+1,BakeActivity.CAPTURING_FORCE_MOTION,
+                   f'Capturing local Wind animation · frame {frame} / {int(last)}')
     finally:
         context.scene.frame_set(original[0], subframe=original[1])
     field = tree.setdefault('force_field', {'grids': [], 'scripts': []})
@@ -86,6 +105,8 @@ def apply_wind_payload(context, payload, resolved, first, last):
     combined_lo = np.min([row[2] for row in plans], axis=0)
     combined_hi = np.max([row[3] for row in plans], axis=0)
     from .wind_obstacles import sampler
+    frames = int(last)-int(first)+1
+    report(frames,BakeActivity.CAPTURING_WIND,'Sampling local Wind and obstacles',force=True)
     try:
         for index, frame in enumerate(range(int(first), int(last) + 1)):
             solver_test._check_preparation_cancel()
@@ -100,10 +121,21 @@ def apply_wind_payload(context, payload, resolved, first, last):
                 grid[index] = velocity(points, (source,), frame / fps, queries[source.obstacle_mode])
                 del points
             del queries
+            report(frames+index+1,BakeActivity.CAPTURING_WIND,
+                   f'Sampling local Wind and obstacles · frame {frame} / {int(last)}',
+                   force=index==frames-1)
     finally:
         context.scene.frame_set(original[0], subframe=original[1])
-    for grid, (_obj, records, lo, hi, _dims) in zip(grids, plans):
-        field['grids'].append(encode_grid(grid, lo, hi, [index / fps for index in range(len(records))]))
+    for index, (grid, (_obj, records, lo, hi, _dims)) in enumerate(zip(grids, plans)):
+        solver_test._check_preparation_cancel()
+        report(2*frames+index,BakeActivity.ENCODING_SCENE,
+               f'Encoding local Wind · {_obj.name}',force=True)
+        solver_test._check_preparation_cancel()
+        encoded_grid = encode_grid(grid, lo, hi, [index / fps for index in range(len(records))])
+        solver_test._check_preparation_cancel()
+        field['grids'].append(encoded_grid)
+        report(2*frames+index+1,BakeActivity.ENCODING_SCENE,
+               f'Encoded local Wind · {_obj.name}',force=True)
     del grids
     for params, _names, _uuids in tree.get('group', ()):
         params.setdefault('force-field-weight', 1.)

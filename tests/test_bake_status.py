@@ -116,6 +116,8 @@ def test_typed_activity_round_trip_and_backward_compatibility():
         "Capturing animated Colliders"
     assert ACTIVITY_LABELS[BakeActivity.CAPTURING_FORCE_MOTION] == \
         "Capturing animated Forces"
+    assert ACTIVITY_LABELS[BakeActivity.CAPTURING_WIND] == "Sampling local Wind"
+    assert BakeSnapshot.from_dict({'activity_code':'CAPTURING_WIND'}).activity_code is BakeActivity.CAPTURING_WIND
 
 
 def test_thread_safe_reads_are_complete_snapshots():

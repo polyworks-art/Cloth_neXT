@@ -51,8 +51,42 @@ try:
     tree = {'scene': {'air-density': .1}, 'group': [[{}, ['Cloth'], ['cloth']]],
             'force_field': {'grids': [], 'scripts': []}}
     payload = envelope.dumps_envelope(envelope.KIND_PARAM, tree, schema_version=2)
-    encoded, digest = wind_fields.apply_wind_payload(
-        bpy.context, payload, SimpleNamespace(protocol_version='0.23'), 1, 5)
+    from cloth_next.bake.controller import BakeController
+    from cloth_next.bake.status import BakeState, BakeActivity, BakeSnapshot
+    controller = BakeController(); controller.transition(BakeState.PREPARING)
+    progress = []; unsubscribe = controller.subscribe(progress.append)
+    original_controller = solver_test.shared_controller
+    solver_test.shared_controller = controller
+    try:
+        encoded, digest = wind_fields.apply_wind_payload(
+            bpy.context, payload, SimpleNamespace(protocol_version='0.23'), 1, 5)
+    finally:
+        solver_test.shared_controller = original_controller; unsubscribe()
+    assert progress and progress[0].progress_current == 0
+    assert all(item.progress_total == 11 and item.current_frame is None for item in progress)
+    assert [item.progress_current for item in progress] == sorted(item.progress_current for item in progress)
+    assert any(item.activity_code is BakeActivity.CAPTURING_WIND and 0 < item.progress_current < 11 for item in progress)
+    assert progress[-1].progress_current == 11
+    assert BakeSnapshot.from_dict(progress[-1].to_dict()).progress_current == 11
+    cancelling = BakeController(); cancelling.transition(BakeState.PREPARING)
+    interrupted = []
+    def cancel_on_wind_sampling(item):
+        interrupted.append(item)
+        if item.activity_code is BakeActivity.CAPTURING_WIND and item.state is BakeState.PREPARING:
+            cancelling.request_cancel()
+    detach = cancelling.subscribe(cancel_on_wind_sampling)
+    solver_test.shared_controller = cancelling
+    try:
+        try:
+            wind_fields.apply_wind_payload(bpy.context,payload,SimpleNamespace(protocol_version='0.23'),1,5)
+        except solver_test.SessionCancelled:
+            pass
+        else:
+            raise AssertionError('Cancel at Wind sampling boundary was ignored')
+    finally:
+        solver_test.shared_controller = original_controller; detach()
+    assert scene.frame_current == 3 and scene.frame_subframe == .25
+    assert max(item.progress_current for item in interrupted) < 11, 'Cancelled preparation reported completion'
     assert scene.frame_current == 3 and scene.frame_subframe == .25
     result = envelope.loads_envelope(encoded, envelope.KIND_PARAM, schema_version=2)
     grid = result['force_field']['grids'][0]
