@@ -1,11 +1,11 @@
-# Cloth NeXt 2.9.20
+# Cloth NeXt 2.9.21
 
-Fix a remaining UI slowdown with local Wind. The floating Bake button's status checks were capturing and hashing obstacle meshes during redraws and background refreshes, even when Show Wind Vectors was disabled. These UI paths now read obstacle properties without capturing mesh geometry.
+Wind on Cloth NeXt Force Emptys now always uses a local field. The global/local toggle is removed, including the effect of saved old toggle values. Existing positions, directions and strength values are retained; Wind fades to zero at Radius, which defaults to 2 m. Adjust Radius to cover the intended area when updating a scene that previously used global Wind. Fields require GAIA 0.23 and positive Air Density.
 
-Full obstacle mesh identity is evaluated during explicit validation and belongs to the geometry fingerprint. Changes to Scene-mode obstacles still mark simulation geometry dirty, so removing UI mesh work does not skip cache validation.
+The revised controls group field shape, gusts and turbulence, obstacle response, preview quality, and aerodynamic response. Speed, Radius and Falloff stay directly visible. Wind animated from zero is captured, while static gravity-only sources skip Wind export.
 
-In an open animated character scene, the complete Bake status check dropped from 88.9 ms to 2.8 ms. This measures the status path, rather than total viewport or native simulation time.
+Bake preparation now reports Wind animation capture, Sampling local Wind, and field encoding with completed work counts. Geometry work without a known total stays indeterminate instead of displaying a fixed zero percent. Cancel preserves the original frame and subframe and does not report unfinished Wind work as complete.
 
-Validation includes 2,175 passing source tests and real Blender checks for 100 UI fingerprints without mesh capture, obstacle edit detection, and single- and multi-target geometry validation. These Blender checks are required by the private release pipeline.
+Validation includes 2,175 passing source tests, real Blender export and cancellation regressions, animated Wind from zero, ignored legacy toggles, multi-object grid export, cache status checks, and a visual inspection of the actual controls. The external solver is not modified or bundled.
 
 Update through Blender's native extension manager and restart Blender. The external solver is not modified or bundled.

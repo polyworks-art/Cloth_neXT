@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.21 - 2026-10-12
+
+- Make Wind on Force Emptys always local and remove the global/local toggle; ignore saved legacy toggle values.
+- Organize Wind authoring into Wind Field, Gusts & Turbulence, Obstacle Response, Preview & Quality, and Air Response controls.
+- Capture Wind animated from zero while skipping static gravity-only Wind export; prevent duplicate global Wind application.
+- Report Wind animation capture, local sampling and encoding progress during Bake preparation. Show indeterminate geometry work without a misleading fixed zero percent.
+- Verify cancellation, timeline restoration, local grid animation and multi-object export with GAIA 0.23.
+
 ## 2.9.20 - 2026-10-12
 
 - Remove Wind obstacle mesh capture and hashing from UI cache status, including the floating Bake button's redraw and background refresh paths.

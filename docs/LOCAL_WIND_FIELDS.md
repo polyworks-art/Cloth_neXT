@@ -1,6 +1,6 @@
 # Local Wind and timeline preview
 
-Local fields originally shipped in Cloth NeXt 2.9.18. Making them the default and the revised controls are prepared on `codex/wind-vector-overlay` and have not yet been published.
+Local fields originally shipped in Cloth NeXt 2.9.18. They are the default with revised controls and preparation progress in 2.9.21.
 
 Wind on a Cloth NeXt Force Empty always uses a local field; there is no global/local toggle. Existing source positions, directions and strength values are retained, and the saved old toggle value is ignored. Wind follows local +Z and fades to zero at **Radius** (2 m by default). **Falloff** concentrates the flow around the Empty. **Swirl Strength** adds bounded, spatially varying swirling air velocity; **Swirl Size** sets its wavelength and **Motion Timing** controls the period of gusts and swirls. Animate the Empty or these properties normally. Sources animated from zero are captured, while static gravity-only sources skip Wind export entirely.
 
