@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.17 - 2026-10-12
+
+- Fix missing intersection overlays after failed Bakes with official frontend diagnostics: unpack grouped triangle pairs before attributing them to source objects and faces.
+- Preserve authoritative intersection counts when the solver supplies fewer detailed previews; retain support for individual modern records.
+- Verify the failed-Bake sidecar handoff, both sides of Cloth/Collider intersections and Blender overlay handler lifecycle. Require these regressions in the private release pipeline.
+
 ## 2.9.16 - 2026-10-06
 
 - Attach Cloth and Soft Body to static, transform-animated and deforming Collider targets with Gaia 0.23.

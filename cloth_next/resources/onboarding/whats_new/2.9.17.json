@@ -1,0 +1,23 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.17",
+  "title": "What's New in Cloth NeXt 2.9.17",
+  "subtitle": "See the intersections that stopped your Bake.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Intersection highlights after failed Bakes",
+      "description": "Grouped triangle pairs reported by the official solver now reach the viewport overlay, helping you locate and repair the geometry that blocked scene validation."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Cloth and Collider sides stay visible",
+      "description": "Mapped pairs retain both reported surfaces and the solver's intersection total, including when only some detailed previews are available."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

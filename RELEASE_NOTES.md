@@ -1,7 +1,9 @@
-# Cloth NeXt 2.9.16
+# Cloth NeXt 2.9.17
 
-Object Attachments now support enabled Collider targets with Gaia 0.23, including static, transform-animated and deforming Colliders. Cloth and Soft Body anchors follow the evaluated surface using stable vertex indices and barycentric weights.
+Fix missing intersection highlights after a Bake fails during scene validation. The official solver frontend can report many triangle pairs in one diagnostic record. Cloth NeXt now unpacks those pairs before mapping them to source objects and faces, so the viewport overlay can show the offending geometry for repair.
 
-Binding, preview and Bake-start validation include armature and shape-key deformation. Normal changes to a deformed quad's display triangulation retain its binding; changes to vertex numbering or polygon connectivity require rebuilding the attachment. Apply topology-changing input modifiers before binding. Older solver versions show an explicit instruction to select Gaia 0.23 for Collider Attachments.
+Cloth/Collider intersections retain both reported sides. Solver totals remain visible even when only some detailed previews are available. Individual modern diagnostic records remain supported.
 
-Shape keys are evaluated when the Cloth NeXt simulation boundary is first in the modifier stack, and animated Collider capture excludes downstream modifiers. Existing deformable-to-deformable Attachments remain supported. The external solver is neither modified nor bundled.
+The fix was checked against the actual failed scene's 39 reported pairs: all 39 mapped successfully and produced overlay geometry. Automated tests cover grouped and individual records, incomplete preview counts, the failed-Bake sidecar handoff and real Blender handler lifecycle. These checks are mandatory in the private release pipeline.
+
+Update through Blender's native extension manager and restart Blender to load the corrected diagnostic mapper. The external solver is not modified or bundled.

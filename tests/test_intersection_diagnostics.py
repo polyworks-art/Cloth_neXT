@@ -137,6 +137,48 @@ def test_unmatched_legacy_solver_geometry_is_not_guessed():
     }, snapshot) is None
 
 
+def test_official_frontend_triangle_batch_reaches_overlay(monkeypatch):
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", (32,), False),
+        (_object("other", "Jacket", 2), "CLOTH", (70,), False),
+        (_object("third", "Sleeve", 4), "CLOTH", (12,), False),
+    ), bake_start_frame=1)
+    triangles = [item.vertices for item in snapshot.triangles]
+    result = diagnostics.map_diagnostics(({
+        "type": "self_intersection", "count": 39,
+        "tris": [[triangles[0], triangles[1]],
+                 [triangles[1], triangles[2]]],
+    },), snapshot, detected_count=39)
+    assert result.detected_count == 39
+    assert result.detailed_count == result.mapped_count == 2
+    assert result.unmapped_count == 0
+    assert result.details_not_supplied_count == 37
+    assert [item.combined_pair for item in result.violations] == [(0, 1), (1, 2)]
+    monkeypatch.setattr(intersection_overlay, "_ensure_handler", lambda: None)
+    monkeypatch.setattr(intersection_overlay, "_redraw", lambda: None)
+    intersection_overlay.set_diagnostic_session(result)
+    try:
+        assert intersection_overlay.mapped_count() == 2
+        assert intersection_overlay.primitives_for_diagnostics(
+            intersection_overlay.presentation_diagnostics())
+    finally:
+        intersection_overlay.clear()
+
+
+def test_official_frontend_single_pair_batch_uses_reported_count():
+    snapshot = diagnostics.build_solver_input_snapshot((
+        (_object("cloth", "Skirt"), "CLOTH", None, False),
+        (_object("other", "Jacket", 2), "CLOTH", None, False),
+    ), bake_start_frame=1)
+    pair = [item.vertices for item in snapshot.triangles]
+    result = diagnostics.map_diagnostics(({
+        "type": "self_intersection", "count": 3, "tris": [pair],
+    },), snapshot)
+    assert result.mapped_count == result.detailed_count == 1
+    assert result.detected_count == 3
+    assert result.details_not_supplied_count == 2
+
+
 def test_diagnostic_result_preserves_mapped_unmapped_and_solver_total():
     snapshot = diagnostics.build_solver_input_snapshot((
         (_object("cloth", "Skirt"), "CLOTH", (32,), False),),

@@ -1025,8 +1025,9 @@ def test_solver_self_intersection_failure_is_concise(blender_env):
     assert long_tail not in details
 
 
+@pytest.mark.parametrize("batched_triangles", [False, True])
 def test_solver_violations_fall_back_to_recovery_project_sidecar(
-        blender_env, tmp_path):
+        blender_env, tmp_path, batched_triangles):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
                 (0, 0, 1, 0), (0, 0, 0, 1))
@@ -1040,8 +1041,11 @@ def test_solver_violations_fall_back_to_recovery_project_sidecar(
     recovery_root = tmp_path / "recovery-server"
     project_root = recovery_root / "recovered-project"
     project_root.mkdir(parents=True)
+    raw = ({"type": "self_intersection", "count": 1,
+            "tris": [[item.vertices for item in snapshot.triangles]]}
+           if batched_triangles else {"combined_pair": [0, 1]})
     (project_root / "build_violations.json").write_text(
-        json.dumps({"violations": [{"combined_pair": [0, 1]}]}),
+        json.dumps({"violations": [raw]}),
         encoding="utf-8")
     plan = SimpleNamespace(
         solver_input=snapshot,
