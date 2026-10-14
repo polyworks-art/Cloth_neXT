@@ -95,8 +95,17 @@ def _sync_scene(scene):
 
 def _load_post(*_args):
     _memberships.clear()
-    for scene in bpy.data.scenes:
+    for scene in getattr(bpy.data, 'scenes', ()):
         _sync_scene(scene)
+
+
+def _initialize():
+    # Blender restricts data access while enabling an extension. Migrate
+    # existing scenes once registration has returned to the event loop.
+    if not hasattr(bpy.data, 'scenes'):
+        return .05
+    _load_post()
+    return None
 
 
 def _depsgraph_post(scene, _depsgraph):
@@ -120,10 +129,15 @@ def register():
             if getattr(old, '_clothnext_shared_water', False):
                 handlers.remove(old)
         handlers.append(callback)
-    _load_post()
+    if hasattr(bpy.data, 'scenes'):
+        _load_post()
+    elif not bpy.app.timers.is_registered(_initialize):
+        bpy.app.timers.register(_initialize, first_interval=.05)
 
 
 def unregister():
+    if bpy.app.timers.is_registered(_initialize):
+        bpy.app.timers.unregister(_initialize)
     for name in ('load_post', 'depsgraph_update_post'):
         handlers = getattr(bpy.app.handlers, name)
         for callback in tuple(handlers):

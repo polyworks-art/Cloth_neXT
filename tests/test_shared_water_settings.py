@@ -2,6 +2,23 @@ from types import SimpleNamespace as NS
 import importlib
 
 
+def test_registration_defers_restricted_blender_data_and_cleans_timer(blender_env,monkeypatch):
+    m,scene,_,_,a,b=setup(blender_env)
+    bpy=importlib.import_module('bpy')
+    data=bpy.data
+    a.cloth_next.water_flow_enabled=True
+    monkeypatch.setattr(bpy,'data',NS())
+    m.register();m.register()
+    assert bpy.app.timers.functions.count(m._initialize)==1
+    assert m._initialize()==.05
+    monkeypatch.setattr(bpy,'data',NS(scenes=[scene]))
+    assert m._initialize() is None
+    assert b.cloth_next.water_flow_enabled
+    m.unregister()
+    assert not bpy.app.timers.is_registered(m._initialize)
+    monkeypatch.setattr(bpy,'data',data)
+
+
 def setup(blender_env):
     m = importlib.import_module('cloth_next.blender.water_settings')
     scene = NS(objects=[], cloth_next_water_flow_source=None, cloth_next_water_flow_shared=False)
