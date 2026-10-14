@@ -174,7 +174,8 @@ class FLIPWaterFlowProvider:
         previous=module.DISABLE_MESH_CACHE_LOAD
         try:
             module.DISABLE_MESH_CACHE_LOAD=True
-            self.context.scene.frame_set(frame)
+            from .preparation_preview import frame_set
+            frame_set(self.context.scene,frame)
             self.context.view_layer.update()
         finally:module.DISABLE_MESH_CACHE_LOAD=previous
         raw=json.loads((self.root/f'bounds{frame:06d}.bbox').read_text(encoding='utf-8'))
@@ -611,7 +612,7 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
         layout.enabled = not shared_controller.snapshot().active
-        layout.prop(s, 'water_flow_enabled')
+        layout.prop(s, 'water_flow_enabled', text='Water Flow (Scene)')
         body = layout.column(align=True)
         body.enabled = s.water_flow_enabled
         from . import preferences
@@ -619,6 +620,7 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         native = bool(registry.selected and registry.selected.protocol_version == '0.26')
         body.label(text='Native Flow · GAIA 0.26 (Experimental)' if native else 'Water Flow · GAIA',
                    **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
+        body.label(text='Shared by all Cloth objects in this scene.', icon='LINKED')
         source = body.box().column(align=True)
         source.label(text='Fluid Source', icon='MOD_FLUIDSIM')
         source.prop(s, 'water_flow_domain')
@@ -628,16 +630,16 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         body.separator()
         response = body.box().column(align=True)
         response.label(text='Cloth Response', icon='MOD_CLOTH')
-        response.prop(s, 'water_flow_influence')
+        response.prop(s, 'water_flow_influence', text='Influence (This Object)')
         if native:
             response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
             response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
             response.label(text='One-way coupling: fluid moves cloth.')
             if abs(s.water_flow_velocity_scale-1.)>1e-7:
-                response.prop(s, 'water_flow_velocity_scale')
+                response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale (This Object)')
                 response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')
         else:
-            response.prop(s, 'water_flow_velocity_scale')
+            response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale (This Object)')
         body.separator()
         cache = body.box().column(align=True)
         cache.label(text='Fluid Cache', icon='FILE_CACHE')

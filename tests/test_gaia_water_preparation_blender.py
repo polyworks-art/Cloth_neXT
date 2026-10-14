@@ -180,3 +180,71 @@ def test_verified_container_is_available_to_same_bake_continuation(blender_env, 
         assert c.snapshot().state is BakeState.PREPARING
     finally:
         module.shutdown()
+
+
+def test_previous_prepare_reused_by_next_bake_with_individual_controls(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    flow=sys.modules['cloth_next.blender.water_flow']
+    obj.cloth_next.water_flow_influence=1.
+    obj.cloth_next.water_flow_velocity_scale=1.
+    monkeypatch.setattr(flow,'water_settings_record',lambda item:dict(
+        path=item.cloth_next.water_flow_container,
+        influence=item.cloth_next.water_flow_influence,
+        velocity_scale=item.cloth_next.water_flow_velocity_scale))
+    calls=[]
+    original=module.WaterPreparationWorker
+    def worker(*args,**kwargs):
+        calls.append(1)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,'WaterPreparationWorker',worker)
+    try:
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        obj.cloth_next.water_flow_influence=.25
+        obj.cloth_next.water_flow_velocity_scale=.5
+        c.reset();owner=c.transition(BakeState.PREPARING)
+        ready=[]
+        def complete():ready.append(module.prepared_container(obj,1,2))
+        module.start(context,(obj,),1,2,job_id=owner.job_id,on_complete=complete,wait_for_window=False)
+        pump(module)
+        assert len(calls)==1 and len(samples)==2
+        assert ready[0].is_file()
+        assert module._prepared[(obj.name,1,2)]['job']==owner.job_id
+    finally:module.shutdown()
+
+
+def test_new_job_rechecks_source_and_cache_changes(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    calls=[];original=module.WaterPreparationWorker
+    def worker(*args,**kwargs):
+        calls.append(1)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,'WaterPreparationWorker',worker)
+    try:
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert len(calls)==1
+        (tmp_path/'source0').write_bytes(b'changed')
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert len(calls)==2 and len(samples)==4
+        cache=module.Path(obj.cloth_next.water_flow_container)
+        cache.write_bytes(b'corrupted cache')
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert len(calls)==3
+        assert c.snapshot().state is BakeState.ERROR
+    finally:module.shutdown()
+
+
+def test_new_job_may_rebuild_changed_grid_on_same_destination(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    flow=sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(flow,'water_grid_plan',lambda provider,s:dict(
+        dimensions=[int(s.water_flow_resolution)]*3,support_threshold=1.))
+    try:
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        obj.cloth_next.water_flow_resolution='4'
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert c.snapshot().state is BakeState.FINISHED
+        from cloth_next.gaia.container import GaiaContainer
+        with GaiaContainer(obj.cloth_next.water_flow_container) as cache:
+            assert cache.frame(0).velocity.shape==(4,4,4,3)
+        assert len(samples)==4
+    finally:module.shutdown()

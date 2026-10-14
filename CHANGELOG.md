@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.24 - 2026-10-14
+
+- Share GAIA Flow setup across enabled Cloth objects; keep Influence and Velocity Scale individual.
+- Reconstruct one shared .gaia field and reuse verified preparations across subsequent Bakes in the same Blender session.
+- Speed up full-particle reconstruction with bit-identical output and unchanged memory/payload limits.
+- Skip diagnostic FLIP GPU previews during temporary preparation frame changes while retaining physical meshes and restoring preview settings.
+- Exit cleanly when the Bake companion cannot connect to Blender, avoiding an unhandled-exception dialog.
+- Validate real NEON particle frames, animated geometry and warm reuse; a complete optimized 250-frame Bake remains untested.
+
 ## 2.9.23 - 2026-10-14
 
 - Offer the pinned official Windows GAIA 0.26 download for experimental native FLIP coupling; preserve the selected solver.

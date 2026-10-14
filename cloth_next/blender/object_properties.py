@@ -160,6 +160,18 @@ def _on_settings_update(self, _context) -> None:
         viewport_colors.apply_object(owner)
 
 
+def _on_shared_water_update(self, context) -> None:
+    _mark_dirty(self)
+    from . import water_settings
+    water_settings.share_from(self, context)
+
+
+def _on_cloth_membership_update(self, context) -> None:
+    _on_settings_update(self, context)
+    from . import water_settings
+    water_settings.inherit(self, context)
+
+
 def _on_collider_proxy_type_update(self, _context) -> None:
     """Changing strategy invalidates the generated proxy from the other mode."""
     self.collider_proxy_enabled = False
@@ -888,36 +900,36 @@ class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
-    water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False, update=_on_settings_update)
-    water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_settings_update)
+    water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False, update=_on_shared_water_update)
+    water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
-    water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_settings_update)
-    water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="Fraction of current solver vertex velocity subtracted by native Fluid Flow", default=1., min=0., max=1., update=_on_settings_update)
+    water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)
+    water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="Fraction of current solver vertex velocity subtracted by native Fluid Flow", default=1., min=0., max=1., update=_on_shared_water_update)
     water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", default=1., min=0., max=10., update=_on_settings_update)
-    water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_settings_update,
+    water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_shared_water_update,
         items=(("AUTO", "Auto", "At least 100 samples along the longest field axis", 0),
                ("100", "Medium", "100 samples along the longest field axis", 2),
                ("150", "High", "150 samples along the longest field axis", 3),
                ("200", "Extreme", "200 samples along the longest field axis", 4),
                ("CUSTOM", "Custom", "Explicit longest-axis detail; minimum 100", 5)))
     water_flow_custom_resolution: bpy.props.IntProperty(name="Longest Axis", default=100,
-        min=100, max=4096, update=_on_settings_update)
+        min=100, max=4096, update=_on_shared_water_update)
     water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',
-        description="Where should the File be placed?", update=_on_settings_update)
-    water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False)
+        description="Where should the File be placed?", update=_on_shared_water_update)
+    water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False, update=_on_shared_water_update)
     water_flow_debug_mode: bpy.props.EnumProperty(name="Vector Display",
         items=(('MAGNITUDE', 'Magnitude', 'Bounded physical velocity display'),
                ('DIRECTION', 'Direction Only', 'Normalized direction with fixed display length'),
                ('POSITIONS', 'Sample Positions Only', 'Diagnostic occupied grid origins, without lines'),
                ('CONSTANT_X', 'Constant +X Test', 'Diagnostic Blender +X vectors; solver field is unchanged')),
-        default='MAGNITUDE')
+        default='MAGNITUDE', update=_on_shared_water_update)
     water_flow_show_bounds: bpy.props.BoolProperty(name="Field Bounds", default=False,
-        description="Show the reconstructed field bounds in Blender world space")
-    water_flow_vector_stride: bpy.props.IntProperty(name="Vector Spacing", default=4, min=1, max=32)
-    water_flow_vector_scale: bpy.props.FloatProperty(name="Vector Scale", default=.1, min=0., max=10.)
+        description="Show the reconstructed field bounds in Blender world space", update=_on_shared_water_update)
+    water_flow_vector_stride: bpy.props.IntProperty(name="Vector Spacing", default=4, min=1, max=32, update=_on_shared_water_update)
+    water_flow_vector_scale: bpy.props.FloatProperty(name="Vector Scale", default=.1, min=0., max=10., update=_on_shared_water_update)
 
     enabled: bpy.props.BoolProperty(
-        name="Enabled", default=False, update=_on_settings_update,
+        name="Enabled", default=False, update=_on_cloth_membership_update,
         description="Cloth NeXt is enabled on this object")
     persistent_export_id: bpy.props.StringProperty(
         name="Persistent Export Identity", default="",
@@ -925,7 +937,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
         description="Stable internal identity used for deterministic exports")
     role: bpy.props.EnumProperty(
         name="Object Role", items=ROLE_ITEMS, default=DEFAULT_ROLE,
-        update=_on_settings_update,
+        update=_on_cloth_membership_update,
         description="How Cloth NeXt treats this object in a simulation")
     collision_settings_group_id: bpy.props.StringProperty(
         default="", options={"HIDDEN"}, update=_on_settings_update)
@@ -1261,6 +1273,8 @@ def reset_settings(settings) -> None:
 
 def attach_to_object() -> None:
     """Attach the settings to every object; requires the class registered."""
+    bpy.types.Scene.cloth_next_water_flow_source = bpy.props.PointerProperty(type=bpy.types.Object)
+    bpy.types.Scene.cloth_next_water_flow_shared = bpy.props.BoolProperty(default=False, options={'HIDDEN'})
     bpy.types.Scene.cloth_next_collision_groups = bpy.props.CollectionProperty(type=CLOTHNEXT_PG_shared_collision)
     from . import object_attachments
     from . import sewing
@@ -1293,6 +1307,10 @@ def detach_from_object() -> None:
                  "cloth_next_object_attachments"):
         if hasattr(bpy.types.Scene, name):
             delattr(bpy.types.Scene, name)
+    if hasattr(bpy.types.Scene, "cloth_next_water_flow_source"):
+        del bpy.types.Scene.cloth_next_water_flow_source
+    if hasattr(bpy.types.Scene, "cloth_next_water_flow_shared"):
+        del bpy.types.Scene.cloth_next_water_flow_shared
     if hasattr(bpy.types.Scene, "cloth_next_collision_groups"):
         del bpy.types.Scene.cloth_next_collision_groups
     if hasattr(bpy.types.Scene, "cloth_next_solver"):

@@ -1,0 +1,38 @@
+{
+  "result": "PASS",
+  "cases": [
+    {
+      "frame": 1,
+      "particles": 8784881,
+      "seconds": {
+        "reference": 7.106973000001744,
+        "optimized": 1.267260399996303
+      },
+      "velocity_exact": true,
+      "influence_exact": true,
+      "source_unchanged": true
+    },
+    {
+      "frame": 125,
+      "particles": 8784791,
+      "seconds": {
+        "reference": 6.63803850000113,
+        "optimized": 1.3050681999957305
+      },
+      "velocity_exact": true,
+      "influence_exact": true,
+      "source_unchanged": true
+    },
+    {
+      "frame": 250,
+      "particles": 8783879,
+      "seconds": {
+        "reference": 7.0275313000020105,
+        "optimized": 1.3621087999999872
+      },
+      "velocity_exact": true,
+      "influence_exact": true,
+      "source_unchanged": true
+    }
+  ]
+}

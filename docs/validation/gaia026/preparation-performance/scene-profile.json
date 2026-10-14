@@ -1,0 +1,231 @@
+{
+  "result": "PASS",
+  "frames": 3,
+  "actors": [
+    "S04_NEON_Garments",
+    "S04_NEON_Garments.001",
+    "S04_NEON_Garments.002",
+    "SW_04_body_lod0_mesh",
+    "SW_04_head_lod0_mesh"
+  ],
+  "baseline_seconds": 5.084465600004478,
+  "quiet_flip_seconds": 2.6478943999973126,
+  "physics_input_vertices_and_matrices_exact": true,
+  "source_unchanged": true,
+  "optimization": "Only FLIP GPU debug previews masked during frame_set; physical cache meshes retained",
+  "headless_gpu_drawing_stub": true,
+  "baseline_profile": [
+    {
+      "function": "wait",
+      "file": "threading.py",
+      "calls": 14,
+      "self_seconds": 0.023983200000000003,
+      "total_seconds": 8.8925438
+    },
+    {
+      "function": "<method 'acquire' of '_thread.lock' objects>",
+      "file": "~",
+      "calls": 55,
+      "self_seconds": 2.081925,
+      "total_seconds": 4.5188058
+    },
+    {
+      "function": "frame_change_post",
+      "file": "__init__.py",
+      "calls": 3,
+      "self_seconds": 5.45e-05,
+      "total_seconds": 3.3029114
+    },
+    {
+      "function": "frame_change_post",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 2.96e-05,
+      "total_seconds": 3.3018071
+    },
+    {
+      "function": "<lambda>",
+      "file": "blender_profile_preparation.py",
+      "calls": 3,
+      "self_seconds": 0.0976168,
+      "total_seconds": 1.7944943000000002
+    },
+    {
+      "function": "__load_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 3.69e-05,
+      "total_seconds": 1.6099643000000001
+    },
+    {
+      "function": "__load_fluid_particle_debug_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 3.48e-05,
+      "total_seconds": 1.2845325
+    },
+    {
+      "function": "<built-in method builtins.next>",
+      "file": "~",
+      "calls": 45,
+      "self_seconds": 6.050000000000001e-05,
+      "total_seconds": 1.2350327
+    },
+    {
+      "function": "_evaluate_through_solver_input_modifiers",
+      "file": "solver_test.py",
+      "calls": 30,
+      "self_seconds": 0.0169364,
+      "total_seconds": 1.2349382
+    },
+    {
+      "function": "_depsgraph_update",
+      "file": "solver_test.py",
+      "calls": 12,
+      "self_seconds": 1.1630901,
+      "total_seconds": 1.2166097
+    },
+    {
+      "function": "__exit__",
+      "file": "contextlib.py",
+      "calls": 15,
+      "self_seconds": 0.0415362,
+      "total_seconds": 0.83362
+    },
+    {
+      "function": "__enter__",
+      "file": "contextlib.py",
+      "calls": 15,
+      "self_seconds": 2.44e-05,
+      "total_seconds": 0.8133706
+    },
+    {
+      "function": "<built-in method _struct.unpack_from>",
+      "file": "~",
+      "calls": 100,
+      "self_seconds": 0.6479605,
+      "total_seconds": 0.6479605
+    },
+    {
+      "function": "load_frame",
+      "file": "flip_fluid_cache.py",
+      "calls": 18,
+      "self_seconds": 0.0031908,
+      "total_seconds": 0.523486
+    },
+    {
+      "function": "__load_fluid_particle_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 4.49e-05,
+      "total_seconds": 0.33688830000000003
+    }
+  ],
+  "quiet_profile": [
+    {
+      "function": "<built-in method builtins.next>",
+      "file": "~",
+      "calls": 51,
+      "self_seconds": 8.36e-05,
+      "total_seconds": 1.341571
+    },
+    {
+      "function": "_evaluate_through_solver_input_modifiers",
+      "file": "solver_test.py",
+      "calls": 30,
+      "self_seconds": 0.022429900000000003,
+      "total_seconds": 1.3411657000000001
+    },
+    {
+      "function": "_depsgraph_update",
+      "file": "solver_test.py",
+      "calls": 12,
+      "self_seconds": 1.2637833,
+      "total_seconds": 1.3179459
+    },
+    {
+      "function": "frame_set",
+      "file": "preparation_preview.py",
+      "calls": 3,
+      "self_seconds": 0.1552849,
+      "total_seconds": 1.1052566000000001
+    },
+    {
+      "function": "frame_change_post",
+      "file": "__init__.py",
+      "calls": 3,
+      "self_seconds": 3.58e-05,
+      "total_seconds": 0.9469779
+    },
+    {
+      "function": "frame_change_post",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 1.93e-05,
+      "total_seconds": 0.9459372
+    },
+    {
+      "function": "__load_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 4.99e-05,
+      "total_seconds": 0.9455713
+    },
+    {
+      "function": "__enter__",
+      "file": "contextlib.py",
+      "calls": 18,
+      "self_seconds": 4.2800000000000004e-05,
+      "total_seconds": 0.7684977000000001
+    },
+    {
+      "function": "__exit__",
+      "file": "contextlib.py",
+      "calls": 18,
+      "self_seconds": 4.44e-05,
+      "total_seconds": 0.7653324
+    },
+    {
+      "function": "load_frame",
+      "file": "flip_fluid_cache.py",
+      "calls": 18,
+      "self_seconds": 0.0048729,
+      "total_seconds": 0.6661513
+    },
+    {
+      "function": "<method 'foreach_set' of 'bpy_prop_collection' objects>",
+      "file": "~",
+      "calls": 219,
+      "self_seconds": 0.49419320000000005,
+      "total_seconds": 0.49419320000000005
+    },
+    {
+      "function": "__load_fluid_particle_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 3.97e-05,
+      "total_seconds": 0.48177650000000005
+    },
+    {
+      "function": "wait",
+      "file": "threading.py",
+      "calls": 8,
+      "self_seconds": 8.680000000000001e-05,
+      "total_seconds": 0.46857580000000004
+    },
+    {
+      "function": "wait",
+      "file": "threading.py",
+      "calls": 8,
+      "self_seconds": 0.011624500000000001,
+      "total_seconds": 0.4553419
+    },
+    {
+      "function": "__load_surface_frame",
+      "file": "render.py",
+      "calls": 3,
+      "self_seconds": 3.91e-05,
+      "total_seconds": 0.4463358
+    }
+  ]
+}

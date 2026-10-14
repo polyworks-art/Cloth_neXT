@@ -3675,7 +3675,8 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
                 raise SessionCancelled()
             # frame_set updates the dependency graph immediately; repeating a
             # view-layer update here needlessly evaluates the full rig again.
-            scene.frame_set(frame)
+            from .preparation_preview import frame_set as _preparation_frame_set
+            _preparation_frame_set(scene, frame)
             state, active = _force_state(context, wind_frame=frame)
             samples.append(state)
             active_scalar_types.update(active)
@@ -3859,7 +3860,8 @@ def _capture_animated_pin(context,cloth_obj,bake_range,membership,
         for point in points:
             _check_preparation_cancel()
             frame = point.frame
-            scene.frame_set(frame, subframe=point.subframe)
+            from .preparation_preview import frame_set as _preparation_frame_set
+            _preparation_frame_set(scene, frame, subframe=point.subframe)
             _depsgraph_update(context)
             evaluated=cloth_obj.evaluated_get(context.evaluated_depsgraph_get())
             mesh=evaluated.to_mesh()
@@ -4253,7 +4255,8 @@ def _capture_transform_only_collider_motion(
             _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
-            scene.frame_set(frame, subframe=subframe)
+            from .preparation_preview import frame_set as _preparation_frame_set
+            _preparation_frame_set(scene, frame, subframe=subframe)
             depsgraph = context.evaluated_depsgraph_get()
             evaluated = evaluation_obj.evaluated_get(depsgraph)
             world = tuple(tuple(float(value) for value in row)
@@ -4350,7 +4353,8 @@ def _capture_collider_motion(context, collider_obj,
                     activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
                     current_frame=frame, progress_current=offset + 1,
                     progress_total=sample_count)
-            scene.frame_set(frame, subframe=subframe)
+            from .preparation_preview import frame_set as _preparation_frame_set
+            _preparation_frame_set(scene, frame, subframe=subframe)
             # frame_set() already evaluates the dependency graph. Repeating
             # view_layer.update() doubled the dominant cost on long,
             # deforming character Collider captures.
@@ -4568,7 +4572,8 @@ def _capture_animated_colliders_shared(
             _check_preparation_cancel()
             if _cancel_event.is_set():
                 raise SessionCancelled()
-            context.scene.frame_set(point.frame, subframe=point.subframe)
+            from .preparation_preview import frame_set as _preparation_frame_set
+            _preparation_frame_set(context.scene, point.frame, subframe=point.subframe)
             if _export_timing_sink is not None:
                 _export_timing_sink["frame_set_count"] = (
                     _export_timing_sink.get("frame_set_count", 0.0) + 1.0)
@@ -10063,7 +10068,8 @@ def _pin_capture_pump():
             activity_code=activity,
             progress_current=point_index,
             progress_total=len(state["points"]))
-        scene.frame_set(frame, subframe=point.subframe)
+        from .preparation_preview import frame_set as _preparation_frame_set
+        _preparation_frame_set(scene, frame, subframe=point.subframe)
         _check_preparation_cancel()
         depsgraph = context.evaluated_depsgraph_get()
         timings = state["snapshot"].timings

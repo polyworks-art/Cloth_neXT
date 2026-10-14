@@ -1,9 +1,11 @@
-# Cloth NeXt 2.9.23
+# Cloth NeXt 2.9.24
 
-GAIA Water Flow now separates Fluid Source, Cloth Response and Fluid Cache. Enable FLIP velocity export beside the domain selector, prepare a .gaia cache, and start the Cloth Bake. Native controls explain coupling strength and velocity damping.
+GAIA Flow setup is shared by all enabled Cloth objects in a scene. Enabling or changing Flow updates the common fluid source, coupling, grid and .gaia cache. Influence and Velocity Scale stay individual.
 
-The official Windows GAIA 0.26 solver is available as an optional download in Manage. It is experimental and must be selected explicitly. Existing solver selection is retained; the solver remains external software and is never included in the add-on package.
+Fluid preparation reconstructs the shared field once. Subsequent Bakes in the same Blender session reuse verified preparations when source/cache files and field settings are unchanged. A new session still performs source validation.
 
-Large FLIP caches are processed in blocks of 65,536 particles without dropping particles or increasing the existing memory and 1-GiB native payload limits. NEON completed 250 frames with its three existing cloth meshes, totaling 23,356 vertices; finite coordinates and Blender playback passed. This result does not establish support for arbitrary scene sizes. Convergence depends on geometry and quality settings, and the complete installed interactive artist workflow has not yet been validated. This Dev release is not a public GAIA 0.26 beta qualification.
+Three real NEON frames with about 8.8 million particles each were reconstructed in 1.27-1.36 seconds versus 6.64-7.11 seconds for the previous math, with bit-identical velocity and occupancy. This measures reconstruction, not the entire Bake; an optimized 250-frame Bake remains untested.
 
-Native contact diagnostics, failed Re-Bake cache preservation and Windows long-path handling have also been improved. Before the final UI and download changes, regression recorded 2,232 passing tests and 13 configured external solver tests. Release checks are repeated for the published source revision.
+General preparation skips diagnostic FLIP GPU previews during temporary frame changes and restores their settings immediately. Physical fluid meshes and animation remain enabled. A three-object, three-frame Prepare took 12.86 seconds; subsequent Bake preparation took 0.91 seconds without another capture or reconstruction.
+
+A failed local Bake-window connection now exits cleanly instead of leaving an unhandled-exception dialog. Existing memory and 1-GiB payload limits, the .gaia format, selected solver and experimental GAIA 0.26 download option are retained. The external solver is not bundled.

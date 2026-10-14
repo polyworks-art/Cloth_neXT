@@ -164,15 +164,19 @@ def reconstruct_chunks(chunks, minimum, maximum, dimensions,
         q = (pp-lo)/(hi-lo)*(dims-1)
         base = np.minimum(np.floor(q).astype(int), dims-2)
         frac = q-base
+        complement = 1-frac
+        base_flat = (base[:, 2]*dims[1]+base[:, 1])*dims[0]+base[:, 0]
         for z in (0, 1):
             for y in (0, 1):
                 for x in (0, 1):
-                    corner = np.asarray((x, y, z))
-                    w = np.prod(np.where(corner, frac, 1-frac), axis=1)
-                    index = base+corner
-                    flat = (index[:, 2]*dims[1]+index[:, 1])*dims[0]+index[:, 0]
+                    # Same multiplication and per-channel addition order as
+                    # the original splat, without N x 3 corner temporaries.
+                    w = (frac[:, 0] if x else complement[:, 0]) * (frac[:, 1] if y else complement[:, 1])
+                    w = w * (frac[:, 2] if z else complement[:, 2])
+                    flat = base_flat + (z*dims[1]+y)*dims[0]+x
                     np.add.at(density, flat, w)
-                    np.add.at(momentum, flat, vv*w[:, None])
+                    for axis in range(3):
+                        np.add.at(momentum[:, axis], flat, vv[:, axis]*w)
     if not usable:
         raise ValueError('No usable water samples inside the reconstruction bounds')
     velocity = np.divide(momentum, density[:, None], out=np.zeros_like(momentum),

@@ -354,7 +354,7 @@ def make_module() -> types.ModuleType:
 
     data_module = types.SimpleNamespace(
         objects=_NamedStore(), collections=_NamedStore(),
-        meshes=_NamedStore())
+        meshes=_NamedStore(), scenes=[])
     path_module = types.SimpleNamespace(abspath=lambda p: p)
 
     bpy.types = types_module

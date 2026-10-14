@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.24",
+  "title": "What's New in Cloth NeXt 2.9.24",
+  "subtitle": "Faster preparation and shared scene Flow.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "One Flow setup for the scene",
+      "description": "All enabled Cloth objects share the fluid source, coupling and .gaia cache. Influence and Velocity Scale stay individual."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Faster fluid preparation",
+      "description": "Reconstruct a shared field once and reuse verified preparations for subsequent Bakes in the same Blender session. Full-particle reconstruction keeps identical results."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Less preparation overhead",
+      "description": "Temporary frame changes skip diagnostic fluid previews while preserving physical meshes and restoring preview settings. Failed Bake-window connections exit cleanly."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

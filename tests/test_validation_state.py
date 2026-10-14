@@ -329,11 +329,13 @@ def test_validation_is_the_only_thing_that_scans(env):
 
 def test_handlers_registered_exactly_once(env):
     handlers = env.bpy.app.handlers
-    assert len(handlers.depsgraph_update_post) == 2
+    assert len(handlers.depsgraph_update_post) == 3
+    assert sum(getattr(f, "_clothnext_shared_water", False) for f in handlers.depsgraph_update_post) == 1
     assert sum(getattr(f, "_clothnext_wind_geometry", False) for f in handlers.depsgraph_update_post) == 1
     # Validation, role colors, recovery, image-cache, linked Colliders,
-    # orphan attachments and the Wind preview.
-    assert len(handlers.load_post) == 7
+    # orphan attachments, Wind preview and shared Water Flow.
+    assert len(handlers.load_post) == 8
+    assert sum(getattr(f, "_clothnext_shared_water", False) for f in handlers.load_post) == 1
     assert sum(getattr(f, "_clothnext_wind_overlay", False) for f in handlers.load_post) == 1
     assert sum(getattr(f, "_clothnext_wind_redraw", False) for f in handlers.frame_change_post) == 1
     assert sum(f.__name__ == "_prune_deleted_attachments"

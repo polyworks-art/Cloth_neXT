@@ -1309,7 +1309,14 @@ def main(argv=None):
         parser.error("informational arguments require an informational mode")
     if args.content_root:
         parser.error("--content-root is only valid with informational modes")
-    transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
+    try:
+        transport=LocalSocketClient(args.port,args.token) if args.port and args.token else DemoTransport()
+    except OSError:
+        # Blender reports Companion startup failure when this process exits.
+        # A closed or unresponsive local endpoint must not open a PyInstaller
+        # unhandled-exception dialog that outlives the failed launch.
+        LOG.error("companion connection failed\n%s",traceback.format_exc())
+        raise SystemExit(2)
     try: BakeWindow(transport,session_root=args.session_root,
                     initial_mode=CompanionMode(args.mode.upper())).run()
     except Exception:

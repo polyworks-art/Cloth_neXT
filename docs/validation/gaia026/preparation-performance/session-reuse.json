@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "objects": [
+    "S04_NEON_Garments",
+    "S04_NEON_Garments.001",
+    "S04_NEON_Garments.002"
+  ],
+  "frames": 3,
+  "measurements": [
+    {
+      "seconds": 12.856411700005992,
+      "workers": 1,
+      "captures": 3
+    },
+    {
+      "seconds": 0.9097368000002461,
+      "workers": 0,
+      "captures": 0
+    }
+  ],
+  "cache_unchanged": true,
+  "timeline_restored": true,
+  "headless_gpu_drawing_stub": true
+}

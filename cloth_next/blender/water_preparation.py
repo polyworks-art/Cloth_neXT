@@ -212,10 +212,12 @@ def _pump():
             state['field_signature']=_field_signature(metadata)
             destination=Path(obj.cloth_next.water_flow_container)
             for proof in tuple(_prepared.values()):
-                if proof['job']!=state['id'] or proof['path']!=destination:continue
+                if proof['path']!=destination:continue
                 if proof.get('field_signature')!=state['field_signature']:
-                    raise ValueError('These Cloth objects use different Fluid Cache settings but the same .gaia file. '
-                                     'Choose a separate .gaia file for each fluid source or grid.')
+                    if proof['job']==state['id']:
+                        raise ValueError('These Cloth objects use different Fluid Cache settings but the same .gaia file. '
+                                         'Choose a separate .gaia file for each fluid source or grid.')
+                    continue
                 if tuple(path for path,stamp in proof['sources'])!=tuple(map(Path,provider.source_paths)):
                     continue
                 try:
@@ -223,7 +225,10 @@ def _pump():
                         all(source_stamp(path)==stamp for path,stamp in proof['sources']))
                 except OSError:unchanged=False
                 if not unchanged:continue
-                _prepared[(obj.name,state['first'],state['last'])]=dict(proof,settings=state['settings'])
+                # A prior Prepare or Bake in this Blender session already
+                # checked every source and cached frame. Recheck all file
+                # stamps and field settings, then bind the proof to this job.
+                _prepared[(obj.name,state['first'],state['last'])]=dict(proof,job=state['id'],settings=state['settings'])
                 state['index']+=1;state['provider']=None
                 shared_controller.update(status_message='Using verified Fluid Cache',
                     activity_label='Using verified Fluid Cache',active_object_name=obj.name,
