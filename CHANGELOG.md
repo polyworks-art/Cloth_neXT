@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.25 - 2026-10-14
+
+- Show the reason when a solver selection fails instead of silently returning to the previously selected release.
+- Report missing registrations and registry write errors; retain the previous selection on failure.
+- Clear stale selection errors after a healthy verified solver is selected successfully.
+- Preserve existing health/compatibility gates and the user's selected solver.
+
 ## 2.9.24 - 2026-10-14
 
 - Share GAIA Flow setup across enabled Cloth objects; keep Influence and Velocity Scale individual.

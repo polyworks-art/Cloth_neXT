@@ -165,11 +165,16 @@ def _solver_enum_update(self, _context):
     paths = ManagedSolverPaths.default()
     registry, error = _read_registry()
     if error or registry.get(selected) is None:
+        _session.worker_error = error or "The selected solver installation is missing. Refresh Installations, then retry."
         return
     try:
         write_registry(paths.registry_json, registry.select(selected))
-    except (OSError, ValueError):
+    except (OSError, ValueError) as exc:
+        installation = registry.get(selected)
+        _session.worker_error = (
+            f"Solver selection failed: {exc}. {installation.error or ''}".strip())
         return
+    _session.worker_error = None
 
 
 class CLOTHNEXT_OT_solver_use(bpy.types.Operator):

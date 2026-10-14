@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.25",
+  "title": "What's New in Cloth NeXt 2.9.25",
+  "subtitle": "Clearer solver selection diagnostics.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Know why selection failed",
+      "description": "Preferences show the reason if a solver cannot be selected, including a failed health check, missing registration or a registry write error."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Keep the working selection",
+      "description": "Failed changes preserve the previous solver. Selecting a healthy verified solver clears the old error; your active solver is not changed automatically."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

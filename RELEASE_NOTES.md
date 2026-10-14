@@ -1,11 +1,7 @@
-# Cloth NeXt 2.9.24
+# Cloth NeXt 2.9.25
 
-GAIA Flow setup is shared by all enabled Cloth objects in a scene. Enabling or changing Flow updates the common fluid source, coupling, grid and .gaia cache. Influence and Velocity Scale stay individual.
+Solver selection failures now show their reason in Preferences. An unhealthy installation, missing registration or registry write failure no longer leaves the user with a silently rejected selection. The previously selected solver is preserved on failure, and successful selection clears the old error.
 
-Fluid preparation reconstructs the shared field once. Subsequent Bakes in the same Blender session reuse verified preparations when source/cache files and field settings are unchanged. A new session still performs source validation.
+In the reported NEON case, GAIA 0.26 was blocked by an old local validation marker. A fresh real health check passed, the marker was repaired locally, and selecting GAIA 0.26 in Blender persisted correctly. This release does not bypass health checks or automatically change solver selection.
 
-Three real NEON frames with about 8.8 million particles each were reconstructed in 1.27-1.36 seconds versus 6.64-7.11 seconds for the previous math, with bit-identical velocity and occupancy. This measures reconstruction, not the entire Bake; an optimized 250-frame Bake remains untested.
-
-General preparation skips diagnostic FLIP GPU previews during temporary frame changes and restores their settings immediately. Physical fluid meshes and animation remain enabled. A three-object, three-frame Prepare took 12.86 seconds; subsequent Bake preparation took 0.91 seconds without another capture or reconstruction.
-
-A failed local Bake-window connection now exits cleanly instead of leaving an unhandled-exception dialog. Existing memory and 1-GiB payload limits, the .gaia format, selected solver and experimental GAIA 0.26 download option are retained. The external solver is not bundled.
+The shared GAIA Flow and preparation improvements from 2.9.24 are retained. The external solver is not bundled.
