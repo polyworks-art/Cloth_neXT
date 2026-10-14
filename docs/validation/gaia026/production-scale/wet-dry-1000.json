@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "scope": "Observed wet/dry difference in matching PC2 local coordinates; not an isolated repeated-run significance test",
+  "objects": [
+    {
+      "object": "ProductionGrid1000_0",
+      "max_position_difference": 0.07570623383562967,
+      "final_rms_difference": 0.004182842445173945
+    }
+  ]
+}

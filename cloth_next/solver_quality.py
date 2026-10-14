@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import struct
 from dataclasses import dataclass
 
 DEFAULT_TIME_STEP = 0.001
@@ -37,7 +38,11 @@ class SolverQualityValidationError(ValueError):
 
 def _finite_range(label: str, value: float, minimum: float,
                   maximum: float) -> None:
-    if not math.isfinite(value) or not minimum <= value <= maximum:
+    # Blender RNA stores these controls as float32. Accept the representable
+    # boundary itself, without permitting the next float32 outside the range.
+    low = min(minimum, struct.unpack('<f', struct.pack('<f', minimum))[0])
+    high = max(maximum, struct.unpack('<f', struct.pack('<f', maximum))[0])
+    if not math.isfinite(value) or not low <= value <= high:
         raise SolverQualityValidationError(
             f"{label} = {value!r} is invalid (accepted: {minimum:g} to "
             f"{maximum:g}). Adjust it in Physics Properties > Cloth NeXt > "

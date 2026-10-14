@@ -143,7 +143,13 @@ def main() -> None:
             assert bpy.ops.clothnext.solver_test_clear() == {"FINISHED"}
             assert cloth.modifiers.get(artist_name) is not None
             assert artist_path.read_bytes() == b"artist"
-            assert owned not in cloth.modifiers[:]
+            # The stable simulation boundary survives Clear Cache, ready for
+            # another Bake. Its reader and playback ownership must be gone.
+            assert owned in cloth.modifiers[:]
+            assert owned.filepath == ""
+            assert not owned.show_viewport and not owned.show_render
+            assert solver_test.has_simulation_modifier_marker(cloth, owned)
+            assert solver_test.is_unbaked_simulation_modifier(cloth, owned)
             assert not replacement_path.exists()
             windows_lock_preserved_old_cache = owned_path.exists()
             owned_path.unlink(missing_ok=True)

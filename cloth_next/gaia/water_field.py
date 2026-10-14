@@ -118,27 +118,46 @@ def reconstruct(positions, velocities, minimum, maximum, dimensions,
     No global hole filling or extrapolation. Surface samples therefore only
     influence their adjacent cells; they are not treated as a filled volume.
     """
-    p, v = np.asarray(positions, float), np.asarray(velocities, float)
+    p, v = np.asarray(positions), np.asarray(velocities)
+    if p.ndim != 2 or p.shape[1] != 3 or v.shape != p.shape or not len(p):
+        raise ValueError('No usable particles or invalid velocity data')
+    def chunks():
+        for begin in range(0,len(p),65536):
+            yield p[begin:begin+65536],v[begin:begin+65536]
+    return reconstruct_chunks(chunks(),minimum,maximum,dimensions,
+        support_threshold=support_threshold,max_speed=max_speed)
+
+
+def reconstruct_chunks(chunks, minimum, maximum, dimensions,
+                       *, support_threshold=1.0,max_speed=100.0,check_cancel=lambda:None):
+    """Consume every particle with bounded temporaries; never decimate the source."""
     lo, hi = np.asarray(minimum, float), np.asarray(maximum, float)
     dims = np.asarray(dimensions, int)
-    if (p.ndim != 2 or p.shape[1] != 3 or v.shape != p.shape or len(p) == 0
-            or not np.isfinite(p).all() or not np.isfinite(v).all()
-            or lo.shape != (3,) or hi.shape != (3,) or np.any(hi <= lo)
+    if (lo.shape != (3,) or hi.shape != (3,) or np.any(hi <= lo)
             or not np.isfinite(lo).all() or not np.isfinite(hi).all()
             or dims.shape != (3,) or np.any(dims < 2)
             or not np.isfinite(support_threshold) or support_threshold <= 0
-            or not np.isfinite(max_speed) or max_speed <= 0):
+            or (max_speed is not None and (not np.isfinite(max_speed) or max_speed <= 0))):
         raise ValueError('No usable particles, invalid velocity data, bounds or reconstruction settings')
     count = math.prod(map(int,dims))
-    info = grid_diagnostics(lo,hi,dims,particle_count=len(p),requested=int(dims.max()))
+    # Inputs belong to a bounded streaming reader rather than a resident frame.
+    info = grid_diagnostics(lo,hi,dims,particle_count=65536,requested=int(dims.max()))
     check_grid_memory(info)
-    speed = np.linalg.norm(v, axis=1)
-    v = v * np.minimum(1., max_speed / np.maximum(speed, 1e-30))[:, None]
     density, momentum = np.zeros(count), np.zeros((count, 3))
     # Bound temporary particle allocation; accumulation order remains stable.
-    usable = 0
-    for begin in range(0, len(p), 65536):
-        pp, vv = p[begin:begin+65536], v[begin:begin+65536]
+    usable = source_count = 0
+    for positions,velocities in chunks:
+        check_cancel()
+        pp,vv=np.asarray(positions),np.asarray(velocities)
+        if pp.ndim!=2 or pp.shape[1]!=3 or vv.shape!=pp.shape or len(pp)>65536:
+            raise ValueError('Invalid or oversized particle chunk')
+        pp,vv=np.asarray(pp,float),np.asarray(vv,float)
+        if not np.isfinite(pp).all() or not np.isfinite(vv).all():
+            raise ValueError('Invalid particle chunk: non-finite position or velocity')
+        source_count+=len(pp)
+        if max_speed is not None:
+            speed=np.linalg.norm(vv,axis=1)
+            vv=vv*np.minimum(1.,max_speed/np.maximum(speed,1e-30))[:,None]
         inside = np.all((pp >= lo) & (pp <= hi), axis=1)
         pp, vv = pp[inside], vv[inside]
         usable += len(pp)
@@ -161,7 +180,7 @@ def reconstruct(positions, velocities, minimum, maximum, dimensions,
     shape = tuple(dims[::-1])
     influence = np.minimum(1., density/support_threshold)
     return WaterVelocityField(tuple(lo), tuple(hi), velocity.reshape(*shape, 3).astype('<f4'),
-                              influence.reshape(shape).astype('<f4'),len(p))
+                              influence.reshape(shape).astype('<f4'),source_count)
 
 
 def solver_grid(field):

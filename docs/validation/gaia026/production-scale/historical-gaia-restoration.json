@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "frames": 250,
+  "bytes": 170993474,
+  "sha256": "08ca46b30c95e3dad67e4255b9255266a1d0a941f6a2107bda818da159ea61e7",
+  "restored_from": "cloth-next-gaia026-audit/long-sequence/250-wet/Fluid.gaia",
+  "note": "Compatible historical full-range derived container restored after pilot range mismatch; original FLIP source unchanged."
+}

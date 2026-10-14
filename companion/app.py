@@ -58,6 +58,35 @@ ERROR_DOCS_BASE="https://polyworks-art.github.io/Cloth_neXT/errors/"
 COMPACT_HEIGHT=118
 
 
+class EtaTrend:
+    """Compare ETA estimates across frames, ignoring within-frame traffic."""
+
+    def __init__(self):
+        self.job_id = None
+        self.frame = None
+        self.seconds = None
+        self.symbol = ""
+
+    def update(self, snapshot):
+        seconds = snapshot.estimated_remaining_seconds
+        frame = snapshot.current_frame
+        if (snapshot.job_id != self.job_id
+                or snapshot.state is not BakeState.SIMULATING
+                or seconds is None or not math.isfinite(seconds)
+                or frame is None or seconds < 0
+                or (self.frame is not None and frame < self.frame)):
+            self.__init__()
+            self.job_id = snapshot.job_id
+        if (snapshot.state is not BakeState.SIMULATING or seconds is None
+                or not math.isfinite(seconds) or seconds < 0 or frame is None):
+            return ""
+        if self.frame is not None and frame != self.frame:
+            self.symbol = ("▲" if seconds > self.seconds else
+                           "▼" if seconds < self.seconds else "")
+        self.frame, self.seconds = frame, seconds
+        return self.symbol
+
+
 def details_window_height(details_visible: bool, requested: int) -> int:
     """Keep the compact height exact and let expanded content size itself."""
     return max(COMPACT_HEIGHT, int(requested)) if details_visible else COMPACT_HEIGHT
@@ -475,6 +504,7 @@ class BakeWindow:
         self.progress_text=tk.StringVar(value="Ready")
         self.time_text=tk.StringVar(value="00:00")
         self.remaining_text=tk.StringVar(value="")
+        self._eta_trend=EtaTrend()
         self.details_meta_text=tk.StringVar(value="No additional Bake details yet.")
         self.activity_text=tk.StringVar(value="Waiting for a Bake")
         self._activity_pending=None; self._activity_after=None; self._closed=False
@@ -816,6 +846,17 @@ class BakeWindow:
                 value_widget.grid(row=row,column=1,sticky="ew",pady=2)
                 self.solver_stat_vars[key]=value
                 self.solver_stat_rows[key]=(label_widget,value_widget)
+            # Keep the ETA visible even before solver telemetry arrives.
+            tk.Label(body,text="Remaining Time",bg=SECTION_BODY,fg=MUTED,
+                     font=(UI_FONT,8),anchor="e",width=19).grid(
+                         row=len(rows),column=0,sticky="e",padx=(0,8),pady=2)
+            time_area=tk.Frame(body,bg=AMBER)
+            time_area.grid(row=len(rows),column=1,sticky="ew",pady=2)
+            tk.Label(time_area,textvariable=self.remaining_text,bg=AMBER,fg=PANEL,
+                     font=("Consolas",8),anchor="w",padx=6,pady=2).pack(side="left")
+            self.eta_trend_label=tk.Label(time_area,text="",bg=AMBER,
+                                         font=(UI_SEMIBOLD,9),padx=2)
+            self.eta_trend_label.pack(side="left")
             return group
 
         stat_group("Solver",_SOLVER_DETAIL_ROWS)
@@ -1165,6 +1206,9 @@ class BakeWindow:
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
         self.remaining_text.set("ETA calculating…" if remaining=="Unknown"
                                 else f"ETA  {remaining}")
+        trend=self._eta_trend.update(snapshot)
+        self.eta_trend_label.configure(text=trend,
+                                      fg="#b82020" if trend=="▲" else "#146b28")
         self.time_text.set(format_duration(snapshot.elapsed_seconds))
         self.cancel.state(["!disabled"] if snapshot.can_cancel else ["disabled"])
         if self._details_visible:

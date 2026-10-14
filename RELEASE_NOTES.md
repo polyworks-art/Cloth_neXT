@@ -1,7 +1,9 @@
-# Cloth NeXt 2.9.15
+# Cloth NeXt 2.9.23
 
-Animated Collider capture now defaults to one sample per Blender frame. This matches the whole-frame poses consumed by the current solver. Existing explicitly saved sample counts remain unchanged; set these to 1 to reduce capture work.
+GAIA Water Flow now separates Fluid Source, Cloth Response and Fluid Cache. Enable FLIP velocity export beside the domain selector, prepare a .gaia cache, and start the Cloth Bake. Native controls explain coupling strength and velocity damping.
 
-Official solver preparation retains dense Collider animation tables as compact read-only numeric views instead of expanding them into Python lists and individual numbers, then re-encoding them through slow scalar loops. Whole-frame selection also avoids a full animation copy. The wire format and animation timing remain unchanged.
+The official Windows GAIA 0.26 solver is available as an optional download in Manage. It is experimental and must be selected explicitly. Existing solver selection is retained; the solver remains external software and is never included in the add-on package.
 
-A bounded local decode/re-encode benchmark improved from 0.90 seconds to 0.027 seconds with byte-identical output. This measures that stage, not an entire Bake. Regression tests cover the codec, solver bridge, animation timeline and Bake lifecycle. Update through Blender's native extension manager. The external solver is not modified or bundled.
+Large FLIP caches are processed in blocks of 65,536 particles without dropping particles or increasing the existing memory and 1-GiB native payload limits. NEON completed 250 frames with its three existing cloth meshes, totaling 23,356 vertices; finite coordinates and Blender playback passed. This result does not establish support for arbitrary scene sizes. Convergence depends on geometry and quality settings, and the complete installed interactive artist workflow has not yet been validated. This Dev release is not a public GAIA 0.26 beta qualification.
+
+Native contact diagnostics, failed Re-Bake cache preservation and Windows long-path handling have also been improved. Before the final UI and download changes, regression recorded 2,232 passing tests and 13 configured external solver tests. Release checks are repeated for the published source revision.

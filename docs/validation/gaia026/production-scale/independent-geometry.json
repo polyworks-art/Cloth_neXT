@@ -1,0 +1,408 @@
+{
+  "result": "PASS",
+  "cases": [
+    {
+      "label": "1000-3-base-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 2,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 3,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-60-base-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-250-base-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 126,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 250,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "5000-3-base-0.2-wet",
+      "object": "ProductionGrid5000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 2,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 3,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "5000-60-base-0.2-wet",
+      "object": "ProductionGrid5000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "5000-250-base-0.2-wet",
+      "object": "ProductionGrid5000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 126,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 250,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-12-base-0.05-wet",
+      "object": "ProductionGrid1000_0",
+      "result": "UNAVAILABLE",
+      "reason": "Earlier rebake replaced original file; retained scalar validation exists"
+    },
+    {
+      "label": "1000-60-base-0.05-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-250-base-0.05-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 126,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 250,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-12-base-1-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 7,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 12,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-60-base-1-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-250-base-1-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 126,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 250,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-12-collider-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 7,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 12,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-60-collider-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-250-collider-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 126,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 250,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-12-two-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 7,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 12,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-12-two-0.2-wet",
+      "object": "ProductionGrid1000_1",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 7,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 12,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-60-two-0.2-wet",
+      "object": "ProductionGrid1000_0",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    },
+    {
+      "label": "1000-60-two-0.2-wet",
+      "object": "ProductionGrid1000_1",
+      "checks": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 31,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 60,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ],
+      "result": "PASS"
+    }
+  ],
+  "scope": "Discrete first/middle/final-frame triangle crossings, not a continuous collision proof"
+}

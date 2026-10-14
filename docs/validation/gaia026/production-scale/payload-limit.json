@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "expected_error": "Native fluid file exceeds the 1 GiB transport budget",
+  "unchanged_budget_bytes": 1073741824,
+  "complete_field_samples_processed": 568,
+  "seconds": 161.29700000000003,
+  "source_gaia_unchanged": true,
+  "previous_pc2_unchanged": true,
+  "partials_and_spools_removed": true,
+  "scope": "Real native-file encoder budget gate; intentionally oversized three-field schedule, not a completed solver bake"
+}

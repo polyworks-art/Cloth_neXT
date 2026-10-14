@@ -1,0 +1,118 @@
+{
+  "result": "READABLE_SNAPSHOT",
+  "source": "F:\\16_Cloth_neXt\\SW04\\SW04_NEON.blend",
+  "domains": [
+    {
+      "name": "FLIP Domain",
+      "cache": "F:\\16_Cloth_neXt\\SW04\\SW04_NEON_flip_fluid_cache",
+      "particle_files": 250,
+      "velocity_files": 250,
+      "saved_scene_range": [
+        1,
+        250
+      ],
+      "fps": 30.0,
+      "velocity_examples": [
+        "fluidparticlesvelocity000001.ffp3",
+        "fluidparticlesvelocity000002.ffp3",
+        "fluidparticlesvelocity000003.ffp3"
+      ],
+      "files_examples": [
+        "000001.bobj",
+        "000002.bobj",
+        "000003.bobj",
+        "000004.bobj",
+        "000005.bobj",
+        "000006.bobj",
+        "000007.bobj",
+        "000008.bobj",
+        "000009.bobj",
+        "000010.bobj"
+      ],
+      "provider_accepts_full_range": true,
+      "first_frame_particles": 8784881,
+      "provider": {
+        "mode": "FLUID_PARTICLES",
+        "cache": "F:\\16_Cloth_neXt\\SW04\\SW04_NEON_flip_fluid_cache\\bakefiles",
+        "provider": "FLIP Fluids",
+        "domain": "FLIP Domain",
+        "matrix": [
+          [
+            0.25,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "sources": [],
+        "coordinate_recipe": "flip-evaluated-world-v2",
+        "baked_fps": 30.0,
+        "time_scale": {
+          "data": 1.0,
+          "is_animated": false
+        },
+        "baked_world_scale": 1.0,
+        "sampling": "all-liquid-particles",
+        "provider_version": null,
+        "source_object_id": "FLIP Domain",
+        "cache_matrix": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            -1.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            -2.0194754600524902
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "bounds": [
+          [
+            -1.0,
+            -2.0194754600524902,
+            0.0
+          ],
+          [
+            1.0035490989685059,
+            1.9876227378845215,
+            2.003549098968506
+          ]
+        ]
+      }
+    }
+  ],
+  "source_blend_unchanged": true
+}

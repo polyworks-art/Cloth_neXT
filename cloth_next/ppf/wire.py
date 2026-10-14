@@ -232,7 +232,7 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                   project_name: str, data_payload, param_payload,
                   data_hash: str, param_hash: str,
                   file_chunk_size: int = CHUNK_SIZE,
-                  use_sendfile: bool = False) -> None:
+                  use_sendfile: bool = False, check_cancel=None) -> None:
     """Stream both payloads through the server-side atomic upload."""
     _validate_project_name(project_name)
     if file_chunk_size <= 0:
@@ -258,8 +258,9 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                 with open(payload, "rb") as stream:
                     size = os.fstat(stream.fileno()).st_size
                     while sent < size:
+                        if check_cancel: check_cancel()
                         count = connection.sendfile(
-                            stream, offset=sent, count=size - sent)
+                            stream, offset=sent, count=min(file_chunk_size, size - sent))
                         if not count:
                             raise OSError("socket.sendfile made no progress")
                         sent += count
@@ -269,6 +270,7 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
                 # accepted by the socket.
                 pass
         for chunk in payload_chunks(payload, offset=sent):
+            if check_cancel: check_cancel()
             _send_all(connection, chunk)
 
     data_size, param_size = payload_size(data_payload), payload_size(param_payload)
@@ -290,12 +292,14 @@ def upload_atomic(address: ServerAddress, config: TransportConfig, *,
         # send active longer than a status response. Do not reuse the short
         # request/response timeout for the upload body.
         connection.settimeout(config.upload_write_timeout)
+        if check_cancel: check_cancel()
         _send_all(connection, JSON_HEADER + header)
         for payload in (data_payload, param_payload):
             if isinstance(payload, (str, Path)):
                 send_file(connection, payload)
             else:
                 for chunk in payload_chunks(payload):
+                    if check_cancel: check_cancel()
                     _send_all(connection, chunk)
         connection.settimeout(config.read_timeout)
         line, _rest = _read_line(connection)

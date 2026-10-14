@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.23 - 2026-10-14
+
+- Offer the pinned official Windows GAIA 0.26 download for experimental native FLIP coupling; preserve the selected solver.
+- Organize GAIA Water Flow into Fluid Source, Cloth Response and Fluid Cache sections, with direct velocity export setup and explicit .gaia paths.
+- Stream all FLIP particles in bounded blocks, reuse verified shared fields within one preparation job, and retain existing memory and payload limits.
+- Improve native convergence diagnostics, contact metrics, Windows long-path handling and cache preservation on failed Re-Bakes.
+- Validate native NEON coupling with the three existing cloth meshes over 250 frames; retain documented production and installed-workflow limitations.
+
 ## 2.9.15 - 2026-10-05
 
 - Default animated Collider capture to one sample per frame, including reset and fallback paths; preserve explicitly saved sample counts.

@@ -1,0 +1,19 @@
+{
+  "result": "BLOCKED",
+  "module": "bl_ext.polyworks_art_github_io.cloth_next",
+  "module_file": "C:\\Users\\timch\\AppData\\Roaming\\Blender Foundation\\Blender\\5.2\\extensions\\polyworks_art_github_io\\cloth_next\\__init__.py",
+  "blender": "5.2.2 LTS",
+  "manifest": "schema_version = \"1.0.0\"\nid = \"cloth_next\"\nversion = \"2.9.22\"\nname = \"Cloth NeXt\"\ntagline = \"High-fidelity cloth and soft-body simulation\"\nmaintainer = \"Tim Christmann\"\ntype = \"add-on\"\nwebsite = \"https://github.com/polyworks-art/Cloth_neXT\"\ntags = [\"Physics\"]\nblender_version_min = \"5.0.0\"\nlicense = [\"SPDX:GPL-3.0-or-later\"]\ncopyright = [\"2026 Tim Christmann and Cloth NeXt contributors\"]\nplatforms = [\"windows-x64\", \"linux-x64\"]\n\n[permissions]\nnetwork = \"Download explicitly selected external solver dependencies\"\nfiles = \"Manage the separate solver installation outside the extension\"\n\n[build]\npaths_exclude_pattern = [\"__pycache__/\", \"*.pyc\", \".*\", \"/*.zip\", \"*.blend[1-9]\", \"resources/.state/\"]\n",
+  "manifest_sha256": "8220c7d20a94f725d8bde39568f227035d872fcb695a177c4bb2a92828e7c2d4",
+  "missing_native_flow_properties": [
+    "water_flow_coupling_strength",
+    "water_flow_native_flow"
+  ],
+  "operators": {
+    "enable_flip_velocity_export": false,
+    "prepare_water_flow": true
+  },
+  "saved_preferences": false,
+  "checkout_substituted": false,
+  "subsequent_workflow": "UNTESTED"
+}

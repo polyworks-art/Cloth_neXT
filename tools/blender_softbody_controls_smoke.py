@@ -21,7 +21,7 @@ settings.soft_body.volume_scale = .8
 settings.soft_body.stretch_plasticity_enabled = True
 settings.damping.shape_damping = .012
 settings.soft_body.appear_solid = True
-assert settings.soft_body.stretch_resistance == 1e7
+assert settings.soft_body.stretch_resistance == 5000.0
 assert not settings.soft_body.stretch_plasticity_enabled
 path = Path(__file__).resolve().parents[1] / '.tmp_verify/softbody-controls.blend'
 bpy.ops.wm.save_as_mainfile(filepath=str(path))

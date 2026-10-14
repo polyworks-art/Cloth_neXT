@@ -179,3 +179,27 @@ def test_compact_decode_falls_back_for_mixed_rows_and_rejects_truncation():
     wire = dumps(np.ones((32, 3)))
     with pytest.raises(CborError):
         cbor_codec.loads(wire[:-1], compact_arrays=True)
+
+
+
+def test_file_bytes_exact_wire_and_truncation(tmp_path):
+    import io
+    from cloth_next.ppf.schema.cbor_codec import FileBytes, dump, dumps, CborError
+    path=tmp_path/'bytes.bin';path.write_bytes(b'prefix'+bytes(range(256))*8192)
+    output=io.BytesIO()
+    dump({'a':FileBytes(path,6,2<<20)},output)
+    assert output.getvalue()==dumps({'a':path.read_bytes()[6:]})
+    with pytest.raises(CborError,match='Truncated'):
+        dump(FileBytes(path,6,(2<<20)+1),io.BytesIO())
+
+
+def test_file_envelope_cap_removes_partial(tmp_path):
+    from cloth_next.ppf.schema import envelope
+    from cloth_next.ppf.schema.cbor_codec import FileBytes
+    source=tmp_path/'bytes.bin';source.write_bytes(b'x'*100)
+    output=tmp_path/'params.cbor'
+    with pytest.raises(envelope.EnvelopeError,match='budget'):
+        envelope.dump_envelope_file(envelope.KIND_PARAM,{'a':FileBytes(source,0,100)},
+                                    output,max_bytes=50)
+    assert not output.exists()
+    assert source.read_bytes()==b'x'*100

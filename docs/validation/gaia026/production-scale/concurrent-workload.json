@@ -1,0 +1,5 @@
+{
+  "reported_by_user": "High-resolution FLIP bake in SW04_NEON.blend running concurrently; estimated about one hour",
+  "performance_caveat": "Wall times are observed shared-workstation times, not isolated GPU benchmarks. Only owned process-tree RAM is measured.",
+  "received_local_time": "2026-10-14T07:44:33.6636452+02:00"
+}

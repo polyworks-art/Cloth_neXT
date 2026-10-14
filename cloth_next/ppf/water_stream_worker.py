@@ -17,12 +17,30 @@ if not __package__:
 from ..gaia.streaming import WaterStreamReader,MAX_STREAM_VALUES_BYTES
 from ..gaia.held_stream import StreamTarget,drive_held_stream,WaterStreamCancelled
 from .schema import envelope
+from ..core.atomic_text import write_atomic_text
 
 
 def atomic_status(path, state):
-    temporary=path.with_suffix('.tmp')
-    temporary.write_text(json.dumps(state,allow_nan=False),encoding='utf-8')
-    os.replace(temporary,path)
+    write_atomic_text(path,json.dumps(state,allow_nan=False))
+
+
+def peak_working_set_bytes():
+    if os.name != 'nt':
+        return None
+    import ctypes
+    from ctypes import wintypes
+    class Counters(ctypes.Structure):
+        _fields_=[('cb',wintypes.DWORD),('PageFaultCount',wintypes.DWORD)]+[
+            (name,ctypes.c_size_t) for name in ('PeakWorkingSetSize','WorkingSetSize',
+            'QuotaPeakPagedPoolUsage','QuotaPagedPoolUsage','QuotaPeakNonPagedPoolUsage',
+            'QuotaNonPagedPoolUsage','PagefileUsage','PeakPagefileUsage')]
+    info=Counters();info.cb=ctypes.sizeof(info)
+    kernel=ctypes.WinDLL('kernel32');kernel.GetCurrentProcess.restype=wintypes.HANDLE
+    psapi=ctypes.WinDLL('psapi');psapi.GetProcessMemoryInfo.argtypes=[
+        wintypes.HANDLE,ctypes.POINTER(Counters),wintypes.DWORD]
+    if psapi.GetProcessMemoryInfo(kernel.GetCurrentProcess(),ctypes.byref(info),info.cb):
+        return int(info.PeakWorkingSetSize)
+    return None
 
 
 def run(args):
@@ -43,23 +61,40 @@ def run(args):
         raise ValueError('Official saved scene is missing')
     document=json.loads(args.descriptor.read_text(encoding='utf-8'))
     if document['version']!=1:raise ValueError('Unsupported Water Flow descriptor')
+    native_fluid = document.get('field_kind') == 'native-fluid'
     tree=envelope.loads_envelope(args.params.read_bytes(),envelope.KIND_PARAM,schema_version=2)
     base=tree.get('force_field',{})
     def labels(groups):
         return None if groups is None else [f'addon-group-{int(i)}' for i in groups]
     def add_base(field):
+        if native_fluid:
+            # Preserve every base field kind/script through the official API.
+            from frontend._decoder_ import ParamDecoder
+            from types import SimpleNamespace
+            ParamDecoder().set_path(str(args.params)).apply_force_field(
+                SimpleNamespace(force_field=field))
+            return
         for grid in base.get('grids',[]):
             values=np.frombuffer(zlib.decompress(grid['data']),dtype='<f4').reshape(grid['shape'])
             field.grid(values,grid['min'],grid['max'],times=grid['times'],
                        kind=grid['kind'],groups=labels(grid.get('groups')))
         for script in base.get('scripts',[]):
             field.script(script['source'],z_up=True,groups=labels(script.get('groups')))
+    def add_native_window(field, target, window):
+        from frontend._force_field_ import FluidVolume
+        v = window.volume
+        volume = FluidVolume.from_bricks(v['resolution'],v['tables'],v['bricks'],
+            cell=v['cell'],has_density=True,corner=v['corner'],axes=v['axes'],
+            start=v['start'],step=v['step'] if len(v['tables'])>1 else None)
+        field.add('fluid',fluid=volume,groups=list(target.groups),
+                  strength=window.strength,flow=window.flow,use_density=True)
     pointer=Path(App.get_data_dirpath())/'symlinks'/(args.project_name+'.txt')
     pointer.parent.mkdir(parents=True,exist_ok=True)
     target=str(directory);created=False
     state={'phase':'STARTING','boundary':args.resume_boundary,
            'metrics':{'windows':0,'read_seconds':0.,'decode_validate_seconds':0.,
-                      'encode_seconds':0.,'upload_seconds':0.,'step_seconds':0.}}
+                      'encode_seconds':0.,'upload_seconds':0.,'step_seconds':0.,
+                      'packed_bytes_total':0,'max_window_packed_bytes':0}}
     native=None
     try:
         try:
@@ -105,6 +140,15 @@ def run(args):
                 state['active_windows']=event['targets']
                 state['metrics']['windows']+=1
                 state['metrics']['upload_seconds']+=event['upload_seconds']
+                window_bytes=sum(target.get('packed_bytes',0) for target in event['targets'])
+                state['metrics']['packed_bytes_total']+=window_bytes
+                state['metrics']['max_window_packed_bytes']=max(
+                    state['metrics']['max_window_packed_bytes'],window_bytes)
+                if native_fluid:
+                    native_inputs=directory/'bin'/'force_field'
+                    storage=sum(p.stat().st_size for p in native_inputs.rglob('*') if p.is_file())
+                    state['metrics']['max_native_input_storage_bytes']=max(
+                        state['metrics'].get('max_native_input_storage_bytes',0),storage)
                 for target in event['targets']:
                     for name,value in target.get('timings',{}).items():state['metrics'][name]+=value
             if event['phase']=='COMPLETED':
@@ -112,16 +156,24 @@ def run(args):
                 state['metrics']['step_seconds']+=event['step_seconds']
             state['next_boundary_source_frame']=min(document['last'],
                                                     document['first']+state['boundary']+1)
+            state['helper_peak_working_set_bytes']=peak_working_set_bytes()
             atomic_status(args.status,state)
         with ExitStack() as stack:
             targets=[]
             for item in document['targets']:
-                reader=stack.enter_context(WaterStreamReader(item['path'],
-                    first=document['first'],last=document['last'],fps=document['fps'],
-                    expected_fingerprint=item['fingerprint']))
+                reader_options = dict(first=document['first'],last=document['last'],
+                    fps=document['fps'],expected_fingerprint=item['fingerprint'])
+                if native_fluid:
+                    from ..gaia.native_fluid import NativeFluidStreamReader
+                    reader = stack.enter_context(NativeFluidStreamReader(item['path'],
+                        **reader_options,solver_fps=document['solver_fps'],
+                        strength=item['strength'],flow=item['flow']))
+                else:
+                    reader=stack.enter_context(WaterStreamReader(item['path'],**reader_options))
                 targets.append(StreamTarget(reader,tuple(labels(item['groups'])),
                                            item['influence'],item['velocity_scale']))
-            active_bytes=sum(target.reader.frame_bytes*min(2,document['last']-document['first']+1)
+            active_bytes=sum(target.reader.active_bytes_bound if native_fluid else
+                             target.reader.frame_bytes*min(2,document['last']-document['first']+1)
                              for target in targets)
             active_bytes+=sum(int(np.prod(grid['shape']))*4 for grid in base.get('grids',[]))
             if active_bytes>MAX_STREAM_VALUES_BYTES:
@@ -130,7 +182,8 @@ def run(args):
                 final_boundary=document['last']-document['first'],
                 resume_boundary=args.resume_boundary,
                 cancelled=args.cancel.is_file,notify=notify,add_base_fields=add_base,
-                start_held=start_resume if args.resume_boundary else None)
+                start_held=start_resume if args.resume_boundary else None,
+                add_window=add_native_window if native_fluid else None)
         if native is not None and native.wait(timeout=30.)!=0:
             raise RuntimeError(f'Official Water Flow resume exited with code {native.returncode}')
         state['phase']='FINISHED';atomic_status(args.status,state)

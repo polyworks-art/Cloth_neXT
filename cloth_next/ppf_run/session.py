@@ -25,7 +25,7 @@ from copy import deepcopy
 import threading
 import time
 import uuid as uuid_module
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Callable
@@ -35,6 +35,7 @@ import numpy as np
 from ..core.errors import ClothNextError, ErrorCategory, ErrorRecord
 from ..core.logging import get_logger, log_with_context
 from ..core.safe_delete import delete_owned
+from ..core.filesystem_paths import io_path
 from ..ppf import results, wire
 from ..ppf.health import start_owned_and_wait
 from ..ppf.layout import BundledSolverLayout
@@ -236,7 +237,7 @@ class RecoveryOutcome:
 def _tail_numeric_metric(path: Path) -> int | None:
     """Read one live PPF metric without loading its growing history."""
     try:
-        with path.open("rb") as stream:
+        with io_path(path).open("rb") as stream:
             stream.seek(0, 2)
             size = stream.tell()
             if size <= 0:
@@ -302,7 +303,7 @@ class SessionScene:
     collider_uuid: str
     frame_count: int  # Blender frames 1..frame_count
     data_payload: bytes | Path
-    param_payload: bytes
+    param_payload: bytes | Path
     data_hash: str
     param_hash: str
     deformable_type: str = "SHELL"
@@ -737,10 +738,7 @@ class SolverSession:
                     raise SessionCancelled()
 
     def _runtime_activity(self) -> tuple[str, str]:
-        server_root = self._server_data_root()
-        metric_root = (server_root /
-                       self.scene.project_name / "session" / "output" /
-                       "data")
+        metric_root = self._checkpoint_output_directory() / "data"
         values = {name: _tail_numeric_metric(metric_root / filename)
                   for name, filename in _SOLVER_METRICS.items()}
         if any(value is not None for value in values.values()):
@@ -820,22 +818,25 @@ class SolverSession:
                 })
         return response
 
+    def _merge_process_contacts(self, poll) -> None:
+        self.diagnostics.contact_peak = max(self.diagnostics.contact_peak, poll.contact_peak)
+        if poll.contact_samples:
+            self.diagnostics.contact_last = poll.contact_last
+            self.diagnostics.contact_samples = max(self.diagnostics.contact_samples, poll.contact_samples)
+
     def _capture_process_tails(self) -> None:
         if self._manager is not None:
             poll = self._manager.poll()
             self.diagnostics.stdout_tail = poll.stdout_tail
             self.diagnostics.stderr_tail = poll.stderr_tail
-            self.diagnostics.contact_peak = poll.contact_peak
-            self.diagnostics.contact_last = poll.contact_last
-            self.diagnostics.contact_samples = poll.contact_samples
+            self._merge_process_contacts(poll)
             self.diagnostics.control_server_alive = getattr(
                 poll, "running", None)
             self.diagnostics.control_server_exit_code = getattr(
                 poll, "exit_code", None)
             self.diagnostics.owned_process_ids = tuple(
                 getattr(poll, "owned_process_ids", ()))
-        output = (self._server_data_root() / self.scene.project_name /
-                  "session" / "output")
+        output = self._checkpoint_output_directory()
         frames = []
         try:
             for path in output.glob("vert_*.bin"):
@@ -1452,8 +1453,13 @@ class SolverSession:
         root = bundle_root_for(executable)
         layout = BundledSolverLayout.from_root(root)
         server_data = self._server_data_root()
-        server_data.mkdir(parents=True, exist_ok=True)
+        io_path(server_data).mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
+        if self._official_bridge:
+            # Public scene preparation is a sibling of the control server.
+            # The official worker mode prevents its native metadata probes
+            # from being adopted as this server's solve (monitor.rs).
+            environment['PPF_SOLVER_SCAN_DESCENDANTS'] = '1'
         from ..ppf.backend_selection import selected_backend, verify_backend_status
         backend_identity = selected_backend(root, executable)
         if backend_identity is not None:
@@ -1568,7 +1574,8 @@ class SolverSession:
                            data_payload=self.scene.data_payload,
                            param_payload=self.scene.param_payload,
                            data_hash=self.scene.data_hash,
-                           param_hash=self.scene.param_hash)
+                           param_hash=self.scene.param_hash,
+                           check_cancel=self._check_cancel)
         response = self._status()
         upload_id = str(response.get("upload_id", ""))
         if not upload_id:
@@ -1890,7 +1897,7 @@ class SolverSession:
         run_id=uuid_module.uuid4().hex
         directory=self.work_directory/('water-stream-'+run_id)
         directory.mkdir(parents=True)
-        descriptor=directory/'descriptor.json';params=directory/'params.cbor'
+        descriptor=directory/'descriptor.json';params=directory/'params.pickle'
         status_file=directory/'status.json';cancel_file=directory/'cancel';gate=directory/'owned'
         descriptor.write_text(self.scene.water_stream_json,encoding='utf-8')
         params.write_bytes(self.scene.param_payload)
@@ -1922,9 +1929,9 @@ class SolverSession:
                 poll=self._manager.poll()
                 if not poll.running:raise self._manager.early_exit_error(poll)
                 state={}
-                if status_file.is_file():
-                    try:state=json.loads(status_file.read_text(encoding='utf-8'))
-                    except (OSError,ValueError):pass
+                from ..core.atomic_text import read_atomic_text
+                try:state=json.loads(read_atomic_text(status_file))
+                except (OSError,ValueError):pass
                 phase=state.get('phase','STARTING')
                 available=state.get('boundary',boundary)
                 if type(available) is not int or not boundary<=available<=total:
@@ -1969,13 +1976,13 @@ class SolverSession:
                 try:process.wait(timeout=min(self._simulate_timeout,35.))
                 except subprocess.TimeoutExpired:pass  # manager.stop reaps the owned tree
             if self._recovery is not None and self._recovery_record is not None:
-                if status_file.is_file():
-                    try:
-                        state=json.loads(status_file.read_text(encoding='utf-8'))
-                        self._recovery_record=recovery.transition(
-                            self._recovery.metadata_path,self._recovery_record,
-                            self._recovery_record.state,water_stream_state=state)
-                    except (OSError,ValueError):pass
+                try:
+                    from ..core.atomic_text import read_atomic_text
+                    state=json.loads(read_atomic_text(status_file))
+                    self._recovery_record=recovery.transition(
+                        self._recovery.metadata_path,self._recovery_record,
+                        self._recovery_record.state,water_stream_state=state)
+                except (OSError,ValueError):pass
                 self._sync_checkpoints({'saved_states':self._checkpoint_frames_on_disk()})
 
     def _cancel_server_side(self) -> None:
@@ -2392,9 +2399,7 @@ class SolverSession:
         self.diagnostics.owned_process_ids = tuple(poll.owned_process_ids)
         self.diagnostics.stdout_tail = poll.stdout_tail
         self.diagnostics.stderr_tail = poll.stderr_tail
-        self.diagnostics.contact_peak = poll.contact_peak
-        self.diagnostics.contact_last = poll.contact_last
-        self.diagnostics.contact_samples = poll.contact_samples
+        self._merge_process_contacts(poll)
         # Clear ownership only after stop() has reaped the process and joined
         # its reader threads. Keeping the reference on failure prevents the
         # session from falsely claiming no owned process remains.
@@ -2466,6 +2471,19 @@ class SolverSession:
             if not contact_validation_only:
                 self._recovery_start()
             self._check_cancel()
+            if self.scene.water_stream_json:
+                descriptor = json.loads(self.scene.water_stream_json)
+                if descriptor.get('field_kind') == 'native-file':
+                    from ..gaia.native_fluid import native_fluid_payload_file
+                    payload_path = self.work_directory / ('native-fluid-' + uuid_module.uuid4().hex + '.cbor')
+                    self._event('EXPORTING', 'Encoding native fluid sequence', indeterminate=True)
+                    digest = native_fluid_payload_file(self.scene.param_payload, descriptor,
+                        payload_path, check_cancel=self._check_cancel,
+                        progress=lambda frame: self._event('EXPORTING',
+                            f'Encoding native fluid frame {frame}', indeterminate=True))
+                    self.scene = replace(self.scene, param_payload=payload_path,
+                                         param_hash=digest, water_stream_json='')
+                    self.diagnostics.param_hash = digest
             if owned:
                 self._event("STARTING_SOLVER", "Starting simulation solver",
                             indeterminate=True)
@@ -2651,18 +2669,16 @@ class SolverSession:
                         if primary_error is None:
                             raise
                         primary_error.add_note(message)
-                payload = self.scene.data_payload
-                if isinstance(payload, Path):
+                for payload in (self.scene.data_payload, self.scene.param_payload):
+                    if not isinstance(payload, Path):
+                        continue
                     try:
                         if payload.parent.resolve() == self.work_directory.resolve():
-                            outcome = delete_owned(
-                                payload, root=self.work_directory,
+                            outcome = delete_owned(payload, root=self.work_directory,
                                 ownership_authenticated=True,
-                                lifecycle_stage="PPF_SESSION_FINALIZE",
-                                artifact_type="scene_payload")
+                                lifecycle_stage='PPF_SESSION_FINALIZE', artifact_type='scene_payload')
                             if not outcome.success:
-                                self.diagnostics.cleanup_issues.append(
-                                    outcome.technical_diagnostic())
+                                self.diagnostics.cleanup_issues.append(outcome.technical_diagnostic())
                     except OSError:
                         pass
                 self.diagnostics.timings["total"] = time.monotonic() - started

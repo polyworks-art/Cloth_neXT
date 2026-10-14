@@ -7,7 +7,8 @@ from queue import Empty, Queue
 from threading import Event, Thread
 
 from .container import GaiaContainer, write_water_container
-from .water_field import fingerprint, reconstruct
+from .water_field import fingerprint, reconstruct, reconstruct_chunks
+from .particle_stream import ParticleFileSample
 
 
 class PreparationCancelled(Exception):
@@ -78,11 +79,16 @@ class WaterPreparationWorker:
                     continue
             if isinstance(sample, Exception): raise sample
             self.events.put(('Reconstructing flow', i, len(self.frames), frame, len(self.paths)+i))
-            positions, velocities = sample
-            field = reconstruct(positions, velocities, self.minimum, self.maximum,
-                                self.metadata['dimensions'],
-                                support_threshold=self.metadata.get('grid_layout',{}).get('support_threshold',1.))
-            del sample, positions, velocities
+            options=dict(max_speed=None if self.metadata.get('velocity_policy')=='unclamped' else 100.,
+                         support_threshold=self.metadata.get('grid_layout',{}).get('support_threshold',1.))
+            if isinstance(sample,ParticleFileSample):
+                field=reconstruct_chunks(sample.chunks(self.check_cancel),self.minimum,self.maximum,
+                    self.metadata['dimensions'],check_cancel=self.check_cancel,**options)
+            else:
+                positions,velocities=sample
+                field=reconstruct(positions,velocities,self.minimum,self.maximum,self.metadata['dimensions'],**options)
+                del positions,velocities
+            del sample
             self.check_cancel()
             yield frame, (frame-self.frames[0])/self.metadata['fps'], field
             del field

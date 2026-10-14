@@ -36,11 +36,14 @@ class FLIPWaterFlowProvider:
         self.context, self.domain = context, domain
         self.properties = domain.flip_fluid.domain
         d = self.properties
+        if getattr(getattr(d,'bake',None),'is_simulation_running',False):
+            raise ValueError('FLIP is still baking; finish the entire requested range before Fluid Interaction')
         self.root = Path(d.cache.get_cache_abspath()) / 'bakefiles'
         if not self.root.is_dir(): raise ValueError('FLIP cache is missing or not baked')
         export = self.root.parent / 'export' / 'flipdata.sim'
         if not export.is_file(): raise ValueError('FLIP bake timing metadata is missing')
-        timing = json.loads(export.read_text(encoding='utf-8'))['domain_data']['simulation']
+        baked_domain = json.loads(export.read_text(encoding='utf-8'))['domain_data']
+        timing = baked_domain['simulation']
         rate = timing['frames_per_second']
         if rate.get('is_animated'):
             raise ValueError('Animated FLIP frame rates are not supported for Water Flow')
@@ -63,18 +66,27 @@ class FLIPWaterFlowProvider:
         if not np.isfinite(matrix).all() or abs(np.linalg.det(matrix[:3,:3])) < 1e-12:
             raise ValueError('Invalid FLIP Domain transform')
         self.identity = {'mode': self.mode, 'cache': str(self.root.resolve()),
+                         'provider': 'FLIP Fluids',
                          'domain': domain.name, 'matrix': matrix.tolist(), 'sources': [],
-                         'coordinate_recipe': WATER_COORDINATE_RECIPE,
+                         'coordinate_recipe': 'flip-streamed-world-v3' if self.mode=='FLUID_PARTICLES' else WATER_COORDINATE_RECIPE,
                          'baked_fps': baked_fps, 'time_scale': timing.get('time_scale'),
+                         'baked_world_scale': baked_domain.get('initialize',{}).get('scale'),
                          'sampling': 'all-liquid-particles' if self.mode == 'FLUID_PARTICLES' else 'surface-only'}
+        import sys
+        provider_module = sys.modules.get(type(d).__module__.split('.properties.')[0])
+        self.identity['provider_version'] = getattr(provider_module,'bl_info',{}).get('version')
+        self.identity['source_object_id'] = getattr(getattr(domain,'cloth_next',None),'uuid','') or domain.name
         # Hash both positions and velocity: a same-size overwrite must invalidate.
-        self.source_paths = []
+        self.source_paths = [export]
         for frame in frames:
-            for pattern in (self.position_pattern, self.velocity_pattern):
+            patterns=(self.position_pattern,self.velocity_pattern)
+            if self.mode=='FLUID_PARTICLES':patterns+=('bounds{:06d}.bbox',)
+            for pattern in patterns:
                 path = self.root / pattern.format(frame)
                 if not path.is_file(): raise ValueError(f'FLIP requested frame/velocity is missing: {path.name}')
                 self.source_paths.append(path)
-                if not hash_sources: continue
+        if hash_sources:
+            for path in self.source_paths:
                 digest = hashlib.sha256()
                 with path.open('rb') as stream:
                     for chunk in iter(lambda: stream.read(1024*1024), b''): digest.update(chunk)
@@ -83,14 +95,18 @@ class FLIPWaterFlowProvider:
         # A domain transform changed after baking can leave the loader's
         # parenting decomposition pending on its first import. Settle it with
         # one evaluated import before taking the authoritative grid transform.
-        self._load_frame(first)
-        obj = self._load_frame(first)
-        self.cache_matrix = np.asarray(obj.matrix_world, float).copy()
+        if self.mode=='FLUID_PARTICLES':
+            bounds,self.cache_matrix=self._stream_transform(first)
+            self.stream_bounds=bounds
+        else:
+            self._load_frame(first)
+            obj=self._load_frame(first)
+            self.cache_matrix=np.asarray(obj.matrix_world,float).copy()
         # The displayed FLIP cache can extend beyond the domain after a
         # post-bake rotation. Cover its actual transformed cached grid too.
-        b = self.cache.bounds
-        cache_corners = np.asarray([(x,y,z) for x in (0.,b.width)
-            for y in (0.,b.height) for z in (0.,b.depth)])
+        spans=tuple(bounds[k] for k in ('width','height','depth')) if self.mode=='FLUID_PARTICLES' else (self.cache.bounds.width,self.cache.bounds.height,self.cache.bounds.depth)
+        cache_corners = np.asarray([(x,y,z) for x in (0.,spans[0])
+            for y in (0.,spans[1]) for z in (0.,spans[2])])
         cache_world, _ = flip_sample_to_world(cache_corners, np.zeros_like(cache_corners), self.cache_matrix)
         all_corners = np.concatenate((corners,cache_world))
         self.minimum, self.maximum = all_corners.min(axis=0), all_corners.max(axis=0)
@@ -110,7 +126,7 @@ class FLIPWaterFlowProvider:
             # Display/import option only, restored immediately; neither bake
             # settings nor source cache is written.
             self.cache.enable_velocity_attribute = True
-            for name in percentages: setattr(self.cache, name, 1.0)
+            for name in percentages:setattr(self.cache,name,1.0)
             self.cache.load_frame(frame, force_load=True, depsgraph=self.context.evaluated_depsgraph_get())
             self.context.view_layer.update()
         finally:
@@ -140,6 +156,50 @@ class FLIPWaterFlowProvider:
         # multiply by the cache object's display scale a second time.
         return p, v
 
+    def sample_stream(self,frame):
+        if self.mode!='FLUID_PARTICLES':return self.sample(frame)
+        from ..gaia.particle_stream import ParticleFileSample
+        bounds,matrix=self._stream_transform(frame)
+        if not np.allclose(matrix,self.cache_matrix,rtol=0.,atol=1e-5):
+            raise ValueError('FLIP cache transform changes across frames; Water Flow requires fixed grid bounds')
+        return ParticleFileSample(self.root/self.position_pattern.format(frame),
+            self.root/self.velocity_pattern.format(frame),tuple(map(tuple,matrix)),
+            tuple(bounds[k] for k in ('x','y','z')))
+
+    def _stream_transform(self,frame):
+        """Evaluate the FLIP loader's transform without importing any particle mesh."""
+        import importlib
+        from mathutils import Matrix,Vector
+        module=importlib.import_module(type(self.cache).__module__)
+        previous=module.DISABLE_MESH_CACHE_LOAD
+        try:
+            module.DISABLE_MESH_CACHE_LOAD=True
+            self.context.scene.frame_set(frame)
+            self.context.view_layer.update()
+        finally:module.DISABLE_MESH_CACHE_LOAD=previous
+        raw=json.loads((self.root/f'bounds{frame:06d}.bbox').read_text(encoding='utf-8'))
+        floats=('x','y','z','width','height','depth','dx')
+        bounds={k:float(np.float32(raw[k])) for k in floats}
+        if not np.isfinite(list(bounds.values())).all() or min(bounds[k] for k in ('width','height','depth','dx'))<=0:
+            raise ValueError('Invalid FLIP cache bounds')
+        resolution=max(int(raw[k]) for k in ('isize','jsize','ksize'))
+        isize,jsize,ksize,dx=self.properties.simulation.get_viewport_grid_dimensions(resolution=resolution)
+        scale=min(isize*dx/bounds['width'],jsize*dx/bounds['height'],ksize*dx/bounds['depth'])
+        aabb=module.AABB.from_blender_object(self.domain)
+        temporary=bpy.data.objects.new('__ClothNeXtFlowTransform',None)
+        try:
+            self.context.scene.collection.objects.link(temporary)
+            temporary.parent=self.domain
+            # The loader performs a second settled import with this inverse already set.
+            temporary.matrix_parent_inverse=self.domain.matrix_world.inverted()
+            temporary.matrix_world=Matrix.Identity(4)
+            temporary.matrix_parent_inverse=self.domain.matrix_world.inverted()
+            temporary.scale=(scale,scale,scale)
+            temporary.location=Vector((aabb.x,aabb.y,aabb.z))
+            self.context.view_layer.update()
+            return bounds,np.asarray(temporary.matrix_world,float).copy()
+        finally:bpy.data.objects.remove(temporary,do_unlink=True)
+
 
 def water_settings_record(obj):
     s = obj.cloth_next
@@ -152,6 +212,8 @@ def water_settings_record(obj):
         source = {'cache': str(cache), 'matrix': [list(row) for row in domain.matrix_world],
                   'bake_stat': [stats.stat().st_size, stats.stat().st_mtime_ns] if stats.is_file() else None}
     return {'domain': domain.name if domain else None, 'source': source, 'influence': s.water_flow_influence,
+            'coupling_strength':getattr(s,'water_flow_coupling_strength',1.),
+            'native_flow':getattr(s,'water_flow_native_flow',1.),
             'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
             'custom_resolution':getattr(s,'water_flow_custom_resolution',100),
             'container': s.water_flow_container}
@@ -160,6 +222,7 @@ def water_settings_record(obj):
 def water_grid_plan(provider, settings):
     source_voxel=None
     dx=getattr(getattr(getattr(provider,'cache',None),'bounds',None),'dx',None)
+    if getattr(provider,'stream_bounds',None):dx=provider.stream_bounds['dx']
     if dx is not None:
         scale=float(np.linalg.norm(provider.cache_matrix[:3,:3],axis=0).min())
         source_voxel=float(dx)*scale
@@ -196,7 +259,8 @@ def prepare_container(context, obj, first, last):
     dims = layout['dimensions']
     metadata = {'provider': provider.identity, 'frames': [first,last], 'fps': fps,
                 'dimensions': dims, 'algorithm': 'trilinear-splat-support-v2',
-                'field_format': 'gaia-0.23', 'physical_velocity_units': 'm/s', 'grid_layout':layout}
+                'field_format': 'velocity-occupancy-v1', 'physical_velocity_units': 'm/s',
+                'velocity_policy':'unclamped', 'grid_layout':layout}
     metadata['fingerprint'] = fingerprint(metadata)
     if path.is_file():
         try:
@@ -209,10 +273,16 @@ def prepare_container(context, obj, first, last):
             raise ValueError('Derived .gaia cache is corrupted; choose a new container path or rebuild it')
     original = context.scene.frame_current
     def sequence():
+        from ..gaia.particle_stream import ParticleFileSample
+        from ..gaia.water_field import reconstruct_chunks
         for frame in frames:
-            positions, velocities = provider.sample(frame)
-            field = reconstruct(positions, velocities, provider.minimum, provider.maximum, dims,
-                                support_threshold=layout['support_threshold'])
+            sample=getattr(provider,'sample_stream',provider.sample)(frame)
+            options=dict(max_speed=None,support_threshold=layout['support_threshold'])
+            if isinstance(sample,ParticleFileSample):
+                field=reconstruct_chunks(sample.chunks(),provider.minimum,provider.maximum,dims,**options)
+            else:
+                positions,velocities=sample
+                field=reconstruct(positions,velocities,provider.minimum,provider.maximum,dims,**options)
             yield frame, (frame-first)/fps, field
             del field, positions, velocities
     try:
@@ -228,6 +298,8 @@ def apply_water_stream_payload(context, payload, resolved, first, last):
              and obj.cloth_next.enabled and obj.cloth_next.role=='CLOTH'
              and getattr(obj.cloth_next,'water_flow_enabled',False)]
     if not targets:return payload,None,''
+    if str(getattr(resolved,'protocol_version','')) == '0.26':
+        return apply_native_water_stream_payload(context, payload, resolved, first, last)
     from ..ppf.models import ConnectionOwnership
     if (str(getattr(resolved,'protocol_version',''))!='0.23'
             or resolved.ownership is not ConnectionOwnership.OWNED_PROCESS):
@@ -258,6 +330,117 @@ def apply_water_stream_payload(context, payload, resolved, first, last):
     import json
     return data,hashlib.sha256(data).hexdigest(),json.dumps(descriptor,sort_keys=True,
                                                         separators=(',',':'),allow_nan=False)
+
+
+def apply_native_water_stream_payload(context, payload, resolved, first, last):
+    """Prepare an owned native sequence for bounded file encoding in the worker."""
+    from ..ppf.models import ConnectionOwnership
+    from ..ppf.compatibility import protocol_profile
+    from ..ppf.adapters import ADAPTERS
+    from ..ppf.schema import envelope
+    from ..gaia.native_fluid import validate_native_water, MAX_PAYLOAD_BYTES, BRICK
+    from ..gaia.streaming import WaterStreamReader
+    from ..gaia.streaming import MAX_STREAM_VALUES_BYTES
+    profile = protocol_profile(str(resolved.protocol_version), str(getattr(resolved,'schema_version','2')))
+    if (profile is None or not ADAPTERS[profile.adapter_id].native_fluid
+            or resolved.ownership is not ConnectionOwnership.OWNED_PROCESS):
+        raise ValueError('Native Fluid Interaction streaming requires local official GAIA 0.26 / schema 2')
+    tree = envelope.loads_envelope(payload.read_bytes() if isinstance(payload,Path) else payload,
+                                   envelope.KIND_PARAM,schema_version=2)
+    existing = tree.setdefault('force_field', {'fields':[], 'scripts':[]})
+    if 'grids' in existing:
+        raise ValueError('GAIA 0.26 refuses legacy grids; rebuild the field export')
+    fps = context.scene.render.fps/context.scene.render.fps_base
+    units = getattr(getattr(context.scene,'unit_settings',None),'scale_length',1.)
+    if not np.isfinite(units) or not np.isclose(units,1.):
+        raise ValueError('Native Fluid Interaction currently requires Blender Unit Scale 1')
+    descriptor = {'version':1,'field_kind':'native-file','first':int(first),'last':int(last),
+                  'fps':fps,'solver_fps':float(tree['scene']['fps']),'packing_recipe':1,'targets':[]}
+    active_bytes = 0
+    for obj in context.scene.objects:
+        s = getattr(obj,'cloth_next',None)
+        if not s or not s.enabled or s.role!='CLOTH' or not s.water_flow_enabled:
+            continue
+        if abs(s.water_flow_velocity_scale-1.)>1e-7:
+            raise ValueError('Native Fluid Interaction requires Velocity Scale 1; use Coupling Strength to change coupling')
+        indices = [i for i,(_,names,_) in enumerate(tree['group']) if obj.name in names]
+        if len(indices)!=1 or len(tree['group'][indices[0]][1])!=1:
+            raise ValueError('Native Fluid Interaction requires one solver group per cloth object')
+        path = prepare_container(context,obj,first,last)
+        with GaiaContainer(path) as container:
+            digest = container.manifest['water']['fingerprint']
+            import json
+            array_digest = hashlib.sha256(json.dumps(container.manifest['frames'],
+                sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+        strength = getattr(s,'water_flow_coupling_strength',1.)
+        flow = getattr(s,'water_flow_native_flow',1.)
+        with WaterStreamReader(path,first=int(first),last=int(last),fps=fps,
+                               expected_fingerprint=digest) as reader:
+            validate_native_water(reader.container.manifest['water'])
+            if (not np.isfinite((strength,flow)).all() or strength<0 or not 0<=flow<=1):
+                raise ValueError('Invalid native fluid strength or flow')
+            # Targets are encoded sequentially; only one dense/packed frame is live.
+            import math
+            dense = math.prod(reader.dimensions)*16
+            packed = min(MAX_PAYLOAD_BYTES,
+                math.prod((n+BRICK-1)//BRICK for n in reader.dimensions)*(4+512*16))
+            active_bytes = max(active_bytes,2*dense+3*packed+(1<<20))
+        descriptor['targets'].append({'path':str(Path(path).resolve()),'fingerprint':digest,
+            'arrays_digest':array_digest,'groups':indices,'influence':s.water_flow_influence,'velocity_scale':1.,
+            'strength':strength,'flow':flow})
+        tree['group'][indices[0]][0]['force-field-weight']=1.
+    if active_bytes>MAX_STREAM_VALUES_BYTES:
+        raise ValueError('Native fluid frame encoding exceeds the 128 MiB active memory budget')
+    from ..gaia.native_fluid import merge_disjoint_fluid_targets
+    descriptor['targets'] = merge_disjoint_fluid_targets(descriptor['targets'])
+    data = envelope.dumps_envelope(envelope.KIND_PARAM,tree,schema_version=2)
+    if len(data)>MAX_PAYLOAD_BYTES:
+        raise ValueError('Base field PARAM exceeds the 32 MiB upload budget')
+    import json
+    return data,hashlib.sha256(data).hexdigest(),json.dumps(descriptor,sort_keys=True,
+                                                        separators=(',',':'),allow_nan=False)
+
+
+def apply_native_water_payload(context, payload, resolved, first, last):
+    """Native velocity feedback; shares the existing PARAM transfer/lifecycle."""
+    from ..ppf.compatibility import protocol_profile
+    from ..ppf.adapters import ADAPTERS
+    from ..ppf.schema import envelope
+    from ..gaia.native_fluid import native_fluid_payload, MAX_PAYLOAD_BYTES
+    profile = protocol_profile(str(resolved.protocol_version), str(getattr(resolved,'schema_version','2')))
+    if profile is None or not ADAPTERS[profile.adapter_id].native_fluid:
+        raise ValueError('Native Fluid Interaction requires official GAIA 0.26 / schema 2')
+    tree = envelope.loads_envelope(payload.read_bytes() if isinstance(payload,Path) else payload,
+                                   envelope.KIND_PARAM,schema_version=2)
+    existing = tree.setdefault('force_field', {'fields':[], 'scripts':[]})
+    if 'grids' in existing:
+        raise ValueError('GAIA 0.26 refuses legacy grids; rebuild the field export')
+    fps = context.scene.render.fps/context.scene.render.fps_base
+    scene_units = getattr(getattr(context.scene,'unit_settings',None),'scale_length',1.)
+    if not np.isfinite(scene_units) or not np.isclose(scene_units,1.):
+        raise ValueError('Native Fluid Interaction currently requires Blender Unit Scale 1; other unit scales are not certified')
+    for obj in context.scene.objects:
+        s = getattr(obj,'cloth_next',None)
+        if not s or not s.enabled or s.role!='CLOTH' or not s.water_flow_enabled:
+            continue
+        if abs(s.water_flow_velocity_scale-1.)>1e-7:
+            raise ValueError('Native Fluid Interaction requires Velocity Scale 1; use Coupling Strength to change coupling')
+        indices = [i for i,(_,names,_) in enumerate(tree['group']) if obj.name in names]
+        if len(indices)!=1 or len(tree['group'][indices[0]][1])!=1:
+            raise ValueError('Native Fluid Interaction requires one solver group per cloth object')
+        path = prepare_container(context,obj,first,last)
+        with GaiaContainer(path) as container:
+            field = native_fluid_payload(container,indices,first=int(first),last=int(last),fps=fps,
+                solver_fps=float(tree['scene']['fps']),
+                strength=getattr(s,'water_flow_coupling_strength',1.)*s.water_flow_influence,
+                flow=getattr(s,'water_flow_native_flow',1.))
+        existing['fields'].extend(field['fields'])
+        tree['group'][indices[0]][0]['force-field-weight']=1.
+        # Whole PARAM includes all targets/scripts, not just the most recent volume.
+        if len(envelope.dumps_envelope(envelope.KIND_PARAM,tree,schema_version=2))>MAX_PAYLOAD_BYTES:
+            raise ValueError('Combined native fluid PARAM exceeds the 32 MiB upload budget')
+    data = envelope.dumps_envelope(envelope.KIND_PARAM,tree,schema_version=2)
+    return data,hashlib.sha256(data).hexdigest()
 
 
 def apply_water_payload(context, payload, resolved, first, last):
@@ -302,6 +485,75 @@ def apply_water_payload(context, payload, resolved, first, last):
         raise ValueError('Combined Water Flow fields exceed the 32 MiB schedule upload budget')
     data = envelope.dumps_envelope(envelope.KIND_PARAM, tree, schema_version=2)
     return data, hashlib.sha256(data).hexdigest()
+
+
+FLIP_EXPORT_SETTINGS = {
+    'fluid_particle_output_amount': 1.,
+    'enable_fluid_particle_surface_output': True,
+    'enable_fluid_particle_boundary_output': True,
+    'enable_fluid_particle_interior_output': True,
+    'fluid_particle_source_id_blacklist': -1,
+    'enable_fluid_particle_velocity_vector_attribute': True,
+    'enable_fluid_particle_output': True,
+}
+
+
+def configure_flip_exports(domain):
+    """Configure the public FLIP RNA settings only; never bake or edit files."""
+    flip = getattr(domain, 'flip_fluid', None)
+    if flip is None or flip.object_type != 'TYPE_DOMAIN':
+        raise ValueError('Select a FLIP Fluids Domain first')
+    d = flip.domain
+    if getattr(getattr(d, 'bake', None), 'is_simulation_running', False):
+        raise ValueError('Finish or cancel the FLIP bake before changing export settings')
+    particles = getattr(d, 'particles', None)
+    missing = [key for key in FLIP_EXPORT_SETTINGS if not hasattr(particles, key)]
+    if missing:
+        raise ValueError('This FLIP version lacks required particle export settings: '+', '.join(missing))
+    before = {key:getattr(particles,key) for key in FLIP_EXPORT_SETTINGS}
+    changed = [key for key,value in FLIP_EXPORT_SETTINGS.items() if before[key] != value]
+    attempted = []
+    try:
+        for key in changed:
+            attempted.append(key)
+            setattr(particles,key,FLIP_EXPORT_SETTINGS[key])
+    except Exception as exc:
+        rollback_errors = []
+        for key in reversed(attempted):
+            try: setattr(particles,key,before[key])
+            except Exception: rollback_errors.append(key)
+        detail = '; could not restore: '+', '.join(rollback_errors) if rollback_errors else ''
+        raise ValueError(f'Cannot configure FLIP particle export: {exc}{detail}') from exc
+    return len(changed)
+
+
+class CLOTHNEXT_OT_enable_flip_velocity_export(bpy.types.Operator):
+    bl_idname = 'cloth_next.enable_flip_velocity_export'
+    bl_label = 'Enable FLIP Velocity Export'
+    bl_description = 'Enable all liquid particles and velocity attributes on the selected FLIP Domain; rebake FLIP afterwards'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        from ..bake.controller import shared_controller
+        obj = getattr(context,'object',None)
+        s = getattr(obj,'cloth_next',None)
+        domain = getattr(s,'water_flow_domain',None)
+        flip = getattr(domain,'flip_fluid',None)
+        return bool(s and s.enabled and s.role=='CLOTH' and s.water_flow_enabled
+                    and flip and flip.object_type=='TYPE_DOMAIN'
+                    and not shared_controller.snapshot().active
+                    and not getattr(getattr(flip.domain,'bake',None),'is_simulation_running',False))
+
+    def execute(self, context):
+        try:
+            changed = configure_flip_exports(context.object.cloth_next.water_flow_domain)
+        except Exception as exc:
+            self.report({'ERROR'},str(exc))
+            return {'CANCELLED'}
+        self.report({'INFO'},'FLIP particle and velocity export enabled. Rebake FLIP to update its cache.'
+                    if changed else 'FLIP export settings are already enabled. Rebake if velocity cache files are missing.')
+        return {'FINISHED'}
 
 
 class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
@@ -362,20 +614,47 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         layout.prop(s, 'water_flow_enabled')
         body = layout.column(align=True)
         body.enabled = s.water_flow_enabled
-        for key in ('water_flow_domain', 'water_flow_influence', 'water_flow_velocity_scale',
-                    'water_flow_resolution', 'water_flow_container'):
-            body.prop(s, key)
-            if key == 'water_flow_resolution' and s.water_flow_resolution == 'CUSTOM':
-                body.prop(s,'water_flow_custom_resolution')
-        if not s.water_flow_container:
-            body.label(text='Uses the Cloth cache folder')
+        from . import preferences
+        registry, _ = preferences._read_registry()
+        native = bool(registry.selected and registry.selected.protocol_version == '0.26')
+        body.label(text='Native Flow · GAIA 0.26 (Experimental)' if native else 'Water Flow · GAIA',
+                   **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
+        source = body.box().column(align=True)
+        source.label(text='Fluid Source', icon='MOD_FLUIDSIM')
+        source.prop(s, 'water_flow_domain')
+        source.operator('cloth_next.enable_flip_velocity_export',
+                        text='Enable Velocity Export', icon='CHECKMARK')
+        source.label(text='Bake FLIP with particle velocities enabled.')
         body.separator()
-        body.operator('cloth_next.prepare_water_flow', text='Prepare Water Flow',
+        response = body.box().column(align=True)
+        response.label(text='Cloth Response', icon='MOD_CLOTH')
+        response.prop(s, 'water_flow_influence')
+        if native:
+            response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
+            response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+            response.label(text='One-way coupling: fluid moves cloth.')
+            if abs(s.water_flow_velocity_scale-1.)>1e-7:
+                response.prop(s, 'water_flow_velocity_scale')
+                response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')
+        else:
+            response.prop(s, 'water_flow_velocity_scale')
+        body.separator()
+        cache = body.box().column(align=True)
+        cache.label(text='Fluid Cache', icon='FILE_CACHE')
+        cache.prop(s, 'water_flow_resolution')
+        if s.water_flow_resolution == 'CUSTOM':
+            cache.prop(s, 'water_flow_custom_resolution')
+        cache.prop(s, 'water_flow_container', text='.gaia File')
+        if not s.water_flow_container:
+            cache.label(text='Saved in the Cloth cache folder.')
+        cache.separator()
+        cache.operator('cloth_next.prepare_water_flow', text='Prepare Fluid Cache',
                       **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
+        body.label(text='Ready? Start Bake in the Cloth panel.', icon='INFO')
 
 
 class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
-    bl_label = 'Flow Display'
+    bl_label = 'Source Flow Preview'
     bl_idname = 'CLOTHNEXT_PT_water_flow_display'
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -423,10 +702,13 @@ def _draw_vectors(_region=None):
     path = Path(bpy.path.abspath(s.water_flow_container))
     if not path.is_file(): return
     try:
+        from . import preferences
+        registry,_ = preferences._read_registry()
+        native = bool(registry.selected and registry.selected.protocol_version == '0.26')
         key = (str(path), path.stat().st_mtime_ns, bpy.context.scene.frame_current,
                s.water_flow_vector_stride, s.water_flow_vector_scale,
                s.water_flow_influence, s.water_flow_velocity_scale,
-               s.water_flow_debug_mode, s.water_flow_show_bounds)
+               s.water_flow_debug_mode, s.water_flow_show_bounds, native)
         if key not in _preview:
             from ..gaia.water_field import debug_vectors
             with GaiaContainer(path) as c:
@@ -452,8 +734,8 @@ def _draw_vectors(_region=None):
                     primitive='POINTS'
                 else:
                     a,b=debug_vectors(field,stride,s.water_flow_vector_scale,
-                        mode=s.water_flow_debug_mode,
-                        physical_scale=s.water_flow_influence*s.water_flow_velocity_scale)
+                        mode='MAGNITUDE' if native else s.water_flow_debug_mode,
+                        physical_scale=1. if native else s.water_flow_influence*s.water_flow_velocity_scale)
                     vertices=np.stack((a,b),axis=1).reshape(-1,3)
                     primitive='LINES'
                 bounds_vertices=[]
@@ -508,4 +790,5 @@ def unregister():
     _diagnostics.clear()
 
 
-CLASSES = (CLOTHNEXT_OT_prepare_water_flow, CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)
+CLASSES = (CLOTHNEXT_OT_enable_flip_velocity_export, CLOTHNEXT_OT_prepare_water_flow,
+           CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)

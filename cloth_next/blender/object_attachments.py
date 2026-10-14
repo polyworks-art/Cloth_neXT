@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Persistent Cloth/Soft-Body object attachments and viewport preview."""
+"""Persistent deformable attachments to deformables or collider surfaces."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ import bpy
 
 from .. import export_identity
 from ..attachments import (AttachmentError, AttachmentPoint, DEFAULT_STIFFNESS,
-                           ObjectAttachment, SUPPORTED_ROLES, VertexSearch,
+                           ObjectAttachment, SUPPORTED_ROLES,
+                           SUPPORTED_TARGET_ROLES, VertexSearch,
                            closest_surface_point, topology_fingerprint,
                            shortest_mesh_path, topology_vertex_mapping,
                            validate_attachment)
@@ -40,7 +41,12 @@ class CLOTHNEXT_PG_attachment_vertex(bpy.types.PropertyGroup):
 def _eligible_object(_self, obj):
     settings = getattr(obj, "cloth_next", None)
     return bool(obj and getattr(obj, "type", "") == "MESH" and settings
-                and settings.enabled and settings.role in SUPPORTED_ROLES)
+                and settings.enabled and settings.role in SUPPORTED_TARGET_ROLES)
+
+
+def _eligible_source_object(_self, obj):
+    return (_eligible_object(_self, obj)
+            and obj.cloth_next.role in SUPPORTED_ROLES)
 
 
 def _group_changed(item, context):
@@ -71,6 +77,7 @@ class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     target_role: bpy.props.StringProperty(default="")
     source_topology: bpy.props.StringProperty(default="")
     target_topology: bpy.props.StringProperty(default="")
+    target_surface_topology: bpy.props.StringProperty(default="")
     needs_rebuild: bpy.props.BoolProperty(default=False)
     status_message: bpy.props.StringProperty(default="")
     ui_expanded: bpy.props.BoolProperty(
@@ -102,6 +109,9 @@ def _objects_by_identity(scene):
 
 
 def _mesh_triangles(obj):
+    if obj.cloth_next.role == "COLLIDER":
+        local, triangles, _topology = _collider_geometry(obj)
+        return tuple(_world_position(obj.matrix_world, point) for point in local), triangles
     mesh = obj.data
     mesh.calc_loop_triangles()
     vertices = tuple(tuple(obj.matrix_world @ vertex.co)
@@ -109,6 +119,54 @@ def _mesh_triangles(obj):
     triangles = tuple(tuple(int(index) for index in tri.vertices)
                       for tri in mesh.loop_triangles)
     return vertices, triangles
+
+
+def _surface_topology(mesh):
+    # Polygon loops are stable under deformation even when Blender changes
+    # the display triangulation of a non-planar quad.
+    return topology_fingerprint(len(mesh.vertices),
+        (tuple(polygon.vertices) for polygon in mesh.polygons))
+
+
+def _collider_geometry(obj, context=None):
+    """Evaluated boundary geometry with original-index authoring safeguards."""
+    from . import solver_test
+    context = context or bpy.context
+    expected = _surface_topology(obj.data)
+    with solver_test._evaluate_through_solver_input_modifiers(context, obj) as boundary:
+        evaluated = (boundary.evaluated_get(context.evaluated_depsgraph_get())
+                     if boundary is not None else None)
+        mesh = evaluated.to_mesh() if evaluated is not None else obj.data
+        try:
+            topology = _surface_topology(mesh)
+            if topology != expected:
+                raise AttachmentError(
+                    f"{obj.name}: Collider Attachment requires unchanged surface "
+                    "topology; apply topology-changing input modifiers before binding")
+            mesh.calc_loop_triangles()
+            return (tuple(tuple(vertex.co) for vertex in mesh.vertices),
+                    tuple(tuple(map(int, tri.vertices)) for tri in mesh.loop_triangles),
+                    topology)
+        finally:
+            if evaluated is not None:
+                evaluated.to_mesh_clear()
+
+
+def _world_position(matrix, point):
+    return tuple(sum(float(matrix[row][col]) * float(point[col])
+                     for col in range(3)) + float(matrix[row][3])
+                 for row in range(3))
+
+
+def _collider_preview_vertices(obj, indices):
+    """Read only the anchor vertices, not a dense collider's whole surface."""
+    from . import solver_test
+    context = bpy.context
+    with solver_test._evaluate_through_solver_input_modifiers(context, obj) as boundary:
+        mesh = (obj.data if boundary is None else
+                boundary.evaluated_get(context.evaluated_depsgraph_get()).data)
+        return {index: tuple(obj.matrix_world @ mesh.vertices[index].co)
+                for index in indices}
 
 
 def _selected_indices(item, side):
@@ -169,6 +227,8 @@ def _commit_attachment(scene, source, target, source_indices, target_indices):
     item.target_object = target
     item.source_topology = topology_fingerprint(len(source_vertices), source_triangles)
     item.target_topology = topology_fingerprint(len(target_vertices), target_triangles)
+    item.target_surface_topology = (_surface_topology(target.data)
+                                    if target.cloth_next.role == "COLLIDER" else "")
     _fill_indices(item.source_vertices, source_indices)
     _fill_indices(item.target_vertices, target_indices)
     for source_index, triangle, weights, source_point, target_point in prepared:
@@ -198,10 +258,10 @@ def _group_indices(obj, name, label):
 def _rebuild_groups(item, scene):
     source = _objects_by_identity(scene).get(str(item.source_persistent_id))
     target = item.target_object
-    if not _eligible_object(None, source):
+    if not _eligible_source_object(None, source):
         raise AttachmentError("Source must be an enabled Cloth or Soft Body")
     if not _eligible_object(None, target):
-        raise AttachmentError("Choose a Cloth or Soft Body target object")
+        raise AttachmentError("Choose a Cloth, Soft Body or Collider target object")
     if source is target:
         raise AttachmentError("Choose a different target object")
     for obj in (source, target):
@@ -233,6 +293,8 @@ def _rebuild_groups(item, scene):
     item.target_persistent_id = target.cloth_next.persistent_export_id
     item.source_topology = topology_fingerprint(len(source_vertices), source_triangles)
     item.target_topology = topology_fingerprint(len(target_vertices), target_triangles)
+    item.target_surface_topology = (_surface_topology(target.data)
+                                    if target.cloth_next.role == "COLLIDER" else "")
     item.group_signature = _group_signature(source_indices, target_indices)
     _fill_indices(item.source_vertices, source_indices)
     _fill_indices(item.target_vertices, target_indices)
@@ -254,8 +316,9 @@ def _group_signature(source_indices, target_indices):
 def _validate_groups(item, scene):
     source = _objects_by_identity(scene).get(str(item.source_persistent_id))
     target = item.target_object
-    if not _eligible_object(None, source) or not _eligible_object(None, target):
-        raise AttachmentError("Source and target must be enabled Cloth or Soft Body objects")
+    if not _eligible_source_object(None, source) or not _eligible_object(None, target):
+        raise AttachmentError("Source must be enabled Cloth or Soft Body; "
+                              "target must be enabled Cloth, Soft Body or Collider")
     if target.cloth_next.persistent_export_id != item.target_persistent_id:
         raise AttachmentError("Target changed. Bind vertex groups again")
     for obj in (source, target):
@@ -299,7 +362,7 @@ class CLOTHNEXT_OT_add_group_attachment(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _eligible_object(None, context.object)
+        return _eligible_source_object(None, context.object)
 
     def execute(self, context):
         export_identity.ensure_unique_persistent_ids(context.scene.objects)
@@ -324,7 +387,7 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
     def poll(cls, context):
         obj = context.object
         return bool(obj and obj.type == "MESH" and obj.mode == "EDIT"
-                    and _eligible_object(None, obj)
+                    and _eligible_source_object(None, obj)
                     and _eligible_object(None, getattr(
                         context.scene, "cloth_next_attachment_target", None)))
 
@@ -342,7 +405,11 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
         if not selected:
             self.report({"ERROR"}, "Select at least one source vertex")
             return {"CANCELLED"}
-        target_vertices, target_triangles = _mesh_triangles(target)
+        try:
+            target_vertices, target_triangles = _mesh_triangles(target)
+        except AttachmentError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
         if not target_triangles:
             self.report({"ERROR"}, "Target has no surface triangles")
             return {"CANCELLED"}
@@ -360,6 +427,8 @@ class CLOTHNEXT_OT_create_object_attachment(bpy.types.Operator):
             len(source_vertices), source_triangles)
         item.target_topology = topology_fingerprint(
             len(target_vertices), target_triangles)
+        item.target_surface_topology = (_surface_topology(target.data)
+                                        if target.cloth_next.role == "COLLIDER" else "")
         for vertex in selected:
             source_point = source.matrix_world @ vertex.co
             triangle, weights, closest = closest_surface_point(
@@ -466,7 +535,7 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return (getattr(context, "mode", "OBJECT") == "OBJECT"
-                and _eligible_object(None, context.object)
+                and _eligible_source_object(None, context.object)
                 and not shared_controller.snapshot().active)
 
     def invoke(self, context, event):
@@ -504,7 +573,7 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _cache_mesh(self, obj):
-        positions = tuple(tuple(obj.matrix_world @ vertex.co) for vertex in obj.data.vertices)
+        positions, _triangles = _mesh_triangles(obj)
         edges = tuple(tuple(map(int, edge.vertices)) for edge in obj.data.edges)
         self.mesh_cache[obj] = (positions, edges)
 
@@ -544,7 +613,7 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                     and self.window.screen == self.screen and self.window.workspace == self.workspace
                     and self.window.scene == self.scene and self.window.view_layer == self.view_layer
                     and self.source in tuple(self.scene.objects)
-                    and _eligible_object(None, self.source)
+                    and _eligible_source_object(None, self.source)
                     and (self.target is None or self.target in tuple(self.scene.objects))
                     and not shared_controller.snapshot().active)
         except (ReferenceError, AttributeError):
@@ -620,9 +689,13 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                     with context.temp_override(window=self.window, area=area, region=region):
                         target = object_at(context, event, region)
                 if target is self.source or not _eligible_object(None, target):
-                    self._feedback("Choose another enabled Cloth or Soft Body mesh")
+                    self._feedback("Choose an enabled Cloth, Soft Body or Collider mesh")
                 else:
-                    self.target = target; self._cache_mesh(target)
+                    try:
+                        self._cache_mesh(target)
+                    except AttachmentError as exc:
+                        self._feedback(str(exc)); return {"RUNNING_MODAL"}
+                    self.target = target
                     self.stage = "TARGET_VERTEX_SELECT"; self.hovered_vertex = None
                 self._redraw(); return {"RUNNING_MODAL"}
             index = self._pick_vertex(context, event)
@@ -748,12 +821,12 @@ def _prune_deleted_attachments(*_args):
         prune_deleted_objects(scene)
 
 
-def snapshot_enabled(scene, deformable_entries):
+def snapshot_enabled(scene, deformable_entries, *, collider_entries=()):
     """Validate and freeze enabled relations for one authoritative Bake."""
     prune_deleted_objects(scene, validating=True)
     objects = _objects_by_identity(scene)
     entries = {str(entry.obj.cloth_next.persistent_export_id): entry
-               for entry in deformable_entries}
+               for entry in (*deformable_entries, *collider_entries)}
     result = []
     for item in getattr(scene, "cloth_next_object_attachments", ()):
         if not bool(item.enabled):
@@ -774,8 +847,9 @@ def snapshot_enabled(scene, deformable_entries):
             reason = "source or target object no longer exists"
         elif source_entry is None or target_entry is None:
             reason = "source and target must both be enabled for this Bake"
-        elif source_entry.role not in SUPPORTED_ROLES or target_entry.role not in SUPPORTED_ROLES:
-            reason = "only Cloth and Soft Body objects are supported"
+        elif (source_entry.role not in SUPPORTED_ROLES
+              or target_entry.role not in SUPPORTED_TARGET_ROLES):
+            reason = "source must be Cloth or Soft Body; target may also be a Collider"
         elif (source_entry.role != str(item.source_role)
               or target_entry.role != str(item.target_role)):
             reason = "source or target role changed"
@@ -784,7 +858,11 @@ def snapshot_enabled(scene, deformable_entries):
                 len(source_entry.boundary_vertices), source_entry.boundary_triangles)
             target_fp = topology_fingerprint(
                 len(target_entry.boundary_vertices), target_entry.boundary_triangles)
-            if source_fp != str(item.source_topology) or target_fp != str(item.target_topology):
+            target_changed = target_fp != str(item.target_topology)
+            if target_entry.role == "COLLIDER" and getattr(item, "target_surface_topology", ""):
+                target_changed = (getattr(target_entry, "surface_topology", "")
+                                  != item.target_surface_topology)
+            if source_fp != str(item.source_topology) or target_changed:
                 reason = "source or target topology changed"
         if reason:
             item.needs_rebuild = True
@@ -797,15 +875,14 @@ def snapshot_enabled(scene, deformable_entries):
             source_world = tuple(map(float, point.source_point))
             target_world = tuple(map(float, point.target_point))
             try:
-                source_local = source.data.vertices[int(point.source_index)].co
+                source_local = source_entry.boundary_vertices[int(point.source_index)]
                 indices = tuple(map(int, point.target_triangle))
                 weights = tuple(map(float, point.target_weights))
-                target_local = (
-                    target.data.vertices[indices[0]].co * weights[0]
-                    + target.data.vertices[indices[1]].co * weights[1]
-                    + target.data.vertices[indices[2]].co * weights[2])
-                source_world = tuple(source.matrix_world @ source_local)
-                target_world = tuple(target.matrix_world @ target_local)
+                target_local = tuple(sum(
+                    float(target_entry.boundary_vertices[index][axis]) * weight
+                    for index, weight in zip(indices, weights)) for axis in range(3))
+                source_world = _world_position(source.matrix_world, source_local)
+                target_world = _world_position(target.matrix_world, target_local)
             except (AttributeError, IndexError, TypeError):
                 pass
             points.append(AttachmentPoint(
@@ -841,25 +918,45 @@ def _draw_overlay():  # pragma: no cover - exercised in Blender
         scene = bpy.context.scene
         lines = []
         objects = _objects_by_identity(scene)
+        collider_surfaces = {}
         for item in scene.cloth_next_object_attachments:
             if item.enabled and item.show_overlay:
                 source = objects.get(str(item.source_persistent_id))
                 target = objects.get(str(item.target_persistent_id))
                 if source is None or target is None:
                     continue
+                target_vertices = None
+                if target.cloth_next.role == "COLLIDER":
+                    if target not in collider_surfaces:
+                        try:
+                            indices = {int(index)
+                                for relation in scene.cloth_next_object_attachments
+                                if relation.enabled and relation.show_overlay
+                                and relation.target_persistent_id == item.target_persistent_id
+                                for point in relation.points for index in point.target_triangle}
+                            collider_surfaces[target] = _collider_preview_vertices(target, indices)
+                        except (AttributeError, IndexError, TypeError):
+                            collider_surfaces[target] = {}
+                    target_vertices = collider_surfaces[target]
                 for point in item.points:
                     try:
                         source_local = source.data.vertices[
                             int(point.source_index)].co
                         indices = tuple(map(int, point.target_triangle))
                         weights = tuple(map(float, point.target_weights))
-                        target_local = (
-                            target.data.vertices[indices[0]].co * weights[0]
-                            + target.data.vertices[indices[1]].co * weights[1]
-                            + target.data.vertices[indices[2]].co * weights[2])
-                        lines.extend((tuple(source.matrix_world @ source_local),
-                                      tuple(target.matrix_world @ target_local)))
-                    except (AttributeError, IndexError, TypeError):
+                        if target_vertices is not None:
+                            target_world = tuple(sum(
+                                target_vertices[index][axis] * weight
+                                for index, weight in zip(indices, weights))
+                                for axis in range(3))
+                        else:
+                            target_local = (
+                                target.data.vertices[indices[0]].co * weights[0]
+                                + target.data.vertices[indices[1]].co * weights[1]
+                                + target.data.vertices[indices[2]].co * weights[2])
+                            target_world = tuple(target.matrix_world @ target_local)
+                        lines.extend((tuple(source.matrix_world @ source_local), target_world))
+                    except (AttributeError, IndexError, KeyError, TypeError):
                         continue
         if not lines:
             return

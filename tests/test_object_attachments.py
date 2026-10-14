@@ -11,9 +11,10 @@ from cloth_next.attachments import (
 )
 from cloth_next.ppf.adapters import ADAPTERS
 from cloth_next.materials import ShellMaterialSettings
+from cloth_next.materials import DEFAULT_STATIC_SETTINGS
 from cloth_next.materials.deformables import SoftBodyMaterialSettings
 from cloth_next.ppf.schema.params import (
-    SimulationSettings, build_multi_deformable_param_payload,
+    ParamEncodeError, SimulationSettings, build_multi_deformable_param_payload,
     encode_multi_deformable_param)
 from cloth_next.ppf.schema import envelope
 
@@ -142,6 +143,7 @@ def _attachment(source_role="CLOTH", target_role="SOFT_BODY"):
 @pytest.mark.parametrize("source_role,target_role", [
     ("CLOTH", "CLOTH"), ("CLOTH", "SOFT_BODY"),
     ("SOFT_BODY", "CLOTH"), ("SOFT_BODY", "SOFT_BODY"),
+    ("CLOTH", "COLLIDER"), ("SOFT_BODY", "COLLIDER"),
 ])
 def test_all_v1_role_directions_encode(source_role, target_role):
     payload = wire_entry(_attachment(source_role, target_role),
@@ -170,6 +172,95 @@ def test_unsupported_roles_are_rejected(role):
     with pytest.raises(AttachmentError):
         wire_entry(_attachment(role, "CLOTH"),
                    source_vertex_count=3, target_vertex_count=3)
+
+
+@pytest.mark.parametrize("source_role", ["CLOTH", "SOFT_BODY"])
+def test_collider_attachment_keeps_collider_as_native_static_group(source_role):
+    group = "SHELL" if source_role == "CLOTH" else "SOLID"
+    material = ShellMaterialSettings() if source_role == "CLOTH" else SoftBodyMaterialSettings()
+    payload = build_multi_deformable_param_payload(
+        SimulationSettings(3, 24.0, (0, 0, -9.81)),
+        (("source", "source-uuid", group, material, None),),
+        (("collider", "target-uuid", DEFAULT_STATIC_SETTINGS),),
+        object_attachments=((_attachment(source_role, "COLLIDER"), 3, 3),),
+        schema_version=2, protocol_version="0.23")
+    assert len(payload["group"]) == 2
+    assert payload["cross_stitch"][0]["target_uuid"] == "target-uuid"
+    assert payload["cross_stitch"][0]["ind"][0][3:] == [0, 1, 2]
+    assert payload["cross_stitch"][0]["w"][0][3:] == [.2, .3, .5]
+    assert payload["pin_config"] == {}
+
+
+def test_collider_attachment_rejects_unverified_older_solver():
+    with pytest.raises(ParamEncodeError, match="require Gaia 0.23"):
+        build_multi_deformable_param_payload(
+            SimulationSettings(3, 24.0, (0, 0, -9.81)),
+            (("source", "source-uuid", "SHELL", ShellMaterialSettings(), None),),
+            (("collider", "target-uuid", DEFAULT_STATIC_SETTINGS),),
+            object_attachments=((_attachment("CLOTH", "COLLIDER"), 3, 3),),
+            schema_version=2, protocol_version="0.22")
+
+
+def test_deforming_collider_snapshot_uses_evaluated_surface_and_fixed_binding(blender_env):
+    env = blender_env
+    env.registration.register()
+    from cloth_next.blender import object_attachments
+    source = env.bpy.types.Object("Source")
+    target = env.bpy.types.Object("Collider")
+    for obj, role, identity in ((source, "CLOTH", "source-id"),
+                                (target, "COLLIDER", "target-id")):
+        obj.cloth_next.enabled = True
+        obj.cloth_next.role = role
+        obj.cloth_next.persistent_export_id = identity
+        obj.matrix_world = ((1, 0, 0, 0), (0, 1, 0, 0),
+                            (0, 0, 1, 0), (0, 0, 0, 1))
+    assert object_attachments._eligible_object(None, target)
+    assert not object_attachments._eligible_source_object(None, target)
+    scene = env.bpy.types.Scene()
+    scene.objects = [source, target]
+    triangles = ((0, 1, 2),)
+    source_entry = SimpleNamespace(obj=source, role="CLOTH",
+        boundary_vertices=((0, 0, 1), (1, 0, 1), (0, 1, 1)),
+        boundary_triangles=triangles)
+    target_entry = SimpleNamespace(obj=target, role="COLLIDER",
+        boundary_vertices=((0, 0, 2), (1, 0, 3), (0, 1, 4)),
+        boundary_triangles=triangles)
+    item = scene.cloth_next_object_attachments.add()
+    item.identifier, item.name = "id", "Source to Collider"
+    item.source_persistent_id, item.target_persistent_id = "source-id", "target-id"
+    item.source_role, item.target_role = "CLOTH", "COLLIDER"
+    item.source_topology = item.target_topology = topology_fingerprint(3, triangles)
+    point = item.points.add()
+    point.source_index = 0
+    point.target_triangle = (0, 1, 2)
+    point.target_weights = (.5, .25, .25)
+    with pytest.raises(AttachmentError, match="enabled for this Bake"):
+        object_attachments.snapshot_enabled(scene, (source_entry,))
+    first = object_attachments.snapshot_enabled(scene, (source_entry,),
+                                                collider_entries=(target_entry,))[0][0]
+    assert first.target_role == "COLLIDER"
+    assert first.points[0].target_point == (.25, .25, 2.75)
+    target_entry.boundary_vertices = ((0, 0, 4), (1, 0, 5), (0, 1, 6))
+    second = object_attachments.snapshot_enabled(scene, (source_entry,),
+                                                 collider_entries=(target_entry,))[0][0]
+    assert second.points[0].target_point == (.25, .25, 4.75)
+    assert second.points[0].target_triangle == first.points[0].target_triangle
+    assert second.points[0].target_weights == first.points[0].target_weights
+    target_entry.boundary_triangles = ((0, 2, 1),)
+    with pytest.raises(AttachmentError, match="topology changed"):
+        object_attachments.snapshot_enabled(scene, (source_entry,),
+                                           collider_entries=(target_entry,))
+    assert item.needs_rebuild
+    # A new Blender tessellation alone must not invalidate a deforming quad.
+    item.target_surface_topology = "stable-polygon-loops"
+    target_entry.surface_topology = "stable-polygon-loops"
+    assert object_attachments.snapshot_enabled(scene, (source_entry,),
+                                              collider_entries=(target_entry,))
+    target_entry.surface_topology = "rewired-polygon-loops"
+    with pytest.raises(AttachmentError, match="topology changed"):
+        object_attachments.snapshot_enabled(scene, (source_entry,),
+                                           collider_entries=(target_entry,))
+    env.registration.unregister()
 
 
 def test_invalid_indices_and_weights_are_never_encoded():

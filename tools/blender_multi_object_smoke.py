@@ -80,6 +80,21 @@ try:
     try:
         plan = solver_test.build_run_plan(
             bpy.context, snapshot=snapshot, animated_pin_samples=samples)
+        # A material-only edit must not encode multi-object geometry again.
+        cloth_a.cloth_next.material.stretch_resistance *= 2
+        changed_snapshot = solver_test.validate_scene(bpy.context)
+        original_encode = solver_test.encode_multi_deformable_scene
+        def unexpected_encoding(*args, **kwargs):
+            raise AssertionError("Material edit re-encoded unchanged Scene")
+        solver_test.encode_multi_deformable_scene = unexpected_encoding
+        try:
+            reused_plan = solver_test.build_run_plan(
+                bpy.context, snapshot=changed_snapshot,
+                animated_pin_samples=samples)
+            assert reused_plan.scene.data_hash == plan.scene.data_hash
+            assert reused_plan.scene.param_hash != plan.scene.param_hash
+        finally:
+            solver_test.encode_multi_deformable_scene = original_encode
     finally:
         solver_test.resolve_solver = original_resolve
     assert len(plan.deformables) == 2

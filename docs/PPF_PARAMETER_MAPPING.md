@@ -1,5 +1,18 @@
 # PPF parameter mapping
 
+## Native Fluid Interaction (0.26 validation candidate)
+
+`native_fluid` adapter capability gates the new export. Coupling Strength ×
+Influence becomes the field's `strength` (1/s); Flow becomes `flow`; normalized
+liquid Occupancy becomes its separate density channel with `use_density=true`.
+Object group weight is 1. Source velocity is never multiplied by strength.
+`.gaia` remains the derived cache format. Legacy Velocity Scale must be 1;
+different Blender/FLIP unit scales and mismatched FPS are refused. Samples use
+`step=1/solver_fps`, velocity uses `solver_fps/source_fps`. The existing PARAM
+upload carries the official `fields/scripts` payload; 0.23 retains `grids`.
+The [development report](GAIA026_INTEGRATION_REPORT.md) records blocked
+production gates and the native numerical verification.
+
 ## Static vertex-group Pinning (Phase 3C.1)
 
 Advanced Pin Motion contains any number of rows with Pin Group, Target Object,

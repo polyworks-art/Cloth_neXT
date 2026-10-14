@@ -1,0 +1,98 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 50000,
+  "total_cloth_vertices": 50000,
+  "combination": "base",
+  "coupling_strength": 0.2,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0038022999999611784
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.09813499999995656
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 0.3895406000001458
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 8.01950980000015
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 8.02429589999997
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 9.088796799999955
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 14.867764699999952
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 15.250629200000049
+    },
+    {
+      "state": "ERROR",
+      "seconds": 25.596073899999965
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "ERROR",
+  "error": "Simulation could not converge at Blender frame 1.",
+  "error_details": "Stage: collision and constraint solve\nSolver frame: 0\nBlender frame: 1\nCause: server status FAILED during simulating: Linear solver failed to converge: advance failed at frame 0 (ccd=true, pcg=false, intersection_free=true, newton_progress=true, pin_feasible=true, contact_separated=true)\n--- Solver Log (first 24 lines) ---\n[2026-10-14 07:55:49] C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-contact-solver.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_6ef85351c01a\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_6ef85351c01a\\session\\output --load=0\n* data_directory_path path = C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_6ef85351c01a\\session\\output/data\n[2026-10-14 07:55:50] git branch: Unknown\n[2026-10-14 07:55:50] git hash: Unknown\n[2026-10-14 07:55:50] Initializing mesh...\n[2026-10-14 07:55:50] #v = 50000, #f = 99102, #tet = 0\n[2026-10-14 07:55:50] Building material properties...\n[2026-10-14 07:55:50] Computing constraints and parameters...\nParameter summary written to: C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_6ef85351c01a\\session/param_summary.txt\n[2026-10-14 07:55:50] Building edge parameter map...\n[2026-10-14 07:55:50] Processing edge properties...\n[2026-10-14 07:55:50] Building dataset (this may take a while)...\n[2026-10-14 07:55:50] Dataset built successfully\n====== initialize ======\n[2026-10-14 07:55:51] cuda: device 0 is NVIDIA GeForce RTX 4070 SUPER, compute capability 8.9, tccDriver 0, kernelExecTimeoutEnabled 1\n[2026-10-14 07:55:51] cuda: the operating system's kernel-execution watchdog is armed on this device\n> lbvh_build...7 msec\n[2026-10-14 07:55:51] check intersection: the scene's previous positions carry no intersecting pair\n[2026-10-14 07:55:51] check intersection: the scene's current positions carry no intersecting pair\n> check_intersection...8 msec\n===== initialize: 253 msec =====\n[2026-10-14 07:55:51] collision windows: has_windows=false, n_groups=0, vert_dmap_len=0, window_counts=[]\n[2026-10-14 07:55:51] force field: Fluid field (Point, Sphere falloff) over 1 track samples, a volume of 3 frames (0 empty) at most [100, 100, 51] cells and 78 bricks a frame, per-vertex targets\n[2026-10-14 07:55:51] GPU SM Clock: 615 MHz\n--- Solver Log (last 32 lines) ---\n* SL_toi: 1\n> line_search...3 msec\n* toi: 1\n* toi_advanced: 1.00e+00\n> aabb_update...0 msec\n> check_intersection...8 msec\n* toi_advanced: 1\n* newton_steps: 1\n* final_dt: 1.000e-02\n===== advance: 307 msec =====\n[2026-10-14 07:55:51] GPU SM Clock: 2640 MHz\n====== advance ======\n* time = 0.02\n> lbvh_build...7 msec\n* max_u: 2.289e-01\n* dt: 1.000e-02\n* playback: 1\n* max_sigma: 1.003e+00\n------ newton step 1 ------\n> asm_elastic...1 msec\n> asm_copy...0 msec\n> asm_strainlimit...0 msec\n* dyn_consumed: 0\n> asm_contact...3 msec\n* num_contact: 0\n> matrix_assembly...10 msec\n> asm_dirichlet...3 msec\n> linsolve...149 msec\n* iter: 2500\n* reresid: 7.862e-02\n### cg failed (iteration cap, 2500 iterations, relative residual 7.862e-02)\n===== advance: 178 msec =====\n--- Solver Errors (last 32 lines) ---\n\nthread 'main' (11004) panicked at crates\\ppf-cts-solver\\src\\backend.rs:1361:17:\nfailed to advance\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace; crash_kind=cg; contacts(last=0, peak=0, samples=1); stdout_tail=('[2026-10-14 07:55:51] force field: Fluid field (Point, Sphere falloff) over 1 track samples, a volume of 3 frames (0 empty) at most [100, 100, 51] cells and 78 bricks a frame, per-vertex targets', '[2026-10-14 07:55:51] GPU SM Clock: 615 MHz', '--- Solver Log (last 32 lines) ---', '* SL_toi: 1', '> line_search...3 msec', '* toi: 1', '* toi_advanced: 1.00e+00', '> aabb_update...0 msec', '> check_intersection...8 msec', '* toi_advanced: 1', '* newton_steps: 1', '* final_dt: 1.000e-02', '===== advance: 307 msec =====', '[2026-10-14 07:55:51] GPU SM Clock: 2640 MHz', '====== advance ======', '* time = 0.02', '> lbvh_build...7 msec', '* max_u: 2.289e-01', '* dt: 1.000e-02', '* playback: 1', '* max_sigma: 1.003e+00', '------ newton step 1 ------', '> asm_elastic...1 msec', '> asm_copy...0 msec', '> asm_strainlimit...0 msec', '* dyn_consumed: 0', '> asm_contact...3 msec', '* num_contact: 0', '> matrix_assembly...10 msec', '> asm_dirichlet...3 msec', '> linsolve...149 msec', '* iter: 2500', '* reresid: 7.862e-02', '### cg failed (iteration cap, 2500 iterations, relative residual 7.862e-02)', '===== advance: 178 msec =====', '--- Solver Errors (last 32 lines) ---', '', \"thread 'main' (11004) panicked at crates\\\\ppf-cts-solver\\\\src\\\\backend.rs:1361:17:\", 'failed to advance', 'note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace'); stderr_tail=(); recovery_state=FAILED; recovery_checkpoint_frame=None; recovery_resumable=False; partial_cache_candidates=()\nWhat to do: Lower Friction first. If it still fails, reduce Collision Gap, increase animated Collider sampling, then try a smaller Time Step.\nDiagnostic log: C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a22472\\cloth_next_run_clothnext_6ef85351c01a\\failure.log",
+  "exception": "AssertionError('Regular Bake ended in ERROR: Simulation could not converge at Blender frame 1.')",
+  "session_timings_and_contacts": [
+    {
+      "timings": {
+        "start_solver": 5.773359500000197,
+        "upload": 0.37944980000020223,
+        "build": 4.141841899999918,
+        "simulation_wait": 0.025084899999910704,
+        "total": 17.505709100000104
+      },
+      "contact_peak": 0,
+      "contact_samples": 1
+    }
+  ],
+  "solver_diagnostics_samples": [
+    {
+      "seconds": 15.259912700000086,
+      "contacts": null,
+      "newton": null,
+      "iterations": null
+    }
+  ],
+  "solver_diagnostics_paths": [
+    "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\50000-3-base-0.2-wet\\.cloth_next_recovery\\a70a0aa7ec7fc7b89836bb1567550102558b811459568d3fe67d18e4016c456b-850514198168435a851a2155f870f636\\server-data\\clothnext_6ef85351c01a\\session\\output\\data"
+  ],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 848494592,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 7,
+  "wall_seconds": 25.644854399999986
+}

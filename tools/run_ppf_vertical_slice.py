@@ -200,6 +200,17 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
     pc2_path = output_dir / "cn_test_cloth.pc2"
     header = import_result.write_playback_cache(pc2_path, playback)
 
+    project_cleanup = None
+    if session._project_link is not None:
+        from cloth_next.ppf.project_links import inspect_project_link
+        project_cleanup = {
+            'canonical_alias_state':inspect_project_link(session._project_link.path).kind,
+            'owned_target_state':inspect_project_link(session._project_link.target).kind,
+            'process_manager_released':session._manager is None,
+        }
+        assert project_cleanup == {'canonical_alias_state':'absent',
+            'owned_target_state':'absent','process_manager_released':True}
+
     report = {
         "result": "PASS",
         "material_preset": preset,
@@ -244,6 +255,7 @@ def run(solver_executable: Path, output_dir: Path, fps: int = 24,
         "contact_samples": diagnostics.contact_samples,
         "solver_stdout_tail": list(diagnostics.stdout_tail),
         "solver_stderr_tail": list(diagnostics.stderr_tail),
+        "project_cleanup": project_cleanup,
         "status_transitions": diagnostics.status_transitions,
         "status_request_count": diagnostics.status_request_count,
         "status_success_count": diagnostics.status_success_count,

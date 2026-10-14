@@ -1,0 +1,13 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.23",
+  "title": "What's New in Cloth NeXt 2.9.23",
+  "subtitle": "Native fluid coupling and larger FLIP caches.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/check.png", "title": "GAIA 0.26 available", "description": "Download the official Windows GAIA 0.26 solver in Manage for experimental native FLIP-to-cloth coupling. Your selected solver stays unchanged."},
+    {"icon": "icons/refresh.png", "title": "A clearer fluid workflow", "description": "Separate Fluid Source, Cloth Response and Fluid Cache sections guide setup. Enable FLIP velocity export directly beside the domain and prepare your .gaia cache."},
+    {"icon": "icons/check.png", "title": "Large particle caches", "description": "Fluid preparation reads all particles in bounded blocks. A scene with 23,356 cloth vertices completed a native 250-frame test; existing memory and payload limits remain in place."}
+  ],
+  "actions": [{"label": "Continue", "kind": "close"}, {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}]
+}

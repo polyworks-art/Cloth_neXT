@@ -31,6 +31,8 @@ the exact ``cbor2`` build shipped inside the official solver package (see
 from __future__ import annotations
 
 import struct
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, BinaryIO, Callable
 
 MAX_DECODE_ITEMS = 50_000_000  # hard bound: no payload we decode is larger
@@ -39,6 +41,14 @@ MAX_NESTING = 32
 
 class CborError(ValueError):
     """Raised on any unsupported construct or malformed input."""
+
+
+@dataclass(frozen=True)
+class FileBytes:
+    """A definite-length ordinary CBOR byte string read in bounded blocks."""
+    path: Path
+    offset: int
+    length: int
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +100,18 @@ def _encode_item(value: Any, out, depth: int, progress=None) -> None:
     elif isinstance(value, (bytes, bytearray)):
         _encode_head(2, len(value), out)
         out.extend(value)
+    elif isinstance(value, FileBytes):
+        if type(value.offset) is not int or type(value.length) is not int or min(value.offset,value.length)<0:
+            raise CborError('Invalid file-backed byte string range')
+        _encode_head(2,value.length,out)
+        with value.path.open('rb') as stream:
+            stream.seek(value.offset)
+            remaining=value.length
+            while remaining:
+                chunk=stream.read(min(1<<20,remaining))
+                if not chunk:raise CborError('Truncated file-backed byte string')
+                out.extend(chunk);remaining-=len(chunk)
+                if progress is not None:progress(value.length-remaining,value.length)
     elif _is_numpy_array(value):
         _encode_numpy_array(value, out, depth, progress)
     elif isinstance(value, (list, tuple)):

@@ -40,13 +40,15 @@ def installation(tmp_path: Path, *, installation_id: str, display_name: str,
 def test_bundled_releases_have_expected_codenames():
     releases = load_bundled_manifest().releases_for(PLATFORM)
     assert [(entry.protocol_version, entry.release_name) for entry in releases] == [
+        ("0.26", "Gaia"),
         ("0.23", "Gaia"),
         ("0.13", "Velune"),
         ("0.18", "Lumen"),
         ("0.22", "Gaia"),
     ]
-    assert releases[0].display_name == "Gaia 0.23"
-    assert all(entry.codename == entry.display_name for entry in releases[1:])
+    assert releases[0].display_name == "Gaia 0.26"
+    assert releases[1].display_name == "Gaia 0.23"
+    assert all(entry.codename == entry.display_name for entry in releases[2:])
 
 
 def test_retired_installation_is_preserved_but_supported_release_is_renamed(

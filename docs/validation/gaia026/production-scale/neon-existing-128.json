@@ -1,0 +1,162 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 23356,
+  "total_cloth_vertices": 23356,
+  "combination": "base",
+  "coupling_strength": 0.2,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    -0.5071269273757935,
+    -0.8373814821243286,
+    0.6050718426704407
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "fps": 30.0,
+  "quality": {
+    "time_step": 0.0010000000474974513,
+    "cg_max_iter": 10000,
+    "cg_tol": 0.0010000000474974513
+  },
+  "geometry_source": "Existing scene meshes and enabled collider roles",
+  "excluded_colliders": [
+    "SW_04_body_lod0_mesh.001"
+  ],
+  "scene_objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "role": "CLOTH",
+      "vertices": 14946,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "role": "CLOTH",
+      "vertices": 4379,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "role": "CLOTH",
+      "vertices": 4031,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_body_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 30455,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_head_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 24049,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    }
+  ],
+  "ram_safety": {
+    "enabled": true,
+    "threshold_percent": 90
+  },
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0037032000000181142
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.614827299999888
+    },
+    {
+      "state": "ERROR",
+      "seconds": 7.535210500000176
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "ERROR",
+  "error": "Water Flow memory limit: requested resolution 128, grid 64 x 128 x 64, estimated working memory 683.2 MiB (limit 512 MiB). Choose a smaller resolution.",
+  "error_details": "Stage: Water Flow preparation\nTraceback (most recent call last):\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\cloth_next\\gaia\\preparation.py\", line 106, in _run\n    write_water_container(self.path, self.metadata, self._sequence(), check_cancel=self.check_cancel)\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\cloth_next\\gaia\\container.py\", line 49, in write_water_container\n    for number, time, field in frames:\n                               ^^^^^^\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\cloth_next\\gaia\\preparation.py\", line 82, in _sequence\n    field = reconstruct(positions, velocities, self.minimum, self.maximum,\n                        self.metadata['dimensions'],\n                        max_speed=None if self.metadata.get('velocity_policy')=='unclamped' else 100.,\n                        support_threshold=self.metadata.get('grid_layout',{}).get('support_threshold',1.))\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\cloth_next\\gaia\\water_field.py\", line 134, in reconstruct\n    check_grid_memory(info)\n    ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\cloth_next\\gaia\\water_field.py\", line 79, in check_grid_memory\n    raise ValueError(f\"Water Flow memory limit: requested resolution {info['requested_resolution']}, \"\n    ...<2 lines>...\n        f\"(limit {MAX_WORKING_BYTES/1024**2:.0f} MiB). Choose a smaller resolution.\")\nValueError: Water Flow memory limit: requested resolution 128, grid 64 x 128 x 64, estimated working memory 683.2 MiB (limit 512 MiB). Choose a smaller resolution.\n\nWhat to do: Check the FLIP velocity bake and output folder, then retry.",
+  "exception": "AssertionError('Regular Bake ended in ERROR: Water Flow memory limit: requested resolution 128, grid 64 x 128 x 64, estimated working memory 683.2 MiB (limit 512 MiB). Choose a smaller resolution.')",
+  "session_timings_and_contacts": [],
+  "system_ram_samples": [
+    {
+      "updated_at": 0.0,
+      "seconds": 0.00317189999987022,
+      "used_bytes": null,
+      "total_bytes": null,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964707.7627404,
+      "seconds": 0.614396900000429,
+      "used_bytes": 21474906112,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964708.921536,
+      "seconds": 2.32341599999927,
+      "used_bytes": 21354020864,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964710.2197096,
+      "seconds": 2.55066319999969,
+      "used_bytes": 21392314368,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964711.2942877,
+      "seconds": 3.6388884000007238,
+      "used_bytes": 21434757120,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964712.3695314,
+      "seconds": 4.707025199999407,
+      "used_bytes": 21431726080,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964713.442812,
+      "seconds": 5.7738377999994555,
+      "used_bytes": 21399646208,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791964714.5746007,
+      "seconds": 7.521727699999246,
+      "used_bytes": 21459251200,
+      "total_bytes": 67792531456,
+      "stale": false
+    }
+  ],
+  "solver_diagnostics_samples": [],
+  "solver_diagnostics_paths": [],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 4782866432,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 7,
+  "wall_seconds": 8.420274500000232
+}

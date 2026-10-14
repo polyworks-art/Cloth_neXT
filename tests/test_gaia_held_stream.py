@@ -60,6 +60,17 @@ def test_resume_uses_authenticated_boundary():
     assert session.calls[0]==('hold',2) and reader.reads==[2,3]
 
 
+def test_native_field_adder_shares_hold_and_lifetime_protocol():
+    session=Session();reader=Reader();calls=[]
+    def add_window(field,target,window):
+        calls.append((session.held,window.source_frames))
+        field.values.append(window.values)
+    drive_held_stream(session,[StreamTarget(reader,('water',))],Field,
+                      final_boundary=4,add_window=add_window)
+    assert [boundary for boundary,_ in calls]==[0,1,2,3]
+    assert all(ref() is None for ref in session.refs)
+
+
 def test_other_official_run_is_not_adopted_or_cancelled():
     session=Session();session.running=True;reader=Reader()
     with pytest.raises(RuntimeError,match='another active simulation'):

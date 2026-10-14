@@ -699,7 +699,9 @@ def _apply_soft_body_appear_solid(settings, enabled):
     """Reversible shape-preserving Softbody material shortcut."""
     import json
     soft = settings.soft_body
-    values = {"stretch_resistance": 1e7, "poisson_ratio": 0.45,
+    # Extreme stiffness and shape damping can suppress motion in small dense
+    # solids. Keep this an elastic material, with no permanent deformation.
+    values = {"stretch_resistance": 5000.0, "poisson_ratio": 0.35,
               "volume_scale": 1.0, "stretch_plasticity_enabled": False,
               "stretch_plasticity_rate": 0.0,
               "stretch_plasticity_threshold_percent": 5.0}
@@ -710,7 +712,7 @@ def _apply_soft_body_appear_solid(settings, enabled):
             soft.appear_solid_backup = json.dumps(previous, sort_keys=True)
         for name, value in values.items():
             setattr(soft, name, value)
-        settings.damping.shape_damping = 0.05
+        settings.damping.shape_damping = 0.0
     elif soft.appear_solid_backup:
         try:
             previous = json.loads(soft.appear_solid_backup)
@@ -734,7 +736,8 @@ def _on_soft_body_appear_solid(self, context):
 class CLOTHNEXT_PG_soft_body_settings(bpy.types.PropertyGroup):
     appear_solid: bpy.props.BoolProperty(name="Appear Solid", default=False,
         update=_on_soft_body_appear_solid,
-        description="Use high elastic stiffness, preserve rest volume and disable "
+        description="Use moderate elastic stiffness without shape damping, preserve "
+                    "rest volume and disable "
                     "permanent deformation for a rigid-looking Softbody. "
                     "Disable to restore the previous material values")
     appear_solid_backup: bpy.props.StringProperty(default="", options={'HIDDEN'})
@@ -850,6 +853,8 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False, update=_on_settings_update)
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_settings_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
+    water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_settings_update)
+    water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="Fraction of current solver vertex velocity subtracted by native Fluid Flow", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", default=1., min=0., max=10., update=_on_settings_update)
     water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_settings_update,
         items=(("AUTO", "Auto", "At least 100 samples along the longest field axis", 0),

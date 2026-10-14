@@ -23,4 +23,11 @@ def test_real_ppf_vertical_slice(tmp_path):
     assert report["max_cloth_displacement_m"] > 0.01
     assert report["pc2_header"]["vertex_count"] == 121
     assert report["pc2_header"]["frame_count"] == 8
-    assert report["status_transitions"][-1] == "NO_DATA"
+    if report['protocol_version'] in {'0.23','0.26'}:
+        # Modern owned sessions remove their authenticated link and target only
+        # after process join; there is then no live server to publish NO_DATA.
+        assert report['project_cleanup'] == {
+            'canonical_alias_state':'absent','owned_target_state':'absent',
+            'process_manager_released':True}
+    else:
+        assert report["status_transitions"][-1] == "NO_DATA"

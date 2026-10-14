@@ -1003,6 +1003,21 @@ def test_convergence_failure_names_blender_frame_and_action(blender_env):
     assert details.index("Friction") < details.index("Time Step")
 
 
+def test_iteration_cap_failure_guidance_names_quality_controls(blender_env):
+    module = blender_env.solver_test
+    error = ClothNextError(ErrorRecord.create(
+        category=ErrorCategory.SIMULATION,
+        user_message="Simulation failed.",
+        technical_message=("Linear solver failed to converge: advance failed at frame 1\n"
+                           "### cg failed (iteration cap, 2500 iterations, relative residual 1.054e-01)"),
+        recommended_action="Retry."))
+    summary, details = module._present_worker_error(SimpleNamespace(frame_start=1), error)
+    assert summary == "Simulation could not converge at Blender frame 2."
+    assert "use a smaller Time Step" in details
+    assert "PCG Max Iterations" in details
+    assert "What to do: Lower Friction first." not in details
+
+
 def test_solver_self_intersection_failure_is_concise(blender_env):
     module = blender_env.solver_test
     plan = SimpleNamespace(frame_start=1)
@@ -2485,6 +2500,23 @@ def test_playback_reader_is_released_before_obsolete_pc2_cleanup(
     assert calls and all(was_released for _path, was_released in calls)
 
 
+def test_saved_relative_playback_path_preserves_strict_ownership(
+        blender_env, monkeypatch, tmp_path):
+    module = blender_env.solver_test
+    obj = blender_env.bpy.types.Object(name="Saved Cloth", type="MESH")
+    modifier = obj.modifiers.new("Cloth NeXt", "MESH_CACHE")
+    cache = tmp_path / "cn_test_cloth_saved.pc2"
+    cache.write_bytes(b"owned")
+    module.mark_owned_playback(obj, modifier, str(cache))
+    modifier.filepath = "//cn_test_cloth_saved.pc2"
+    monkeypatch.setattr(blender_env.bpy.path, "abspath",
+                        lambda value: str(tmp_path / value[2:])
+                        if value.startswith("//") else value)
+    assert module.is_cloth_next_playback_modifier(obj, modifier)
+    modifier.filepath = "//artist.pc2"
+    assert not module.is_cloth_next_playback_modifier(obj, modifier)
+
+
 def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
         blender_env, monkeypatch, tmp_path, windows_cache_locks):
     module = blender_env.solver_test
@@ -2502,6 +2534,17 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
     module.mute_playback_input_deformers(obj, owned)
     artist = obj.modifiers.new("Artist Cache", "MESH_CACHE")
     artist.filepath = str(tmp_path / "artist.pc2")
+    released = []
+    monkeypatch.setattr(module, "_release_playback_readers",
+                        lambda: released.append(True))
+    original_delete = module._delete_cache_artifact
+
+    def delete_after_detach(path, **kwargs):
+        assert released == [True]
+        assert owned.filepath == "" and not owned.show_viewport
+        return original_delete(path, **kwargs)
+
+    monkeypatch.setattr(module, "_delete_cache_artifact", delete_after_detach)
     original_unlink = Path.unlink
 
     def locked_unlink(path, *args, **kwargs):
@@ -2520,6 +2563,8 @@ def test_clear_tombstones_only_owned_unicode_cache_when_unlink_is_locked(
     assert owned.filepath == ""
     assert not owned.show_viewport
     assert not owned.show_render
+    assert released == [True]
+    assert module.is_unbaked_simulation_modifier(obj, owned)
     assert armature.show_viewport
     assert armature.show_render
     assert artist.filepath.endswith("artist.pc2")
@@ -3885,3 +3930,54 @@ def test_force_only_timeline_is_not_labeled_as_collider_export(blender_env):
     assert 'has_forces = state["force_capture"] is None' in source
     assert "BakeActivity.CAPTURING_FORCE_MOTION" in source
     assert 'capture_names.append("Forces")' in source
+
+
+def test_evaluated_collider_cache_checks_last_sample_and_corruption(blender_env, tmp_path):
+    module = blender_env.solver_test
+    cache = module.ExportPayloadCache(tmp_path)
+    frames = np.zeros((3, 3, 3), dtype='<f4')
+    capture = module.ColliderMotionCapture(
+        'DEFORMING_ANIMATED', ((0.,0.,0.), (1.,0.,0.), (0.,1.,0.)),
+        ((0,1,2),), tuple(tuple(float(r == c) for c in range(4)) for r in range(4)),
+        {'time': [0.,1.,2.], 'vert_frames': frames}, content_digest='same')
+    _, hit = module._verified_collider_capture(cache, capture)
+    assert not hit
+    restored, hit = module._verified_collider_capture(cache, capture)
+    assert hit
+    np.testing.assert_array_equal(restored.animation['vert_frames'], frames)
+    restored.cleanup()
+    changed = frames.copy()
+    changed[-1, -1, -1] = .25
+    _, hit = module._verified_collider_capture(
+        cache, replace(capture, animation={**capture.animation, 'vert_frames': changed}))
+    assert not hit  # No reliance on the caller's unchanged digest or first pose.
+    for path in tmp_path.rglob('frames.f32'):
+        path.write_bytes(b'corrupt')
+    _, hit = module._verified_collider_capture(cache, capture)
+    assert not hit
+
+
+def test_evaluated_scene_identity_and_payload_reuse(blender_env, tmp_path, monkeypatch):
+    module = blender_env.solver_test
+    monkeypatch.setattr(module, '_resolved_installation_id', lambda _: 'solver')
+    resolved = SimpleNamespace(protocol_version='1', schema_version='2')
+    obj = module.SceneObject('cloth', 'uuid', ((0.,0.,0.), (1.,0.,0.), (0.,1.,0.)),
+        ((0,1,2),), tuple(tuple(float(r == c) for c in range(4)) for r in range(4)))
+    key = module._evaluated_scene_cache_key(((obj, 'SHELL'),), (), resolved)
+    assert key == module._evaluated_scene_cache_key(((obj, 'SHELL'),), (), resolved)
+    assert key != module._evaluated_scene_cache_key(
+        ((replace(obj, pin_indices=(0,)), 'SHELL'),), (), resolved)
+    assert key != module._evaluated_scene_cache_key(
+        ((replace(obj, face_material_params={'young-mod': (1000.,)}), 'SHELL'),), (), resolved)
+    animated = replace(obj, static_deform_animation={'time': [0., 1.], 'vert_frames': np.zeros((2,3,3), dtype='<f4')})
+    first = module._evaluated_scene_cache_key((), (animated,), resolved)
+    animated.static_deform_animation['vert_frames'][-1,0,0] = 1.
+    assert first != module._evaluated_scene_cache_key((), (animated,), resolved)
+    cache = module.ExportPayloadCache(tmp_path)
+    calls = []
+    def producer():
+        calls.append(1)
+        return b'encoded', hashlib.sha256(b'encoded').hexdigest()
+    module._cached_payload(cache, 'scene', key, producer)
+    module._cached_payload(cache, 'scene', key, producer)
+    assert len(calls) == 1

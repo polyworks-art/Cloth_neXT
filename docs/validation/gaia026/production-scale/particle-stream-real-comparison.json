@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "particles": 27774,
+  "position_max_error": 0.0,
+  "velocity_max_error": 0.0,
+  "field_velocity_max_error": 0.0,
+  "field_influence_max_error": 0.0
+}

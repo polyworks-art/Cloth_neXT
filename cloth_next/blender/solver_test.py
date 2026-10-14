@@ -1308,7 +1308,8 @@ def _evaluate_through_solver_input_modifiers(context, obj):
     if not boundaries and cutoff < 0:
         yield None
         return
-    if boundaries and cutoff < 0:
+    if (boundaries and cutoff < 0
+            and getattr(getattr(obj, "data", None), "shape_keys", None) is None):
         # With the boundary first, the authored mesh is exactly the solver
         # input.  Avoid evaluating unrelated post-simulation modifiers.
         yield None
@@ -1373,7 +1374,8 @@ def _evaluated_deformable_snapshot(context, obj):
     """Boundary signatures plus the geometry that produced them."""
     _check_preparation_cancel()
     cutoff = _solver_input_modifier_cutoff(obj)
-    if simulation_modifiers(obj) and cutoff < 0:
+    if (simulation_modifiers(obj) and cutoff < 0
+            and getattr(getattr(obj, "data", None), "shape_keys", None) is None):
         mesh = getattr(obj, "data", None)
         if mesh is None:
             _check_preparation_cancel()
@@ -2585,6 +2587,37 @@ def _validate_scene_single(context) -> ValidationSnapshot:
         collider_source_signatures=collider_source_signatures)
 
 
+def _snapshot_object_attachments(context, deformables, colliders, start_frame):
+    """Freeze surface anchors in the exact evaluated Bake-start pose."""
+    enabled = tuple(item for item in getattr(
+        context.scene, "cloth_next_object_attachments", ()) if item.enabled)
+    if not enabled:
+        return ()
+    target_ids = {str(item.target_persistent_id) for item in enabled}
+    scene = context.scene
+    original = int(getattr(scene, "frame_current", start_frame))
+    subframe = float(getattr(scene, "frame_subframe", 0.0))
+    try:
+        if hasattr(scene, "frame_set"):
+            scene.frame_set(start_frame)
+            _depsgraph_update(context)
+        collider_entries = []
+        for obj in colliders:
+            if str(obj.cloth_next.persistent_export_id) not in target_ids:
+                continue
+            _check_preparation_cancel()
+            vertices, triangles, surface_topology = object_attachments._collider_geometry(obj, context)
+            collider_entries.append(SimpleNamespace(
+                obj=obj, role="COLLIDER", boundary_vertices=vertices,
+                boundary_triangles=triangles, surface_topology=surface_topology))
+        return object_attachments.snapshot_enabled(
+            scene, deformables, collider_entries=collider_entries)
+    finally:
+        if hasattr(scene, "frame_set"):
+            scene.frame_set(original, subframe=subframe)
+            _depsgraph_update(context)
+
+
 def _validate_scene_impl(context) -> ValidationSnapshot:
     """Validate every enabled deformable as one interacting solver scene."""
     _check_preparation_cancel()
@@ -2690,8 +2723,8 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             "shape": mesh_geometry_signature(getattr(obj, "data", None)),
             "animation": _animation_signature(obj),
         } for obj in collider_objs]
-        attachment_snapshot = object_attachments.snapshot_enabled(
-            context.scene, entries)
+        attachment_snapshot = _snapshot_object_attachments(
+            context, entries, collider_objs, ranges[0].start)
         explicit_sewing, sewing_attachments = sewing.snapshot_enabled(
             context.scene, entries)
         attachment_snapshot = tuple(attachment_snapshot) + tuple(sewing_attachments)
@@ -4181,7 +4214,7 @@ def _capture_transform_only_collider_motion(
     vertices = triangles = None
     cutoff = _solver_input_modifier_cutoff(collider_obj)
     evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
-                      if cutoff >= 0 else collider_obj)
+                      if cutoff >= 0 or simulation_modifiers(collider_obj) else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             _check_preparation_cancel()
@@ -4268,7 +4301,7 @@ def _capture_collider_motion(context, collider_obj,
     topology_check_mode = _collider_topology_check_mode(collider_obj)
     cutoff = _solver_input_modifier_cutoff(collider_obj)
     evaluation_obj = (_make_boundary_evaluation_copy(context, collider_obj, cutoff)
-                      if cutoff >= 0 else collider_obj)
+                      if cutoff >= 0 or simulation_modifiers(collider_obj) else collider_obj)
     try:
         for offset, (frame, subframe, _time) in enumerate(sample_points):
             _check_preparation_cancel()
@@ -4941,7 +4974,8 @@ def _payload_cache_for(obj) -> ExportPayloadCache:
         obj.cloth_next, "cache_directory", "") or "").strip()
     root = (Path(bpy.path.abspath(configured))
             if configured else _cache_directory())
-    return ExportPayloadCache(root / ".cloth_next_export")
+    return ExportPayloadCache(root / ".cloth_next_export",
+                              checkpoint=_check_preparation_cancel)
 
 
 def _animated_collider_cache_key(context, obj, bake_range, *, source_geometry=None):
@@ -5116,7 +5150,8 @@ def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
             keys[obj.name] = key
         misses.append(obj)
         log_with_context(get_logger("export.cache"), 20,
-            "Animated collider changed - rebuilding export",
+            ("Animated collider requires evaluated motion verification"
+             if key is None else "Animated collider cache miss - capturing motion"),
             {"object": obj.name, "reason": reason})
     timings = getattr(snapshot, "timings", None)
     if isinstance(timings, dict):
@@ -5125,6 +5160,63 @@ def _load_cached_animated_colliders(context, snapshot, colliders, bake_range):
         timings.setdefault("collider_sample_count", 0.0)
     _check_preparation_cancel()
     return hits, tuple(misses), keys, cache
+
+
+def _evaluated_export_identity(value):
+    """Hash actual evaluated arrays in bounded blocks, including every sample."""
+    _check_preparation_cancel()
+    if isinstance(value, np.ndarray):
+        digest = hashlib.sha256()
+        # Capture arrays are contiguous memmaps; retain bounded reads for these.
+        array = np.asarray(value)
+        if not array.flags.c_contiguous:
+            array = np.ascontiguousarray(array)
+        raw = memoryview(array).cast("B") if array.size else memoryview(b"")
+        for offset in range(0, len(raw), 4 * 1024 * 1024):
+            _check_preparation_cancel()
+            digest.update(raw[offset:offset + 4 * 1024 * 1024])
+        return {"shape": list(array.shape), "dtype": array.dtype.str,
+                "sha256": digest.hexdigest()}
+    if isinstance(value, dict):
+        return {key: _evaluated_export_identity(item)
+                for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_evaluated_export_identity(item) for item in value]
+    return value
+
+
+def _evaluated_scene_cache_key(dynamics, colliders, resolved):
+    """Content identity independent of material-only settings and driver names."""
+    def identity(obj):
+        numeric = {"vertices_local", "triangles", "transform", "pin_indices",
+                   "edges", "stitch_pairs", "uv_faces", "face_friction"}
+        return {name: _evaluated_export_identity(
+                    np.asarray(getattr(obj, name)) if name in numeric
+                    else getattr(obj, name))
+                for name in obj.__dataclass_fields__}
+    return deterministic_key("scene", {
+        "evaluated_scene_schema": 1,
+        "solver_installation": _resolved_installation_id(resolved),
+        "protocol_version": resolved.protocol_version or "",
+        "schema_version": resolved.schema_version or "",
+        "dynamics": [(identity(obj), group) for obj, group in dynamics],
+        "colliders": [identity(obj) for obj in colliders],
+    })
+
+
+def _verified_collider_capture(cache, capture):
+    """Reuse unsafe-driver captures only after matching their complete output."""
+    record, artifacts = _collider_capture_arrays(capture)
+    key = deterministic_key("collider", {
+        "evaluated_capture_schema": 1,
+        "record": record,
+        "artifacts": _evaluated_export_identity(artifacts)})
+    restored, _reason = _load_animated_collider_capture(cache, key)
+    if restored is not None:
+        capture.cleanup()
+        return restored, True
+    _store_animated_collider_capture(cache, key, capture)
+    return capture, False
 
 
 def _cached_payload(cache, kind, key, producer):
@@ -5898,33 +5990,39 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
             capture.motion_type == "DEFORMING_ANIMATED"
             for _obj, _vertices, _triangles, _world, capture
             in collider_records)
-        if deforming_capture:
-            encoding_total = max(
-                int(capture.animation["vert_frames"].shape[0])
-                for _obj, _vertices, _triangles, _world, capture
-                in collider_records
-                if capture is not None and
-                capture.motion_type == "DEFORMING_ANIMATED")
-            shared_controller.update(
-                status_message="Encoding animated Collider data",
-                activity_code=BakeActivity.ENCODING_SCENE,
-                progress_current=0, progress_total=encoding_total)
-            def encoding_progress(current, total):
-                if _cancel_event.is_set():
-                    raise SessionCancelled()
+        def encode_evaluated_scene():
+            if deforming_capture:
+                encoding_total = max(
+                    int(capture.animation["vert_frames"].shape[0])
+                    for _obj, _vertices, _triangles, _world, capture
+                    in collider_records
+                    if capture is not None and
+                    capture.motion_type == "DEFORMING_ANIMATED")
                 shared_controller.update(
-                    status_message=(f"Encoding animated Colliders · "
-                                    f"{current} / {total}"),
+                    status_message="Encoding animated Collider data",
                     activity_code=BakeActivity.ENCODING_SCENE,
-                    progress_current=current, progress_total=total)
-            data_payload, data_hash = encode_multi_deformable_scene_file(
-                scene_dynamics, scene_colliders,
-                work_directory / "scene.cbor",
-                progress=encoding_progress, schema_version=wire_schema)
-        else:
-            data_payload, data_hash = encode_multi_deformable_scene(
-                scene_dynamics, scene_colliders,
-                schema_version=wire_schema)
+                    progress_current=0, progress_total=encoding_total)
+                def encoding_progress(current, total):
+                    if _cancel_event.is_set():
+                        raise SessionCancelled()
+                    shared_controller.update(
+                        status_message=(f"Encoding animated Colliders · "
+                                        f"{current} / {total}"),
+                        activity_code=BakeActivity.ENCODING_SCENE,
+                        progress_current=current, progress_total=total)
+                return encode_multi_deformable_scene_file(
+                    scene_dynamics, scene_colliders,
+                    work_directory / "scene.cbor",
+                    progress=encoding_progress, schema_version=wire_schema)
+            else:
+                return encode_multi_deformable_scene(
+                    scene_dynamics, scene_colliders,
+                    schema_version=wire_schema)
+        evaluated_key = _evaluated_scene_cache_key(
+            scene_dynamics, scene_colliders, resolved)
+        data_payload, data_hash = _cached_payload(
+            _payload_cache_for(snapshot.cloth_obj), "scene", evaluated_key,
+            encode_evaluated_scene)
     finally:
         for _obj, _vertices, _triangles, _world, capture in collider_records:
             if capture is not None:
@@ -6321,20 +6419,11 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
     project_name = new_project_name()
     work_directory = Path(bpy.app.tempdir) / f"cloth_next_run_{project_name}"
     payload_cache = _payload_cache_for(cloth_obj)
-    scene_cache_key = deterministic_key("scene", {
-        "solver_installation": _resolved_installation_id(resolved),
-        "protocol_version": resolved.protocol_version or "",
-        "schema_version": resolved.schema_version or "",
-        "geometry": snapshot.geometry_fingerprint,
-        "topology": snapshot.topology_signature,
-        "objects": [(scene_cloth.uuid, scene_cloth.name, deformable_role)],
-        "colliders": motion_meta,
-        "pin": pin_snapshot.fingerprint,
-        "sewing": stitch_pairs,
-        "friction_regions": _friction_region_settings(cloth_obj),
-        "frame_range": [bake_range.start, bake_range.end],
-        "fps": _scene_fps(context),
-    })
+    scene_cache_key = _evaluated_scene_cache_key(
+        ((scene_cloth, {"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
+                        "SOFT_BODY": GROUP_SOLID,
+                        "RIGID_BODY": GROUP_PDRD}[deformable_role]),),
+        scene_colliders, resolved)
     try:
         deforming_capture = any(
             capture is not None and
@@ -7170,6 +7259,11 @@ def _present_worker_error(plan: RunPlan, exc: ClothNextError, *,
         action = ("Lower Friction first. If it still fails, reduce Collision "
                   "Gap, increase animated Collider sampling, then try a "
                   "smaller Time Step.")
+        if re.search(r"cg failed\s*\(iteration cap", technical, re.IGNORECASE):
+            action = ("In Solver Quality, use a smaller Time Step and increase "
+                      "PCG Max Iterations. If it still fails, reduce mesh "
+                      "complexity or material stiffness. This is a calculation "
+                      "limit; changing Friction may not help when there are no contacts.")
         details = (f"Stage: collision and constraint solve\n"
                    f"Solver frame: {solver_frame}\n"
                    f"Blender frame: {blender_frame}\n"
@@ -9904,7 +9998,11 @@ def _pin_capture_pump():
             capture_names.append("Colliders")
         if has_forces:
             capture_names.append("Forces")
-        capture_label = f"Capturing animated {' and '.join(capture_names)}"
+        verifying_colliders = any(
+            name not in state.get("collider_cache_keys", {})
+            for name in state["collider_states"])
+        verb = "Verifying" if verifying_colliders else "Capturing"
+        capture_label = f"{verb} animated {' and '.join(capture_names)}"
         activity = (BakeActivity.CAPTURING_COLLIDER_MOTION
                     if has_colliders else
                     BakeActivity.CAPTURING_PIN_TARGETS
@@ -10030,11 +10128,24 @@ def _pin_capture_pump():
             **state.get("cached_colliders", {}), **new_collider_captures}
         for name, capture in new_collider_captures.items():
             key = state.get("collider_cache_keys", {}).get(name)
-            if not key:
-                continue
             try:
-                _store_animated_collider_capture(
-                    state["collider_cache"], key, capture)
+                if key:
+                    _store_animated_collider_capture(
+                        state["collider_cache"], key, capture)
+                elif state.get("collider_cache") is not None:
+                    verified, reused = _verified_collider_capture(
+                        state["collider_cache"], capture)
+                    collider_captures[name] = verified
+                    label = ("Reusing verified animated Collider" if reused else
+                             "Storing evaluated animated Collider")
+                    shared_controller.update(
+                        status_message=f"{label} · {name}",
+                        activity_code=BakeActivity.CAPTURING_GEOMETRY)
+                    counter = ("animated_collider_verified_hits" if reused else
+                               "animated_collider_verified_misses")
+                    timings[counter] = timings.get(counter, 0.0) + 1.0
+                    log_with_context(get_logger("export.cache"), 20, label,
+                                     {"object": name})
             except (OSError, ValueError, TypeError) as exc:
                 log_with_context(get_logger("export.cache"), 30,
                     "Animated collider cache write failed", {
@@ -10643,6 +10754,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
         _clear_intersection_diagnostics()
         removed_modifiers = 0
         removed_files = 0
+        readers_detached = False
         cleanup_paths: set[Path] = set()
         scene = getattr(context, "scene", None)
         scene_objects = getattr(scene, "objects", None)
@@ -10675,10 +10787,21 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
             for mod in list(obj.modifiers):
                 if is_cloth_next_playback_modifier(obj,mod):
                     filepath = getattr(mod, "filepath", "")
+                    readers_detached = True
                     if has_simulation_modifier_marker(obj, mod):
                         mod.show_viewport = False
                         mod.show_render = False
                         mod.filepath = ""
+                        # Keep the simulation identity, release playback-only
+                        # ownership on Blender versions supporting modifier
+                        # ID properties as well as the object fallback below.
+                        try:
+                            del mod["cloth_next_owner"]
+                        except (AttributeError, KeyError, TypeError):
+                            try:
+                                delattr(mod, "cloth_next_owner")
+                            except AttributeError:
+                                pass
                     else:
                         obj.modifiers.remove(mod)
                         removed_modifiers += 1
@@ -10709,9 +10832,9 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
                 settings.baked_cache_message = ""
                 settings.baked_metadata_digest = ""
                 validation_state.forget(obj)
-        if removed_modifiers:
-            # Removing the RNA modifier is not enough on Windows: Blender can
-            # retain its Mesh Cache reader until a dependency-graph update.
+        if readers_detached:
+            # A retained simulation boundary also releases its reader only
+            # after evaluation of the cleared filepath/visibility state.
             _release_playback_readers()
         for path in cleanup_paths:
             existed = (path.exists()
@@ -12442,7 +12565,7 @@ class CLOTHNEXT_OT_recovery_start_fresh(bpy.types.Operator):
                 try:
                     remove_link_for_owned_target(
                         Path(record.server_data_root), project, record.project_id,
-                        required=record.identity.protocol_version == "0.23")
+                        required=record.identity.protocol_version in {"0.23", "0.26"})
                 except (ClothNextError, OSError) as exc:
                     settings = context.scene.cloth_next_recovery
                     settings.status = "Cleanup Failed"

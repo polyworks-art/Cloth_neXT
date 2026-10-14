@@ -386,6 +386,34 @@ def degenerate_faces_from_combined_indices(
     return tuple(faces)
 
 
+def _expand_triangle_pair_records(raw_violations):
+    """Unpack legacy frontend batches without confusing a pair with a batch.
+
+    The official frontend uses ``tris=[[[point]*3]*2, ...]`` plus a count
+    for a whole class of intersections. Modern records contain just two
+    triangles. Keep their metadata and leave malformed records unattributed.
+    """
+    for item in raw_violations:
+        if not isinstance(item, Mapping):
+            continue
+        triangles = item.get("tris")
+        if (isinstance(triangles, (list, tuple)) and triangles
+                and all(isinstance(pair, (list, tuple)) and len(pair) == 2
+                        and all(isinstance(triangle, (list, tuple))
+                                and len(triangle) == 3
+                                and all(isinstance(point, (list, tuple))
+                                        and len(point) == 3
+                                        for point in triangle)
+                                for triangle in pair)
+                        for pair in triangles)):
+            for pair in triangles:
+                record = dict(item)
+                record["tris"] = pair
+                yield record
+        else:
+            yield item
+
+
 def map_diagnostics(
         raw_violations: Iterable[Mapping],
         snapshot: SolverInputSnapshot,
@@ -397,10 +425,17 @@ def map_diagnostics(
     difference remains explicitly unattributed rather than being discarded or
     reconstructed by an independent detector.
     """
-    raw = tuple(item for item in raw_violations if isinstance(item, Mapping))
+    records = tuple(item for item in raw_violations if isinstance(item, Mapping))
+    raw = tuple(_expand_triangle_pair_records(records))
     reported = len(raw) if detected_count is None else int(detected_count)
     if reported < 0:
         raise ValueError("detected_count cannot be negative")
+    # A legacy batch can supply fewer previews than its authoritative count.
+    for item in records:
+        try:
+            reported = max(reported, int(item.get("count", 0)))
+        except (TypeError, ValueError):
+            pass
     total = max(reported, len(raw))
     mapped = []
     unmapped = []

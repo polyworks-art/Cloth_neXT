@@ -79,7 +79,7 @@ class SolverResolver:
             return None
         package, protocol, schema = self._version_probe(layout.executable_path)
         executable = layout.executable_path
-        if protocol in {"0.22", "0.23"} and (
+        if protocol in {"0.22", "0.23", "0.26"} and (
                 layout.root_directory / "target" / "cpu" / "release" / executable.name).is_file():
             from .backend_selection import preferred_executable
             executable = preferred_executable(layout.root_directory)
@@ -119,7 +119,7 @@ class SolverResolver:
             executable = selected.executable
             from .layout import EXECUTABLE_NAME
             if (selected.root / "target" / "cpu" / "release"
-                    / EXECUTABLE_NAME).is_file() and selected.protocol_version in {"0.22", "0.23"}:
+                    / EXECUTABLE_NAME).is_file() and selected.protocol_version in {"0.22", "0.23", "0.26"}:
                 from .backend_selection import executable_for_choice
                 executable = executable_for_choice(
                     selected.root, selected.protocol_version,

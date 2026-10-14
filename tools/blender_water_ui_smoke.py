@@ -18,7 +18,10 @@ class Layout:
     def column(self, **kwargs):
         return self
 
-    def prop(self, owner, name):
+    def box(self):
+        return self
+
+    def prop(self, owner, name, **kwargs):
         assert name in owner.bl_rna.properties, name
         controls.add(name)
 
@@ -29,8 +32,8 @@ class Layout:
         pass
 
     def operator(self, identifier, **kwargs):
-        assert identifier == 'cloth_next.prepare_water_flow'
-        assert bpy.ops.cloth_next.prepare_water_flow.get_rna_type()
+        assert identifier in {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
+        assert getattr(bpy.ops.cloth_next,identifier.split('.')[1]).get_rna_type()
         operators.add(identifier)
 
 
@@ -61,8 +64,17 @@ try:
         'water_flow_debug_mode', 'water_flow_show_bounds',
         'water_flow_show_vectors', 'water_flow_vector_stride', 'water_flow_vector_scale',
     }, controls
-    assert operators == {'cloth_next.prepare_water_flow'}
-    print('WATER FLOW UI PASS: registered Physics panel, twelve RNA controls and preparation operator')
+    assert operators == {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
+    from cloth_next.blender import preferences
+    original_read = preferences._read_registry
+    try:
+        preferences._read_registry = lambda: (SimpleNamespace(
+            selected=SimpleNamespace(protocol_version='0.26')), None)
+        CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
+        assert {'water_flow_coupling_strength', 'water_flow_native_flow'} <= controls
+    finally:
+        preferences._read_registry = original_read
+    print('WATER FLOW UI PASS: registered Physics panel, RNA controls, preparation and FLIP export operators')
 finally:
     cloth_next.unregister()
 assert not hasattr(bpy.types, 'CLOTHNEXT_PT_water_flow')

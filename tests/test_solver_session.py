@@ -112,7 +112,8 @@ class ScriptedWire:
                 "total_frames": self.solver_frames}
 
     def _upload_atomic(self, _address, _config, *, project_name, data_payload,
-                       param_payload, data_hash, param_hash):
+                       param_payload, data_hash, param_hash, check_cancel=None):
+        if check_cancel: check_cancel()
         self.log.append(("upload", project_name, len(data_payload),
                          len(param_payload), data_hash, param_hash))
 
@@ -1930,6 +1931,37 @@ def test_runtime_activity_reads_live_ppf_metric_files(tmp_path):
     assert code == "SOLVING_CONSTRAINTS"
     assert message == "Solver · 408 contacts · Newton 2 · 187 linear iterations"
     assert solver.diagnostics.contact_last == 408
+
+
+def test_runtime_activity_uses_authoritative_project_root(tmp_path):
+    from types import SimpleNamespace
+    scene = _scene()
+    root = tmp_path / "actual-server-project" / "session" / "output" / "data"
+    root.mkdir(parents=True)
+    (root / "advance.num_contact.out").write_text("0.5 103\n", encoding="ascii")
+    (root / "advance.iter.out").write_text("0.5 231\n", encoding="ascii")
+    solver = SolverSession(
+        resolved=_external_resolved(), scene=scene, work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    solver._recovery_record = SimpleNamespace(project_root=root.parent.parent.parent)
+    code, message = solver._runtime_activity()
+    assert code == "SOLVING_CONSTRAINTS"
+    assert "103 contacts" in message and "231 linear iterations" in message
+    assert solver.diagnostics.contact_peak == 103
+
+
+def test_process_tails_do_not_erase_native_file_contact_measurements(tmp_path):
+    from types import SimpleNamespace
+    solver = SolverSession(
+        resolved=_external_resolved(), scene=_scene(), work_directory=tmp_path,
+        external_address=wire.ServerAddress("127.0.0.1", 9))
+    solver.diagnostics.contact_peak=103
+    solver.diagnostics.contact_last=61
+    solver.diagnostics.contact_samples=20
+    solver._merge_process_contacts(SimpleNamespace(contact_peak=0,contact_last=0,contact_samples=0))
+    assert (solver.diagnostics.contact_peak,solver.diagnostics.contact_last,solver.diagnostics.contact_samples)==(103,61,20)
+    solver._merge_process_contacts(SimpleNamespace(contact_peak=119,contact_last=80,contact_samples=10))
+    assert (solver.diagnostics.contact_peak,solver.diagnostics.contact_last,solver.diagnostics.contact_samples)==(119,80,20)
 
 
 def test_failed_owned_stop_keeps_manager_reference(monkeypatch):

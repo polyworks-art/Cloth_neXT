@@ -16,6 +16,8 @@ class ProtocolAdapter:
     legacy_ccd: bool = False
     object_attachments: bool = True
     official_scene_bridge: bool = False
+    collider_attachments: bool = False
+    native_fluid: bool = False
 
     def adapt_scene_params(self, scene: dict, quality: object) -> None:
         if self.legacy_ccd:
@@ -25,10 +27,15 @@ class ProtocolAdapter:
 
 
 ADAPTERS = MappingProxyType({
+    "official-gaia026-schema2": ProtocolAdapter("official-gaia026-schema2", "2",
+                                                official_scene_bridge=True,
+                                                collider_attachments=True,
+                                                native_fluid=True),
     "legacy-schema2": ProtocolAdapter("legacy-schema2", "2", True),
     "modern-schema2": ProtocolAdapter("modern-schema2", "2"),
     "official-gaia-schema2": ProtocolAdapter("official-gaia-schema2", "2",
-                                             official_scene_bridge=True),
+                                             official_scene_bridge=True,
+                                             collider_attachments=True),
 })
 
 # Historical schema-1 encoder fixtures remain available for import and tests;

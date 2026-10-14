@@ -875,7 +875,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=(
                 f"{active.display_name} · Protocol "
                 f"{active.protocol_version} · Schema {active.schema_version}"))
-            if active.protocol_version in {"0.22", "0.23", "0.18"}:
+            if active.protocol_version in {"0.22", "0.23", "0.26", "0.18"}:
                 from ..ppf.backend_selection import available_backend_choices
                 backend = box.row()
                 backend.enabled = not session_active
@@ -946,9 +946,10 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         for entry in (item for item in _session.entries if item.downloadable):
             row_box = available_box.box()
             row_box.label(text=entry.display_name)
+            channel_label = 'Experimental' if entry.protocol_version == '0.26' else entry.channel.title()
             row_box.label(text=(
                 f"Protocol {entry.protocol_version} · Schema "
-                f"{entry.schema_version} · {entry.channel.title()}"))
+                f"{entry.schema_version} · {channel_label}"))
             if entry.official_release_tag in installed_tags:
                 row_box.label(text="Installed", **icon_registry.icon_kwargs("success", "CHECKMARK"))
                 reinstall_row = row_box.row()

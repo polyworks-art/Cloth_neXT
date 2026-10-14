@@ -56,7 +56,7 @@ class WaterStreamReader:
             stored=water['fingerprint']
             if stored!=expected_fingerprint or fingerprint({k:v for k,v in water.items() if k!='fingerprint'})!=stored:
                 raise WaterStreamCacheError('Water Flow cache fingerprint changed or is invalid; prepare it again')
-            if water.get('field_format')!='gaia-0.23' or water.get('physical_velocity_units')!='m/s':
+            if water.get('field_format') not in {'gaia-0.23','velocity-occupancy-v1'} or water.get('physical_velocity_units')!='m/s':
                 raise WaterStreamCacheError('Unsupported Water Flow field kind or velocity units')
             if not math.isclose(float(water['fps']),self.fps,rel_tol=0.,abs_tol=1e-7):
                 raise WaterStreamCacheError('Water Flow cache FPS differs from Cloth FPS')

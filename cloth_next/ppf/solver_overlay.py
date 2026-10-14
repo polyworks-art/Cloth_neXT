@@ -465,9 +465,16 @@ class IntegrationRecipe:
     marker_name: str
     anchors: tuple[str, ...]
     overlay: str
+    field_anchors: tuple[str, ...] = ()
 
 
 INTEGRATION_RECIPES = MappingProxyType({
+    "gaia-026-official": IntegrationRecipe(
+        "gaia-026-official", "0.26", "2", "2026-10-13-12-32",
+        ".cloth-next-official-integration-0.26-schema-2",
+        ("stiffness = np.asarray(self._stitch_stiffness, dtype=np.float32)",
+         "if stiffness.shape != (n_stitch,):", "def set_stitch("), "none",
+        ("class FluidVolume:", "def from_bricks(", "def make_field(")),
     "velune-verified": IntegrationRecipe(
         "velune-verified", "0.13", "2", UPSTREAM_013_RELEASE,
         ".cloth-next-upstream-integration-0.13-schema-2", (), "legacy"),
@@ -523,6 +530,11 @@ def apply_solver_overlay(bundle_root: Path, *, protocol_version: str,
             source = scene.read_text(encoding="utf-8")
             if any(source.count(anchor) != 1 for anchor in recipe.anchors):
                 raise SolverOverlayError("official public scene API does not match this release")
+            if recipe.field_anchors:
+                field = frontend / "_force_field_.py"
+                if not field.is_file() or any(field.read_text(encoding="utf-8").count(anchor) != 1
+                                              for anchor in recipe.field_anchors):
+                    raise SolverOverlayError("official public fluid API does not match this release")
             return
         marker = bundle_root / recipe.marker_name
         diagnostics_marker = bundle_root / (f".cloth-next-{OVERLAY_VERSION}-gaia"

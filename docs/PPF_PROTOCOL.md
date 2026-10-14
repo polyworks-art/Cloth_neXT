@@ -1,5 +1,11 @@
 # Verified PPF protocol
 
+Newer development audit: [GAIA 0.26 / schema 2](GAIA026_INTEGRATION_REPORT.md).
+That candidate uses `force_field.fields` and `scripts`, native FluidVolume
+brick tables and byte chunks ≤1 MiB. The external `.gaia` authoring cache is
+retained. The candidate is not certified for production Blender bakes and its
+normal download remains disabled; the older contract below is historical.
+
 Status: observed at official commit `7193f158`, protocol `0.11`. This is an
 implementation contract to pin and test, not a promise of upstream stability.
 

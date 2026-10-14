@@ -1,0 +1,1200 @@
+{
+  "returncode": 0,
+  "wall_seconds": 27.53099999999995,
+  "process_peaks": [
+    {
+      "pid": 13472,
+      "name": "blender.exe",
+      "argv": [
+        "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Blender\\blender.exe",
+        "--background",
+        "--factory-startup",
+        "--disable-autoexec",
+        "--python-exit-code",
+        "1",
+        "--python",
+        "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\tools\\blender_gaia026_production_scale.py",
+        "--",
+        "--repo",
+        "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT",
+        "--solver",
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+        "--output",
+        "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-collider-0.2-wet",
+        "--fluid-source",
+        "F:\\16_Cloth_neXt\\Flip_Test.blend",
+        "--last",
+        "12",
+        "--timeout",
+        "1800",
+        "--vertices",
+        "1000",
+        "--combination",
+        "collider",
+        "--strength",
+        "0.2",
+        "--gaia",
+        "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\fields\\12.gaia"
+      ],
+      "os_peak_working_set_bytes": 467415040
+    },
+    {
+      "pid": 44096,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0xffffffff",
+        "-ForceV1"
+      ],
+      "os_peak_working_set_bytes": 8474624
+    },
+    {
+      "pid": 44772,
+      "name": "cmd.exe",
+      "argv": [
+        "C:\\WINDOWS\\system32\\cmd.exe",
+        "/c",
+        "ver"
+      ],
+      "os_peak_working_set_bytes": 6090752
+    },
+    {
+      "pid": 10976,
+      "name": "ppf-contact-solver.exe",
+      "argv": [
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-contact-solver.exe",
+        "--probe"
+      ],
+      "os_peak_working_set_bytes": 145612800
+    },
+    {
+      "pid": 26568,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,compute_cap,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32292864
+    },
+    {
+      "pid": 44108,
+      "name": "ppf-cts-server.exe",
+      "argv": [
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+        "--version"
+      ],
+      "os_peak_working_set_bytes": 5345280
+    },
+    {
+      "pid": 7476,
+      "name": "cmd.exe",
+      "argv": [
+        "C:\\WINDOWS\\system32\\cmd.exe",
+        "/c",
+        "ver"
+      ],
+      "os_peak_working_set_bytes": 9650176
+    },
+    {
+      "pid": 32060,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2748416
+    },
+    {
+      "pid": 25316,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7593984
+    },
+    {
+      "pid": 33572,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32169984
+    },
+    {
+      "pid": 46432,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7757824
+    },
+    {
+      "pid": 20848,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32718848
+    },
+    {
+      "pid": 2608,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7196672
+    },
+    {
+      "pid": 35920,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2064384
+    },
+    {
+      "pid": 4144,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10403840
+    },
+    {
+      "pid": 45136,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 8757248
+    },
+    {
+      "pid": 46668,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 82173952
+    },
+    {
+      "pid": 15820,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 8245248
+    },
+    {
+      "pid": 48724,
+      "name": "powershell.exe",
+      "argv": [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        "TgBlAHcALQBJAHQAZQBtACAALQBJAHQAZQBtAFQAeQBwAGUAIABKAHUAbgBjAHQAaQBvAG4AIAAtAFAAYQB0AGgAIAAnAEMAOgBcAFUAcwBlAHIAcwBcAHQAaQBtAGMAaABcAEEAcABwAEQAYQB0AGEAXABMAG8AYwBhAGwAXABDAGwAbwB0AGgATgBlAFgAdABcAHMAbwBsAHYAZQByAFwAdgBlAHIAcwBpAG8AbgBzAFwAbwBmAGYAaQBjAGkAYQBsAC0AMgAwADIANgAtADEAMAAtADEAMwAtADEAMgAtADMAMgAtAHcAaQBuADYANABcAHQAYQByAGcAZQB0AFwAbABvAGMAYQBsAFwAcwBoAGEAcgBlAFwAcABwAGYALQBjAHQAcwBcAGcAaQB0AC0AdQBuAGsAbgBvAHcAbgBcAC4AYwBuAHgALQBsAGkAbgBrAC0AMAAxADEANwA3AGIAOAA3AGIAMwAzADQANAAyAGEAZQA4ADQAZgBkADkAOQAwADAANQAwAGYAYgAzAGYAZgA2AC4AdABlAG0AcABvAHIAYQByAHkAJwAgAC0AVABhAHIAZwBlAHQAIAAnAEMAOgBcAFUAcwBlAHIAcwBcAHQAaQBtAGMAaABcAEEAcABwAEQAYQB0AGEAXABMAG8AYwBhAGwAXABUAGUAbQBwAFwAYwBuAHgAMAAyADYALQBwAHIAbwBkAHUAYwB0AGkAbwBuAC0AcwBjAGEAbABlAC0AMgAwADIANgAxADAAMQA0AFwAbQBhAHQAcgBpAHgAXAAxADAAMAAwAC0AMQAyAC0AYwBvAGwAbABpAGQAZQByAC0AMAAuADIALQB3AGUAdABcAC4AYwBsAG8AdABoAF8AbgBlAHgAdABfAHIAZQBjAG8AdgBlAHIAeQBcAGIANgBiAGEAMwA2AGIANgAxAGQAOQA0AGEAYQAxADUAZgA3ADEAYgBmADEAOAAzADgANAAxADMAOABiADgANABkADcANQA3AGEAMgA2ADIAMAA2ADMAOQBlAGMAMwA5ADkANwA4ADEAYwBlADMAMQAwADEANwAzADkAYwBhAGMALQBiADAAMgA5ADYAOAAwAGIAOABiADcANQA0AGIAOQA3ADgAYwAxADgAYQBjADcAYgA4ADUAMwBhADYANgBhAGEAXABzAGUAcgB2AGUAcgAtAGQAYQB0AGEAXABjAGwAbwB0AGgAbgBlAHgAdABfAGEAYgA3ADAAZQAxAGEAYwBiAGYAYwAzACcAIAAtAEUAcgByAG8AcgBBAGMAdABpAG8AbgAgAFMAdABvAHAAIAB8ACAATwB1AHQALQBOAHUAbABsAA=="
+      ],
+      "os_peak_working_set_bytes": 66572288
+    },
+    {
+      "pid": 1980,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0xffffffff",
+        "-ForceV1"
+      ],
+      "os_peak_working_set_bytes": 7954432
+    },
+    {
+      "pid": 19364,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2748416
+    },
+    {
+      "pid": 49032,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0xffffffff",
+        "-ForceV1"
+      ],
+      "os_peak_working_set_bytes": 7761920
+    },
+    {
+      "pid": 30796,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 7602176
+    },
+    {
+      "pid": 32904,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0xffffffff",
+        "-ForceV1"
+      ],
+      "os_peak_working_set_bytes": 7790592
+    },
+    {
+      "pid": 45328,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34406400
+    },
+    {
+      "pid": 40120,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7749632
+    },
+    {
+      "pid": 46348,
+      "name": "ppf-cts-server.exe",
+      "argv": [
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "51026",
+        "--progress-file",
+        "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next\\progress-2b5650a016f342ee862cbdedd649f99e.log"
+      ],
+      "os_peak_working_set_bytes": 38379520
+    },
+    {
+      "pid": 43356,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi"
+      ],
+      "os_peak_working_set_bytes": 37924864
+    },
+    {
+      "pid": 9708,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32161792
+    },
+    {
+      "pid": 30792,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 44964,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 31768576
+    },
+    {
+      "pid": 42796,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 9992,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32673792
+    },
+    {
+      "pid": 48448,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7749632
+    },
+    {
+      "pid": 49076,
+      "name": "nvidia-smi.exe",
+      "argv": [],
+      "os_peak_working_set_bytes": 34316288
+    },
+    {
+      "pid": 45512,
+      "name": "cmd.exe",
+      "argv": [
+        "C:\\WINDOWS\\system32\\cmd.exe",
+        "/c",
+        "ver"
+      ],
+      "os_peak_working_set_bytes": 9744384
+    },
+    {
+      "pid": 9512,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 8577024
+    },
+    {
+      "pid": 47092,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 46528,
+      "name": "ppf-contact-solver.exe",
+      "argv": [
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-contact-solver.exe",
+        "--probe"
+      ],
+      "os_peak_working_set_bytes": 129572864
+    },
+    {
+      "pid": 35892,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,compute_cap,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2273280
+    },
+    {
+      "pid": 10708,
+      "name": "cmd.exe",
+      "argv": [
+        "cmd",
+        "/C",
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_ab70e1acbfc3\\session\\command.bat",
+        "--load=0"
+      ],
+      "os_peak_working_set_bytes": 11374592
+    },
+    {
+      "pid": 46660,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32677888
+    },
+    {
+      "pid": 44992,
+      "name": "ppf-contact-solver.exe",
+      "argv": [
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-contact-solver.exe",
+        "--path",
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_ab70e1acbfc3\\session",
+        "--output",
+        "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_ab70e1acbfc3\\session\\output",
+        "--load=0"
+      ],
+      "os_peak_working_set_bytes": 175902720
+    },
+    {
+      "pid": 41296,
+      "name": "git.exe",
+      "argv": [
+        "git",
+        "status",
+        "--short"
+      ],
+      "os_peak_working_set_bytes": 5914624
+    },
+    {
+      "pid": 18004,
+      "name": "git.exe",
+      "argv": [
+        "git",
+        "config",
+        "--list"
+      ],
+      "os_peak_working_set_bytes": 8101888
+    },
+    {
+      "pid": 48908,
+      "name": "git.exe",
+      "argv": [
+        "git.exe",
+        "config",
+        "--list"
+      ],
+      "os_peak_working_set_bytes": 7782400
+    },
+    {
+      "pid": 30876,
+      "name": "git.exe",
+      "argv": [
+        "git",
+        "branch",
+        "--list",
+        "--no-color"
+      ],
+      "os_peak_working_set_bytes": 8093696
+    },
+    {
+      "pid": 9672,
+      "name": "git.exe",
+      "argv": [
+        "git.exe",
+        "branch",
+        "--list",
+        "--no-color"
+      ],
+      "os_peak_working_set_bytes": 6496256
+    },
+    {
+      "pid": 44368,
+      "name": "git.exe",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "os_peak_working_set_bytes": 8110080
+    },
+    {
+      "pid": 25172,
+      "name": "git.exe",
+      "argv": [
+        "git.exe",
+        "rev-parse",
+        "HEAD"
+      ],
+      "os_peak_working_set_bytes": 10657792
+    },
+    {
+      "pid": 10604,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32120832
+    },
+    {
+      "pid": 45576,
+      "name": "git.exe",
+      "argv": [
+        "git",
+        "rev-parse",
+        "--short",
+        "HEAD"
+      ],
+      "os_peak_working_set_bytes": 8081408
+    },
+    {
+      "pid": 46764,
+      "name": "git.exe",
+      "argv": [
+        "git.exe",
+        "rev-parse",
+        "--short",
+        "HEAD"
+      ],
+      "os_peak_working_set_bytes": 4468736
+    },
+    {
+      "pid": 46360,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 36220,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 6479872
+    },
+    {
+      "pid": 45996,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 3366912
+    },
+    {
+      "pid": 43184,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 9363456
+    },
+    {
+      "pid": 41760,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32727040
+    },
+    {
+      "pid": 41212,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2555904
+    },
+    {
+      "pid": 48972,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32722944
+    },
+    {
+      "pid": 43316,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32710656
+    },
+    {
+      "pid": 336,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32161792
+    },
+    {
+      "pid": 45776,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7766016
+    },
+    {
+      "pid": 38996,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32808960
+    },
+    {
+      "pid": 43400,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34422784
+    },
+    {
+      "pid": 46308,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 5107712
+    },
+    {
+      "pid": 4476,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32702464
+    },
+    {
+      "pid": 48872,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34443264
+    },
+    {
+      "pid": 40220,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32714752
+    },
+    {
+      "pid": 14528,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2748416
+    },
+    {
+      "pid": 45084,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2748416
+    },
+    {
+      "pid": 43684,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 7155712
+    },
+    {
+      "pid": 48412,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32862208
+    },
+    {
+      "pid": 35612,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7254016
+    },
+    {
+      "pid": 46328,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32727040
+    },
+    {
+      "pid": 8796,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32661504
+    },
+    {
+      "pid": 44876,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 8081408
+    },
+    {
+      "pid": 48336,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32702464
+    },
+    {
+      "pid": 48404,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10985472
+    },
+    {
+      "pid": 39352,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2396160
+    },
+    {
+      "pid": 3728,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 16396288
+    },
+    {
+      "pid": 48184,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 7180288
+    },
+    {
+      "pid": 14896,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10985472
+    },
+    {
+      "pid": 45232,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34390016
+    },
+    {
+      "pid": 39056,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10981376
+    },
+    {
+      "pid": 45392,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 33788,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 2404352
+    },
+    {
+      "pid": 46748,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34398208
+    },
+    {
+      "pid": 47896,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32710656
+    },
+    {
+      "pid": 32992,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32718848
+    },
+    {
+      "pid": 23616,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 7192576
+    },
+    {
+      "pid": 13064,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10973184
+    },
+    {
+      "pid": 30476,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 29532160
+    },
+    {
+      "pid": 21576,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32714752
+    },
+    {
+      "pid": 45860,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32706560
+    },
+    {
+      "pid": 48864,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32919552
+    },
+    {
+      "pid": 21728,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7757824
+    },
+    {
+      "pid": 40476,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 21524480
+    },
+    {
+      "pid": 29940,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 9371648
+    },
+    {
+      "pid": 9488,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32690176
+    },
+    {
+      "pid": 48176,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 8962048
+    },
+    {
+      "pid": 45408,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32714752
+    },
+    {
+      "pid": 17844,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 10805248
+    },
+    {
+      "pid": 45772,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32804864
+    },
+    {
+      "pid": 396,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 8712192
+    },
+    {
+      "pid": 48852,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 19046400
+    },
+    {
+      "pid": 32880,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 35608,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32784384
+    },
+    {
+      "pid": 38700,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 29368320
+    },
+    {
+      "pid": 5084,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32722944
+    },
+    {
+      "pid": 42044,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32702464
+    },
+    {
+      "pid": 30820,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34451456
+    },
+    {
+      "pid": 48560,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32718848
+    },
+    {
+      "pid": 42400,
+      "name": "nvidia-smi.exe",
+      "argv": [],
+      "os_peak_working_set_bytes": 34373632
+    },
+    {
+      "pid": 48228,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=index,uuid,utilization.gpu,memory.used,memory.total,name",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 32772096
+    },
+    {
+      "pid": 48132,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 12943360
+    },
+    {
+      "pid": 33636,
+      "name": "conhost.exe",
+      "argv": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ],
+      "os_peak_working_set_bytes": 7753728
+    },
+    {
+      "pid": 47736,
+      "name": "nvidia-smi.exe",
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=clocks.current.sm",
+        "--format=csv,noheader,nounits"
+      ],
+      "os_peak_working_set_bytes": 34377728
+    }
+  ],
+  "sampled_tree_peak_rss_bytes": 721694720,
+  "tree_sample_period_seconds": 0.05,
+  "solver_vram_bytes": null,
+  "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A"
+}

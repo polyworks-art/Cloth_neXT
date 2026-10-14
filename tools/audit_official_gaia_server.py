@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--two-intra-seams", action="store_true")
     parser.add_argument("--central-bridge", action="store_true")
+    parser.add_argument("--expected-protocol", default="0.23", choices=("0.23", "0.26"))
     args = parser.parse_args()
     assert not os.environ.get("PPF_CTS_DATA_ROOT"), "no test-rig overrides"
     root = Path.cwd()
@@ -85,7 +86,7 @@ def main():
                     raise
                 time.sleep(0.1)
         print("handshake", json.dumps(response), flush=True)
-        assert response["protocol_version"] == "0.23"
+        assert response["protocol_version"] == args.expected_protocol
         cloth, collider = vertical_slice_fixture()
         if args.two_intra_seams:
             vertices, triangles = [], []

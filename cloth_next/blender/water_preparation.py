@@ -11,11 +11,19 @@ from ..bake.controller import shared_controller
 from ..bake.status import BakeActivity, BakeJobKind, BakeState
 from ..bake.transport import EnterBakeMode
 from ..gaia.preparation import PreparationCancelled, WaterPreparationWorker, source_stamp
+from ..gaia.water_field import fingerprint
 from ..ppf_run.session import SessionCancelled
 from . import companion_manager, modal_lock
 
 _job = None
 _prepared = {}
+
+
+def _field_signature(metadata):
+    document=dict(metadata)
+    document.pop('fingerprint',None)
+    document['provider']=dict(document['provider'],sources=[])
+    return fingerprint(document)
 
 
 def active(job_id=None):
@@ -197,9 +205,32 @@ def _pump():
             fps = state['context'].scene.render.fps/state['context'].scene.render.fps_base
             metadata = {'provider':provider.identity, 'frames':[state['first'],state['last']], 'fps':fps,
                         'dimensions':dims, 'algorithm':'trilinear-splat-support-v2',
-                        'field_format':'gaia-0.23', 'physical_velocity_units':'m/s', 'grid_layout':layout}
+                        'field_format':'velocity-occupancy-v1', 'physical_velocity_units':'m/s',
+                        'velocity_policy':'unclamped', 'grid_layout':layout}
             state['provider'] = provider
             state['settings'] = water_settings_record(obj)
+            state['field_signature']=_field_signature(metadata)
+            destination=Path(obj.cloth_next.water_flow_container)
+            for proof in tuple(_prepared.values()):
+                if proof['job']!=state['id'] or proof['path']!=destination:continue
+                if proof.get('field_signature')!=state['field_signature']:
+                    raise ValueError('These Cloth objects use different Fluid Cache settings but the same .gaia file. '
+                                     'Choose a separate .gaia file for each fluid source or grid.')
+                if tuple(path for path,stamp in proof['sources'])!=tuple(map(Path,provider.source_paths)):
+                    continue
+                try:
+                    unchanged=(source_stamp(destination)==proof['cache_stamp'] and
+                        all(source_stamp(path)==stamp for path,stamp in proof['sources']))
+                except OSError:unchanged=False
+                if not unchanged:continue
+                _prepared[(obj.name,state['first'],state['last'])]=dict(proof,settings=state['settings'])
+                state['index']+=1;state['provider']=None
+                shared_controller.update(status_message='Using verified Fluid Cache',
+                    activity_label='Using verified Fluid Cache',active_object_name=obj.name,
+                    progress_current=state['index']*1000,progress_total=len(state['objects'])*1000,
+                    preparation_current=len(frames),preparation_total=len(frames))
+                if state['index']==len(state['objects']):return _finish(state)
+                return .05
             worker = WaterPreparationWorker(Path(obj.cloth_next.water_flow_container), metadata,
                 provider.source_paths, frames, provider.minimum, provider.maximum).start()
             state['worker'] = worker
@@ -212,8 +243,8 @@ def _pump():
             shared_controller.update(status_title='Preparing Water Flow',
                 status_message=stage, activity_code=BakeActivity.PREPARING_WATER,
                 activity_label=f'{stage} · {current} / {total}', current_frame=frame,
-                progress_current=state['index']*3*len(worker.frames)+overall,
-                progress_total=len(state['objects'])*3*len(worker.frames),
+                progress_current=int(1000*(state['index']+min(1.,overall/(len(worker.paths)+len(worker.frames))))),
+                progress_total=len(state['objects'])*1000,
                 preparation_current=current, preparation_total=total,
                 active_object_name=state['objects'][state['index']].name,
                 elapsed_seconds=time.monotonic()-state['started'])
@@ -225,6 +256,7 @@ def _pump():
                 raise ValueError('Water Flow settings changed during preparation; retry')
             _prepared[(obj.name,state['first'],state['last'])] = {
                 'job':state['id'], 'settings':state['settings'], 'path':worker.result,
+                'field_signature':state['field_signature'],
                 'cache_stamp':source_stamp(worker.result), 'sources':tuple(worker.source_stamps)}
             state['index'] += 1
             state['worker'] = None
@@ -235,7 +267,9 @@ def _pump():
         except Empty: frame = None
         if frame is not None:
             shared_controller.update(activity_label=f'Reading FLIP · Frame {frame}', current_frame=frame)
-            try: sample = state['provider'].sample(frame)
+            try:
+                provider=state['provider']
+                sample=getattr(provider,'sample_stream',provider.sample)(frame)
             except Exception as exc: sample = exc
             worker.responses.put_nowait(sample)
         return .05

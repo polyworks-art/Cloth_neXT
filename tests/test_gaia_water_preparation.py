@@ -67,6 +67,26 @@ def test_cancel_while_waiting_for_capture_preserves_existing_cache(tmp_path):
     assert not list(tmp_path.glob('*.tmp'))
 
 
+def test_invalid_stream_preserves_previous_verified_container(tmp_path):
+    import struct
+    from cloth_next.gaia.particle_stream import ParticleFileSample
+    complete=worker(tmp_path).start();feed(complete)
+    before=complete.path.read_bytes()
+    positions=tmp_path/'p.ffp3';velocities=tmp_path/'v.ffp3'
+    header=struct.pack('<4I',2,0,0,1)+struct.pack('<3I',2,0,0)
+    positions.write_bytes(header+np.full((2,3),.5,dtype='<f4').tobytes())
+    values=np.ones((2,3),dtype='<f4');values[-1,0]=np.inf
+    velocities.write_bytes(header+values.tobytes())
+    failed=WaterPreparationWorker(complete.path,{'provider':{},'frames':[1,1],
+        'fps':24.,'dimensions':[3,3,3]},[positions,velocities],[1],[0,0,0],[1,1,1]).start()
+    assert failed.requests.get(timeout=5)==1
+    failed.responses.put(ParticleFileSample(positions,velocities,tuple(map(tuple,np.eye(4))),(0,0,0)))
+    failed.thread.join(timeout=5)
+    assert failed.done.is_set() and isinstance(failed.error,ValueError)
+    assert complete.path.read_bytes()==before
+    assert not list(tmp_path.glob('*.tmp'))
+
+
 def test_capture_failure_is_returned_and_partial_output_removed(tmp_path):
     job = worker(tmp_path).start()
     assert job.requests.get(timeout=5) == 1

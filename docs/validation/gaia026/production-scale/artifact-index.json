@@ -1,0 +1,1986 @@
+{
+  "scope": "Completed case reports only; running jobs omitted",
+  "cases": [
+    {
+      "report": "dry-control-1000\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "base",
+      "dry": true,
+      "wall_seconds": 39.41236459999709,
+      "native_file_metrics": [],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\dry-control-1000\\fixture.blend",
+          "available": true,
+          "bytes": 1483633,
+          "sha256": "ecdfb7d08a042a2b3807a9e44df2388eeffc8256038aa0e8fb43367087293bb8"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\dry-control-1000\\cn_test_cloth_e84f431452cc.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "9c176b28a0c33ab00b637eca5da6c2a25359d97158130e5fd25af74a7bf1a78a"
+        }
+      ]
+    },
+    {
+      "report": "dry-control-5000\\report.json",
+      "result": "PASS",
+      "vertices": 5000,
+      "frames": 60,
+      "combination": "base",
+      "dry": true,
+      "wall_seconds": 42.57278679999945,
+      "native_file_metrics": [],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\dry-control-5000\\fixture.blend",
+          "available": true,
+          "bytes": 1636455,
+          "sha256": "b31bf11ddb82a76ad8f3191739258243521ddad3c0cc9d7719a5ce6025c3c8a7"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\dry-control-5000\\cn_test_cloth_18e9814e6e11.pc2",
+          "available": true,
+          "bytes": 3600032,
+          "sha256": "87b54fe09a7f5aa109505bac802b2518375a6cfa2268e49aaff24a3aaacb686b"
+        }
+      ]
+    },
+    {
+      "report": "folded-retry\\1000-12-folded-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "folded",
+      "dry": false,
+      "wall_seconds": 59.6985022000008,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646292,
+          "encoding_seconds": 3.45436730000074,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-12-folded-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1480215,
+          "sha256": "e051708ec24c1d851e1bfdc54673f84ca6754441f9301fa07aede7051a790927"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-12-folded-0.2-wet\\cn_test_cloth_988ada9ba02a.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "672733e03905084b7bf8bc92c8402ebf5db7744bfa4ef64dc08904bed4146964"
+        }
+      ]
+    },
+    {
+      "report": "folded-retry\\1000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 22.55858150000131,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1721572,
+          "encoding_seconds": 0.838423100001819,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483449,
+          "sha256": "1697971141637149e36965eb63f57121c9c81d5fa84c301005ed4721591d96cd"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-3-base-0.2-wet\\cn_test_cloth_62d9c047d2c1.pc2",
+          "available": true,
+          "bytes": 36032,
+          "sha256": "356903b8e1fd681c6c9de9ca7c176d6206cb23b248bf7a0f8c591bee75b30364"
+        }
+      ]
+    },
+    {
+      "report": "folded-retry\\1000-60-folded-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "folded",
+      "dry": false,
+      "wall_seconds": 270.8289693000006,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022674,
+          "encoding_seconds": 17.350374999998166,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-60-folded-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1480211,
+          "sha256": "027a193a6330188c39b45ad6dbd9f3c79a30f69844b41c95bbeafbcb80995f70"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\folded-retry\\1000-60-folded-0.2-wet\\cn_test_cloth_02030d397d75.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "a594206ab72e83414010ce7e102873b9b3251b60704e23c32feb6082c3992640"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-base-0.05-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 45.13212270000008,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646292,
+          "encoding_seconds": 4.629040399999894,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-base-0.05-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483557,
+          "sha256": "f681bd1932ff73c69d52ba30d62426dfdebe90bf30b33dc056a108de6625a464"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-base-0.05-wet\\cn_test_cloth_2ee7843a565b.pc2",
+          "available": false
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-base-1-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 26.208232099999805,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646292,
+          "encoding_seconds": 3.556030599999758,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-base-1-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483513,
+          "sha256": "e62c048e389067e437bda3bbc8deae34840d511099c6cb3dd9ee82406cc10089"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-base-1-wet\\cn_test_cloth_e052cb683ddc.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "2fffeaee9bb44ef2c0dcb0f4b7e265f009383f9df35a7bc4adee48cea7d4997d"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-collider-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "collider",
+      "dry": false,
+      "wall_seconds": 24.718339700000342,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646276,
+          "encoding_seconds": 4.50380320000022,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-collider-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489352,
+          "sha256": "9ebb25d53c28a43fd1ca012470abb439a42efff60b235b028d7315b633c9d5a4"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-collider-0.2-wet\\cn_test_cloth_ab70e1acbfc3.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "65c219b54592a262b32dd160ffd9eb592826ebb6d7afdbba1bc237705bad48d6"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-folded-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "folded",
+      "dry": false,
+      "wall_seconds": 2.5928703999998106,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-folded-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1480140,
+          "sha256": "1c00ea36e29997807171da549fe668160da02dea632552b8197baeeac195bd58"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-two-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "two",
+      "dry": false,
+      "wall_seconds": 27.973612799999955,
+      "native_file_metrics": [
+        {
+          "frame_count": 24,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 19282848,
+          "param_bytes": 19291927,
+          "encoding_seconds": 7.146385999999893,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-two-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1509943,
+          "sha256": "131e31f80f00efccb5e415cdddd9ff4e43ff088eab22d0b71a974b73e25c711e"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-two-0.2-wet\\cn_test_cloth_15b0f05bf52b_00.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "a3b6e88814317d9fb1f79e16dd0c616e1398cbcfa7d88e26217605511ff11e26"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-two-0.2-wet\\cn_test_cloth_15b0f05bf52b_01.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "38b932a656e209b5fc9995460dba9107f0804b9d3e6efc3995b2d9e00722293b"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-12-zones-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "zones",
+      "dry": false,
+      "wall_seconds": 1.4812475999997332,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-12-zones-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1484785,
+          "sha256": "56e4bfb134f31dc6a14061f0f7eaf5a29ad7bbca6657a2d370d6b4ee6bb78384"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-250-base-0.05-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 356.2368537,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232902,
+          "encoding_seconds": 99.56427539999981,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-0.05-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483612,
+          "sha256": "822f878c4858275ba807f207aa08a7131917cd6b969322a461b52c8520ee640c"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-0.05-wet\\cn_test_cloth_c6e7743a7947.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "351cf0d58f990082a0a3393c621fc6249445cd73366629756699d09e4ca89585"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-250-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 408.6424134,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232902,
+          "encoding_seconds": 83.4317393,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483563,
+          "sha256": "0a6129b356f8695fbbcef1ec056e29f5ca4692d0c56bedf4157be094ba3049d4"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-0.2-wet\\cn_test_cloth_1f30a6d5b3b1.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "92d35c40a8987ec27f6994bed6512fc3c8e706d45f8746d62e13520e5c2bf200"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-250-base-1-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 323.98416810000026,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232902,
+          "encoding_seconds": 98.90365840000004,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-1-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483726,
+          "sha256": "d247eaf76f6d05723ee62473ff62bf37e4eec532ae6b712f5b4329a6af91a3b7"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-base-1-wet\\cn_test_cloth_d8a183213942.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "7f975bb4ae6a4bd126e90cee1ca7fc63c9409788c62b3710135c9e0704dd1046"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-250-collider-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "collider",
+      "dry": false,
+      "wall_seconds": 309.4676239999999,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232886,
+          "encoding_seconds": 81.12882669999999,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-collider-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489423,
+          "sha256": "6d51c65dc3e3e70f864f509d74a411dbefbd885ed5b9e302e614a498af8fbafd"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-collider-0.2-wet\\cn_test_cloth_a8b0a4d79baa.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "aff8461fbc84801ef295fcf68df4415b51b2256eff1c393337c0c582a754712d"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-250-two-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "two",
+      "dry": false,
+      "wall_seconds": 155.60304989999986,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-250-two-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1509971,
+          "sha256": "d965ab610f696dce7888c17f0c259d7e17114e0699064bf7349ce1ce59185da4"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 12.957196199999998,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1721572,
+          "encoding_seconds": 0.9236450000000787,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483452,
+          "sha256": "831da78e0f389a617b9f631cf16709b0b6d0de8bf59f9f08c49eb16082fe0ecb"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-3-base-0.2-wet\\cn_test_cloth_ceca31df87c1.pc2",
+          "available": true,
+          "bytes": 36032,
+          "sha256": "5a6d81a5c89c1ddfdc03455c0e5c2cdb68017b5a4636051b7838921db73fa5ef"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-base-0.05-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 88.4306752,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022674,
+          "encoding_seconds": 22.153268900000057,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-0.05-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483609,
+          "sha256": "2396b687d81f3b04e31be9198c7d1ca9a1da79eb8aff9488ee963facaf787f48"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-0.05-wet\\cn_test_cloth_e035ff1df560.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "d21bcbc4d9a7dc964fa5a447c538533e1ac6241313575821f5ad48a9380e7517"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-base-0.2-dry\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "base",
+      "dry": true,
+      "wall_seconds": 12.291946700000153,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-0.2-dry\\fixture.blend",
+          "available": true,
+          "bytes": 1483730,
+          "sha256": "d073e32885737d80fc80b1f8949e402fd9d14eacc942084c98e90355e28ec251"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 84.61182770000005,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022674,
+          "encoding_seconds": 19.912974000000077,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483702,
+          "sha256": "2e10ff0e90b91bc0b2519b8c00752f75832d17e6e26ce12c6e1186cd13ea637f"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-0.2-wet\\cn_test_cloth_0ec161ff442d.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "a78512fa5ada55be505112b8e9862fc2ae1763ee5492276908e0f80df34bc13b"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-base-1-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 80.10306390000005,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022674,
+          "encoding_seconds": 21.92836649999981,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-1-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483401,
+          "sha256": "74d7c3864438eae4583396274c10d2285abef7e1faf04c4d25afa22b55091a8d"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-base-1-wet\\cn_test_cloth_11d16fbc6818.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "8b91816f31edc20dfcff29d19f7b9ba9ae2de1c571aef9019cf94f38b027623a"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-collider-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "collider",
+      "dry": false,
+      "wall_seconds": 80.48732400000017,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022658,
+          "encoding_seconds": 20.876319599999988,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-collider-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489406,
+          "sha256": "c656c9db07ba043d07586f88a99aab8a098f49f78632b1aa61949ff84f6ead44"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-collider-0.2-wet\\cn_test_cloth_2340b071bb13.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "1f4469518e100c42d5ff3b7a93a6320d6544cd839e715170337e477ea4174767"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\1000-60-two-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "two",
+      "dry": false,
+      "wall_seconds": 121.44242000000031,
+      "native_file_metrics": [
+        {
+          "frame_count": 120,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 212019744,
+          "param_bytes": 212044690,
+          "encoding_seconds": 45.78335329999982,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-two-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1509933,
+          "sha256": "178c04b95db4a84805fd9236232af7afabfd11d9a2dbac283521589e85690139"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-two-0.2-wet\\cn_test_cloth_30d16e191acf_00.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "0958b6110735b6a14cae44f67c12c6217587bbaa46faf871fd8709c15404979d"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\1000-60-two-0.2-wet\\cn_test_cloth_30d16e191acf_01.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "b37f8f1e26fc01248ee3cef1781dca14544330be78ca356cd82103b88e8b654c"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\20000-3-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 20000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 20.330951700000014,
+      "native_file_metrics": null,
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\20000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 2189356,
+          "sha256": "2d53d2c5e260991e20e2da230469a8f1fee6851e81c2b8996df8c103853918be"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\5000-250-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 5000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 386.51495350000005,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474234502,
+          "encoding_seconds": 87.08110349999993,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-250-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1636383,
+          "sha256": "da5633078f5e290c70f3e63980f8416224c074853b8296346a060d6773e14654"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-250-base-0.2-wet\\cn_test_cloth_4f4cc76fca5c.pc2",
+          "available": true,
+          "bytes": 15000032,
+          "sha256": "03e64793ee4d20b49f2b13301bbdbed4b77ba980a4377ee1458fe858b405ca03"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\5000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 5000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 13.299261699999988,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1723172,
+          "encoding_seconds": 0.8946736999998848,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1636320,
+          "sha256": "27de69b9b9640a4cba6144b1f04fcfffe5655448536157975e3eb518e6d029cc"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-3-base-0.2-wet\\cn_test_cloth_e16eb79469b8.pc2",
+          "available": true,
+          "bytes": 180032,
+          "sha256": "44e86b3f8987948e61d66c81f9077a727857e2a247f241d2ea6e4c5b512b1272"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\5000-60-base-0.2-dry\\report.json",
+      "result": "FAIL",
+      "vertices": 5000,
+      "frames": 60,
+      "combination": "base",
+      "dry": true,
+      "wall_seconds": 15.67600900000025,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-60-base-0.2-dry\\fixture.blend",
+          "available": true,
+          "bytes": 1636574,
+          "sha256": "76df53be11d421bc62c0b13d07592e5e6ca1177ad87bbce8b8d2c438ff066a23"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\5000-60-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 5000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 79.87844580000001,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106024274,
+          "encoding_seconds": 19.116709899999933,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-60-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1636612,
+          "sha256": "9fb14d6207357a32781c34f9a25fbdf83a8de3bd791d726ab6b8e0b47ac980a4"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\5000-60-base-0.2-wet\\cn_test_cloth_73052a1fe8c7.pc2",
+          "available": true,
+          "bytes": 3600032,
+          "sha256": "469ca1eceace82e64019b1d32d97f53ea6343d778eec22fc2c4c8494a0b40d24"
+        }
+      ]
+    },
+    {
+      "report": "matrix\\50000-3-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 50000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 25.644854399999986,
+      "native_file_metrics": null,
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\matrix\\50000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 3303271,
+          "sha256": "2ec9f0bfac44426c8b77e1127ab9fb05f52edc1c12b0941280240b856f757f3a"
+        }
+      ]
+    },
+    {
+      "report": "neon-existing-100\\report.json",
+      "result": "FAIL",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 8.667323800000304,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-existing-100\\fixture.blend",
+          "available": true,
+          "bytes": 158381544,
+          "sha256": "c079e1f6004caec8e9effcd7ef3f05ff0768c1b554c69683ee469b765f347692"
+        }
+      ]
+    },
+    {
+      "report": "neon-existing-now\\scene-3-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 8.420274500000232,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-existing-now\\scene-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 158381796,
+          "sha256": "2e53f8e09c7678db94530ac7054a9a51bc1c081f8b544dadcae0ef1f3a059fed"
+        }
+      ]
+    },
+    {
+      "report": "neon-scene-preflight-drivers\\report.json",
+      "result": "PREFLIGHT_PASS",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": null,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-scene-preflight-drivers\\fixture.blend",
+          "available": true,
+          "bytes": 158380805,
+          "sha256": "0b2fdb4536a99da45012d1b81511738f1cc390ae5fde5255cd4efd3378113c32"
+        }
+      ]
+    },
+    {
+      "report": "neon-streamed-128-250\\report.json",
+      "result": "PASS",
+      "vertices": 23356,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 7882.600199300001,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 4739072,
+          "packed_bytes": 979214336,
+          "param_bytes": 979260464,
+          "encoding_seconds": 73.47081770000113,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-250\\fixture.blend",
+          "available": true,
+          "bytes": 73879082,
+          "sha256": "bca6760896a2d17e669c8aa45b92a699e6906addc161ffa35b28bff2e8d9854e"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-250\\cn_test_cloth_c1afa7ffa55a_00.pc2",
+          "available": true,
+          "bytes": 44838032,
+          "sha256": "3f83bcbcac54925fcec0368149a9873a7d028fb8ff40c22ab4def7026d5cef71"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-250\\cn_test_cloth_c1afa7ffa55a_01.pc2",
+          "available": true,
+          "bytes": 13137032,
+          "sha256": "4ac16e0750d53a49905e328bf2a5253e3a1421fbe98338c2c1cd2a41f1c7134f"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-250\\cn_test_cloth_c1afa7ffa55a_02.pc2",
+          "available": true,
+          "bytes": 12093032,
+          "sha256": "fc4568cd3ff0ca39a8d3782d16865f692fea3bde9a247ba854a22d74a14fb2da"
+        }
+      ]
+    },
+    {
+      "report": "neon-streamed-128-3\\report.json",
+      "result": "FAIL",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 72.84760479999932,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3\\fixture.blend",
+          "available": true,
+          "bytes": 73878900,
+          "sha256": "3e932f285513598549fc7cf7c576df47b79a2d90549a11b5bfa80317ed65ced4"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3\\cn_test_cloth_0368a252fd30_00.pc2",
+          "available": true,
+          "bytes": 538088,
+          "sha256": "e47965881c627db456820358651307d10471c07230f72f8c21c4a952d2a1caf6"
+        }
+      ]
+    },
+    {
+      "report": "neon-streamed-128-3-world\\report.json",
+      "result": "PASS",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 98.6266685999999,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 3149824,
+          "packed_bytes": 9449472,
+          "param_bytes": 9452613,
+          "encoding_seconds": 0.8881555000007211,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3-world\\fixture.blend",
+          "available": true,
+          "bytes": 73878878,
+          "sha256": "b4d63e51c5b71628a1c51f96d55846ca96426d01d3f8966693d18e1d16540c48"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3-world\\cn_test_cloth_dce2a689ba16_00.pc2",
+          "available": true,
+          "bytes": 538088,
+          "sha256": "f0cf112756704f52bb5dbac37be736c89d805d0bdb9bb73fae79348561999cd0"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3-world\\cn_test_cloth_dce2a689ba16_01.pc2",
+          "available": true,
+          "bytes": 157676,
+          "sha256": "a0d9517553ae72185e5c2e41483c7b21f42e9086c389186e5a248f3e796ba483"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3-world\\cn_test_cloth_dce2a689ba16_02.pc2",
+          "available": true,
+          "bytes": 145148,
+          "sha256": "e9566d8c4c0e5ca11080de1e2fb4b05d2c72782ba48d61fd272d54ed9faf1dcf"
+        }
+      ]
+    },
+    {
+      "report": "neon-streamed-128-60\\report.json",
+      "result": "PASS",
+      "vertices": 23356,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 1549.8971647000017,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 3649536,
+          "packed_bytes": 193028096,
+          "param_bytes": 193040985,
+          "encoding_seconds": 17.75360439999895,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-60\\fixture.blend",
+          "available": true,
+          "bytes": 73878731,
+          "sha256": "cb791ff21b9c003213b3f0d5297636eb82c9c4f1ca38dce7e11e9caf6d8fa71e"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-60\\cn_test_cloth_4e58e683e1a7_00.pc2",
+          "available": true,
+          "bytes": 10761152,
+          "sha256": "b7b9d291f46bdfd952aa7f03f555967ae46516ea1707c4801daf3096fe8bfed7"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-60\\cn_test_cloth_4e58e683e1a7_01.pc2",
+          "available": true,
+          "bytes": 3152912,
+          "sha256": "4fbe9f5561624158d0f8b673f0f0ba933fa89347e0736471923e1dda975cc50a"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-60\\cn_test_cloth_4e58e683e1a7_02.pc2",
+          "available": true,
+          "bytes": 2902352,
+          "sha256": "4307ff89b42ef7928e7156f1b83a170c0356be8b6e4fdc34662e18d6325d5154"
+        }
+      ]
+    },
+    {
+      "report": "neon-streamed-shared-3\\report.json",
+      "result": "PASS",
+      "vertices": 23356,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 104.73484899999676,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 3149824,
+          "packed_bytes": 9449472,
+          "param_bytes": 9452613,
+          "encoding_seconds": 0.8801158000023861,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-shared-3\\fixture.blend",
+          "available": true,
+          "bytes": 73879000,
+          "sha256": "224fb7c5de1b3f96cbf61cd2bf6f2dd254074295fa7a11e05b6b07e074cbb7d6"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-shared-3\\cn_test_cloth_d29a5e2b2af2_00.pc2",
+          "available": true,
+          "bytes": 538088,
+          "sha256": "2c207c09496ba6a971f250819ab3d43366c8432ec9b8e7cdb461f8e5cb480735"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-shared-3\\cn_test_cloth_d29a5e2b2af2_01.pc2",
+          "available": true,
+          "bytes": 157676,
+          "sha256": "9460e1e434a9ed54f2464479092519ff2d049afae60928192df7c3d799a1464f"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-shared-3\\cn_test_cloth_d29a5e2b2af2_02.pc2",
+          "available": true,
+          "bytes": 145148,
+          "sha256": "39ffe18221cb066fe011f08f0c96e88a7fa6b9724fee24674653421db32c5c76"
+        }
+      ]
+    },
+    {
+      "report": "pilot\\1000-3-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 14.171801499999901,
+      "native_file_metrics": null,
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\pilot\\1000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483707,
+          "sha256": "374609d54ade5dfcd4dde47af9af1f44bc7980716120ad312b7e7640bdd5a7ad"
+        }
+      ]
+    },
+    {
+      "report": "pilot-hard\\1000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 12.799802900000032,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1721572,
+          "encoding_seconds": 0.8611671999999544,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": null,
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\pilot-hard\\1000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483568,
+          "sha256": "fe4de8978d666dd52c07a78028f177ee11120ad7d2e99079ec58b9f7adf88fc6"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\pilot-hard\\1000-3-base-0.2-wet\\cn_test_cloth_14b441f2c6b9.pc2",
+          "available": true,
+          "bytes": 36032,
+          "sha256": "e0d715e7272a7920ffe3f20b7ce9a06e426b2b496d61e657c87cac581fec44c3"
+        }
+      ]
+    },
+    {
+      "report": "quality-50000-250\\50000-250-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 50000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 11604.364886100002,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-50000-250\\50000-250-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 3303506,
+          "sha256": "5230188d4da876ba166d8ac080ad3b79ef6e80a792578562878e0e59af2dc591"
+        }
+      ]
+    },
+    {
+      "report": "quality-matrix\\20000-3-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 20000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 5.801836799999819,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-matrix\\20000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 2189517,
+          "sha256": "abb5cff8cd3ad5bd3b310ef106996ecfb018803b69c62e663816822d83a1d7c7"
+        }
+      ]
+    },
+    {
+      "report": "quality-matrix\\50000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 50000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 56.03099220000013,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1732773,
+          "encoding_seconds": 0.8497847999997248,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-matrix\\50000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 3303426,
+          "sha256": "3c31870c3dc916418a7303eeb49469b2bde7330055c0dd4f1e430ed852f035e1"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-matrix\\50000-3-base-0.2-wet\\cn_test_cloth_6bcf19b57918.pc2",
+          "available": true,
+          "bytes": 1800032,
+          "sha256": "fc20978adf1373eff1c63a26f5459d69d17ebf0d7b2cac1e03c2edb3512f3a53"
+        }
+      ]
+    },
+    {
+      "report": "quality-matrix\\50000-60-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 50000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 628.3896844999999,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106033875,
+          "encoding_seconds": 17.4590933999998,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-matrix\\50000-60-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 3303417,
+          "sha256": "6924d932562ff01317b121763ba84077c4b0941e90d53a4e4e125f3956f291f8"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-matrix\\50000-60-base-0.2-wet\\cn_test_cloth_7f754ab335fb.pc2",
+          "available": true,
+          "bytes": 36000032,
+          "sha256": "fcdf785ce8cda14052d92df2cf1b6d004a57206019754d4a8f40561aa0c382b3"
+        }
+      ]
+    },
+    {
+      "report": "quality-retry-20000\\20000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 20000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 22.077397299999575,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1726373,
+          "encoding_seconds": 0.8385819000013726,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-retry-20000\\20000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 2189633,
+          "sha256": "3e1d96a878d58d904b7c9debc81ece8378e730933de43db3799c6882ea62a7f0"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-retry-20000\\20000-3-base-0.2-wet\\cn_test_cloth_dfdc0d562ab0.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "94a7247cbc48b637ff039fd5a23fc646737c8e293b4f09c114778289b57053b1"
+        }
+      ]
+    },
+    {
+      "report": "quality-retry-20000\\20000-60-base-0.2-wet\\report.json",
+      "result": "FAIL",
+      "vertices": 20000,
+      "frames": 60,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 147.44935260000057,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\quality-retry-20000\\20000-60-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 2189412,
+          "sha256": "5dacb3101dd9ec84f8c83a50cbce00787f813bb041bf16686eeb243f55b9659a"
+        }
+      ]
+    },
+    {
+      "report": "resource-confirm\\5000-250-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 5000,
+      "frames": 250,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 317.1993610999998,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474234502,
+          "encoding_seconds": 72.13893189999999,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\resource-confirm\\5000-250-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1636547,
+          "sha256": "45c191552a4cc49f4f5791142ca71b6b4e303faefbfdc8f5329d78a6deecb671"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\resource-confirm\\5000-250-base-0.2-wet\\cn_test_cloth_8ca523dd21ca.pc2",
+          "available": true,
+          "bytes": 15000032,
+          "sha256": "9f35b169831248bab89f7ee2c9cb89f056837fbc738341a42b46baba1e146bc3"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-12-sweep-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "sweep",
+      "dry": false,
+      "wall_seconds": 56.449687399999675,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646276,
+          "encoding_seconds": 3.3182622000003903,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-12-sweep-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489363,
+          "sha256": "6c093ce4c5067c4299efdf66dd232a93df2817e88bf5067650448f7ac0d9c115"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-12-sweep-0.2-wet\\cn_test_cloth_bfdd1f624ec3.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "9a2ee556d4837579a9865edbcbcbeb7686dcf1e0b58894a520ac395961a81098"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-12-zones-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "zones",
+      "dry": false,
+      "wall_seconds": 59.23461270000007,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646276,
+          "encoding_seconds": 3.3579629000005298,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-12-zones-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1490354,
+          "sha256": "0da3b61804fabaf0924c21cf2b481ede25e9aa49ba839fb91226516e2a861142"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-12-zones-0.2-wet\\cn_test_cloth_f9b89219ae89.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "a2a2256046e0dfb0be52311f8e54c6e44c8d632a74e123e8f6cace7a4921a500"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-250-sweep-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "sweep",
+      "dry": false,
+      "wall_seconds": 1474.1675980999999,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232886,
+          "encoding_seconds": 85.76067200000034,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-250-sweep-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489861,
+          "sha256": "9d5043091093da0a59c56a8418a622d0cc081db840fbe5d7a6e52656070c004d"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-250-sweep-0.2-wet\\cn_test_cloth_4976adf60d99.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "4b5afb240dc495bdae1aafda5fd471ec6226e6453477fd959006cf7820a9acc9"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-250-zones-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "zones",
+      "dry": false,
+      "wall_seconds": 1166.3180042999993,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474232886,
+          "encoding_seconds": 72.12641080000049,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-250-zones-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1490651,
+          "sha256": "cee84a697a7e1bd76a7aaa546d67dcdab1846c2710db740670cb66fe83eaad86"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-250-zones-0.2-wet\\cn_test_cloth_f47dcd6ba134.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "ba99d6768477327c2008e906062d101a411aa8be94dc3ab8226a228ef1e9ee88"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-3-base-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 3,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 15.839287499999955,
+      "native_file_metrics": [
+        {
+          "frame_count": 3,
+          "max_packed_frame_bytes": 643708,
+          "packed_bytes": 1718132,
+          "param_bytes": 1721572,
+          "encoding_seconds": 0.8281991000003472,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-3-base-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1483499,
+          "sha256": "f2e31e305389b66c1a830159cb8a79509f40b64cd18f2d33ed2bc996009a1a0c"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-3-base-0.2-wet\\cn_test_cloth_2db0c3d91dbd.pc2",
+          "available": true,
+          "bytes": 36032,
+          "sha256": "356903b8e1fd681c6c9de9ca7c176d6206cb23b248bf7a0f8c591bee75b30364"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-60-sweep-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "sweep",
+      "dry": false,
+      "wall_seconds": 278.9837870000001,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022658,
+          "encoding_seconds": 17.21498799999972,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-60-sweep-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1489524,
+          "sha256": "8b1497073d14c628b8f213075eb1eafb4ad88086d12155104944abe7f52e192f"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-60-sweep-0.2-wet\\cn_test_cloth_bccc1ac5f416.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "887ae83e8fbf834a96edb768ba60a65fd3acccb15f061e7545b5a8d01adc9431"
+        }
+      ]
+    },
+    {
+      "report": "sweep-matrix\\1000-60-zones-0.2-wet\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "zones",
+      "dry": false,
+      "wall_seconds": 283.93853189999936,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106022658,
+          "encoding_seconds": 17.22774819999995,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.0010000000474974513,
+        "cg_max_iter": 10000,
+        "cg_tol": 0.0010000000474974513
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-60-zones-0.2-wet\\fixture.blend",
+          "available": true,
+          "bytes": 1490493,
+          "sha256": "545bad434529ff0ec1bbae0b3fedd0239f8a8affc968a100f7baebf1a0b806d4"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\sweep-matrix\\1000-60-zones-0.2-wet\\cn_test_cloth_62205ad79fab.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "04f0b15718428b0d8afd24d8c6c111c1f3c058c3b631b0acc12fa0f3a536b5a2"
+        }
+      ]
+    },
+    {
+      "report": "two-cloth-250-retry\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 250,
+      "combination": "two",
+      "dry": false,
+      "wall_seconds": 304.0368387999988,
+      "native_file_metrics": [
+        {
+          "frame_count": 250,
+          "max_packed_frame_bytes": 2282108,
+          "packed_bytes": 474189080,
+          "param_bytes": 474235062,
+          "encoding_seconds": 72.03183100000024,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-250-retry\\fixture.blend",
+          "available": true,
+          "bytes": 1509861,
+          "sha256": "044ab3dc8ef0600c66a84ec641f191df1f4300b1ff544d7e505ac39e6245def7"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-250-retry\\cn_test_cloth_a79d7e55e998_00.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "49b302811fbc93a54f7f392317d2d8d1bd2713e30b0259186d83e08888eafab7"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-250-retry\\cn_test_cloth_a79d7e55e998_01.pc2",
+          "available": true,
+          "bytes": 3000032,
+          "sha256": "46965796c66c4f11689cce9dd279866f7b8e0ef9980c348edce044efc8d384ec"
+        }
+      ]
+    },
+    {
+      "report": "two-cloth-60-sharing\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 60,
+      "combination": "two",
+      "dry": false,
+      "wall_seconds": 72.19938349999939,
+      "native_file_metrics": [
+        {
+          "frame_count": 60,
+          "max_packed_frame_bytes": 2265724,
+          "packed_bytes": 106009872,
+          "param_bytes": 106024834,
+          "encoding_seconds": 17.32457389999945,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-60-sharing\\fixture.blend",
+          "available": true,
+          "bytes": 1509885,
+          "sha256": "b705a3ad587550891163f3030837db96307e7f280bb390ccafc57472bc4bdafc"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-60-sharing\\cn_test_cloth_452b2b1fc110_01.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "0cbc627e53fa4cbb50b452679c19a513ef8f3d7487a21c128121880aabf44a13"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\two-cloth-60-sharing\\cn_test_cloth_452b2b1fc110_00.pc2",
+          "available": true,
+          "bytes": 720032,
+          "sha256": "91f86ec8dcd185c743132cf049e889e3f225aae2c94a7f23d3ab990deb0ff235"
+        }
+      ]
+    },
+    {
+      "report": "workflow-preservation-fixed\\report.json",
+      "result": "PASS",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 51.15920909999841,
+      "native_file_metrics": [
+        {
+          "frame_count": 12,
+          "max_packed_frame_bytes": 1110652,
+          "packed_bytes": 9641424,
+          "param_bytes": 9646291,
+          "encoding_seconds": 3.3726038000004337,
+          "packing_budget_bytes": 33554432,
+          "file_budget_bytes": 1073741824
+        }
+      ],
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\workflow-preservation-fixed\\fixture.blend",
+          "available": true,
+          "bytes": 1483780,
+          "sha256": "8e02b5de47137e8d82397d343d5de31088b93a5d622355510562051bdd328658"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\workflow-preservation-fixed\\validated-before-rebake-0.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "52ed1e369f1b459e617ceb3b846312311a8374d68958fa5372dc86f771ea325f"
+        }
+      ]
+    },
+    {
+      "report": "workflow-rebake-error\\report.json",
+      "result": "FAIL",
+      "vertices": 1000,
+      "frames": 12,
+      "combination": "base",
+      "dry": false,
+      "wall_seconds": 34.5533961000001,
+      "native_file_metrics": null,
+      "quality": {
+        "time_step": 0.009999999776482582,
+        "cg_max_iter": 2500,
+        "cg_tol": 0.009999999776482582
+      },
+      "artifacts": [
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\workflow-rebake-error\\fixture.blend",
+          "available": true,
+          "bytes": 1483565,
+          "sha256": "9093bbe8ed52795515d52398b8e8d6bccef34405c64361fae92d2b628aeab73d"
+        },
+        {
+          "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\workflow-rebake-error\\validated-before-rebake-0.pc2",
+          "available": true,
+          "bytes": 144032,
+          "sha256": "e729290d7f25ae79cb5eeae87c4786e24d7b64a7ebc2872880f5a422bb31c7f1"
+        }
+      ]
+    }
+  ]
+}

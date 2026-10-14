@@ -1,0 +1,12 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "3A08E05417F28DF5DE02FAE9565DB8BD42E229EC4B43560FCA3C6948525CF254",
+    "Path": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\registry.json"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E3BB4D2ED9702FA0F393F781D19B88631E1C80932DCB1A8F7F38583CF16EBF92",
+    "Path": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\current.json"
+  }
+]

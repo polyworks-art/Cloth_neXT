@@ -44,8 +44,9 @@ class CacheLookup:
 
 
 class ExportPayloadCache:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, checkpoint=None) -> None:
         self.root = Path(root)
+        self._checkpoint = checkpoint or (lambda: None)
 
     def _paths(self, kind: str, key: str) -> tuple[Path, Path]:
         directory = self.root / kind / key[:2] / key
@@ -67,6 +68,7 @@ class ExportPayloadCache:
             digest = hashlib.sha256()
             with payload.open("rb") as stream:
                 while chunk := stream.read(4 * 1024 * 1024):
+                    self._checkpoint()
                     digest.update(chunk)
             actual = digest.hexdigest()
             if actual != metadata["sha256"]:
@@ -97,13 +99,17 @@ class ExportPayloadCache:
                 if isinstance(source, (str, Path)):
                     with Path(source).open("rb") as stream:
                         while chunk := stream.read(4 * 1024 * 1024):
+                            self._checkpoint()
                             target.write(chunk)
                             digest.update(chunk)
                             size += len(chunk)
                 else:
                     view = memoryview(source)
-                    target.write(view)
-                    digest.update(view)
+                    for offset in range(0, view.nbytes, 4 * 1024 * 1024):
+                        self._checkpoint()
+                        chunk = view.cast("B")[offset:offset + 4 * 1024 * 1024]
+                        target.write(chunk)
+                        digest.update(chunk)
                     size = view.nbytes
                 target.flush()
                 os.fsync(target.fileno())
@@ -122,13 +128,17 @@ class ExportPayloadCache:
                     if isinstance(artifact_source, (str, Path)):
                         with Path(artifact_source).open("rb") as stream:
                             while chunk := stream.read(4 * 1024 * 1024):
+                                self._checkpoint()
                                 target.write(chunk)
                                 artifact_digest.update(chunk)
                                 artifact_size += len(chunk)
                     else:
                         view = memoryview(artifact_source)
-                        target.write(view)
-                        artifact_digest.update(view)
+                        for offset in range(0, view.nbytes, 4 * 1024 * 1024):
+                            self._checkpoint()
+                            chunk = view.cast("B")[offset:offset + 4 * 1024 * 1024]
+                            target.write(chunk)
+                            artifact_digest.update(chunk)
                         artifact_size = view.nbytes
                     target.flush()
                     os.fsync(target.fileno())
@@ -193,6 +203,7 @@ class ExportPayloadCache:
                 digest = hashlib.sha256()
                 with path.open("rb") as stream:
                     while chunk := stream.read(4 * 1024 * 1024):
+                        self._checkpoint()
                         digest.update(chunk)
                 if digest.hexdigest() != expected["sha256"]:
                     return {}

@@ -11,6 +11,7 @@ import math
 
 
 SUPPORTED_ROLES = frozenset({"CLOTH", "SOFT_BODY"})
+SUPPORTED_TARGET_ROLES = SUPPORTED_ROLES | frozenset({"COLLIDER"})
 DEFAULT_STIFFNESS = 1.0
 
 
@@ -381,8 +382,8 @@ def validate_attachment(attachment: ObjectAttachment, *,
                         target_vertex_count: int) -> None:
     if attachment.source_role not in SUPPORTED_ROLES:
         raise AttachmentError("source must be Cloth or Soft Body")
-    if attachment.target_role not in SUPPORTED_ROLES:
-        raise AttachmentError("target must be Cloth or Soft Body")
+    if attachment.target_role not in SUPPORTED_TARGET_ROLES:
+        raise AttachmentError("target must be Cloth, Soft Body or Collider")
     if not attachment.source_uuid or not attachment.target_uuid:
         raise AttachmentError("source and target UUIDs are required")
     if (attachment.source_uuid == attachment.target_uuid

@@ -1,0 +1,25 @@
+# Weitere GAIA-0.26-Funktionen — separates Arbeitspaket
+
+Quellenstand: offizieller Commit `7232f4033515e1e72359f4ce5145456ce7d156f7`.
+Die folgende Reihenfolge stellt Stabilität und kleine, capability-gated
+Erweiterungen vor neue Authoring-Pipelines. Keine dieser Empfehlungen ist eine
+Release-Freigabe. Der geprüfte Stabilitätsumfang und seine Grenzen stehen im [Fluid-Bericht](GAIA026_INTEGRATION_REPORT.md).
+
+| Priorität / Funktion | Upstream / benötigte Daten | Lokaler Stand / nächste Änderung | Pflichtprüfung / Einschränkung |
+|---|---|---|---|
+| P0: Diagnostik und Session-Lifecycle | Status `crash_kind`, `violations`, `exemptions`, Backend/Target und `idle_timeout_s`; native Build-/Solve-Zustände | Bestehender Statusparser erhält additive Felder; Ownership/Cancel/Recovery vorhanden. Windows-Prozesskontext abgegrenzt; eigener Server nutzt offizielle Descendant-Suche. Regulärer Bake, Idle/Keepalive und Recovery geprüft | PC2-Cleanup/Save/Reload korrigiert und geprüft. Größere Produktionsszenen separat stressen; experimenteller offizieller Hold-Dateiwriter unter Windows bleibt außerhalb des Produktionspfads |
+| P1: Allow Existing Intersections | Seit 0.23 pro Objekt `allow-existing-intersection`, `start_link.bin`, Status-Exemptions | Offizieller 0.23/0.26-Bridge vorhanden; die native Physikfixture nutzte erlaubte initiale Überschneidungen. Artist-Authoring/Diagnostik separat vollständig prüfen | Nur initial erlaubte Paare ausnehmen; keine globale Kontakt-Deaktivierung als Produktlösung; animierte Collider testen |
+| P1: Local Contact Gap Limit | 0.26 `contact-gap-limit` für SOLID/SHELL/ROD; lokale Nachbarschaftslängen begrenzen Element-Gaps | Neuer Key wird noch nicht aus der CNX-UI gesendet. Per-Adapter-Capability, Mapping und Save/Reload ergänzen | Dünne/enge Elemente, Skalierung, unterschiedliche Auflösungen; 0.22/0.23 müssen Key-frei bleiben |
+| P2: Weitere native Force Fields | Public `ForceField.add`: force, wind, vortex, magnetic, charge, turbulence, drag, harmonic, texture; discrete Flags + pro-Frame Track; Texture-Bild, Shape, Chunking, `z_up` | Lokal bestehende Wind-/ältere Gridpfade; neues 0.26-`fields`-Layout nur für Fluid ergänzt. Gemeinsames Scene-Field-Authoring statt Paralleltransport | Typabhängige Ablehnungen, Gruppen/Weights, Achsen, bewegte Felder, Textur-Farbraum, deterministische Noise, Volumen-/Image-Budget |
+| P2: Python Field Scripts | `scripts`: source, Gruppen, `z_up`; offizielle `eval(x,y,z,t)`-API und Compilerprüfung | Legacy-Worker kann bestehende Scripts mitführen; keine neue Artist-Scriptoberfläche. Offizielle Script-Validation und Error-Lokalisierung verwenden | Syntax/Compilerfehler und Zeit/Koordinaten prüfen; Scripts liefern keine erfundene Fluid-Rückkopplung außerhalb des Solvers |
+| P2: Time-dependent Material Maps | Seit 0.20 Materialmap `times` und UUID→`weight_frames`; alternativ statische `weights`; per-element native Keyframes; Solid-Transfer erfordert Tetra-/Surface-Zuordnung | CNX besitzt Material Zones und native Triangle-Bindings, aber dies beweist kein komplettes zeitabhängiges Map-Authoring. Kleinen SHELL-Pfad zuerst ergänzen | UUID-Stabilität, Units pro Materialparameter, disabled Toggles, Keys/FPS/Time Scale, NaN, Arrayshape; Solid-Transfer später |
+| P3: Multigrid | Native `precond=multigrid`, CLI-Override, Geometriehierarchie; builder validiert Wahl statt stillem Fallback | Keine CNX-Multigrid-Auswahl implementiert. Backend-/Performance-Sweep vor UI oder Default-Änderung | CPU/CUDA/ROCm getrennt, Konvergenz/Residuen/Memory und Output-Vergleich gegen bisherige Preconditioner |
+| P4: Cosserat Rods | Native Cosserat-Marker je Rod-Edge, Roll/Tilt je Vertex; shear/bend/twist, rest twist, end controls | Lokal Rod-/Softbody-Pipeline vorhanden; kein zertifizierter Cosserat-Exporter. Eigenes Authoring-Arbeitspaket | Frameorientierung, Roll-Einheiten, Torsion/Biegung, pinned ends, Kontakt, Save/Reload; keine neue Pipeline im Fluid-Commit |
+| P4: Hair Curves | Rod-/Curve-basierter Export braucht evaluierte Stränge, Radien, Root-Pins, Materialframes und stabile Vertex-/Edge-Zuordnung | Neue Hair-Pipeline ausdrücklich ausgeschlossen. Die genaue Blender-Hair-Curves-Exportabdeckung wurde in diesem Schritt nicht vollständig auditiert; kein Erfolgsversprechen aus allgemeinem Rod-Support | Blender Curves vs Legacy Curve unterscheiden, animated roots, Strand-IDs, Kontakt/Playback und Topologieänderungen; zuerst separater Source-Audit |
+
+Offizielle Contracts:
+[PARAM-Schema](https://github.com/st-tech/ppf-contact-solver/blob/7232f4033515e1e72359f4ce5145456ce7d156f7/crates/ppf-cts-formats/src/kinds/param.rs),
+[ForceField API](https://github.com/st-tech/ppf-contact-solver/blob/7232f4033515e1e72359f4ce5145456ce7d156f7/frontend/_force_field_.py),
+[Scene Export](https://github.com/st-tech/ppf-contact-solver/blob/7232f4033515e1e72359f4ce5145456ce7d156f7/frontend/_scene_.py),
+[Protokoll-Changelog](https://github.com/st-tech/ppf-contact-solver/blob/7232f4033515e1e72359f4ce5145456ce7d156f7/blender_addon/protocol_version.toml).
+

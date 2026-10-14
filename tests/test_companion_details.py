@@ -9,6 +9,24 @@ from cloth_next.bake.status import BakeSnapshot, BakeState
 from companion import app
 
 
+def test_eta_trend_compares_frames_and_resets_for_new_jobs():
+    from dataclasses import replace
+    trend = app.EtaTrend()
+    snapshot = BakeSnapshot(state=BakeState.SIMULATING, job_id="first",
+                            current_frame=1, estimated_remaining_seconds=120.)
+    assert trend.update(snapshot) == ""
+    assert trend.update(replace(snapshot, estimated_remaining_seconds=125.)) == ""
+    snapshot = replace(snapshot, current_frame=2, estimated_remaining_seconds=130.)
+    assert trend.update(snapshot) == "▲"
+    assert trend.update(replace(snapshot, estimated_remaining_seconds=128.)) == "▲"
+    snapshot = replace(snapshot, current_frame=3, estimated_remaining_seconds=110.)
+    assert trend.update(snapshot) == "▼"
+    assert trend.update(replace(snapshot, current_frame=4)) == ""
+    assert trend.update(replace(snapshot, job_id="second")) == ""
+    assert trend.update(replace(snapshot, state=BakeState.FINISHED)) == ""
+    assert trend.update(replace(snapshot, estimated_remaining_seconds=None)) == ""
+
+
 def test_windows_topmost_uses_no_activate_native_z_order(monkeypatch):
     calls = []
     root = SimpleNamespace(

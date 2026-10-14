@@ -14,10 +14,13 @@ def test_appear_solid_is_reversible_and_preserves_mass_and_contact(blender_env):
         collision=SimpleNamespace(surface_grip=.6, collision_gap=.001, surface_offset=0.))
     previous = dict(vars(soft))
     module._apply_soft_body_appear_solid(settings, True)
-    assert soft.stretch_resistance == 1e7 and soft.volume_scale == 1
+    assert soft.stretch_resistance == 5000.0 and soft.volume_scale == 1
+    assert soft.poisson_ratio == .35
+    assert settings.damping.shape_damping == 0.0
+    assert settings.collision.collision_gap == .001
     assert not soft.stretch_plasticity_enabled
     material = module.soft_body_settings_from(settings)
-    assert material.stretch_resistance == 1e7 and material.stretch_plasticity_rate == 0
+    assert material.stretch_resistance == 5000.0 and material.stretch_plasticity_rate == 0
     assert material.volume_density == 321 and material.surface_grip == .6
     backup = json.loads(soft.appear_solid_backup)
     module._apply_soft_body_appear_solid(settings, True)

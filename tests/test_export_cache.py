@@ -44,3 +44,17 @@ def test_plan_artifacts_are_hash_verified(tmp_path):
     assert artifacts["initial_000.f32"].read_bytes() == b"\x00" * 12
     artifacts["initial_000.f32"].write_bytes(b"broken")
     assert cache.lookup_artifacts("scene", key) == {}
+
+
+def test_cache_cancel_during_streaming_removes_temporary_payload(tmp_path):
+    import pytest
+    calls = []
+    def checkpoint():
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError('cancelled')
+    cache = ExportPayloadCache(tmp_path, checkpoint=checkpoint)
+    with pytest.raises(RuntimeError, match='cancelled'):
+        cache.store('scene', 'a' * 64, b'x' * (5 * 1024 * 1024))
+    assert not list(tmp_path.rglob('*.tmp'))
+    assert not cache.lookup('scene', 'a' * 64).hit

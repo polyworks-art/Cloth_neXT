@@ -398,3 +398,30 @@ def test_data_receive_rejects_unsafe_paths(path):
     address = wire.ServerAddress("127.0.0.1", 9)
     with pytest.raises(ValueError):
         wire.data_receive(address, CONFIG, project_name="proj", path=path)
+
+
+
+def test_file_upload_cancel_closes_partial_connection(make_server,tmp_path):
+    completed=threading.Event()
+    def handler(connection,received):
+        assert _read_exact(connection,4)==b'JSON'
+        line=b''
+        while not line.endswith(b'\n'):line+=connection.recv(1)
+        header=json.loads(line)
+        body=b''
+        while chunk:=connection.recv(4096):body+=chunk
+        received.extend([header,body]);completed.set()
+    server=make_server(handler)
+    path=tmp_path/'params.cbor';path.write_bytes(b'P'*10000)
+    checks=0
+    def cancel():
+        nonlocal checks
+        checks+=1
+        if checks==4:raise RuntimeError('cancelled upload')
+    with pytest.raises(RuntimeError,match='cancelled upload'):
+        wire.upload_atomic(server.address,CONFIG,project_name='proj',data_payload=b'D',
+            param_payload=path,data_hash='dh',param_hash='ph',file_chunk_size=1024,
+            check_cancel=cancel)
+    assert completed.wait(2.)
+    assert server.received[1]==b'D'+b'P'*1024
+    assert path.stat().st_size==10000

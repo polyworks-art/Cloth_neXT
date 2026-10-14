@@ -23,7 +23,8 @@ class StreamTarget:
 def drive_held_stream(session, targets, field_factory, *, final_boundary,
                       resume_boundary=0, cancelled=lambda: False,
                       notify=lambda state: None, add_base_fields=lambda field: None,
-                      hold_timeout=120., shutdown_timeout=30., start_held=None):
+                      hold_timeout=120., shutdown_timeout=30., start_held=None,
+                      add_window=None):
     """Update only while held; all field objects die before integration resumes.
 
     ``resume_boundary`` must come from an authenticated solver checkpoint, not a
@@ -88,10 +89,14 @@ def drive_held_stream(session, targets, field_factory, *, final_boundary,
                     identities.append({'cache_fingerprint':target.reader.fingerprint,
                         'source_frames':list(window.source_frames),
                         'times':list(window.times),
+                        'packed_bytes':getattr(window,'packed_bytes',0),
                         'timings':getattr(target.reader,'last_window_timings',{})})
-                    field.grid(window.values, window.minimum, window.maximum,
-                               times=window.times, kind='air-velocity',
-                               groups=list(target.groups))
+                    if add_window is None:
+                        field.grid(window.values, window.minimum, window.maximum,
+                                   times=window.times, kind='air-velocity',
+                                   groups=list(target.groups))
+                    else:
+                        add_window(field, target, window)
                     del window
                 check_cancel()
                 notify({'phase':'UPLOADING','boundary':boundary,'targets':identities})

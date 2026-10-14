@@ -179,8 +179,15 @@ def is_cloth_next_playback_modifier(obj,modifier)->bool:
     recorded=str(_property(obj,"cloth_next_cache_path","") or "")
     actual=str(getattr(modifier,"filepath","") or "")
     if not recorded or not actual:return False
-    try:return Path(recorded).resolve()==Path(actual).resolve()
-    except OSError:return recorded==actual
+    def resolve_cache_path(value):
+        # Saving a .blend may remap the FILE_PATH to Blender's // notation.
+        # pathlib treats that as a host/UNC path, not a .blend-relative path.
+        if value.startswith("//"):
+            import bpy
+            value = bpy.path.abspath(value)
+        return Path(value).resolve()
+    try:return resolve_cache_path(recorded)==resolve_cache_path(actual)
+    except (OSError, ImportError, AttributeError):return recorded==actual
 
 
 def _stored_input_deformer_states(obj):

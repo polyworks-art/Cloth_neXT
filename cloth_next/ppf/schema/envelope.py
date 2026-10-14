@@ -78,6 +78,7 @@ def dumps_envelope(kind: str, payload: Any, *,
 
 def dump_envelope_file(kind: str, payload: Any, path: Path, *,
                        progress=None,
+                       max_bytes=None,
                        schema_version: int = SCHEMA_VERSION) -> str:
     """Write a large envelope incrementally and return its wire hash."""
     if kind not in (KIND_SCENE, KIND_PARAM, KIND_VERTEX_MAP):
@@ -89,10 +90,16 @@ def dump_envelope_file(kind: str, payload: Any, path: Path, *,
     class HashingWriter:
         def __init__(self, stream):
             self.stream = stream
+            self.count = 0
 
         def write(self, chunk):
+            if max_bytes is not None and self.count+len(chunk)>max_bytes:
+                raise EnvelopeError('Encoded payload exceeds its file/transport budget')
             digest.update(chunk)
-            return self.stream.write(chunk)
+            written=self.stream.write(chunk)
+            if written!=len(chunk):raise OSError('Short envelope write')
+            self.count+=written
+            return written
 
     try:
         with path.open("wb") as stream:

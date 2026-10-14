@@ -49,6 +49,67 @@ def pump(module):
         time.sleep(.005)
 
 
+def test_same_job_shares_verified_field_without_recapturing(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    second=SimpleNamespace(name='Second',cloth_next=SimpleNamespace(**vars(obj.cloth_next)))
+    target=str(tmp_path/'shared.gaia')
+    obj.cloth_next.water_flow_container=target
+    second.cloth_next.water_flow_container=target
+    calls=[]
+    original=module.WaterPreparationWorker
+    def worker(*args,**kwargs):
+        calls.append(1)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,'WaterPreparationWorker',worker)
+    try:
+        module.start(context,(obj,second),1,2,wait_for_window=False)
+        pump(module)
+        assert c.snapshot().state is BakeState.FINISHED
+        assert len(calls)==1
+        assert samples==[(1,threading.get_ident()),(2,threading.get_ident())]
+    finally:module.shutdown()
+
+
+def test_shared_proof_rechecks_changed_source(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    flow=sys.modules['cloth_next.blender.water_flow']
+    original_provider=flow.FLIPWaterFlowProvider
+    captures=[]
+    class Provider(original_provider):
+        def __init__(self,*args,**kwargs):
+            super().__init__(*args,**kwargs)
+            captures.append(1)
+            if len(captures)==2:self.source_paths[0].write_bytes(b'changed source')
+    monkeypatch.setattr(flow,'FLIPWaterFlowProvider',Provider)
+    target=str(tmp_path/'shared.gaia')
+    obj.cloth_next.water_flow_container=target
+    second=SimpleNamespace(name='Second',cloth_next=SimpleNamespace(**vars(obj.cloth_next)))
+    try:
+        module.start(context,(obj,second),1,2,wait_for_window=False);pump(module)
+        assert c.snapshot().state is BakeState.FINISHED
+        assert len(samples)==4
+    finally:module.shutdown()
+
+
+def test_incompatible_shared_destination_keeps_first_valid_cache(blender_env,monkeypatch,tmp_path):
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    flow=sys.modules['cloth_next.blender.water_flow']
+    monkeypatch.setattr(flow,'water_grid_plan',lambda provider,s:dict(
+        dimensions=[int(s.water_flow_resolution)]*3,support_threshold=1.))
+    target=str(tmp_path/'shared.gaia')
+    obj.cloth_next.water_flow_container=target
+    second=SimpleNamespace(name='Second',cloth_next=SimpleNamespace(**vars(obj.cloth_next)))
+    second.cloth_next.water_flow_resolution='4'
+    try:
+        module.start(context,(obj,second),1,2,wait_for_window=False);pump(module)
+        assert c.snapshot().state is BakeState.ERROR
+        assert 'separate .gaia file' in c.snapshot().error_summary
+        from cloth_next.gaia.container import GaiaContainer
+        with GaiaContainer(target) as cache:assert cache.frame(0).velocity.shape==(3,3,3,3)
+        assert len(samples)==2
+    finally:module.shutdown()
+
+
 def test_standalone_cache_not_rejected_by_sequence_upload_budget(blender_env,monkeypatch,tmp_path):
     module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
     from cloth_next.gaia import solver_fields

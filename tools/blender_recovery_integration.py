@@ -31,6 +31,8 @@ def _args():
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--solver", type=Path, required=True)
+    parser.add_argument("--subdivisions", type=int, default=31)
+    parser.add_argument("--fluid-source", type=Path)
     return parser.parse_args(values)
 
 
@@ -39,6 +41,12 @@ def _load_addon(args):
     os.environ["CLOTH_NEXT_PPF_EXECUTABLE"] = str(args.solver)
     from cloth_next.blender import registration, solver_test
     registration.register()
+    if args.fluid_source:
+        import addon_utils
+        repos=bpy.context.preferences.extensions.repos
+        if not any(r.module=='superhivemarket_com' for r in repos):
+            repos.new(name='FLIP recovery validation',module='superhivemarket_com')
+        addon_utils.enable('bl_ext.superhivemarket_com.flip_fluids_addon',default_set=True)
     # The persistent user selection takes priority over a development env var.
     # This isolated fixture must use its explicitly requested real executable,
     # without changing the user's registry or applying another solver's overlay.
@@ -52,11 +60,30 @@ def _load_addon(args):
 
 
 def _make_scene(args):
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete(use_global=False)
-    bpy.ops.mesh.primitive_grid_add(
-        x_subdivisions=31, y_subdivisions=31, size=2.0,
-        location=(0.0, 0.0, 1.0))
+    domain=None
+    if args.fluid_source:
+        bpy.ops.wm.open_mainfile(filepath=str(args.fluid_source.resolve()))
+        for obj in bpy.context.scene.objects:obj.cloth_next.enabled=False
+        domains=[o for o in bpy.context.scene.objects
+                 if getattr(getattr(o,'flip_fluid',None),'object_type','')=='TYPE_DOMAIN']
+        assert len(domains)==1
+        domain=domains[0]
+        # Save only the owned test scene. Keep its FLIP pointer absolute so
+        # save/reload never redirects it into the test output directory.
+        domain.flip_fluid.domain.cache.cache_directory=domain.flip_fluid.domain.cache.get_cache_abspath()
+        from cloth_next.blender.water_flow import FLIPWaterFlowProvider
+        import numpy as np
+        provider=FLIPWaterFlowProvider(bpy.context,domain,range(1,25))
+        positions,velocities=provider.sample(1)
+        center=positions[int(np.argmax(np.linalg.norm(velocities,axis=1)))].tolist()
+        bpy.ops.mesh.primitive_plane_add(size=.02,location=center)
+        bpy.context.scene.use_gravity=False
+    else:
+        bpy.ops.object.select_all(action="SELECT")
+        bpy.ops.object.delete(use_global=False)
+        bpy.ops.mesh.primitive_grid_add(
+            x_subdivisions=args.subdivisions, y_subdivisions=args.subdivisions, size=2.0,
+            location=(0.0, 0.0, 1.0))
     cloth = bpy.context.object
     cloth.name = "Recovery Cloth"
     # Exercise the regular authoring path: it creates the required simulation
@@ -65,6 +92,13 @@ def _make_scene(args):
     cloth.cloth_next.bake_start = 1
     cloth.cloth_next.bake_end = 24
     cloth.cloth_next.cache_directory = str(args.cache)
+    if domain:
+        cloth.cloth_next.water_flow_enabled=True
+        cloth.cloth_next.water_flow_domain=domain
+        cloth.cloth_next.water_flow_container=str(args.cache/'Fluid.gaia')
+        cloth.cloth_next.water_flow_resolution='100'
+        cloth.cloth_next.water_flow_coupling_strength=2.
+        cloth.cloth_next.water_flow_native_flow=1.
     scene = bpy.context.scene
     scene.render.fps = 24
     recovery = scene.cloth_next_recovery
@@ -80,7 +114,7 @@ def _make_scene(args):
 
 
 def _drain_until_done(solver_test, worker, *, cancel,
-                      terminate_server=False):
+                      terminate_server=False, recovery_options=None):
     messages = []
     cancelled = False
     terminated = False
@@ -105,11 +139,35 @@ def _drain_until_done(solver_test, worker, *, cancel,
                 cancelled = True
             if (terminate_server and not terminated
                     and process_id is not None
-                    and event.phase in {"SIMULATING", "FETCHING"}
+                    and event.phase == 'TRANSFORMING_FRAME'
                     and int(event.frame_current or 0) >= 2):
-                subprocess.run(
-                    ["taskkill", "/PID", str(process_id), "/F"],
-                    check=True, capture_output=True, text=True)
+                from cloth_next import recovery
+                record = recovery.load_project(recovery_options.metadata_path)
+                if record is None or not any(c.frame <= int(event.frame_current)
+                        for c in record.checkpoints):
+                    continue
+                result = subprocess.run(
+                    ["taskkill", "/PID", str(process_id), "/T", "/F"],
+                    check=False, capture_output=True)
+                # taskkill emits the console code page, not UTF-8, and can
+                # return 255 when a child exits during its tree walk. Verify
+                # the owned control PID's actual postcondition instead.
+                import ctypes
+                from ctypes import wintypes
+                kernel = ctypes.WinDLL('kernel32',use_last_error=True)
+                kernel.OpenProcess.argtypes=(wintypes.DWORD,wintypes.BOOL,wintypes.DWORD)
+                kernel.OpenProcess.restype=wintypes.HANDLE
+                kernel.GetExitCodeProcess.argtypes=(wintypes.HANDLE,ctypes.POINTER(wintypes.DWORD))
+                kernel.CloseHandle.argtypes=(wintypes.HANDLE,)
+                handle=kernel.OpenProcess(0x1000,False,process_id)
+                alive=False
+                if handle:
+                    try:
+                        code=wintypes.DWORD()
+                        alive=bool(kernel.GetExitCodeProcess(handle,ctypes.byref(code))) and code.value==259
+                    finally:kernel.CloseHandle(handle)
+                if alive:
+                    raise AssertionError(f'Owned control server survived taskkill: {result.returncode}')
                 terminated = True
     worker.join(timeout=10)
     terminal = [item for item in messages
@@ -133,7 +191,7 @@ def _verify_project_alias(args, plan, *, preserved):
     assert options is not None
     record = recovery.load_project(options.metadata_path)
     assert record is not None
-    if record.identity.protocol_version != "0.23":
+    if record.identity.protocol_version not in {"0.23", "0.26"}:
         return {"applicable": False}
     root = options.metadata_path.parent / "server-data"
     target = root / record.project_id
@@ -297,12 +355,14 @@ def crash_phase(args, solver_test):
     worker.start()
     terminal, _cancelled, terminated, process_id, messages = (
         _drain_until_done(
-            solver_test, worker, cancel=False, terminate_server=True))
+            solver_test, worker, cancel=False, terminate_server=True,
+            recovery_options=plan.recovery_options))
     if terminal[0] != "error" or not terminated:
         raise AssertionError(
             f"controlled crash did not reach the error path: {terminal[0]}")
     from cloth_next import recovery
     from cloth_next.bake import pc2
+    from cloth_next.core.filesystem_paths import io_path
     options = plan.recovery_options
     assert options is not None
     record = recovery.load_project(
@@ -319,14 +379,16 @@ def crash_phase(args, solver_test):
             len(target.initial_local), 0.0, 1.0, plan.frame_count)
         partials[uuid] = {
             "path": str(path),
-            "exists": path.is_file(),
+            "exists": io_path(path).is_file(),
+            "expected_vertices":len(target.initial_local),
+            "expected_frames":plan.frame_count,
             "validated_frames": (
                 pc2.partial_frame_count(path, expected)
-                if path.is_file() else 0),
+                if io_path(path).is_file() else 0),
         }
     checkpoints = [
         {"frame": item.frame, "path": item.checkpoint_path,
-         "exists": Path(item.checkpoint_path).is_file(),
+         "exists": io_path(Path(item.checkpoint_path)).is_file(),
          "integrity": item.integrity}
         for item in record.checkpoints]
     report = {
@@ -340,6 +402,7 @@ def crash_phase(args, solver_test):
         "partial_pc2": partials,
         "event_count": len(messages),
     }
+    args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
     if not any(item["validated_frames"] > 1
                for item in partials.values()):
         raise AssertionError(

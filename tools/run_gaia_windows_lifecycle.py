@@ -33,6 +33,9 @@ def main():
     parser.add_argument("--solver", type=Path, default=paths.downloads_dir / "gaia-023-stitch-audit/official/target/cuda/release/ppf-cts-server.exe")
     parser.add_argument("--blender", type=Path, default=Path(r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist/gaia-023-lifecycle-gates")
+    parser.add_argument("--frames",type=int,default=32)
+    parser.add_argument("--recovery-subdivisions",type=int,default=31)
+    parser.add_argument("--expected-protocol", default="0.23", choices=("0.23", "0.26"))
     args = parser.parse_args()
     if os.name != "nt":
         parser.error("this gate targets the approved Windows runtime")
@@ -82,9 +85,9 @@ def main():
     def bake(executable, directory, name, resolution=None):
         with (output / (name + ".log")).open("w", encoding="utf-8") as log:
             with redirect_stdout(log):
-                result = run(executable, directory, frame_count=32, resolution=resolution)
-        assert result["result"] == "PASS" and len(result["solver_frames_fetched"]) == 31
-        if result["protocol_version"] == "0.23":
+                result = run(executable, directory, frame_count=args.frames, resolution=resolution)
+        assert result["result"] == "PASS" and len(result["solver_frames_fetched"]) == args.frames-1
+        if result["protocol_version"] in {"0.23", "0.26"}:
             alias = canonical_project_path(Path(result["solver_executable"]), result["project_name"])
             assert not os.path.lexists(alias), f"alias leaked: {alias}"
             assert not (directory / "server-data" / result["project_name"]).exists()
@@ -93,7 +96,7 @@ def main():
         return result
 
     try:
-        assert _version_probe(args.solver)[1:] == ("0.23", "2")
+        assert _version_probe(args.solver)[1:] == (args.expected_protocol, "2")
         blender("blender_project_link_long_path_probe.py", "native-blender-long-path", [ROOT])
         record("native-blender-long-path", {"result": "PASS"})
         first = bake(args.solver, output / "bake", "clean-cuda-bake")
@@ -115,7 +118,8 @@ def main():
             phase_report = output / (f"{index}-{phase}.json")
             blender("blender_recovery_integration.py", f"{index}-{phase}",
                     ["--phase", phase, "--repo", ROOT, "--blend", blend,
-                     "--cache", cache_root, "--report", phase_report, "--solver", args.solver])
+                     "--cache", cache_root, "--report", phase_report, "--solver", args.solver,
+                     "--subdivisions", args.recovery_subdivisions])
             value = json.loads(phase_report.read_text())
             expected = "cancelled" if phase == "cancel" else "finished"
             assert value["terminal"] == expected, value
@@ -128,16 +132,21 @@ def main():
         # Only this temporary registry changes selection; user preferences stay byte-identical.
         package, protocol, schema = _version_probe(args.solver)
         official = args.solver.parent.parent.parent.parent
-        registration = SolverInstallation("lifecycle-gaia-023", "Gaia 0.23", "official",
+        tag = "2026-10-13-12-32" if protocol == "0.26" else "2026-09-27-20-44"
+        registration = SolverInstallation("lifecycle-gaia-"+protocol.replace('.',''), "Gaia "+protocol, "official",
             str(official), str(args.solver), str(official / "frontend"), package, protocol, schema,
-            "2026-09-27-20-44", False, True, True)
+            tag, False, True, True)
         isolated = registry.register(registration)
         temporary_registry = output / "registry.json"
         old = next((item for item in registry.installations if item.protocol_version == "0.22" and item.available), None)
         lumen = next((item for item in registry.installations if item.protocol_version == "0.18" and item.available), None)
         if old is None:
             raise RuntimeError("Gaia 0.22 switch gate cannot run: no existing installation")
-        sequence = [registration, old, registration]
+        previous = next((item for item in registry.installations
+                         if item.protocol_version == '0.23' and item.available),None)
+        if previous is None:
+            raise RuntimeError('Gaia 0.23 switch gate cannot run: no existing installation')
+        sequence = [registration, previous, old, registration]
         if lumen:
             sequence += [lumen, registration]
         else:
