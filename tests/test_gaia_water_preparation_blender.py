@@ -154,12 +154,15 @@ def test_cancelled_capture_restores_timeline_and_cleans_worker(blender_env, monk
     try:
         job = module.start(context, (obj,), 1, 2, wait_for_window=False)
         module._pump()
+        # A fast worker may already deliver its first request during the
+        # initial pump. Cancellation must prevent any subsequent capture.
+        captured_before_cancel = len(samples)
         assert module.cancel(job)
         pump(module)
         assert c.snapshot().state is BakeState.CANCELLED
         assert context.scene.frame_current == 7
         assert not list(tmp_path.rglob('*.tmp'))
-        assert not samples
+        assert len(samples) == captured_before_cancel
     finally:
         module.shutdown()
 
