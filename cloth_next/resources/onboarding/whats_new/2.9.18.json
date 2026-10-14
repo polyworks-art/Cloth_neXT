@@ -1,0 +1,16 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.18",
+  "title": "What's New in Cloth NeXt 2.9.18",
+  "subtitle": "Shape your Wind and preview it before Bake.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/refresh.png", "title": "Local Wind and Turbulence", "description": "Animate local airflow with radius, falloff and swirling turbulence on Cloth NeXt Force Emptys."},
+    {"icon": "icons/check.png", "title": "Timeline vector preview", "description": "Inspect Wind before Bake. Arrows follow selected scene geometry and leave empty spaces clear."},
+    {"icon": "icons/refresh.png", "title": "Obstacle shadows and wakes", "description": "Choose Collider or Scene Geometry interaction to deflect airflow and add controlled swirling wakes behind obstacles."}
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

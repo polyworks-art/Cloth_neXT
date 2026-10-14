@@ -1040,8 +1040,9 @@ def test_solver_self_intersection_failure_is_concise(blender_env):
     assert long_tail not in details
 
 
+@pytest.mark.parametrize("batched_triangles", [False, True])
 def test_solver_violations_fall_back_to_recovery_project_sidecar(
-        blender_env, tmp_path):
+        blender_env, tmp_path, batched_triangles):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
                 (0, 0, 1, 0), (0, 0, 0, 1))
@@ -1055,8 +1056,11 @@ def test_solver_violations_fall_back_to_recovery_project_sidecar(
     recovery_root = tmp_path / "recovery-server"
     project_root = recovery_root / "recovered-project"
     project_root.mkdir(parents=True)
+    raw = ({"type": "self_intersection", "count": 1,
+            "tris": [[item.vertices for item in snapshot.triangles]]}
+           if batched_triangles else {"combined_pair": [0, 1]})
     (project_root / "build_violations.json").write_text(
-        json.dumps({"violations": [{"combined_pair": [0, 1]}]}),
+        json.dumps({"violations": [raw]}),
         encoding="utf-8")
     plan = SimpleNamespace(
         solver_input=snapshot,
@@ -1125,13 +1129,14 @@ def test_force_empties_replace_scene_gravity_and_add_wind(blender_env):
     assert wind == (0.0, 0.0, 2.5)
 
 
-def test_unified_force_values_are_applied_together(blender_env):
+@pytest.mark.parametrize("local_wind", [False, True])
+def test_unified_force_values_are_applied_together(blender_env, local_wind):
     module = blender_env.solver_test
     identity = ((1, 0, 0, 0), (0, 1, 0, 0),
                 (0, 0, 1, 0), (0, 0, 0, 1))
     settings = SimpleNamespace(
         force_type="GRAVITY", strength=9.81,
-        gravity_strength=4.0, wind_strength=2.5, wind_variation=0.0,
+        gravity_strength=4.0, wind_strength=2.5, wind_variation=0.0, wind_local=local_wind,
         air_density=0.8, air_friction=0.3, vertex_air_damp=0.15)
     force = SimpleNamespace(
         name="Environment", name_full="Environment", type="EMPTY",
@@ -1143,7 +1148,8 @@ def test_unified_force_values_are_applied_together(blender_env):
     state, active = module._force_state(context)
 
     assert state.gravity == (0.0, 0.0, -4.0)
-    assert state.wind == (0.0, 0.0, 2.5)
+    # A saved old toggle value cannot restore the global Wind path.
+    assert state.wind == (0.0, 0.0, 0.0)
     assert state.air_density == pytest.approx(0.8)
     assert state.air_friction == pytest.approx(0.3)
     assert state.vertex_air_damp == pytest.approx(0.15)

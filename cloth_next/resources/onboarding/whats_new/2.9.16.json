@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.16",
+  "title": "What's New in Cloth NeXt 2.9.16",
+  "subtitle": "Attachments that follow your animated character.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Attach to Collider surfaces",
+      "description": "Attach Cloth or Soft Body to static, moving and deforming Collider targets using the existing Attachment editor or vertex groups. Requires Gaia 0.23 and stable surface topology."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Deformation-aware anchors",
+      "description": "Anchors follow evaluated armature and shape-key deformation while preserving their vertex indices and weights. Bake validation restores your timeline position."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

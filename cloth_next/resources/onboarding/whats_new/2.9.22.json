@@ -1,0 +1,16 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.22",
+  "title": "What's New in Cloth NeXt 2.9.22",
+  "subtitle": "Smart Attach, lighter overlays and reliable Material Zone properties.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/check.png", "title": "Smart Attach", "description": "Select source vertices, press Enter and click the target object. Each source binds to its nearest target surface vertex, including closed source loops."},
+    {"icon": "icons/refresh.png", "title": "Lighter Attachment overlays", "description": "Unchanged viewport redraws reuse anchor geometry and drawing batches. Edits and timeline changes refresh the preview."},
+    {"icon": "icons/check.png", "title": "Multiple Material Zone properties", "description": "Add distinct overrides repeatedly, including after removing a property. The add menu no longer repeats the previous action."}
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

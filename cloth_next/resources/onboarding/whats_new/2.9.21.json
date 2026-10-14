@@ -1,0 +1,16 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.21",
+  "title": "What's New in Cloth NeXt 2.9.21",
+  "subtitle": "Local Wind by default, with clearer controls and progress.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/refresh.png", "title": "Wind always acts locally", "description": "The global/local toggle is gone. Move and rotate the Empty, then use Radius and Falloff to shape the field."},
+    {"icon": "icons/check.png", "title": "Organized Wind controls", "description": "Adjust field shape, gusts and turbulence, obstacle response, preview quality and air response in clearly grouped controls."},
+    {"icon": "icons/refresh.png", "title": "Visible preparation progress", "description": "The Bake window reports local Wind sampling and encoding progress instead of staying at zero during preparation."}
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

@@ -36,6 +36,7 @@ try:
     bpy.ops.clothnext.add_physics()
     assert wind.cloth_next.role == "FORCE"
     wind.cloth_next.force.wind_variation = 0.0
+    wind.cloth_next.force.wind_obstacles = 'NONE'
     wind.cloth_next.force.wind_strength = 1.0
     wind.keyframe_insert(data_path="cloth_next.force.wind_strength", frame=1)
     wind.cloth_next.force.wind_strength = 3.0
@@ -61,7 +62,7 @@ try:
     bpy.context.scene.frame_set(1)
     snapshot = solver_test.validate_scene(bpy.context)
     assert len(snapshot.deformables) == 2
-    assert snapshot.wind_blender == (0.0, 0.0, 1.0)
+    assert snapshot.wind_blender == (0.0, 0.0, 0.0)
     assert {entry.obj.name for entry in snapshot.deformables} == {
         "MultiClothA", "MultiClothB"}
     samples = {
@@ -73,7 +74,7 @@ try:
 
     resolved = SimpleNamespace(
         mode=SimpleNamespace(name="SMOKE"), package_version="test",
-        protocol_version="0.13", schema_version="2",
+        protocol_version="0.23", schema_version="2",
         source_metadata={}, executable_path=Path("smoke-solver"))
     original_resolve = solver_test.resolve_solver
     solver_test.resolve_solver = lambda _context: resolved
@@ -122,8 +123,13 @@ try:
     assert abs(follow_track["time"][1] - 1.0 / 24.0) < 1e-12
     assert abs(follow_track["time"][-1] - 2.0 / 24.0) < 1e-12
     assert abs(params["scene"]["air-density"] - 0.1) < 1e-6
-    assert set(params["dyn_param"]) == {"wind", "air-density"}
-    assert params["dyn_param"]["wind"][-1][1] == [0.0, 3.0, -0.0]
+    assert set(params["dyn_param"]) == {"air-density"}
+    import numpy as np
+    import zlib
+    grid=params['force_field']['grids'][0]
+    wind=np.frombuffer(zlib.decompress(grid['data']),'<f4').reshape(grid['shape'])
+    assert len(wind)==3 and abs(wind[0,...,1].max()-1)<1e-6
+    assert abs(wind[-1,...,1].max()-3)<1e-6
     assert params["dyn_param"]["air-density"][-1][1] == [0.5]
     print("Cloth NeXt multi-object Blender smoke passed")
 finally:

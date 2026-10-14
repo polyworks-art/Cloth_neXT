@@ -234,8 +234,8 @@ class CLOTHNEXT_OT_material_zone_property(ZoneOperator, bpy.types.Operator):
     bl_label = 'Material Zone Property'
     bl_options = {'UNDO', 'INTERNAL'}
     identity: bpy.props.StringProperty(options={'HIDDEN'})
-    key: bpy.props.StringProperty(options={'HIDDEN'})
-    remove: bpy.props.BoolProperty(default=False, options={'HIDDEN'})
+    key: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+    remove: bpy.props.BoolProperty(default=False, options={'HIDDEN', 'SKIP_SAVE'})
 
     def invoke(self, context, event):
         if self.key:
@@ -249,7 +249,7 @@ class CLOTHNEXT_OT_material_zone_property(ZoneOperator, bpy.types.Operator):
             for key, (label, _low, _high) in PARAMETERS.items():
                 if key not in present:
                     op = menu_self.layout.operator(self.bl_idname, text=label)
-                    op.identity, op.key = identity, key
+                    op.identity, op.key, op.remove = identity, key, False
         context.window_manager.popup_menu(menu, title='Add Property')
         return {'FINISHED'}
 
@@ -291,7 +291,8 @@ def draw(layout, context):
                 row.prop(override, 'value', text=PARAMETERS.get(override.key, (override.key,))[0])
                 op = row.operator('clothnext.material_zone_property', text='', icon='X')
                 op.identity, op.key, op.remove = zone.identity, override.key, True
-            box.operator('clothnext.material_zone_property', text='Add Property', icon='ADD').identity = zone.identity
+            op = box.operator('clothnext.material_zone_property', text='Add Property', icon='ADD')
+            op.identity, op.key, op.remove = zone.identity, '', False
     if settings.material_zones:
         column.label(text='Managed solver required · hard face boundaries', icon='INFO')
         if settings.material_zone_status:

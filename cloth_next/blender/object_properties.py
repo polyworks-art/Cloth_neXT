@@ -783,7 +783,45 @@ class CLOTHNEXT_PG_rigid_body_settings(bpy.types.PropertyGroup):
                     "more mass and make impacts feel heavier")
 
 
+def _on_wind_preview_update(self, context):
+    from . import wind_fields
+    wind_fields.redraw(self, context)
+
+
 class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
+    wind_radius: bpy.props.FloatProperty(
+        name="Radius", default=2., min=.01, soft_max=20., subtype="DISTANCE", unit="LENGTH", update=_on_settings_update,
+        description="Distance from the Empty where local Wind reaches zero")
+    wind_falloff: bpy.props.FloatProperty(
+        name="Falloff", default=2., min=1., soft_max=8., update=_on_settings_update,
+        description="Higher values concentrate Wind closer to the Empty")
+    wind_turbulence: bpy.props.FloatProperty(
+        name="Turbulence", default=0., min=0., soft_max=10., update=_on_settings_update,
+        description="Maximum additional spatial swirling air speed")
+    wind_turbulence_size: bpy.props.FloatProperty(
+        name="Swirl Size", default=1., min=.01, soft_max=10., subtype="DISTANCE", unit="LENGTH", update=_on_settings_update,
+        description="World-space size of the turbulent swirls")
+    wind_resolution: bpy.props.IntProperty(
+        name="Field Resolution", default=13, min=5, max=33, options=set(), update=_on_settings_update,
+        description="Grid nodes across the Wind source diameter; higher resolution captures smaller swirls")
+    wind_obstacles: bpy.props.EnumProperty(
+        name="Obstacles", default="COLLIDERS", options=set(), update=_on_settings_update,
+        items=(("NONE", "Off", "Wind ignores geometry"),
+               ("COLLIDERS", "Cloth NeXt Colliders", "React to enabled Collider surfaces"),
+               ("SCENE", "Scene Geometry", "React to scene surfaces, including objects without Collider setup; simulated targets are excluded")),
+        description="Geometry used for approximate Wind shadows, surface deflection and wakes")
+    wind_wake_strength: bpy.props.FloatProperty(
+        name="Wake Strength", default=.35, min=0., max=2., update=_on_settings_update,
+        description="Swirling velocity behind obstacles relative to incoming Wind; zero keeps the shadow and deflection")
+    wind_wake_length: bpy.props.FloatProperty(
+        name="Wake Length", default=3., min=.1, soft_max=10., update=_on_settings_update,
+        description="Wake recovery distance relative to obstacle size, limited to the Wind field radius")
+    wind_show_vectors: bpy.props.BoolProperty(
+        name="Show Wind Vectors", default=False, options=set(), update=_on_wind_preview_update,
+        description="Preview combined Wind at the current timeline frame without baking")
+    wind_vector_scale: bpy.props.FloatProperty(
+        name="Vector Scale", default=.15, min=.001, soft_max=1., options=set(), update=_on_wind_preview_update,
+        description="Display length per unit of air speed; does not change the simulation")
     # Kept for loading older files. The unified Force panel no longer exposes
     # or uses a single active type.
     force_type: bpy.props.EnumProperty(
@@ -813,7 +851,7 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_strength: bpy.props.FloatProperty(
         name="Wind", default=0.0, min=0.0, soft_max=50.0,
         precision=3, update=_on_settings_update,
-        description="Wind speed along the Empty's local +Z axis; aerodynamic force also depends on Air Density")
+        description="Local air speed along the Empty's +Z axis, fading to zero at Radius; aerodynamic force also depends on Air Density")
     wind_variation: bpy.props.FloatProperty(
         name="Strength Variation", default=0.0, min=0.0, soft_max=10.0,
         precision=3, update=_on_settings_update,
@@ -821,7 +859,7 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
     wind_noise_scale: bpy.props.FloatProperty(
         name="Noise Scale", default=3.0, min=0.1, soft_max=20.0,
         precision=2, subtype="TIME", unit="TIME", update=_on_settings_update,
-        description="Time scale of Wind Variation in seconds; higher values create slower, broader gusts, while lower values create faster changes")
+        description="Time scale of gusts and swirling Wind in seconds; higher values create slower changes")
     air_density: bpy.props.FloatProperty(
         name="Air Density", default=0.01, min=0.0, soft_max=0.01,
         precision=4, update=_on_settings_update,

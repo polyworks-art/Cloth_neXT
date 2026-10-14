@@ -8,6 +8,59 @@
 - Improve native convergence diagnostics, contact metrics, Windows long-path handling and cache preservation on failed Re-Bakes.
 - Validate native NEON coupling with the three existing cloth meshes over 250 frames; retain documented production and installed-workflow limitations.
 
+## 2.9.22 - 2026-10-12
+
+- Add Smart Attach: select source vertices, press Enter and click the target object to bind each source to its nearest target surface vertex in world space. Closed source loops are supported.
+- Cache Attachment overlay anchors and GPU batches across unchanged viewport redraws; invalidate on endpoint edits, frame changes, attachment changes, load and undo.
+- Reuse evaluated Collider geometry for Attachment previews when no visible modifiers follow the simulation boundary.
+- Fix Material Zones Add Property reusing the previous property or remove action; allow repeated additions of distinct overrides.
+- Verify closed-loop nearest-vertex bindings, persistent Attachment data, bounded overlay evaluations and multiple Material Zone overrides in real Blender regression tests.
+
+## 2.9.21 - 2026-10-12
+
+- Make Wind on Force Emptys always local and remove the global/local toggle; ignore saved legacy toggle values.
+- Organize Wind authoring into Wind Field, Gusts & Turbulence, Obstacle Response, Preview & Quality, and Air Response controls.
+- Capture Wind animated from zero while skipping static gravity-only Wind export; prevent duplicate global Wind application.
+- Report Wind animation capture, local sampling and encoding progress during Bake preparation. Show indeterminate geometry work without a misleading fixed zero percent.
+- Verify cancellation, timeline restoration, local grid animation and multi-object export with GAIA 0.23.
+
+## 2.9.20 - 2026-10-12
+
+- Remove Wind obstacle mesh capture and hashing from UI cache status, including the floating Bake button's redraw and background refresh paths.
+- Keep obstacle properties in the cheap settings fingerprint; move full mesh identity into explicit validation's geometry fingerprint.
+- Mark simulation geometry dirty when Scene-mode obstacles change, preserving cache checks without mesh scans in update handlers.
+- Verify single- and multi-target validation and 100 UI fingerprint checks without mesh capture. In the open character scene, a complete Bake status check dropped from 88.9 ms to 2.8 ms.
+
+## 2.9.19 - 2026-10-12
+
+- Cache Wind preview vectors and GPU batches across unchanged viewport redraws.
+- Reuse static obstacle geometry and repeated surface queries across frames; invalidate edited geometry and bound cache memory.
+- Avoid temporary mesh copies and repeated whole-scene evaluations when an evaluated Collider already matches its input boundary.
+- Accelerate preview BVH construction and prune irrelevant obstacle queries with vectorized spatial bounds.
+- Verify the fix in an open animated character scene: Scene-mode timeline steps dropped from 5.39 s to 87 ms, and three-frame Wind preparation from 8.22 s to 0.41 s, with byte-identical exported fields.
+
+## 2.9.18 - 2026-10-12
+
+- Add local Wind and Turbulence fields with animated radius, falloff and swirling airflow.
+- Preview Wind vectors before Bake on the timeline, near geometry selected by the obstacle mode and without arrows across empty gaps.
+- Add optional Collider or Scene Geometry obstacle response with surface deflection, downstream shadows and animated wakes, including collection instances.
+- Export bounded frame-sampled air-velocity grids for GAIA 0.23; preserve legacy global Wind and Water Flow base fields.
+- Verify Blender timeline, obstacle geometry, cancellation, GPU overlays and native CUDA airflow response.
+
+## 2.9.17 - 2026-10-12
+
+- Fix missing intersection overlays after failed Bakes with official frontend diagnostics: unpack grouped triangle pairs before attributing them to source objects and faces.
+- Preserve authoritative intersection counts when the solver supplies fewer detailed previews; retain support for individual modern records.
+- Verify the failed-Bake sidecar handoff, both sides of Cloth/Collider intersections and Blender overlay handler lifecycle. Require these regressions in the private release pipeline.
+
+## 2.9.16 - 2026-10-06
+
+- Attach Cloth and Soft Body to static, transform-animated and deforming Collider targets with Gaia 0.23.
+- Bind and preview evaluated Collider surfaces; freeze stable barycentric anchors at Bake Start and restore the user's frame/subframe.
+- Preserve bindings when a deformed quad changes display triangulation; reject incompatible surface topology and disabled targets.
+- Evaluate shape keys before a first-position simulation boundary and exclude downstream modifiers from animated Collider capture.
+- Verify static, moving and deforming Cloth anchors plus Soft Body anchors in real Blender/CUDA bakes.
+
 ## 2.9.15 - 2026-10-05
 
 - Default animated Collider capture to one sample per frame, including reset and fallback paths; preserve explicitly saved sample counts.

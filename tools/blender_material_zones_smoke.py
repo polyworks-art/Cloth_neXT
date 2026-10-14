@@ -33,6 +33,14 @@ identity, token = zone.identity, zone.token
 assert identity and token == 1
 assert bpy.ops.clothnext.material_zone_property(identity=identity, key='bend') == {'FINISHED'}
 zone.overrides[0].value = 100
+# Multiple overrides coexist; add and remove buttons must not inherit the
+# previous operation's key/action when opening the next property menu.
+assert bpy.ops.clothnext.material_zone_property(identity=identity, key='friction', remove=False) == {'FINISHED'}
+assert {override.key for override in zone.overrides} == {'bend', 'friction'}
+assert bpy.ops.clothnext.material_zone_property(identity=identity, key='friction', remove=True) == {'FINISHED'}
+assert bpy.ops.clothnext.material_zone_property(identity=identity, key='friction', remove=False) == {'FINISHED'}
+rna = bpy.ops.clothnext.material_zone_property.get_rna_type()
+assert rna.properties['key'].is_skip_save and rna.properties['remove'].is_skip_save
 data.write_owners(obj, (0, token))
 mesh.calc_loop_triangles()
 triangles = tuple(tuple(t.vertices) for t in mesh.loop_triangles)

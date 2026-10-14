@@ -4,7 +4,12 @@ Validated 2026-10-06 against the local checkout of
 `codex/gaia-water-flow-2.9.7`, based on `8b55684`. `git fetch origin` confirmed
 the local and remote branch tips were identical before implementation.
 Existing uncommitted Blender, cache, companion and water-prototype work was
-preserved. This change has not been released.
+preserved. These initial results were recorded before release preparation.
+
+The isolated 2.9.16 release checkout includes only the Attachment changes and
+release metadata. Its full suite passed with **2156 passed, 20 skipped,
+3 deselected**. A further real CUDA Deforming-Collider bake from that checkout
+passed with a final anchor distance of **0.987 mm**.
 
 ## Behavior
 

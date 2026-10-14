@@ -25,7 +25,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
-               viewport_colors, water_flow, material_zones, material_zone_selector)
+               viewport_colors, water_flow, wind_fields, material_zones, material_zone_selector)
 
 _CLASSES = (
     preferences.CLASSES
@@ -87,9 +87,10 @@ def _steps() -> list[tuple]:
     steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
-    # last and detached first, and idempotent, so a reload cannot leave a
+    # late and detached early, and idempotent, so a reload cannot leave a
     # duplicate behind.
     steps.append((validation_state.register, validation_state.unregister))
+    steps.append((wind_fields.register, wind_fields.unregister))
     steps.append((solver_test.install_recovery_ui_handler,
                   solver_test.uninstall_recovery_ui_handler))
     steps.append((solver_test.synchronize_playback_input_deformers,

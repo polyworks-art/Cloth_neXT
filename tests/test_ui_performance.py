@@ -125,6 +125,20 @@ def test_cache_panel_does_not_use_a_geometry_fingerprint(ui_tree):
     assert "cheap_settings_fingerprint" in reached
 
 
+def test_wind_identity_in_settings_fingerprint_is_property_only():
+    solver_tree=ast.parse(Path('cloth_next/blender/solver_test.py').read_text(encoding='utf-8'))
+    solver_functions=_module_functions(solver_tree)
+    function=solver_functions['_settings_fingerprint']
+    imports=[alias.name for node in ast.walk(function) if isinstance(node,ast.ImportFrom)
+             and node.module=='wind_obstacles' for alias in node.names]
+    assert imports==['settings_signature'], 'UI settings fingerprint imported mesh-bearing Wind identity'
+    reached=_reachable(solver_functions['cheap_settings_fingerprint'],solver_functions)
+    assert '_wind_obstacle_geometry_signature' not in reached
+    wind_tree=ast.parse(Path('cloth_next/blender/wind_obstacles.py').read_text(encoding='utf-8'))
+    wind_functions=_module_functions(wind_tree)
+    assert not (_reachable(wind_functions['settings_signature'],wind_functions) & FORBIDDEN_IN_DRAW)
+
+
 def test_pinning_panel_uses_the_cheap_summary(ui_tree):
     for label, node in _panel_entry_points(ui_tree):
         if label == "CLOTHNEXT_PT_pinning.draw":

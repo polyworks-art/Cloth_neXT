@@ -1,0 +1,15 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.20",
+  "title": "What's New in Cloth NeXt 2.9.20",
+  "subtitle": "Faster UI status checks with local Wind.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {"icon": "icons/refresh.png", "title": "Faster Bake status updates", "description": "The floating Bake button no longer captures and hashes Wind obstacle meshes during redraws or background refreshes."},
+    {"icon": "icons/check.png", "title": "Geometry validation stays complete", "description": "Obstacle edits still mark simulation geometry for validation. Full mesh checks run during explicit validation rather than UI drawing."}
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

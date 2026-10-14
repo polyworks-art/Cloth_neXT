@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import time
 import uuid
+from contextlib import nullcontext
 
 import bpy
 
@@ -25,11 +26,15 @@ except ImportError:  # pragma: no cover - available inside Blender
     bmesh = None
 
 
+def _overlay_changed(_item, _context):
+    _clear_overlay_cache()
+
+
 class CLOTHNEXT_PG_attachment_point(bpy.types.PropertyGroup):
-    source_index: bpy.props.IntProperty(default=0, min=0)
-    target_triangle: bpy.props.IntVectorProperty(size=3, default=(0, 0, 0))
+    source_index: bpy.props.IntProperty(default=0, min=0, update=_overlay_changed)
+    target_triangle: bpy.props.IntVectorProperty(size=3, default=(0, 0, 0), update=_overlay_changed)
     target_weights: bpy.props.FloatVectorProperty(
-        size=3, default=(1.0, 0.0, 0.0))
+        size=3, default=(1.0, 0.0, 0.0), update=_overlay_changed)
     source_point: bpy.props.FloatVectorProperty(size=3)
     target_point: bpy.props.FloatVectorProperty(size=3)
 
@@ -58,6 +63,7 @@ def _group_changed(item, context):
 
 
 def _settings_changed(_item, _context):
+    _clear_overlay_cache()
     validation_state.mark_all_settings_dirty()
 
 
@@ -83,7 +89,7 @@ class CLOTHNEXT_PG_object_attachment(bpy.types.PropertyGroup):
     ui_expanded: bpy.props.BoolProperty(
         name="Show Attachment Details", default=False,
         description="Expand this Attachment's settings")
-    show_overlay: bpy.props.BoolProperty(default=True)
+    show_overlay: bpy.props.BoolProperty(default=True, update=_overlay_changed)
     points: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_point)
     source_vertices: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_vertex)
     target_vertices: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_attachment_vertex)
@@ -162,7 +168,15 @@ def _collider_preview_vertices(obj, indices):
     """Read only the anchor vertices, not a dense collider's whole surface."""
     from . import solver_test
     context = bpy.context
-    with solver_test._evaluate_through_solver_input_modifiers(context, obj) as boundary:
+    boundaries = solver_test.simulation_modifiers(obj)
+    direct = not boundaries
+    if boundaries:
+        boundary_index = list(obj.modifiers).index(boundaries[0])
+        direct = not any(modifier.show_viewport
+                         for modifier in list(obj.modifiers)[boundary_index + 1:])
+    evaluation = (nullcontext(obj) if direct else
+                  solver_test._evaluate_through_solver_input_modifiers(context, obj))
+    with evaluation as boundary:
         mesh = (obj.data if boundary is None else
                 boundary.evaluated_get(context.evaluated_depsgraph_get()).data)
         return {index: tuple(obj.matrix_world @ mesh.vertices[index].co)
@@ -189,20 +203,27 @@ def _fill_indices(collection, indices):
         collection.add().index = index
 
 
-def _prepare_mapping(source, target, source_indices, target_indices):
+def _prepare_mapping(source, target, source_indices, target_indices, *, smart=False):
     source_vertices, source_triangles = _mesh_triangles(source)
     target_vertices, target_triangles = _mesh_triangles(target)
     incident = {}
     for triangle in target_triangles:
         for index in triangle:
             incident.setdefault(index, triangle)
-    if any(index not in incident for index in target_indices):
+    if smart:
+        if not incident:
+            raise AttachmentError("Target must have surface vertices")
+        search = VertexSearch(target_vertices, sorted(incident))
+        mapping = tuple((index, search.nearest(source_vertices[index]))
+                        for index in sorted(set(source_indices)))
+    elif any(index not in incident for index in target_indices):
         raise AttachmentError("Selected target vertices must belong to a surface face")
-    source_edges = tuple(tuple(map(int, edge.vertices)) for edge in source.data.edges)
-    target_edges = tuple(tuple(map(int, edge.vertices)) for edge in target.data.edges)
-    mapping = topology_vertex_mapping(
-        source_vertices, source_indices, source_edges,
-        target_vertices, target_indices, target_edges)
+    if not smart:
+        source_edges = tuple(tuple(map(int, edge.vertices)) for edge in source.data.edges)
+        target_edges = tuple(tuple(map(int, edge.vertices)) for edge in target.data.edges)
+        mapping = topology_vertex_mapping(
+            source_vertices, source_indices, source_edges,
+            target_vertices, target_indices, target_edges)
     prepared = []
     for source_index, target_index in mapping:
         triangle = incident[target_index]
@@ -213,10 +234,13 @@ def _prepare_mapping(source, target, source_indices, target_indices):
     return source_vertices, source_triangles, target_vertices, target_triangles, prepared
 
 
-def _commit_attachment(scene, source, target, source_indices, target_indices):
+def _commit_attachment(scene, source, target, source_indices, target_indices, *, smart=False):
     export_identity.ensure_unique_persistent_ids(scene.objects)
     source_vertices, source_triangles, target_vertices, target_triangles, prepared = (
-        _prepare_mapping(source, target, source_indices, target_indices))
+        _prepare_mapping(source, target, source_indices, target_indices, smart=smart))
+    if smart:
+        target_indices = {triangle[weights.index(1.0)]
+                          for _, triangle, weights, _, _ in prepared}
     item = scene.cloth_next_object_attachments.add()
     item.identifier = uuid.uuid4().hex
     item.name = f"{source.name} → {target.name}"
@@ -503,6 +527,10 @@ def _editor_draw_text():  # pragma: no cover - Blender text callback
         "TARGET_VERTEX_SELECT": ("TARGET VERTICES", "Select attachment vertices"),
     }
     title, instruction = labels.get(operator.stage, ("ATTACHMENT", ""))
+    if operator.smart:
+        title = f"SMART ATTACH — {title}"
+        if operator.stage == "TARGET_OBJECT_SELECT":
+            instruction = "Click target to bind each source to its nearest surface vertex"
     blf.position(0, 28, 72, 0); blf.size(0, 18); blf.draw(0, title)
     blf.position(0, 28, 50, 0); blf.size(0, 13); blf.draw(0, instruction)
     blf.position(0, 28, 30, 0); blf.size(0, 12)
@@ -531,6 +559,9 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
     bl_label = "Add Attachment"
     bl_description = "Select source and target vertices directly in the viewport"
     bl_options = {"INTERNAL", "BLOCKING"}
+    smart: bpy.props.BoolProperty(
+        name="Smart Attach", default=False,
+        description="Bind each source vertex to the nearest target surface vertex; supports closed loops")
 
     @classmethod
     def poll(cls, context):
@@ -696,6 +727,17 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                     except AttachmentError as exc:
                         self._feedback(str(exc)); return {"RUNNING_MODAL"}
                     self.target = target
+                    if self.smart:
+                        try:
+                            item = _commit_attachment(
+                                self.scene, self.source, target,
+                                self.source_selection, (), smart=True)
+                        except AttachmentError as exc:
+                            self._feedback(str(exc)); return {"RUNNING_MODAL"}
+                        count = len(item.points)
+                        self.finish()
+                        self.report({"INFO"}, f"Smart Attach: created {count} connections")
+                        return {"FINISHED"}
                     self.stage = "TARGET_VERTEX_SELECT"; self.hovered_vertex = None
                 self._redraw(); return {"RUNNING_MODAL"}
             index = self._pick_vertex(context, event)
@@ -816,6 +858,7 @@ def prune_deleted_objects(scene, *, validating=False):
 
 
 def _prune_deleted_attachments(*_args):
+    _invalidate_overlay(*_args)
     scenes = getattr(bpy.data, "scenes", ())
     for scene in (scenes.values() if isinstance(scenes, dict) else scenes):
         prune_deleted_objects(scene)
@@ -909,15 +952,61 @@ def snapshot_enabled(scene, deformable_entries, *, collider_entries=()):
 
 
 _draw_handle = None
+_overlay_cache = {}
+_overlay_building = False
+
+
+def _clear_overlay_cache():
+    _overlay_cache.clear()
+
+
+def _overlay_identity(identifier):
+    return identifier.as_pointer()
+
+
+def _invalidate_overlay(scene=None, depsgraph=None):
+    if _overlay_building:
+        return
+    if depsgraph is None:
+        _clear_overlay_cache()
+        return
+    entry = _overlay_cache.get("entry")
+    if entry is None:
+        return
+    names = entry[4]
+    for update in depsgraph.updates:
+        identifier = getattr(update.id, "original", update.id)
+        if identifier == scene or _overlay_identity(identifier) in names:
+            _clear_overlay_cache()
+            return
 
 
 def _draw_overlay():  # pragma: no cover - exercised in Blender
+    global _overlay_building
     try:
         import gpu
         from gpu_extras.batch import batch_for_shader
         scene = bpy.context.scene
+        key = (scene.as_pointer(), scene.frame_current, scene.frame_subframe,
+               tuple((item.identifier, item.enabled, item.show_overlay, len(item.points))
+                     for item in scene.cloth_next_object_attachments))
+        cached = _overlay_cache.get("entry")
+        if cached is not None and cached[0] == key:
+            _, shader, batch, point_batch, _ = cached
+            if batch is not None:
+                shader.bind()
+                shader.uniform_float("color", (0.15, 0.9, 0.35, 0.85))
+                batch.draw(shader)
+                gpu.state.point_size_set(6.0)
+                try:
+                    point_batch.draw(shader)
+                finally:
+                    gpu.state.point_size_set(1.0)
+            return
+        _overlay_building = True
         lines = []
         objects = _objects_by_identity(scene)
+        names = set()
         collider_surfaces = {}
         for item in scene.cloth_next_object_attachments:
             if item.enabled and item.show_overlay:
@@ -925,6 +1014,8 @@ def _draw_overlay():  # pragma: no cover - exercised in Blender
                 target = objects.get(str(item.target_persistent_id))
                 if source is None or target is None:
                     continue
+                names.update(_overlay_identity(identifier)
+                             for identifier in (source, target, source.data, target.data))
                 target_vertices = None
                 if target.cloth_next.role == "COLLIDER":
                     if target not in collider_surfaces:
@@ -959,6 +1050,7 @@ def _draw_overlay():  # pragma: no cover - exercised in Blender
                     except (AttributeError, IndexError, KeyError, TypeError):
                         continue
         if not lines:
+            _overlay_cache["entry"] = (key, None, None, None, names)
             return
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         batch = batch_for_shader(shader, "LINES", {"pos": lines})
@@ -966,11 +1058,16 @@ def _draw_overlay():  # pragma: no cover - exercised in Blender
         shader.uniform_float("color", (0.15, 0.9, 0.35, 0.85))
         batch.draw(shader)
         point_batch = batch_for_shader(shader, "POINTS", {"pos": lines})
+        _overlay_cache["entry"] = (key, shader, batch, point_batch, names)
         gpu.state.point_size_set(6.0)
-        point_batch.draw(shader)
-        gpu.state.point_size_set(1.0)
+        try:
+            point_batch.draw(shader)
+        finally:
+            gpu.state.point_size_set(1.0)
     except Exception:
         return
+    finally:
+        _overlay_building = False
 
 
 def _ensure_draw_handler():
@@ -981,6 +1078,7 @@ def _ensure_draw_handler():
 
 
 def _cancel_editor_sessions(*_args):
+    _clear_overlay_cache()
     for operator in tuple(_editor_sessions.values()):
         operator.finish()
 

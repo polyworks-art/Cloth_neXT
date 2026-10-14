@@ -32,6 +32,25 @@ Gaia 0.22 and older adapters reject Collider Attachments with an instruction
 to select Gaia 0.23. Existing Cloth/Soft Body Attachments retain their earlier
 solver compatibility.
 
+## Smart Attach
+
+In Object Mode, choose **Smart Attach**, select the source vertices in the
+viewport, press Enter, and click the target object. Each selected source vertex
+binds to the nearest target vertex belonging to a surface face, measured in
+world space at the current pose. Closed source loops are supported. Multiple
+source vertices can share one target vertex. The anchors remain fixed after
+binding; animation does not repeatedly choose new nearest vertices.
+
+**Add Attachment** retains manual source and target selection with ordered
+open-path mapping. Closed loops in that mode require a cyclic alignment and
+are currently rejected.
+
+The persistent overlay reuses its anchor geometry and GPU batches during
+viewport navigation. Frame changes, edits to either endpoint or its mesh,
+attachment changes, load and undo invalidate the cache. Collider preview reads
+the existing evaluated mesh when no visible modifiers follow the simulation
+boundary; otherwise it evaluates the authored prefix.
+
 In Edit Mode, **Create From Selection** projects each selected source vertex
 onto the closest triangle of the chosen target. The relationship stores stable
 object identities, source indices, target triangle indices, barycentric target

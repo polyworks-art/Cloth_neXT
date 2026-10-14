@@ -124,6 +124,49 @@ def test_material_panel_actions_counts_and_cloth_only(blender_env):
         assert 'Material Zones' not in panel.layout.labels
 
 
+def test_add_property_resets_previous_add_and_remove_arguments(blender_env):
+    from tests.test_phase3b_material_ui import RecordingLayout, _settings, _context
+    from cloth_next.blender import material_zones
+    blender_env.registration.register()
+    obj, settings = _settings(blender_env)
+    obj.mode = 'OBJECT'
+    zone = settings.material_zones.add()
+    zone.identity = str(uuid4())
+    zone.overrides.add().key = 'bend'
+
+    class LastUsedLayout(RecordingLayout):
+        def __init__(self):
+            super().__init__()
+            self.arguments = []
+
+        def column(self, **kw):
+            return self
+
+        row = box = column
+
+        def operator(self, identifier, text='', **kw):
+            # Mimic Blender retaining arguments from the last add/remove.
+            op = SimpleNamespace(key='bend', remove=True)
+            self.arguments.append((identifier, text, op))
+            return op
+
+    layout = LastUsedLayout()
+    material_zones.draw(layout, _context(obj))
+    add = next(op for _, text, op in layout.arguments if text == 'Add Property')
+    assert (add.identity, add.key, add.remove) == (zone.identity, '', False)
+    operator = material_zones.CLOTHNEXT_OT_material_zone_property()
+    operator.identity, operator.key, operator.remove = add.identity, add.key, add.remove
+    menus = []
+    context = SimpleNamespace(object=obj, window_manager=SimpleNamespace(
+        popup_menu=lambda draw, **kw: menus.append(draw)))
+    assert operator.invoke(context, None) == {'FINISHED'}
+    assert len(menus) == 1
+    menu = LastUsedLayout()
+    menus[0](SimpleNamespace(layout=menu), context)
+    assert len(menu.arguments) == len(material_zones.PARAMETERS) - 1
+    assert all(op.key != 'bend' and op.remove is False for _, _, op in menu.arguments)
+
+
 def test_selector_cleanup_is_idempotent_and_cancel_keeps_assignments(blender_env, monkeypatch):
     from cloth_next.blender import material_zone_selector as selector
     operator = selector.CLOTHNEXT_OT_edit_material_zone_selection()

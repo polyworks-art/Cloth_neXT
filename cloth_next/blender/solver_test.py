@@ -1050,10 +1050,9 @@ def _force_state(context, *, wind_frame: int | None = None) \
                    for value in values):
                 raise SceneValidationError(
                     f"{obj.name}: directional Force value is invalid.")
-            if wind_frame is not None and variation:
-                wind_strength = max(
-                    0.0, wind_strength + variation * _wind_oscillation(
-                        obj, wind_frame, _scene_fps(context), noise_scale))
+            # Wind is authored as a local air-velocity field. Keep it out of
+            # the legacy scene-wide vector to avoid applying it twice.
+            wind_strength = 0.0
             axis = (0.0, 0.0, 0.0)
             if wind_strength:
                 matrix = obj.matrix_world
@@ -2225,6 +2224,13 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             "world_matrix": world,
             "material": static_wire_params(material),
         }, sort_keys=True, separators=(",", ":")))
+    wind_obstacle_identity = ""
+    from .wind_fields import has_wind
+    wind_obstacle_modes = {str(getattr(obj.cloth_next.force, "wind_obstacles", "NONE"))
+        for obj in _enabled_force_objects(context) if getattr(obj.cloth_next.force, "wind_radius", None) is not None and has_wind(obj)}
+    if wind_obstacle_modes - {"NONE"}:
+        from .wind_obstacles import settings_signature as wind_obstacle_signature
+        wind_obstacle_identity = wind_obstacle_signature(context, wind_obstacle_modes)
     force_settings = [json.dumps({
         "object_key": validation_state.object_key(obj),
         "type": str(obj.cloth_next.force.force_type),
@@ -2236,6 +2242,10 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
             obj.cloth_next.force, "gravity_axis", "Z_NEG")),
         "wind_strength": float(getattr(
             obj.cloth_next.force, "wind_strength", 0.0)),
+        "local_wind": {key: getattr(obj.cloth_next.force, key, None) for key in (
+            "wind_radius", "wind_falloff", "wind_turbulence",
+            "wind_turbulence_size", "wind_resolution", "wind_obstacles",
+            "wind_wake_strength", "wind_wake_length")},
         "wind_variation": float(getattr(obj.cloth_next.force,
                                          "wind_variation", 0.0)),
         "wind_noise_scale": float(getattr(obj.cloth_next.force,
@@ -2260,6 +2270,7 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
                    separators=(",", ":")),
         *collider_settings,
         *force_settings,
+        wind_obstacle_identity,
         str(_scene_fps(context)),
     ))
     if getattr(cloth_obj.cloth_next, "water_flow_enabled", False):
@@ -2269,6 +2280,18 @@ def _settings_fingerprint(context, cloth_obj, collider_obj, shell, static,
     if zone_record is not None:
         record += '\0' + json.dumps(zone_record, sort_keys=True)
     return hashlib.sha256(record.encode("utf-8")).hexdigest()
+
+
+def _wind_obstacle_geometry_signature(context):
+    """Mesh-bearing identity belongs only to explicit validation/preparation."""
+    from .wind_fields import has_wind
+    modes = {str(getattr(obj.cloth_next.force,'wind_obstacles','NONE'))
+             for obj in _enabled_force_objects(context)
+             if getattr(obj.cloth_next.force,'wind_radius',None) is not None and has_wind(obj)}
+    if not modes - {'NONE'}:
+        return ''
+    from .wind_obstacles import signature
+    return signature(context,modes)
 
 
 def cheap_settings_fingerprint(context) -> str | None:
@@ -2546,11 +2569,15 @@ def _validate_scene_single(context) -> ValidationSnapshot:
                 "shape": shape,
                 "animation": _animation_signature(collider),
             })
-        scene_geometry_signature = cache_metadata.deterministic_hash({
+        scene_geometry_record = {
             "deformable": deformable_shape_signature,
             "deformable_animation": _animation_signature(cloth_obj),
             "colliders": collider_geometry,
-        })
+        }
+        wind_geometry = _wind_obstacle_geometry_signature(context)
+        if wind_geometry:
+            scene_geometry_record['wind_obstacles'] = wind_geometry
+        scene_geometry_signature = cache_metadata.deterministic_hash(scene_geometry_record)
         geometry_fp = combine_geometry_fingerprint(
             scene_geometry_signature,
             pin_indices_signature(
@@ -2728,7 +2755,7 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
         explicit_sewing, sewing_attachments = sewing.snapshot_enabled(
             context.scene, entries)
         attachment_snapshot = tuple(attachment_snapshot) + tuple(sewing_attachments)
-        geometry_fp = cache_metadata.deterministic_hash({
+        geometry_record = {
             "deformables": [{
                 "object_key": validation_state.object_key(entry.obj),
                 "shape": entry.shape_signature,
@@ -2740,7 +2767,11 @@ def _validate_scene_impl(context) -> ValidationSnapshot:
             "colliders": collider_geometry,
             "object_attachments": [asdict(attachment) for attachment, _s, _t
                                    in attachment_snapshot],
-            "explicit_sewing": explicit_sewing})
+            "explicit_sewing": explicit_sewing}
+        wind_geometry = _wind_obstacle_geometry_signature(context)
+        if wind_geometry:
+            geometry_record['wind_obstacles'] = wind_geometry
+        geometry_fp = cache_metadata.deterministic_hash(geometry_record)
     except (SceneValidationError, ClothNextError, MaterialValidationError,
             DeformableMaterialError, CurveRodError, BakeRangeError,
             AttachmentError, SewingError, TypeError, ValueError) as exc:
@@ -3659,6 +3690,8 @@ def _capture_force_animation(context, bake_range: BakeFrameRange) -> ForceCaptur
 
 def _simple_force_fcurves(obj):
     """Return an Action's safe scalar curves, or ``None`` to fail closed."""
+    if getattr(obj.cloth_next.force, "wind_radius", None) is not None:
+        return None
     animation = getattr(obj, "animation_data", None)
     action = getattr(animation, "action", None)
     if (getattr(animation, "drivers", ()) or
@@ -5671,6 +5704,10 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             tuple(target.uuid for target in target_plans),
             schema_version=_resolved_wire_contract(resolved)[0],
             protocol_version=_resolved_wire_contract(resolved)[1])
+        from .wind_fields import apply_wind_payload
+        param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+            snapshot.bake_range.start, snapshot.bake_range.end)
+        param_hash = wind_hash or param_hash
         from .water_flow import apply_water_stream_payload
         param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
             snapshot.bake_range.start, snapshot.bake_range.end)
@@ -6046,6 +6083,10 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
         object_attachments=snapshot.object_attachments,
         contact_enabled=snapshot.contact_enabled,
         schema_version=wire_schema, protocol_version=wire_protocol)
+    from .wind_fields import apply_wind_payload
+    param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = wind_hash or param_hash
     from .water_flow import apply_water_stream_payload
     param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)
@@ -6510,6 +6551,10 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
         tuple(item[1] for item in collider_specs), (pin_config,))
     param_payload, param_hash = _cached_payload(
         payload_cache, "param", param_cache_key, encode_param_payload)
+    from .wind_fields import apply_wind_payload
+    param_payload, wind_hash = apply_wind_payload(context, param_payload, resolved,
+        bake_range.start, bake_range.end)
+    param_hash = wind_hash or param_hash
     from .water_flow import apply_water_stream_payload
     param_payload, water_hash, water_stream_json = apply_water_stream_payload(context, param_payload, resolved,
         bake_range.start, bake_range.end)
@@ -10157,7 +10202,7 @@ def _pin_capture_pump():
             status_message="Preparing evaluated geometry",
             activity_code=BakeActivity.CAPTURING_GEOMETRY,
             progress_current=0,
-            progress_total=1)
+            progress_total=None)
         # Cancel may arrive after the check at the beginning of this timer
         # tick. Do not continue into STARTING_COMPANION from CANCELLING after
         # an expensive final evaluated-frame capture.

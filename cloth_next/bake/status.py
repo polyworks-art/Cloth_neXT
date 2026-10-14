@@ -54,6 +54,7 @@ class BakeActivity(str, Enum):
     CAPTURING_PIN_TARGETS="CAPTURING_PIN_TARGETS"
     CAPTURING_COLLIDER_MOTION="CAPTURING_COLLIDER_MOTION"
     CAPTURING_FORCE_MOTION="CAPTURING_FORCE_MOTION"
+    CAPTURING_WIND="CAPTURING_WIND"
     VALIDATING_PIN_TOPOLOGY="VALIDATING_PIN_TOPOLOGY"
     ENCODING_PIN_ANIMATION="ENCODING_PIN_ANIMATION"
     PREPARING_WATER="PREPARING_WATER"
@@ -74,6 +75,7 @@ ACTIVITY_LABELS = {
     BakeActivity.CAPTURING_PIN_TARGETS:"Capturing animated Pin targets",
     BakeActivity.CAPTURING_COLLIDER_MOTION:"Capturing animated Colliders",
     BakeActivity.CAPTURING_FORCE_MOTION:"Capturing animated Forces",
+    BakeActivity.CAPTURING_WIND:"Sampling local Wind",
     BakeActivity.VALIDATING_PIN_TOPOLOGY:"Validating Pin topology",
     BakeActivity.ENCODING_PIN_ANIMATION:"Encoding Pin animation",
     BakeActivity.PREPARING_WATER:"Preparing Water Flow",
