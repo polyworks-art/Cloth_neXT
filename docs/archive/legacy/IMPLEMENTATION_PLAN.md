@@ -1,0 +1,226 @@
+# Cloth NeXt implementation plan
+
+## Phase 4 production cache — complete
+
+- Every new Bake has a versioned metadata sidecar with explicit partial and
+  complete states, exact PC2 layout, scene/object/settings/geometry hashes,
+  Cloth NeXt/Blender/solver identities, and material/quality/range details.
+- PC2 bytes and semantic metadata are independently SHA-256 authenticated.
+  Size, header, frame/vertex counts, and the requested layout are revalidated
+  before playback attachment.
+- Settings comparisons stay mesh-free; explicit validation hashes positions
+  and connectivity for the deformable and all Colliders. Relevant transforms,
+  Actions, Pinning, range, FPS, materials, and solver quality invalidate the
+  cache deterministically.
+- Failed/cancelled Bakes never become playable, the previous result survives a
+  failed Rebake, and Clear Result removes only marked Cloth NeXt cache pairs.
+- The format and classifications are specified in `docs/CACHE_FORMAT.md`.
+
+## Experimental Rod / Cable and Soft Body slice — implementation complete
+
+- The single-deformable production path now accepts a Curve-based PPF Rod or a
+  closed-manifold PPF Solid in addition to a Cloth shell.
+- Rod and Solid schema/material contracts, result validation, surface-map
+  reconstruction, Curve playback, UI roles, and actionable validation errors
+  are covered by source tests and dedicated real-solver/Blender smoke tools.
+- Release gate: the source suite and real PPF Rod/Solid harness must pass, and
+  CI must run the Blender workflow smoke. Rod/Soft Body pinning and multiple
+  deformables remain out of scope.
+
+## Phase 3B.1 production Bake entry — complete
+
+- Solver readiness, Bake/Rebake/Bake Again, typed progress, cancellation,
+  supported-scope summary, and cache state are implemented in Physics.
+- Production and developer actions share the immutable material-aware run
+  service and idempotent companion manager.
+- The production slice remains intentionally bounded to one cloth and one static
+  collider, but supports an artist-selected range of up to 10,000 output frames.
+
+## 2.8B Simulation UI shell
+
+Status: automated implementation gates pass under Blender 5.1.2; final interactive
+visual inspection remains open, so the phase is not yet declared complete.
+
+The shared bake status model, role-aware Physics Properties hierarchy,
+display-only HUD, explicit preview provider and optional companion source shell
+formed the UI boundary at this historical milestone. Real PPF scene transfer,
+simulation, result import, and cache integration were added in Phase 3.
+
+Each phase is a gate. Do not start the next phase until tests pass, changed files,
+decisions, limitations and exact manual test steps are reported.
+
+## 0. Audit — complete
+
+Acceptance: repository inventory is exhaustive; removal list and reusable neutral
+assets are explicit; upstream commit and uncertainty boundaries are recorded; the five
+required documents exist. No production code is introduced.
+
+## 1. Ground structure
+
+Create the requested modular package, Blender 5.x manifest, typed error taxonomy,
+logging facade, backend protocols/data models, and pure state machine. No PPF I/O or UI.
+
+Acceptance: imports work without Blender for pure modules; every required state and
+valid/invalid transition is tested; no mutable module singleton; dependency direction
+test/documentation passes; Blender registration smoke script can enable/disable twice.
+
+## 2. PPF health check and local process manager
+
+Implement only verified CLI arguments, TCP compatibility query, process ownership,
+port detection, logs, crash detection, stop/restart and Blender shutdown cleanup.
+
+Acceptance: protocol/schema mismatch is rejected; occupied port is explained; start
+waits for marker plus query; a killed solver reaches `ERROR`; stop reaps the child;
+argument-array tests prove no shell invocation; no worker calls `bpy`.
+
+Status: implemented in Phase 2. Unit acceptance passes. The real integration test skips
+until `CLOTH_NEXT_PPF_EXECUTABLE` explicitly names a pinned binary. External PPF 0.11
+schema cannot be verified through its status response and is reported as limited.
+
+## 2.5 Historical solver bootstrap prototype
+
+This milestone imported an already obtained official Windows runtime through secure
+staging, recorded provenance/licenses, and exercised the real health lifecycle. Its
+temporary repository/extension-bundle packaging experiment was removed in Phase 2.7
+and is not a supported distribution mode.
+
+Status: implemented. The official `2026-07-13-21-05` Windows release reports package
+`0.1.0`, protocol `0.11`, schema `1`; bootstrap health and the real integration test
+passed. Local binaries were ignored and remained external development state. Current
+builds are always solver-free; see `docs/SOLVER_DISTRIBUTION.md`.
+
+## 2.6 Automated Add-on Release, Update Pipeline and Separate Solver Installer
+
+Establish `docs/RELEASE_POLICY.md` as the mandatory release policy; version source of
+truth in `blender_manifest.toml`; stable/beta channels with Blender-native extension
+repositories generated by official tooling and served through GitHub Pages; a
+tag-triggered release workflow that drafts, validates, scans, and only then publishes;
+a solver compatibility manifest pinning the verified official upstream release; and a
+separate, confirmation-gated solver installer (managed / external installation /
+external server) that never bundles, mirrors, or redistributes the PPF solver.
+
+Acceptance: policy validator passes pre-build/post-build/pre-publish; the artifact
+scanner rejects any solver material; manifest/tag/ZIP/release-metadata versions must
+match; stable rejects prereleases; installer tests prove confirmation gating, hash and
+protocol/schema/health gating, archive hardening, side-by-side activation with
+rollback safety, and strict managed/external/server boundaries; add-on and solver
+update lifecycles stay fully separated.
+
+Status: implemented. All unit acceptance tests pass and the local release dry run
+(build → scan → metadata → three validator phases) passes. The remote beta
+end-to-end test (tag push, GitHub release, Pages beta channel, Blender update
+detection) is pending: it requires a user-chosen `-beta.N` version, pushed code, the
+repository's Pages configured to serve `gh-pages`, and a local Blender 5.x install.
+A stable release is forbidden until that beta test passes.
+
+## 2.7 Pre-Phase-3 Hardening
+
+Consistency and hardening gate before the first scene transfer; no Phase 3
+functionality. Delivered: relative imports so the package works under the real
+`bl_ext.<repository>.<extension>` namespace; complete licensing (full GPL-3.0
+text, SPDX headers in every source file, manifest copyright); manifest limited
+to `windows-x64` with declared `network`/`files` permissions; removal of the
+bundled-solver resolver modes (only managed, external installation, external
+server, and explicit `CLOTH_NEXT_PPF_EXECUTABLE` development mode remain); an
+explicit `BUILDING` application state with build events and cancel path;
+`start_owned_and_wait` stops and raises instead of returning an incompatible
+solver; strict validation of `current.json` (tampering → REPAIR_REQUIRED, no
+path escapes); worker/download shutdown on unregister; the manifest as the only
+version source (`__version__` removed); all docs tracked in Git; a CI workflow
+for pushes/PRs; and a real Blender registration smoke test job.
+
+Status: implemented. The test count recorded at this milestone is intentionally not
+treated as current; use `python -m pytest --collect-only -q` for the live count.
+
+## 3. Minimal vertical slice
+
+Independently encode one triangulated shell, one static collider, gravity and the
+small verified material subset; atomically transfer, build, simulate 5–10 frames,
+incrementally fetch complete frames and apply constant-topology playback.
+
+Acceptance: a fixture round-trips against the pinned PPF server; no native Cloth
+modifier/solver exists; output vertex count/order is validated; timeline scrubs all
+frames; clear removes only Cloth NeXt cache; cancellation leaves Blender responsive.
+
+## 4. Cache
+
+Phase 3A.1 status: UI/telemetry hardening is implemented for automated testing:
+cached hardware telemetry, responsive real-state HUD, typed job identity,
+automatic companion launch/reuse, panel icons, and Blender-frame progress. It
+remains in progress until Blender 5.1.2 interactive acceptance passes.
+
+Phase 3A status: the bounded developer slice is implemented for one 121-vertex
+cloth, one static collider, and frames 1--8. Independent CBOR encoding, atomic
+upload/build/start/fetch, UUID vertex-map validation, and PC2 playback pass the
+standalone pinned-solver harness. Automated and interactive Blender 5.1.2
+acceptance remain environment-dependent gates; this is not the general
+production simulation workflow.
+
+Phase 3B status: real Shell/Static material mapping is implemented. A pure
+`cloth_next.materials` package (immutable validated dataclasses, bundled
+read-only PPF fabric presets with pinned provenance, artist/wire-name
+formatting) feeds the schema encoder; the Physics UI exposes artist-facing
+names (Surface Weight, Stretch Resistance, Sideways Response, Bend
+Resistance, Friction, Stretch Limit, Shape/Fold Damping, Collision Gap,
+Surface Offset) with technical PPF names in tooltips and Advanced PPF;
+misleading placeholder controls (Quality, Pressure, Shape,
+Stretch/Shear/Thickness, editable Cache range) are removed; a minimal
+versioned material fingerprint marks stale results; and an Inspect Encoded
+Parameters developer action shows the exact payload without starting PPF.
+Automated status: full source suite, preset/mapping/bridge/UI tests,
+deliberately regenerated goldens, and real pinned-solver integration runs
+for COTTON, DENIM, and a no-contact case pass. This remains the bounded
+developer slice (one cloth, one static collider, frames 1–8) — the
+production bake workflow is NOT complete, and interactive Blender
+acceptance remains an environment-dependent gate.
+
+Add crash-safe PC2 (subject to the phase-3 proof) plus versioned JSON metadata:
+scene/object/settings hashes, topology/order, pin group, colliders, material, pressure,
+range, Blender/PPF/Cloth NeXt versions and completion state.
+
+Acceptance: deterministic hashing tests; each specified change invalidates the cache;
+irrelevant UI changes do not; partial cache is never presented as complete; existing
+caches are not mutated by solver updates.
+
+## 5. Physics UI
+
+Add PropertyGroups and Physics-context panels through application services. Expose
+only mappings proven in phase 3/fixtures; separate advanced PPF controls.
+
+Acceptance: requested panel structure renders; controls derive enabled state from the
+state machine/capabilities; no native Cloth modifier; tooltips state units and
+approximations; unsupported controls are hidden/disabled; mapping tests cover scale,
+clamp, default and units.
+
+## 6. Live preview
+
+Implement Buffered Live and Follow Solver over queues and main-thread timers.
+
+Acceptance: only complete frames display; buffer underrun pauses playback; Follow
+Solver displays newest complete frame; UI remains responsive under delayed I/O; an
+instrumented test detects any worker-thread `bpy` access; stop/reload clears timers.
+
+## 7. Solver updater
+
+First define an authoritative distribution manifest (channels, platform, version,
+protocol/schema, URL, size, SHA-256 and archive root). Until then this phase is blocked.
+Then implement staged download, safe extraction, pending activation, health check,
+rollback and bake lockout.
+
+Acceptance: traversal/symlink/archive-bomb defenses pass; checksum failure never
+activates; active tree is never overwritten; failed health check rolls back; previous
+version remains; caches remain untouched; version ordering tests pass.
+
+## 8. HUD
+
+Add one reload-safe draw handler, throttled metric providers and immutable snapshots.
+
+Acceptance: enable/disable/reload leaves exactly zero/one handler; smoothing tests pass;
+missing psutil/NVML/nvidia-smi degrades to unavailable; hardware polling is throttled;
+draw path performs no blocking process calls.
+
+## 9. Extensions
+
+Multiple cloths/colliders, remote/Linux transports, richer pins/pressure and the
+disabled tearing interfaces follow only after the slice is stable. Dynamic ripping is
+not accepted without a real breakable-constraint solver extension.
