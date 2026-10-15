@@ -76,7 +76,7 @@ project-directory alias failure before simulation (`WinError 183` creating
 the installed runtime (SHA-256
 `B9727B87156B340B0047F0AC7303DBBFD4E1F1D4DBD4C98EA3692E3EB53EE483`).
 No solver sources or binaries were modified. See the earlier
-`GAIA_023_LIFECYCLE_RESULTS.md` for the AppData execution-context limitation.
+`archive/legacy/GAIA_023_LIFECYCLE_RESULTS.md` for the AppData execution-context limitation.
 
 ## Reproduce
 
