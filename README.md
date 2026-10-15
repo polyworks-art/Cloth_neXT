@@ -295,6 +295,8 @@ When reporting an issue, please include:
 
 ## Documentation
 
+**Start with the [repository documentation index](docs/README.md) and the [GAIA 3.0 acceptance criteria](docs/gaia/ACCEPTANCE_CRITERIA.md).**
+
 Start with the hosted [Cloth NeXt documentation](https://polyworks-art.github.io/Cloth_neXT/superhive/docs/)
 or use the repository references below.
 
@@ -311,8 +313,8 @@ or use the repository references below.
 <details>
 <summary><strong>Developer documentation</strong></summary>
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Historical architecture audit](docs/archive/legacy/ARCHITECTURE.md)
+- [Historical implementation plan](docs/archive/legacy/IMPLEMENTATION_PLAN.md)
 - [PPF protocol](docs/PPF_PROTOCOL.md)
 - [Release policy](docs/RELEASE_POLICY.md)
 - [Solver distribution](docs/SOLVER_DISTRIBUTION.md)
