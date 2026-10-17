@@ -229,9 +229,9 @@ and logs).
 2. OpenAPI snapshot (`addon_v1_openapi.json`) not available to the client repo;
    schemas were implemented from the contract text.
 3. No real backend run: E2E ran against `tests/polyworks_backend.py`, an
-   isolated contract double. `tools/polyworks_e2e.py` is not provided; run the
-   tests with `CLOTH_NEXT_POLYWORKS_API_URL` against the real isolated stack
-   when it is reachable.
+   isolated contract double written from the contract text. Repeat the
+   workflow against the real isolated stack (see the handoff document for the
+   environment variables) when it is reachable from a client machine.
 4. Real Blender was not available in this environment; the CI `blender-smoke`
    job runs `tools/blender_polyworks_status_smoke.py`.
 5. Windows DPAPI and the Windows EXE were not executed here (Linux container);
@@ -251,7 +251,7 @@ and logs).
 | Command | Result |
 |---|---|
 | `pytest -q` (before changes) | 2271 passed, 18 skipped, 1 failed (`test_solver_session.py::test_cancel_recovers_durable_state_when_status_port_closes`, pre-existing on `main`) |
-| `xvfb-run -a pytest -q` (after) | see `docs/CODEX_API_INTEGRATION_HANDOFF.md` |
+| `xvfb-run -a pytest -q` (after, at `5e9104a`) | 2411 passed, 18 skipped, 1 failed (the same pre-existing `test_solver_session` failure) |
 | `pytest tests/test_polyworks_*.py` | 140 passed |
 | `ruff check --isolated --select E4,E7,E9,F` on new files | clean (repository has no ruff/black/mypy configuration; existing files are not ruff-clean) |
 | `python tools/validate_extension.py cloth_next --phase source` | passed |
