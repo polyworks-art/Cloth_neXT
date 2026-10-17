@@ -30,6 +30,11 @@ from companion.onboarding_window import (BG, LINE, MUTED, ONBOARDING_FONT as FON
                                          WHITE as FG, InfoWindow, _register_onboarding_fonts)
 
 LOG = logging.getLogger(__name__)
+# Results that leave everything working: shown as a notice, not as an error.
+SOFT_ERRORS = frozenset({"authorization_pending", "network_unavailable", "service_unavailable",
+                         "server_error", "rate_limited"})
+SIGNED_IN = "Signed in. Your licenses are shown below."
+SIGNED_OUT_DEVICES = "Sign in to see the devices activated with your license."
 HEARTBEAT_MS = 5000
 RENDER_MS = 30000
 SYNC_CHECK_MS = 5 * 60 * 1000
@@ -39,6 +44,45 @@ BAD = "#e39a8f"
 STATUS_COLORS = {LicenseStatus.ACTIVE: OK, LicenseStatus.OFFLINE_VERIFIED: OK,
                  LicenseStatus.EXPIRED: BAD, LicenseStatus.REVOKED: BAD,
                  LicenseStatus.SUSPENDED: BAD, LicenseStatus.INVALID: BAD}
+
+
+def _signed_in(view) -> bool:
+    return view.account_label == "Signed in"
+
+
+def _can_refresh(view) -> bool:
+    return view.account_label != "Not signed in" or view.expires_at is not None
+
+
+# Status texts are shared with Blender, where they point to the Companion. In the
+# Companion itself they point to the matching part of this window instead.
+IN_WINDOW = (
+    ("Sign in through Cloth NeXt Companion to use PolyWorks services.",
+     "Sign in above to see your licenses."),
+    ("Activate this computer in Cloth NeXt Companion.",
+     "Select a license and activate this computer under Devices."),
+    ("Manage your devices in Cloth NeXt Companion.", "Free a device slot under Devices."),
+    ("Open Cloth NeXt Companion to activate again.", "Activate this computer again under Devices."),
+    ("Open Cloth NeXt Companion for details.", "Check your PolyWorks account for details."),
+    ("and open Cloth NeXt Companion to renew it.", "and press Refresh to renew it."),
+    ("connect to the internet and open Cloth NeXt Companion before",
+     "connect to the internet and press Refresh before"),
+    ("Sign in again through Cloth NeXt Companion.", "Sign in again above."),
+    ("Cloth NeXt Companion has not loaded your licenses yet.", "Your licenses are not loaded yet."),
+    ("Sign in again in Cloth NeXt Companion", "Sign in again above"),
+    ("sign in again in Cloth NeXt Companion", "sign in again above"),
+    (" in Cloth NeXt Companion", " here"),
+)
+
+
+def in_window(text: str) -> str:
+    for old, new in IN_WINDOW:
+        text = text.replace(old, new)
+    return text
+
+
+def _plural(count, word):
+    return f"{count} {word}" + ("" if count == 1 else "s")
 
 
 class WelcomeButton(tk.Canvas):
@@ -139,6 +183,9 @@ class AccountWindow:
         self.licenses: list = []
         self.devices: list = []
         self.devices_for = None
+        self.devices_failed = False
+        self.devices_shown_for = None
+        self.activated_license = None
         self._after: list = []
         self.controls: list = []
 
@@ -265,14 +312,13 @@ class AccountWindow:
         self.account_detail = tk.StringVar()
         self.account_status_label = self._text(card, self.account_status, color=FG, size=11, bold=True)
         self._text(card, self.account_detail, size=9)
-        signed_out = lambda view: not view.account_label.startswith("Signed in")  # noqa: E731
-        signed_in = lambda view: not signed_out(view)  # noqa: E731
+        signed_out = lambda view: not _signed_in(view)  # noqa: E731
         row = self._row(card)
         self._button(row, "Sign in with browser", self.sign_in_browser, primary=True, when=signed_out)
         self._button(row, "Sign in with email", self.toggle_password, when=signed_out)
-        self._button(row, "Sign out", self.sign_out, when=signed_in)
+        self._button(row, "Sign out", self.sign_out, when=_signed_in)
         row = self._row(card)
-        self._button(row, "Refresh", self.refresh)
+        self._button(row, "Refresh", self.refresh, when=_can_refresh)
         self._button(row, "Open PolyWorks account", self.open_portal)
 
         self.link_frame = tk.Frame(card, bg=card.cget("bg"))
@@ -317,23 +363,41 @@ class AccountWindow:
         self.license_list = tk.Frame(card, bg=card.cget("bg"))
         self.license_list.pack(fill="x", pady=(4, 0))
         self.selected_license = tk.StringVar()
-        self._text(card, text="Name of this computer in your device list", size=9)
+
+    def _build_devices(self):
+        card = self._card("03", "Devices")
+        self._text(card, text="This computer", color=FG, bold=True)
+        self._text(card, text="Name shown in your device list", size=9)
         self.device_label = tk.StringVar(value=default_label())
         self.label_entry = self._entry(card, self.device_label, width=40)
         self.label_entry.pack(fill="x", ipady=6)
         row = self._row(card)
-        can_activate = lambda view: bool(self.licenses) and view.account_label == "Signed in"  # noqa: E731
-        self._button(row, "Activate this computer", self.activate, primary=True, when=can_activate)
-
-    def _build_devices(self):
-        card = self._card("03", "Devices")
-        self.devices_hint = tk.StringVar(value="Sign in to see the devices activated with your license.")
+        self._button(row, "Activate this computer", self.activate, primary=True,
+                     when=self._can_activate)
+        self.activation_hint = tk.StringVar()
+        self._text(card, self.activation_hint, size=8)
+        tk.Frame(card, bg=LINE, height=1).pack(fill="x", pady=(10, 8))
+        self.devices_hint = tk.StringVar(value=SIGNED_OUT_DEVICES)
         self._text(card, self.devices_hint, size=9)
         self.device_list = tk.Frame(card, bg=card.cget("bg"))
         self.device_list.pack(fill="x")
         row = self._row(card)
-        self._button(row, "Show devices", self.load_devices,
-                     when=lambda view: bool(self.licenses) and view.account_label == "Signed in")
+        self._button(row, "Reload devices", self.load_devices, when=self._has_usable_selection)
+
+    def _selected(self):
+        return next((item for item in self.licenses
+                     if item["id"] == self.selected_license.get()), None)
+
+    def _has_usable_selection(self, view) -> bool:
+        selected = self._selected()
+        return _signed_in(view) and selected is not None and bool(selected["usable"])
+
+    def _activated_here(self, view) -> bool:
+        """This computer holds a verified licence for the selected licence."""
+        return view.authorized and self.activated_license == self.selected_license.get()
+
+    def _can_activate(self, view) -> bool:
+        return self._has_usable_selection(view) and not self._activated_here(view)
 
     def _build_code(self):
         card = self._card("04", "Activation code")
@@ -343,7 +407,7 @@ class AccountWindow:
         row = self._row(card)
         self.code_entry = self._entry(row, self.code, width=28)
         self.code_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(0, 8))
-        self._button(row, "Redeem code", self.redeem, when=lambda view: view.account_label == "Signed in")
+        self._button(row, "Redeem code", self.redeem, when=_signed_in)
 
     def _build_purchase(self):
         card = self._card("05", "Superhive purchase")
@@ -361,23 +425,26 @@ class AccountWindow:
         self.view = view
         state = self.service.state()
         self.licenses = state["licenses"] or []
+        self.activated_license = (self.service._current_activation(state)[0]
+                                  if view.authorized else None)
         self.account_status.set(view.account_label + (f"  ·  {view.account_identity}"
                                                       if view.account_identity else ""))
         storage = state["account"]["storage"]
-        self.account_detail.set(f"Session: {view.session_label}" +
+        self.account_detail.set(f"Session: {in_window(view.session_label)}" +
                                 (f"\nSession stored in: {storage}" if storage and
                                  view.account_label.startswith("Signed in") else ""))
         self.license_status.set(view.label + (f"  ·  {view.tier}" if view.tier else ""))
         self.license_status_label.configure(fg=STATUS_COLORS.get(view.status, FG))
-        lines = [line for line in (view.message, *view.warnings) if line]
+        lines = [in_window(line) for line in (view.message, *view.warnings) if line]
         if view.expires_at:
             lines.append(f"Offline license: {view.offline_authorization}")
-        if view.devices_active is not None and view.device_limit is not None:
-            lines.append(f"Devices: {view.devices_active} of {view.device_limit} in use")
-        if view.device_label:
-            lines.append(f"This computer: {view.device_label}")
         self.license_detail.set("\n".join(lines))
         self._render_licenses()
+        self._render_activation(view)
+        if not _signed_in(view):
+            self.devices, self.devices_for, self.devices_shown_for = [], None, None
+        if self.devices_for is None:
+            self._render_devices()
         online = {True: "Online", False: "Offline", None: "Not checked yet"}[view.online]
         self.connection.set(f"PolyWorks service: {online}  ·  Last license sync: "
                             f"{format_time(view.last_sync_at)}")
@@ -388,12 +455,12 @@ class AccountWindow:
             child.destroy()
         if not self.licenses:
             return
-        ids = [item["id"] for item in self.licenses]
-        if self.selected_license.get() not in ids:
-            usable = [item["id"] for item in self.licenses if item["usable"]]
-            self.selected_license.set((usable or ids)[0])
+        usable = [item["id"] for item in self.licenses if item["usable"]]
+        if self.selected_license.get() not in usable:
+            preferred = self.activated_license if self.activated_license in usable else None
+            self.selected_license.set(preferred or (usable[0] if usable else ""))
         for item in self.licenses:
-            seats = f" · {item['seats']} seats" if item.get("seats") else ""
+            seats = f" · {_plural(item['seats'], 'seat')}" if item.get("seats") else ""
             devices = (f" · {item['devices_active']}/{item['device_limit']} devices"
                        if item.get("device_limit") is not None else "")
             state = "" if item["usable"] else f" · {item.get('state') or 'unavailable'}"
@@ -401,19 +468,65 @@ class AccountWindow:
                 state += f" ({item['purchase_status']})"
             text = f"{(item.get('tier') or 'License').title()}{seats}{devices}{state}"
             tk.Radiobutton(self.license_list, text=text, value=item["id"],
-                           variable=self.selected_license, bg=self.license_list.cget("bg"),
-                           fg=FG if item["usable"] else MUTED, selectcolor="#0d1013",
+                           variable=self.selected_license, command=self._license_selected,
+                           state="normal" if item["usable"] else "disabled",
+                           bg=self.license_list.cget("bg"), disabledforeground=MUTED,
+                           fg=FG, selectcolor="#0d1013",
                            activebackground=self.license_list.cget("bg"), activeforeground=FG,
                            font=(FONT, 10), anchor="w", highlightthickness=0).pack(fill="x")
+
+    def _render_activation(self, view):
+        if not _signed_in(view):
+            text = "Sign in to activate this computer."
+        elif not self.licenses:
+            text = "Your account has no license to activate yet."
+        elif self._selected() is None:
+            text = "None of your licenses can be activated right now."
+        elif self._activated_here(view):
+            text = "This computer is activated with the selected license."
+        elif view.authorized:
+            text = "This computer uses another license. Activating switches it to the selected one."
+        else:
+            text = "Activates the license selected above on this computer."
+        self.activation_hint.set(text)
+
+    def _license_selected(self):
+        if self.devices_for != self.selected_license.get():
+            self.devices, self.devices_for, self.devices_shown_for = [], None, None
+            self._render_devices()
+        if self.view is not None:
+            self._render_activation(self.view)
+        self._update_controls()
+        self._maybe_load_devices()
+
+    def _maybe_load_devices(self):
+        """Keep the device list of the selected licence loaded while signed in."""
+        if (self.busy or self.link is not None or self.view is None
+                or not self._has_usable_selection(self.view)
+                or self.devices_for == self.selected_license.get()):
+            return
+        self.load_devices(quiet=True)
 
     def _render_devices(self):
         for child in self.device_list.winfo_children():
             child.destroy()
+        self.device_list.configure(height=1)  # an emptied Tk frame keeps its old height
         installation = self.service.store.read_installation_id()
-        if not self.devices:
+        if self.view is None or not _signed_in(self.view):
+            self.devices_hint.set(SIGNED_OUT_DEVICES)
+            return
+        if self.devices_for is None:
+            self.devices_hint.set("Loading devices…" if self._has_usable_selection(self.view)
+                                  else "Select a usable license to see its devices.")
+            return
+        if self.devices_failed:
+            self.devices_hint.set("The device list could not be loaded right now. "
+                                  + ("Last known devices:" if self.devices else "Try Reload devices later."))
+        elif not self.devices:
             self.devices_hint.set("No devices are activated with this license yet.")
             return
-        self.devices_hint.set("Devices activated with your seat on the selected license:")
+        else:
+            self.devices_hint.set("Devices activated with the selected license:")
         for device in self.devices:
             row = tk.Frame(self.device_list, bg=self.device_list.cget("bg"))
             row.pack(fill="x", pady=2)
@@ -427,7 +540,7 @@ class AccountWindow:
             button = WelcomeButton(row, "Deactivate",
                                    lambda d=device: self.deactivate(d))
             button.pack(side="right")
-            self.controls.append((button, lambda view: True))
+            self.controls.append((button, _signed_in))
         self._update_controls()
 
     def _update_controls(self):
@@ -436,18 +549,23 @@ class AccountWindow:
         self.controls = [(b, w) for b, w in self.controls if b.winfo_exists()]
         for button, when in self.controls:
             button.set_enabled(not busy and view is not None and when(view))
-        for entry in (self.code_entry, self.label_entry, self.email_entry, self.password_entry,
-                      self.mfa_entry):
-            entry.configure(state="disabled" if busy else "normal")
+        signed_in = view is not None and _signed_in(view)
+        for entry, needs_account in ((self.code_entry, True), (self.label_entry, True),
+                                     (self.email_entry, False), (self.password_entry, False),
+                                     (self.mfa_entry, False)):
+            usable = not busy and (signed_in if needs_account else not signed_in)
+            entry.configure(state="normal" if usable else "disabled")
 
-    def show_message(self, text, *, error=False):
+    def show_message(self, text, *, error=False, ok=False):
         self.message.set(text)
-        self.message_label.configure(fg=BAD if error else WARN)
+        self.message_label.configure(fg=BAD if error else OK if ok else WARN)
 
     # Worker plumbing -------------------------------------------------------------------
     def submit(self, operation, *, done=None, quiet=False):
         if self.closed or self.busy:
             return False
+        if not quiet:
+            self.show_message("")
         self.busy = True
         self._update_controls()
 
@@ -482,12 +600,13 @@ class AccountWindow:
                     text = (str(error) if error.code != "internal_client_error" else
                             "Something went wrong in Cloth NeXt Companion. Nothing was changed; "
                             "please try again.")
-                    self.show_message(text, error=error.code != "authorization_pending")
+                    self.show_message(text, error=error.code not in SOFT_ERRORS)
                 if done is not None:
                     done(result, error)
                 self._update_controls()
         except queue.Empty:
             pass
+        self._maybe_load_devices()
         self._schedule(80, self._drain)
 
     def _schedule(self, delay, callback):
@@ -502,8 +621,9 @@ class AccountWindow:
 
     def refresh(self):
         self.show_message("")
+        self.devices_for = None  # reload the device list too
         self.submit(self.service.refresh, done=lambda r, e: e is None and self.show_message(
-            "Account and license refreshed."))
+            "Account and license refreshed.", ok=True))
 
     def sign_in_browser(self):
         self.show_message("")
@@ -542,11 +662,11 @@ class AccountWindow:
                     self.show_message(messages.COMPANION["expired_token"], error=True)
             elif signed_in:
                 self._end_link()
-                self.show_message("Signed in. Your licenses are shown below.")
+                self.show_message(SIGNED_IN, ok=True)
             else:
                 delay = max(1.0, link.next_poll - self.service.monotonic())
                 self._schedule(int(delay * 1000), self._poll_link)
-        self.submit(lambda: self.service.poll_device_link(link), done=finished)
+        self.submit(lambda: self.service.poll_device_link(link), done=finished, quiet=True)
 
     def _end_link(self):
         self.link = None
@@ -591,7 +711,7 @@ class AccountWindow:
                 self.show_message("Two-factor authentication is on for this account.")
             else:
                 self._hide_forms()
-                self.show_message("Signed in. Your licenses are shown below.")
+                self.show_message(SIGNED_IN, ok=True)
         self.submit(lambda: self.service.login_password(email, password), done=finished)
 
     def submit_mfa(self):
@@ -603,7 +723,7 @@ class AccountWindow:
         def finished(_result, error):
             if error is None:
                 self._hide_forms()
-                self.show_message("Signed in. Your licenses are shown below.")
+                self.show_message(SIGNED_IN, ok=True)
             elif challenge.attempts_left <= 0:
                 self._hide_forms()
                 self.show_message("Too many incorrect codes. Sign in again.", error=True)
@@ -619,39 +739,49 @@ class AccountWindow:
         if choice is None:
             return
         self.submit(lambda: self.service.sign_out(release_device=bool(choice)),
-                    done=lambda message, error: error is None and self.show_message(message))
+                    done=lambda message, error: error is None and self.show_message(message, ok=True))
 
     def activate(self):
         license_id, label = self.selected_license.get(), self.device_label.get()
 
         def finished(_view, error):
+            self.devices_for = None  # the device list changed (or shows the full slots)
             if error is None:
                 self.show_message("This computer is activated. Cloth NeXt in Blender shows the "
-                                  "updated license automatically.")
-            elif error.code == "device_limit":
-                self.load_devices()
+                                  "updated license automatically.", ok=True)
         self.submit(lambda: self.service.activate(license_id, label), done=finished)
 
-    def load_devices(self):
+    def load_devices(self, quiet=False):
         license_id = self.selected_license.get()
 
         def finished(devices, error):
+            if license_id != self.selected_license.get():
+                return  # selection changed while loading; the new one loads next
             if error is None:
-                self.devices, self.devices_for = devices, license_id
-                self._render_devices()
-        self.submit(lambda: self.service.devices(license_id), done=finished)
+                self.devices = devices
+            elif self.devices_shown_for != license_id:
+                self.devices = []  # never show another license's devices
+            self.devices_for, self.devices_failed = license_id, error is not None
+            if error is None:
+                self.devices_shown_for = license_id
+            self._render_devices()
+        self.submit(lambda: self.service.devices(license_id), done=finished, quiet=quiet)
 
     def deactivate(self, device):
         license_id = self.devices_for or self.selected_license.get()
-        name = device.get("label") or "this device"
-        if not messagebox.askyesno("Deactivate device",
-                                   f"Deactivate “{name}”? It stops receiving license renewals "
-                                   "and frees a device slot.", parent=self.window):
+        name = device.get("label") or "Unnamed device"
+        if device["installation_id"] == self.service.store.read_installation_id():
+            question = (f"Deactivate this computer (“{name}”)? Its offline license is removed "
+                        "now and the device slot is freed. You can activate it again later.")
+        else:
+            question = (f"Deactivate “{name}”? It stops receiving license renewals and frees a "
+                        "device slot. Its offline license keeps working until it expires.")
+        if not messagebox.askyesno("Deactivate device", question, parent=self.window):
             return
 
         def finished(_view, error):
             if error is None:
-                self.show_message(f"“{name}” was deactivated.")
+                self.show_message(f"“{name}” was deactivated.", ok=True)
                 self.devices = [d for d in self.devices if d["id"] != device["id"]]
                 self._render_devices()
         self.submit(lambda: self.service.deactivate(license_id, device["id"]), done=finished)
@@ -664,7 +794,8 @@ class AccountWindow:
         def finished(_view, error):
             if error is None:
                 self.code.set("")
-                self.show_message("Code redeemed. Activate this computer to use the new license.")
+                self.show_message("Code redeemed. Activate this computer to use the new license.",
+                                  ok=True)
         self.submit(lambda: self.service.redeem(code), done=finished)
 
     def open_portal(self):

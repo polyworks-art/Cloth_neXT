@@ -26,8 +26,10 @@ REVOCATION_REASONS = {
 COMPANION = {
     "network_unavailable": OFFLINE,
     "service_unavailable": OFFLINE,
-    "server_error": "The PolyWorks service had a temporary problem. Please try again later. " + OFFLINE,
-    "feature_disabled": "License signing is temporarily unavailable on the PolyWorks service. " + OFFLINE,
+    "server_error": "The PolyWorks service had a temporary problem. Please try again later. "
+                    "Your existing offline license keeps working if still valid.",
+    "feature_disabled": ("License signing is temporarily unavailable on the PolyWorks service. "
+                         "Your existing offline license keeps working if still valid."),
     "internal_error": "The PolyWorks service had an internal error. Please try again later.",
     "invalid_response": "The PolyWorks service sent a response this version cannot read. "
                         "Nothing was changed locally.",

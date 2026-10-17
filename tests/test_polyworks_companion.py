@@ -88,9 +88,10 @@ def test_browser_sign_in_activation_devices_and_sign_out(account, backend, monke
     idle(account)
     assert account.view.status == LicenseStatus.ACTIVE
     assert "Active" in account.license_status.get()
-    account.load_devices()
-    idle(account)
+    # The device list reloads on its own; activating again is not offered.
     assert [d["label"] for d in account.devices] == ["UI Test PC"]
+    assert not button(account, "Activate this computer").enabled
+    assert "is activated" in account.activation_hint.get()
     monkeypatch.setattr(account_window.messagebox, "askyesno", lambda *a, **k: True)
     account.deactivate(account.devices[0])
     idle(account)
@@ -99,6 +100,51 @@ def test_browser_sign_in_activation_devices_and_sign_out(account, backend, monke
     account.sign_out()
     idle(account)
     assert account.account_status.get().startswith("Not signed in")
+    assert account.devices == [] and not account.device_list.winfo_children()
+    assert str(account.code_entry.cget("state")) == "disabled"
+    assert str(account.label_entry.cget("state")) == "disabled"
+
+
+def button(window, label):
+    return next(b for b, _ in window.controls if b.label == label)
+
+
+def test_window_logic_follows_account_state(account, backend):
+    idle(account)
+    # Signed out: nothing to refresh, no account-only input.
+    for label in ("Refresh", "Activate this computer", "Redeem code", "Reload devices", "Sign out"):
+        assert not button(account, label).enabled, label
+    assert button(account, "Sign in with browser").enabled
+    assert str(account.code_entry.cget("state")) == "disabled"
+    user = backend.add_user("logic@example.com", "pw")
+    good = backend.add_license(user, tier="commercial")
+    bad = backend.add_license(user, tier="personal")
+    backend.set_license_state(bad, state="suspended")
+    account.toggle_password()
+    account.email.set("logic@example.com")
+    account.password.set("pw")
+    account.sign_in_password()
+    idle(account)
+    assert account.message_label.cget("fg") == account_window_module().OK
+    # Only the usable licence is selectable and selected; its devices load by themselves.
+    radios = {w.cget("value"): w for w in account.license_list.winfo_children()}
+    assert str(radios[bad].cget("state")) == "disabled"
+    assert str(radios[good].cget("state")) == "normal"
+    assert account.selected_license.get() == good
+    assert account.devices_for == good and account.devices == []
+    assert button(account, "Activate this computer").enabled
+    assert button(account, "Refresh").enabled
+    assert str(account.code_entry.cget("state")) == "normal"
+    # A new action clears the previous message.
+    account.code.set("")
+    account.submit(lambda: None)
+    assert account.message.get() == ""
+    idle(account)
+
+
+def account_window_module():
+    from companion import account_window
+    return account_window
 
 
 def test_password_is_cleared_and_errors_are_human(account, backend):
@@ -173,3 +219,35 @@ def test_client_name_includes_versions():
     assert app._account_client_name(args).endswith("/ Blender 5.1.2 (Companion)")
     args.blender_version = "5.1\nX-Header: evil"
     assert "evil" not in app._account_client_name(args)
+
+
+def test_status_texts_point_inside_the_window():
+    from cloth_next.polyworks import messages, status
+    from companion.account_window import in_window
+    texts = [messages.SESSION_EXPIRED, messages.REVOKED, messages.DEVICE_LIMIT_BLENDER,
+             *messages.COMPANION.values()]
+    view = status.compute_view(state=None, token=None, installation_id=None,
+                               trust=load_trust({}))
+    texts.append(view.message)
+    for text in texts:
+        assert "Open Cloth NeXt Companion" not in in_window(text)
+        assert "in Cloth NeXt Companion" not in in_window(text)
+
+
+def test_offline_refresh_keeps_last_known_devices(account, backend):
+    idle(account)
+    user = backend.add_user("offline@example.com", "pw")
+    license_id = backend.add_license(user)
+    account.service.login_password("offline@example.com", "pw")
+    account.refresh()
+    idle(account)
+    account.activate()
+    idle(account)
+    assert len(account.devices) == 1
+    backend.offline = True
+    account.refresh()
+    idle(account)
+    assert len(account.devices) == 1 and account.devices_failed
+    assert "could not be loaded" in account.devices_hint.get()
+    assert account.message_label.cget("fg") != account_window_module().BAD
+    assert account.selected_license.get() == license_id
