@@ -1,0 +1,228 @@
+--- a/crates/ppf-cts-compute/cuda/seam_cuda.cuh
++++ b/crates/ppf-cts-compute/cuda/seam_cuda.cuh
+@@ -514,7 +514,29 @@
+ __device__ inline unsigned atomic_add(atomic_uint_t *pointer, unsigned value) {
+     return atomicAdd(&pointer->storage, value);
+ }
++// RESEARCH ORDER HOOK (PPF_REPRO_FAST_CONTACT). Null outside the deterministic
++// contact count/record passes, so every other kernel performs the original
++// atomicAdd. Inside those passes a float contribution is counted (mode 1) or
++// logged as (address, value) at the calling query's cursor (mode 2); the log is
++// later applied with this same atomicAdd in the serial reference order.
++struct ReproRecordContext {
++    unsigned mode;
++    unsigned *cursor;
++    unsigned long long *address;
++    float *value;
++};
++extern __device__ ReproRecordContext *g_repro_record;
+ __device__ inline float atomic_add(atomic_float_t *pointer, float value) {
++    ReproRecordContext *context = g_repro_record;
++    if (context) {
++        const unsigned thread = blockIdx.x * blockDim.x + threadIdx.x;
++        const unsigned at = context->cursor[thread]++;
++        if (context->mode == 2u) {
++            context->address[at] = reinterpret_cast<unsigned long long>(&pointer->storage);
++            context->value[at] = value;
++        }
++        return 0.0f;
++    }
+     return atomicAdd(&pointer->storage, value);
+ }
+ 
+--- a/crates/ppf-cts-compute/cuda/research_order.hpp
++++ b/crates/ppf-cts-compute/cuda/research_order.hpp
+@@ -155,3 +155,123 @@
+     }
+     ReproContactScratch(const ReproContactScratch &)=delete;
+ };
++
++// ---------------------------------------------------------------------------
++// PPF_REPRO_FAST_CONTACT: parallel execution with the serial reference's exact
++// accumulation order. Count pass (scratch buffers): per query, float atomic
++// contributions and dynamic slot claims. Record pass (live buffers, original
++// body): claims use a per-query counter seeded with the slot the ascending
++// serial execution would hand out; float atomics are logged at the query's
++// offset in body order. A stable sort by address followed by one sequential
++// atomicAdd chain per address reproduces the serial per-address order exactly.
++#include "seam_cuda.cuh"
++#include <cub/device/device_scan.cuh>
++#include <cub/device/device_radix_sort.cuh>
++
++static __global__ void repro_set_record_context(compute::ReproRecordContext *context) {
++    compute::g_repro_record = context;
++}
++static __global__ void repro_seed_claims(ArenaHandle dyn_claim_handle, const unsigned *prefix,
++                                         const unsigned *counts, unsigned *seeded, unsigned count) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= count) return;
++    auto *dyn_claim = compute::arena::resolve<compute::atomic_uint_t>(dyn_claim_handle);
++    const unsigned start = compute::atomic_load(dyn_claim);
++    seeded[i] = start + prefix[i];
++}
++static __global__ void repro_finish_claims(ArenaHandle dyn_claim_handle, const unsigned *prefix,
++                                           const unsigned *counts, unsigned count) {
++    auto *dyn_claim = compute::arena::resolve<compute::atomic_uint_t>(dyn_claim_handle);
++    // Advance by the total, exactly what the serial claims leave behind.
++    compute::atomic_add(dyn_claim, prefix[count - 1] + counts[count - 1]);
++}
++static __global__ void repro_apply_log(const unsigned long long *address, const float *value, unsigned count) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= count || (i > 0 && address[i] == address[i - 1])) return;
++    float *target = reinterpret_cast<float *>(address[i]);
++    for (unsigned j = i; j < count && address[j] == address[i]; ++j) atomicAdd(target, value[j]);
++}
++
++struct ReproFastContact {
++    ReproCacheEntry &cache;
++    cudaStream_t queue;
++    unsigned count;
++    // Device storage (cached per queue/kernel): context, per-query float counts and
++    // offsets/cursors, per-query claim counters, claim prefix, log keys/values.
++    compute::ReproRecordContext *context = nullptr;
++    unsigned *float_counts = nullptr, *float_offsets = nullptr, *claims = nullptr, *claim_counts = nullptr, *claim_prefix = nullptr;
++    unsigned long long *keys = nullptr, *keys_sorted = nullptr;
++    float *values = nullptr, *values_sorted = nullptr;
++    unsigned records = 0;
++
++    template <class T> T *buffer(unsigned slot, size_t elements) {
++        if (cache.blocks.size() <= slot) {cache.blocks.resize(slot + 1, nullptr);cache.capacities.resize(slot + 1, 0);}
++        ReproCacheEntry::ensure(cache.blocks[slot], cache.capacities[slot], std::max<size_t>(1, elements) * sizeof(T));
++        return static_cast<T *>(cache.blocks[slot]);
++    }
++    void *temp(size_t bytes) {return buffer<unsigned char>(12, bytes);}
++    ReproFastContact(unsigned queries, cudaStream_t stream, const char *kernel)
++        : cache(repro_cache(stream, std::string("fast:") + kernel)), queue(stream), count(queries) {
++        context = buffer<compute::ReproRecordContext>(0, 1);
++        float_counts = buffer<unsigned>(1, count);
++        float_offsets = buffer<unsigned>(2, count);
++        claims = buffer<unsigned>(3, count);
++        claim_counts = buffer<unsigned>(4, count);
++        claim_prefix = buffer<unsigned>(5, count);
++    }
++    void set_context(unsigned mode, unsigned *cursor) {
++        compute::ReproRecordContext host{mode, cursor, keys, values};
++        repro_cuda_check(cudaMemcpyAsync(context, &host, sizeof(host), cudaMemcpyHostToDevice, queue));
++        repro_set_record_context<<<1, 1, 0, queue>>>(context);
++        repro_cuda_check(cudaGetLastError());
++    }
++    void clear_context() {
++        repro_set_record_context<<<1, 1, 0, queue>>>(nullptr);
++        repro_cuda_check(cudaGetLastError());
++    }
++    void begin_count() {
++        repro_cuda_check(cudaMemsetAsync(float_counts, 0, count * sizeof(unsigned), queue));
++        repro_cuda_check(cudaMemsetAsync(claims, 0, count * sizeof(unsigned), queue));
++        set_context(1u, float_counts);
++    }
++    void scan(const unsigned *input, unsigned *output) {
++        size_t bytes = 0;
++        repro_cuda_check(cub::DeviceScan::ExclusiveSum(nullptr, bytes, input, output, count, queue));
++        repro_cuda_check(cub::DeviceScan::ExclusiveSum(temp(bytes), bytes, input, output, count, queue));
++    }
++    // After the count pass: offsets, seeded claim counters, log storage.
++    void prepare(const ArenaHandle &dyn_claim_handle) {
++        clear_context();
++        repro_cuda_check(cudaMemcpyAsync(claim_counts, claims, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        scan(float_counts, float_offsets);
++        scan(claim_counts, claim_prefix);
++        repro_seed_claims<<<(count + 255) / 256, 256, 0, queue>>>(dyn_claim_handle, claim_prefix, claim_counts, claims, count);
++        repro_cuda_check(cudaGetLastError());
++        unsigned last[2];
++        repro_cuda_check(cudaMemcpyAsync(&last[0], float_offsets + count - 1, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaMemcpyAsync(&last[1], float_counts + count - 1, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaStreamSynchronize(queue));
++        records = last[0] + last[1];
++        keys = buffer<unsigned long long>(6, records);
++        values = buffer<float>(7, records);
++        keys_sorted = buffer<unsigned long long>(8, records);
++        values_sorted = buffer<float>(9, records);
++        // The record cursor starts at each query's offset; float_counts is reused.
++        repro_cuda_check(cudaMemcpyAsync(float_counts, float_offsets, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        set_context(2u, float_counts);
++    }
++    void finish(const ArenaHandle &dyn_claim_handle) {
++        clear_context();
++        repro_finish_claims<<<1, 1, 0, queue>>>(dyn_claim_handle, claim_prefix, claim_counts, count);
++        repro_cuda_check(cudaGetLastError());
++        if (!records) return;
++        size_t bytes = 0;
++        // Stable: equal addresses keep (query, body) order from the log.
++        repro_cuda_check(cub::DeviceRadixSort::SortPairs(nullptr, bytes, keys, keys_sorted, values, values_sorted, records, 0, 64, queue));
++        repro_cuda_check(cub::DeviceRadixSort::SortPairs(temp(bytes), bytes, keys, keys_sorted, values, values_sorted, records, 0, 64, queue));
++        repro_apply_log<<<(records + 255) / 256, 256, 0, queue>>>(keys_sorted, values_sorted, records);
++        repro_cuda_check(cudaGetLastError());
++        if (std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr, "REPRO_FAST_CONTACT records=%u queries=%u\n", records, count);
++    }
++    ReproFastContact(const ReproFastContact &) = delete;
++};
+--- a/crates/ppf-cts-compute/cuda/backend/backend.cu
++++ b/crates/ppf-cts-compute/cuda/backend/backend.cu
+@@ -1759,3 +1759,7 @@
+         std::memset(&be->counters, 0, sizeof(be->counters));
+     }
+ }
++
++// Research record context (see seam_cuda.cuh); null except inside the
++// PPF_REPRO_FAST_CONTACT count/record passes.
++namespace compute { __device__ ReproRecordContext *g_repro_record = nullptr; }
+--- a/crates/ppf-cts-compute/seam/kernelgen.py
++++ b/crates/ppf-cts-compute/seam/kernelgen.py
+@@ -2933,6 +2933,9 @@
+             if entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse"):
+                 probe, filtered = _research_contact_filter(entry)
+                 out.append(probe)
++                fast_kernels, fast_launch = _research_fast_contact(entry)
++                out.append(fast_kernels)
++                filtered = fast_launch + filtered
+             diagnostic = (f'    if (std::getenv("{switch}")) {{\n'
+                 f'        for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
+                 f'            unsigned end=std::min(begin+32,args.{count});\n'
+@@ -5839,6 +5842,47 @@
+     return ''.join(probe),launch
+ 
+ 
++def _research_fast_contact(entry):
++    """Parallel count/record passes reproducing the serial reference order exactly.
++
++    Same hoisted handles and the same unchanged body call as the select probe.
++    Count: every mutable handle on the scratch copies, dyn_claim on a per-query
++    counter, float atomics counted by the research hook. Record: live handles,
++    dyn_claim on the per-query counter seeded with the serial slot base, float
++    atomics logged by the hook and applied after a stable sort by address.
++    """
++    mutable=[f for f in entry.fields if f.kind=="handle" and not f.is_const]
++    assert any(f.name=="dyn_claim" for f in mutable), entry.name
++    count=entry.count_field.name;idx=entry.index_name;diag=_diag_cu_arg(entry)
++    out=[]
++    for mode in ("count","record"):
++        extra=", void **scratch" if mode=="count" else ""
++        out.append(f'\n__global__ void {entry.entry_symbol}_fast{mode}({entry.record_cpp} args{extra}, unsigned *claims{_diag_cu_param(entry)}) {{\n')
++        out.append(f'    unsigned {idx}=blockIdx.x*blockDim.x+threadIdx.x;\n    if({idx}>=args.{count}) return;\n')
++        out.append(_diag_cu_bind(entry));out.extend(_hoist(entry,_resolve_cu,"args.",0))
++        for k,f in enumerate(mutable):
++            if f.name=="dyn_claim":
++                out.append(f'    static_assert(sizeof(compute::atomic_uint_t)==sizeof(unsigned));\n    dyn_claim=reinterpret_cast<compute::atomic_uint_t *>(claims+{idx});\n')
++            elif mode=="count":
++                out.append(f'    {f.name}=reinterpret_cast<{f.base} *>(scratch[{k}]);\n')
++        out.append(_call(entry,"args.").replace("return ","",1))
++        out.append('}\n')
++    handles=','.join('{args.'+f.name+',sizeof('+f.base+')}' for f in mutable)
++    grid=f'(args.{count}+127)/128,128,0,queue'
++    launch=(f'    if(std::getenv("PPF_REPRO_FAST_CONTACT")) {{\n'
++        f'        ReproContactScratch scratch({{{handles}}},args.{count},queue,"{entry.name}");\n'
++        f'        ReproFastContact fast(args.{count},queue,"{entry.name}");\n'
++        '        fast.begin_count();\n'
++        f'        {entry.entry_symbol}_fastcount<<<{grid}>>>(args,scratch.table,fast.claims{diag});\n'
++        '        CUDA_HANDLE_ERROR(cudaGetLastError());\n'
++        '        fast.prepare(args.dyn_claim);\n'
++        f'        {entry.entry_symbol}_fastrecord<<<{grid}>>>(args,fast.claims{diag});\n'
++        '        CUDA_HANDLE_ERROR(cudaGetLastError());\n'
++        '        fast.finish(args.dyn_claim);\n'
++        '        return;\n    }\n')
++    return ''.join(out),launch
++
++
+ def _research_order_launch(entry):
+     count=entry.count_field.name;indices=entry.indices_field.name;arity=entry.indices_field.stride;bound=entry.bound_field.name;diag=_diag_cu_arg(entry)
+     return (f'    if (const char *mode=repro_order_mode("{entry.name}")) {{\n'
