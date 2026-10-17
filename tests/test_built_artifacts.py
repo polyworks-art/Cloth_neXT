@@ -63,7 +63,10 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         assert required_files <= names, sorted(required_files - names)
         owner = json.loads((Path(__file__).parents[1]/'gaia_owner_build.json').read_text())
         version = tomllib.loads(bundle.read('blender_manifest.toml').decode())['version']
-        if version == owner['version']:
+        # Only explicitly prepared Dev/owner snapshots enable the local owner
+        # runtime. Ordinary source builds (including Linux CI) stay gated off.
+        if ((version == owner['version'] and 'dev_build.json' in names)
+                or 'gaia_owner_test.json' in names):
             marker = json.loads(bundle.read('gaia_owner_test.json'))
             assert marker['kind'] == 'ClothNeXt.OwnerBuild.v1'
             assert marker['dataset_sha256'] == owner['dataset_sha256']
