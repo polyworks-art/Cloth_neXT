@@ -127,6 +127,59 @@ class WelcomeButton(tk.Canvas):
         return value
 
 
+class WelcomeEntry(tk.Canvas):
+    """Text field drawn like WelcomeButton: same height, radius, fill and outline."""
+    HEIGHT = 29
+
+    def __init__(self, parent, variable, *, secret=False, width=20):
+        self.font = tkfont.Font(family=FONT, size=9)
+        super().__init__(parent, width=self.font.measure("0") * width + 24, height=self.HEIGHT,
+                         bg=parent.cget("bg"), highlightthickness=0, bd=0, cursor="xterm")
+        self.canvas = self
+        self.focused = False
+        self.entry = tk.Entry(self, textvariable=variable, show="•" if secret else "",
+                              relief="flat", bd=0, highlightthickness=0, bg=CARD, fg=FG,
+                              disabledbackground=CARD, disabledforeground="#666b72",
+                              insertbackground=FG, insertwidth=1, font=self.font)
+        self.entry_id = self.create_window(12, self.HEIGHT / 2, window=self.entry, anchor="w")
+        self.bind("<Configure>", lambda _: self._paint())
+        self.bind("<Button-1>", lambda _: self.focus_set())
+        self.entry.bind("<FocusIn>", lambda _: self._focus(True), add="+")
+        self.entry.bind("<FocusOut>", lambda _: self._focus(False), add="+")
+
+    # Entry-like interface used by the window and tests.
+    def focus_set(self):
+        self.entry.focus_set()
+
+    def bind_key(self, sequence, callback):
+        self.entry.bind(sequence, callback)
+
+    def set_enabled(self, enabled):
+        self.entry.configure(state="normal" if enabled else "disabled")
+        self.configure(cursor="xterm" if enabled else "arrow")
+        self._paint()
+
+    def cget(self, key):
+        return self.entry.cget(key) if key == "state" else super().cget(key)
+
+    def _p(self, value):
+        return value
+
+    def _focus(self, focused):
+        self.focused = focused
+        self._paint()
+
+    def _paint(self):
+        self.delete("frame")
+        width = max(self.winfo_width(), self.winfo_reqwidth())
+        enabled = str(self.entry.cget("state")) == "normal"
+        outline = "#738492" if self.focused and enabled else LINE
+        InfoWindow._rounded_rectangle(self, 1, 1, width - 1, self.HEIGHT - 1, 8, fill=CARD,
+                                      outline=outline, width=1, tags="frame")
+        self.tag_lower("frame")
+        self.itemconfigure(self.entry_id, width=max(1, width - 24))
+
+
 class WelcomeCard(tk.Canvas):
     """Rounded card using the Welcome/What's New geometry."""
     FILL = "#101214"
@@ -298,12 +351,7 @@ class AccountWindow:
         return button
 
     def _entry(self, parent, variable, *, secret=False, width=None):
-        entry = tk.Entry(parent, textvariable=variable, show="•" if secret else "", relief="flat",
-                         bd=0, bg="#0d1013", fg=FG, disabledbackground="#0d1013",
-                         disabledforeground=MUTED, insertbackground=FG, font=(FONT, 10),
-                         highlightthickness=1, highlightbackground=LINE, highlightcolor="#738492",
-                         width=width or 20)
-        return entry
+        return WelcomeEntry(parent, variable, secret=secret, width=width or 20)
 
     # Sections -------------------------------------------------------------------------
     def _build_account(self):
@@ -336,11 +384,11 @@ class AccountWindow:
         self.mfa_code = tk.StringVar()
         self._text(self.password_frame, text="Email address", size=9)
         self.email_entry = self._entry(self.password_frame, self.email, width=40)
-        self.email_entry.pack(fill="x", ipady=6)
+        self.email_entry.pack(fill="x")
         self._text(self.password_frame, text="Password", size=9)
         self.password_entry = self._entry(self.password_frame, self.password, secret=True, width=40)
-        self.password_entry.pack(fill="x", ipady=6)
-        self.password_entry.bind("<Return>", lambda _: self.sign_in_password())
+        self.password_entry.pack(fill="x")
+        self.password_entry.bind_key("<Return>", lambda _: self.sign_in_password())
         password_row = self._row(self.password_frame)
         WelcomeButton(password_row, "Sign in", self.sign_in_password, primary=True).pack(side="left")
         self._text(self.password_frame, text="Accounts with passkeys only: use “Sign in with "
@@ -350,8 +398,8 @@ class AccountWindow:
         self._text(self.mfa_frame, text="Enter the code from your authenticator app or a recovery code.")
         mfa_row = self._row(self.mfa_frame)
         self.mfa_entry = self._entry(mfa_row, self.mfa_code, width=16)
-        self.mfa_entry.pack(side="left", ipady=6, padx=(0, 8))
-        self.mfa_entry.bind("<Return>", lambda _: self.submit_mfa())
+        self.mfa_entry.pack(side="left", padx=(0, 8))
+        self.mfa_entry.bind_key("<Return>", lambda _: self.submit_mfa())
         WelcomeButton(mfa_row, "Verify", self.submit_mfa, primary=True).pack(side="left")
 
     def _build_license(self):
@@ -370,7 +418,7 @@ class AccountWindow:
         self._text(card, text="Name shown in your device list", size=9)
         self.device_label = tk.StringVar(value=default_label())
         self.label_entry = self._entry(card, self.device_label, width=40)
-        self.label_entry.pack(fill="x", ipady=6)
+        self.label_entry.pack(fill="x")
         row = self._row(card)
         self._button(row, "Activate this computer", self.activate, primary=True,
                      when=self._can_activate)
@@ -406,7 +454,7 @@ class AccountWindow:
         self.code = tk.StringVar()
         row = self._row(card)
         self.code_entry = self._entry(row, self.code, width=28)
-        self.code_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(0, 8))
+        self.code_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self._button(row, "Redeem code", self.redeem, when=_signed_in)
 
     def _build_purchase(self):
@@ -553,8 +601,7 @@ class AccountWindow:
         for entry, needs_account in ((self.code_entry, True), (self.label_entry, True),
                                      (self.email_entry, False), (self.password_entry, False),
                                      (self.mfa_entry, False)):
-            usable = not busy and (signed_in if needs_account else not signed_in)
-            entry.configure(state="normal" if usable else "disabled")
+            entry.set_enabled(not busy and (signed_in if needs_account else not signed_in))
 
     def show_message(self, text, *, error=False, ok=False):
         self.message.set(text)
