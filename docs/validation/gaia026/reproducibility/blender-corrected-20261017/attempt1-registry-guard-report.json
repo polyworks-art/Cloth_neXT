@@ -1,0 +1,12 @@
+{
+  "result": "FAIL",
+  "blender": "5.2.2 LTS",
+  "range": [
+    130,
+    159
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "states": [],
+  "dry": false,
+  "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\tools\\blender_neon_hydrodynamic_e2e.py\", line 77, in main\n    if not args.dry:require_hydrodynamic_capability(resolved.executable_path)\n                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017\\profile\\extensions\\gaia_owner\\cloth_next\\ppf\\hydrodynamic_capability.py\", line 81, in require_hydrodynamic_capability\n    raise ValueError('Hydrodynamic Pressure unavailable: '+capability.reason)\nValueError: Hydrodynamic Pressure unavailable: Selected solver differs from the isolated hydrodynamics solver\n"
+}

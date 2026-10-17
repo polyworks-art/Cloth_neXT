@@ -1,0 +1,38 @@
+[
+  {
+    "case": "frozen",
+    "worker_sha256": "bb10a7e97ced6f4a7b42637ad5822dd1546a70a3206ec0504a1ef6ef2e728a94",
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\bin\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "d325f4d65b94717f2807263cd9a3ea9e455d2cbab5b1be38258708f2606c6005",
+    "ordered": false,
+    "exit_code": 0,
+    "elapsed_seconds": 55.30398099999729,
+    "vertex_outputs": 30,
+    "finite": true,
+    "peak_whole_device_memory_mib": 5693.0
+  },
+  {
+    "case": "unordered",
+    "worker_sha256": "f3a071af94155fa2378967ff44a8c3bf17c7b9809327cde5783d180a9a831b38",
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\cached-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+    "ordered": false,
+    "exit_code": 0,
+    "elapsed_seconds": 50.04606319999584,
+    "vertex_outputs": 30,
+    "finite": true,
+    "peak_whole_device_memory_mib": 5627.0
+  },
+  {
+    "case": "ordered",
+    "worker_sha256": "f3a071af94155fa2378967ff44a8c3bf17c7b9809327cde5783d180a9a831b38",
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\cached-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+    "ordered": true,
+    "exit_code": 0,
+    "elapsed_seconds": 333.8368699999992,
+    "vertex_outputs": 30,
+    "finite": true,
+    "peak_whole_device_memory_mib": 6239.0
+  }
+]

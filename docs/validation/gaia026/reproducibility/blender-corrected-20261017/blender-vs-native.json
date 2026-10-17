@@ -1,0 +1,46 @@
+{
+  "scope": "Blender Bake native session vs corrected native replays; byte equality",
+  "session": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\cache\\.cloth_next_recovery\\a3e7c197034ed8f5655287a7ba78b7a04c91450e45c0a3abf00c492fbf609967-23612263b4ee4393b90cfaa2f3b65e71\\server-data\\clothnext_1010e6f05b78\\session",
+  "inputs_match": true,
+  "input_status": {},
+  "inputs_not_in_fixture": [],
+  "produced": 59,
+  "runs": [
+    {
+      "run": 0,
+      "compared": 59,
+      "differing": [],
+      "max_native_abs_deviation": 0.0,
+      "same_file_set": true
+    },
+    {
+      "run": 1,
+      "compared": 59,
+      "differing": [],
+      "max_native_abs_deviation": 0.0,
+      "same_file_set": true
+    },
+    {
+      "run": 2,
+      "compared": 59,
+      "differing": [],
+      "max_native_abs_deviation": 0.0,
+      "same_file_set": true
+    },
+    {
+      "run": 3,
+      "compared": 59,
+      "differing": [],
+      "max_native_abs_deviation": 0.0,
+      "same_file_set": true
+    },
+    {
+      "run": 4,
+      "compared": 59,
+      "differing": [],
+      "max_native_abs_deviation": 0.0,
+      "same_file_set": true
+    }
+  ],
+  "all_outputs_bit_identical": true
+}

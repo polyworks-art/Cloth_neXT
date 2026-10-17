@@ -1,0 +1,549 @@
+{
+  "result": "PASS",
+  "blender": "5.2.2 LTS",
+  "range": [
+    130,
+    159
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "states": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.009903300000587478
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.6017190999991726
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 117.36476419999963
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 207.36744569999428
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 207.39983629999915
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 388.2847055999955
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 394.85836139999446
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 394.94121099999757
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 403.86282469999423
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 417.8234502999985
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 420.173681100001
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 434.6515872999953
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 436.9693258999978
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 446.84652229999483
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 449.14138919999823
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 455.5504946000001
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 457.9284272999939
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 467.6019900999963
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 469.97244409999985
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 477.87850009999966
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 480.1400374999939
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 488.1524958999944
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 490.0362391999952
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 498.841660399994
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 500.6723981999967
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 509.7060311999958
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 511.85662839999713
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 520.4734912999993
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 522.7615286
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 530.6280936999974
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 532.8859286999941
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 540.8536858000007
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 542.6952152999947
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 548.4657030999952
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 550.3383011999977
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 558.7175070999947
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 560.7139379
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 568.7834113999997
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 570.6531472999995
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 578.9884129999991
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 580.8494754999992
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 591.4858448999948
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 593.8377834999992
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 599.5057604999965
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 601.3364285999996
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 623.2995879999944
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 625.5759857999947
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 635.9648836999986
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 638.3387820999997
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 648.7283795999974
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 651.0568701999946
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 659.4970417999939
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 661.7559359000006
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 668.4920488999996
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 670.7991942000008
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 679.1360901999942
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 681.5169773999951
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 687.9254295999999
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 689.7728725999987
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 698.7428607999973
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 700.6789873999951
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 707.3540156999952
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 709.2318323
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 717.505660099996
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 719.7710736000008
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 728.7284900999948
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 728.729305199995
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 731.0146745999955
+    }
+  ],
+  "dry": false,
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\runtime\\target\\cuda\\release\\ppf-cts-server.exe",
+  "addon_version": "2.9.26",
+  "objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "vertices": 14946,
+      "material": "MIT_OUTDOOR_POLYESTER"
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "vertices": 4379,
+      "material": "CUSTOM"
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "vertices": 4031,
+      "material": "PRODUCT_YAMAMOTO_39_3MM"
+    }
+  ],
+  "attachment_groups": 4,
+  "attachment_count": 186,
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "work_directory": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\profile\\temp\\blender_a75716\\cloth_next_run_clothnext_1010e6f05b78",
+  "seconds": 731.1260483000005,
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\cache\\cn_test_cloth_1010e6f05b78_00.pc2",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "native_max_error_m": 3.05172017656119e-08,
+      "sha256": "299bd4451493ea0beea02c1808689cbcb93b0d8c0e7b02e21eabc74ae82a0292",
+      "reload_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\cache\\cn_test_cloth_1010e6f05b78_01.pc2",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.103382910183086e-08,
+      "sha256": "ab9edac6f686b6e90395c5c73d4010fb2124b11646543bdb7566178a038fcccc",
+      "reload_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\cache\\cn_test_cloth_1010e6f05b78_02.pc2",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.10323520611189e-08,
+      "sha256": "3f289e5c1b5c54693bb0d406125597ad6accd5917927a1160db0cb374a7f07ef",
+      "reload_max_error_m": 0.0
+    }
+  ],
+  "native_output": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\cache\\.cloth_next_recovery\\a3e7c197034ed8f5655287a7ba78b7a04c91450e45c0a3abf00c492fbf609967-23612263b4ee4393b90cfaa2f3b65e71\\server-data\\clothnext_1010e6f05b78\\session\\output",
+  "hydrodynamics": [
+    {
+      "file": "hydro_1.bin",
+      "area_m2": 1.380600929260254,
+      "wet_area_m2": 0.6739029288291931,
+      "normal_load_n": 94.66947174072266,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_10.bin",
+      "area_m2": 1.3802413940429688,
+      "wet_area_m2": 0.5587377548217773,
+      "normal_load_n": 100.91230773925781,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_11.bin",
+      "area_m2": 1.3803291320800781,
+      "wet_area_m2": 0.543299674987793,
+      "normal_load_n": 97.1678695678711,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_12.bin",
+      "area_m2": 1.3801096677780151,
+      "wet_area_m2": 0.5375698804855347,
+      "normal_load_n": 106.05577087402344,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_13.bin",
+      "area_m2": 1.37999427318573,
+      "wet_area_m2": 0.5390234589576721,
+      "normal_load_n": 110.00365447998047,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_14.bin",
+      "area_m2": 1.3799136877059937,
+      "wet_area_m2": 0.5511618852615356,
+      "normal_load_n": 113.58946990966797,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_15.bin",
+      "area_m2": 1.379866123199463,
+      "wet_area_m2": 0.5590109825134277,
+      "normal_load_n": 120.79325103759766,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_16.bin",
+      "area_m2": 1.3797125816345215,
+      "wet_area_m2": 0.5630907416343689,
+      "normal_load_n": 119.60320281982422,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_17.bin",
+      "area_m2": 1.3798177242279053,
+      "wet_area_m2": 0.5589452981948853,
+      "normal_load_n": 109.8879165649414,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_18.bin",
+      "area_m2": 1.3799077272415161,
+      "wet_area_m2": 0.5574606657028198,
+      "normal_load_n": 105.86244201660156,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_19.bin",
+      "area_m2": 1.3796390295028687,
+      "wet_area_m2": 0.5604684352874756,
+      "normal_load_n": 116.06399536132812,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_2.bin",
+      "area_m2": 1.3806337118148804,
+      "wet_area_m2": 0.6426815986633301,
+      "normal_load_n": 108.12767028808594,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_20.bin",
+      "area_m2": 1.3793975114822388,
+      "wet_area_m2": 0.5689273476600647,
+      "normal_load_n": 125.17784881591797,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_21.bin",
+      "area_m2": 1.379272222518921,
+      "wet_area_m2": 0.5840478539466858,
+      "normal_load_n": 143.7018585205078,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_22.bin",
+      "area_m2": 1.3790533542633057,
+      "wet_area_m2": 0.5976971983909607,
+      "normal_load_n": 146.51901245117188,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_23.bin",
+      "area_m2": 1.3790347576141357,
+      "wet_area_m2": 0.6154128909111023,
+      "normal_load_n": 131.20135498046875,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_24.bin",
+      "area_m2": 1.3791861534118652,
+      "wet_area_m2": 0.628443717956543,
+      "normal_load_n": 111.89264678955078,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_25.bin",
+      "area_m2": 1.379431962966919,
+      "wet_area_m2": 0.6366312503814697,
+      "normal_load_n": 105.6992416381836,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_26.bin",
+      "area_m2": 1.3795362710952759,
+      "wet_area_m2": 0.6454833745956421,
+      "normal_load_n": 99.32151794433594,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_27.bin",
+      "area_m2": 1.3792614936828613,
+      "wet_area_m2": 0.6516960263252258,
+      "normal_load_n": 94.30094909667969,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_28.bin",
+      "area_m2": 1.3792109489440918,
+      "wet_area_m2": 0.6556355953216553,
+      "normal_load_n": 94.88494873046875,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_29.bin",
+      "area_m2": 1.3791999816894531,
+      "wet_area_m2": 0.6623834371566772,
+      "normal_load_n": 101.60765075683594,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_3.bin",
+      "area_m2": 1.3805180788040161,
+      "wet_area_m2": 0.6208646893501282,
+      "normal_load_n": 107.31999206542969,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_4.bin",
+      "area_m2": 1.3806626796722412,
+      "wet_area_m2": 0.6082480549812317,
+      "normal_load_n": 103.49884796142578,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_5.bin",
+      "area_m2": 1.3806617259979248,
+      "wet_area_m2": 0.6009362936019897,
+      "normal_load_n": 93.05330657958984,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_6.bin",
+      "area_m2": 1.3807203769683838,
+      "wet_area_m2": 0.5977378487586975,
+      "normal_load_n": 91.1865005493164,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_7.bin",
+      "area_m2": 1.3805960416793823,
+      "wet_area_m2": 0.5893413424491882,
+      "normal_load_n": 92.40444946289062,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_8.bin",
+      "area_m2": 1.380338430404663,
+      "wet_area_m2": 0.5747489929199219,
+      "normal_load_n": 98.72599792480469,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_9.bin",
+      "area_m2": 1.3802319765090942,
+      "wet_area_m2": 0.5644399523735046,
+      "normal_load_n": 102.80044555664062,
+      "tangential_load_n": 0.0
+    }
+  ],
+  "session_evidence": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r3\\bake\\session-evidence"
+}

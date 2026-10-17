@@ -74,3 +74,34 @@ Runtime per complete native replay: 311.621–314.099 s, median 312.714 s. Maxim
 The final cached DLL also passed both CUDA hydrodynamic regression tests (force/nine Jacobian blocks and frozen contact scale, zero host/contact deltas). Corrected-solver Blender Bake, PC2/fresh playback, independent NEON collider audit, broader hardware testing and product engine integration remain open.
 
 Final cached-candidate independent-scene and safety checks also completed: five 60-frame canvas/animated-plane runs, all ten pairs bit-identical in positions and fluid telemetry (maximum deviation 0 m); peak contact count 409 and minimum output-frame plane separation 0.936441 mm. Both final cached SDF cases passed: valid domain accepted and shifted/out-of-bounds SDF rejected by the existing native guard, with the unchanged 60-second timeout. No running native tests remain at this checkpoint. The independent fixture remains a native test, not a corrected Blender/PC2 acceptance result.
+
+## Corrected-solver Blender gates (Claude, 2026-10-17 evening)
+
+Evidence: `docs/validation/gaia026/reproducibility/blender-corrected-20261017/`; recipes `recipes/run-corrected-blender-bake.py`, `compare-blender-vs-native.py`, `blender-fresh-playback.py`, `run-fair-runtime-comparison.py`, `run-timestep-sensitivity.py`. Local root `.hydro-test-tmp/corrected-blender-20261017-r3`.
+
+Setup: brand-new runtime copied from the frozen `blender-e2e-20261016/runtime` (without earlier runs' server session state), with only the research worker (`f3a071af…`) and cached corrected backend (`9f4f156c…`) swapped into the copy; frozen 2.9.26 owner zip (`382b14bb…`) copied and freshly installed into a new profile; new owner manifest and solver registry pointing at the new runtime; frozen NEON blend copy (`d0a7055f…`); the five `PPF_REPRO_*` opt-ins in the launch environment.
+
+- Attempt 1 was refused by the add-on's own guard (registry still selected the old server; "Selected solver differs from the isolated hydrodynamics solver"). Attempt 2 failed in BUILDING because the copied runtime carried stale session symlinks. Both are preserved; neither is a solver failure.
+- Attempt 3, regular `bpy.ops.clothnext.bake('EXEC_DEFAULT')`, NEON 130–159: FINISHED, 731 s. The live worker loaded the corrected backend (path inside the new runtime, SHA verified). Three cloth objects, original materials, 186 attachments, Cn=1/Ct=0 owner model validation unchanged.
+- All physical solver inputs of the Blender session match the native fixture hashes, and all 59 output files (30 vertex frames + hydrodynamic telemetry) are byte-identical to each of the five corrected native replays. This also demonstrates that the opt-ins reach the worker through Blender and the server.
+- PC2: in-process playback and reload max error 0 m. Fresh Blender process (new process, saved scene opened, all 30 frames for all three objects): max error 0 m, MESH_CACHE playback, materials/hydrodynamic pressure/186 attachments preserved; the bake scene hash is unchanged by the check.
+- Independent reciprocal edge-triangle collider audit on all 30 exported frames: 0 crossing segments, analytic self-check PASS (same as the 2.9.26 reference). The collider is not watertight, so no inside/outside or between-frame claim.
+- Integrity before/after: frozen blend copy, frozen owner zip, frozen runtime binaries and 93/93 FLIP cache files unchanged. The original `F:/16_Cloth_neXt/SW04/SW04_NEON.blend` changed at 21:38:57 local (`c22a2da5…` → `cd3956d1…`) during attempt 2; the owner's normal Blender profile wrote `userpref.blend` and `recent-searches.txt` in the same second, i.e. the owner's GUI Blender saved it on exit. The isolated runs never open the original.
+
+Fair native runtime, same fixture, sequential, no other solver load (GPU had ~37 % idle load from other desktop clients; whole-device memory):
+
+| case | seconds | peak whole-GPU MiB |
+|---|---|---|
+| frozen 2.9.26 worker + backend | 55.3 | 5,693 |
+| research worker, opt-ins unset | 50.0 | 5,627 |
+| research worker, all five opt-ins | 333.8 | 6,239 |
+| only colored elastic (MODE+FILTER) | 53.4 | 5,682 |
+| only filtered contact | 281.7 | 6,266 |
+| only serial CSR | 81.2 | 5,702 |
+| only serial stitch | 52.2 | 5,671 |
+
+The topology fix is free; the ~6x cost is almost entirely the ordered self-contact traversal (+232 s), then ordered dynamic CSR (+31 s). Single-switch rows are timing ablations only, not determinism controls. Product readiness needs a parallel deterministic contact ordering (e.g. stable sort of contributions) with fresh validation; not attempted here.
+
+Timestep sensitivity (deterministic ordered solver, only `dt` changed, NEON 130–159): dt 0.01→0.005 max vertex difference 31.0 mm (final RMS over all native vertices 1.84 mm); 0.005→0.0025 max 24.9 mm (RMS 1.75 mm); 0.01→0.0025 max 27.3 mm. Successive halvings do not shrink the difference, so fold-level positions are not dt-converged at this scale; the trajectory is sensitive to small perturbations. The 2.9.26 run-to-run spread (~30 mm) was of the same order as this discretization sensitivity. Runtimes 562 s (0.005) and 2,029 s (0.0025). This is sensitivity, not error against ground truth; adaptive behaviour remains the solver's own TOI/Newton control (no separate adaptive-dt mode was tested).
+
+Remaining: performant deterministic contact ordering, automatic GAIA engine wiring of the opt-ins, AETHER/GAIA product integration, broader hardware. No release, channel or certification claim.

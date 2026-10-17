@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "blender": "5.2.2 LTS",
+  "fresh_process": true,
+  "objects": [
+    {
+      "object": "S04_NEON_Garments",
+      "modifier": "MESH_CACHE",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "material": "MIT_OUTDOOR_POLYESTER",
+      "hydrodynamic_pressure": true
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "modifier": "MESH_CACHE",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "material": "CUSTOM",
+      "hydrodynamic_pressure": true
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "modifier": "MESH_CACHE",
+      "frames": 30,
+      "max_error_m": 0.0,
+      "material": "PRODUCT_YAMAMOTO_39_3MM",
+      "hydrodynamic_pressure": true
+    }
+  ],
+  "attachment_count": 186
+}

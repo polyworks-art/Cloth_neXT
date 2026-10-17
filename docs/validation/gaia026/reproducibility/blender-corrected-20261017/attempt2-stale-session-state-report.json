@@ -1,0 +1,44 @@
+{
+  "result": "FAIL",
+  "state": "ERROR",
+  "error": "The solver reported a failure while building. No verified recovery checkpoint is available.",
+  "error_details": "Stage: solver project build\nCause: server status FAILED during building: PermissionError: [WinError 5] Zugriff verweigert: 'C:\\\\Users\\\\timch\\\\Documents\\\\GitHub\\\\Cloth_neXT\\\\.hydro-test-tmp\\\\corrected-blender-20261017-r2\\\\runtime\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\symlinks\\\\session' | while: Exporting solver input... | at frontend/_session_.py:1964 in _save_fixed_session: os.remove(symlink_path) | errno=13 winerror=5 strerror='Zugriff verweigert' filename='C:\\\\Users\\\\timch\\\\Documents\\\\GitHub\\\\Cloth_neXT\\\\.hydro-test-tmp\\\\corrected-blender-20261017-r2\\\\runtime\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\symlinks\\\\se...\nWhat to do: Inspect the Cloth NeXt log and the solver stderr tail, then retry.\nDiagnostic log: C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\corrected-blender-20261017-r2\\profile\\temp\\blender_a51468\\cloth_next_run_clothnext_ae3296cc65ad\\failure.log",
+  "states": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0075457999992067926
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.43631330000062
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 94.20760750000045
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 199.5079820999963
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 199.5345961999992
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 389.18320839999797
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 395.7553611999974
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 395.8179175999976
+    },
+    {
+      "state": "ERROR",
+      "seconds": 399.7719857999982
+    }
+  ]
+}
