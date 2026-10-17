@@ -1,0 +1,15 @@
+dry1 COPY C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_dry1_1792122362068647400\session checkpoint 19
+dry2 COPY C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_dry2_1792122293996115900\session checkpoint 19
+hydro2 COPY C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_hydro2_1792122361476875300\session checkpoint 19
+hydro1 COPY C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_hydro1_1792121857649978500\session checkpoint 19
+flow1 COPY C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_flow1_1792122293851461200\session checkpoint 19
+dry1 RESUME
+dry2 RESUME
+hydro2 RESUME
+flow1 RESUME
+hydro1 RESUME
+dry1 FINISHED 813.953
+flow1 FINISHED 818.516
+dry2 FINISHED 827.703
+hydro1 FINISHED 988.828
+hydro2 FINISHED 993.0150000000001

@@ -1,0 +1,176 @@
+[
+  {
+    "frame": 130,
+    "particles": 8784790,
+    "finite_payloads": true,
+    "native_particle_radius_m": 0.01491483200503396,
+    "surface_sha256": "45148215c8ca2cda0d7170bf3a5c8fab08a631d61a70b455f3fa51b4057e6898",
+    "groups": {
+      "uniform_surface_vertices": {
+        "count": 20000,
+        "nearest_particle_distance_m": {
+          "maximum": 0.01904795508935882,
+          "p95": 0.016286796646327425
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.01383035639189029,
+          "maximum": 0.00413312308432486,
+          "rms": 0.005295611038905227
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 0.013424618169665337,
+          "maximum": 5.2396955490112305,
+          "mean": 1.6839498281478882
+        }
+      },
+      "changed_vertices_above_10um": {
+        "count": 15,
+        "nearest_particle_distance_m": {
+          "maximum": 0.016532999461160616,
+          "p95": 0.016073573931564736
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.0010578647307442693,
+          "maximum": 0.0016181674561266558,
+          "rms": 0.0006780047795083282
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 1.0245481729507446,
+          "maximum": 1.2084711790084839,
+          "mean": 1.1222354173660278
+        }
+      }
+    },
+    "transport_approved": false,
+    "limits": "Nearest-particle support is independent of BOBJ validity, but is not the original obstacle-clamped grid field, signed occupancy, or a force acceptance test. Original smoothing shifts the zero surface; do not reinterpret a radius residual as geometric error."
+  },
+  {
+    "frame": 131,
+    "particles": 8784783,
+    "finite_payloads": true,
+    "native_particle_radius_m": 0.01491483200503396,
+    "surface_sha256": "733b82c924d1be0831bd7ca09eb5acce61fa29a37a10f48b2b71b93bca22d13f",
+    "groups": {
+      "uniform_surface_vertices": {
+        "count": 20000,
+        "nearest_particle_distance_m": {
+          "maximum": 0.018962296452730502,
+          "p95": 0.0162724798597705
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.014220398623875722,
+          "maximum": 0.004047464447696542,
+          "rms": 0.005282158182973435
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 0.010594901628792286,
+          "maximum": 4.630841255187988,
+          "mean": 1.7034261226654053
+        }
+      }
+    },
+    "transport_approved": false,
+    "limits": "Nearest-particle support is independent of BOBJ validity, but is not the original obstacle-clamped grid field, signed occupancy, or a force acceptance test. Original smoothing shifts the zero surface; do not reinterpret a radius residual as geometric error."
+  },
+  {
+    "frame": 132,
+    "particles": 8784780,
+    "finite_payloads": true,
+    "native_particle_radius_m": 0.01491483200503396,
+    "surface_sha256": "6177b8075ddc94341e043073ea032ccf4a244181590d97efa6c1a36905e969c7",
+    "groups": {
+      "uniform_surface_vertices": {
+        "count": 20000,
+        "nearest_particle_distance_m": {
+          "maximum": 0.019157348938760487,
+          "p95": 0.01627044657641675
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.014082726908098309,
+          "maximum": 0.004242516933726527,
+          "rms": 0.005354977992083556
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 0.00552953639999032,
+          "maximum": 4.771236896514893,
+          "mean": 1.7050772905349731
+        }
+      }
+    },
+    "transport_approved": false,
+    "limits": "Nearest-particle support is independent of BOBJ validity, but is not the original obstacle-clamped grid field, signed occupancy, or a force acceptance test. Original smoothing shifts the zero surface; do not reinterpret a radius residual as geometric error."
+  },
+  {
+    "frame": 133,
+    "particles": 8784753,
+    "finite_payloads": true,
+    "native_particle_radius_m": 0.01491483200503396,
+    "surface_sha256": "ba2c0683bb8f66ebe792b04f41b50eb688837926604348da34251629f55140f7",
+    "groups": {
+      "uniform_surface_vertices": {
+        "count": 20000,
+        "nearest_particle_distance_m": {
+          "maximum": 0.01883899773050789,
+          "p95": 0.016282316821925914
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.013768210743842706,
+          "maximum": 0.0039241657254739295,
+          "rms": 0.005426088130291134
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 0.01917100138962269,
+          "maximum": 4.655980110168457,
+          "mean": 1.6850475072860718
+        }
+      }
+    },
+    "transport_approved": false,
+    "limits": "Nearest-particle support is independent of BOBJ validity, but is not the original obstacle-clamped grid field, signed occupancy, or a force acceptance test. Original smoothing shifts the zero surface; do not reinterpret a radius residual as geometric error."
+  },
+  {
+    "frame": 135,
+    "particles": 8784750,
+    "finite_payloads": true,
+    "native_particle_radius_m": 0.01491483200503396,
+    "surface_sha256": "d8cab6b21ad3f52be2f25356081993b8d38be8b244af013f33d2ce70dc4815bc",
+    "groups": {
+      "uniform_surface_vertices": {
+        "count": 20000,
+        "nearest_particle_distance_m": {
+          "maximum": 0.01905309355336567,
+          "p95": 0.01631334080120143
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.013924796214022102,
+          "maximum": 0.004138261548331709,
+          "rms": 0.005453780752011333
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 0.014151576906442642,
+          "maximum": 4.777106285095215,
+          "mean": 1.693729281425476
+        }
+      },
+      "changed_vertices_above_10um": {
+        "count": 10,
+        "nearest_particle_distance_m": {
+          "maximum": 0.015974060813540823,
+          "p95": 0.015911203321151517
+        },
+        "particle_radius_residual_m": {
+          "minimum": -0.0011592472532581041,
+          "maximum": 0.0010592288085068628,
+          "rms": 0.0006041016858975874
+        },
+        "local_velocity_speed_m_s": {
+          "minimum": 1.9038625955581665,
+          "maximum": 2.0457963943481445,
+          "mean": 1.951119065284729
+        }
+      }
+    },
+    "transport_approved": false,
+    "limits": "Nearest-particle support is independent of BOBJ validity, but is not the original obstacle-clamped grid field, signed occupancy, or a force acceptance test. Original smoothing shifts the zero surface; do not reinterpret a radius residual as geometric error."
+  }
+]

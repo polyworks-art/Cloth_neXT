@@ -1,0 +1,10 @@
+{
+  "source_scene": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\cache\\.cloth_next_export\\scene\\00\\004ea66012b3d216e6a0fd9dc48a30821d8e3dcd0253ff823c18414e8439fd89\\scene.cbor",
+  "cases": [
+    {
+      "label": "hydro-131-133",
+      "artifact_root": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\hydrodynamics\\blender-e2e\\collider-audit",
+      "session": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\cache\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-bfa0fbb8de004508b2e40b128d27faee\\server-data\\clothnext_be4568281d47\\session"
+    }
+  ]
+}

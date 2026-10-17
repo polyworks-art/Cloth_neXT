@@ -1,0 +1,32 @@
+[
+  {
+    "case": "dry1",
+    "changed_original_vertex_frames_through_checkpoint": [],
+    "source_checkpoint_sha256": "8604451cc3f9a167baa61348236787afb8e085075409b89bf03c00685cb2eb9f",
+    "verified_vertex_frame_count": 20
+  },
+  {
+    "case": "flow1",
+    "changed_original_vertex_frames_through_checkpoint": [],
+    "source_checkpoint_sha256": "a79771a1b69a9f02c9dea94066e70e1f3f8051f39d37d30f83da570cafd208c1",
+    "verified_vertex_frame_count": 20
+  },
+  {
+    "case": "dry2",
+    "changed_original_vertex_frames_through_checkpoint": [],
+    "source_checkpoint_sha256": "6a47e8c7bb816270cc0ccd2dbc3176a506c3e5a4721a5ebe0143c2a943293db4",
+    "verified_vertex_frame_count": 20
+  },
+  {
+    "case": "hydro1",
+    "changed_original_vertex_frames_through_checkpoint": [],
+    "source_checkpoint_sha256": "04cdee541fb0222064837c0fa29bb155d832092be1bab5d8daf8e9a1eae87296",
+    "verified_vertex_frame_count": 20
+  },
+  {
+    "case": "hydro2",
+    "changed_original_vertex_frames_through_checkpoint": [],
+    "source_checkpoint_sha256": "f700b516c0c96b103f59a032de8275c7f3eefcdf33bcf1887bbddea34e738b1e",
+    "verified_vertex_frame_count": 20
+  }
+]

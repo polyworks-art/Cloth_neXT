@@ -1,0 +1,245 @@
+{
+  "scope": "actual native CPU trajectories; force telemetry is native, not a host force reconstruction",
+  "solver_sha256": "1707852a1e211ed15ede85ee1df841e8feeb3d4559cfc1a61a2abfc8175d51db",
+  "quality": {
+    "dt": 0.009999999776482582,
+    "min-newton-steps": 1,
+    "cg-max-iter": 2500,
+    "cg-tol": 0.009999999776482582,
+    "target-toi": 0.25,
+    "line-search-max-t": 1.25,
+    "constraint-ghat": 0.0010000000474974513,
+    "constraint-tol": 0.009999999776482582,
+    "max-newton-steps": 2048,
+    "max-dx": 1.0,
+    "eiganalysis-eps": 0.009999999776482582,
+    "friction-eps": 9.999999747378752e-06,
+    "csrmat-max-nnz": 10000000,
+    "barrier": "cubic",
+    "gravity": [
+      0.0,
+      -9.8100004196167,
+      -0.0
+    ],
+    "wind": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "frames": 2,
+    "fps": 30.0,
+    "friction-mode": "min",
+    "disable-contact": false,
+    "auto-save": 20,
+    "keep-states": 3
+  },
+  "cases": [
+    {
+      "label": "hydro1",
+      "seconds": 78.21900000000005,
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.008320813073103549,
+            "rms_m": 0.0009748055645745755
+          },
+          "velocity_interval_mean_m_s": 0.019681890750307324,
+          "velocity_interval_max_m_s": 0.16550374400363735,
+          "edge_stretch_min": 0.7161923928736712,
+          "edge_stretch_max": 1.0240435890150823,
+          "mean_abs_edge_strain": 0.0006848327577645863,
+          "mean_bend_change_rad": 0.011489384028835635,
+          "max_bend_change_rad": 1.203260718465159,
+          "minimum_triangle_area_m2": 2.933892759644783e-06,
+          "native_contact_peak": 2057,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.003908548526347124,
+            "rms_m": 0.0007213676907738188
+          },
+          "velocity_interval_mean_m_s": 0.01413654412739071,
+          "velocity_interval_max_m_s": 0.11725645579041373,
+          "edge_stretch_min": 0.9425726220727685,
+          "edge_stretch_max": 1.0084714579144731,
+          "mean_abs_edge_strain": 0.0003711050784937923,
+          "mean_bend_change_rad": 0.004984082650969032,
+          "max_bend_change_rad": 0.19356687948169826,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1538,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.006259355087616986,
+            "rms_m": 0.00123003572323205
+          },
+          "velocity_interval_mean_m_s": 0.020743444612640095,
+          "velocity_interval_max_m_s": 0.17758264149602412,
+          "edge_stretch_min": 0.6981869743959532,
+          "edge_stretch_max": 1.1221589976891728,
+          "mean_abs_edge_strain": 0.006001573290902825,
+          "mean_bend_change_rad": 0.026869347299309048,
+          "max_bend_change_rad": 1.3590940361742376,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 7613,
+          "finite": true
+        }
+      },
+      "native_loads": [
+        {
+          "output_frame": 1,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              3,
+              3
+            ],
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990163564682007,
+              "wet_area_m2": 0.5525354146957397,
+              "normal_force_magnitude_sum_n": 0.10019316524267197,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.060472507029771805,
+                0.004679608624428511,
+                0.01082614529877901
+              ],
+              "two_sided_wet_area_m2": 0.5525354146957397,
+              "mean_fluid_speed_wet_m_s": 0.027866192162036896,
+              "mean_relative_speed_wet_m_s": 0.02841263636946678,
+              "max_fluid_speed_m_s": 0.04476789012551308,
+              "max_relative_speed_m_s": 0.07798153907060623
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536412179470062,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3286650478839874,
+              "wet_area_m2": 0.007937105372548103,
+              "normal_force_magnitude_sum_n": 0.0005425819545052946,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.00042256733286194503,
+                -3.5779742120212177e-06,
+                -2.1671614376828074e-05
+              ],
+              "two_sided_wet_area_m2": 0.007937105372548103,
+              "mean_fluid_speed_wet_m_s": 0.02562849037349224,
+              "mean_relative_speed_wet_m_s": 0.026802612468600273,
+              "max_fluid_speed_m_s": 0.03884043172001839,
+              "max_relative_speed_m_s": 0.043500009924173355
+            }
+          }
+        },
+        {
+          "output_frame": 2,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              4,
+              4
+            ],
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                3
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990725040435791,
+              "wet_area_m2": 0.5526466369628906,
+              "normal_force_magnitude_sum_n": 0.19494755566120148,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.15576259791851044,
+                -0.0012224522652104497,
+                0.004415501840412617
+              ],
+              "two_sided_wet_area_m2": 0.5526466369628906,
+              "mean_fluid_speed_wet_m_s": 0.05448155105113983,
+              "mean_relative_speed_wet_m_s": 0.050257377326488495,
+              "max_fluid_speed_m_s": 0.08926284313201904,
+              "max_relative_speed_m_s": 0.08687286078929901
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536826729774475,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32885801792144775,
+              "wet_area_m2": 0.0077867936342954636,
+              "normal_force_magnitude_sum_n": 0.0015470294747501612,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0011717512970790267,
+                -1.595689172972925e-05,
+                -1.18016459964565e-05
+              ],
+              "two_sided_wet_area_m2": 0.0077867936342954636,
+              "mean_fluid_speed_wet_m_s": 0.04890712723135948,
+              "mean_relative_speed_wet_m_s": 0.049194060266017914,
+              "max_fluid_speed_m_s": 0.07819721102714539,
+              "max_relative_speed_m_s": 0.07791943103075027
+            }
+          }
+        }
+      ],
+      "max_newton_steps": 3,
+      "max_linear_relative_residual": 0.01,
+      "max_cg_iterations": 452,
+      "native_advances": 10,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    }
+  ],
+  "comparisons": {}
+}

@@ -1,0 +1,129 @@
+hydro1 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_hydro1_1792123977464027200
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  38%|###8      | 5/13 [00:00<00:00, 40.61it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 40.42it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 17.29it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  43%|####2     | 6/14 [00:00<00:00, 41.79it/s]
+build session:  79%|#######8  | 11/14 [00:00<00:00, 41.06it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 50.42it/s]
+hydro1 NATIVE SOLVE
+FINISHED hydro1 99.10899999999992
+dry1 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_dry1_1792124080534780600
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  38%|###8      | 5/13 [00:00<00:00, 39.34it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 42.07it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 16.14it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  43%|####2     | 6/14 [00:00<00:00, 31.00it/s]
+build session:  71%|#######1  | 10/14 [00:00<00:00, 23.76it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 29.80it/s]
+dry1 NATIVE SOLVE
+FINISHED dry1 82.78200000000015
+flow1 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_flow1_1792124167357176500
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  38%|###8      | 5/13 [00:00<00:00, 34.30it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 38.70it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 15.83it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  36%|###5      | 5/14 [00:00<00:00, 15.86it/s]
+build session:  57%|#####7    | 8/14 [00:00<00:00, 15.14it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 25.96it/s]
+flow1 NATIVE SOLVE
+FINISHED flow1 86.9380000000001
+hydro2 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_hydro2_1792124270647966800
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  38%|###8      | 5/13 [00:00<00:00, 32.68it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 37.62it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 15.78it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  14%|#4        | 2/14 [00:00<00:00, 15.26it/s]
+build session:  43%|####2     | 6/14 [00:00<00:00, 24.85it/s]
+build session:  64%|######4   | 9/14 [00:00<00:00, 20.47it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 30.62it/s]
+hydro2 NATIVE SOLVE
+FINISHED hydro2 102.3119999999999
+dry2 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_dry2_1792124380987033400
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  38%|###8      | 5/13 [00:00<00:00, 34.27it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 39.06it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 16.01it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  43%|####2     | 6/14 [00:00<00:00, 31.48it/s]
+build session:  71%|#######1  | 10/14 [00:00<00:00, 30.20it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 40.09it/s]
+dry2 NATIVE SOLVE
+FINISHED dry2 81.875

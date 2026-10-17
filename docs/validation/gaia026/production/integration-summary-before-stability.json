@@ -1,0 +1,58 @@
+{
+  "official_integrity": {
+    "files_checked": 86,
+    "mismatches": 0
+  },
+  "server_bridge": {
+    "result": "PASS",
+    "protocol": "0.26",
+    "schema": "2",
+    "backend": "cuda",
+    "stitch_stiffness": [
+      100.0,
+      100.0,
+      450.0,
+      450.0
+    ],
+    "maximum_low_minus_high": 0.11883074510842562
+  },
+  "gaia022_regression": {
+    "result": "PASS",
+    "protocol": "0.22",
+    "solver_frames_fetched": 7,
+    "pc2_header": {
+      "vertex_count": 121,
+      "frame_count": 8,
+      "start_frame": 0.0,
+      "sample_rate": 1.0
+    }
+  },
+  "production_lifecycle": "FAIL: Windows project-alias directory creation, WinError 183",
+  "blender_file_lifecycle": "FAIL: owned PC2 modifier cleanup assertion",
+  "flip_source": {
+    "result": "PASS",
+    "frames_read": 250,
+    "particle_frames": 250,
+    "velocity_frames": 250,
+    "source_unchanged": true
+  },
+  "real_flip_native": {
+    "result": "PASS",
+    "slice": [
+      150,
+      152
+    ],
+    "flow_alignment": 0.9999435676215378
+  },
+  "real_flip_pc2_playback": {
+    "result": "PASS",
+    "checked_samples": 3,
+    "pc2_released": true
+  },
+  "quick_button": {
+    "result": "PASS",
+    "settings": 7,
+    "actual_flip_rna": true,
+    "source_unchanged": true
+  }
+}

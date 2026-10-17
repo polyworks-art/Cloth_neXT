@@ -1,0 +1,22 @@
+hydro1 EXPORT C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\local\share\ppf-cts\git-unknown\cnx_spatial_neon_hydro1_1792082340230885800
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+build scene:  77%|#######6  | 10/13 [00:00<00:00, 73.68it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 31.04it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  57%|#####7    | 8/14 [00:00<00:00, 44.80it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 74.43it/s]
+hydro1 NATIVE SOLVE
+FINISHED hydro1 78.21900000000005

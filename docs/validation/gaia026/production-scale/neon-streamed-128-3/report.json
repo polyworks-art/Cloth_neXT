@@ -1,0 +1,621 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 23356,
+  "total_cloth_vertices": 23356,
+  "combination": "base",
+  "coupling_strength": 0.2,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    -0.5071269273757935,
+    -0.8373814821243286,
+    0.6050718426704407
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "fps": 30.0,
+  "quality": {
+    "time_step": 0.009999999776482582,
+    "cg_max_iter": 2500,
+    "cg_tol": 0.009999999776482582
+  },
+  "geometry_source": "Existing scene meshes and enabled collider roles",
+  "excluded_colliders": [
+    "SW_04_body_lod0_mesh.001"
+  ],
+  "scene_objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "role": "CLOTH",
+      "vertices": 14946,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "role": "CLOTH",
+      "vertices": 4379,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "role": "CLOTH",
+      "vertices": 4031,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_body_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 30455,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_head_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 24049,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    }
+  ],
+  "ram_safety": {
+    "enabled": true,
+    "threshold_percent": 90
+  },
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0040805999997246545
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.6110372000002826
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 35.11690830000043
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 47.29536209999969
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 47.31804860000011
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 48.24435839999933
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 53.6174632000002
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 53.699531000000206
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 60.422361900000396
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 62.558824199999435
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 64.27788109999892
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 64.29913029999989
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 66.04686769999898
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 67.94932010000048
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "objects": [
+    {
+      "object": "S04_NEON_Garments",
+      "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3\\cn_test_cloth_0368a252fd30_00.pc2",
+      "finite": true,
+      "vertices": 14946,
+      "frames": 3,
+      "max_speed_m_s": 360.47476313205,
+      "max_edge_stretch_ratio": 1.0065003878729937,
+      "min_edge_ratio": 0.9498270553586111,
+      "max_pin_error_m": 0.0,
+      "max_displacement_m": 19.66739655556603,
+      "playback_max_error": 0.0,
+      "min_triangle_area_ratio": 0.9387159429260871,
+      "max_acceleration_m_s2": 8348.801483327112,
+      "self_intersection_samples": [
+        {
+          "frame": 1,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 2,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        },
+        {
+          "frame": 3,
+          "nonadjacent_overlap_candidates": 0,
+          "strict_triangle_piercings": 0
+        }
+      ]
+    }
+  ],
+  "exception": "AssertionError({'object': 'S04_NEON_Garments', 'pc2': 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\Temp\\\\cnx026-production-scale-20261014\\\\neon-streamed-128-3\\\\cn_test_cloth_0368a252fd30_00.pc2', 'finite': True, 'vertices': 14946, 'frames': 3, 'max_speed_m_s': 360.47476313205, 'max_edge_stretch_ratio': 1.0065003878729937, 'min_edge_ratio': 0.9498270553586111, 'max_pin_error_m': 0.0, 'max_displacement_m': 19.66739655556603, 'playback_max_error': 0.0, 'min_triangle_area_ratio': 0.9387159429260871, 'max_acceleration_m_s2': 8348.801483327112, 'self_intersection_samples': [{'frame': 1, 'nonadjacent_overlap_candidates': 0, 'strict_triangle_piercings': 0}, {'frame': 2, 'nonadjacent_overlap_candidates': 0, 'strict_triangle_piercings': 0}, {'frame': 3, 'nonadjacent_overlap_candidates': 0, 'strict_triangle_piercings': 0}]})",
+  "session_timings_and_contacts": [
+    {
+      "timings": {
+        "start_solver": 5.3705446999993,
+        "upload": 0.08520490000046266,
+        "build": 2.6575001000001066,
+        "simulation_wait": 3.903427200002625,
+        "frame_transfer": 0.02697039999839035,
+        "frame_decode": 0.00016030000006139744,
+        "frame_extract": 0.0005328000006556977,
+        "simulation_and_import": 7.953605799999423,
+        "total": 18.71232439999949
+      },
+      "contact_peak": 8228,
+      "contact_samples": 8
+    }
+  ],
+  "system_ram_samples": [
+    {
+      "updated_at": 0.0,
+      "seconds": 0.0032998999995470513,
+      "used_bytes": null,
+      "total_bytes": null,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965769.3558793,
+      "seconds": 0.6101005000000441,
+      "used_bytes": 20643528704,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965770.4616356,
+      "seconds": 1.200722499999756,
+      "used_bytes": 20646887424,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965771.5505676,
+      "seconds": 2.3097966000004817,
+      "used_bytes": 20691828736,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965772.6408489,
+      "seconds": 3.3779371000000538,
+      "used_bytes": 20661964800,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965773.7162087,
+      "seconds": 4.445270399999572,
+      "used_bytes": 20671627264,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965774.7930574,
+      "seconds": 5.546657200000482,
+      "used_bytes": 20649013248,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965775.8848195,
+      "seconds": 6.634518400000161,
+      "used_bytes": 20629323776,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965776.972973,
+      "seconds": 7.723076299998866,
+      "used_bytes": 20574302208,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965778.06446,
+      "seconds": 8.790954799998872,
+      "used_bytes": 20549222400,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965779.1410823,
+      "seconds": 9.899671099999978,
+      "used_bytes": 20527702016,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965780.2786286,
+      "seconds": 11.99668659999952,
+      "used_bytes": 20593041408,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965782.28295,
+      "seconds": 13.044437700000344,
+      "used_bytes": 20526161920,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965783.372136,
+      "seconds": 14.112232800000129,
+      "used_bytes": 20511928320,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965784.446471,
+      "seconds": 15.180489200000011,
+      "used_bytes": 20514484224,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965785.5198352,
+      "seconds": 16.268587799999295,
+      "used_bytes": 20533559296,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965786.608811,
+      "seconds": 17.35633349999989,
+      "used_bytes": 20512546816,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965788.2001617,
+      "seconds": 19.25528900000063,
+      "used_bytes": 20479365120,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965789.5331306,
+      "seconds": 20.261169499999596,
+      "used_bytes": 20497809408,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965790.6059244,
+      "seconds": 21.369604299999992,
+      "used_bytes": 20499349504,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965791.6959734,
+      "seconds": 22.43706089999978,
+      "used_bytes": 20473970688,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965792.770048,
+      "seconds": 23.505721399998947,
+      "used_bytes": 20496334848,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965793.8422337,
+      "seconds": 24.57274099999995,
+      "used_bytes": 20476047360,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965795.4034624,
+      "seconds": 26.445173899999645,
+      "used_bytes": 20457840640,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965796.7256994,
+      "seconds": 27.450768799999423,
+      "used_bytes": 20458082304,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965797.7992876,
+      "seconds": 28.538930799999434,
+      "used_bytes": 20470632448,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965798.8750103,
+      "seconds": 29.627636299999722,
+      "used_bytes": 20625498112,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965799.9667222,
+      "seconds": 30.87843669999893,
+      "used_bytes": 20715425792,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965801.08853,
+      "seconds": 31.843704400000206,
+      "used_bytes": 20717191168,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965802.1792142,
+      "seconds": 32.93176420000054,
+      "used_bytes": 20707876864,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965803.2678058,
+      "seconds": 34.01993609999954,
+      "used_bytes": 20743553024,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965804.358126,
+      "seconds": 35.11612099999911,
+      "used_bytes": 20689747968,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965805.4482038,
+      "seconds": 37.699464100000114,
+      "used_bytes": 20755468288,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965806.735453,
+      "seconds": 39.647129799999675,
+      "used_bytes": 20753522688,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965808.6950772,
+      "seconds": 39.75002189999941,
+      "used_bytes": 20671713280,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965816.1101713,
+      "seconds": 47.2948295999995,
+      "used_bytes": 20992000000,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965817.2847877,
+      "seconds": 48.017917999999554,
+      "used_bytes": 20891553792,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965818.3581192,
+      "seconds": 49.085646699999415,
+      "used_bytes": 20905242624,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965819.4309168,
+      "seconds": 50.173977399999785,
+      "used_bytes": 20922687488,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965820.506295,
+      "seconds": 51.24173999999948,
+      "used_bytes": 20922306560,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965821.5948558,
+      "seconds": 52.34344599999895,
+      "used_bytes": 20894257152,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965822.6848116,
+      "seconds": 53.43197399999917,
+      "used_bytes": 20944261120,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965823.7758565,
+      "seconds": 54.52092260000063,
+      "used_bytes": 21058142208,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965824.8667128,
+      "seconds": 55.62983379999969,
+      "used_bytes": 21143040000,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965825.9578853,
+      "seconds": 56.70046469999943,
+      "used_bytes": 21054722048,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965827.0459397,
+      "seconds": 57.790522400000555,
+      "used_bytes": 21039591424,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965828.1204016,
+      "seconds": 58.8815799999993,
+      "used_bytes": 21278834688,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965829.2249427,
+      "seconds": 59.969785799999954,
+      "used_bytes": 21671346176,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965830.3144438,
+      "seconds": 61.05857990000004,
+      "used_bytes": 21651120128,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965831.3908896,
+      "seconds": 62.14749970000048,
+      "used_bytes": 21678968832,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965832.6580117,
+      "seconds": 64.29834870000013,
+      "used_bytes": 21895557120,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1791965835.0440304,
+      "seconds": 66.06718589999946,
+      "used_bytes": 21028265984,
+      "total_bytes": 67792531456,
+      "stale": false
+    }
+  ],
+  "solver_diagnostics_samples": [
+    {
+      "seconds": 53.69429599999967,
+      "contacts": null,
+      "newton": null,
+      "iterations": null
+    },
+    {
+      "seconds": 60.41126439999971,
+      "contacts": 3178,
+      "newton": 1,
+      "iterations": 1164
+    },
+    {
+      "seconds": 60.78439640000033,
+      "contacts": 7241,
+      "newton": 1,
+      "iterations": 495
+    },
+    {
+      "seconds": 61.165075900000375,
+      "contacts": 8091,
+      "newton": 1,
+      "iterations": 414
+    },
+    {
+      "seconds": 61.496094599999196,
+      "contacts": 8228,
+      "newton": 1,
+      "iterations": 244
+    },
+    {
+      "seconds": 61.82416679999915,
+      "contacts": 7693,
+      "newton": 1,
+      "iterations": 522
+    },
+    {
+      "seconds": 62.19593910000003,
+      "contacts": 7497,
+      "newton": 1,
+      "iterations": 253
+    },
+    {
+      "seconds": 62.66641530000015,
+      "contacts": 7811,
+      "newton": 1,
+      "iterations": 246
+    },
+    {
+      "seconds": 63.00935749999917,
+      "contacts": 7865,
+      "newton": 1,
+      "iterations": 211
+    }
+  ],
+  "solver_diagnostics_paths": [
+    "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-production-scale-20261014\\neon-streamed-128-3\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-913bfc1391384611a8ae005bc38e448b\\server-data\\clothnext_0368a252fd30\\session\\output\\data"
+  ],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 4826464256,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 10,
+  "wall_seconds": 72.84760479999932
+}

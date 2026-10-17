@@ -1,0 +1,6 @@
+{
+  "result": "PASS",
+  "files": 13,
+  "base": "7232f4033515e1e72359f4ce5145456ce7d156f7",
+  "method": "Apply baseline then research patch to original upstream files; compare every changed reconstructed source file to tested source"
+}

@@ -1,0 +1,138 @@
+{
+  "result": "PASS",
+  "stages": [
+    {
+      "frames": 3,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-dry\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-dry-resources.json"
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 0.03134880936851272,
+      "wet_wall_seconds": 13.813310899999124,
+      "dry_wall_seconds": 11.886996100000033,
+      "prepared_gaia_bytes": 454066,
+      "blender_peak_working_set_bytes": 455348224,
+      "native_metrics": {
+        "frame_count": 3,
+        "max_packed_frame_bytes": 643708,
+        "packed_bytes": 1718132,
+        "param_bytes": 1719959,
+        "encoding_seconds": 1.1045422999995935,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      }
+    },
+    {
+      "frames": 24,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\024-dry\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\024-dry-resources.json"
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\024-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\024-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 1.4638478224964233,
+      "wet_wall_seconds": 38.369977300000755,
+      "dry_wall_seconds": 22.674019000000044,
+      "prepared_gaia_bytes": 10119858,
+      "blender_peak_working_set_bytes": 679428096,
+      "native_metrics": {
+        "frame_count": 24,
+        "max_packed_frame_bytes": 1995388,
+        "packed_bytes": 28965792,
+        "param_bytes": 28971009,
+        "encoding_seconds": 7.621068100001139,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      }
+    },
+    {
+      "frames": 60,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\060-dry\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\060-dry-resources.json"
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\060-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\060-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 3.9785834709828207,
+      "wet_wall_seconds": 89.19333560000086,
+      "dry_wall_seconds": 42.72268989999975,
+      "prepared_gaia_bytes": 36616517,
+      "blender_peak_working_set_bytes": 799961088,
+      "native_metrics": {
+        "frame_count": 60,
+        "max_packed_frame_bytes": 2265724,
+        "packed_bytes": 106009872,
+        "param_bytes": 106021061,
+        "encoding_seconds": 21.446105699998952,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      }
+    },
+    {
+      "frames": 120,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\120-dry\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\120-dry-resources.json"
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\120-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\120-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 13.317525754615053,
+      "wet_wall_seconds": 168.02643379999972,
+      "dry_wall_seconds": 75.37411409999913,
+      "prepared_gaia_bytes": 79529251,
+      "blender_peak_working_set_bytes": 801214464,
+      "native_metrics": {
+        "frame_count": 120,
+        "max_packed_frame_bytes": 2282108,
+        "packed_bytes": 226413088,
+        "param_bytes": 226434107,
+        "encoding_seconds": 41.660800100000415,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      }
+    },
+    {
+      "frames": 250,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\250-dry\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\250-dry-resources.json"
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\250-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\250-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 31.89517064400256,
+      "wet_wall_seconds": 365.8779698999988,
+      "dry_wall_seconds": 158.7733449999996,
+      "prepared_gaia_bytes": 170993474,
+      "blender_peak_working_set_bytes": 822972416,
+      "native_metrics": {
+        "frame_count": 250,
+        "max_packed_frame_bytes": 2282108,
+        "packed_bytes": 474189080,
+        "param_bytes": 474231289,
+        "encoding_seconds": 108.32079159999921,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      }
+    }
+  ],
+  "entry_point": "existing Blender Bake operator",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "source": "F:\\16_Cloth_neXt\\Flip_Test.blend"
+}

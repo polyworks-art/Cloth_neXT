@@ -1,0 +1,18 @@
+{
+  "result": "PASS",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\official\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 4,
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "operator_result": [
+    "FINISHED"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx026-pristine-operator-final\\cn_test_cloth_52de36ead419.pc2",
+  "playback_max_error": 0.0,
+  "wall_seconds": 15.404721200000495
+}

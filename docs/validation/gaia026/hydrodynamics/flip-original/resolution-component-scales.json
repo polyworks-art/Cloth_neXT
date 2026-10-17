@@ -1,0 +1,107 @@
+[
+  {
+    "frame": 130,
+    "full_surface_components": 405,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 219,
+    "their_absolute_volume_m3": 2.0677756169219866e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 254,
+    "component_extents_minimum_m": [
+      1.7881393432617188e-06,
+      2.1457672119140625e-06,
+      1.3113021850585938e-06
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 131,
+    "full_surface_components": 378,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 192,
+    "their_absolute_volume_m3": 1.1760750554646437e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 218,
+    "component_extents_minimum_m": [
+      1.1861324310302734e-05,
+      4.5299530029296875e-06,
+      5.4836273193359375e-06
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 132,
+    "full_surface_components": 403,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 215,
+    "their_absolute_volume_m3": 1.4039964509386895e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 245,
+    "component_extents_minimum_m": [
+      3.814697265625e-06,
+      2.384185791015625e-06,
+      3.039836883544922e-06
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 133,
+    "full_surface_components": 429,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 248,
+    "their_absolute_volume_m3": 1.327828232445959e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 297,
+    "component_extents_minimum_m": [
+      4.172325134277344e-06,
+      5.602836608886719e-06,
+      4.589557647705078e-06
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 135,
+    "full_surface_components": 363,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 211,
+    "their_absolute_volume_m3": 1.5838770717700617e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 244,
+    "component_extents_minimum_m": [
+      3.6954879760742188e-06,
+      6.67572021484375e-06,
+      3.337860107421875e-06
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 157,
+    "full_surface_components": 362,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 241,
+    "their_absolute_volume_m3": 2.0310308233736218e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 274,
+    "component_extents_minimum_m": [
+      1.1920928955078125e-07,
+      1.1920928955078125e-07,
+      1.1920928955078125e-07
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  },
+  {
+    "frame": 160,
+    "full_surface_components": 331,
+    "sdf_cell_m": 0.007826363667845726,
+    "reconstruction_lattice_m": 0.008014196395874024,
+    "components_with_all_bbox_axes_below_one_sdf_cell": 205,
+    "their_absolute_volume_m3": 1.3717192241219385e-07,
+    "components_with_any_bbox_axis_below_one_sdf_cell": 245,
+    "component_extents_minimum_m": [
+      2.014636993408203e-05,
+      9.298324584960938e-06,
+      1.8596649169921875e-05
+    ],
+    "warning": "Small-component boxes are at-risk indicators, not measured lost volume; alignment matters, and thin branches can occur within larger components. SDF transport covers the validated cloth envelope only. Full source and reconstructed meshes retain every component; the native guard forbids force evaluation outside transport bounds."
+  }
+]

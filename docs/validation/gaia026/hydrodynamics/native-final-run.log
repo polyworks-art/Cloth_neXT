@@ -1,0 +1,198 @@
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12951.53it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 582.13it/s]
+{'case': 'dry', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [-3.1647572894254216e-17, 0.0, 0.0], 'analytic_m_s': 0.0, 'error_m_s': 3.1647572894254216e-17, 'max_patch_deflection_m': 3.438435289044511e-17, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-4d7704564ee847ab8331f3e5b75c5e75\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 26064.03it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 963.20it/s]
+{'case': 'normal', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [0.17678774893283844, 0.0, 0.0], 'analytic_m_s': 0.17937367125583203, 'error_m_s': 0.0025859223229935946, 'max_patch_deflection_m': 0.01505478098988533, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-63a3891e339d453996f963165178a683\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12948.46it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 445.44it/s]
+{'case': 'normal_half_dt', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [0.17849057912826538, 0.0, 0.0], 'analytic_m_s': 0.17937367125583203, 'error_m_s': 0.0008830921275666537, 'max_patch_deflection_m': 0.015148648992180824, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-b33850e8a34f43eca09da8653142efb7\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 6477.30it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 920.58it/s]
+{'case': 'normal_refined', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 2, 'measured_final_interval_velocity_m_s': [0.17678719758987427, 0.0, 0.0], 'analytic_m_s': 0.17937367125583203, 'error_m_s': 0.002586473665957767, 'max_patch_deflection_m': 0.015054828487336636, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-e07547da77c6432cb1c60d6f9469ab55\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12979.28it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 481.28it/s]
+{'case': 'heavy', 'dt_s': 0.001, 'density_kg_m2': 2.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [0.16199412941932678, 0.0, 0.0], 'analytic_m_s': 0.1626216238109592, 'error_m_s': 0.0006274943916324272, 'max_patch_deflection_m': 0.01280086301267147, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-eb536b7897bb4d60b52f2976e274f249\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12997.84it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 898.83it/s]
+{'case': 'reverse', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [-0.17678774893283844, 0.0, 0.0], 'analytic_m_s': -0.17937367125583203, 'error_m_s': 0.0025859223229935946, 'max_patch_deflection_m': -0.01505478098988533, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-5cf4c549459c4a2e911d5a471ccc0951\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12945.38it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 872.74it/s]
+{'case': 'parallel', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [-3.1647572894254216e-17, 0.0, 0.0], 'analytic_m_s': 0.0, 'error_m_s': 3.1647572894254216e-17, 'max_patch_deflection_m': 3.438435289044511e-17, 'mean_hinge_angle_rad': 0.0, 'native_contact_peak': 0, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-df1f67d6499e4487a7975dae9f5d513a\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 6475.00it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 696.14it/s]
+{'case': 'bend_flexible', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 2, 'measured_final_interval_velocity_m_s': [0.1354546844959259, -0.06363362073898315, -0.012438446283340454], 'analytic_m_s': None, 'error_m_s': None, 'max_patch_deflection_m': 0.02291259914636612, 'mean_hinge_angle_rad': 0.2039223462343216, 'native_contact_peak': 0, 'analytic_reference_applicable': False, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-d6dd394f1906489a9f6a388d66bc7224\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12966.93it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 871.54it/s]
+{'case': 'bend_stiff', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 2, 'measured_final_interval_velocity_m_s': [0.15434998273849487, -0.030599236488342285, -0.0021663308143615723], 'analytic_m_s': None, 'error_m_s': None, 'max_patch_deflection_m': 0.023793864995241165, 'mean_hinge_angle_rad': 0.06593998521566391, 'native_contact_peak': 0, 'analytic_reference_applicable': False, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-794549f76709487e926c9cb9e65ceffb\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 8626.16it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 716.26it/s]
+{'case': 'collider', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [2.60770320892334e-06, 2.5928020477294922e-05, 1.341104507446289e-05], 'analytic_m_s': None, 'error_m_s': None, 'max_patch_deflection_m': 0.005124077200889587, 'mean_hinge_angle_rad': 0.00172633514739573, 'native_contact_peak': 11, 'analytic_reference_applicable': False, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-8556f0d145ee43848cb89a71d27a6dc6\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 8675.57it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 872.62it/s]
+{'case': 'animated_collider', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [-0.01992851495742798, 1.1622905731201172e-05, -1.0132789611816406e-05], 'analytic_m_s': None, 'error_m_s': None, 'max_patch_deflection_m': 0.003049297723919153, 'mean_hinge_angle_rad': 0.0003452669770922512, 'native_contact_peak': 10, 'analytic_reference_applicable': False, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-695d17a04f804191b6433ec32410c1c9\\water', 'contact_enabled': True, 'finite': True}

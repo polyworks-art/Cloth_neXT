@@ -1,0 +1,112 @@
+{
+  "test_a": "PASS",
+  "test_a_frames": [
+    131,
+    133
+  ],
+  "fluid_frames": [
+    131,
+    134
+  ],
+  "test_b": "BLOCKED_SOURCE_SURFACE",
+  "test_b_requested_frames": [
+    130,
+    159
+  ],
+  "blocker": "Source 130 has 7 boundary edges and 1 non-manifold edge; source 135 also non-manifold. Disconnected closed components are accepted (378 at frame 131).",
+  "blender": "5.2.2 LTS",
+  "addon_version": "2.9.25",
+  "attachment_count": 186,
+  "binary_identity": {
+    "kind": "ClothNeXt.IsolatedHydrodynamics.v1",
+    "runtime": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime",
+    "server": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\target\\cuda\\release\\ppf-cts-server.exe",
+    "worker": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\target\\cuda\\release\\ppf-contact-solver.exe",
+    "backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\bin\\libsimbackend_cuda.dll",
+    "python": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\python\\python.exe",
+    "dependencies": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\python-deps",
+    "preparer": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\tools\\prepare_neon_hydrodynamics.py",
+    "server_sha256": "0d5fa78fb44e222d09b8760d4a602cf65f815edaa5096aa51998e61c3149c270",
+    "worker_sha256": "bb10a7e97ced6f4a7b42637ad5822dd1546a70a3206ec0504a1ef6ef2e728a94",
+    "backend_sha256": "d325f4d65b94717f2807263cd9a3ea9e455d2cbab5b1be38258708f2606c6005"
+  },
+  "hydro_operator_seconds": 77.10020710000026,
+  "dry_operator_seconds": 33.538945299999796,
+  "wet_dry": [
+    {
+      "object": "S04_NEON_Garments",
+      "rms_mm": 9.340929858492576,
+      "max_mm": 56.24786402203408,
+      "last_rms_mm": 13.190257157539099,
+      "last_max_mm": 56.24786402203408
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "rms_mm": 0.20619664453972172,
+      "max_mm": 1.109475279938499,
+      "last_rms_mm": 0.17156483961762753,
+      "last_max_mm": 0.8728326708510635
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "rms_mm": 0.4903666756488989,
+      "max_mm": 5.312369970906905,
+      "last_rms_mm": 0.6897661687643764,
+      "last_max_mm": 5.312369970906905
+    }
+  ],
+  "sdf": {
+    "output_vertices_inside": true,
+    "minimum_clearance_m": 0.23054994642734528,
+    "scope": "Output cloth vertices; native device guard additionally checks force quadrature at every iterate"
+  },
+  "source_integrity": {
+    "original_blend_sha256": "d0a7055fe124b807308308b78ad85f2a098ece209566e03d3c17f1d4fbaa2437",
+    "test_copy_sha256": "d0a7055fe124b807308308b78ad85f2a098ece209566e03d3c17f1d4fbaa2437",
+    "original_matches_untouched_test_copy": true
+  },
+  "native_vs_pc2_max_m": 6.101509208988887e-08,
+  "reload_playback_max_local_units": 0.0,
+  "forces": [
+    {
+      "file": "hydro_1.bin",
+      "area_m2": 1.3804638385772705,
+      "wet_area_m2": 0.6435797214508057,
+      "normal_load_n": 98.86801147460938,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_2.bin",
+      "area_m2": 1.3805309534072876,
+      "wet_area_m2": 0.6219323873519897,
+      "normal_load_n": 106.32390594482422,
+      "tangential_load_n": 0.0
+    }
+  ],
+  "gui_cancel": {
+    "state": "CANCELLED",
+    "active": false,
+    "error": "",
+    "message": "Bake cancelled before a recovery checkpoint was available"
+  },
+  "caches_after_cancel": [
+    {
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\cache\\cn_test_cloth_be4568281d47_00.pc2",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\cache\\cn_test_cloth_be4568281d47_01.pc2",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\cache\\cn_test_cloth_be4568281d47_02.pc2",
+      "unchanged": true
+    }
+  ],
+  "reference_limit": "The previous frames 1-30 references have a different fluid/animation clock and are not a matching reference for frames 131-133.",
+  "known_release_blockers": [
+    "30-frame mid-sequence source safety",
+    "strict CPU/CUDA self-contact force parity 19/20",
+    "local repeatability spread remains documented"
+  ]
+}

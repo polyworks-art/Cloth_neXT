@@ -1,0 +1,968 @@
+{
+  "result": "PASS",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 120,
+  "vertices": 4,
+  "source_range": [
+    1,
+    120
+  ],
+  "dry": true,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.005410899999333196
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 6.504392000000735
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 6.509170199999062
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 6.532144000000699
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 12.458579199999804
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 12.479281699999774
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 16.953858200000468
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.122261500000604
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 17.399688600000445
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.47112460000062
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 17.78649190000033
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.84028500000022
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 18.543912600000112
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 18.604312299999947
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 19.297825999999986
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 19.337385999999242
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 19.67411130000073
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 19.766260399999737
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 20.08024479999949
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 20.13894860000073
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 20.44904089999909
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 20.528202699999383
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 21.221430199999304
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 21.35979539999971
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 22.050135400000727
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 22.089630500000567
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 22.403406899999027
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 22.50200229999973
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 22.790116599999237
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 22.85500619999948
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 23.533264800000325
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 23.599050499999066
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 23.90819460000057
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 23.95485589999953
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 24.22242879999976
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 24.298328999999285
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 24.606738500000574
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 24.66867149999962
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 24.976665799998955
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 25.04644980000012
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 25.313485599999694
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 25.382941500000015
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 25.958701600000495
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 26.017161699999633
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 26.26351000000068
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 26.333386500000415
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 26.60026090000065
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 26.65992759999972
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 26.968904699999257
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 27.021838200000275
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 27.35285809999914
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 27.402798900000562
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 27.73649210000076
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 27.790701699999772
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 28.433785299999727
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 28.508228200000303
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 28.775472699999227
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 28.845403199999055
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 29.400406999999177
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 29.472086300000228
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 29.80057239999951
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 29.933106299999054
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 30.467035399999077
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 30.602126800000406
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 31.157218000000285
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 31.24261110000043
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 31.550489499999458
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 31.60610110000016
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 31.8732588999992
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 31.949292900000728
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 32.28391379999994
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 32.37339839999913
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 32.66656580000017
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 32.72382859999925
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 33.04012920000059
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 33.13853779999954
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 33.781994200000554
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 33.88067720000072
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 34.435194100000444
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 34.5161805000007
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 34.78290790000028
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 34.864293099999486
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 35.17277450000074
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 35.23281029999998
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 35.500249099999564
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 35.57626419999906
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 35.8438172999995
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 35.904806599999574
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 36.56278519999978
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 36.621594899999764
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 36.888598899999124
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 36.944462600000406
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 37.190607500000624
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 37.29527009999947
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 37.58350679999967
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 37.63868430000002
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 37.946959900000365
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 38.02136860000064
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 38.35449150000022
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 38.40775229999963
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 38.674727800000255
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 38.74931139999899
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 39.37893239999903
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 39.454949200000556
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 39.72330409999995
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 39.78113590000066
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 40.09219010000015
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 40.190153600000485
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 40.86254519999966
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 40.939350799999374
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 41.20649559999947
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 41.28194979999898
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 41.54890379999961
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 41.63271189999978
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 41.91271360000064
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 42.02390360000027
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 42.65120419999948
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 42.73898949999966
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 43.049237499999435
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 43.15216379999947
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 43.42567380000037
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 43.55327500000021
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 43.84996510000019
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 43.93725629999972
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 44.606268499999715
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 44.73227029999907
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 44.99295429999984
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 45.097660699999324
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 45.70628340000076
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 45.79510409999966
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 46.09000190000006
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 46.179478399999425
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 46.847891999999774
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 46.9480096999996
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 47.237490999999864
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 47.300261899999896
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 47.58813510000073
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 47.66812899999968
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 48.264526099999784
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 48.406692999998995
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 49.06411139999909
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 49.12818349999907
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 49.416778599999816
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 49.50433239999984
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 49.81245130000025
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 49.87674899999911
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 50.164720799999486
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 50.249655699999494
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 50.51918590000059
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 50.59631099999933
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 50.84270330000072
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 50.9073542999995
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 51.57079700000031
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 51.64930420000019
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 51.978542499999094
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 52.069768600000316
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 52.35939270000017
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 52.47171060000073
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 52.746293300000616
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 52.85646679999991
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 53.37043900000026
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 53.449242000000595
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 53.71647089999897
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 53.791682999999466
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 54.07893420000073
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 54.15311459999975
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 54.41953540000031
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 54.54446199999984
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 55.140870400000495
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 55.219501199999286
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 55.52805239999907
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 55.587570499999856
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 55.896020500000304
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 55.96266739999919
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 56.2499614999997
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 56.3311393999993
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 56.5779251999993
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 56.665548099999796
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 56.9121023000007
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 56.991076799999064
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 57.68561149999914
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 57.77495909999925
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 58.08614519999901
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 58.142828899999586
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 58.783511100000396
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 58.916398199999094
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 59.47116839999944
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 59.541123799999696
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 59.84934389999944
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 59.943499099999826
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 60.19027069999902
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 60.24982859999909
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 60.51712640000005
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 60.603520099999514
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 60.890995899999325
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 60.98074070000075
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 61.26842310000029
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 61.35201020000022
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 62.008900700000595
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 62.09893790000024
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 62.36603809999906
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 62.462002700000085
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 62.74988750000011
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 62.838400399999955
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 63.478333699998984
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 63.56861679999929
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 63.815319699999236
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 63.9247890000006
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 64.2021308000003
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 64.32141439999941
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 64.96068869999908
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 65.05606549999902
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 65.39046199999939
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 65.45982069999991
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 65.68914089999998
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 65.77552760000071
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 66.08417999999983
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 66.17002739999953
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 66.48085010000068
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 66.57599800000025
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 67.23342419999972
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 67.35182949999944
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 67.61167120000027
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 67.71046960000058
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 67.89737090000017
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 68.10019169999941
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 68.15844370000013
+    }
+  ],
+  "operator_result": [
+    "FINISHED"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\120-dry\\cn_test_cloth_ac70bfabb029.pc2",
+  "playback_max_error": 0.0,
+  "final_local_positions": [
+    [
+      -0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      -0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ]
+  ],
+  "work_directory": "C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a03008\\cloth_next_run_clothnext_ac70bfabb029",
+  "water_stream_status": [],
+  "base_param_bytes": [],
+  "native_file_metrics": [],
+  "blender_peak_working_set_bytes": 715497472,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 241,
+  "wall_seconds": 75.37411409999913
+}

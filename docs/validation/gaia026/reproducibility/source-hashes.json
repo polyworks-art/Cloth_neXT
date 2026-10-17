@@ -1,0 +1,22 @@
+{
+  "crates/ppf-cts-solver/src/mesh.rs": {
+    "baseline_sha256": "54bde028d60f2bd24f888d900acd6898e3732aefd43d724363b8fde5f40f0b14",
+    "research_sha256": "d405c93e0349747eac3cf2631d4f35b7b90ad254e593e31c32f394c63e597a1f"
+  },
+  "crates/ppf-cts-solver/src/driver/step.rs": {
+    "baseline_sha256": "df74b4cac0d2b02d4082404143a8700a992e39fb62b82dcfbbe8824322f27b1f",
+    "research_sha256": "41f4606eee40ecb9ed848d9646f23a52e1a804cec03f1dd74f8a59e227269639"
+  },
+  "crates/ppf-cts-compute/seam/kernelgen.py": {
+    "baseline_sha256": "f755a6345e42b1f5171ae0e751d765bd981e0726e25e21094c4bac258fa38fb8",
+    "research_sha256": "fa613d8dd2ad1ea51c8630b04f88f1a3af7cdda7acad95af5fffeeac0ff1c22b"
+  },
+  "crates/ppf-cts-compute/cuda/research_order.hpp": {
+    "baseline_sha256": null,
+    "research_sha256": "76e1b433a3a36aa0d5837d942c8872023be212bab03a6bcaf41c69ec77d4e5e9"
+  },
+  "crates/ppf-cts-compute/cuda/backend/backend.cu": {
+    "baseline_sha256": "fe9e1db06e29ef14f18461e18090eb3d51990b4a1a034761f7fdfddacfaa30ef",
+    "research_sha256": "0b891fd8402e651da14842031f17f27a47a407ebe281382ca954ed8b9e2724bb"
+  }
+}

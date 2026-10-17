@@ -1,0 +1,222 @@
+{
+  "scope": "Three-point quadrature on preserved native reference output states, matching source frames; no new force implementation.",
+  "criteria": "docs/GAIA_PRACTICAL_RECONSTRUCTION_ACCEPTANCE.md",
+  "rows": [
+    {
+      "frame": 131,
+      "object": "S04_NEON_Garments",
+      "total_area_m2": 0.7992455854513083,
+      "exact_reference_wet_area_m2": 0.616263670498135,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.6163377059203445,
+          "misclassified_area_m2": 0.002546196321092134,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 7.403542220951742e-05,
+          "target_misclassification_limit_m2": 0.03081318352490675,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.6136485653257475,
+          "misclassified_area_m2": 0.006674270939205274,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.0026151051723874996,
+          "target_misclassification_limit_m2": 0.03081318352490675,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 131,
+      "object": "S04_NEON_Garments.001",
+      "total_area_m2": 0.2538030958822392,
+      "exact_reference_wet_area_m2": 0.0,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025380309588223923,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025380309588223923,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 131,
+      "object": "S04_NEON_Garments.002",
+      "total_area_m2": 0.32883986176213265,
+      "exact_reference_wet_area_m2": 0.061535046330057894,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.06001137700477645,
+          "misclassified_area_m2": 0.0026981103781497508,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.001523669325281446,
+          "target_misclassification_limit_m2": 0.0032883986176213266,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.05749605495167229,
+          "misclassified_area_m2": 0.0063941073446955494,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.004038991378385606,
+          "target_misclassification_limit_m2": 0.0032883986176213266,
+          "occupancy_screen": "INVESTIGATE"
+        }
+      }
+    },
+    {
+      "frame": 132,
+      "object": "S04_NEON_Garments",
+      "total_area_m2": 0.7977667132304659,
+      "exact_reference_wet_area_m2": 0.5974516108922456,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.596637669971723,
+          "misclassified_area_m2": 0.0028044032255608764,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.0008139409205226711,
+          "target_misclassification_limit_m2": 0.02987258054461228,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.594630368523352,
+          "misclassified_area_m2": 0.007081052067592778,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.002821242368893584,
+          "target_misclassification_limit_m2": 0.02987258054461228,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 132,
+      "object": "S04_NEON_Garments.001",
+      "total_area_m2": 0.25364277880816655,
+      "exact_reference_wet_area_m2": 0.0,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025364277880816654,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025364277880816654,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 132,
+      "object": "S04_NEON_Garments.002",
+      "total_area_m2": 0.3286664688197516,
+      "exact_reference_wet_area_m2": 0.048147041773903464,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.047710354354735765,
+          "misclassified_area_m2": 0.0021235241604145075,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.00043668741916769865,
+          "target_misclassification_limit_m2": 0.003286664688197516,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.043794074003695234,
+          "misclassified_area_m2": 0.006574181484280406,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.00435296777020823,
+          "target_misclassification_limit_m2": 0.003286664688197516,
+          "occupancy_screen": "INVESTIGATE"
+        }
+      }
+    },
+    {
+      "frame": 133,
+      "object": "S04_NEON_Garments",
+      "total_area_m2": 0.7979616694079995,
+      "exact_reference_wet_area_m2": 0.5849376811585559,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.5848962859610767,
+          "misclassified_area_m2": 0.0030749267317298325,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -4.13951974792548e-05,
+          "target_misclassification_limit_m2": 0.0292468840579278,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.5819223373593593,
+          "misclassified_area_m2": 0.008372309614985527,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.003015343799196657,
+          "target_misclassification_limit_m2": 0.0292468840579278,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 133,
+      "object": "S04_NEON_Garments.001",
+      "total_area_m2": 0.25368346958502874,
+      "exact_reference_wet_area_m2": 0.0,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025368346958502875,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.0,
+          "misclassified_area_m2": 0.0,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": 0.0,
+          "target_misclassification_limit_m2": 0.0025368346958502875,
+          "occupancy_screen": "PASS"
+        }
+      }
+    },
+    {
+      "frame": 133,
+      "object": "S04_NEON_Garments.002",
+      "total_area_m2": 0.3286426137467909,
+      "exact_reference_wet_area_m2": 0.03828019167877275,
+      "measurements": {
+        "fine7p826mm": {
+          "wet_area_m2": 0.037721528272492276,
+          "misclassified_area_m2": 0.0021749145205325424,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.0005586634062804754,
+          "target_misclassification_limit_m2": 0.003286426137467909,
+          "occupancy_screen": "PASS"
+        },
+        "coarse15p653mm": {
+          "wet_area_m2": 0.036085381405658624,
+          "misclassified_area_m2": 0.004008218259040631,
+          "missing_area_m2": 0.0,
+          "signed_area_error_m2": -0.002194810273114127,
+          "target_misclassification_limit_m2": 0.003286426137467909,
+          "occupancy_screen": "INVESTIGATE"
+        }
+      }
+    }
+  ]
+}

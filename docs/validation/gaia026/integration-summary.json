@@ -1,0 +1,40 @@
+{
+  "result": "PASS",
+  "decision": "GO within documented scope; no release or automatic activation",
+  "protocol": "0.26",
+  "selected_protocol_unchanged": "0.23",
+  "manifest_version_unchanged": "2.9.15",
+  "unit_tests": {
+    "passed": 2211,
+    "deselected": 3,
+    "skipped": 20,
+    "failed": 0
+  },
+  "production_lifecycle": "PASS",
+  "blender_file_lifecycle": "PASS",
+  "stages": [
+    3,
+    24,
+    60,
+    120,
+    250
+  ],
+  "final_250_repeat": "PASS",
+  "crash_resume": "PASS",
+  "configured_integration_unique_passed": 13,
+  "configured_first_batch": {
+    "passed": 10,
+    "failed": 3
+  },
+  "absent_runtimes": [
+    "Lumen",
+    "Velune"
+  ],
+  "evidence": [
+    "production/long-sequence-report.json",
+    "production/stability-scoped-report.json",
+    "production/final-checks-report.json",
+    "production/250-confirm-report.json",
+    "production/lifecycle-report.json"
+  ]
+}

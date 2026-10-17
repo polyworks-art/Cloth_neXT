@@ -1,0 +1,240 @@
+{
+  "result": "PASS",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 24,
+  "vertices": 4,
+  "source_range": [
+    1,
+    24
+  ],
+  "dry": true,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0077836000000388594
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 1.3961821000011696
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 1.4008661999996548
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 1.423320200001399
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 7.3804892000007385
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 7.423921400000836
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 12.595065900000918
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 12.655041800000618
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 12.962670500000968
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 13.005230900000242
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 13.29225899999983
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 13.337868000000526
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 13.685820400000011
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 13.729152400001112
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 14.035588400000051
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 14.060217100000955
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 14.778743200000463
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 14.832334000000628
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 15.53049800000008
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 15.59762950000004
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 16.297887000000628
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 16.381246400000236
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 17.11776009999994
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.184257200000502
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 17.51483460000054
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.554398700000093
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 17.890306400000554
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 17.927333200001158
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 18.26842150000084
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 18.351646600000095
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 19.03046760000143
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 19.118031800000608
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 19.81700819999969
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 19.882358700000623
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 20.21116080000138
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 20.27665800000068
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 20.585127100001046
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 20.65644770000108
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 20.985273100000995
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 21.037796000000526
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 21.34565140000086
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 21.44002940000064
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 21.647103700001026
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 21.809599700000035
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 21.838919200001328
+    }
+  ],
+  "operator_result": [
+    "FINISHED"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\024-dry\\cn_test_cloth_8a4dc67bdfb8.pc2",
+  "playback_max_error": 0.0,
+  "final_local_positions": [
+    [
+      -0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      -0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ]
+  ],
+  "work_directory": "C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a45760\\cloth_next_run_clothnext_8a4dc67bdfb8",
+  "water_stream_status": [],
+  "base_param_bytes": [],
+  "native_file_metrics": [],
+  "blender_peak_working_set_bytes": 583446528,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 49,
+  "wall_seconds": 22.674019000000044
+}

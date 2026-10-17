@@ -1,0 +1,1846 @@
+[
+  {
+    "utc": "2026-10-16T19:29:58.0360466Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2700185600,
+        "private_bytes": 2808184832
+      }
+    ],
+    "total_rss_bytes": 2700185600.0,
+    "total_private_bytes": 2808184832.0,
+    "gpu_utilization_percent": "22",
+    "gpu_global_used_mib": "3853"
+  },
+  {
+    "utc": "2026-10-16T19:30:03.4315543Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2692837376,
+        "private_bytes": 2799542272
+      }
+    ],
+    "total_rss_bytes": 2692837376.0,
+    "total_private_bytes": 2799542272.0,
+    "gpu_utilization_percent": "27",
+    "gpu_global_used_mib": "3816"
+  },
+  {
+    "utc": "2026-10-16T19:30:08.7577664Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2693857280,
+        "private_bytes": 2799640576
+      },
+      {
+        "id": 53328,
+        "name": "nvidia-smi.exe",
+        "rss_bytes": 10211328,
+        "private_bytes": 1941504
+      },
+      {
+        "id": 64728,
+        "name": "conhost.exe",
+        "rss_bytes": 7286784,
+        "private_bytes": 1224704
+      }
+    ],
+    "total_rss_bytes": 2711355392.0,
+    "total_private_bytes": 2802806784.0,
+    "gpu_utilization_percent": "10",
+    "gpu_global_used_mib": "3816"
+  },
+  {
+    "utc": "2026-10-16T19:30:14.0776900Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2694074368,
+        "private_bytes": 2798649344
+      },
+      {
+        "id": 14688,
+        "name": "nvidia-smi.exe",
+        "rss_bytes": 18804736,
+        "private_bytes": 22085632
+      },
+      {
+        "id": 58652,
+        "name": "conhost.exe",
+        "rss_bytes": 7286784,
+        "private_bytes": 1236992
+      }
+    ],
+    "total_rss_bytes": 2720165888.0,
+    "total_private_bytes": 2821971968.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "3801"
+  },
+  {
+    "utc": "2026-10-16T19:30:19.4124536Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2694189056,
+        "private_bytes": 2799845376
+      }
+    ],
+    "total_rss_bytes": 2694189056.0,
+    "total_private_bytes": 2799845376.0,
+    "gpu_utilization_percent": "23",
+    "gpu_global_used_mib": "3816"
+  },
+  {
+    "utc": "2026-10-16T19:30:24.7019439Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2694696960,
+        "private_bytes": 2798854144
+      }
+    ],
+    "total_rss_bytes": 2694696960.0,
+    "total_private_bytes": 2798854144.0,
+    "gpu_utilization_percent": "7",
+    "gpu_global_used_mib": "3809"
+  },
+  {
+    "utc": "2026-10-16T19:30:29.9829066Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2694811648,
+        "private_bytes": 2798854144
+      }
+    ],
+    "total_rss_bytes": 2694811648.0,
+    "total_private_bytes": 2798854144.0,
+    "gpu_utilization_percent": "15",
+    "gpu_global_used_mib": "3806"
+  },
+  {
+    "utc": "2026-10-16T19:30:35.2721278Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2694909952,
+        "private_bytes": 2798854144
+      }
+    ],
+    "total_rss_bytes": 2694909952.0,
+    "total_private_bytes": 2798854144.0,
+    "gpu_utilization_percent": "4",
+    "gpu_global_used_mib": "3814"
+  },
+  {
+    "utc": "2026-10-16T19:30:40.6053124Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2676867072,
+        "private_bytes": 2777186304
+      }
+    ],
+    "total_rss_bytes": 2676867072.0,
+    "total_private_bytes": 2777186304.0,
+    "gpu_utilization_percent": "25",
+    "gpu_global_used_mib": "3805"
+  },
+  {
+    "utc": "2026-10-16T19:30:45.9739479Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2908987392,
+        "private_bytes": 3001372672
+      }
+    ],
+    "total_rss_bytes": 2908987392.0,
+    "total_private_bytes": 3001372672.0,
+    "gpu_utilization_percent": "19",
+    "gpu_global_used_mib": "3797"
+  },
+  {
+    "utc": "2026-10-16T19:30:51.4329001Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2866470912,
+        "private_bytes": 2965643264
+      },
+      {
+        "id": 56380,
+        "name": "nvidia-smi.exe",
+        "rss_bytes": 10555392,
+        "private_bytes": 2043904
+      },
+      {
+        "id": 11096,
+        "name": "conhost.exe",
+        "rss_bytes": 7290880,
+        "private_bytes": 1236992
+      }
+    ],
+    "total_rss_bytes": 2884317184.0,
+    "total_private_bytes": 2968924160.0,
+    "gpu_utilization_percent": "16",
+    "gpu_global_used_mib": "3824"
+  },
+  {
+    "utc": "2026-10-16T19:30:56.9263944Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 2861883392,
+        "private_bytes": 2961293312
+      }
+    ],
+    "total_rss_bytes": 2861883392.0,
+    "total_private_bytes": 2961293312.0,
+    "gpu_utilization_percent": "12",
+    "gpu_global_used_mib": "3832"
+  },
+  {
+    "utc": "2026-10-16T19:31:02.3155225Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4763766784,
+        "private_bytes": 4900524032
+      }
+    ],
+    "total_rss_bytes": 4763766784.0,
+    "total_private_bytes": 4900524032.0,
+    "gpu_utilization_percent": "28",
+    "gpu_global_used_mib": "3824"
+  },
+  {
+    "utc": "2026-10-16T19:31:07.7043342Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4906733568,
+        "private_bytes": 5040291840
+      }
+    ],
+    "total_rss_bytes": 4906733568.0,
+    "total_private_bytes": 5040291840.0,
+    "gpu_utilization_percent": "10",
+    "gpu_global_used_mib": "3814"
+  },
+  {
+    "utc": "2026-10-16T19:31:13.1584894Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4319584256,
+        "private_bytes": 4430028800
+      }
+    ],
+    "total_rss_bytes": 4319584256.0,
+    "total_private_bytes": 4430028800.0,
+    "gpu_utilization_percent": "8",
+    "gpu_global_used_mib": "3852"
+  },
+  {
+    "utc": "2026-10-16T19:31:18.5712704Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3201544192,
+        "private_bytes": 3384471552
+      }
+    ],
+    "total_rss_bytes": 3201544192.0,
+    "total_private_bytes": 3384471552.0,
+    "gpu_utilization_percent": "7",
+    "gpu_global_used_mib": "3801"
+  },
+  {
+    "utc": "2026-10-16T19:31:23.9533449Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4538638336,
+        "private_bytes": 4661440512
+      }
+    ],
+    "total_rss_bytes": 4538638336.0,
+    "total_private_bytes": 4661440512.0,
+    "gpu_utilization_percent": "7",
+    "gpu_global_used_mib": "3801"
+  },
+  {
+    "utc": "2026-10-16T19:31:29.3881503Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4461928448,
+        "private_bytes": 4574519296
+      }
+    ],
+    "total_rss_bytes": 4461928448.0,
+    "total_private_bytes": 4574519296.0,
+    "gpu_utilization_percent": "17",
+    "gpu_global_used_mib": "3802"
+  },
+  {
+    "utc": "2026-10-16T19:31:34.7818520Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4861992960,
+        "private_bytes": 4980285440
+      }
+    ],
+    "total_rss_bytes": 4861992960.0,
+    "total_private_bytes": 4980285440.0,
+    "gpu_utilization_percent": "16",
+    "gpu_global_used_mib": "3827"
+  },
+  {
+    "utc": "2026-10-16T19:31:40.2628008Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4855341056,
+        "private_bytes": 4988022784
+      }
+    ],
+    "total_rss_bytes": 4855341056.0,
+    "total_private_bytes": 4988022784.0,
+    "gpu_utilization_percent": "51",
+    "gpu_global_used_mib": "3815"
+  },
+  {
+    "utc": "2026-10-16T19:31:45.6131980Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3484327936,
+        "private_bytes": 3599216640
+      }
+    ],
+    "total_rss_bytes": 3484327936.0,
+    "total_private_bytes": 3599216640.0,
+    "gpu_utilization_percent": "10",
+    "gpu_global_used_mib": "3811"
+  },
+  {
+    "utc": "2026-10-16T19:31:50.9670260Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3515027456,
+        "private_bytes": 3629383680
+      }
+    ],
+    "total_rss_bytes": 3515027456.0,
+    "total_private_bytes": 3629383680.0,
+    "gpu_utilization_percent": "44",
+    "gpu_global_used_mib": "3815"
+  },
+  {
+    "utc": "2026-10-16T19:31:56.3312653Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3284492288,
+        "private_bytes": 3386949632
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 61923328,
+        "private_bytes": 1598070784
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 3354447872.0,
+    "total_private_bytes": 4986527744.0,
+    "gpu_utilization_percent": "13",
+    "gpu_global_used_mib": "3823"
+  },
+  {
+    "utc": "2026-10-16T19:32:01.7658970Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3284492288,
+        "private_bytes": 3387252736
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 733110272,
+        "private_bytes": 2438111232
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 4025634816.0,
+    "total_private_bytes": 5826871296.0,
+    "gpu_utilization_percent": "12",
+    "gpu_global_used_mib": "3829"
+  },
+  {
+    "utc": "2026-10-16T19:32:07.0901179Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3284500480,
+        "private_bytes": 3387256832
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 1242796032,
+        "private_bytes": 2952380416
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 4535328768.0,
+    "total_private_bytes": 6341144576.0,
+    "gpu_utilization_percent": "9",
+    "gpu_global_used_mib": "3828"
+  },
+  {
+    "utc": "2026-10-16T19:32:12.4323916Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3284508672,
+        "private_bytes": 3387256832
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 1728090112,
+        "private_bytes": 3445354496
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5020631040.0,
+    "total_private_bytes": 6834118656.0,
+    "gpu_utilization_percent": "22",
+    "gpu_global_used_mib": "3805"
+  },
+  {
+    "utc": "2026-10-16T19:32:17.8086111Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3284529152,
+        "private_bytes": 3387260928
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2095067136,
+        "private_bytes": 3822780416
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5387628544.0,
+    "total_private_bytes": 7211548672.0,
+    "gpu_utilization_percent": "23",
+    "gpu_global_used_mib": "3825"
+  },
+  {
+    "utc": "2026-10-16T19:32:23.2052691Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2316357632,
+        "private_bytes": 4030799872
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5592891392.0,
+    "total_private_bytes": 7403016192.0,
+    "gpu_utilization_percent": "39",
+    "gpu_global_used_mib": "3813"
+  },
+  {
+    "utc": "2026-10-16T19:32:28.5782331Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2784047104,
+        "private_bytes": 4503781376
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6060580864.0,
+    "total_private_bytes": 7875997696.0,
+    "gpu_utilization_percent": "44",
+    "gpu_global_used_mib": "3836"
+  },
+  {
+    "utc": "2026-10-16T19:32:34.0145100Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 3393130496,
+        "private_bytes": 5131505664
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6669664256.0,
+    "total_private_bytes": 8503721984.0,
+    "gpu_utilization_percent": "30",
+    "gpu_global_used_mib": "3863"
+  },
+  {
+    "utc": "2026-10-16T19:32:39.4037267Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 3595649024,
+        "private_bytes": 5315674112
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6872182784.0,
+    "total_private_bytes": 8687890432.0,
+    "gpu_utilization_percent": "43",
+    "gpu_global_used_mib": "3831"
+  },
+  {
+    "utc": "2026-10-16T19:32:44.8347380Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2289606656,
+        "private_bytes": 4008329216
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5566140416.0,
+    "total_private_bytes": 7380545536.0,
+    "gpu_utilization_percent": "28",
+    "gpu_global_used_mib": "3870"
+  },
+  {
+    "utc": "2026-10-16T19:32:50.2188197Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3268501504,
+        "private_bytes": 3370708992
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2800627712,
+        "private_bytes": 4526452736
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6077161472.0,
+    "total_private_bytes": 7898669056.0,
+    "gpu_utilization_percent": "8",
+    "gpu_global_used_mib": "3883"
+  },
+  {
+    "utc": "2026-10-16T19:32:55.6284140Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244793856,
+        "private_bytes": 3346829312
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 3367747584,
+        "private_bytes": 5094129664
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6620573696.0,
+    "total_private_bytes": 8442466304.0,
+    "gpu_utilization_percent": "9",
+    "gpu_global_used_mib": "3832"
+  },
+  {
+    "utc": "2026-10-16T19:33:01.0181379Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244793856,
+        "private_bytes": 3346829312
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 3639689216,
+        "private_bytes": 5363937280
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6892515328.0,
+    "total_private_bytes": 8712273920.0,
+    "gpu_utilization_percent": "15",
+    "gpu_global_used_mib": "3844"
+  },
+  {
+    "utc": "2026-10-16T19:33:06.4052408Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244797952,
+        "private_bytes": 3346853888
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 478928896,
+        "private_bytes": 2186739712
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 3731759104.0,
+    "total_private_bytes": 5535100928.0,
+    "gpu_utilization_percent": "5",
+    "gpu_global_used_mib": "3831"
+  },
+  {
+    "utc": "2026-10-16T19:33:11.8100885Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244797952,
+        "private_bytes": 3346853888
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 972943360,
+        "private_bytes": 2679037952
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 4225773568.0,
+    "total_private_bytes": 6027399168.0,
+    "gpu_utilization_percent": "22",
+    "gpu_global_used_mib": "3832"
+  },
+  {
+    "utc": "2026-10-16T19:33:17.1992412Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244802048,
+        "private_bytes": 3346857984
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 1353932800,
+        "private_bytes": 3061080064
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 4606767104.0,
+    "total_private_bytes": 6409445376.0,
+    "gpu_utilization_percent": "15",
+    "gpu_global_used_mib": "3848"
+  },
+  {
+    "utc": "2026-10-16T19:33:22.5229243Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3244802048,
+        "private_bytes": 3346857984
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 1870671872,
+        "private_bytes": 3581329408
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5123506176.0,
+    "total_private_bytes": 6929694720.0,
+    "gpu_utilization_percent": "25",
+    "gpu_global_used_mib": "3828"
+  },
+  {
+    "utc": "2026-10-16T19:33:27.9457910Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3220549632,
+        "private_bytes": 3322384384
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2207510528,
+        "private_bytes": 3919101952
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 5436092416.0,
+    "total_private_bytes": 7242993664.0,
+    "gpu_utilization_percent": "17",
+    "gpu_global_used_mib": "3894"
+  },
+  {
+    "utc": "2026-10-16T19:33:33.4093837Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3220549632,
+        "private_bytes": 3322384384
+      },
+      {
+        "id": 64940,
+        "name": "python.exe",
+        "rss_bytes": 2794889216,
+        "private_bytes": 4513406976
+      },
+      {
+        "id": 61136,
+        "name": "conhost.exe",
+        "rss_bytes": 8032256,
+        "private_bytes": 1507328
+      }
+    ],
+    "total_rss_bytes": 6023471104.0,
+    "total_private_bytes": 7837298688.0,
+    "gpu_utilization_percent": "27",
+    "gpu_global_used_mib": "3818"
+  },
+  {
+    "utc": "2026-10-16T19:33:38.7666655Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3221164032,
+        "private_bytes": 3323060224
+      }
+    ],
+    "total_rss_bytes": 3221164032.0,
+    "total_private_bytes": 3323060224.0,
+    "gpu_utilization_percent": "24",
+    "gpu_global_used_mib": "3845"
+  },
+  {
+    "utc": "2026-10-16T19:33:44.1416664Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3221192704,
+        "private_bytes": 3323068416
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 19185664,
+        "private_bytes": 11296768
+      },
+      {
+        "id": 67416,
+        "name": "python.exe",
+        "rss_bytes": 45948928,
+        "private_bytes": 808988672
+      }
+    ],
+    "total_rss_bytes": 3286327296.0,
+    "total_private_bytes": 4143353856.0,
+    "gpu_utilization_percent": "17",
+    "gpu_global_used_mib": "3843"
+  },
+  {
+    "utc": "2026-10-16T19:33:49.5886435Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3221217280,
+        "private_bytes": 3323068416
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 17874944,
+        "private_bytes": 11042816
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 7782400,
+        "private_bytes": 1544192
+      },
+      {
+        "id": 30340,
+        "name": "git.exe",
+        "rss_bytes": 8204288,
+        "private_bytes": 1888256
+      },
+      {
+        "id": 65408,
+        "name": "git.exe",
+        "rss_bytes": 4108288,
+        "private_bytes": 839680
+      }
+    ],
+    "total_rss_bytes": 3270619136.0,
+    "total_private_bytes": 3344572416.0,
+    "gpu_utilization_percent": "9",
+    "gpu_global_used_mib": "3827"
+  },
+  {
+    "utc": "2026-10-16T19:33:55.0576204Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3667009536,
+        "private_bytes": 3782078464
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21143552,
+        "private_bytes": 13606912
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862748672,
+        "private_bytes": 3277692928
+      }
+    ],
+    "total_rss_bytes": 4562333696.0,
+    "total_private_bytes": 7079567360.0,
+    "gpu_utilization_percent": "18",
+    "gpu_global_used_mib": "6083"
+  },
+  {
+    "utc": "2026-10-16T19:34:00.4573197Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 5095526400,
+        "private_bytes": 5223989248
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21159936,
+        "private_bytes": 13606912
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862777344,
+        "private_bytes": 3277721600
+      }
+    ],
+    "total_rss_bytes": 5990895616.0,
+    "total_private_bytes": 8521506816.0,
+    "gpu_utilization_percent": "54",
+    "gpu_global_used_mib": "6111"
+  },
+  {
+    "utc": "2026-10-16T19:34:05.8671628Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4148801536,
+        "private_bytes": 4270129152
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21159936,
+        "private_bytes": 13606912
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862781440,
+        "private_bytes": 3277721600
+      },
+      {
+        "id": 66848,
+        "name": "nvidia-smi.exe",
+        "rss_bytes": 32821248,
+        "private_bytes": 22945792
+      }
+    ],
+    "total_rss_bytes": 5076996096.0,
+    "total_private_bytes": 7590592512.0,
+    "gpu_utilization_percent": "50",
+    "gpu_global_used_mib": "6071"
+  },
+  {
+    "utc": "2026-10-16T19:34:11.3300921Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3327885312,
+        "private_bytes": 3446697984
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21250048,
+        "private_bytes": 13668352
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862781440,
+        "private_bytes": 3277721600
+      }
+    ],
+    "total_rss_bytes": 4223348736.0,
+    "total_private_bytes": 6744276992.0,
+    "gpu_utilization_percent": "39",
+    "gpu_global_used_mib": "6131"
+  },
+  {
+    "utc": "2026-10-16T19:34:16.8366989Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4899729408,
+        "private_bytes": 5019852800
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21250048,
+        "private_bytes": 13668352
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11431936,
+        "private_bytes": 6189056
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 867385344,
+        "private_bytes": 3282292736
+      }
+    ],
+    "total_rss_bytes": 5799796736.0,
+    "total_private_bytes": 8322002944.0,
+    "gpu_utilization_percent": "24",
+    "gpu_global_used_mib": "6104"
+  },
+  {
+    "utc": "2026-10-16T19:34:22.2314265Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4533460992,
+        "private_bytes": 4653846528
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21250048,
+        "private_bytes": 13668352
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 867418112,
+        "private_bytes": 3282313216
+      }
+    ],
+    "total_rss_bytes": 5433610240.0,
+    "total_private_bytes": 7958126592.0,
+    "gpu_utilization_percent": "17",
+    "gpu_global_used_mib": "6097"
+  },
+  {
+    "utc": "2026-10-16T19:34:27.5881138Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3297927168,
+        "private_bytes": 3402919936
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21217280,
+        "private_bytes": 13582336
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 867438592,
+        "private_bytes": 3282313216
+      }
+    ],
+    "total_rss_bytes": 4198064128.0,
+    "total_private_bytes": 6707113984.0,
+    "gpu_utilization_percent": "8",
+    "gpu_global_used_mib": "6065"
+  },
+  {
+    "utc": "2026-10-16T19:34:33.1158601Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4855717888,
+        "private_bytes": 4979224576
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21233664,
+        "private_bytes": 13627392
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862883840,
+        "private_bytes": 3277742080
+      }
+    ],
+    "total_rss_bytes": 5751316480.0,
+    "total_private_bytes": 8278892544.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "6134"
+  },
+  {
+    "utc": "2026-10-16T19:34:38.4576132Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3348631552,
+        "private_bytes": 3450212352
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21340160,
+        "private_bytes": 13651968
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862883840,
+        "private_bytes": 3277742080
+      }
+    ],
+    "total_rss_bytes": 4244336640.0,
+    "total_private_bytes": 6749904896.0,
+    "gpu_utilization_percent": "18",
+    "gpu_global_used_mib": "6078"
+  },
+  {
+    "utc": "2026-10-16T19:34:43.9540118Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3779809280,
+        "private_bytes": 3889094656
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21291008,
+        "private_bytes": 13561856
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862957568,
+        "private_bytes": 3277742080
+      }
+    ],
+    "total_rss_bytes": 4675538944.0,
+    "total_private_bytes": 7188697088.0,
+    "gpu_utilization_percent": "18",
+    "gpu_global_used_mib": "6073"
+  },
+  {
+    "utc": "2026-10-16T19:34:49.3769013Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3378737152,
+        "private_bytes": 3495137280
+      },
+      {
+        "id": 67304,
+        "name": "ppf-cts-server.exe",
+        "rss_bytes": 21291008,
+        "private_bytes": 13574144
+      },
+      {
+        "id": 65308,
+        "name": "cmd.exe",
+        "rss_bytes": 11481088,
+        "private_bytes": 8298496
+      },
+      {
+        "id": 66596,
+        "name": "ppf-contact-solver.exe",
+        "rss_bytes": 862949376,
+        "private_bytes": 3277639680
+      },
+      {
+        "id": 67004,
+        "name": "nvidia-smi.exe",
+        "rss_bytes": 11116544,
+        "private_bytes": 2273280
+      }
+    ],
+    "total_rss_bytes": 4285575168.0,
+    "total_private_bytes": 6796922880.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "6103"
+  },
+  {
+    "utc": "2026-10-16T19:34:54.7436165Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4362051584,
+        "private_bytes": 4483747840
+      }
+    ],
+    "total_rss_bytes": 4362051584.0,
+    "total_private_bytes": 4483747840.0,
+    "gpu_utilization_percent": "6",
+    "gpu_global_used_mib": "3819"
+  },
+  {
+    "utc": "2026-10-16T19:35:00.1561793Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3206254592,
+        "private_bytes": 3321114624
+      }
+    ],
+    "total_rss_bytes": 3206254592.0,
+    "total_private_bytes": 3321114624.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "3857"
+  },
+  {
+    "utc": "2026-10-16T19:35:05.5708346Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3150835712,
+        "private_bytes": 3251646464
+      }
+    ],
+    "total_rss_bytes": 3150835712.0,
+    "total_private_bytes": 3251646464.0,
+    "gpu_utilization_percent": "27",
+    "gpu_global_used_mib": "3870"
+  },
+  {
+    "utc": "2026-10-16T19:35:11.0626700Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3431350272,
+        "private_bytes": 3615100928
+      }
+    ],
+    "total_rss_bytes": 3431350272.0,
+    "total_private_bytes": 3615100928.0,
+    "gpu_utilization_percent": "31",
+    "gpu_global_used_mib": "3807"
+  },
+  {
+    "utc": "2026-10-16T19:35:16.4864731Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3375583232,
+        "private_bytes": 3668090880
+      }
+    ],
+    "total_rss_bytes": 3375583232.0,
+    "total_private_bytes": 3668090880.0,
+    "gpu_utilization_percent": "26",
+    "gpu_global_used_mib": "3797"
+  },
+  {
+    "utc": "2026-10-16T19:35:21.8512869Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3120738304,
+        "private_bytes": 3231236096
+      }
+    ],
+    "total_rss_bytes": 3120738304.0,
+    "total_private_bytes": 3231236096.0,
+    "gpu_utilization_percent": "9",
+    "gpu_global_used_mib": "3853"
+  },
+  {
+    "utc": "2026-10-16T19:35:27.2774025Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3124822016,
+        "private_bytes": 3224080384
+      }
+    ],
+    "total_rss_bytes": 3124822016.0,
+    "total_private_bytes": 3224080384.0,
+    "gpu_utilization_percent": "17",
+    "gpu_global_used_mib": "3841"
+  },
+  {
+    "utc": "2026-10-16T19:35:32.6124258Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3140337664,
+        "private_bytes": 3237703680
+      }
+    ],
+    "total_rss_bytes": 3140337664.0,
+    "total_private_bytes": 3237703680.0,
+    "gpu_utilization_percent": "8",
+    "gpu_global_used_mib": "3840"
+  },
+  {
+    "utc": "2026-10-16T19:35:37.9718230Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3333713920,
+        "private_bytes": 3437346816
+      }
+    ],
+    "total_rss_bytes": 3333713920.0,
+    "total_private_bytes": 3437346816.0,
+    "gpu_utilization_percent": "8",
+    "gpu_global_used_mib": "3830"
+  },
+  {
+    "utc": "2026-10-16T19:35:43.2889599Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3546509312,
+        "private_bytes": 3674091520
+      }
+    ],
+    "total_rss_bytes": 3546509312.0,
+    "total_private_bytes": 3674091520.0,
+    "gpu_utilization_percent": "15",
+    "gpu_global_used_mib": "3877"
+  },
+  {
+    "utc": "2026-10-16T19:35:48.6391255Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3474972672,
+        "private_bytes": 3589058560
+      }
+    ],
+    "total_rss_bytes": 3474972672.0,
+    "total_private_bytes": 3589058560.0,
+    "gpu_utilization_percent": "4",
+    "gpu_global_used_mib": "3880"
+  },
+  {
+    "utc": "2026-10-16T19:35:54.0017241Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3583918080,
+        "private_bytes": 3705102336
+      }
+    ],
+    "total_rss_bytes": 3583918080.0,
+    "total_private_bytes": 3705102336.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "3843"
+  },
+  {
+    "utc": "2026-10-16T19:35:59.4014206Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4434907136,
+        "private_bytes": 4551720960
+      }
+    ],
+    "total_rss_bytes": 4434907136.0,
+    "total_private_bytes": 4551720960.0,
+    "gpu_utilization_percent": "20",
+    "gpu_global_used_mib": "3838"
+  },
+  {
+    "utc": "2026-10-16T19:36:04.9256186Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4608131072,
+        "private_bytes": 4743507968
+      }
+    ],
+    "total_rss_bytes": 4608131072.0,
+    "total_private_bytes": 4743507968.0,
+    "gpu_utilization_percent": "25",
+    "gpu_global_used_mib": "3840"
+  },
+  {
+    "utc": "2026-10-16T19:36:10.3043326Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3175858176,
+        "private_bytes": 3277869056
+      }
+    ],
+    "total_rss_bytes": 3175858176.0,
+    "total_private_bytes": 3277869056.0,
+    "gpu_utilization_percent": "19",
+    "gpu_global_used_mib": "3816"
+  },
+  {
+    "utc": "2026-10-16T19:36:15.6246014Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3280773120,
+        "private_bytes": 3384729600
+      }
+    ],
+    "total_rss_bytes": 3280773120.0,
+    "total_private_bytes": 3384729600.0,
+    "gpu_utilization_percent": "11",
+    "gpu_global_used_mib": "3846"
+  },
+  {
+    "utc": "2026-10-16T19:36:20.9100165Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4097355776,
+        "private_bytes": 4214341632
+      }
+    ],
+    "total_rss_bytes": 4097355776.0,
+    "total_private_bytes": 4214341632.0,
+    "gpu_utilization_percent": "7",
+    "gpu_global_used_mib": "3838"
+  },
+  {
+    "utc": "2026-10-16T19:36:26.2155688Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4204527616,
+        "private_bytes": 4318916608
+      }
+    ],
+    "total_rss_bytes": 4204527616.0,
+    "total_private_bytes": 4318916608.0,
+    "gpu_utilization_percent": "16",
+    "gpu_global_used_mib": "3929"
+  },
+  {
+    "utc": "2026-10-16T19:36:31.5559811Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3254476800,
+        "private_bytes": 3361865728
+      }
+    ],
+    "total_rss_bytes": 3254476800.0,
+    "total_private_bytes": 3361865728.0,
+    "gpu_utilization_percent": "11",
+    "gpu_global_used_mib": "3865"
+  },
+  {
+    "utc": "2026-10-16T19:36:36.9268461Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4736090112,
+        "private_bytes": 4860674048
+      }
+    ],
+    "total_rss_bytes": 4736090112.0,
+    "total_private_bytes": 4860674048.0,
+    "gpu_utilization_percent": "12",
+    "gpu_global_used_mib": "3839"
+  },
+  {
+    "utc": "2026-10-16T19:36:42.3021518Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3349180416,
+        "private_bytes": 3456253952
+      }
+    ],
+    "total_rss_bytes": 3349180416.0,
+    "total_private_bytes": 3456253952.0,
+    "gpu_utilization_percent": "36",
+    "gpu_global_used_mib": "3817"
+  },
+  {
+    "utc": "2026-10-16T19:36:47.7282591Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4592570368,
+        "private_bytes": 4813246464
+      }
+    ],
+    "total_rss_bytes": 4592570368.0,
+    "total_private_bytes": 4813246464.0,
+    "gpu_utilization_percent": "40",
+    "gpu_global_used_mib": "3830"
+  },
+  {
+    "utc": "2026-10-16T19:36:53.1747274Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4351897600,
+        "private_bytes": 4467146752
+      }
+    ],
+    "total_rss_bytes": 4351897600.0,
+    "total_private_bytes": 4467146752.0,
+    "gpu_utilization_percent": "44",
+    "gpu_global_used_mib": "3827"
+  },
+  {
+    "utc": "2026-10-16T19:36:58.5281037Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3239501824,
+        "private_bytes": 3375382528
+      }
+    ],
+    "total_rss_bytes": 3239501824.0,
+    "total_private_bytes": 3375382528.0,
+    "gpu_utilization_percent": "54",
+    "gpu_global_used_mib": "3870"
+  },
+  {
+    "utc": "2026-10-16T19:37:03.9269067Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4515864576,
+        "private_bytes": 4666908672
+      }
+    ],
+    "total_rss_bytes": 4515864576.0,
+    "total_private_bytes": 4666908672.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "3824"
+  },
+  {
+    "utc": "2026-10-16T19:37:09.3708562Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3231854592,
+        "private_bytes": 3334307840
+      }
+    ],
+    "total_rss_bytes": 3231854592.0,
+    "total_private_bytes": 3334307840.0,
+    "gpu_utilization_percent": "21",
+    "gpu_global_used_mib": "3794"
+  },
+  {
+    "utc": "2026-10-16T19:37:14.7540147Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4648058880,
+        "private_bytes": 4775079936
+      }
+    ],
+    "total_rss_bytes": 4648058880.0,
+    "total_private_bytes": 4775079936.0,
+    "gpu_utilization_percent": "19",
+    "gpu_global_used_mib": "3808"
+  },
+  {
+    "utc": "2026-10-16T19:37:20.1374579Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3197157376,
+        "private_bytes": 3300818944
+      }
+    ],
+    "total_rss_bytes": 3197157376.0,
+    "total_private_bytes": 3300818944.0,
+    "gpu_utilization_percent": "16",
+    "gpu_global_used_mib": "3814"
+  },
+  {
+    "utc": "2026-10-16T19:37:25.6137702Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4819566592,
+        "private_bytes": 4942217216
+      }
+    ],
+    "total_rss_bytes": 4819566592.0,
+    "total_private_bytes": 4942217216.0,
+    "gpu_utilization_percent": "12",
+    "gpu_global_used_mib": "3807"
+  },
+  {
+    "utc": "2026-10-16T19:37:31.0227312Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3241500672,
+        "private_bytes": 3338608640
+      }
+    ],
+    "total_rss_bytes": 3241500672.0,
+    "total_private_bytes": 3338608640.0,
+    "gpu_utilization_percent": "36",
+    "gpu_global_used_mib": "3803"
+  },
+  {
+    "utc": "2026-10-16T19:37:36.4996743Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4919279616,
+        "private_bytes": 5044576256
+      }
+    ],
+    "total_rss_bytes": 4919279616.0,
+    "total_private_bytes": 5044576256.0,
+    "gpu_utilization_percent": "39",
+    "gpu_global_used_mib": "3807"
+  },
+  {
+    "utc": "2026-10-16T19:37:41.8224878Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 3271925760,
+        "private_bytes": 3377852416
+      }
+    ],
+    "total_rss_bytes": 3271925760.0,
+    "total_private_bytes": 3377852416.0,
+    "gpu_utilization_percent": "49",
+    "gpu_global_used_mib": "3808"
+  },
+  {
+    "utc": "2026-10-16T19:37:47.1898620Z",
+    "processes": [
+      {
+        "id": 36836,
+        "name": "blender.exe",
+        "rss_bytes": 4670898176,
+        "private_bytes": 4820320256
+      }
+    ],
+    "total_rss_bytes": 4670898176.0,
+    "total_private_bytes": 4820320256.0,
+    "gpu_utilization_percent": "29",
+    "gpu_global_used_mib": "3803"
+  },
+  {
+    "utc": "2026-10-16T19:37:52.6339763Z",
+    "processes": [],
+    "total_rss_bytes": null,
+    "total_private_bytes": null,
+    "gpu_utilization_percent": "22",
+    "gpu_global_used_mib": "3808"
+  }
+]

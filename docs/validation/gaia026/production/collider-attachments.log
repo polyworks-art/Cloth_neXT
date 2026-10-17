@@ -1,0 +1,62 @@
+Info: Cloth NeXt enabled on 'Attached Source'.
+Info: Cloth NeXt enabled on 'Attachment Collider'.
+Info: Cloth NeXt enabled on 'Attached Source'.
+Info: Cloth NeXt enabled on 'Attachment Collider'.
+Info: Cloth NeXt enabled on 'Attached Source'.
+Info: Cloth NeXt enabled on 'Attachment Collider'.
+{
+  "result": "PASS",
+  "cases": [
+    {
+      "kind": "STATIC",
+      "source_role": "CLOTH",
+      "frames": 8,
+      "final_anchor_gap_m": 0.0009999999990942766,
+      "source_final": [
+        -8.13158112578094e-05,
+        0.0009933242108672857,
+        8.182144665624946e-05
+      ],
+      "target_final": [
+        0.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "kind": "RIGID_ANIMATED",
+      "source_role": "CLOTH",
+      "frames": 8,
+      "final_anchor_gap_m": 0.0009817222303418855,
+      "source_final": [
+        4.139003431191668e-05,
+        0.08097998052835464,
+        -4.123180769965984e-05
+      ],
+      "target_final": [
+        0.0,
+        0.07999999821186066,
+        -0.0
+      ]
+    },
+    {
+      "kind": "DEFORMING_ANIMATED",
+      "source_role": "CLOTH",
+      "frames": 8,
+      "final_anchor_gap_m": 0.0009869804096432498,
+      "source_final": [
+        0.0004993235925212502,
+        0.08069100975990295,
+        -0.0004973020404577255
+      ],
+      "target_final": [
+        0.0,
+        0.07999999821186066,
+        -0.0
+      ]
+    }
+  ]
+}
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:37:04)
+
+Blender quit

@@ -1,0 +1,251 @@
+{
+  "result": "PASS",
+  "source_run": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-c-1-30-r2",
+  "blender": "5.2.2 LTS",
+  "native_output": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-c-1-30-r2\\cache\\.cloth_next_recovery\\a3e7c197034ed8f5655287a7ba78b7a04c91450e45c0a3abf00c492fbf609967-f6e1df6e46d94b51bd1927033b2688f8\\server-data\\clothnext_a1c378b933a5\\session\\output",
+  "hydrodynamics": [
+    {
+      "file": "hydro_1.bin",
+      "area_m2": 1.3813135623931885,
+      "wet_area_m2": 0.5605312585830688,
+      "normal_load_n": 0.1195867583155632,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_10.bin",
+      "area_m2": 1.3816142082214355,
+      "wet_area_m2": 0.5633453726768494,
+      "normal_load_n": 3.095266580581665,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_11.bin",
+      "area_m2": 1.3815855979919434,
+      "wet_area_m2": 0.5638492107391357,
+      "normal_load_n": 3.2394213676452637,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_12.bin",
+      "area_m2": 1.3815398216247559,
+      "wet_area_m2": 0.5651127696037292,
+      "normal_load_n": 3.9210920333862305,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_13.bin",
+      "area_m2": 1.381508708000183,
+      "wet_area_m2": 0.5658274292945862,
+      "normal_load_n": 4.477616786956787,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_14.bin",
+      "area_m2": 1.3814678192138672,
+      "wet_area_m2": 0.565540075302124,
+      "normal_load_n": 5.441226482391357,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_15.bin",
+      "area_m2": 1.381432056427002,
+      "wet_area_m2": 0.5658979415893555,
+      "normal_load_n": 5.816585540771484,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_16.bin",
+      "area_m2": 1.3813925981521606,
+      "wet_area_m2": 0.5672919750213623,
+      "normal_load_n": 6.368474006652832,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_17.bin",
+      "area_m2": 1.3813443183898926,
+      "wet_area_m2": 0.5680187344551086,
+      "normal_load_n": 6.944993495941162,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_18.bin",
+      "area_m2": 1.3812932968139648,
+      "wet_area_m2": 0.5693208575248718,
+      "normal_load_n": 7.236075401306152,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_19.bin",
+      "area_m2": 1.381269931793213,
+      "wet_area_m2": 0.5737447142601013,
+      "normal_load_n": 7.568660736083984,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_2.bin",
+      "area_m2": 1.3815460205078125,
+      "wet_area_m2": 0.5604116916656494,
+      "normal_load_n": 0.14185106754302979,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_20.bin",
+      "area_m2": 1.381215214729309,
+      "wet_area_m2": 0.5788872241973877,
+      "normal_load_n": 8.554754257202148,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_21.bin",
+      "area_m2": 1.3811781406402588,
+      "wet_area_m2": 0.582429826259613,
+      "normal_load_n": 8.334420204162598,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_22.bin",
+      "area_m2": 1.3811650276184082,
+      "wet_area_m2": 0.5895118117332458,
+      "normal_load_n": 8.922789573669434,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_23.bin",
+      "area_m2": 1.3811416625976562,
+      "wet_area_m2": 0.5964811444282532,
+      "normal_load_n": 9.60707950592041,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_24.bin",
+      "area_m2": 1.3811033964157104,
+      "wet_area_m2": 0.600426971912384,
+      "normal_load_n": 9.733278274536133,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_25.bin",
+      "area_m2": 1.3810985088348389,
+      "wet_area_m2": 0.6074870228767395,
+      "normal_load_n": 10.178934097290039,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_26.bin",
+      "area_m2": 1.3811137676239014,
+      "wet_area_m2": 0.6176496744155884,
+      "normal_load_n": 10.978982925415039,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_27.bin",
+      "area_m2": 1.3810995817184448,
+      "wet_area_m2": 0.6282106637954712,
+      "normal_load_n": 12.040546417236328,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_28.bin",
+      "area_m2": 1.3810644149780273,
+      "wet_area_m2": 0.6349233388900757,
+      "normal_load_n": 12.878958702087402,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_29.bin",
+      "area_m2": 1.3810639381408691,
+      "wet_area_m2": 0.6399164795875549,
+      "normal_load_n": 13.518798828125,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_3.bin",
+      "area_m2": 1.3816578388214111,
+      "wet_area_m2": 0.5608639717102051,
+      "normal_load_n": 0.3187066316604614,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_4.bin",
+      "area_m2": 1.3816696405410767,
+      "wet_area_m2": 0.5619471073150635,
+      "normal_load_n": 0.5434619188308716,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_5.bin",
+      "area_m2": 1.3816807270050049,
+      "wet_area_m2": 0.5614960789680481,
+      "normal_load_n": 0.9305397272109985,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_6.bin",
+      "area_m2": 1.381670355796814,
+      "wet_area_m2": 0.561593770980835,
+      "normal_load_n": 1.240750789642334,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_7.bin",
+      "area_m2": 1.3816754817962646,
+      "wet_area_m2": 0.5619407892227173,
+      "normal_load_n": 1.6108602285385132,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_8.bin",
+      "area_m2": 1.3816622495651245,
+      "wet_area_m2": 0.5627039670944214,
+      "normal_load_n": 2.0118329524993896,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_9.bin",
+      "area_m2": 1.3816455602645874,
+      "wet_area_m2": 0.5632273554801941,
+      "normal_load_n": 2.588649272918701,
+      "tangential_load_n": 0.0
+    }
+  ],
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "frames": 30,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-c-1-30-r2\\cache\\cn_test_cloth_a1c378b933a5_00.pc2",
+      "native_max_error_m": 3.051723684865948e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "frames": 30,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-c-1-30-r2\\cache\\cn_test_cloth_a1c378b933a5_01.pc2",
+      "native_max_error_m": 6.103424077252839e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "frames": 30,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-c-1-30-r2\\cache\\cn_test_cloth_a1c378b933a5_02.pc2",
+      "native_max_error_m": 6.102773153493501e-08,
+      "reload_playback_max_error_m": 0.0
+    }
+  ],
+  "gui_model": {
+    "enabled": true,
+    "action": "REBAKE",
+    "reason": "",
+    "summary_line": "Multi Object \u00b7 3 Deformable \u00b7 2 Collider",
+    "cache_label": "Cache stale \u00b7 settings changed"
+  },
+  "gui_solver_status": {
+    "ready": true,
+    "title": "Ready \u00c2\u00b7 Protocol 0.26",
+    "details": [
+      "Package 0.1.0",
+      "Protocol 0.26",
+      "Schema 2",
+      "External installation"
+    ]
+  }
+}

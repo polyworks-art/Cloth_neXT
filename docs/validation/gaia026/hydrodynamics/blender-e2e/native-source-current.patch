@@ -1,0 +1,191 @@
+diff --git a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+index b3852c6..53ddeb0 100644
+--- a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
++++ b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+@@ -4,6 +4,7 @@
+ // License: Apache v2.0
+ 
+ #pragma once
++#include "external_field.kernel.cpp"
+ 
+ // A NEUTRAL KERNEL SOURCE. This file is plain C++ and belongs to no backend: no
+ // preprocessor conditional, no macro of its own, and no spelling that only nvcc
+@@ -293,6 +294,115 @@ template <typename D>
+ // `compute::atomic_float_t` is the seam's own name for both destinations'
+ // element type, `float` under nvcc and on the host and `atomic_float` under
+ // MSL: a `float *` here would compile on two backends and fail on the third.
++// Experimental two-sided sheet drag in SI units. Geometry is evaluated at the
++// current Newton iterate; the PSD tangent lags geometry and sampled flow.
++[[seam::device_fn]] inline void hydrodynamic_sheet_embed(
++    const Vec3f &x0, const Vec3f &x1, const Vec3f &x2,
++    const Vec3f &current0, const Vec3f &current1, const Vec3f &current2,
++    const Vec3u &face_vertex, float dt, float rho, float cn, float ct,
++    float wet, float ux, float uy, float uz,
++    compute::atomic_float_t *force, const unsigned *index,
++    const unsigned *offset, compute::atomic_float_t *value,
++    unsigned row_count, DiagHandle diag, unsigned element) {
++    const Vec3f cross = (x1-x0).cross(x2-x0);
++    const float twice_area = cross.norm();
++    if (rho <= 0.0f || wet <= 0.0f || twice_area <= 0.0f) return;
++    const Vec3f n = cross / twice_area;
++    const Vec3f velocity = (x0+x1+x2-current0-current1-current2)/(3.0f*dt);
++    const Vec3f relative = Vec3f(ux,uy,uz)-velocity;
++    const float normal_speed = n.dot(relative);
++    const Vec3f tangent = relative-normal_speed*n;
++    const float speed = tangent.norm();
++    const float factor = 0.25f*rho*twice_area*wet;
++    const Vec3f total = factor*(cn*fmath::abs(normal_speed)*normal_speed*n+ct*speed*tangent);
++    const Mat3x3f nn = n*n.transpose();
++    Mat3x3f damping = 2.0f*factor*cn*fmath::abs(normal_speed)*nn;
++    if (speed > 0.0f) damping += factor*ct*(speed*(Mat3x3f::Identity()-nn)+tangent*tangent.transpose()/speed);
++    const bool finite = !fmath::isnan(total[0]) && !fmath::isinf(total[0]) &&
++        !fmath::isnan(total[1]) && !fmath::isinf(total[1]) &&
++        !fmath::isnan(total[2]) && !fmath::isinf(total[2]);
++    DIAG_ASSERT4(diag, finite, total[0],total[1],total[2],static_cast<float>(element));
++    if (!finite) return;
++    Mat3x3f gradient;
++    Mat9x9f hessian = Mat9x9f::Zero();
++    for (unsigned a=0; a<3; ++a) {
++        gradient.col(a) = -total/3.0f;
++        for (unsigned b=0; b<3; ++b)
++            hessian.block<3,3>(3*a,3*b) = damping/(9.0f*dt);
++    }
++    face_atomic_embed_force(face_vertex, gradient, force);
++    face_atomic_push_hessian(face_vertex, hessian,index,offset,value,row_count,diag,element);
++}
++
++// Typed experimental transport: stream 0 is velocity/support, stream 1
++// carries signed distance in its x slot, with identity axes. No static pressure.
++[[seam::device_fn]] inline void hydrodynamic_spatial_embed(
++    const Vec3f &x0,const Vec3f &x1,const Vec3f &x2,
++    const Vec3f &c0,const Vec3f &c1,const Vec3f &c2,
++    const Vec3u &vertices,float dt,float rho,float cn,float ct,
++    const unsigned *words,const float *floats,const unsigned *table,const float *data,
++    float *telemetry,compute::atomic_float_t *force,const unsigned *index,
++    const unsigned *offset,compute::atomic_float_t *value,unsigned rows,
++    DiagHandle diag,unsigned element) {
++    const Vec3f cross=(x1-x0).cross(x2-x0);
++    const float a2=cross.norm();
++    if (a2<=0.0f) return;
++    const float area=0.5f*a2;
++    const Vec3f n=cross/a2;
++    Mat3x3f gradient=Mat3x3f::Zero();
++    Mat9x9f hessian=Mat9x9f::Zero();
++    telemetry[16u*element]=area;
++    for (unsigned q=0;q<3;++q) {
++        float b[3]={1.0f/6.0f,1.0f/6.0f,1.0f/6.0f};b[q]=2.0f/3.0f;
++        const Vec3f p=b[0]*x0+b[1]*x1+b[2]*x2;
++        const Vec3f v=(b[0]*(x0-c0)+b[1]*(x1-c1)+b[2]*(x2-c2))/dt;
++        Vec3f sdf;float sdf_support;float sdf_presence;
++        field_fluid(words,floats,table,data,1u,p,1.0f,sdf,sdf_support,sdf_presence);
++        // Every iterate must be inside the validated SDF, including dry samples.
++        const bool sdf_valid=sdf_presence>0.0f && sdf_support>0.0f;
++        DIAG_ASSERT4(diag,sdf_valid,p[0],p[1],p[2],static_cast<float>(element));
++        if (!sdf_valid) return;
++        if (sdf[0]>0.0f) continue;
++        Vec3f u;float support;float presence;
++        field_fluid(words,floats,table,data,0u,p,1.0f,u,support,presence);
++        const bool valid=presence>0.0f && support>0.0f && sdf_support>0.0f;
++        DIAG_ASSERT4(diag,valid,p[0],p[1],p[2],static_cast<float>(element));
++        if (!valid) return;
++        const Vec3f r=u-v;
++        const float normal=n.dot(r);
++        const Vec3f tangent=r-normal*n;
++        const float speed=tangent.norm();
++        const float factor=0.5f*rho*area/3.0f;
++        const Vec3f fn=factor*cn*fmath::abs(normal)*normal*n;
++        const Vec3f ft=factor*ct*speed*tangent;
++        const Vec3f total=fn+ft;
++        const Mat3x3f nn=n*n.transpose();
++        Mat3x3f damping=2.0f*factor*cn*fmath::abs(normal)*nn;
++        if (speed>0.0f) damping+=factor*ct*(speed*(Mat3x3f::Identity()-nn)+tangent*tangent.transpose()/speed);
++        for (unsigned a=0;a<3;++a) {
++            gradient.col(a)-=b[a]*total;
++            for (unsigned j=0;j<3;++j)
++                hessian.block<3,3>(3*a,3*j)+=(b[a]*b[j]/dt)*damping;
++        }
++        const unsigned at=16u*element;
++        telemetry[at+1u]+=area/3.0f;
++        telemetry[at+2u]+=fn.norm();telemetry[at+3u]+=ft.norm();
++        telemetry[at+4u]+=total[0];telemetry[at+5u]+=total[1];telemetry[at+6u]+=total[2];
++        telemetry[at+7u]+=area*u.norm()/3.0f;telemetry[at+8u]+=area*r.norm()/3.0f;
++        telemetry[at+13u]=fmath::max(telemetry[at+13u],u.norm());
++        telemetry[at+14u]=fmath::max(telemetry[at+14u],r.norm());
++        Vec3f plus;Vec3f minus;float rs;float ps;
++        field_fluid(words,floats,table,data,1u,p+1e-5f*n,1.0f,plus,rs,ps);
++        field_fluid(words,floats,table,data,1u,p-1e-5f*n,1.0f,minus,rs,ps);
++        const bool wp=plus[0]<=0.0f;const bool wm=minus[0]<=0.0f;
++        if (wp) telemetry[at+9u]+=area/3.0f;
++        if (wm) telemetry[at+10u]+=area/3.0f;
++        if (wp && wm) telemetry[at+11u]+=area/3.0f;
++    }
++    face_atomic_embed_force(vertices,gradient,force);
++    face_atomic_push_hessian(vertices,hessian,index,offset,value,rows,diag,element);
++}
++
+ // THE SAME EMBED, READING ITS MATERIAL OFF THE DEVICE RECORDS.
+ //
+ // The six scalars the body above takes are read here out of `FaceProp` and
+@@ -327,7 +437,10 @@ template <typename D>
+     const Mat2x2f &inverse_rest,
+     const FaceProp &prop,
+     const FaceParam *face_param, float dt,
+-    float eigenanalysis_eps,
++    float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
++    const unsigned *hydro_words,const float *hydro_floats,
++    const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+@@ -339,9 +452,24 @@ template <typename D>
+     // collider's face or one whose streamed rest shape is near-singular would
+     // assemble an elastic term it must not carry. `shell_stretch_terms` applies
+     // the same three in its body for the same reason.
++    if (hydro_only!=0u) {
++        for (unsigned k=0;k<16u;++k) hydro_telemetry[16u*element+k]=0.0f;
++    }
+     if (prop.fixed || prop.rest_excluded || prop.collider) {
+         return;
+     }
++    if (hydro_only==2u) {
++        hydrodynamic_spatial_embed(x0,x1,x2,current0,current1,current2,face_vertex,
++            dt,hydro_rho,hydro_cn,hydro_ct,hydro_words,hydro_floats,hydro_table,
++            hydro_data,hydro_telemetry,force,index,offset,value,row_count,diag,element);
++        return;
++    }
++    if (hydro_only != 0u) {
++        hydrodynamic_sheet_embed(x0,x1,x2,current0,current1,current2,face_vertex,
++            dt,hydro_rho,hydro_cn,hydro_ct,hydro_wet,hydro_ux,hydro_uy,hydro_uz,
++            force,index,offset,value,row_count,diag,element);
++        return;
++    }
+     const FaceParam param = face_param[prop.param_index];
+     face_elastic_embed(x0, x1, x2, current0, current1, current2, face_vertex,
+                        inverse_rest, static_cast<unsigned>(param.model),
+@@ -360,7 +488,10 @@ template <typename D>
+     const Mat2x2f *inverse_rest,
+     const FaceProp *prop,
+     const FaceParam *face_param,
+-    float dt, float eigenanalysis_eps,
++    float dt, float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
++    const unsigned *hydro_words,const float *hydro_floats,
++    const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+diff --git a/crates/ppf-cts-solver/src/main.rs b/crates/ppf-cts-solver/src/main.rs
+index 159eef2..d2bde2c 100644
+--- a/crates/ppf-cts-solver/src/main.rs
++++ b/crates/ppf-cts-solver/src/main.rs
+@@ -88,6 +88,9 @@ const PROBE_UNUSABLE: i32 = 3;
+ /// with [`PROBE_UNUSABLE`].
+ fn probe() -> i32 {
+     println!("backend: {}", env!("PPF_BACKEND"));
++    println!("hydrodynamic-test: uniform-sheet-si-v1");
++    println!("hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1");
++    println!("hydrodynamic-sdf-bounds: fail-closed-v1");
+     #[cfg(abi_backend_linked)]
+     {
+         println!("linked: {}", ppf_cts_compute::abi::linked_backend_name());

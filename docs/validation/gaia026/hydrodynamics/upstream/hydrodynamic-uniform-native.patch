@@ -1,0 +1,265 @@
+diff --git a/crates/ppf-cts-solver/src/backend.rs b/crates/ppf-cts-solver/src/backend.rs
+index 2503657..6fb9a61 100644
+--- a/crates/ppf-cts-solver/src/backend.rs
++++ b/crates/ppf-cts-solver/src/backend.rs
+@@ -907,6 +907,11 @@ impl Backend {
+         mut param: ParamSet,
+         mut scene: Scene,
+     ) {
++        if std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON").is_some() {
++            assert!(sim_args.world_scaling == 1.0,
++                "experimental hydrodynamics requires SI metre geometry, world_scaling=1");
++            info!("EXPERIMENTAL hydrodynamics: prescribed uniform physical m/s, known wet area fraction; no FluidVolume adapter");
++        }
+         let initialize_finish_path = std::path::Path::new(program_args.output.as_str())
+             .join(ppf_cts_formats::files::INITIALIZE_FINISH);
+         let finished_path = std::path::Path::new(program_args.output.as_str())
+diff --git a/crates/ppf-cts-solver/src/driver/assemble.rs b/crates/ppf-cts-solver/src/driver/assemble.rs
+index 87d3c4a..de8c132 100644
+--- a/crates/ppf-cts-solver/src/driver/assemble.rs
++++ b/crates/ppf-cts-solver/src/driver/assemble.rs
+@@ -766,6 +766,36 @@ pub unsafe fn shell_membrane<D: Device>(
+     fixed: &mut FixedCsr<'_>,
+     dt: f32,
+ ) -> FatalResult<()> {
++    shell_face_pass(device, data, eiganalysis_eps, state, fixed, dt, None)
++}
++
++/// Isolated experiment: prescribed uniform SI flow and known area fraction.
++/// Not a FluidVolume/occupancy adapter. Existing material/contact terms remain.
++#[derive(Clone, Copy, serde::Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct HydroTest {
++    pub density_kg_m3: f32,
++    pub normal_coefficient: f32,
++    pub tangential_coefficient: f32,
++    pub wet_area_fraction: f32,
++    pub velocity_m_s: [f32;3],
++}
++
++pub unsafe fn hydrodynamic_test<D: Device>(device: &mut D, data: &DataSet,
++    state: &mut SolverState, fixed: &mut FixedCsr<'_>, dt:f32) -> FatalResult<()> {
++    let Some(path) = std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON") else { return Ok(()); };
++    let text = std::fs::read_to_string(&path).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
++    let h: HydroTest = serde_json::from_str(&text).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
++    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction];
++    if values.iter().any(|v| !v.is_finite() || *v<0.0) || h.wet_area_fraction>1.0 || h.velocity_m_s.iter().any(|v| !v.is_finite()) || !(dt>0.0 && dt.is_finite()) {
++        return Err(Fatal::invariant("invalid SI hydrodynamic test inputs"));
++    }
++    // This experiment deliberately only accepts scenes authored in SI metres.
++    shell_face_pass(device,data,0.0,state,fixed,dt,Some(h))
++}
++
++unsafe fn shell_face_pass<D:Device>(device:&mut D,data:&DataSet,eiganalysis_eps:f32,
++    state:&mut SolverState,fixed:&mut FixedCsr<'_>,dt:f32,hydro:Option<HydroTest>) -> FatalResult<()> {
+     let faces = state.sizes.shell_faces;
+     if faces == 0 {
+         return Ok(());
+@@ -857,7 +887,7 @@ pub unsafe fn shell_membrane<D: Device>(
+         // term is present, correct, and never dispatched.
+         let stiff = material.mu > 0.0;
+         let inflated = material.pressure > 0.0;
+-        if !stiff && !inflated {
++        if !stiff && !inflated && hydro.is_none() {
+             continue;
+         }
+         for k in 0..3 {
+@@ -919,6 +949,14 @@ pub unsafe fn shell_membrane<D: Device>(
+         face_param: state.param_face.handle(),
+         dt,
+         eigenanalysis_eps: eiganalysis_eps,
++        hydro_only: u32::from(hydro.is_some()),
++        hydro_rho: hydro.map_or(0.0, |h| h.density_kg_m3),
++        hydro_cn: hydro.map_or(0.0, |h| h.normal_coefficient),
++        hydro_ct: hydro.map_or(0.0, |h| h.tangential_coefficient),
++        hydro_wet: hydro.map_or(0.0, |h| h.wet_area_fraction),
++        hydro_ux: hydro.map_or(0.0, |h| h.velocity_m_s[0]),
++        hydro_uy: hydro.map_or(0.0, |h| h.velocity_m_s[1]),
++        hydro_uz: hydro.map_or(0.0, |h| h.velocity_m_s[2]),
+         force: state.force.handle(),
+         index: matrix.index,
+         offset: matrix.offset,
+@@ -2934,6 +2972,9 @@ pub(crate) mod tests {
+         }
+ 
+         fn assemble_faces(&mut self, dt: f32, gathered: usize) -> FatalResult<Assembled> {
++            self.assemble_faces_hydro(dt,gathered,None)
++        }
++        fn assemble_faces_hydro(&mut self, dt:f32,gathered:usize,hydro:Option<HydroTest>) -> FatalResult<Assembled> {
+             let Membrane { scene, state, device } = self;
+             clear_force(device, state);
+             // `positions` IS the start-of-step pose, so it tracks the scene at
+@@ -2967,7 +3008,7 @@ pub(crate) mod tests {
+                     .seed(device, pose)
+                     .expect("the fixture seeds the iterate");
+                 let mut fixed = FixedCsr::adopt_from_dataset(device, state.fixed_pattern_refs(), &scene.data, Default::default())?;
+-                shell_membrane(device, &scene.data, EPS, state, &mut fixed, dt)?;
++                shell_face_pass(device, &scene.data, EPS, state, &mut fixed, dt, hydro)?;
+                 // THE MATRIX IS DEVICE-RESIDENT, so the dense reference below reads
+                 // the mirror and the mirror is stale the moment the assembly
+                 // dispatch names the buffer. The download costs a copy and buys
+@@ -3498,6 +3539,52 @@ pub(crate) mod tests {
+     /// THE REST SHAPE IS THE FIXTURE ON PURPOSE, because the membrane force
+     /// vanishes there for every model: whatever this face carries is the
+     /// pressure term alone, with nothing to subtract.
++    fn water(speed:f32, wet:f32) -> HydroTest {
++        HydroTest { density_kg_m3:1000.0,normal_coefficient:1.0,
++            tangential_coefficient:0.0,wet_area_fraction:wet,velocity_m_s:[0.0,0.0,speed] }
++    }
++
++    #[test]
++    fn hydrodynamic_triangle_force_and_all_nine_matrix_blocks() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        let result=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        for a in 0..3 {
++            assert!((result.force[3*a+2]+1000.0/3.0).abs()<0.001);
++            assert!(result.force[3*a].abs()<1e-6);
++            for b in 0..3 {
++                assert!((result.dense[(3*a+2)*9+3*b+2]-100000.0/9.0).abs()<0.1);
++            }
++        }
++    }
++
++    #[test]
++    fn hydrodynamic_area_normal_and_mass_are_independent_inputs() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        patch.scale_along_x(2.0);
++        let a=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        assert!((a.force[2]+2000.0/3.0).abs()<0.01);
++        patch.scene.data.prop.face.as_mut_slice()[0].mass=10.0;
++        let b=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        assert_eq!(a.force,b.force,"water forces in N cannot depend on cloth mass");
++        let mut parallel=water(0.0,1.0);parallel.velocity_m_s=[2.0,0.0,0.0];
++        let c=patch.assemble_faces_hydro(0.01,3,Some(parallel)).unwrap();
++        assert!(c.force.iter().all(|v|v.abs()<1e-6));
++        parallel.tangential_coefficient=0.02;
++        let d=patch.assemble_faces_hydro(0.01,3,Some(parallel)).unwrap();
++        assert!((d.force[0]+40.0/3.0).abs()<0.001);
++    }
++
++    #[test]
++    fn hydrodynamic_native_dry_reverse_quadratic_and_small_wet_fraction() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        for (speed,wet,expected) in [(2.0,0.0,0.0),(0.0,1.0,0.0),
++            (-2.0,1.0,1000.0/3.0),(4.0,1.0,-4000.0/3.0),(20.0,0.001,-100.0/3.0)] {
++            let result=patch.assemble_faces_hydro(0.01,3,Some(water(speed,wet))).unwrap();
++            assert!((result.force[2]-expected).abs()<0.01,"{} {} {:?}",speed,wet,result.force);
++            assert!(result.force.iter().chain(result.dense.iter()).all(|x|x.is_finite()));
++        }
++    }
++
+     #[test]
+     fn a_pressurized_face_carries_a_force_its_unpressurized_twin_does_not() {
+         let quiet = material(Model::Arap, 100.0, 50.0);
+diff --git a/crates/ppf-cts-solver/src/driver/step.rs b/crates/ppf-cts-solver/src/driver/step.rs
+index d7ecc6d..890436c 100644
+--- a/crates/ppf-cts-solver/src/driver/step.rs
++++ b/crates/ppf-cts-solver/src/driver/step.rs
+@@ -1353,6 +1353,10 @@ pub unsafe fn advance<D: Device>(
+             log::mark("advance", "asm_contact", _asm_contact.elapsed());
+             contact_result?;
+             constraint_result?;
++            // After elastic/contact stiffness calibration; before the Newton solve.
++            // Hydrodynamic damping is not an elastic strain-limit stiffness.
++            assemble::hydrodynamic_test(device,data,state,&mut fixed,dt)?;
++
+             // A PAIR THE ASSEMBLY FOUND ALREADY COLLAPSED TO ITS OFFSET ends
+             // the advance here, and the report is a HOST CONTRACT: the kind
+             // string, the pair, the world-space lengths, and for a
+diff --git a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+index b3852c6..224355f 100644
+--- a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
++++ b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+@@ -293,6 +293,46 @@ template <typename D>
+ // `compute::atomic_float_t` is the seam's own name for both destinations'
+ // element type, `float` under nvcc and on the host and `atomic_float` under
+ // MSL: a `float *` here would compile on two backends and fail on the third.
++// Experimental two-sided sheet drag in SI units. Geometry is evaluated at the
++// current Newton iterate; the PSD tangent lags geometry and sampled flow.
++[[seam::device_fn]] inline void hydrodynamic_sheet_embed(
++    const Vec3f &x0, const Vec3f &x1, const Vec3f &x2,
++    const Vec3f &current0, const Vec3f &current1, const Vec3f &current2,
++    const Vec3u &face_vertex, float dt, float rho, float cn, float ct,
++    float wet, float ux, float uy, float uz,
++    compute::atomic_float_t *force, const unsigned *index,
++    const unsigned *offset, compute::atomic_float_t *value,
++    unsigned row_count, DiagHandle diag, unsigned element) {
++    const Vec3f cross = (x1-x0).cross(x2-x0);
++    const float twice_area = cross.norm();
++    if (rho <= 0.0f || wet <= 0.0f || twice_area <= 0.0f) return;
++    const Vec3f n = cross / twice_area;
++    const Vec3f velocity = (x0+x1+x2-current0-current1-current2)/(3.0f*dt);
++    const Vec3f relative = Vec3f(ux,uy,uz)-velocity;
++    const float normal_speed = n.dot(relative);
++    const Vec3f tangent = relative-normal_speed*n;
++    const float speed = tangent.norm();
++    const float factor = 0.25f*rho*twice_area*wet;
++    const Vec3f total = factor*(cn*fmath::abs(normal_speed)*normal_speed*n+ct*speed*tangent);
++    const Mat3x3f nn = n*n.transpose();
++    Mat3x3f damping = 2.0f*factor*cn*fmath::abs(normal_speed)*nn;
++    if (speed > 0.0f) damping += factor*ct*(speed*(Mat3x3f::Identity()-nn)+tangent*tangent.transpose()/speed);
++    const bool finite = !fmath::isnan(total[0]) && !fmath::isinf(total[0]) &&
++        !fmath::isnan(total[1]) && !fmath::isinf(total[1]) &&
++        !fmath::isnan(total[2]) && !fmath::isinf(total[2]);
++    DIAG_ASSERT4(diag, finite, total[0],total[1],total[2],static_cast<float>(element));
++    if (!finite) return;
++    Mat3x3f gradient;
++    Mat9x9f hessian = Mat9x9f::Zero();
++    for (unsigned a=0; a<3; ++a) {
++        gradient.col(a) = -total/3.0f;
++        for (unsigned b=0; b<3; ++b)
++            hessian.block<3,3>(3*a,3*b) = damping/(9.0f*dt);
++    }
++    face_atomic_embed_force(face_vertex, gradient, force);
++    face_atomic_push_hessian(face_vertex, hessian,index,offset,value,row_count,diag,element);
++}
++
+ // THE SAME EMBED, READING ITS MATERIAL OFF THE DEVICE RECORDS.
+ //
+ // The six scalars the body above takes are read here out of `FaceProp` and
+@@ -327,7 +367,8 @@ template <typename D>
+     const Mat2x2f &inverse_rest,
+     const FaceProp &prop,
+     const FaceParam *face_param, float dt,
+-    float eigenanalysis_eps,
++    float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+@@ -342,6 +383,12 @@ template <typename D>
+     if (prop.fixed || prop.rest_excluded || prop.collider) {
+         return;
+     }
++    if (hydro_only != 0u) {
++        hydrodynamic_sheet_embed(x0,x1,x2,current0,current1,current2,face_vertex,
++            dt,hydro_rho,hydro_cn,hydro_ct,hydro_wet,hydro_ux,hydro_uy,hydro_uz,
++            force,index,offset,value,row_count,diag,element);
++        return;
++    }
+     const FaceParam param = face_param[prop.param_index];
+     face_elastic_embed(x0, x1, x2, current0, current1, current2, face_vertex,
+                        inverse_rest, static_cast<unsigned>(param.model),
+@@ -360,7 +407,8 @@ template <typename D>
+     const Mat2x2f *inverse_rest,
+     const FaceProp *prop,
+     const FaceParam *face_param,
+-    float dt, float eigenanalysis_eps,
++    float dt, float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+diff --git a/crates/ppf-cts-solver/src/main.rs b/crates/ppf-cts-solver/src/main.rs
+index 159eef2..e22d0da 100644
+--- a/crates/ppf-cts-solver/src/main.rs
++++ b/crates/ppf-cts-solver/src/main.rs
+@@ -88,6 +88,8 @@ const PROBE_UNUSABLE: i32 = 3;
+ /// with [`PROBE_UNUSABLE`].
+ fn probe() -> i32 {
+     println!("backend: {}", env!("PPF_BACKEND"));
++    println!("hydrodynamic-test: uniform-sheet-si-v1");
++    println!("hydrodynamic-fluid-transport: unavailable");
+     #[cfg(abi_backend_linked)]
+     {
+         println!("linked: {}", ppf_cts_compute::abi::linked_backend_name());

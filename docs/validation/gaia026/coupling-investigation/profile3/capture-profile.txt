@@ -1,0 +1,58 @@
+         39410104 function calls (35909040 primitive calls) in 47.841 seconds
+
+   Ordered by: cumulative time
+   List reduced from 2045 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+ 1166/856   12.272    0.011   53.253    0.062 {built-in method time.sleep}
+        1    0.000    0.000   46.369   46.369 blender_gaia026_production_scale.py:328(wait_for_bake)
+  172/166    0.232    0.001   37.642    0.227 threading.py:641(wait)
+    90/22    0.020    0.000   24.998    1.136 threading.py:1001(_bootstrap)
+    90/22    0.048    0.001   24.793    1.127 threading.py:1028(_bootstrap_inner)
+    90/22    0.021    0.000   24.401    1.109 threading.py:984(run)
+  150/123    0.753    0.005   18.554    0.151 threading.py:327(wait)
+        1    0.000    0.000   17.338   17.338 solver_test.py:6738(build_run_plan)
+       42    0.017    0.000   12.629    0.301 service.py:59(_sample)
+        1    0.034    0.034   11.478   11.478 solver_test.py:6228(_build_run_plan_impl)
+       42    0.012    0.000   11.373    0.271 gpu.py:32(query_nvidia_smi)
+        1    0.008    0.008   10.184   10.184 solver_test.py:5834(_build_multi_run_plan)
+        1    0.000    0.000    9.675    9.675 solver_test.py:7669(_worker_main)
+        1    0.000    0.000    9.675    9.675 solver_test.py:7504(_worker_main_multi)
+        1    0.000    0.000    9.513    9.513 session.py:2450(run)
+        1    0.000    0.000    9.513    9.513 blender_gaia026_production_scale.py:293(capture_run)
+    44/43    0.357    0.008    8.686    0.202 subprocess.py:512(run)
+        1    0.000    0.000    7.850    7.850 preparation.py:98(_run)
+   114881    6.011    0.000    6.011    0.000 {method 'update' of '_hashlib.HASH' objects}
+2325264/6    2.509    0.000    5.477    0.913 cbor_codec.py:78(_encode_item)
+        5    0.000    0.000    5.373    1.075 envelope.py:70(dumps_envelope)
+        5    0.002    0.000    5.373    1.075 cbor_codec.py:264(dumps)
+       13    0.000    0.000    5.362    0.412 solver_test.py:721(__post_init__)
+       14    0.020    0.001    5.362    0.383 official_scene_bridge.py:35(prepare_for_solver)
+    44/43    0.005    0.000    5.190    0.121 subprocess.py:1178(communicate)
+    44/43    0.014    0.000    4.572    0.106 subprocess.py:1623(_communicate)
+    88/86    0.017    0.000    3.996    0.046 threading.py:1059(join)
+        2    0.000    0.000    3.921    1.961 solver_test.py:9718(begin_production_bake)
+        8    0.000    0.000    3.852    0.481 solver_test.py:4991(timed)
+        1    0.000    0.000    3.811    3.811 solver_test.py:5279(_cached_payload)
+        1    0.000    0.000    3.720    3.720 solver_test.py:6066(encode_evaluated_scene)
+        2    0.000    0.000    3.699    1.849 solver_test.py:2831(validate_scene)
+        2    0.007    0.004    3.698    1.849 solver_test.py:2648(_validate_scene_impl)
+        1    0.015    0.015    3.237    3.237 data.py:425(encode_multi_deformable_scene)
+   811416    0.319    0.000    3.166    0.000 intersection_diagnostics.py:227(<genexpr>)
+    88/86    0.044    0.001    3.077    0.036 {method 'join' of '_thread._ThreadHandle' objects}
+    88/43    0.085    0.001    3.066    0.071 subprocess.py:1614(_readerthread)
+   608562    1.492    0.000    2.835    0.000 intersection_diagnostics.py:200(transform_point)
+        4    0.000    0.000    2.732    0.683 envelope.py:119(loads_envelope)
+        4    0.000    0.000    2.732    0.683 cbor_codec.py:405(loads)
+1133474/4    1.039    0.000    2.732    0.683 cbor_codec.py:331(_decode_item)
+1739/1729    0.010    0.000    2.543    0.001 queue.py:177(get)
+      615    0.013    0.000    2.511    0.004 water_preparation.py:168(_pump)
+    12960    2.248    0.000    2.458    0.000 {method 'at' of 'numpy.ufunc' objects}
+        2    0.042    0.021    2.032    1.016 solver_test.py:2617(_snapshot_object_attachments)
+        1    0.000    0.000    1.971    1.971 water_preparation.py:126(_finish)
+        1    0.000    0.000    1.971    1.971 solver_test.py:9777(<lambda>)
+      2/1    0.000    0.000    1.957    1.957 solver_test.py:10625(execute)
+        1    0.000    0.000    1.957    1.957 solver_backends.py:22(begin_bake)
+  258/224    0.022    0.000    1.919    0.009 {method 'close' of '_io.TextIOWrapper' objects}
+
+

@@ -1,0 +1,8 @@
+
+running 2 tests
+test driver::assemble::tests::hydrodynamic_cuda_force_and_nine_jacobian_blocks_match_host ... ok
+test driver::assemble::tests::hydrodynamic_cuda_frozen_contact_scale_matches_host ... frozen self-contact scale: max force component delta=0 N, max matrix entry delta=0
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 589 filtered out; finished in 0.18s
+

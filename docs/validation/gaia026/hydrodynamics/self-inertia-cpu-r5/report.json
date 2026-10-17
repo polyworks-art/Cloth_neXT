@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "case": "self_collision",
+      "final_velocity_m_s": [
+        -0.07358414679765701,
+        7.450580596923828e-06,
+        7.450580596923828e-06
+      ],
+      "wet_area_m2": 0.010000007227063179,
+      "normal_load_n": 0.0,
+      "force_n": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "two_sided_wet_area_m2": 0.010000007227063179,
+      "fluid_speed_max_m_s": 0.20000001788139343,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-6a14015e45fc49bb8a7668955031c60f\\spatial",
+      "native_contact_peak": 33,
+      "mean_hinge_angle_rad": 0.016826430335640907
+    }
+  ],
+  "backend": "cpu",
+  "output_frames": 201,
+  "output_fps": 2000.0,
+  "reference_variant": "two-layer inertial contact without hydro load",
+  "transport": "typed velocity/SDF v1",
+  "host_forces": false,
+  "result": "PASS"
+}

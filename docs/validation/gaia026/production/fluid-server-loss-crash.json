@@ -1,0 +1,38 @@
+{
+  "phase": "crash",
+  "terminal": "error",
+  "summary": "The solver exited while simulating frame 5. A recovery checkpoint is available from frame 5. Completed frames were preserved.",
+  "details": "Cause: failure_kind=CRASH_DURING_SIMULATION; run_id=16ca5d81526b43c3999fa78b24b97dd8; active_operation=SIMULATING; current_logical_frame=5; last_completed_logical_frame=5; last_fetched_frame=5; last_successful_command=status; command_in_flight=status; last_valid_health_response={'reachable': True, 'compatible': True, 'package_version': '0.1.0', 'protocol_version': '0.26', 'schema_version': '2', 'wire_status': 'NO_DATA'}; failure_kind=NONZERO_PROCESS_EXIT; launch_id=f42ff2a6758944f4adc2c1200e3a31a0; control_server_pid=49056; control_server_exit_code=1 (0x00000001; unsigned 1); process_started_at=17...\nWhat to do: Inspect the retained run log. Cloth NeXt terminated every remaining process in the owned solver process tree before allowing a retry.\nDiagnostic log: C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a15672\\cloth_next_run_clothnext_0542e73c36d5\\failure.log",
+  "control_server_pid": 49056,
+  "state": "RESUMABLE",
+  "checkpoints": [
+    {
+      "frame": 1,
+      "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\crash-cache\\.cloth_next_recovery\\fd1b2a04b39cd64ad09ae9aa56078f0f877da6791498a74b7c3a394afe422240-279b6c88518841959332aec2a360b8b2\\server-data\\clothnext_0542e73c36d5\\session\\output\\state_1.bin.gz",
+      "exists": true,
+      "integrity": "VERIFIED"
+    },
+    {
+      "frame": 3,
+      "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\crash-cache\\.cloth_next_recovery\\fd1b2a04b39cd64ad09ae9aa56078f0f877da6791498a74b7c3a394afe422240-279b6c88518841959332aec2a360b8b2\\server-data\\clothnext_0542e73c36d5\\session\\output\\state_3.bin.gz",
+      "exists": true,
+      "integrity": "VERIFIED"
+    },
+    {
+      "frame": 5,
+      "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\crash-cache\\.cloth_next_recovery\\fd1b2a04b39cd64ad09ae9aa56078f0f877da6791498a74b7c3a394afe422240-279b6c88518841959332aec2a360b8b2\\server-data\\clothnext_0542e73c36d5\\session\\output\\state_5.bin.gz",
+      "exists": true,
+      "integrity": "VERIFIED"
+    }
+  ],
+  "partial_pc2": {
+    "dc789400-0287-dc9c-c36e-144b6b5729e5": {
+      "path": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\crash-cache\\.cloth_next_recovery\\fd1b2a04b39cd64ad09ae9aa56078f0f877da6791498a74b7c3a394afe422240-279b6c88518841959332aec2a360b8b2\\partials\\dc789400-0287-dc9c-c36e-144b6b5729e5.pc2.partial",
+      "exists": true,
+      "expected_vertices": 4,
+      "expected_frames": 24,
+      "validated_frames": 6
+    }
+  },
+  "event_count": 49
+}

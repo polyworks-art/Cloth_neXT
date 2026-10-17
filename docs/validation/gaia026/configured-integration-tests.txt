@@ -1,0 +1,36 @@
+..F                                                                      [100%]
+================================== FAILURES ===================================
+________________________ test_real_ppf_vertical_slice _________________________
+tests\integration\test_phase3a_vertical_slice.py:18: in test_real_ppf_vertical_slice
+    report = run(executable, tmp_path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+tools\run_ppf_vertical_slice.py:167: in run
+    diagnostics = session.run()
+                  ^^^^^^^^^^^^^
+cloth_next\ppf_run\session.py:2438: in run
+    return self._run(contact_validation_only=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cloth_next\ppf_run\session.py:2529: in _run
+    self._await_build()
+cloth_next\ppf_run\session.py:1605: in _await_build
+    raise self._fail_from_status(response, "building")
+E   cloth_next.core.errors.ClothNextError: server status FAILED during building: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_a3541680adb8\\.cash' | at frontend/build_worker.py:611 in main: os.makedirs(cache_root, exist_ok=True) | errno=17 winerror=183 strerror='Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist' filename='C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_a3541680adb8\\.cash' filename2=None | python 3.11.9 win32 at C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\python\python.exe
+E   Traceback (most recent call last):
+E     File "C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\frontend\build_worker.py", line 611, in main
+E       os.makedirs(cache_root, exist_ok=True)
+E     File "<frozen os>", line 225, in makedirs
+E   FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_a3541680adb8\\.cash'; crash_kind=none; contacts(last=0, peak=0, samples=0); stdout_tail=('2026-10-13T18:54:47.036 INFO ppf::serve - hardware: Backend=cuda GPU=0: NVIDIA GeForce RTX 4070 SUPER GPU Index=0 VRAM=12.0 GB SM=sm_89 CPU=AMD Ryzen 9 7900X 12-Core Processor RAM=63.1 GB', '2026-10-13T18:54:47.063 INFO ppf::serve - solver build: target_dir=C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda backend=cuda', '2026-10-13T18:54:47.063 INFO ppf::serve - idle stop: after 3600 s with no request and no solve or build running', '2026-10-13T18:54:47.109 INFO ppf::serve - log_filenames: harvested 32 channels from C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\crates\\ppf-cts-solver\\src', '2026-10-13T18:54:47.129 INFO ppf::serve - log_filenames: harvested 0 channels from C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\crates\\ppf-cts-core\\src', '2026-10-13T18:54:47.129 INFO ppf::serve - log_filenames: 32 channels total', '2026-10-13T18:54:47.132 INFO ppf::serve - ppf-cts-server listening on 127.0.0.1:65186', '2026-10-13T18:54:47.274 INFO ppf::executor - Upload landed (id=385780c20191, data=true, param=true).', '2026-10-13T18:54:47.387 INFO ppf::build - [BUILD] clothnext_a3541680adb8: spawning python.exe C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\frontend\\build_worker.py clothnext_a3541680adb8 C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\clothnext_a3541680adb8', '2026-10-13T18:54:48.180 WARN ppf::build - [BUILD stderr] clothnext_a3541680adb8: Traceback (most recent call last):', '2026-10-13T18:54:48.180 WARN ppf::build - [BUILD stderr] clothnext_a3541680adb8:   File "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\frontend\\build_worker.py", line 611, in main', '2026-10-13T18:54:48.180 WARN ppf::build - [BUILD stderr] clothnext_a3541680adb8:     os.makedirs(cache_root, exist_ok=True)', '2026-10-13T18:54:48.180 WARN ppf::build - [BUILD stderr] clothnext_a3541680adb8:   File "<frozen os>", line 225, in makedirs', "2026-10-13T18:54:48.180 WARN ppf::build - [BUILD stderr] clothnext_a3541680adb8: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_a3541680adb8\\\\.cash'", "2026-10-13T18:54:48.387 INFO ppf::executor - Build failed: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_a3541680adb8\\\\.cash' | at frontend/build_worker.py:611 in main: os.makedirs(cache_root, exist_ok=True) | errno=17 winerror=183 strerror='Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist' filename='C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_a3541680adb8\\\\.cash' filename2=None | python 3.11.9 win32 at C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe", 'Traceback (most recent call last):', '  File "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\frontend\\build_worker.py", line 611, in main', '    os.makedirs(cache_root, exist_ok=True)', '  File "<frozen os>", line 225, in makedirs', "FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_a3541680adb8\\\\.cash'"); stderr_tail=()
+---------------------------- Captured stdout call -----------------------------
+[STARTING_SOLVER] Starting simulation solver
+[RUNTIME_METADATA] Solver runtime connected
+[UPLOADING] Uploading scene
+[UPLOADING] Uploading scene � 0.0 MiB
+[BUILDING] Building solver project
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+=========================== short test summary info ===========================
+FAILED tests/integration/test_phase3a_vertical_slice.py::test_real_ppf_vertical_slice
+1 failed, 2 passed in 18.38s

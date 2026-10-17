@@ -1,0 +1,68 @@
+[
+  {
+    "frame": 130,
+    "metric": "Bidirectional sampled point-to-triangle distances in 30mm-expanded changed region; 10 barycentric/vertex samples per triangle. Not a certified Hausdorff bound; source is defective.",
+    "region_bounds_m": [
+      [
+        0.42483481764793396,
+        -0.6943942308425903,
+        0.4343324601650238
+      ],
+      [
+        0.4982694685459137,
+        -0.6253433227539062,
+        0.5116308331489563
+      ]
+    ],
+    "local_triangle_counts": [
+      723,
+      723
+    ],
+    "reference_to_candidate": {
+      "sample_count": 7230,
+      "maximum_m": 0.0007216179347530465,
+      "rms_m": 3.2318515100859344e-05,
+      "p99_m": 0.00011376549042624072
+    },
+    "candidate_to_reference": {
+      "sample_count": 7230,
+      "maximum_m": 0.0010383544455732276,
+      "rms_m": 4.3719977946298736e-05,
+      "p99_m": 0.00013250639271995018
+    },
+    "maximum_observed_m": 0.0010383544455732276
+  },
+  {
+    "frame": 135,
+    "metric": "Bidirectional sampled point-to-triangle distances in 30mm-expanded changed region; 10 barycentric/vertex samples per triangle. Not a certified Hausdorff bound; source is defective.",
+    "region_bounds_m": [
+      [
+        0.3924276530742645,
+        0.6668012142181396,
+        0.5634288787841797
+      ],
+      [
+        0.46524563431739807,
+        0.7442238330841064,
+        0.6359939575195312
+      ]
+    ],
+    "local_triangle_counts": [
+      467,
+      467
+    ],
+    "reference_to_candidate": {
+      "sample_count": 4670,
+      "maximum_m": 0.0003938870194825935,
+      "rms_m": 1.8183046081054783e-05,
+      "p99_m": 6.302327182953267e-05
+    },
+    "candidate_to_reference": {
+      "sample_count": 4670,
+      "maximum_m": 0.00040712729988577373,
+      "rms_m": 2.2210814680688096e-05,
+      "p99_m": 8.67416166889558e-05
+    },
+    "maximum_observed_m": 0.00040712729988577373
+  }
+]

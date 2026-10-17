@@ -1,0 +1,144 @@
+{
+  "result": "PASS",
+  "blender": "5.2.2 LTS",
+  "range": [
+    130,
+    132
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "states": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.006990500000028987
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.8861731000000077
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 17.571421499999985
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 35.23664719999999
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 35.25429439999999
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 59.249202500000024
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 65.89768600000002
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 66.02122109999999
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 75.52255780000002
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 76.28235569999998
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 78.60345990000002
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 78.68634330000003
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 80.92900689999999
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 83.31219220000003
+    }
+  ],
+  "dry": false,
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\target\\cuda\\release\\ppf-cts-server.exe",
+  "addon_version": "2.9.25",
+  "objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "vertices": 14946,
+      "material": "MIT_OUTDOOR_POLYESTER"
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "vertices": 4379,
+      "material": "CUSTOM"
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "vertices": 4031,
+      "material": "PRODUCT_YAMAMOTO_39_3MM"
+    }
+  ],
+  "attachment_groups": 4,
+  "attachment_count": 186,
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "work_directory": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\temp\\blender_a40784\\cloth_next_run_clothnext_73d418cd9eca",
+  "seconds": 83.42348830000003,
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_00.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 3.051691188638017e-08,
+      "sha256": "b53becdc3e0a97e4aadf07e701e34ce42220a9987ad467040ca0189c04281d43",
+      "reload_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_01.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.103197680573658e-08,
+      "sha256": "6524e2a0cfe15f8f340b82e84ba58761dd9b3e606c35086179d14fa4fbab4960",
+      "reload_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_02.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.086069781474635e-08,
+      "sha256": "d1185cb9b477d6848770b0929a5a102e080581d691a38a7fe9e64f069ba56714",
+      "reload_max_error_m": 0.0
+    }
+  ],
+  "native_output": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-b7d0f153fba64bcb997a5e8dbb62955f\\server-data\\clothnext_73d418cd9eca\\session\\output",
+  "hydrodynamics": [
+    {
+      "file": "hydro_1.bin",
+      "area_m2": 1.3806164264678955,
+      "wet_area_m2": 0.6737562417984009,
+      "normal_load_n": 94.5113754272461,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_2.bin",
+      "area_m2": 1.3806357383728027,
+      "wet_area_m2": 0.6427861452102661,
+      "normal_load_n": 108.14949035644531,
+      "tangential_load_n": 0.0
+    }
+  ],
+  "session_evidence": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\session-evidence"
+}

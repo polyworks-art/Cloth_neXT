@@ -1,0 +1,259 @@
+F.........F.F                                                            [100%]
+================================== FAILURES ===================================
+________________________ test_real_ppf_vertical_slice _________________________
+
+tmp_path = WindowsPath('C:/Users/timch/AppData/Local/Temp/pytest-of-timch/pytest-2005/test_real_ppf_vertical_slice0')
+
+    @pytest.mark.integration
+    def test_real_ppf_vertical_slice(tmp_path):
+        configured = os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE")
+        if not configured:
+            pytest.skip("CLOTH_NEXT_PPF_EXECUTABLE is not configured")
+        executable = Path(configured)
+        if not executable.is_file():
+            pytest.fail(f"configured solver does not exist: {executable}")
+        report = run(executable, tmp_path)
+        assert report["result"] == "PASS"
+        assert report["blender_frames"] == 8
+        assert report["solver_frames_fetched"] == list(range(1, 8))
+        assert report["cloth_vertices"] == 121
+        assert report["max_cloth_displacement_m"] > 0.01
+        assert report["pc2_header"]["vertex_count"] == 121
+        assert report["pc2_header"]["frame_count"] == 8
+>       assert report["status_transitions"][-1] == "NO_DATA"
+E       AssertionError: assert 'READY' == 'NO_DATA'
+E         
+E         - NO_DATA
+E         + READY
+
+tests\integration\test_phase3a_vertical_slice.py:26: AssertionError
+---------------------------- Captured stdout call -----------------------------
+[STARTING_SOLVER] Starting simulation solver
+[RUNTIME_METADATA] Solver runtime connected
+[UPLOADING] Uploading scene
+[UPLOADING] Uploading scene · 0.0 MiB
+[BUILDING] Building solver project
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Exporting solver input...
+[BUILDING] Exporting solver input...
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading solver output map
+[FETCHING] Downloading frame 1 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 3 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading frame 2 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 3 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[FETCHING] Downloading frame 3 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading frame 4 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[FETCHING] Downloading frame 5 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[FETCHING] Downloading frame 6 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 8 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[FETCHING] Downloading frame 7 of 7
+____________ test_sewn_unpinned_panels_close_and_free_fall[intra] _____________
+
+tmp_path = WindowsPath('C:/Users/timch/AppData/Local/Temp/pytest-of-timch/pytest-2005/test_sewn_unpinned_panels_clos0')
+mode = 'intra'
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("mode", ("intra", "cross", "mixed"))
+    def test_sewn_unpinned_panels_close_and_free_fall(tmp_path, mode):
+        executable = os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE")
+        if not executable:
+            pytest.skip("CLOTH_NEXT_PPF_EXECUTABLE is not configured")
+>       report = run(Path(executable), tmp_path / mode, mode=mode)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_real_ppf_sewing.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tools\run_ppf_sewing.py:89: in run
+    frame_sink=frames.append).run()
+                              ^^^^^
+cloth_next\ppf_run\session.py:2439: in run
+    return self._run(contact_validation_only=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cloth_next\ppf_run\session.py:2556: in _run
+    self._simulate_and_fetch(resume=resuming)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <cloth_next.ppf_run.session.SolverSession object at 0x000001D17E6334D0>
+resume = False
+
+    def _simulate_and_fetch(self, *, resume: bool = False) -> None:
+        if self.scene.water_stream_json:
+            return self._stream_water_and_fetch(resume=resume)
+        total = self.scene.solver_frame_count
+        if resume:
+            assert self._address is not None
+            response = wire.send_tcmd(
+                self._address, self.transport, self.scene.project_name,
+                wire.REQUEST_RESUME)
+            self.diagnostics.note_status(str(response.get("status", "")))
+        else:
+            self._request(REQUEST_START_ALIAS)
+        output_map: results.OutputMap | None = None
+        fetched: set[int] = set(
+            self._recovery.completed_solver_frames
+            if self._recovery is not None and resume else ())
+        deadline = time.monotonic() + self._simulate_timeout
+        finished_status: str | None = None
+        while len(fetched) < total:
+            self._check_cancel()
+            wait_step = time.monotonic()
+            response = self._poll_status()
+            self.diagnostics.timings["simulation_wait"] = (
+                self.diagnostics.timings.get("simulation_wait", 0.0)
+                + time.monotonic() - wait_step)
+            status = str(response.get("status", ""))
+            solver_frame = response.get("frame")
+            available = solver_frame if isinstance(solver_frame, int) else 0
+            if status == STATUS_FAILED:
+>               raise self._fail_from_status(response, "simulating")
+E               cloth_next.core.errors.ClothNextError: server status FAILED during simulating: The solver exited before it started: no exit status was captured for the run script; the solver wrote no status record, so it stopped before it reached its own reporting; crash_kind=launch_failed; contacts(last=0, peak=0, samples=0); stdout_tail=('2026-10-13T22:31:14.713 INFO ppf::serve - hardware: Backend=cuda GPU=0: NVIDIA GeForce RTX 4070 SUPER GPU Index=0 VRAM=12.0 GB SM=sm_89 CPU=AMD Ryzen 9 7900X 12-Core Processor RAM=63.1 GB', '2026-10-13T22:31:14.762 INFO ppf::serve - solver build: target_dir=C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\cuda backend=cuda', '2026-10-13T22:31:14.762 INFO ppf::serve - idle stop: after 3600 s with no request and no solve or build running', '2026-10-13T22:31:14.788 INFO ppf::serve - log_filenames: harvested 32 channels from C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\crates\\\\ppf-cts-solver\\\\src', '2026-10-13T22:31:14.796 INFO ppf::serve - log_filenames: harvested 0 channels from C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\crates\\\\ppf-cts-core\\\\src', '2026-10-13T22:31:14.796 INFO ppf::serve - log_filenames: 32 channels total', '2026-10-13T22:31:14.799 INFO ppf::serve - ppf-cts-server listening on 127.0.0.1:56171', '2026-10-13T22:31:14.883 INFO ppf::executor - Upload landed (id=773a940feb02, data=true, param=true).', '2026-10-13T22:31:14.971 INFO ppf::build - [BUILD] clothnext_cbe593f39fe8: spawning python.exe C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\frontend\\\\build_worker.py clothnext_cbe593f39fe8 C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_cbe593f39fe8', '2026-10-13T22:31:15.546 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rbuild scene:   0%|          | 0/13 [00:00<?, ?it/s]', '2026-10-13T22:31:15.546 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rscene checks: 0/3 \\x1b[A', '2026-10-13T22:31:15.552 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rscene checks: 0/3 , self-intersection BVH\\x1b[A', '2026-10-13T22:31:15.552 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rscene checks: 1/3 , rod-tri offset       \\x1b[A', '2026-10-13T22:31:15.552 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rscene checks: 2/3 , contact-offset proximity\\x1b[A\\rscene checks: 3/3 , contact-offset proximity', '2026-10-13T22:31:15.552 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rbuild scene: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 13/13 [00:00<00:00, 1623.67it/s]', '2026-10-13T22:31:15.614 WARN ppf::build - [BUILD stderr] clothnext_cbe593f39fe8: \\rbuild session:   0%|          | 0/14 [00:00<?, ?it/s]\\rbuild session: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 14/14 [00:00<00:00, 395.38it/s]', '2026-10-13T22:31:15.981 INFO ppf::executor - Build complete.', '2026-10-13T22:31:16.846 INFO ppf::executor - Adopting externally-launched solver', '2026-10-13T22:31:19.358 INFO ppf::executor - Solver crashed: The solver exited before it started: no exit status was captured for the run script; the solver wrote no status record, so it stopped before it reached its own reporting'); stderr_tail=()
+
+cloth_next\ppf_run\session.py:1809: ClothNextError
+____________ test_sewn_unpinned_panels_close_and_free_fall[mixed] _____________
+
+tmp_path = WindowsPath('C:/Users/timch/AppData/Local/Temp/pytest-of-timch/pytest-2005/test_sewn_unpinned_panels_clos2')
+mode = 'mixed'
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("mode", ("intra", "cross", "mixed"))
+    def test_sewn_unpinned_panels_close_and_free_fall(tmp_path, mode):
+        executable = os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE")
+        if not executable:
+            pytest.skip("CLOTH_NEXT_PPF_EXECUTABLE is not configured")
+>       report = run(Path(executable), tmp_path / mode, mode=mode)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_real_ppf_sewing.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tools\run_ppf_sewing.py:89: in run
+    frame_sink=frames.append).run()
+                              ^^^^^
+cloth_next\ppf_run\session.py:2439: in run
+    return self._run(contact_validation_only=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cloth_next\ppf_run\session.py:2556: in _run
+    self._simulate_and_fetch(resume=resuming)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <cloth_next.ppf_run.session.SolverSession object at 0x000001D17E870F90>
+resume = False
+
+    def _simulate_and_fetch(self, *, resume: bool = False) -> None:
+        if self.scene.water_stream_json:
+            return self._stream_water_and_fetch(resume=resume)
+        total = self.scene.solver_frame_count
+        if resume:
+            assert self._address is not None
+            response = wire.send_tcmd(
+                self._address, self.transport, self.scene.project_name,
+                wire.REQUEST_RESUME)
+            self.diagnostics.note_status(str(response.get("status", "")))
+        else:
+            self._request(REQUEST_START_ALIAS)
+        output_map: results.OutputMap | None = None
+        fetched: set[int] = set(
+            self._recovery.completed_solver_frames
+            if self._recovery is not None and resume else ())
+        deadline = time.monotonic() + self._simulate_timeout
+        finished_status: str | None = None
+        while len(fetched) < total:
+            self._check_cancel()
+            wait_step = time.monotonic()
+            response = self._poll_status()
+            self.diagnostics.timings["simulation_wait"] = (
+                self.diagnostics.timings.get("simulation_wait", 0.0)
+                + time.monotonic() - wait_step)
+            status = str(response.get("status", ""))
+            solver_frame = response.get("frame")
+            available = solver_frame if isinstance(solver_frame, int) else 0
+            if status == STATUS_FAILED:
+>               raise self._fail_from_status(response, "simulating")
+E               cloth_next.core.errors.ClothNextError: server status FAILED during simulating: The solver exited before it started: no exit status was captured for the run script; the solver wrote no status record, so it stopped before it reached its own reporting; crash_kind=launch_failed; contacts(last=0, peak=0, samples=0); stdout_tail=('2026-10-13T22:32:26.385 INFO ppf::serve - hardware: Backend=cuda GPU=0: NVIDIA GeForce RTX 4070 SUPER GPU Index=0 VRAM=12.0 GB SM=sm_89 CPU=AMD Ryzen 9 7900X 12-Core Processor RAM=63.1 GB', '2026-10-13T22:32:26.409 INFO ppf::serve - solver build: target_dir=C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\cuda backend=cuda', '2026-10-13T22:32:26.409 INFO ppf::serve - idle stop: after 3600 s with no request and no solve or build running', '2026-10-13T22:32:26.429 INFO ppf::serve - log_filenames: harvested 32 channels from C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\crates\\\\ppf-cts-solver\\\\src', '2026-10-13T22:32:26.436 INFO ppf::serve - log_filenames: harvested 0 channels from C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\crates\\\\ppf-cts-core\\\\src', '2026-10-13T22:32:26.436 INFO ppf::serve - log_filenames: 32 channels total', '2026-10-13T22:32:26.438 INFO ppf::serve - ppf-cts-server listening on 127.0.0.1:54294', '2026-10-13T22:32:26.511 INFO ppf::executor - Upload landed (id=61cd4b1720ff, data=true, param=true).', '2026-10-13T22:32:26.590 INFO ppf::build - [BUILD] clothnext_27abce6e2046: spawning python.exe C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\frontend\\\\build_worker.py clothnext_27abce6e2046 C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_27abce6e2046', '2026-10-13T22:32:27.081 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rbuild scene:   0%|          | 0/13 [00:00<?, ?it/s]', '2026-10-13T22:32:27.081 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rscene checks: 0/3 \\x1b[A', '2026-10-13T22:32:27.109 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rscene checks: 0/3 , self-intersection BVH\\x1b[A', '2026-10-13T22:32:27.109 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rscene checks: 1/3 , rod-tri offset       \\x1b[A', '2026-10-13T22:32:27.109 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rscene checks: 2/3 , contact-offset proximity\\x1b[A\\rscene checks: 3/3 , contact-offset proximity', '2026-10-13T22:32:27.109 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rbuild scene: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 13/13 [00:00<00:00, 425.62it/s]', '2026-10-13T22:32:27.353 WARN ppf::build - [BUILD stderr] clothnext_27abce6e2046: \\rbuild session:   0%|          | 0/14 [00:00<?, ?it/s]\\rbuild session: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 14/14 [00:00<00:00, 199.01it/s]', '2026-10-13T22:32:27.682 INFO ppf::executor - Build complete.', '2026-10-13T22:32:28.731 INFO ppf::executor - Adopting externally-launched solver', '2026-10-13T22:32:28.977 INFO ppf::executor - Solver crashed: The solver exited before it started: no exit status was captured for the run script; the solver wrote no status record, so it stopped before it reached its own reporting'); stderr_tail=()
+
+cloth_next\ppf_run\session.py:1809: ClothNextError
+=========================== short test summary info ===========================
+FAILED tests/integration/test_phase3a_vertical_slice.py::test_real_ppf_vertical_slice
+FAILED tests/integration/test_real_ppf_sewing.py::test_sewn_unpinned_panels_close_and_free_fall[intra]
+FAILED tests/integration/test_real_ppf_sewing.py::test_sewn_unpinned_panels_close_and_free_fall[mixed]
+3 failed, 10 passed in 514.73s (0:08:34)

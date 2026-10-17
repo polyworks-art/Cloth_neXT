@@ -1,0 +1,1219 @@
+{
+  "transport_approved": false,
+  "purpose": "Geometry/topology investigation only; closed candidate is not sufficient physical acceptance.",
+  "frames": [
+    {
+      "frame": 130,
+      "reference_sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+      "replay_sha256": "45148215c8ca2cda0d7170bf3a5c8fab08a631d61a70b455f3fa51b4057e6898",
+      "reference_vertices": 711260,
+      "replay_vertices": 711260,
+      "reference_triangles": 1421952,
+      "replay_triangles": 1421952,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0014068371383473277,
+        "rms": 3.014121830346994e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.0014068371718562076,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 405,
+        "open_edges": 7,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.173458335744
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 405,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.173459749379845
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 131,
+      "reference_sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+      "replay_sha256": "733b82c924d1be0831bd7ca09eb5acce61fa29a37a10f48b2b71b93bca22d13f",
+      "reference_vertices": 710144,
+      "replay_vertices": 710144,
+      "reference_triangles": 1419876,
+      "replay_triangles": 1419876,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.536000692998641e-06,
+        "rms": 2.7157575743785856e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 378,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.1814658022564535
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 378,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.1814658024182245
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 132,
+      "reference_sha256": "d0fa6f9b3ea8ee377b8ee78a2c4d3629be4cd51febed636c59b5141e0e1c84d0",
+      "replay_sha256": "6177b8075ddc94341e043073ea032ccf4a244181590d97efa6c1a36905e969c7",
+      "reference_vertices": 694362,
+      "replay_vertices": 694362,
+      "reference_triangles": 1388124,
+      "replay_triangles": 1388124,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.3245811462402344e-06,
+        "rms": 2.6792323026825215e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 403,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.186871952405339
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 403,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.186871953310052
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 133,
+      "reference_sha256": "0f6b3de875388a3b1a28f7ee3878d08c0fb4291ef4f260339ab2e21ffd82ae8c",
+      "replay_sha256": "ba2c0683bb8f66ebe792b04f41b50eb688837926604348da34251629f55140f7",
+      "reference_vertices": 677116,
+      "replay_vertices": 677116,
+      "reference_triangles": 1353536,
+      "replay_triangles": 1353536,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 5.066394805908203e-06,
+        "rms": 2.7004926295148834e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 429,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.1932715877218465
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 429,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.193271587707014
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 134,
+      "reference_sha256": "64bb03af6e1cef7a5daa23ddf7ce7eb61f1bef477d43854bbc971cf7e42e7d36",
+      "replay_sha256": "8174a9e3d40f9a4442225496f2e7451152eaf865a43d8982aa21ae60e970f2fa",
+      "reference_vertices": 664934,
+      "replay_vertices": 664934,
+      "reference_triangles": 1329176,
+      "replay_triangles": 1329176,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.7881393432617188e-06,
+        "rms": 2.5786309976183475e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 394,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.198487607037879
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 394,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.1984876071961486
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 135,
+      "reference_sha256": "7ac0e35805dc2a553875e7663465daa06ca862a5f622788aab6528b4d2c3578b",
+      "replay_sha256": "d8cab6b21ad3f52be2f25356081993b8d38be8b244af013f33d2ce70dc4815bc",
+      "reference_vertices": 659706,
+      "replay_vertices": 659706,
+      "reference_triangles": 1318816,
+      "replay_triangles": 1318816,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0024916452821344137,
+        "rms": 4.1449616219324525e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.0024916454106886075,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 363,
+        "open_edges": 2,
+        "nonmanifold_edges": 2,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.20450880472183
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 363,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.204510474427388
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 136,
+      "reference_sha256": "25157ae73cdbbe30920385c69d2ed626d5b22f551f886b6a1f53ef5244ff55a9",
+      "replay_sha256": "21d698441ea5366fc9e71d348147a9bc9a98bafcd6a421c59ab590efe507066c",
+      "reference_vertices": 655956,
+      "replay_vertices": 655956,
+      "reference_triangles": 1311448,
+      "replay_triangles": 1311448,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 3.935712356906151e-06,
+        "rms": 2.589600001101644e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 354,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.212257272504815
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 354,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.212257271767195
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 137,
+      "reference_sha256": "2a0c210ecb03b077fbf35ca3ec7c4935e27724eddc748e3826fea54fe83a6482",
+      "replay_sha256": "fa3236cc4fba6a1523a42716e3819f5dddfb5ab4adf30e7202c6d69817624bab",
+      "reference_vertices": 650724,
+      "replay_vertices": 650724,
+      "reference_triangles": 1300800,
+      "replay_triangles": 1300800,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 9.536929610476363e-06,
+        "rms": 2.986561753459682e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 367,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.218791710975654
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 367,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.218791711560457
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 138,
+      "reference_sha256": "b5362c99261da050233eb6704daa1e02bcd1d6dcc049729af52d1a87e6102d33",
+      "replay_sha256": "534cb1c849ddd540b23b0a8b33be83c08e0e22c571969288b3bcbd3ec7332924",
+      "reference_vertices": 654144,
+      "replay_vertices": 654144,
+      "reference_triangles": 1307612,
+      "replay_triangles": 1307612,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 7.034358077362413e-06,
+        "rms": 2.7608308528215275e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 351,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.228377527120012
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 351,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.228377526341417
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 139,
+      "reference_sha256": "ffb0133d3a304a377982a09fd73a490deff0b9388dcc80c67b328d983f1d1f04",
+      "replay_sha256": "5817b16cf0a6ac1f9de0d5fc56389bf5577c79569d1944c1db1f84f2415381a4",
+      "reference_vertices": 658012,
+      "replay_vertices": 658012,
+      "reference_triangles": 1315376,
+      "replay_triangles": 1315376,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 3.101733227595105e-06,
+        "rms": 2.499332296679313e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 353,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.239112175620181
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 353,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.239112175863887
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 140,
+      "reference_sha256": "53e369b4deb6abbdc7397743ee5abd8534df97f7215ac00fec225cfe1930a5ac",
+      "replay_sha256": "88777733e0f641567ea607336535d21f7a120519f525ade0b05293c93dfb085d",
+      "reference_vertices": 664166,
+      "replay_vertices": 664166,
+      "reference_triangles": 1327656,
+      "replay_triangles": 1327656,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0016901951748877764,
+        "rms": 2.787442781482241e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.001690195222971641,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 395,
+        "open_edges": 3,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.251332531628188
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 395,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.251332407789453
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 141,
+      "reference_sha256": "4690033103f23bb72bffb0323535301fc1604243c48f3e8e83309ab351e8da69",
+      "replay_sha256": "73e944eddda61d33b7bc0b0fca5ad240d3ae10ebf420294b8975ef9f12e0140d",
+      "reference_vertices": 666078,
+      "replay_vertices": 666078,
+      "reference_triangles": 1331532,
+      "replay_triangles": 1331532,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.4333027138491161e-06,
+        "rms": 2.4078287808038112e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 405,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.261815960161941
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 405,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.261815960970973
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 142,
+      "reference_sha256": "5cf41ac7bc2906f9d78d4c8d68412d78b727b19067f59b0358ecaa3e91e24ed0",
+      "replay_sha256": "f065c1963a417b886352e3cda3b76f4e518d5bdba36aeebc3cc59d8c77148aaf",
+      "reference_vertices": 666370,
+      "replay_vertices": 666370,
+      "reference_triangles": 1332160,
+      "replay_triangles": 1332160,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.7881393432617188e-06,
+        "rms": 2.472136806375147e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 386,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.270588077060201
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 386,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.270588077493647
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 143,
+      "reference_sha256": "5ef04eca4fcf7345f4108f18e8c0096790edd147c40432d840580a456a063a79",
+      "replay_sha256": "ab506ccec203ab5ad83e6b41e523af9eb75c381a9f97075242f6036da1774712",
+      "reference_vertices": 666056,
+      "replay_vertices": 666056,
+      "reference_triangles": 1331716,
+      "replay_triangles": 1331716,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.430511474609375e-06,
+        "rms": 2.39579556193803e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 371,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.278617603787345
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 371,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.278617602610269
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 144,
+      "reference_sha256": "52fda4e79c40be7c6cc0703a4c53faddf67f6c77a29e7cb67e988412e1ec3a68",
+      "replay_sha256": "3b7e4c40af61e684aa95ae436611e9fda89e6e2aa30c8eedb99cdcadd2971fd9",
+      "reference_vertices": 665854,
+      "replay_vertices": 665854,
+      "reference_triangles": 1331208,
+      "replay_triangles": 1331208,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 7.867869499023072e-06,
+        "rms": 2.815584565496465e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 367,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.287067512784426
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 367,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.2870675148855755
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 145,
+      "reference_sha256": "447bba8cf61f23f613ff40404fa0f0dfde871b17f5f240ee2d0fb98b554a0a61",
+      "replay_sha256": "0f132266fe2d52e47377cb1305c5105b684cbefc66a08db823aad2c94fe0547b",
+      "reference_vertices": 664850,
+      "replay_vertices": 664850,
+      "reference_triangles": 1329076,
+      "replay_triangles": 1329076,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.1324882507324219e-06,
+        "rms": 2.317973013532537e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 387,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.294627784750708
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 387,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.294627783745006
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 146,
+      "reference_sha256": "ac285cd504ec84aafd28a7841524aab9d9d9fbafe0779dd902e203dd93e3bd28",
+      "replay_sha256": "3f6bbc49c6d8adbcd2d0c105dc2253f479feaaaeaecfcb60a6a580ed4e335c18",
+      "reference_vertices": 663926,
+      "replay_vertices": 663926,
+      "reference_triangles": 1327240,
+      "replay_triangles": 1327240,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.3630664348602295,
+        "rms": 0.06192278489470482,
+        "p99": 3.5762786865234375e-07
+      },
+      "bidirectional_vertex_bound_m": 0.00385467555780028,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 365,
+        "open_edges": 3,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.301772258950285
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 365,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.30177097083818
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 147,
+      "reference_sha256": "5e2ef49ddc661f063a0fe4f57330218f1480fa5ab6075a0c6174886da2a98bd3",
+      "replay_sha256": "138396a86f051fd7d28cde8177a265a3e04d61cca72525afac75e898eceb189e",
+      "reference_vertices": 657210,
+      "replay_vertices": 657210,
+      "reference_triangles": 1313908,
+      "replay_triangles": 1313908,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.2777504920959473,
+        "rms": 0.025527700781822205,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.0016039301682969239,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 354,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.30664918784945
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 354,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.306649170123702
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 148,
+      "reference_sha256": "5bed170491a94366ba4af62729b15cbe36715ee25abf33ede24da413fca57cc7",
+      "replay_sha256": "94a5e951c649110da743e0a0cb206dfd136737b972044b3b7554ade7143461b6",
+      "reference_vertices": 650624,
+      "replay_vertices": 650624,
+      "reference_triangles": 1300640,
+      "replay_triangles": 1300640,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.387908125456306e-06,
+        "rms": 2.3371537594130132e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 346,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.3104416139222375
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 346,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.310441613528518
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 149,
+      "reference_sha256": "14f5571f36744f8d34e5b744076746d128ea59368ea330f8467a8232aff67dcc",
+      "replay_sha256": "fe50ec662743923ef0b572076f48ff74396751f154a96f8aec8a8b5b070a9287",
+      "reference_vertices": 646289,
+      "replay_vertices": 646288,
+      "reference_triangles": 1291996,
+      "replay_triangles": 1291996,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "bidirectional_vertex_bound_m": 0.0028819586322474337,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 342,
+        "open_edges": 7,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.313501272528293
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 342,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.313499885261421
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 150,
+      "reference_sha256": "b74d02be44627a7738b1cd7782a69c7cc8b5de83b1c587a2affc3a3cba8f0f88",
+      "replay_sha256": "d093d6bb8ab8c29684363d0a153549934a3f860ddb0197b5a2c38506afd71a3e",
+      "reference_vertices": 644314,
+      "replay_vertices": 644314,
+      "reference_triangles": 1288116,
+      "replay_triangles": 1288116,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.3445491790771484,
+        "rms": 0.02547706477344036,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.002880204696369215,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 335,
+        "open_edges": 6,
+        "nonmanifold_edges": 4,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.320086427118665
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 335,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.320088480171948
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 151,
+      "reference_sha256": "135417da6c7af6c1640dc2424637626e2c4eed40e18a081409b877df30f1dce1",
+      "replay_sha256": "9e1fbb131267cbeb62280a3c7c3acea3a40831fde1f6bace6fab2efd83e306f0",
+      "reference_vertices": 644933,
+      "replay_vertices": 644932,
+      "reference_triangles": 1289300,
+      "replay_triangles": 1289300,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "bidirectional_vertex_bound_m": 0.0028152614124839176,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 311,
+        "open_edges": 6,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.326556320290901
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 311,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.326561607179033
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 152,
+      "reference_sha256": "040596a851e5e1545c13e08f3009d6b47ab7a0649146e6a032d8264d7e3170f5",
+      "replay_sha256": "c05225f9c823fb7c06084e3357fde059f88eccaa2941b2b76ce52fffa20b6961",
+      "reference_vertices": 647892,
+      "replay_vertices": 647892,
+      "reference_triangles": 1295448,
+      "replay_triangles": 1295448,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.1324882507324219e-06,
+        "rms": 2.4596753078753864e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 281,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.333820534731348
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 281,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.333820533939274
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 153,
+      "reference_sha256": "618fa0f767cccbed7062dcbe7e5972e7ec9c5f9caa84c70a7c3f5dd8fea81aad",
+      "replay_sha256": "70ac2ca5d8622a0f012baa6093ff7af39961427aea736568921e5ec36efc381d",
+      "reference_vertices": 660092,
+      "replay_vertices": 660092,
+      "reference_triangles": 1319868,
+      "replay_triangles": 1319868,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.7891325114760548e-06,
+        "rms": 2.4929530439976588e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 303,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.345368586509267
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 303,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.34536858636121
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 154,
+      "reference_sha256": "df4a12c5efcfd535e3bbc8c547fbc0239bf3b851b77644ed32c1c4d2e86b8779",
+      "replay_sha256": "c317805e80b6282045374cd63d54160fc4cdbb60bc11fafae2e3cd1f2f162d92",
+      "reference_vertices": 671386,
+      "replay_vertices": 671386,
+      "reference_triangles": 1342400,
+      "replay_triangles": 1342400,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.1490759536391124e-06,
+        "rms": 2.6269974640058535e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "mapped_topology_identical": true,
+      "geometry_gate": "PASS",
+      "surface_bound": "Identical indexed triangles; maximum vertex delta also bounds every corresponding barycentric surface point",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 298,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.356006324557446
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 298,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.356006326367684
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 155,
+      "reference_sha256": "197f7abb0ad8c96c589e2ccfa72c652ddb2371f479cb680b6605c872f080d25a",
+      "replay_sha256": "6dda08ce9d93d0d7bb0b5b06f6e6ad5b19f5346816ebc35c0da329c46e0096f4",
+      "reference_vertices": 682532,
+      "replay_vertices": 682532,
+      "reference_triangles": 1365004,
+      "replay_triangles": 1365004,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 2.3630664348602295,
+        "rms": 0.03929755464196205,
+        "p99": 1.3328003944934608e-07
+      },
+      "bidirectional_vertex_bound_m": 0.003954898181067189,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 286,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.366673203734564
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 286,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.3666731486012615
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 156,
+      "reference_sha256": "3bd79a49ee7d3c29478782a20df4def3788b73d0cdab4f3e7bfba8de38a78a4f",
+      "replay_sha256": "787ed9313c66ef0bf79f5604535319fb06effa4e4e94b98c146692eb83cd03dd",
+      "reference_vertices": 680016,
+      "replay_vertices": 680016,
+      "reference_triangles": 1359772,
+      "replay_triangles": 1359772,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.9553261995315552,
+        "rms": 0.012085960246622562,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.0034092213976233414,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 343,
+        "open_edges": 3,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.375542031793358
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 343,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.375543089804068
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 157,
+      "reference_sha256": "43b61c36756ea7b6f2106bf05b5bed8442ee97130806a4910f7f8fc4249aaf79",
+      "replay_sha256": "90411af44c0adccab3fa40846b72a99095191098ba01cd111cbc76cc265bc3d0",
+      "reference_vertices": 664984,
+      "replay_vertices": 664984,
+      "reference_triangles": 1329504,
+      "replay_triangles": 1329504,
+      "same_face_array": true,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 1.0013580322265625e-05,
+        "rms": 3.017678906758192e-08,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 1.0013580322265625e-05,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 362,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 4,
+        "volume_m3": 5.378806308318116
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 362,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 4,
+        "volume_m3": 5.3788063082869115
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 158,
+      "reference_sha256": "cd8e1fe470eff0a9f3ffe973c935eafbe527578a7225b1f31a320281bb5580ac",
+      "replay_sha256": "21400bd1f268d994d2ea08122a13b30c6557eb557a4ca6e5fe4df6bad1d07bb8",
+      "reference_vertices": 651586,
+      "replay_vertices": 651586,
+      "reference_triangles": 1302464,
+      "replay_triangles": 1302464,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0026785305235534906,
+        "rms": 4.118366177863209e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.002678530633287493,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 368,
+        "open_edges": 2,
+        "nonmanifold_edges": 2,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.382381790897843
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 368,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.382379094797963
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 159,
+      "reference_sha256": "33f403672d77c1fe34e2d23c57f52a216e2d701209fee8fbb6fa080d2bc1a8ed",
+      "replay_sha256": "a8476116968827453aba2a2a25c8008d8f458c0467a7abe3c847351c58c35ba0",
+      "reference_vertices": 639294,
+      "replay_vertices": 639294,
+      "reference_triangles": 1277740,
+      "replay_triangles": 1277740,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0018245509127154946,
+        "rms": 2.93869220513443e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.0018245509651583032,
+      "bijective_vertex_map": false,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 380,
+        "open_edges": 3,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.386843628647294
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 380,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.3868436367527535
+      },
+      "hydrodynamic_transport_approved": false
+    },
+    {
+      "frame": 160,
+      "reference_sha256": "c7210bf22f6002e2efb4cbe933a7cb25e32f992612333d396cc71ec7f707d161",
+      "replay_sha256": "05d7222cb183e52b93d168d8a37c7aa46fe6b4c25e617da786ea3213b316baf3",
+      "reference_vertices": 632748,
+      "replay_vertices": 632748,
+      "reference_triangles": 1264820,
+      "replay_triangles": 1264820,
+      "same_face_array": false,
+      "tolerance_m": 1e-05,
+      "byte_identical": false,
+      "indexed_vertex_delta_m": {
+        "maximum": 0.0017212630482390523,
+        "rms": 2.965211251648725e-06,
+        "p99": 1.1920928955078125e-07
+      },
+      "bidirectional_vertex_bound_m": 0.001721263036056519,
+      "bijective_vertex_map": true,
+      "mapped_topology_identical": false,
+      "geometry_gate": "NO_GO",
+      "reference_topology": {
+        "watertight": false,
+        "winding": true,
+        "components": 331,
+        "open_edges": 3,
+        "nonmanifold_edges": 1,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.392294040097551
+      },
+      "replay_topology": {
+        "watertight": true,
+        "winding": true,
+        "components": 331,
+        "open_edges": 0,
+        "nonmanifold_edges": 0,
+        "zero_area_triangles": 0,
+        "volume_m3": 5.392293735661339
+      },
+      "hydrodynamic_transport_approved": false
+    }
+  ]
+}

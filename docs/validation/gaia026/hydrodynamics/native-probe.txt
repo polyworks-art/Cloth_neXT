@@ -1,0 +1,5 @@
+backend: cpu
+hydrodynamic-test: uniform-sheet-si-v1
+hydrodynamic-fluid-transport: unavailable
+stamp: 946c425688ff022e
+device: host cpu

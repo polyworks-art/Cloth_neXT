@@ -1,0 +1,188 @@
+{
+  "result": "FAIL",
+  "cpu_backend": "native CPU",
+  "cuda_backend": "cuda",
+  "cases": [
+    {
+      "case": "animated_collider",
+      "max_position_difference_m": 4.994764822185971e-06,
+      "rms_position_difference_m": 1.19505796192243e-06,
+      "net_force_difference_n": 0.00024680831120349467,
+      "force_limit_n": 0.00025203647673130035,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "bend_flexible",
+      "max_position_difference_m": 3.6342589737614617e-07,
+      "rms_position_difference_m": 9.901933140099572e-08,
+      "net_force_difference_n": 6.815437814111647e-07,
+      "force_limit_n": 3.0134456455707548e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "bend_stiff",
+      "max_position_difference_m": 3.2533654348299024e-07,
+      "rms_position_difference_m": 8.67392913050935e-08,
+      "net_force_difference_n": 1.4660143961009453e-06,
+      "force_limit_n": 4.51102203130722e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "collider",
+      "max_position_difference_m": 2.1543178263527807e-06,
+      "rms_position_difference_m": 7.827954391359526e-07,
+      "net_force_difference_n": 3.7513300412683748e-06,
+      "force_limit_n": 0.00020999028742313386,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "dry",
+      "max_position_difference_m": 5.256440632582137e-17,
+      "rms_position_difference_m": 1.664446542006547e-17,
+      "net_force_difference_n": 0.0,
+      "force_limit_n": 1e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "gradient",
+      "max_position_difference_m": 1.64193011187308e-07,
+      "rms_position_difference_m": 7.35165173182395e-08,
+      "net_force_difference_n": 1.6447006601083558e-07,
+      "force_limit_n": 1.1718659535981715e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "half_dt",
+      "max_position_difference_m": 3.557665309017466e-07,
+      "rms_position_difference_m": 8.837370302217096e-08,
+      "net_force_difference_n": 4.547376875052578e-07,
+      "force_limit_n": 1.1671762904152275e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "heavy",
+      "max_position_difference_m": 2.6396685401733344e-13,
+      "rms_position_difference_m": 9.014649785107562e-14,
+      "net_force_difference_n": 9.313225746154785e-10,
+      "force_limit_n": 1.563874887302518e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "moving_cloth",
+      "max_position_difference_m": 6.280369833130267e-14,
+      "rms_position_difference_m": 3.735850333513174e-14,
+      "net_force_difference_n": 0.0,
+      "force_limit_n": 1.0000000082744569e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "outside",
+      "max_position_difference_m": 0.0,
+      "rms_position_difference_m": 0.0,
+      "net_force_difference_n": 0.0,
+      "force_limit_n": 1e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "partial",
+      "max_position_difference_m": 1.4936630350348423e-06,
+      "rms_position_difference_m": 5.82245718305785e-07,
+      "net_force_difference_n": 1.0332647804034423e-07,
+      "force_limit_n": 1.1927270903252067e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "refined",
+      "max_position_difference_m": 4.190951585769653e-08,
+      "rms_position_difference_m": 9.68702185133452e-09,
+      "net_force_difference_n": 2.761005035711861e-10,
+      "force_limit_n": 1.1689636032097042e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "reverse",
+      "max_position_difference_m": 4.190951585769653e-08,
+      "rms_position_difference_m": 1.4702537853850117e-08,
+      "net_force_difference_n": 4.784611040697939e-10,
+      "force_limit_n": 1.1689634751528502e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "self_collision",
+      "max_position_difference_m": 4.321807409723988e-06,
+      "rms_position_difference_m": 7.202064011835319e-07,
+      "net_force_difference_n": 0.002165771322324872,
+      "force_limit_n": 0.00021113407075405122,
+      "position_limit_m": 1e-05,
+      "passed": false
+    },
+    {
+      "case": "still_both_sides",
+      "max_position_difference_m": 5.256440632582137e-17,
+      "rms_position_difference_m": 1.664446542006547e-17,
+      "net_force_difference_n": 0.0,
+      "force_limit_n": 1e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "surface_moving",
+      "max_position_difference_m": 6.292116836448258e-07,
+      "rms_position_difference_m": 2.2159497348184232e-07,
+      "net_force_difference_n": 2.958279026188393e-07,
+      "force_limit_n": 1.4931868053972722e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "tangential",
+      "max_position_difference_m": 2.1032064978498966e-12,
+      "rms_position_difference_m": 8.737263842116538e-13,
+      "net_force_difference_n": 2.842170943040401e-14,
+      "force_limit_n": 1.278335832990706e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "temporal",
+      "max_position_difference_m": 6.796050809783349e-13,
+      "rms_position_difference_m": 2.705110441203473e-13,
+      "net_force_difference_n": 7.450580596923828e-09,
+      "force_limit_n": 4.975670784711838e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "uniform",
+      "max_position_difference_m": 6.511767569605809e-09,
+      "rms_position_difference_m": 2.278392141619179e-09,
+      "net_force_difference_n": 4.450800838995406e-11,
+      "force_limit_n": 1.1689635682851077e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    },
+    {
+      "case": "uniform_one_brick",
+      "max_position_difference_m": 5.202049901953387e-09,
+      "rms_position_difference_m": 1.5556992360998834e-09,
+      "net_force_difference_n": 2.2254009399147456e-11,
+      "force_limit_n": 1.1689636148512364e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    }
+  ],
+  "scope": "Full native solves and final native force telemetry; no direct Jacobian readback"
+}

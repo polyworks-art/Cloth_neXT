@@ -1,0 +1,146 @@
+[
+  {
+    "frame": 128,
+    "sha256": "06706cc1e799fd1745bcb2665d1c5973c559ae4df874b27dc7773a2ca6a9a4d7",
+    "vertices": 709044,
+    "faces": 1417772,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.156730211409715,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 3.973997632760523e-11,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 129,
+    "sha256": "000404e021d825a922f36d9fe9c0507a3af158232975932da8d4c547ad0ac3d5",
+    "vertices": 711502,
+    "faces": 1422544,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.166241193855114,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 3.316035272740133e-13,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 130,
+    "sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+    "vertices": 711260,
+    "faces": 1421952,
+    "watertight": false,
+    "winding": true,
+    "volume": 5.173458335744,
+    "boundary_edges": 7,
+    "nonmanifold_edges": 1,
+    "zero_area_faces": 0,
+    "minimum_area": 8.326093572220658e-13,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": false,
+      "winding": true
+    }
+  },
+  {
+    "frame": 131,
+    "sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+    "vertices": 710144,
+    "faces": 1419876,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.1814658022564535,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 1.0386346135801107e-11,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 132,
+    "sha256": "d0fa6f9b3ea8ee377b8ee78a2c4d3629be4cd51febed636c59b5141e0e1c84d0",
+    "vertices": 694362,
+    "faces": 1388124,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.186871952405339,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 1.8182294359074203e-12,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 133,
+    "sha256": "0f6b3de875388a3b1a28f7ee3878d08c0fb4291ef4f260339ab2e21ffd82ae8c",
+    "vertices": 677116,
+    "faces": 1353536,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.1932715877218465,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 6.276423517770947e-12,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 134,
+    "sha256": "64bb03af6e1cef7a5daa23ddf7ce7eb61f1bef477d43854bbc971cf7e42e7d36",
+    "vertices": 664934,
+    "faces": 1329176,
+    "watertight": true,
+    "winding": true,
+    "volume": 5.198487607037879,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 1.0771462285245121e-12,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  },
+  {
+    "frame": 135,
+    "sha256": "7ac0e35805dc2a553875e7663465daa06ca862a5f622788aab6528b4d2c3578b",
+    "vertices": 659706,
+    "faces": 1318816,
+    "watertight": false,
+    "winding": true,
+    "volume": 5.20450880472183,
+    "boundary_edges": 2,
+    "nonmanifold_edges": 2,
+    "zero_area_faces": 0,
+    "minimum_area": 4.2204766591898335e-12,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": false,
+      "winding": true
+    }
+  }
+]

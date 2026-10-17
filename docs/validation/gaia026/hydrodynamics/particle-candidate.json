@@ -1,0 +1,152 @@
+[
+  {
+    "frame": 130,
+    "bobj_sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+    "particles": 8784790,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.0031886418397557383,
+      "rms": 0.005295611057463137,
+      "p95_abs": 0.010912503851078038,
+      "maximum_abs": 0.01383035639189029
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.6839498281478882,
+      "maximum": 5.2396955490112305
+    },
+    "valid_reference": false,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  },
+  {
+    "frame": 131,
+    "bobj_sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+    "particles": 8784783,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.003186623330239083,
+      "rms": 0.005282158200483539,
+      "p95_abs": 0.010902459152146004,
+      "maximum_abs": 0.014220398623875722
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.7034261226654053,
+      "maximum": 4.630841255187988
+    },
+    "valid_reference": true,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  },
+  {
+    "frame": 132,
+    "bobj_sha256": "d0fa6f9b3ea8ee377b8ee78a2c4d3629be4cd51febed636c59b5141e0e1c84d0",
+    "particles": 8784780,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.0032583019625442105,
+      "rms": 0.0053549779699632975,
+      "p95_abs": 0.010963832042615886,
+      "maximum_abs": 0.014082726908098309
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.7050772905349731,
+      "maximum": 4.771236896514893
+    },
+    "valid_reference": true,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  },
+  {
+    "frame": 133,
+    "bobj_sha256": "0f6b3de875388a3b1a28f7ee3878d08c0fb4291ef4f260339ab2e21ffd82ae8c",
+    "particles": 8784753,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.0033245139154765013,
+      "rms": 0.005426088095266365,
+      "p95_abs": 0.010992890542679414,
+      "maximum_abs": 0.013768210743842706
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.6850475072860718,
+      "maximum": 4.655980110168457
+    },
+    "valid_reference": true,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  },
+  {
+    "frame": 135,
+    "bobj_sha256": "7ac0e35805dc2a553875e7663465daa06ca862a5f622788aab6528b4d2c3578b",
+    "particles": 8784750,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.0033596792425625707,
+      "rms": 0.005453780749673791,
+      "p95_abs": 0.010991103489705018,
+      "maximum_abs": 0.013924796214022102
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.693729281425476,
+      "maximum": 4.777106285095215
+    },
+    "valid_reference": false,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  },
+  {
+    "frame": 160,
+    "bobj_sha256": "c7210bf22f6002e2efb4cbe933a7cb25e32f992612333d396cc71ec7f707d161",
+    "particles": 8784519,
+    "radius_m": 0.01491483200503396,
+    "surface_sample_count": 20000,
+    "bobj_on_particle_union_residual_m": {
+      "mean": -0.0036273063785444435,
+      "rms": 0.0056750181262696505,
+      "p95_abs": 0.011067048034627101,
+      "maximum_abs": 0.013252460207681808
+    },
+    "local_nearest_particle_speed_m_s": {
+      "mean": 1.7432671785354614,
+      "maximum": 5.265719890594482
+    },
+    "valid_reference": false,
+    "status": "NOT_VALIDATED_FOR_TRANSPORT",
+    "missing_equivalence": [
+      "original obstacle SDF/meshing offset",
+      "original smoothing and grid polygonization",
+      "cloth wet area and hydrodynamic force validation",
+      "resolution convergence"
+    ]
+  }
+]

@@ -1,0 +1,108 @@
+{
+  "blend": "F:\\16_Cloth_neXt\\Flip_Test.blend",
+  "scene": "Scene",
+  "frames": [
+    1,
+    250
+  ],
+  "fps": 24.0,
+  "domains": [
+    {
+      "object": "FLIP Domain",
+      "cache": "F:\\16_Cloth_neXt\\Flip_Test_flip_fluid_cache",
+      "bake_running": false,
+      "particle_position_files": 0,
+      "particle_velocity_files": 0,
+      "first_velocity": null,
+      "last_velocity": null,
+      "timing_metadata": true,
+      "world_scale": 1.0,
+      "baked_simulation": {
+        "auto_preview_resolution": {
+          "data": true,
+          "is_animated": false
+        },
+        "delete_outdated_meshes": {
+          "data": true,
+          "is_animated": false
+        },
+        "delete_outdated_savestates": {
+          "data": true,
+          "is_animated": false
+        },
+        "enable_savestates": {
+          "data": true,
+          "is_animated": false
+        },
+        "fluid_boundary_collisions": {
+          "data": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "is_animated": false
+        },
+        "fluid_open_boundary_width": {
+          "data": 4,
+          "is_animated": false
+        },
+        "frame_range_custom": {
+          "data": [
+            1,
+            250
+          ],
+          "is_animated": false
+        },
+        "frame_range_mode": {
+          "data": "FRAME_RANGE_TIMELINE",
+          "is_animated": false
+        },
+        "frame_rate_custom": {
+          "data": 24.0,
+          "is_animated": false
+        },
+        "frame_rate_mode": {
+          "data": "FRAME_RATE_MODE_SCENE",
+          "is_animated": false
+        },
+        "frames_per_second": {
+          "data": 24,
+          "is_animated": false
+        },
+        "lock_cell_size": {
+          "data": false,
+          "is_animated": false
+        },
+        "preview_resolution": {
+          "data": 32,
+          "is_animated": false
+        },
+        "resolution": {
+          "data": 65,
+          "is_animated": false
+        },
+        "savestate_interval": {
+          "data": 50,
+          "is_animated": false
+        },
+        "time_scale": {
+          "data": 1.0,
+          "is_animated": false
+        },
+        "time_scale_mode": {
+          "data": "TIME_SCALE_MODE_CUSTOM",
+          "is_animated": false
+        },
+        "update_settings_on_resume": {
+          "data": true,
+          "is_animated": false
+        }
+      },
+      "baked_scale": 1.0
+    }
+  ],
+  "provider_validation": "FLIP velocity data is not available. Enable Fluid Particle Velocity Attributes and rebake FLIP."
+}

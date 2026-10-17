@@ -1,0 +1,40 @@
+[
+  {
+    "frame": 130,
+    "sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+    "vertices": 711260,
+    "faces": 1421952,
+    "watertight": false,
+    "connected_components": 405,
+    "winding": true,
+    "volume": 5.173458335744,
+    "boundary_edges": 7,
+    "nonmanifold_edges": 1,
+    "zero_area_faces": 0,
+    "minimum_area": 8.326093572220658e-13,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": false,
+      "winding": true
+    }
+  },
+  {
+    "frame": 131,
+    "sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+    "vertices": 710144,
+    "faces": 1419876,
+    "watertight": true,
+    "connected_components": 378,
+    "winding": true,
+    "volume": 5.1814658022564535,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "minimum_area": 1.0386346135801107e-11,
+    "exact_merge": {
+      "removed_vertices": 0,
+      "watertight": true,
+      "winding": true
+    }
+  }
+]

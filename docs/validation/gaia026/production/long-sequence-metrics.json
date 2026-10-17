@@ -1,0 +1,215 @@
+{
+  "result": "PASS",
+  "stages": [
+    {
+      "frames": 3,
+      "result": "PASS",
+      "max_wet_displacement_vs_dry_m": 0.03134880936851272,
+      "wet_wall_seconds": 13.813310899999124,
+      "dry_wall_seconds": 11.886996100000033,
+      "prepared_gaia_bytes": 454066,
+      "blender_peak_working_set_bytes": 455348224,
+      "native_metrics": {
+        "frame_count": 3,
+        "max_packed_frame_bytes": 643708,
+        "packed_bytes": 1718132,
+        "param_bytes": 1719959,
+        "encoding_seconds": 1.1045422999995935,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "dry_resources": {
+        "sampled_tree_peak_rss_bytes": 608534528,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 386211840,
+          "ppf-cts-server.exe": 25763840,
+          "python.exe": 63877120,
+          "ppf-contact-solver.exe": 163463168
+        }
+      },
+      "wet_resources": {
+        "sampled_tree_peak_rss_bytes": 667643904,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 455348224,
+          "ppf-cts-server.exe": 22716416,
+          "python.exe": 67047424,
+          "ppf-contact-solver.exe": 156368896
+        }
+      }
+    },
+    {
+      "frames": 24,
+      "result": "PASS",
+      "max_wet_displacement_vs_dry_m": 1.4638478224964233,
+      "wet_wall_seconds": 38.369977300000755,
+      "dry_wall_seconds": 22.674019000000044,
+      "prepared_gaia_bytes": 10119858,
+      "blender_peak_working_set_bytes": 679428096,
+      "native_metrics": {
+        "frame_count": 24,
+        "max_packed_frame_bytes": 1995388,
+        "packed_bytes": 28965792,
+        "param_bytes": 28971009,
+        "encoding_seconds": 7.621068100001139,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "dry_resources": {
+        "sampled_tree_peak_rss_bytes": 812425216,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 583446528,
+          "ppf-cts-server.exe": 24055808,
+          "python.exe": 63950848,
+          "ppf-contact-solver.exe": 162492416
+        }
+      },
+      "wet_resources": {
+        "sampled_tree_peak_rss_bytes": 908681216,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 679428096,
+          "ppf-cts-server.exe": 76959744,
+          "python.exe": 120524800,
+          "ppf-contact-solver.exe": 173957120
+        }
+      }
+    },
+    {
+      "frames": 60,
+      "result": "PASS",
+      "max_wet_displacement_vs_dry_m": 3.9785834709828207,
+      "wet_wall_seconds": 89.19333560000086,
+      "dry_wall_seconds": 42.72268989999975,
+      "prepared_gaia_bytes": 36616517,
+      "blender_peak_working_set_bytes": 799961088,
+      "native_metrics": {
+        "frame_count": 60,
+        "max_packed_frame_bytes": 2265724,
+        "packed_bytes": 106009872,
+        "param_bytes": 106021061,
+        "encoding_seconds": 21.446105699998952,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "dry_resources": {
+        "sampled_tree_peak_rss_bytes": 978083840,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 700973056,
+          "ppf-cts-server.exe": 25198592,
+          "python.exe": 63848448,
+          "ppf-contact-solver.exe": 163573760
+        }
+      },
+      "wet_resources": {
+        "sampled_tree_peak_rss_bytes": 1008852992,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 799961088,
+          "ppf-cts-server.exe": 234319872,
+          "python.exe": 273952768,
+          "ppf-contact-solver.exe": 175501312
+        }
+      }
+    },
+    {
+      "frames": 120,
+      "result": "PASS",
+      "max_wet_displacement_vs_dry_m": 13.317525754615053,
+      "wet_wall_seconds": 168.02643379999972,
+      "dry_wall_seconds": 75.37411409999913,
+      "prepared_gaia_bytes": 79529251,
+      "blender_peak_working_set_bytes": 801214464,
+      "native_metrics": {
+        "frame_count": 120,
+        "max_packed_frame_bytes": 2282108,
+        "packed_bytes": 226413088,
+        "param_bytes": 226434107,
+        "encoding_seconds": 41.660800100000415,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "dry_resources": {
+        "sampled_tree_peak_rss_bytes": 984903680,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 715497472,
+          "ppf-cts-server.exe": 24035328,
+          "python.exe": 63901696,
+          "ppf-contact-solver.exe": 163794944
+        }
+      },
+      "wet_resources": {
+        "sampled_tree_peak_rss_bytes": 1220849664,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 801214464,
+          "ppf-cts-server.exe": 474931200,
+          "python.exe": 516308992,
+          "ppf-contact-solver.exe": 175636480
+        }
+      }
+    },
+    {
+      "frames": 250,
+      "result": "PASS",
+      "max_wet_displacement_vs_dry_m": 31.89517064400256,
+      "wet_wall_seconds": 365.8779698999988,
+      "dry_wall_seconds": 158.7733449999996,
+      "prepared_gaia_bytes": 170993474,
+      "blender_peak_working_set_bytes": 822972416,
+      "native_metrics": {
+        "frame_count": 250,
+        "max_packed_frame_bytes": 2282108,
+        "packed_bytes": 474189080,
+        "param_bytes": 474231289,
+        "encoding_seconds": 108.32079159999921,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "dry_resources": {
+        "sampled_tree_peak_rss_bytes": 1023610880,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 734298112,
+          "ppf-cts-server.exe": 23011328,
+          "python.exe": 63844352,
+          "ppf-contact-solver.exe": 164487168
+        }
+      },
+      "wet_resources": {
+        "sampled_tree_peak_rss_bytes": 1673543680,
+        "sample_period_seconds": 0.05,
+        "solver_vram_bytes": null,
+        "vram_reason": "NVIDIA WDDM reports per-process used_memory as N/A",
+        "process_peak_working_set_bytes": {
+          "blender.exe": 822972416,
+          "ppf-cts-server.exe": 971296768,
+          "python.exe": null,
+          "ppf-contact-solver.exe": 156495872
+        }
+      }
+    }
+  ]
+}

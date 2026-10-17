@@ -1,0 +1,18 @@
+{
+  "scope": "Frozen NEON reference, original simulation materials/attachments, CUDA130\u2013159+real160",
+  "regular_blender_bake": "PASS",
+  "fresh_pc2_reload": "PASS",
+  "independent_exported_frame_collider_audit": "PASS",
+  "physical_response_sensitivity": "PASS_WITHIN_MEASURED_SCOPE",
+  "visual_diagnostic_review": "NO_GROSS_DISCONTINUITY_OBSERVED_IN_REVIEWED_VIEWS",
+  "numerical_finiteness_and_native_bounds": "PASS",
+  "trajectory_repeatability": "INVESTIGATE_TARGET_NOT_MET",
+  "trajectory_error_attribution_to_reconstruction": "INCONCLUSIVE_DUE_TO_BASELINE_VARIATION",
+  "release": "NO_GO",
+  "version_commit_push_release": "NONE",
+  "sdf_sensitivity_metric": "Offset of stored signed EDT scalar, not a certified geometric offset",
+  "source_integrity_file": "../flip-original/post-test-source-integrity.json",
+  "current_original_blend_matches_frozen_reference": false,
+  "source_cache_checked_payloads": 93,
+  "report": "docs/GAIA_RECONSTRUCTION_ACCEPTANCE_RESULT.md"
+}

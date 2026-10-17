@@ -1,0 +1,89 @@
+{
+  "scope": "Verified PC2 serialization of native controls; no claim of completed Blender operator import",
+  "caches": [
+    {
+      "case": "original_wet1",
+      "object": "S04_NEON_Garments",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_wet1\\S04_NEON_Garments.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 3.051750296911848e-08
+    },
+    {
+      "case": "original_wet1",
+      "object": "S04_NEON_Garments.001",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_wet1\\S04_NEON_Garments.001.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.103471172913544e-08
+    },
+    {
+      "case": "original_wet1",
+      "object": "S04_NEON_Garments.002",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_wet1\\S04_NEON_Garments.002.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.103462690809636e-08
+    },
+    {
+      "case": "original_dry1",
+      "object": "S04_NEON_Garments",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_dry1\\S04_NEON_Garments.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 3.051754737803947e-08
+    },
+    {
+      "case": "original_dry1",
+      "object": "S04_NEON_Garments.001",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_dry1\\S04_NEON_Garments.001.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.103483873864946e-08
+    },
+    {
+      "case": "original_dry1",
+      "object": "S04_NEON_Garments.002",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\original_dry1\\S04_NEON_Garments.002.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.103459337936101e-08
+    },
+    {
+      "case": "soft_wet1",
+      "object": "S04_NEON_Garments",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_wet1\\S04_NEON_Garments.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 3.051757901939567e-08
+    },
+    {
+      "case": "soft_wet1",
+      "object": "S04_NEON_Garments.001",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_wet1\\S04_NEON_Garments.001.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.10346020391006e-08
+    },
+    {
+      "case": "soft_wet1",
+      "object": "S04_NEON_Garments.002",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_wet1\\S04_NEON_Garments.002.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.100978611200958e-08
+    },
+    {
+      "case": "soft_dry1",
+      "object": "S04_NEON_Garments",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_dry1\\S04_NEON_Garments.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 3.051725683267392e-08
+    },
+    {
+      "case": "soft_dry1",
+      "object": "S04_NEON_Garments.001",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_dry1\\S04_NEON_Garments.001.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.103442884430876e-08
+    },
+    {
+      "case": "soft_dry1",
+      "object": "S04_NEON_Garments.002",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\preview-pc2\\soft_dry1\\S04_NEON_Garments.002.pc2",
+      "frames": 30,
+      "max_roundtrip_world_error_m": 6.101251526224871e-08
+    }
+  ]
+}

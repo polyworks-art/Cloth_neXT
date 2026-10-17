@@ -1,0 +1,219 @@
+{
+  "experimental_cuda_execution_result": "PASS",
+  "strict_cpu_cuda_reference_result": "FAIL",
+  "product_release": "NOT_APPROVED",
+  "gpu": "RTX 4070 SUPER",
+  "native_gpu_force_and_nine_matrix_blocks": "PASS",
+  "full_native_gpu_reference_cases": 20,
+  "cpu_cuda_reference_comparisons": 20,
+  "cpu_cuda_combined_comparisons_passed": 19,
+  "max_reference_position_difference_m": 4.994764822185971e-06,
+  "failed_reference_cases": [
+    {
+      "case": "self_collision",
+      "max_position_difference_m": 4.321807409723988e-06,
+      "rms_position_difference_m": 7.202064011835319e-07,
+      "net_force_difference_n": 0.002165771322324872,
+      "force_limit_n": 0.00021113407075405122,
+      "position_limit_m": 1e-05,
+      "passed": false
+    }
+  ],
+  "neon_gpu_30_frame_cases": [
+    {
+      "label": "hydro1",
+      "seconds": 99.10899999999992
+    },
+    {
+      "label": "dry1",
+      "seconds": 82.78200000000015
+    },
+    {
+      "label": "flow1",
+      "seconds": 86.9380000000001
+    },
+    {
+      "label": "hydro2",
+      "seconds": 102.3119999999999
+    },
+    {
+      "label": "dry2",
+      "seconds": 81.875
+    }
+  ],
+  "neon_comparisons": {
+    "dry1__flow1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.002439108170394221,
+        "rms_m": 0.00016898288014126944
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.0001513645831054834,
+        "rms_m": 1.2892840770862157e-05
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0013687795346139576,
+        "rms_m": 1.032598364154169e-05
+      }
+    },
+    "dry1__hydro1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.053368953065578595,
+        "rms_m": 0.009687414011917733
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.0002785470794886627,
+        "rms_m": 2.028139940696934e-05
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0015837950556682782,
+        "rms_m": 0.00010514602843823041
+      }
+    },
+    "dry1__dry2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.0011143956490004612,
+        "rms_m": 6.614919378112586e-06
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.00015159454571009336,
+        "rms_m": 1.3142538578551584e-05
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0003020543154277758,
+        "rms_m": 4.629287065647159e-06
+      }
+    },
+    "hydro1__hydro2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.007690965534055833,
+        "rms_m": 0.00022203285649593195
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.00019222990484272484,
+        "rms_m": 1.0862210490867004e-05
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0009585411297668927,
+        "rms_m": 1.1559123508240001e-05
+      }
+    }
+  },
+  "pending": [
+    "Strict instantaneous force comparison after different contact-state histories: 19/20 pass",
+    "Acceptance and investigation of local repeat spread (CPU maximum 9.353 mm, CUDA 7.691 mm)",
+    "Native hard guard when leaving cropped SDF domain",
+    "Blender product integration and lifecycle validation after acceptance"
+  ],
+  "full_neon_cpu_cases_completed": 5,
+  "cpu_checkpoint_resume_frame": 19,
+  "cpu_neon": [
+    {
+      "label": "dry1",
+      "seconds": 813.953,
+      "seconds_scope": "resumed segment only; earlier compute excluded"
+    },
+    {
+      "label": "flow1",
+      "seconds": 818.516,
+      "seconds_scope": "resumed segment only; earlier compute excluded"
+    },
+    {
+      "label": "dry2",
+      "seconds": 827.703,
+      "seconds_scope": "resumed segment only; earlier compute excluded"
+    },
+    {
+      "label": "hydro1",
+      "seconds": 988.828,
+      "seconds_scope": "resumed segment only; earlier compute excluded"
+    },
+    {
+      "label": "hydro2",
+      "seconds": 993.0150000000001,
+      "seconds_scope": "resumed segment only; earlier compute excluded"
+    }
+  ],
+  "native_gpu_force_matrix_tests_passed": 2,
+  "frozen_contact_scale_force_component_max_delta_n": 0,
+  "frozen_contact_scale_matrix_entry_max_delta": 0,
+  "cpu_neon_comparisons": {
+    "dry1__flow1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.0014753834647642163,
+        "rms_m": 0.00015147147514028007
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.0001439632962005566,
+        "rms_m": 9.574422038943168e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0011345071681289176,
+        "rms_m": 1.1421942006405356e-05
+      }
+    },
+    "dry1__hydro1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.05329455816495358,
+        "rms_m": 0.009684738161517558
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.00012962732283333057,
+        "rms_m": 8.896997116604703e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0015301691225538408,
+        "rms_m": 0.00010501427099215171
+      }
+    },
+    "dry1__dry2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.0015695885603579838,
+        "rms_m": 2.5232119361525873e-05
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 6.729787686602366e-05,
+        "rms_m": 8.646647710825827e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0009183316247773229,
+        "rms_m": 8.798770144851874e-06
+      }
+    },
+    "hydro1__hydro2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.009352786102185168,
+        "rms_m": 0.0002654346011061694
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 5.275766225015653e-05,
+        "rms_m": 3.593452667118097e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.00046577333313777523,
+        "rms_m": 8.899345401321752e-06
+      }
+    }
+  },
+  "neon_cpu_cuda_comparison_file": "neon-cpu-cuda-comparison.json",
+  "independent_crossing_audit_frames": 300,
+  "independent_crossing_segments": 0,
+  "self_contact_diagnostic": {
+    "cpu": {
+      "wet_area_m2": 0.010000000707805157,
+      "relative_speed_mean_m_s": 0.2005640741038419,
+      "native_normal_n": 0.2011340707540512,
+      "approx_from_mean_speed_n": 0.20112975334172356
+    },
+    "cuda": {
+      "wet_area_m2": 0.010000001639127731,
+      "relative_speed_mean_m_s": 0.19948204503502703,
+      "native_normal_n": 0.1989683210849762,
+      "approx_from_mean_speed_n": 0.1989654640697584
+    }
+  },
+  "blender_product_lifecycle": "not validated; capability remains disabled",
+  "latest_gaia_addon_regressions_passed": 165,
+  "remaining_own_test_processes": 0,
+  "native_frozen_tests_patch": "native-spatial-hydrodynamics-with-frozen-tests.patch"
+}

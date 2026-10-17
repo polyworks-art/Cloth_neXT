@@ -1,0 +1,1418 @@
+[
+  {
+    "file": "001-bending-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-bending-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-bending-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-bending-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-bending-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-bending-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-constraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "001-contact-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "001-contact-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "001-contact-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-contact-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "001-contact-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "001-contact-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "001-dirichlet-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-hydro-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-linear_solve-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-membrane-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-material_records.json",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-target.f32",
+    "identical": true
+  },
+  {
+    "file": "001-momentum-vertex_props.json",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-preconstraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-rod-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-stitch-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-strain-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "001-tet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-bending-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-constraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "002-contact-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "002-contact-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "002-contact-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-contact-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "002-contact-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "002-contact-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "002-dirichlet-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-hydro-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-linear_solve-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-membrane-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-material_records.json",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-target.f32",
+    "identical": true
+  },
+  {
+    "file": "002-momentum-vertex_props.json",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-preconstraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-rod-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-stitch-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-strain-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "002-tet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-bending-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-constraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "003-contact-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "003-contact-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "003-contact-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-contact-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "003-contact-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "003-contact-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "003-dirichlet-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-hydro-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-linear_solve-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-membrane-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-material_records.json",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-target.f32",
+    "identical": true
+  },
+  {
+    "file": "003-momentum-vertex_props.json",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-preconstraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-rod-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-stitch-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-strain-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "003-tet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-bending-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-constraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "004-contact-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "004-contact-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "004-contact-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-contact-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "004-contact-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "004-contact-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-dynamic-index.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-dynamic-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-dynamic-value.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-transpose-index.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-transpose-offset.bin",
+    "identical": true
+  },
+  {
+    "file": "004-dirichlet-transpose-value.bin",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-hydro-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-linear_solve-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-membrane-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-material_records.json",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-target.f32",
+    "identical": true
+  },
+  {
+    "file": "004-momentum-vertex_props.json",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-preconstraints-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-rod-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-stitch-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-strain-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-diagonal.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-dx.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-eval_x.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-fixed.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-force.f32",
+    "identical": true
+  },
+  {
+    "file": "004-tet-positions.f32",
+    "identical": true
+  },
+  {
+    "file": "output/vert_0.bin",
+    "identical": true
+  },
+  {
+    "file": "output/vert_1.bin",
+    "identical": true
+  }
+]

@@ -1,0 +1,361 @@
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 4333.65it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 318.24it/s]
+{'case': 'uniform', 'final_velocity_m_s': [0.17918524146080017, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0016896356828510761, 'force_n': [0.0016896356828510761, 1.5735949002171346e-11, 1.5735949002171346e-11], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-a69849fe0c834d36b714789d2d09c2a2\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12997.84it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 405.54it/s]
+{'case': 'uniform_one_brick', 'final_velocity_m_s': [0.17918524146080017, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0016896361485123634, 'force_n': [0.0016896361485123634, 1.573596461468263e-11, -1.5735957675788725e-11], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-9c2ee0857ba9495e80fbafa61409d269\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 8648.05it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 354.08it/s]
+{'case': 'still_both_sides', 'final_velocity_m_s': [-8.877612030340433e-16, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0, 'force_n': [-1.874230762442591e-30, 1.0229478789571165e-43, 8.96831017167883e-44], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.0, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-d66aab0989e04f59966915c8a69ef67f\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 13000.94it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 201.65it/s]
+{'case': 'dry', 'final_velocity_m_s': [-8.877612030340433e-16, 0.0, 0.0], 'wet_area_m2': 0.0, 'normal_load_n': 0.0, 'force_n': [0.0, 0.0, 0.0], 'two_sided_wet_area_m2': 0.0, 'fluid_speed_max_m_s': 0.0, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-4fd4907911254042a40501183bfe34f9\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12988.55it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 174.11it/s]
+{'case': 'partial', 'final_velocity_m_s': [0.12945860624313354, 0.0015746057033538818, 0.00022590160369873047], 'wet_area_m2': 0.005000068340450525, 'normal_load_n': 0.0019274847581982613, 'force_n': [0.0019141433294862509, 0.00022520142374560237, 1.0507040315133054e-05], 'two_sided_wet_area_m2': 0.005000068340450525, 'fluid_speed_max_m_s': 0.20000000298023224, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-ec7966d640564a22900b5377c0789667\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.02263062074780464}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 2598.83it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 208.74it/s]
+{'case': 'gradient', 'final_velocity_m_s': [0.2041403204202652, -0.0006221234798431396, 1.2964010238647461e-05], 'wet_area_m2': 0.010000014677643776, 'normal_load_n': 0.001718824147246778, 'force_n': [0.0017178489360958338, -5.7109136832877994e-05, -9.461840818403289e-06], 'two_sided_wet_area_m2': 0.010000014677643776, 'fluid_speed_max_m_s': 0.2416415810585022, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-4d6cbe53698447c3aad5d0234f52633d\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.00048828125}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 6490.41it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 285.56it/s]
+{'case': 'temporal', 'final_velocity_m_s': [-0.06251182407140732, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.039756715297698975, 'force_n': [-0.039756715297698975, 0.0, 0.0], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-f548af539b67442f9f87f4836793ab0e\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 5198.89it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 563.05it/s]
+{'case': 'reverse', 'final_velocity_m_s': [-0.179185152053833, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0016896347515285015, 'force_n': [-0.0016896347515285015, 4.7207869557919224e-11, 4.7207869557919224e-11], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000000298023224, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-fa53baeedfaa4730a13b7d385d0d3510\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 8664.54it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 319.39it/s]
+{'case': 'moving_cloth', 'final_velocity_m_s': [0.19999638199806213, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 8.274456814172382e-11, 'force_n': [8.274456814172382e-11, 0.0, 0.0], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000000298023224, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-c090039c107e4dd0b019cdcb4967e3e0\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 13007.15it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 666.53it/s]
+{'case': 'outside', 'final_velocity_m_s': [0.0, 0.0, 0.0], 'wet_area_m2': 0.0, 'normal_load_n': 0.0, 'force_n': [0.0, 0.0, 0.0], 'two_sided_wet_area_m2': 0.0, 'fluid_speed_max_m_s': 0.0, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-9f6206c11bcb480fa0226ef89e27c805\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12954.61it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 458.87it/s]
+{'case': 'heavy', 'final_velocity_m_s': [0.1624181866645813, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.005638747941702604, 'force_n': [0.005638747941702604, 0.0, 0.0], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-c01e4cfe5fdd40be8b5e3179eaed5fc6\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 3686.93it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 152.23it/s]
+{'case': 'refined', 'final_velocity_m_s': [0.179185152053833, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0016896359156817198, 'force_n': [0.0016896359156817198, 3.147192922936526e-11, 3.147192922936526e-11], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-279d9c70c406408089ec32a1c2aaf64e\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12954.61it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 229.35it/s]
+{'case': 'half_dt', 'final_velocity_m_s': [0.17927435040473938, 0.0, 0.0], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.0016722176223993301, 'force_n': [0.0016722176223993301, 0.0, 0.0], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000000298023224, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-20196cef975349b8a3d1256d43992c45\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 5531.14it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 229.35it/s]
+{'case': 'bend_flexible', 'final_velocity_m_s': [0.13481490314006805, -0.05543112754821777, -0.008528828620910645], 'wet_area_m2': 0.010002587921917439, 'normal_load_n': 0.021889079362154007, 'force_n': [0.018597666174173355, -0.0077149467542767525, 0.00017358537297695875], 'two_sided_wet_area_m2': 0.010002587921917439, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-40e7b4161f89469da14dc5e2208f14a8\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.16841727495193481}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 5200.38it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 444.01it/s]
+{'case': 'bend_stiff', 'final_velocity_m_s': [0.14463931322097778, -0.028101205825805664, -0.0013901293277740479], 'wet_area_m2': 0.010001011192798615, 'normal_load_n': 0.05060601234436035, 'force_n': [0.03325052559375763, -0.011278398334980011, 0.00016296067042276263], 'two_sided_wet_area_m2': 0.010001011192798615, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-3406a9dedad14a27abdbce3991e47e4b\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.056435540318489075}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 3713.29it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 178.03it/s]
+{'case': 'collider', 'final_velocity_m_s': [4.470348358154297e-06, -1.9371509552001953e-05, -3.5762786865234375e-05], 'wet_area_m2': 0.01000000350177288, 'normal_load_n': 0.1999911665916443, 'force_n': [0.19999107718467712, 1.299209543503821e-06, -1.2906748452223837e-06], 'two_sided_wet_area_m2': 0.01000000350177288, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-e088e125db004845960128504469d113\\spatial', 'native_contact_peak': 11, 'mean_hinge_angle_rad': 0.00172633514739573}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 4332.96it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 300.93it/s]
+{'case': 'animated_collider', 'final_velocity_m_s': [-0.019958289340138435, 1.430511474609375e-05, -1.0877847671508789e-05], 'wet_area_m2': 0.009999996051192284, 'normal_load_n': 0.24228328466415405, 'force_n': [0.24228328466415405, 3.063360054511577e-07, -3.062814357690513e-07], 'two_sided_wet_area_m2': 0.009999996051192284, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-9442a8a9f018491297a4d258fd405718\\spatial', 'native_contact_peak': 10, 'mean_hinge_angle_rad': 0.0003452669770922512}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 3706.73it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session:  57%|#####7    | 8/14 [00:00<00:00, 75.42it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 130.74it/s]
+{'case': 'self_collision', 'final_velocity_m_s': [1.3578683137893677e-05, -6.556510925292969e-06, 5.811452865600586e-06], 'wet_area_m2': 0.010000001639127731, 'normal_load_n': 0.1989683210849762, 'force_n': [0.198968306183815, 1.78103509824723e-05, 8.022800102480687e-06], 'two_sided_wet_area_m2': 0.010000001639127731, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-ccc8c27253c84a58af6819dc13f682f3\\spatial', 'native_contact_peak': 20, 'mean_hinge_angle_rad': 0.0002990099892485887}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 8627.52it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 277.04it/s]
+{'case': 'surface_moving', 'final_velocity_m_s': [0.16537098586559296, 0.003924071788787842, 0.0004184246063232422], 'wet_area_m2': 0.010000047273933887, 'normal_load_n': 0.0049589574337005615, 'force_n': [0.004903544206172228, 0.0005217355792410672, 9.63475540629588e-05], 'two_sided_wet_area_m2': 0.010000047273933887, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-221cb3b2b143418da2ccee8a7e1c10c8\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.038114842027425766}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 13007.15it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 368.20it/s]
+{'case': 'tangential', 'final_velocity_m_s': [9.718976925338074e-13, 0.029660910367965698, -2.5033950805664062e-05], 'wet_area_m2': 0.009999994188547134, 'normal_load_n': 0.0, 'force_n': [6.7003825549711e-15, 0.0027833583299070597, 4.017014418877807e-07], 'two_sided_wet_area_m2': 0.009999994188547134, 'fluid_speed_max_m_s': 0.20000001788139343, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-2cd6f578d3754fb695a3b924a6836ed7\\spatial', 'native_contact_peak': 0, 'mean_hinge_angle_rad': 0.0}

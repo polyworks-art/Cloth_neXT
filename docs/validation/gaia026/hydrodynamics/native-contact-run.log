@@ -1,0 +1,99 @@
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 6502.80it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 490.05it/s]
+{'case': 'dry', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [-3.1647572894254216e-17, 0.0, 0.0], 'analytic_m_s': 0.0, 'error_m_s': 3.1647572894254216e-17, 'max_patch_deflection_m': 3.438435289044511e-17, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-58b395d80b3c40c8a09b84b6d2661e78\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12951.53it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 930.59it/s]
+{'case': 'normal', 'dt_s': 0.001, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [0.17678774893283844, 0.0, 0.0], 'analytic_m_s': 0.17937367125583203, 'error_m_s': 0.0025859223229935946, 'max_patch_deflection_m': 0.01505478098988533, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-bfc23e4a05d34415884230a90a2f7a80\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 26001.88it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 996.47it/s]
+{'case': 'normal_half_dt', 'dt_s': 0.0005, 'density_kg_m2': 1.0, 'divisions': 1, 'measured_final_interval_velocity_m_s': [0.17849057912826538, 0.0, 0.0], 'analytic_m_s': 0.17937367125583203, 'error_m_s': 0.0008830921275666537, 'max_patch_deflection_m': 0.015148648992180824, 'analytic_reference_applicable': True, 'session': 'C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-4a52b0601da5463d82e7bd9b724e30b8\\water', 'contact_enabled': True, 'finite': True}
+
+build scene:   0%|          | 0/13 [00:00<?, ?it/s]
+
+scene checks: 0/3 [A
+
+scene checks: 0/3 , self-intersection BVH[A
+
+scene checks: 1/3 , rod-tri offset       [A
+
+scene checks: 2/3 , contact-offset proximity[A
+scene checks: 3/3 , contact-offset proximity
+
+build scene: 100%|##########| 13/13 [00:00<00:00, 12957.69it/s]
+scene checks: clean (0 self-intersections, 0 contact-offset)
+
+build session:   0%|          | 0/14 [00:00<?, ?it/s]
+build session: 100%|##########| 14/14 [00:00<00:00, 931.18it/s]
+Traceback (most recent call last):
+  File "C:\Users\timch\Documents\GitHub\Cloth_neXT\tools\validate_hydrodynamic_native.py", line 106, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "C:\Users\timch\Documents\GitHub\Cloth_neXT\tools\validate_hydrodynamic_native.py", line 78, in main
+    np.testing.assert_allclose(poses[0,:len(points)],points,atol=1e-7)
+  File "C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\python\Lib\site-packages\numpy\testing\_private\utils.py", line 1768, in assert_allclose
+    assert_array_compare(compare, actual, desired, err_msg=str(err_msg),
+  File "C:\Users\timch\AppData\Local\ClothNeXt\solver\versions\official-2026-10-13-12-32-win64\python\Lib\site-packages\numpy\testing\_private\utils.py", line 983, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Not equal to tolerance rtol=1e-07, atol=1e-07
+
+Mismatched elements: 5 / 27 (18.5%)
+Mismatch at indices:
+ [2, 1]: 0.0 (ACTUAL), 0.1 (DESIRED)
+ [2, 2]: 0.05000000074505806 (ACTUAL), 0.0 (DESIRED)
+ [3, 1]: 0.05000000074505806 (ACTUAL), 0.0 (DESIRED)
+ [4, 1]: 0.10000000149011612 (ACTUAL), 0.05 (DESIRED)
+ [4, 2]: 0.0 (ACTUAL), 0.05 (DESIRED)
+Max absolute difference among violations: 0.1
+Max relative difference among violations: 1.00000003
+ ACTUAL: array([[0.  , 0.  , 0.  ],
+       [0.  , 0.05, 0.  ],
+       [0.  , 0.  , 0.05],...
+ DESIRED: array([[0.  , 0.  , 0.  ],
+       [0.  , 0.05, 0.  ],
+       [0.  , 0.1 , 0.  ],...

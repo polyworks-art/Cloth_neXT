@@ -1,0 +1,17 @@
+{
+  "test_a": {
+    "first": 130,
+    "last": 133,
+    "output_frames": 4,
+    "lookahead": 134
+  },
+  "test_b": {
+    "first": 130,
+    "last": 159,
+    "output_frames": 30,
+    "lookahead": 160
+  },
+  "source_presence_and_clock": "PASS",
+  "bake_result": "NOT_RUN",
+  "note": "Prior frames 1-30 trajectories are not a matching mid-sequence reference."
+}

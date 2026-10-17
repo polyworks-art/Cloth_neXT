@@ -1,0 +1,1097 @@
+{
+  "native_consistency": "PASS",
+  "force_samples": 29,
+  "normal_load_range_n": [
+    90.97504753889531,
+    143.66582100964368
+  ],
+  "wet_area_range_m2": [
+    0.5377621175607601,
+    0.6730178320019604
+  ],
+  "maximum_normal_load_step_n": 19.898210514672215,
+  "temporal_screen_threshold_n": 10.742660947710355,
+  "temporal_flags": [
+    {
+      "from_output": 1,
+      "to_output": 2,
+      "load_delta_n": 13.445691479662898,
+      "wet_area_delta_m2": -0.029801636666206832,
+      "mean_relative_speed_delta_m_s": 0.06404016568169502,
+      "status": "REQUIRES_CONTEXTUAL_REVIEW"
+    },
+    {
+      "from_output": 20,
+      "to_output": 21,
+      "load_delta_n": 18.879591048395156,
+      "wet_area_delta_m2": 0.013587143523182021,
+      "mean_relative_speed_delta_m_s": 0.029945134144506946,
+      "status": "REQUIRES_CONTEXTUAL_REVIEW"
+    },
+    {
+      "from_output": 22,
+      "to_output": 23,
+      "load_delta_n": -12.386846239512266,
+      "wet_area_delta_m2": 0.01717293107367368,
+      "mean_relative_speed_delta_m_s": -0.040964508299468294,
+      "status": "REQUIRES_CONTEXTUAL_REVIEW"
+    },
+    {
+      "from_output": 23,
+      "to_output": 24,
+      "load_delta_n": -19.898210514672215,
+      "wet_area_delta_m2": 0.013460784265362236,
+      "mean_relative_speed_delta_m_s": -0.04998977967699725,
+      "status": "REQUIRES_CONTEXTUAL_REVIEW"
+    }
+  ],
+  "temporal_acceptance": "PENDING_REVIEW",
+  "release_approved": false,
+  "limits": "Final exported evaluations only; not all Newton/substep states or a proof against visual jitter. Physical transients may exceed the screening threshold and require interpretation.",
+  "rows": [
+    {
+      "output_frame": 1,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          3,
+          3
+        ],
+        "dt_s": 0.004659252241253853,
+        "evaluation_time_s": 0.035502657294273376,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      },
+      "area_m2": 1.3806836929549036,
+      "wet_area_m2": 0.6730178320019604,
+      "normal_load_n": 94.81110045675615,
+      "net_force_n": [
+        -43.94144741001183,
+        -2.2672804068666976,
+        -1.8426359137418808
+      ],
+      "maximum_relative_speed_m_s": 2.867445945739746,
+      "maximum_fluid_speed_m_s": 2.868425130844116,
+      "mean_wet_relative_speed_m_s": 0.9899378112085321,
+      "wet_classification_change_area_at_10um_m2": 1.7378259144607e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 2,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          4,
+          4
+        ],
+        "dt_s": 0.004556329920887947,
+        "evaluation_time_s": 0.06995659321546555,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "area_m2": 1.3806477627173308,
+      "wet_area_m2": 0.6432161953357536,
+      "normal_load_n": 108.25679193641905,
+      "net_force_n": [
+        -42.84398373178395,
+        -4.475319158735912,
+        -4.862549722892041
+      ],
+      "maximum_relative_speed_m_s": 2.8707149028778076,
+      "maximum_fluid_speed_m_s": 2.8702993392944336,
+      "mean_wet_relative_speed_m_s": 1.053977976890227,
+      "wet_classification_change_area_at_10um_m2": 1.7623266558075557e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 3,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          5,
+          5
+        ],
+        "dt_s": 0.0061514852568507195,
+        "evaluation_time_s": 0.10611588507890701,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            4,
+            3
+          ],
+          [
+            4,
+            3
+          ]
+        ]
+      },
+      "area_m2": 1.3805364745453517,
+      "wet_area_m2": 0.6202290648275266,
+      "normal_load_n": 107.18866947731098,
+      "net_force_n": [
+        -37.65733527384894,
+        -2.238646415827619,
+        -5.449276257561916
+      ],
+      "maximum_relative_speed_m_s": 2.700441837310791,
+      "maximum_fluid_speed_m_s": 2.690804958343506,
+      "mean_wet_relative_speed_m_s": 1.0789833475511819,
+      "wet_classification_change_area_at_10um_m2": 2.7798932023870293e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 4,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          6,
+          6
+        ],
+        "dt_s": 0.007180145010352135,
+        "evaluation_time_s": 0.1334303468465805,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            4,
+            5
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "area_m2": 1.3806596529840363,
+      "wet_area_m2": 0.6083091540556325,
+      "normal_load_n": 103.43917287825249,
+      "net_force_n": [
+        -34.65603277408564,
+        -1.1444795675545438,
+        -1.0367733101350023
+      ],
+      "maximum_relative_speed_m_s": 2.5190770626068115,
+      "maximum_fluid_speed_m_s": 2.524947166442871,
+      "mean_wet_relative_speed_m_s": 1.0750074269267327,
+      "wet_classification_change_area_at_10um_m2": 7.509155693696812e-06,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 5,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          7,
+          7
+        ],
+        "dt_s": 0.0044980780221521854,
+        "evaluation_time_s": 0.16671200096607208,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            6,
+            5
+          ],
+          [
+            6,
+            5
+          ]
+        ]
+      },
+      "area_m2": 1.380685007633133,
+      "wet_area_m2": 0.6017525795978145,
+      "normal_load_n": 94.55006965743829,
+      "net_force_n": [
+        -28.83706743717288,
+        -1.2836484277354734,
+        3.707837622335508
+      ],
+      "maximum_relative_speed_m_s": 2.65592360496521,
+      "maximum_fluid_speed_m_s": 2.661698818206787,
+      "mean_wet_relative_speed_m_s": 1.072881007645486,
+      "wet_classification_change_area_at_10um_m2": 1.597473374204128e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 6,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          8,
+          8
+        ],
+        "dt_s": 0.008123401552438736,
+        "evaluation_time_s": 0.2046952247619629,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            7
+          ]
+        ]
+      },
+      "area_m2": 1.3807638494755565,
+      "wet_area_m2": 0.5980993787547959,
+      "normal_load_n": 91.41874744702679,
+      "net_force_n": [
+        -23.042139892164926,
+        -1.2326961003457384,
+        2.8278706063383794
+      ],
+      "maximum_relative_speed_m_s": 2.5719168186187744,
+      "maximum_fluid_speed_m_s": 2.573140859603882,
+      "mean_wet_relative_speed_m_s": 1.094301082959872,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 7,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          9,
+          9
+        ],
+        "dt_s": 0.009650805965065956,
+        "evaluation_time_s": 0.23620732128620148,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            8,
+            7
+          ],
+          [
+            8,
+            7
+          ]
+        ]
+      },
+      "area_m2": 1.3806386012107623,
+      "wet_area_m2": 0.5895027225178637,
+      "normal_load_n": 92.9394547199528,
+      "net_force_n": [
+        -22.586574438258587,
+        -1.4059268137126355,
+        2.208279106319269
+      ],
+      "maximum_relative_speed_m_s": 2.6717734336853027,
+      "maximum_fluid_speed_m_s": 2.6755199432373047,
+      "mean_wet_relative_speed_m_s": 1.1206015557284552,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 8,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          10,
+          10
+        ],
+        "dt_s": 0.006702492479234934,
+        "evaluation_time_s": 0.2719731032848358,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            8,
+            9
+          ],
+          [
+            8,
+            9
+          ]
+        ]
+      },
+      "area_m2": 1.3803358785564797,
+      "wet_area_m2": 0.5747993197639971,
+      "normal_load_n": 99.01598105370853,
+      "net_force_n": [
+        -22.59534208729169,
+        -2.393031584131967,
+        -6.5570015524422764
+      ],
+      "maximum_relative_speed_m_s": 2.679023504257202,
+      "maximum_fluid_speed_m_s": 2.69926118850708,
+      "mean_wet_relative_speed_m_s": 1.145560160231149,
+      "wet_classification_change_area_at_10um_m2": 1.6385560229537077e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 9,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          11,
+          11
+        ],
+        "dt_s": 0.008093718439340591,
+        "evaluation_time_s": 0.3079388737678528,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            10,
+            9
+          ],
+          [
+            10,
+            9
+          ]
+        ]
+      },
+      "area_m2": 1.380111904220712,
+      "wet_area_m2": 0.5638068680000288,
+      "normal_load_n": 102.89105606993704,
+      "net_force_n": [
+        -23.54087372862001,
+        -2.133211113355793,
+        -10.522815108518149
+      ],
+      "maximum_relative_speed_m_s": 2.9271321296691895,
+      "maximum_fluid_speed_m_s": 2.956679344177246,
+      "mean_wet_relative_speed_m_s": 1.137319094565791,
+      "wet_classification_change_area_at_10um_m2": 3.3834595342341345e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 10,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          12,
+          12
+        ],
+        "dt_s": 0.006244705058634281,
+        "evaluation_time_s": 0.3334616422653198,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            10,
+            11
+          ],
+          [
+            10,
+            11
+          ]
+        ]
+      },
+      "area_m2": 1.3801170853184885,
+      "wet_area_m2": 0.5599321567860898,
+      "normal_load_n": 102.8506513866451,
+      "net_force_n": [
+        -21.68585476102202,
+        -2.4643410182639363,
+        -12.31137625018046
+      ],
+      "maximum_relative_speed_m_s": 3.0785892009735107,
+      "maximum_fluid_speed_m_s": 3.07831072807312,
+      "mean_wet_relative_speed_m_s": 1.115367941454045,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 11,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          13,
+          13
+        ],
+        "dt_s": 0.00588403083384037,
+        "evaluation_time_s": 0.37070193886756897,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            12,
+            11
+          ],
+          [
+            12,
+            11
+          ]
+        ]
+      },
+      "area_m2": 1.3802210930290357,
+      "wet_area_m2": 0.5438032289039256,
+      "normal_load_n": 97.4349552628561,
+      "net_force_n": [
+        -26.261684849633664,
+        -3.450468980677006,
+        -7.3925440727402005
+      ],
+      "maximum_relative_speed_m_s": 2.885361909866333,
+      "maximum_fluid_speed_m_s": 2.8917579650878906,
+      "mean_wet_relative_speed_m_s": 1.108123947746816,
+      "wet_classification_change_area_at_10um_m2": 2.9584237381641287e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 12,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          14,
+          14
+        ],
+        "dt_s": 0.007618973031640053,
+        "evaluation_time_s": 0.40020182728767395,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            12,
+            13
+          ],
+          [
+            12,
+            13
+          ]
+        ]
+      },
+      "area_m2": 1.380178761606885,
+      "wet_area_m2": 0.5377621175607601,
+      "normal_load_n": 106.22058540038566,
+      "net_force_n": [
+        -31.490750219961917,
+        -4.721345310206117,
+        -13.338821018700143
+      ],
+      "maximum_relative_speed_m_s": 2.8741660118103027,
+      "maximum_fluid_speed_m_s": 2.8774523735046387,
+      "mean_wet_relative_speed_m_s": 1.1430764490866596,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 13,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          15,
+          15
+        ],
+        "dt_s": 0.007347279693931341,
+        "evaluation_time_s": 0.43776431679725647,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            14,
+            13
+          ],
+          [
+            14,
+            13
+          ]
+        ]
+      },
+      "area_m2": 1.3800016855780086,
+      "wet_area_m2": 0.539687819773917,
+      "normal_load_n": 110.12960041981484,
+      "net_force_n": [
+        -32.66940706480845,
+        -2.4037632692889117,
+        -16.982017243687228
+      ],
+      "maximum_relative_speed_m_s": 2.811218023300171,
+      "maximum_fluid_speed_m_s": 2.810645818710327,
+      "mean_wet_relative_speed_m_s": 1.1652722360497831,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 14,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          16,
+          16
+        ],
+        "dt_s": 0.007333011832088232,
+        "evaluation_time_s": 0.467595636844635,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            14,
+            15
+          ],
+          [
+            14,
+            15
+          ]
+        ]
+      },
+      "area_m2": 1.3798375069955,
+      "wet_area_m2": 0.550820488482259,
+      "normal_load_n": 113.17624434975698,
+      "net_force_n": [
+        -34.12933860045101,
+        -0.2232761187441551,
+        -18.905581087139993
+      ],
+      "maximum_relative_speed_m_s": 2.8505330085754395,
+      "maximum_fluid_speed_m_s": 2.846653461456299,
+      "mean_wet_relative_speed_m_s": 1.1868111861902773,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 15,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          17,
+          17
+        ],
+        "dt_s": 0.006604898255318403,
+        "evaluation_time_s": 0.5012239217758179,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            16,
+            15
+          ],
+          [
+            16,
+            15
+          ]
+        ]
+      },
+      "area_m2": 1.3798083408775028,
+      "wet_area_m2": 0.5588920608777244,
+      "normal_load_n": 119.75637579890571,
+      "net_force_n": [
+        -41.59884449213087,
+        0.9030985852369722,
+        -16.373352076787864
+      ],
+      "maximum_relative_speed_m_s": 3.0150322914123535,
+      "maximum_fluid_speed_m_s": 3.021054267883301,
+      "mean_wet_relative_speed_m_s": 1.2128438789924778,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 16,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          18,
+          18
+        ],
+        "dt_s": 0.006907672621309757,
+        "evaluation_time_s": 0.5371783375740051,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            16,
+            17
+          ],
+          [
+            16,
+            17
+          ]
+        ]
+      },
+      "area_m2": 1.3796879703949116,
+      "wet_area_m2": 0.5634554932323681,
+      "normal_load_n": 117.88549186630979,
+      "net_force_n": [
+        -41.88527795882159,
+        2.669571753417298,
+        -10.174050495654809
+      ],
+      "maximum_relative_speed_m_s": 3.0456039905548096,
+      "maximum_fluid_speed_m_s": 3.044893741607666,
+      "mean_wet_relative_speed_m_s": 1.2276546895584164,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 17,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          19,
+          19
+        ],
+        "dt_s": 0.007463038899004459,
+        "evaluation_time_s": 0.5700176358222961,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            18,
+            17
+          ],
+          [
+            18,
+            17
+          ]
+        ]
+      },
+      "area_m2": 1.3797489097439666,
+      "wet_area_m2": 0.5588862312774836,
+      "normal_load_n": 108.71359622290667,
+      "net_force_n": [
+        -35.856827937795295,
+        2.770230761222876,
+        -5.924215520863963
+      ],
+      "maximum_relative_speed_m_s": 2.9252095222473145,
+      "maximum_fluid_speed_m_s": 2.9134724140167236,
+      "mean_wet_relative_speed_m_s": 1.2262582417920236,
+      "wet_classification_change_area_at_10um_m2": 2.632279029057827e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 18,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          20,
+          20
+        ],
+        "dt_s": 0.008158768527209759,
+        "evaluation_time_s": 0.6003954410552979,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            18,
+            19
+          ],
+          [
+            18,
+            19
+          ]
+        ]
+      },
+      "area_m2": 1.3798054061365974,
+      "wet_area_m2": 0.557380548517358,
+      "normal_load_n": 103.72081035196354,
+      "net_force_n": [
+        -29.448355768913277,
+        1.3432295371796115,
+        -3.8173956916280494
+      ],
+      "maximum_relative_speed_m_s": 2.6016392707824707,
+      "maximum_fluid_speed_m_s": 2.5734007358551025,
+      "mean_wet_relative_speed_m_s": 1.2157733945268385,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 19,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          21,
+          21
+        ],
+        "dt_s": 0.008070600219070911,
+        "evaluation_time_s": 0.6334248781204224,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            20,
+            19
+          ],
+          [
+            20,
+            19
+          ]
+        ]
+      },
+      "area_m2": 1.3796670967695945,
+      "wet_area_m2": 0.5601382750958237,
+      "normal_load_n": 112.01286836932478,
+      "net_force_n": [
+        -28.497549881919987,
+        1.1517021816558377,
+        -8.936147759499725
+      ],
+      "maximum_relative_speed_m_s": 2.9354257583618164,
+      "maximum_fluid_speed_m_s": 2.9389395713806152,
+      "mean_wet_relative_speed_m_s": 1.2374525390446796,
+      "wet_classification_change_area_at_10um_m2": 3.860186188830994e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 20,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          22,
+          22
+        ],
+        "dt_s": 0.007959341630339622,
+        "evaluation_time_s": 0.669089674949646,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            20,
+            21
+          ],
+          [
+            20,
+            21
+          ]
+        ]
+      },
+      "area_m2": 1.3795138516321686,
+      "wet_area_m2": 0.5687334342260328,
+      "normal_load_n": 121.41588616636525,
+      "net_force_n": [
+        -29.11443369380265,
+        1.6947525341092198,
+        -9.345311394625142
+      ],
+      "maximum_relative_speed_m_s": 3.1897387504577637,
+      "maximum_fluid_speed_m_s": 3.1938366889953613,
+      "mean_wet_relative_speed_m_s": 1.2584296610468337,
+      "wet_classification_change_area_at_10um_m2": 1.4501259101962205e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 21,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          23,
+          23
+        ],
+        "dt_s": 0.006027751602232456,
+        "evaluation_time_s": 0.702141284942627,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            22,
+            21
+          ],
+          [
+            22,
+            21
+          ]
+        ]
+      },
+      "area_m2": 1.3791289848344377,
+      "wet_area_m2": 0.5823205777492149,
+      "normal_load_n": 140.2954772147604,
+      "net_force_n": [
+        -35.72724919495695,
+        -0.47884959051345155,
+        -15.571688257871088
+      ],
+      "maximum_relative_speed_m_s": 3.40803599357605,
+      "maximum_fluid_speed_m_s": 3.407008409500122,
+      "mean_wet_relative_speed_m_s": 1.2883747951913407,
+      "wet_classification_change_area_at_10um_m2": 1.1723515854100697e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 22,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          24,
+          24
+        ],
+        "dt_s": 0.004419232718646526,
+        "evaluation_time_s": 0.7367940545082092,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            22,
+            23
+          ],
+          [
+            22,
+            23
+          ]
+        ]
+      },
+      "area_m2": 1.3790520155631611,
+      "wet_area_m2": 0.5976624981394707,
+      "normal_load_n": 143.66582100964368,
+      "net_force_n": [
+        -37.08831342212564,
+        -1.434850775721921,
+        -15.052806914394964
+      ],
+      "maximum_relative_speed_m_s": 3.0676262378692627,
+      "maximum_fluid_speed_m_s": 3.081448793411255,
+      "mean_wet_relative_speed_m_s": 1.2869190130972623,
+      "wet_classification_change_area_at_10um_m2": 3.5811243833450135e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 23,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          25,
+          25
+        ],
+        "dt_s": 0.005995482672005892,
+        "evaluation_time_s": 0.7668679356575012,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            24,
+            23
+          ],
+          [
+            24,
+            23
+          ]
+        ]
+      },
+      "area_m2": 1.379240765966756,
+      "wet_area_m2": 0.6148354292131444,
+      "normal_load_n": 131.2789747701314,
+      "net_force_n": [
+        -31.372683832977778,
+        -3.0652195102740083,
+        -7.217187616746136
+      ],
+      "maximum_relative_speed_m_s": 3.0510332584381104,
+      "maximum_fluid_speed_m_s": 3.0688154697418213,
+      "mean_wet_relative_speed_m_s": 1.245954504797794,
+      "wet_classification_change_area_at_10um_m2": 0.0,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 24,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          26,
+          26
+        ],
+        "dt_s": 0.004941788036376238,
+        "evaluation_time_s": 0.803153932094574,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            24,
+            25
+          ],
+          [
+            24,
+            25
+          ]
+        ]
+      },
+      "area_m2": 1.3794137996153495,
+      "wet_area_m2": 0.6282962134785066,
+      "normal_load_n": 111.3807642554592,
+      "net_force_n": [
+        -19.575733094968534,
+        -1.7122272545246915,
+        3.714607255353023
+      ],
+      "maximum_relative_speed_m_s": 2.8113136291503906,
+      "maximum_fluid_speed_m_s": 2.759291172027588,
+      "mean_wet_relative_speed_m_s": 1.1959647251207968,
+      "wet_classification_change_area_at_10um_m2": 1.0173639566346537e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 25,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          27,
+          27
+        ],
+        "dt_s": 0.008378829807043076,
+        "evaluation_time_s": 0.8383677005767822,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            26,
+            25
+          ],
+          [
+            26,
+            25
+          ]
+        ]
+      },
+      "area_m2": 1.3796247371595882,
+      "wet_area_m2": 0.637319833978836,
+      "normal_load_n": 101.62960454053314,
+      "net_force_n": [
+        -13.599237355870263,
+        -0.48701458312400825,
+        6.396731685213612
+      ],
+      "maximum_relative_speed_m_s": 2.456050395965576,
+      "maximum_fluid_speed_m_s": 2.461195945739746,
+      "mean_wet_relative_speed_m_s": 1.1778448159274424,
+      "wet_classification_change_area_at_10um_m2": 6.664468401140766e-06,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 26,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          28,
+          28
+        ],
+        "dt_s": 0.005244702100753784,
+        "evaluation_time_s": 0.8670978546142578,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            26,
+            27
+          ],
+          [
+            26,
+            27
+          ]
+        ]
+      },
+      "area_m2": 1.3794866518452409,
+      "wet_area_m2": 0.6446685883788632,
+      "normal_load_n": 97.86046780161487,
+      "net_force_n": [
+        -13.700335808757675,
+        0.3053389231993867,
+        8.417976760625042
+      ],
+      "maximum_relative_speed_m_s": 2.3161160945892334,
+      "maximum_fluid_speed_m_s": 2.3169877529144287,
+      "mean_wet_relative_speed_m_s": 1.1762628804517725,
+      "wet_classification_change_area_at_10um_m2": 7.967189958435483e-06,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 27,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          29,
+          29
+        ],
+        "dt_s": 0.00943914894014597,
+        "evaluation_time_s": 0.9008836150169373,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            28,
+            27
+          ],
+          [
+            28,
+            27
+          ]
+        ]
+      },
+      "area_m2": 1.379264631578394,
+      "wet_area_m2": 0.6515712659329438,
+      "normal_load_n": 90.97504753889531,
+      "net_force_n": [
+        -13.075552261673364,
+        -1.838365692275333,
+        14.86699058507523
+      ],
+      "maximum_relative_speed_m_s": 2.2931604385375977,
+      "maximum_fluid_speed_m_s": 2.292703151702881,
+      "mean_wet_relative_speed_m_s": 1.1749049548526878,
+      "wet_classification_change_area_at_10um_m2": 2.854667491192231e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 28,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          30,
+          30
+        ],
+        "dt_s": 0.0075895944610238075,
+        "evaluation_time_s": 0.9394443035125732,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            28,
+            29
+          ],
+          [
+            28,
+            29
+          ]
+        ]
+      },
+      "area_m2": 1.3792402974547713,
+      "wet_area_m2": 0.6554714029325623,
+      "normal_load_n": 91.76463007672595,
+      "net_force_n": [
+        -12.343246096933978,
+        -4.427045704722164,
+        19.08748670855347
+      ],
+      "maximum_relative_speed_m_s": 2.213372230529785,
+      "maximum_fluid_speed_m_s": 2.2148654460906982,
+      "mean_wet_relative_speed_m_s": 1.1911579962134684,
+      "wet_classification_change_area_at_10um_m2": 2.8832378575316397e-05,
+      "maximum_drag_bound_excess_n": 0.0
+    },
+    {
+      "output_frame": 29,
+      "clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          31,
+          31
+        ],
+        "dt_s": 0.0075517380610108376,
+        "evaluation_time_s": 0.9675290584564209,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            30,
+            29
+          ],
+          [
+            30,
+            29
+          ]
+        ]
+      },
+      "area_m2": 1.3792243606760621,
+      "wet_area_m2": 0.6614919496955736,
+      "normal_load_n": 98.69277833620126,
+      "net_force_n": [
+        -13.255247381443382,
+        -6.325557256389361,
+        20.48151124884425
+      ],
+      "maximum_relative_speed_m_s": 2.686784267425537,
+      "maximum_fluid_speed_m_s": 2.6881561279296875,
+      "mean_wet_relative_speed_m_s": 1.2159216757787519,
+      "wet_classification_change_area_at_10um_m2": 4.443031002665521e-06,
+      "maximum_drag_bound_excess_n": 0.0
+    }
+  ]
+}

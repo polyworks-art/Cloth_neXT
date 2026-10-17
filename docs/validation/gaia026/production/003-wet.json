@@ -1,0 +1,116 @@
+{
+  "result": "PASS",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 4,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.007496399999581627
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.010432299999592942
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 0.6121680999985983
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 0.7724442999988241
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 0.7774109999991197
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 1.9056239999990794
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 9.23364699999911
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 9.274563099999796
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 13.531036599999425
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 13.703727199999776
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 13.730884599999627
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-wet\\cn_test_cloth_425d7e5d64c9.pc2",
+  "playback_max_error": 0.0,
+  "final_local_positions": [
+    [
+      -0.009986639022827148,
+      0.0212862491607666,
+      -0.001340627670288086
+    ],
+    [
+      0.010013341903686523,
+      0.02131056785583496,
+      -0.001341700553894043
+    ],
+    [
+      -0.01001119613647461,
+      0.041284799575805664,
+      -0.0015755891799926758
+    ],
+    [
+      0.009988784790039062,
+      0.04130911827087402,
+      -0.0015767812728881836
+    ]
+  ],
+  "work_directory": "C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a49532\\cloth_next_run_clothnext_425d7e5d64c9",
+  "water_stream_status": [],
+  "base_param_bytes": [],
+  "native_file_metrics": [
+    {
+      "frame_count": 3,
+      "max_packed_frame_bytes": 643708,
+      "packed_bytes": 1718132,
+      "param_bytes": 1719959,
+      "encoding_seconds": 1.1045422999995935,
+      "packing_budget_bytes": 33554432,
+      "file_budget_bytes": 1073741824
+    }
+  ],
+  "prepared_gaia": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-wet\\Fluid.gaia",
+  "prepared_gaia_bytes": 454066,
+  "blender_peak_working_set_bytes": 455348224,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 7,
+  "wall_seconds": 13.813310899999124
+}

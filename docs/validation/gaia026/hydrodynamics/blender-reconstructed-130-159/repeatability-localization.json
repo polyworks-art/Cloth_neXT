@@ -1,0 +1,122 @@
+[
+  {
+    "case": "baseline1",
+    "object": "S04_NEON_Garments",
+    "worst_correspondence_frame": 146,
+    "vertex_index": 2473,
+    "world_location_blender_m": [
+      0.05205314978957176,
+      -0.02825714461505413,
+      0.3373348116874695
+    ],
+    "maximum_material_vertex_delta_m": 0.02120241511846442,
+    "normal_projection_m": 0.02058930140894919,
+    "tangential_projection_m": 0.005061923976822596,
+    "vertices_above_8mm_at_worst_frame": 97,
+    "fraction_above_8mm_at_worst_frame": 0.006490030777465542,
+    "worst_frame_rms_m": 0.001678991227206117,
+    "sampled_point_to_triangle": [
+      {
+        "samples": 45184,
+        "maximum_m": 0.016403897989423644,
+        "p99_m": 0.004857544446268806
+      },
+      {
+        "samples": 45184,
+        "maximum_m": 0.018847609974328227,
+        "p99_m": 0.004853702620314435
+      }
+    ],
+    "scope": "Sampled vertex+triangle-centroid surface distances at worst material-vertex frame only, not Hausdorff, temporal jitter, or an all-frame geometric bound. Original prospective screen remains INVESTIGATE."
+  },
+  {
+    "case": "baseline2",
+    "object": "S04_NEON_Garments",
+    "worst_correspondence_frame": 159,
+    "vertex_index": 14577,
+    "world_location_blender_m": [
+      -0.17075803875923157,
+      -0.015979144722223282,
+      0.5578666925430298
+    ],
+    "maximum_material_vertex_delta_m": 0.026127372264202815,
+    "normal_projection_m": 0.024504877681722763,
+    "tangential_projection_m": 0.009063694127453784,
+    "vertices_above_8mm_at_worst_frame": 249,
+    "fraction_above_8mm_at_worst_frame": 0.016659975913287835,
+    "worst_frame_rms_m": 0.002436301198011206,
+    "sampled_point_to_triangle": [
+      {
+        "samples": 45184,
+        "maximum_m": 0.019606892774412264,
+        "p99_m": 0.006066182603243824
+      },
+      {
+        "samples": 45184,
+        "maximum_m": 0.01604739894720086,
+        "p99_m": 0.006326529465495531
+      }
+    ],
+    "scope": "Sampled vertex+triangle-centroid surface distances at worst material-vertex frame only, not Hausdorff, temporal jitter, or an all-frame geometric bound. Original prospective screen remains INVESTIGATE."
+  },
+  {
+    "case": "sdf_plus_2p5mm",
+    "object": "S04_NEON_Garments",
+    "worst_correspondence_frame": 159,
+    "vertex_index": 5562,
+    "world_location_blender_m": [
+      -0.11447908729314804,
+      -0.057637836784124374,
+      0.3458983302116394
+    ],
+    "maximum_material_vertex_delta_m": 0.014020783922555569,
+    "normal_projection_m": 0.013716958087100092,
+    "tangential_projection_m": 0.0029030057939542784,
+    "vertices_above_8mm_at_worst_frame": 143,
+    "fraction_above_8mm_at_worst_frame": 0.009567777331727553,
+    "worst_frame_rms_m": 0.0021068250684130444,
+    "sampled_point_to_triangle": [
+      {
+        "samples": 45184,
+        "maximum_m": 0.012307266386975204,
+        "p99_m": 0.005697277816968379
+      },
+      {
+        "samples": 45184,
+        "maximum_m": 0.013478818475986473,
+        "p99_m": 0.005639255381550129
+      }
+    ],
+    "scope": "Sampled vertex+triangle-centroid surface distances at worst material-vertex frame only, not Hausdorff, temporal jitter, or an all-frame geometric bound. Original prospective screen remains INVESTIGATE."
+  },
+  {
+    "case": "sdf_minus_2p5mm",
+    "object": "S04_NEON_Garments",
+    "worst_correspondence_frame": 155,
+    "vertex_index": 2606,
+    "world_location_blender_m": [
+      0.0828683003783226,
+      -0.06371770054101944,
+      0.30702152848243713
+    ],
+    "maximum_material_vertex_delta_m": 0.020314258813603877,
+    "normal_projection_m": 0.013636140799421406,
+    "tangential_projection_m": 0.01505738274881919,
+    "vertices_above_8mm_at_worst_frame": 171,
+    "fraction_above_8mm_at_worst_frame": 0.01144118827780008,
+    "worst_frame_rms_m": 0.002261898585617476,
+    "sampled_point_to_triangle": [
+      {
+        "samples": 45184,
+        "maximum_m": 0.018346722092992516,
+        "p99_m": 0.005895209711719042
+      },
+      {
+        "samples": 45184,
+        "maximum_m": 0.011865978423856026,
+        "p99_m": 0.005564301050048907
+      }
+    ],
+    "scope": "Sampled vertex+triangle-centroid surface distances at worst material-vertex frame only, not Hausdorff, temporal jitter, or an all-frame geometric bound. Original prospective screen remains INVESTIGATE."
+  }
+]

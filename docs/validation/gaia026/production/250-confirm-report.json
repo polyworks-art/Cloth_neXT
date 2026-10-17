@@ -1,0 +1,35 @@
+{
+  "result": "PASS",
+  "stages": [
+    {
+      "frames": 250,
+      "result": "PASS",
+      "dry": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\250-dry\\report.json",
+        "reused_verified_control": true
+      },
+      "wet": {
+        "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\250-confirm\\250-wet\\report.json",
+        "resources": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\final-checks-long-path\\250-confirm\\250-wet-resources.json"
+      },
+      "max_wet_displacement_vs_dry_m": 31.89517064400256,
+      "wet_wall_seconds": 237.32596249999915,
+      "dry_wall_seconds": 158.7733449999996,
+      "prepared_gaia_bytes": 170993474,
+      "blender_peak_working_set_bytes": 700903424,
+      "native_metrics": {
+        "frame_count": 250,
+        "max_packed_frame_bytes": 2282108,
+        "packed_bytes": 474189080,
+        "param_bytes": 474231289,
+        "encoding_seconds": 73.3014050999991,
+        "packing_budget_bytes": 33554432,
+        "file_budget_bytes": 1073741824
+      },
+      "gaia_reused_without_rewrite": true
+    }
+  ],
+  "entry_point": "existing Blender Bake operator",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "source": "F:\\16_Cloth_neXt\\Flip_Test.blend"
+}

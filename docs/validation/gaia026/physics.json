@@ -1,0 +1,110 @@
+{
+  "result": "PASS",
+  "protocol": "0.26",
+  "schema": "2",
+  "backend": "cuda",
+  "cases": [
+    {
+      "case": "moving_water",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": 0.0,
+      "measured_final_velocity": 1.7173662185668945,
+      "expected_final_velocity": 1.7177315802472617,
+      "error": 0.00036536168036716
+    },
+    {
+      "case": "matched_velocity",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": 2.0,
+      "measured_final_velocity": 1.9999723434448242,
+      "expected_final_velocity": 2.0,
+      "error": 2.765655517578125e-05
+    },
+    {
+      "case": "opposing_velocity",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": -2.0,
+      "measured_final_velocity": 1.4348816871643066,
+      "expected_final_velocity": 1.4354631604945234,
+      "error": 0.0005814733302167419
+    },
+    {
+      "case": "still_water",
+      "source_velocity": 0.0,
+      "initial_vertex_velocity": 2.0,
+      "measured_final_velocity": 0.2826118469238281,
+      "expected_final_velocity": 0.2822684197527383,
+      "error": 0.00034342717108981624
+    },
+    {
+      "case": "outside",
+      "source_velocity": 0.0,
+      "initial_vertex_velocity": 2.0,
+      "measured_final_velocity": 1.998779296875,
+      "expected_final_velocity": 2.0,
+      "error": 0.001220703125
+    },
+    {
+      "case": "same_location_other_velocity",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": 1.0,
+      "measured_final_velocity": 1.8585119247436523,
+      "expected_final_velocity": 1.8588657901236307,
+      "error": 0.00035386537997839085
+    },
+    {
+      "case": "reverse_region",
+      "source_velocity": -2.0,
+      "initial_vertex_velocity": 0.0,
+      "measured_final_velocity": -1.7173662185668945,
+      "expected_final_velocity": -1.7177315802472617,
+      "error": 0.00036536168036716
+    },
+    {
+      "case": "stronger_coupling",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": 0.0,
+      "measured_final_velocity": 1.9589252471923828,
+      "expected_final_velocity": 1.960139218030893,
+      "error": 0.0012139708385101589
+    },
+    {
+      "case": "occupancy_zero",
+      "source_velocity": 0.0,
+      "initial_vertex_velocity": 2.0,
+      "measured_final_velocity": 1.9999723434448242,
+      "expected_final_velocity": 2.0,
+      "error": 2.765655517578125e-05
+    },
+    {
+      "case": "occupied_still_water",
+      "source_velocity": 0.0,
+      "initial_vertex_velocity": -2.0,
+      "measured_final_velocity": -0.2826118469238281,
+      "expected_final_velocity": -0.2822684197527383,
+      "error": 0.00034342717108981624
+    },
+    {
+      "case": "spatial_region_0",
+      "source_velocity": 2.0,
+      "initial_vertex_velocity": 0.0,
+      "measured_final_velocity": 1.7173662185668945,
+      "expected_final_velocity": 1.7177315802472617,
+      "error": 0.00036536168036716
+    },
+    {
+      "case": "spatial_region_1",
+      "source_velocity": -2.0,
+      "initial_vertex_velocity": 0.0,
+      "measured_final_velocity": -1.7173347473144531,
+      "expected_final_velocity": -1.7177315802472617,
+      "error": 0.00039683293280856624
+    }
+  ],
+  "scope": "Unmodified native worker, official ParamDecoder, CNX CBOR and sparse bricks; synthetic fluid fixtures",
+  "release": "2026-10-13-12-32",
+  "upstream_commit": "7232f4033515e1e72359f4ce5145456ce7d156f7",
+  "dt_seconds": 0.001,
+  "output_fps": 24,
+  "simulation_seconds": 1
+}

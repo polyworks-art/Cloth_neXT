@@ -1,0 +1,89 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 1000,
+  "total_cloth_vertices": 1000,
+  "combination": "base",
+  "coupling_strength": 0.2,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.004635699999994358
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.009664899999961563
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 0.5606022999999141
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 0.823207899999943
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 0.827810799999952
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 1.6911433999999872
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 8.958368699999937
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 9.181442699999934
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 13.838945899999999
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 14.022220500000003
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 14.047415299999898
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "exception": "AssertionError({'object': 'ProductionGrid1000_0', 'pc2': 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\Temp\\\\cnx026-production-scale-20261014\\\\pilot\\\\1000-3-base-0.2-wet\\\\cn_test_cloth_1905a0e01e64.pc2', 'finite': True, 'vertices': 1000, 'frames': 3, 'max_speed_m_s': 0.7273480599787719, 'max_edge_stretch_ratio': 1.0043800620824932, 'min_edge_ratio': 0.9965335027486915, 'max_pin_error_m': 0.015590255128492134, 'max_displacement_m': 0.0413129161732025, 'playback_max_error': 0.0})",
+  "solver_diagnostics_samples": [
+    {
+      "seconds": 9.473118299999896,
+      "contacts": null,
+      "newton": null,
+      "iterations": null
+    }
+  ],
+  "blender_peak_working_set_bytes": 467943424,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 7,
+  "wall_seconds": 14.171801499999901
+}

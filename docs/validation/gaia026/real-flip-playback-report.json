@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "frames": [
+    150,
+    152
+  ],
+  "checked_samples": 3,
+  "pc2_released": true,
+  "scope": "Isolated patch PC2 through existing Mesh Cache modifier"
+}

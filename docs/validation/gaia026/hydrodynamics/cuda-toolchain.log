@@ -1,0 +1,7 @@
+Downloading cuda_nvcc 120912792
+Verified cuda_nvcc
+Downloading cuda_cudart 3037735
+Verified cuda_cudart
+Downloading cuda_cccl 2911311
+Verified cuda_cccl
+Portable CUDA ready: C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\.tools\cuda-12.8

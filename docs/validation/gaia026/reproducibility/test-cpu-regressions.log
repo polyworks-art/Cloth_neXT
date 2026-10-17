@@ -1,0 +1,1391 @@
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.228
+   Compiling autocfg v1.5.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling serde v1.0.228
+   Compiling cfg-if v1.0.4
+   Compiling windows-link v0.2.1
+   Compiling rayon-core v1.13.0
+   Compiling zerocopy v0.8.48
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling getrandom v0.3.4
+   Compiling winapi v0.3.9
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling paste v1.0.15
+   Compiling bytemuck v1.25.0
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling ppf-cts-compute v0.1.0 (C:\Users\timch\Documents\GitHub\Cloth_neXT\.hydro-test-tmp\reproducibility-20261017\native-source\crates\ppf-cts-compute)
+   Compiling once_cell_polyfill v1.70.2
+   Compiling windows-sys v0.61.2
+   Compiling utf8parse v0.2.2
+   Compiling serde_json v1.0.149
+   Compiling cc v1.2.61
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.10
+   Compiling safe_arch v0.7.4
+   Compiling indexmap v2.14.0
+   Compiling parking_lot_core v0.9.12
+   Compiling thiserror v1.0.69
+   Compiling pin-project-lite v0.2.17
+   Compiling anstyle v1.0.14
+   Compiling ntapi v0.4.3
+   Compiling libc v0.2.186
+   Compiling itoa v1.0.18
+   Compiling rawpointer v0.2.1
+   Compiling rustversion v1.0.22
+   Compiling either v1.15.0
+   Compiling wide v0.7.33
+   Compiling anstyle-query v1.1.5
+   Compiling anstyle-wincon v3.0.11
+   Compiling crossbeam-epoch v0.9.18
+   Compiling windows-targets v0.52.6
+   Compiling anstyle-parse v1.0.0
+   Compiling ciborium-io v0.2.2
+   Compiling rand_core v0.9.5
+   Compiling smallvec v1.15.1
+   Compiling slab v0.4.12
+   Compiling colorchoice v1.0.5
+   Compiling windows-result v0.1.2
+   Compiling crc32fast v1.5.0
+   Compiling syn v2.0.117
+   Compiling crossbeam-deque v0.8.6
+   Compiling futures-core v0.3.32
+   Compiling unicode-xid v0.2.6
+   Compiling anyhow v1.0.102
+   Compiling futures-task v0.3.32
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling getrandom v0.4.2
+   Compiling scopeguard v1.2.0
+   Compiling destructure_traitobject v0.2.0
+   Compiling thiserror v2.0.18
+   Compiling num-integer v0.1.46
+   Compiling approx v0.5.1
+   Compiling ordered-float v2.10.1
+   Compiling unsafe-any-ors v1.0.0
+   Compiling lock_api v0.4.14
+   Compiling num-rational v0.4.2
+   Compiling anstream v1.0.0
+   Compiling tokio v1.52.2
+   Compiling ppf-cts-core v0.1.0 (C:\Users\timch\Documents\GitHub\Cloth_neXT\.hydro-test-tmp\reproducibility-20261017\native-source\crates\ppf-cts-core)
+   Compiling clap_lex v1.1.0
+   Compiling heck v0.5.0
+   Compiling adler2 v2.0.1
+   Compiling typenum v1.20.0
+   Compiling rayon v1.12.0
+   Compiling ryu v1.0.23
+   Compiling winnow v0.7.15
+   Compiling futures-sink v0.3.32
+   Compiling num_cpus v1.17.0
+   Compiling strsim v0.11.1
+   Compiling unsafe-libyaml v0.2.11
+   Compiling toml_write v0.1.2
+   Compiling simd-adler32 v0.3.9
+   Compiling ppf-cts-formats v0.1.0 (C:\Users\timch\Documents\GitHub\Cloth_neXT\.hydro-test-tmp\reproducibility-20261017\native-source\crates\ppf-cts-formats)
+   Compiling bytes v1.11.1
+   Compiling arc-swap v1.9.1
+   Compiling parking_lot v0.12.5
+   Compiling typemap-ors v1.0.0
+   Compiling chrono v0.4.44
+   Compiling log v0.4.29
+   Compiling miniz_oxide v0.8.9
+   Compiling clap_builder v4.6.0
+   Compiling thread-id v5.1.0
+   Compiling unicode-segmentation v1.13.2
+   Compiling fastrand v2.4.1
+   Compiling fnv v1.0.7
+   Compiling humantime v2.3.0
+   Compiling once_cell v1.21.4
+   Compiling mock_instant v0.6.0
+   Compiling log-mdc v0.1.0
+   Compiling git_info v0.1.3
+   Compiling more-asserts v0.2.2
+   Compiling flate2 v1.1.9
+   Compiling tempfile v3.27.0
+   Compiling serde_derive v1.0.228
+   Compiling zerocopy-derive v0.8.48
+   Compiling windows-implement v0.57.0
+   Compiling windows-interface v0.57.0
+   Compiling thiserror-impl v1.0.69
+   Compiling futures-macro v0.3.32
+   Compiling derive_more-impl v2.1.1
+   Compiling nalgebra-macros v0.2.2
+   Compiling thiserror-impl v2.0.18
+   Compiling clap_derive v4.6.1
+   Compiling ppf-cts-solver v0.1.0 (C:\Users\timch\Documents\GitHub\Cloth_neXT\.hydro-test-tmp\reproducibility-20261017\native-source\crates\ppf-cts-solver)
+   Compiling futures-util v0.3.32
+   Compiling windows-core v0.57.0
+warning: value assigned to `abi_linked` is never read
+    --> crates\ppf-cts-solver\build.rs:4275:26
+     |
+4275 |     let mut abi_linked = false;
+     |                          ^^^^^ this value is reassigned later and never used
+...
+4596 |             abi_linked = true;
+     |             ----------------- `abi_linked` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `logic_dir` is never used
+  --> crates\ppf-cts-solver\build.rs:66:8
+   |
+37 | impl Backend {
+   | ------------ method in this implementation
+...
+66 |     fn logic_dir(self) -> Option<&'static str> {
+   |        ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REQUIRED_CUDA_RELEASE` is never used
+   --> crates\ppf-cts-solver\build.rs:295:7
+    |
+295 | const REQUIRED_CUDA_RELEASE: &str = "release 12.8";
+    |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `require_cuda_12_8` is never used
+   --> crates\ppf-cts-solver\build.rs:313:4
+    |
+313 | fn require_cuda_12_8(cpp_dir: &str, kernel_root: &Path) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `manifest_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4796:8
+     |
+4796 |     fn manifest_arches(cpp_dir: &str) -> Vec<u32> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4828:8
+     |
+4828 |     fn image_arches(image: &Path) -> Option<Vec<u32>> {
+     |        ^^^^^^^^^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:4849:12
+     |
+4849 |     pub fn check(image: &Path, cpp_dir: &str) {
+     |            ^^^^^
+
+warning: constant `FP64_OPS` is never used
+    --> crates\ppf-cts-solver\build.rs:4925:11
+     |
+4925 |     const FP64_OPS: [&str; 7] = [
+     |           ^^^^^^^^
+
+warning: constant `FP64_MODIFIER` is never used
+    --> crates\ppf-cts-solver\build.rs:4933:11
+     |
+4933 |     const FP64_MODIFIER: &str = ".F64";
+     |           ^^^^^^^^^^^^^
+
+warning: constant `KNOWN` is never used
+    --> crates\ppf-cts-solver\build.rs:4941:11
+     |
+4941 |     const KNOWN: [&str; 0] = [];
+     |           ^^^^^
+
+warning: function `contains_fp64_modifier` is never used
+    --> crates\ppf-cts-solver\build.rs:4956:8
+     |
+4956 |     fn contains_fp64_modifier(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `contains_mnemonic` is never used
+    --> crates\ppf-cts-solver\build.rs:4964:8
+     |
+4964 |     fn contains_mnemonic(line: &str, op: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4987:8
+     |
+4987 |     fn image_arches(image: &Path) -> Vec<String> {
+     |        ^^^^^^^^^^^^
+
+warning: function `is_instruction` is never used
+    --> crates\ppf-cts-solver\build.rs:5022:8
+     |
+5022 |     fn is_instruction(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^
+
+warning: function `scan` is never used
+    --> crates\ppf-cts-solver\build.rs:5035:8
+     |
+5035 |     fn scan(sass: &str, offenders: &mut Vec<(String, usize)>) -> usize {
+     |        ^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:5059:12
+     |
+5059 |     pub fn check(image: &Path) {
+     |            ^^^^^
+
+   Compiling derive_more v2.1.1
+   Compiling clap v4.6.1
+warning: `ppf-cts-solver` (build script) generated 16 warnings
+   Compiling windows v0.57.0
+   Compiling num-complex v0.4.6
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling serde-value v0.7.0
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling bincode v1.3.3
+   Compiling tokio-util v0.7.18
+   Compiling toml_edit v0.22.27
+   Compiling simba v0.9.1
+   Compiling ndarray v0.16.1
+   Compiling toml v0.8.23
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium v0.2.2
+   Compiling rand v0.9.4
+   Compiling log4rs v1.4.0
+   Compiling nalgebra v0.33.3
+   Compiling sysinfo v0.32.1
+warning: ppf-cts-solver@0.1.0: 
+warning: ppf-cts-solver@0.1.0:   ******************************************************************
+warning: ppf-cts-solver@0.1.0:   * BUILDING THE CPU BACKEND ON A GPU-CAPABLE MACHINE              *
+warning: ppf-cts-solver@0.1.0:   ******************************************************************
+warning: ppf-cts-solver@0.1.0:   This machine can build the REAL CUDA (/usr/local/cuda, CUDA_PATH, PPF_CUDA_ROOT or nvcc on PATH) backend, and you asked
+warning: ppf-cts-solver@0.1.0:   for the CPU one. That is supported and this build will proceed.
+warning: ppf-cts-solver@0.1.0: 
+warning: ppf-cts-solver@0.1.0:   Two consequences, so neither is a surprise later:
+warning: ppf-cts-solver@0.1.0:     - it is roughly 30x slower than the GPU backend, and
+warning: ppf-cts-solver@0.1.0:     - it overwrites the solver at target/release/, so a session
+warning: ppf-cts-solver@0.1.0:       already connected to that path now gets the slow backend.
+warning: ppf-cts-solver@0.1.0: 
+warning: ppf-cts-solver@0.1.0:   To go back:  cargo build --release   (no flags; picks CUDA or
+warning: ppf-cts-solver@0.1.0:   Metal by host)
+warning: ppf-cts-solver@0.1.0: 
+warning: ppf-cts-solver@0.1.0: building the CPU (Rust; solids, shell membranes and bending, rod stretch and bending, both strain limiters, cross-stitches, self-contact, analytic colliders, the static collision mesh, plasticity, per-face pressure, applied torque, projected translation and rotation locks, granular SAND, PDRD rigid bodies with or without a projected lock, and multilevel additive Schwarz; no scene class is refused, and the two material defects that remain are properties no backend can assemble) backend
+warning: unnecessary parentheses around closure body
+   --> crates\ppf-cts-solver\src\driver\devsort.rs:326:22
+    |
+326 |             .map(|i| ((i.wrapping_mul(2_654_435_761) >> 4) % 97))
+    |                      ^                                         ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+326 -             .map(|i| ((i.wrapping_mul(2_654_435_761) >> 4) % 97))
+326 +             .map(|i| (i.wrapping_mul(2_654_435_761) >> 4) % 97)
+    |
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:503:34
+    |
+474 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+503 |             let positions_host = unsafe {
+    |                                  ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:515:29
+    |
+474 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+515 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:670:34
+    |
+642 |         let outcome = unsafe {
+    |                       ------ because it's nested under this `unsafe` block
+...
+670 |             let positions_host = unsafe {
+    |                                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:682:29
+    |
+642 |         let outcome = unsafe {
+    |                       ------ because it's nested under this `unsafe` block
+...
+682 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:906:45
+    |
+880 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+906 |             let (start_host, finish_host) = unsafe {
+    |                                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:917:29
+    |
+880 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+917 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4381:34
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4381 |             let positions_host = unsafe {
+     |                                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4396:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4396 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4406:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4406 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4416:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4416 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4421:29
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4421 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, &data) };
+     |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unused variable: `face_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4394:17
+     |
+4394 |             let face_block = crate::driver::state::position_block_u32(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_face_block`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `edge_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4404:17
+     |
+4404 |             let edge_block = crate::driver::state::position_block_u32(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_edge_block`
+
+warning: unused variable: `prop_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4414:17
+     |
+4414 |             let prop_block = crate::driver::state::position_block_prop(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_prop_block`
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\lock.rs:892:9
+    |
+892 |         unsafe {
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: variable `param` is assigned to, but never used
+    --> crates\ppf-cts-solver\src\driver\refusal.rs:1006:24
+     |
+1006 |         let (mut data, mut param) = empty_scene();
+     |                        ^^^^^^^^^
+     |
+     = note: consider using `_param` instead
+
+warning: value assigned to `param` is never read
+    --> crates\ppf-cts-solver\src\driver\refusal.rs:1012:9
+     |
+1012 |         param.precond = PrecondMode::Schwarz;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:370:17
+    |
+370 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:415:17
+    |
+415 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:454:17
+    |
+454 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:466:17
+    |
+466 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:544:17
+    |
+544 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:576:17
+    |
+576 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:618:17
+    |
+618 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:630:17
+    |
+630 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:727:13
+    |
+727 |         let mut destination = device_vec(&mut device, &destination_host, "test.dst");
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:797:13
+    |
+797 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:819:13
+    |
+819 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:890:17
+    |
+890 |             let mut destination = device_vec(&mut device, &destination_host, "test.dst");
+    |                 ----^^^^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:914:13
+    |
+914 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:944:13
+    |
+944 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:971:13
+    |
+971 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1156:13
+     |
+1156 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1156:13
+     |
+1156 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1486:13
+     |
+1486 |         let mut got_d = pattern_array_f32(&mut device, &got, "test.got");
+     |             ----^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1525:13
+     |
+1525 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1525:13
+     |
+1525 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1542:13
+     |
+1542 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1542:13
+     |
+1542 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1619:13
+     |
+1619 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1619:13
+     |
+1619 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1636:13
+     |
+1636 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1636:13
+     |
+1636 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: unused variable: `staged_boxes`
+    --> crates\ppf-cts-solver\src\driver\lbvh.rs:1913:13
+     |
+1913 |         let staged_boxes = boxes_on_device(&mut device, &boxes, &mut qbuf);
+     |             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staged_boxes`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\operator.rs:883:17
+    |
+883 |             let mut curvature: ppf_cts_compute::Buffer<f32> = Default::default();
+    |                 ----^^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: unused variable: `curvature`
+   --> crates\ppf-cts-solver\src\driver\operator.rs:883:17
+    |
+883 |             let mut curvature: ppf_cts_compute::Buffer<f32> = Default::default();
+    |                 ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_curvature`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2241:13
+     |
+2241 |         let mut x = staged_block(&mut device, &vec![0.0f32; n], "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2474:13
+     |
+2474 |         let mut x = staged_block(&mut device, &vec![0.0f32; n], "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2987:13
+     |
+2987 |         let mut x = staged_block(&mut device, &x_host, "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3000:13
+     |
+3000 |         let mut ax_d = staged_block(&mut device, &ax, "test.ax");
+     |             ----^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `x`
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3013:13
+     |
+3013 |         let x = read_back(&mut device, &x, n);
+     |             ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3043:13
+     |
+3043 |         let mut x1 = staged_block(&mut device, &x1_host, "test.x1");
+     |             ----^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3055:13
+     |
+3055 |         let mut x2 = staged_block(&mut device, &x2_host, "test.x2");
+     |             ----^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3108:21
+     |
+3108 |                 let mut x = staged_block(&mut device, &x_host, "test.x");
+     |                     ----^
+     |                     |
+     |                     help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3095:17
+     |
+3095 |             let mut x = staged_block(&mut device, &x_host, "test.x");
+     |                 ----^
+     |                 |
+     |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3149:13
+     |
+3149 |         let mut answer = staged_block(&mut device, &answer_host, "test.answer");
+     |             ----^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3169:13
+     |
+3169 |         let mut from_zero = staged_block(&mut device, &from_zero_host, "test.from_zero");
+     |             ----^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3175:13
+     |
+3175 |         let mut from_answer = staged_block(&mut device, &answer_values, "test.from_answer");
+     |             ----^^^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3214:13
+     |
+3214 |         let mut answer = staged_block(&mut device, &answer_host, "test.answer");
+     |             ----^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3223:13
+     |
+3223 |         let mut warm = staged_block(&mut device, &answer_values, "test.warm");
+     |             ----^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\spmv.rs:333:13
+    |
+333 |         let mut out_d = on_device(&mut device, &result, "test.result");
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\spmv.rs:443:13
+    |
+443 |         let mut out_d = on_device(&mut device, &result, "test.result");
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: function `frame_of` is never used
+   --> crates\ppf-cts-solver\src\driver\cosserat.rs:825:8
+    |
+825 |     fn frame_of(q: [f32; 4]) -> M3 {
+    |        ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `mesh_refs_of` is never used
+   --> crates\ppf-cts-solver\src\driver\state.rs:621:15
+    |
+621 | pub(crate) fn mesh_refs_of(state: &mut SolverState) -> crate::driver::contact::MeshRefs {
+    |               ^^^^^^^^^^^^
+
+warning: method `flags` is never used
+    --> crates\ppf-cts-solver\src\driver\intersection.rs:1147:12
+     |
+ 962 |     impl Fixture {
+     |     ------------ method in this implementation
+...
+1147 |         fn flags(&mut self) -> (Vec<bool>, Vec<bool>) {
+     |            ^^^^^
+
+warning: `ppf-cts-solver` (bin "ppf-contact-solver" test) generated 66 warnings (run `cargo fix --bin "ppf-contact-solver" -p ppf-cts-solver --tests` to apply 49 suggestions)
+    Finished `release` profile [optimized] target(s) in 5m 54s
+     Running unittests src\main.rs (target\research-cpu\release\deps\ppf_contact_solver-e0fc512735f84aec.exe)
+
+running 589 tests
+test backend::frame_interp_tests::alpha_clamps_out_of_range ... ok
+test backend::frame_interp_tests::alpha_endpoints_are_exact ... ok
+test backend::frame_interp_tests::alpha_places_frame_on_the_exact_boundary ... ok
+test backend::frame_interp_tests::alpha_zero_span_is_curr ... ok
+test backend::rest_shape_tests::interp_rest_shape_endpoints_midpoint_and_clamp ... ok
+test backend::rest_shape_tests::interp_rest_shape_excludes_union_of_bracketing ... ok
+test backend::rest_shape_tests::interp_rest_shape_single_keyframe ... ok
+test builder::rest_shape_tests::a_non_finite_rest_matrix_is_named_rather_than_given_a_ratio ... ok
+test builder::rest_shape_tests::a_sheared_well_conditioned_rest_tet_inverts_correctly ... ok
+test builder::rest_shape_tests::build_time_inversion_rejects_a_degenerate_rest_face ... ok
+test builder::rest_shape_tests::collinear_rest_triangle_aborts_the_build ... ok
+test builder::rest_shape_tests::collinear_rest_triangle_has_a_non_finite_tangent_matrix ... ok
+test builder::rest_shape_tests::directional_bending_without_a_uv_direction_is_refused ... ok
+test builder::rest_shape_tests::invert_or_exclude2_excludes_non_finite_and_degenerate ... ok
+test builder::rest_shape_tests::invert_or_exclude3_excludes_non_finite_and_degenerate ... ok
+test builder::rest_shape_tests::lock_component_enable_reads_the_mode_not_the_axis ... ok
+test builder::rest_shape_tests::lock_component_rejects_non_unit_axis ... ok
+test builder::rest_shape_tests::lock_components_are_independently_enabled ... ok
+test builder::rest_shape_tests::min_condition_is_the_square_root_of_f32_epsilon ... ok
+test builder::rest_shape_tests::near_collinear_rest_triangle_aborts_the_build ... ok
+test builder::rest_shape_tests::near_degenerate_rest_tet_aborts_the_build ... ok
+test builder::rest_shape_tests::rotation_lock_mode_accepts_every_admissible_value ... ok
+test builder::rest_shape_tests::rotation_lock_mode_rejects_unknown_value ... ok
+test builder::rest_shape_tests::rotation_lock_modes_accept_both_contract_values ... ok
+test builder::rest_shape_tests::the_hinge_average_is_area_weighted_and_preserves_variation ... ok
+test builder::rest_shape_tests::thin_but_sound_rest_triangle_still_builds ... ok
+test builder::rest_shape_tests::translation_lock_mode_admits_axis_and_all_only ... ok
+test builder::start_link_tests::a_collision_link_is_tagged_and_only_in_the_dynamic_row ... ok
+test builder::start_link_tests::a_dynamic_link_is_written_into_both_rows_sorted_and_deduplicated ... ok
+test builder::start_link_tests::a_link_between_two_collision_vertices_is_refused - should panic ... ok
+test builder::start_link_tests::a_link_past_both_pools_is_refused - should panic ... ok
+test builder::start_link_tests::no_links_is_no_table ... ok
+test cosserat::tests::all_frames_have_z_along_tangent ... ok
+test cosserat::tests::authored_roll_twists_only_where_it_varies ... ok
+test cosserat::tests::branched_rod_splits_at_its_junction ... ok
+test cosserat::tests::chain_reconstruction_is_order_independent ... ok
+test cosserat::tests::circular_arc_rest_darboux_matches_curvature ... ok
+test cosserat::tests::closed_loop_is_framed_with_a_site_per_node ... ok
+test cosserat::tests::end_twist_rate_drives_the_two_ends_oppositely ... ok
+test cosserat::tests::fix_ends_holds_real_ends_not_the_junction ... ok
+test cosserat::tests::fix_ends_on_a_closed_loop_is_rejected - should panic ... ok
+test cosserat::tests::intrinsic_rest_twist_appears_in_rest_darboux ... ok
+test cosserat::tests::near_straight_wobble_frames_are_finite ... ok
+test cosserat::tests::planar_ring_rest_darboux_is_uniform_curvature_and_zero_twist ... ok
+test cosserat::tests::ring_and_open_rod_coexist ... ok
+test cosserat::tests::straight_rest_zeroes_the_shape_curvature_but_keeps_intrinsic_twist ... ok
+test cosserat::tests::straight_rod_has_zero_rest_darboux ... ok
+test cvec::tests::empty_from_slice_drops_safely ... ok
+test cvec::tests::from_slice_roundtrips_and_capacity_matches ... ok
+test cvec::tests::new_is_null_and_drops_without_abort ... ok
+test cvec::tests::serde_roundtrip_preserves_data_and_drops_safely ... ok
+test cvecvec::tests::from_rows_packs_offsets_and_drops_safely ... ok
+test cvecvec::tests::new_is_null_and_drops_without_abort ... ok
+test cvecvec::tests::serde_roundtrip_preserves_and_drops_safely ... ok
+test driver::assemble::tests::a_circular_group_reproduces_the_reference_zero_axis ... ok
+test driver::assemble::tests::a_collider_face_carries_no_membrane_energy ... ok
+test driver::assemble::tests::a_collider_face_is_still_strain_limited ... ok
+test driver::assemble::tests::a_commanded_torque_reaches_the_vertices_it_names ... ok
+test driver::assemble::tests::a_degenerate_hinge_stops_the_run_rather_than_bending_by_nothing ... ok
+test driver::assemble::tests::a_face_at_its_rest_shape_carries_no_membrane_force ... ok
+test driver::assemble::tests::a_face_with_no_strain_limit_carries_no_term ... ok
+test driver::assemble::tests::a_fixed_or_rest_excluded_face_carries_no_strain_limit_term ... ok
+test driver::assemble::tests::a_fixed_pattern_without_the_neighbor_coupling_stops_the_run ... ok
+test driver::assemble::tests::a_fixed_rod_carries_no_stretch_energy ... ok
+test driver::assemble::tests::a_fixed_tet_carries_no_elastic_energy ... ok
+test driver::assemble::tests::a_hinge_at_its_rest_angle_carries_no_force ... ok
+test driver::assemble::tests::a_hinge_that_is_not_a_bending_element_is_left_alone ... ok
+test driver::assemble::tests::a_hinge_with_no_type_byte_stops_the_run ... ok
+test driver::assemble::tests::a_membrane_hessian_block_the_sparsity_cannot_hold_is_reported_rather_than_dropped ... ok
+test driver::assemble::tests::a_pdrd_face_is_admitted_by_the_table_with_no_elastic_energy ... ok
+test driver::assemble::tests::a_pdrd_tet_is_admitted_by_the_table_with_no_elastic_energy ... ok
+test driver::assemble::tests::a_pinned_and_a_rest_excluded_face_carry_no_strain_term ... ok
+test driver::assemble::tests::a_prescribed_interior_vertex_still_bends_its_free_neighbors ... ok
+test driver::assemble::tests::a_pressurized_face_carries_a_force_its_unpressurized_twin_does_not ... ok
+test driver::assemble::tests::a_pure_shear_reaches_the_baraffwitkin_shear_term_alone ... ok
+test driver::assemble::tests::a_rod_at_its_rest_length_carries_no_strain_limit_term ... ok
+test driver::assemble::tests::a_rod_at_its_rest_length_carries_no_stretch_force ... ok
+test driver::assemble::tests::a_rod_bending_site_with_every_vertex_prescribed_assembles_nothing ... ok
+test driver::assemble::tests::a_rod_inside_its_limit_carries_the_barrier_gradient_over_its_rest_length ... ok
+test driver::assemble::tests::a_rod_with_a_zero_rest_length_stops_the_run ... ok
+test driver::assemble::tests::a_rod_with_no_strain_limit_or_a_zero_rest_length_carries_no_term ... ok
+test driver::assemble::tests::a_shell_prefix_longer_than_the_face_array_stops_the_run ... ok
+test driver::assemble::tests::a_step_bringing_a_different_number_of_stitches_stops_the_run ... ok
+test driver::assemble::tests::a_stitch_coupling_a_pair_the_sparsity_has_no_slot_for_stops_the_step ... ok
+test driver::assemble::tests::a_stitch_naming_a_vertex_the_scene_does_not_have_stops_the_step ... ok
+test driver::assemble::tests::a_stitch_pulls_on_its_barycentric_point_and_not_on_its_first_slot ... ok
+test driver::assemble::tests::a_stitch_stretched_past_its_length_cap_saturates ... ok
+test driver::assemble::tests::a_stitch_with_a_negative_stiffness_stops_the_run ... ok
+test driver::assemble::tests::a_straight_rod_carries_no_bending_force_and_no_hessian ... ok
+test driver::assemble::tests::a_stretched_corotated_face_matches_the_gradient_derived_from_its_energy ... ok
+test driver::assemble::tests::a_stretched_stitch_pulls_its_two_endpoints_together ... ok
+test driver::assemble::tests::a_stretched_tet_carries_a_force_and_a_psd_hessian ... ok
+test driver::assemble::tests::a_torque_group_carries_no_net_linear_force ... ok
+test driver::assemble::tests::a_vertex_with_an_incident_face_is_not_a_rod_bending_site ... ok
+test driver::assemble::tests::an_edge_along_warp_takes_the_weft_stiffness ... ok
+test driver::assemble::tests::an_exactly_flat_hinge_carries_no_force_and_no_hessian ... ok
+test driver::assemble::tests::an_inflated_face_with_no_stiffness_still_assembles_its_pressure ... ok
+test driver::assemble::tests::an_inverse_rest_array_short_of_the_shell_prefix_stops_the_run ... ok
+test driver::assemble::tests::an_unrecognized_face_model_is_refused_rather_than_assembled_as_snhk ... ok
+test driver::assemble::tests::an_unrecognized_tet_model_is_refused_rather_than_assembled_as_snhk ... ok
+test driver::assemble::tests::an_unstretched_face_carries_no_strain_limit_term ... ok
+test driver::assemble::tests::baraffwitkin_has_no_solid_form_and_the_tet_table_says_so ... ok
+test driver::assemble::tests::baraffwitkin_is_assembled_from_its_own_arm_and_not_from_the_diff_table ... ok
+test driver::assemble::tests::baraffwitkin_reports_that_the_table_is_not_its_material ... ok
+test driver::assemble::tests::hydrodynamic_area_normal_and_mass_are_independent_inputs ... ok
+test driver::assemble::tests::hydrodynamic_native_dry_reverse_quadratic_and_small_wet_fraction ... ok
+test driver::assemble::tests::hydrodynamic_triangle_force_and_all_nine_matrix_blocks ... ok
+test driver::assemble::tests::rayleigh_damping_does_not_scale_the_pressure_term ... ok
+test driver::assemble::tests::rayleigh_damping_scales_the_hessian_and_leaves_the_force_alone_at_a_zero_step ... ok
+test driver::assemble::tests::rod_rayleigh_damping_scales_the_hessian_and_leaves_the_force_alone_at_a_zero_step ... ok
+test driver::assemble::tests::spatial_fluid_quadrature_has_consistent_nine_jacobian_blocks ... ok
+test driver::assemble::tests::the_barrier_takes_the_authored_limit_and_the_stiffness_the_shrink_corrected_one ... ok
+test driver::assemble::tests::the_bending_damping_hessian_is_taken_at_the_start_of_the_step ... ok
+test driver::assemble::tests::the_bending_force_is_the_gradient_of_the_hinge_energy ... ok
+test driver::assemble::tests::the_bending_force_sums_to_zero_over_the_four_vertices ... ok
+test driver::assemble::tests::the_bending_stiffness_halves_when_the_segment_length_and_lumped_mass_double ... ok
+test driver::assemble::tests::the_face_elastic_embed_excludes_a_collider_a_pinned_and_a_rest_excluded_face ... ok
+test driver::assemble::tests::the_hinge_hessian_is_positive_semidefinite_where_the_exact_one_is_not ... ok
+test driver::assemble::tests::the_hinge_hessian_is_the_angle_gradient_outer_product_at_the_rest_angle ... ok
+test driver::assemble::tests::the_hinge_slot_replay_deposit_agrees_with_the_row_search ... ok
+test driver::assemble::tests::the_material_gate_stops_exactly_what_the_face_dispatch_cannot_assemble ... ok
+test driver::assemble::tests::the_material_gate_stops_exactly_what_the_tet_dispatch_cannot_assemble ... ok
+test driver::assemble::tests::the_membrane_walks_the_shell_prefix_and_not_a_solids_surface_triangles ... ok
+test driver::assemble::tests::the_no_uv_sentinel_with_a_directional_stiffness_stops_the_run ... ok
+test driver::assemble::tests::the_projected_hessian_is_positive_semidefinite_under_compression ... ok
+test driver::assemble::tests::the_rod_bend_slot_table_is_repacked_from_vertex_order_into_site_order ... ok
+test driver::assemble::tests::the_rod_bending_damping_hessian_is_taken_at_the_start_of_the_step ... ok
+test driver::assemble::tests::the_rod_bending_force_is_the_gradient_of_the_turning_angle_energy ... ok
+test driver::assemble::tests::the_rod_bending_force_sums_to_zero_over_the_three_nodes ... ok
+test driver::assemble::tests::the_rod_bending_hessian_is_positive_semidefinite_where_the_exact_one_is_not ... ok
+test driver::assemble::tests::the_rod_bending_hessian_is_the_angle_gradient_outer_product_at_the_rest_angle ... ok
+test driver::assemble::tests::the_rod_bending_stencil_is_the_interior_vertex_between_its_two_neighbors ... ok
+test driver::assemble::tests::the_rod_line_search_stops_at_the_limit ... ok
+test driver::assemble::tests::the_rod_strain_hessian_is_psd_and_annihilates_a_translation ... ok
+test driver::assemble::tests::the_rod_strain_hessian_is_the_derivative_of_the_barrier_it_scales ... ok
+test driver::assemble::tests::the_shell_line_search_does_not_bound_a_step_inside_the_limit ... ok
+test driver::assemble::tests::the_shell_line_search_measures_the_shrink_corrected_limit ... ok
+test driver::assemble::tests::the_shell_strain_line_search_stops_at_the_limit ... ok
+test driver::assemble::tests::the_slot_replay_deposit_agrees_with_the_row_search ... ok
+test driver::assemble::tests::the_stiffness_carries_the_resolution_and_density_normalizations ... ok
+test driver::assemble::tests::the_stiffness_contracts_the_reference_matrix_at_the_start_of_step_pose ... ok
+test driver::assemble::tests::the_stitch_hessian_is_positive_semidefinite_and_blind_to_translation ... ok
+test driver::assemble::tests::the_strain_force_is_the_barrier_gradient_at_the_authored_limit ... ok
+test driver::assemble::tests::the_strain_hessian_is_psd_and_annihilates_a_translation ... ok
+test driver::assemble::tests::the_strain_hessian_is_the_derivative_of_the_barrier_it_scales ... ok
+test driver::assemble::tests::the_stretch_force_is_the_gradient_of_the_spring_energy ... ok
+test driver::assemble::tests::the_stretch_force_sums_to_zero_over_the_two_vertices ... ok
+test driver::assemble::tests::the_stretch_hessian_carries_the_spring_constant_under_tension ... ok
+test driver::assemble::tests::the_stretch_hessian_is_positive_semidefinite_under_compression ... ok
+test driver::assemble::tests::the_stretch_indicator_excludes_a_collider_a_pinned_face_and_a_rigid_body ... ok
+test driver::assemble::tests::the_stretch_indicator_reports_a_rod_against_its_initial_length ... ok
+test driver::assemble::tests::the_stretch_indicator_reports_the_largest_ratio_and_its_shrink ... ok
+test driver::assemble::tests::the_stretch_is_a_linear_spring_of_the_derived_constant ... ok
+test driver::assemble::tests::the_stretch_walks_the_rod_prefix_and_not_a_shells_edges ... ok
+test driver::assemble::tests::the_tet_slot_replay_deposit_agrees_with_the_row_search ... ok
+test driver::bvh::tests::an_empty_cloud_gives_the_empty_bound ... ok
+test driver::bvh::tests::expand_bits_interleaves_with_two_zero_bits ... ok
+test driver::bvh::tests::morton_code_interleaves_the_three_axes ... ok
+test driver::bvh::tests::morton_codes_do_not_depend_on_the_chunking ... ok
+test driver::bvh::tests::nearby_points_get_nearby_codes ... ok
+test driver::bvh::tests::the_bounds_contain_every_point ... ok
+test driver::bvh::tests::the_bounds_do_not_depend_on_the_thread_count ... ok
+test driver::bvh::tests::the_device_bounds_match_the_host_fold_at_every_depth ... ok
+test driver::bvh::tests::the_primitive_order_is_ascending_and_ties_break_by_index ... ok
+test driver::cadence::tests::the_cadence_tightens_inside_the_near_band ... ok
+test driver::ccd::tests::a_collider_edge_stops_a_dynamic_edge_crossing_it ... ok
+test driver::ccd::tests::a_collider_the_motion_cannot_reach_takes_the_whole_step ... ok
+test driver::ccd::tests::a_collider_triangle_stops_a_vertex_driven_through_it ... ok
+test driver::ccd::tests::a_collider_vertex_stops_a_triangle_driven_onto_it ... ok
+test driver::ccd::tests::a_device_fold_takes_the_smallest_time_and_the_first_report ... ok
+test driver::ccd::tests::a_non_positive_step_bound_is_refused - should panic ... ok
+test driver::ccd::tests::a_pair_that_cannot_meet_takes_the_whole_step ... ok
+test driver::ccd::tests::a_point_driven_through_a_triangle_is_stopped_short_of_it ... ok
+test driver::ccd::tests::a_point_swept_against_an_edge_is_stopped_short ... ok
+test driver::ccd::tests::an_overlap_slot_decodes_what_the_kernel_wrote ... ok
+test driver::ccd::tests::an_overlapping_start_is_reported_rather_than_returned_as_a_zero_step ... ok
+test driver::ccd::tests::the_analytic_crossing_reproduces_the_unparked_one_at_a_zero_park ... ok
+test driver::ccd::tests::the_analytic_park_keeps_the_divisor_away_from_zero ... ok
+test driver::ccd::tests::the_filter_keeps_the_smallest_time_over_many_pairs ... ok
+test driver::ccd::tests::the_overlap_mirror_matches_cpp ... ok
+test driver::ccd::tests::the_parking_floor_is_the_shared_one ... ok
+test driver::ccd::tests::two_edges_swept_across_each_other_are_stopped_short ... ok
+test driver::ccd::tests::two_grains_driven_together_are_stopped_at_their_offsets ... ok
+test driver::collider::tests::a_fix_pinned_vertex_driven_through_a_floor_is_reported_rather_than_clamped ... ok
+test driver::collider::tests::a_kinematic_floor_keeps_the_elasticity_inclusive_stiffness ... ok
+test driver::collider::tests::a_sphere_pushes_a_vertex_inside_it_back_out ... ok
+test driver::collider::tests::a_sweep_that_stays_above_the_floor_takes_the_whole_step ... ok
+test driver::collider::tests::a_vertex_inside_a_floors_barrier_is_pushed_along_its_normal ... ok
+test driver::collider::tests::a_vertex_outside_the_barrier_contributes_nothing ... ok
+test driver::collider::tests::a_vertex_past_the_collider_surface_comes_back_through_the_diagnostic_channel ... ok
+test driver::collider::tests::the_analytic_sweep_covers_the_line_search_horizon_not_just_the_newton_step ... ok
+test driver::collider::tests::the_floor_sweep_stops_a_vertex_before_it_crosses ... ok
+test driver::collision_window::tests::a_changed_element_count_reuses_the_mask_rather_than_stranding_it ... ok
+test driver::collision_window::tests::a_closed_window_deactivates_its_vertices_faces_and_edges ... ok
+test driver::collision_window::tests::a_group_above_the_interval_limit_is_refused ... ok
+test driver::collision_window::tests::a_scene_with_no_windows_has_no_masks ... ok
+test driver::collision_window::tests::a_table_of_the_wrong_length_is_refused ... ok
+test driver::collision_window::tests::a_vertex_naming_a_missing_group_is_refused ... ok
+test driver::constraint::tests::a_pin_reaching_its_unpin_time_makes_its_element_elastic_again ... ok
+test driver::constraint::tests::a_pull_pin_leaves_its_element_elastic ... ok
+test driver::constraint::tests::an_element_naming_a_missing_vertex_is_reported_under_device_assert ... ok
+test driver::constraint::tests::an_empty_constraint_unpins_everything ... ok
+test driver::constraint::tests::an_out_of_range_constraint_index_fatals_rather_than_writing ... ok
+test driver::contact::tests::a_contacts_hessian_blocks_are_read_at_the_stride_its_arity_gives ... ok
+test driver::contact::tests::a_dynamic_edge_moving_away_from_a_collider_edge_keeps_the_whole_step ... ok
+test driver::contact::tests::a_dynamic_face_moving_away_from_a_collider_vertex_keeps_the_whole_step ... ok
+test driver::contact::tests::a_grain_moving_away_from_a_rod_edge_keeps_the_whole_step ... ok
+test driver::contact::tests::a_held_step_names_the_slot_that_holds_it ... ok
+test driver::contact::tests::a_link_elsewhere_does_not_free_the_vertex ... ok
+test driver::contact::tests::a_vertex_clear_of_the_collider_contributes_nothing ... ok
+test driver::contact::tests::a_vertex_linked_at_start_to_the_collider_is_not_pushed ... ok
+test driver::contact::tests::a_vertex_linked_at_start_to_the_collider_is_not_stopped_by_it ... ok
+test driver::contact::tests::a_vertex_linked_at_start_to_the_face_is_not_stopped_by_it ... ok
+test driver::contact::tests::a_vertex_moving_away_from_a_dynamic_face_keeps_the_whole_step ... ok
+test driver::contact::tests::a_vertex_over_a_collider_triangle_is_pushed_off_it ... ok
+test driver::contact::tests::a_windowed_out_vertex_is_not_swept_at_all ... ok
+test driver::contact::tests::benchmark_contact_overlap_selection ... ignored, release timing experiment
+test driver::contact::tests::the_collider_edge_sweep_reads_an_edges_mass_off_its_vertices ... ok
+test driver::contact::tests::the_collider_vertex_sweep_reads_a_faces_mass_off_its_vertices ... ok
+test driver::contact::tests::the_device_overlap_selection_agrees_with_the_host_scan_on_scattered_flags ... ok
+test driver::contact::tests::the_device_overlap_selection_names_the_pair_the_host_scan_names ... ok
+test driver::contact::tests::the_fixed_width_staging_slot_holds_each_arity_in_its_head ... ok
+test driver::contact::tests::the_line_search_grants_the_whole_step_to_a_vertex_moving_away ... ok
+test driver::contact::tests::the_line_search_stops_a_dynamic_edge_at_the_collider_edge_it_crosses ... ok
+test driver::contact::tests::the_line_search_stops_a_dynamic_face_at_the_collider_vertex_it_is_driven_onto ... ok
+test driver::contact::tests::the_line_search_stops_a_grain_driven_through_the_middle_of_a_rod_edge ... ok
+test driver::contact::tests::the_line_search_stops_a_vertex_at_the_collider_it_is_driven_through ... ok
+test driver::contact::tests::the_line_search_stops_a_vertex_at_the_dynamic_face_it_is_driven_through ... ok
+test driver::contact::tests::the_line_search_stops_two_edges_swept_across_each_other ... ok
+test driver::contact::tests::the_line_search_stops_two_grains_driven_through_each_other ... ok
+test driver::contact::tests::the_masked_point_query_clears_only_what_the_mask_silences ... ok
+test driver::contact::tests::two_edges_moving_apart_keep_the_whole_step ... ok
+test driver::contact::tests::two_grains_moving_apart_keep_the_whole_step ... ok
+test driver::cosserat::tests::a_frame_pair_at_the_mirror_of_its_rest_curvature_is_not_at_rest ... ok
+test driver::cosserat::tests::a_site_turned_past_a_right_angle_has_no_second_rest_state ... ok
+test driver::cosserat::tests::the_bend_and_twist_energy_matches_its_differenced_energy ... ok
+test driver::cosserat::tests::the_bend_energy_at_rest_has_the_exact_rotation_vectors_second_variation ... ok
+test driver::cosserat::tests::the_rotational_inertia_matches_its_differenced_energy ... ok
+test driver::cosserat::tests::the_shear_energy_matches_its_differenced_energy ... ok
+test driver::cosserat::tests::the_shear_of_a_frame_on_its_edge_is_at_rest ... ok
+test driver::csr::tests::an_empty_row_compacts_to_nothing ... ok
+test driver::csr::tests::dedupe_drops_zero_blocks ... ok
+test driver::csr::tests::dedupe_leaves_a_clean_row_untouched ... ok
+test driver::csr::tests::dedupe_reports_where_the_appended_run_begins ... ok
+test driver::csr::tests::find_sorted_locates_a_key_and_reports_absence ... ok
+test driver::csr::tests::merge_runs_handles_an_empty_side ... ok
+test driver::csr::tests::merge_runs_produces_one_ascending_run ... ok
+test driver::csr::tests::sorting_an_already_sorted_pattern_is_a_no_op ... ok
+test driver::csr::tests::the_pattern_sorts_ascending ... ok
+test driver::csr::tests::this_module_contains_no_ordering_of_its_own ... ok
+test driver::devsort::tests::benchmark_contact_radix_lengths ... ignored, release timing experiment
+test driver::devsort::tests::radix_stability_survives_partial_groups_and_scratch_reuse ... ok
+test driver::devsort::tests::the_device_sort_handles_lengths_around_a_block ... ok
+test driver::devsort::tests::the_device_sort_is_ascending_and_stable ... ok
+test driver::dyncsr::tests::a_block_that_stayed_zero_leaves_the_pattern ... ok
+test driver::dyncsr::tests::a_pattern_carried_across_steps_is_bisected_not_appended ... ok
+test driver::dyncsr::tests::a_push_to_a_new_column_appears_in_the_row ... ok
+test driver::dyncsr::tests::a_row_survives_a_coarse_collider_against_a_fine_deformable ... ok
+test driver::dyncsr::tests::an_out_of_range_column_is_refused_rather_than_stored - should panic ... ok
+test driver::dyncsr::tests::benchmark_contact_csr_rebuild ... ignored, release timing experiment
+test driver::dyncsr::tests::benchmark_contact_staging_growth ... ignored, release timing experiment
+test driver::dyncsr::tests::growing_device_staging_preserves_all_deposited_fields ... ok
+test driver::dyncsr::tests::pushing_outside_a_rebuild_is_refused - should panic ... ok
+test driver::dyncsr::tests::the_carried_pattern_comes_out_ascending ... ok
+test driver::dyncsr::tests::the_flat_form_agrees_with_the_rows_it_came_from ... ok
+test driver::dyncsr::tests::the_index_builders_keep_the_scatter_that_forbids_a_cut_range ... ok
+test driver::dyncsr::tests::the_matrix_does_not_depend_on_the_order_pairs_were_pushed_in ... ok
+test driver::dyncsr::tests::the_transpose_carries_every_off_diagonal_arrival_exactly_once ... ok
+test driver::dyncsr::tests::the_transpose_reaches_every_off_diagonal_from_the_other_side ... ok
+test driver::dyncsr::tests::two_pushes_to_one_column_are_summed ... ok
+test driver::dyncsr::tests::zero_is_the_compactions_rule_and_not_exact_equality ... ok
+test driver::fixedcsr::tests::a_lower_triangle_entry_is_refused_by_name ... ok
+test driver::fixedcsr::tests::a_mixed_batch_reports_each_blocks_own_verdict ... ok
+test driver::fixedcsr::tests::a_pair_outside_the_pattern_reports_a_lost_block_rather_than_landing ... ok
+test driver::fixedcsr::tests::a_pushed_block_reads_back_through_the_shared_body ... ok
+test driver::fixedcsr::tests::a_tet_pattern_validates_and_allocates_one_block_per_pair ... ok
+test driver::fixedcsr::tests::a_transpose_entry_filed_under_the_wrong_column_is_refused ... ok
+test driver::fixedcsr::tests::a_transpose_table_missing_an_entry_is_refused ... ok
+test driver::fixedcsr::tests::an_empty_scene_has_an_empty_matrix_rather_than_an_error ... ok
+test driver::fixedcsr::tests::an_unsorted_row_is_refused_by_name ... ok
+test driver::fixedcsr::tests::push_refuses_an_index_outside_the_matrix ... ok
+test driver::fixedcsr::tests::the_push_is_declared_atomic_so_a_backend_cannot_cut_the_batch ... ok
+test driver::fixedcsr::tests::the_slot_deposit_lands_what_the_row_search_lands ... ok
+test driver::fixedcsr::tests::the_snapshot_copies_values_and_refuses_a_foreign_pattern ... ok
+test driver::fixedcsr::tests::the_spmv_reproduces_the_full_symmetric_operator ... ok
+test driver::fixedcsr::tests::two_blocks_of_one_batch_that_share_a_slot_are_summed ... ok
+test driver::force_field::tests::a_fluid_refuses_a_playback_that_is_not_positive ... ok
+test driver::force_field::tests::a_forward_stream_reads_each_frame_once ... ok
+test driver::force_field::tests::a_jump_over_several_frames_replaces_both_slots_in_one_call ... ok
+test driver::force_field::tests::a_negative_weight_reverses_every_implicit_term_and_adds_no_hessian ... ok
+test driver::force_field::tests::a_reread_frame_whose_brick_count_changed_is_refused ... ok
+test driver::force_field::tests::a_toi_cut_swing_across_a_frame_boundary_reads_nothing_from_disk ... ok
+test driver::force_field::tests::a_z_up_texture_reads_blender_axes_and_pushes_in_solver_axes ... ok
+test driver::force_field::tests::an_empty_frame_is_absent_fluid ... ok
+test driver::force_field::tests::an_object_coordinates_texture_reads_the_scaled_object_space ... ok
+test driver::force_field::tests::before_the_first_frame_the_first_frame_holds_in_one_slot ... ok
+test driver::force_field::tests::install_refuses_a_late_frame_past_reach_or_past_single_precision ... ok
+test driver::force_field::tests::the_fluid_push_reads_a_cell_per_axis_and_velocity_in_solver_units ... ok
+test driver::intersection::tests::a_collider_edge_through_a_dynamic_face_is_reported ... ok
+test driver::intersection::tests::a_collider_edge_through_a_face_linked_at_start_is_not_reported ... ok
+test driver::intersection::tests::a_crossed_pair_is_reported ... ok
+test driver::intersection::tests::a_crossed_pair_linked_at_start_is_not_reported ... ok
+test driver::intersection::tests::a_dynamic_edge_linked_to_the_collision_mesh_is_not_reported ... ok
+test driver::intersection::tests::a_dynamic_edge_through_the_collision_mesh_is_reported ... ok
+test driver::intersection::tests::a_face_and_an_edge_sharing_a_vertex_are_never_reported ... ok
+test driver::intersection::tests::a_link_table_that_does_not_name_the_pair_changes_nothing ... ok
+test driver::intersection::tests::a_near_coplanar_pierce_is_caught_rather_than_underflowed ... ok
+test driver::intersection::tests::a_pierce_between_elements_with_no_mass_of_their_own_is_reported ... ok
+test driver::intersection::tests::a_separated_pair_is_not_reported ... ok
+test driver::intersection::tests::a_tolerated_pierce_is_suppressed_and_an_untolerated_one_is_not ... ok
+test driver::intersection::tests::edge_edge_reports_each_unordered_pair_once ... ok
+test driver::intersection::tests::one_pdrd_bodys_self_intersection_is_not_reported ... ok
+test driver::intersection::tests::overlapping_grains_are_reported_once_each ... ok
+test driver::intersection::tests::the_allowance_rule_is_the_shared_one ... ok
+test driver::intersection::tests::the_collider_edge_walk_reads_a_faces_mass_off_its_vertices ... ok
+test driver::intersection::tests::the_found_count_keeps_rising_past_the_record_buffer ... ok
+test driver::intersection::tests::the_record_mirror_matches_cpp ... ok
+test driver::intersection::tests::the_report_does_not_depend_on_the_thread_count ... ok
+test driver::intersection::tests::two_colliders_are_not_reported ... ok
+test driver::intersection::tests::two_massless_elements_are_not_reported ... ok
+test driver::intersection::tests::two_prescribed_elements_are_not_reported ... ok
+test driver::kernels::tests::an_indirect_vector_update_carries_its_direct_twins_row ... ok
+test driver::kernels::tests::every_declared_argument_size_is_the_records_own ... ok
+test driver::kernels::tests::every_host_reference_offset_is_inside_its_record ... ok
+test driver::kernels::tests::no_two_kernel_ids_name_the_same_number ... ok
+test driver::kernels::tests::the_operator_record_names_every_buffer_it_carries ... ok
+test driver::kernels::tests::the_table_is_indexed_by_its_own_ids ... ok
+test driver::launch::scheduling_tests::benchmark_group_scheduling ... ignored, release dispatcher timing, run alone with --nocapture
+test driver::launch::scheduling_tests::scheduling_preserves_group_results_bitwise ... ok
+test driver::launch::tests::a_backend_that_cannot_record_still_runs_and_says_so ... ok
+test driver::launch::tests::a_dispatch_reaches_the_shared_body ... ok
+test driver::launch::tests::a_half_wired_buffer_reference_is_refused ... ok
+test driver::launch::tests::a_record_whose_length_disagrees_with_the_declaration_is_refused ... ok
+test driver::launch::tests::a_region_recorded_before_the_allocator_moved_is_refused ... ok
+test driver::launch::tests::a_region_replays_without_one_sync_per_repeat ... ok
+test driver::launch::tests::a_write_past_the_block_is_refused_rather_than_landing_elsewhere ... ok
+test driver::launch::tests::allocation_round_trips_through_the_seam ... ok
+test driver::launch::tests::binding_gives_every_buffer_its_own_arena_and_a_live_count ... ok
+test driver::launch::tests::every_declared_kernel_has_a_launch ... ok
+test driver::launch::tests::the_answer_does_not_depend_on_how_the_seam_cuts_the_range ... ok
+test driver::launch::tests::the_record_and_the_extent_must_agree_about_the_count ... ok
+test driver::lbvh::tests::a_default_box_takes_part_in_nothing ... ok
+test driver::lbvh::tests::a_single_primitive_builds_a_single_leaf ... ok
+test driver::lbvh::tests::a_traversal_finds_exactly_the_overlapping_pairs ... ok
+test driver::lbvh::tests::a_walk_over_a_corrupt_tree_faults_rather_than_returning_a_short_list ... ok
+test driver::lbvh::tests::an_empty_input_builds_an_empty_tree_rather_than_no_tree ... ok
+test driver::lbvh::tests::an_inactive_query_finds_nothing ... ok
+test driver::lbvh::tests::an_overflowing_buffer_is_grown_rather_than_truncated ... ok
+test driver::lbvh::tests::benchmark_contact_masked_propagation ... ignored, release timing experiment
+test driver::lbvh::tests::every_primitive_appears_in_exactly_one_leaf ... ok
+test driver::lbvh::tests::masked_leaves_need_only_the_final_propagation ... ok
+test driver::lbvh::tests::the_aabb_mirror_matches_cpp ... ok
+test driver::lbvh::tests::the_leaf_margin_matches_cuda ... ok
+test driver::lbvh::tests::the_leaf_slots_are_a_permutation_of_the_primitives ... ok
+test driver::lbvh::tests::the_levels_group_every_node_by_its_distance_from_the_root ... ok
+test driver::lbvh::tests::the_pair_list_does_not_depend_on_the_thread_count ... ok
+test driver::lbvh::tests::the_traversal_stack_is_deep_enough_for_the_trees_this_backend_builds ... ok
+test driver::lbvh::tests::the_tree_does_not_depend_on_the_thread_count ... ok
+test driver::lbvh::tests::the_tree_is_connected_and_acyclic_from_its_reported_root ... ok
+test driver::lock::tests::a_projected_vector_moves_the_centroid_only_along_the_axis ... ok
+test driver::lock::tests::motion_along_the_locked_axis_satisfies_the_invariant ... ok
+test driver::lock::tests::perpendicular_drift_of_the_centroid_is_reported ... ok
+test driver::lock::tests::the_locked_solve_reaches_its_answer ... ok
+test driver::lock_math::tests::a_diagonal_block_inverts_to_its_reciprocals ... ok
+test driver::lock_math::tests::a_diagonal_inertia_inverts_to_its_reciprocals ... ok
+test driver::lock_math::tests::a_full_rank_gram_inverts_exactly ... ok
+test driver::lock_math::tests::a_rank_deficient_gram_projects_onto_the_rows_it_has ... ok
+test driver::lock_math::tests::a_rotation_row_survives_beside_a_much_larger_translation_row ... ok
+test driver::lock_math::tests::a_semi_definite_block_stays_finite ... ok
+test driver::lock_math::tests::a_singular_inertia_aborts_naming_the_group ... ok
+test driver::lock_math::tests::an_axis_mode_leaves_its_own_axis_free_and_all_axes_leaves_nothing ... ok
+test driver::lock_math::tests::an_identity_block_factors_to_the_identity ... ok
+test driver::lock_math::tests::six_saturating_rows_still_annihilate_and_stay_idempotent ... ok
+test driver::lock_math::tests::the_combined_projector_annihilates_its_residual_and_is_idempotent ... ok
+test driver::lock_math::tests::the_mode_carries_the_enable_bit_not_the_axis ... ok
+test driver::log::tests::a_fractional_value_takes_c_s_exponential_form ... ok
+test driver::log::tests::a_non_finite_value_is_written_rather_than_dropped ... ok
+test driver::log::tests::a_printed_mark_takes_the_same_branch_its_stream_line_does ... ok
+test driver::log::tests::a_quiet_channel_records_and_prints_nothing ... ok
+test driver::log::tests::a_three_digit_exponent_keeps_all_three ... ok
+test driver::log::tests::a_whole_millisecond_elapsed_still_records_the_integer_form ... ok
+test driver::log::tests::a_whole_number_takes_the_integer_form ... ok
+test driver::log::tests::an_elapsed_duration_prints_whole_milliseconds_and_records_the_fraction ... ok
+test driver::log::tests::c_general_matches_c_s_shortest_of_two_forms ... ok
+test driver::log::tests::each_tstr_branch_takes_over_at_the_reference_s_own_bound ... ok
+test driver::log::tests::the_printed_precisions_are_the_reference_s ... ok
+test driver::multigrid::tests::a_piece_that_ends_early_stays_out_of_the_levels_below_it ... ok
+test driver::multigrid::tests::a_solve_refuses_a_hierarchy_that_was_never_laid ... ok
+test driver::multigrid::tests::every_coarse_operator_is_the_galerkin_product_of_the_one_above ... ok
+test driver::multigrid::tests::the_bound_majorizes_the_operator_and_the_cycle_is_symmetric_positive_definite ... ok
+test driver::multigrid::tests::the_cycle_cuts_the_conjugate_gradient_iterations ... ok
+test driver::multigrid::tests::the_difference_form_is_the_same_product_and_resolves_a_smooth_vector ... ok
+test driver::multigrid_grid::tests::a_closed_surface_takes_a_wider_first_spacing_than_a_flat_one ... ok
+test driver::multigrid_grid::tests::a_flat_sheet_gets_a_grid_in_its_own_plane_wherever_it_stands ... ok
+test driver::multigrid_grid::tests::a_mesh_with_no_element_has_no_coarse_level ... ok
+test driver::multigrid_grid::tests::an_interpolation_reproduces_the_positions_it_was_laid_over ... ok
+test driver::multigrid_grid::tests::every_piece_has_its_own_grid_and_a_loose_vertex_has_none ... ok
+test driver::operator::tests::the_answer_does_not_depend_on_the_thread_count ... ok
+test driver::operator::tests::the_composition_carries_the_fixed_matrix_and_the_block_diagonal ... ok
+test driver::operator::tests::the_curvature_bound_is_accumulated_componentwise ... ok
+test driver::operator::tests::the_preconditioner_diagonal_is_the_fixed_diagonal_plus_the_block ... ok
+test driver::pair_cache::tests::a_fitting_detection_replays_exactly_what_it_recorded ... ok
+test driver::pair_cache::tests::a_fresh_detection_clears_the_previous_overflow ... ok
+test driver::pair_cache::tests::a_shorter_detection_at_an_unchanged_capacity_replays_only_its_own_pairs ... ok
+test driver::pair_cache::tests::an_odd_pair_list_is_refused_rather_than_truncated - should panic ... ok
+test driver::pair_cache::tests::an_overflow_abandons_the_replay_for_every_type_not_just_its_own ... ok
+test driver::pair_cache::tests::one_overflow_is_paid_once_rather_than_every_step_after_it ... ok
+test driver::pair_cache::tests::recording_in_several_calls_matches_recording_in_one ... ok
+test driver::pair_cache::tests::the_requirement_is_known_even_from_the_pass_that_could_not_meet_it ... ok
+test driver::pcg::tests::a_better_seed_does_not_buy_fewer_iterations ... ok
+test driver::pcg::tests::a_breakdown_between_two_checks_survives_to_the_next_one ... ok
+test driver::pcg::tests::a_healthy_alpha_leaves_the_announcement_flag_clear ... ok
+test driver::pcg::tests::a_non_spd_block_is_refused_rather_than_inverted ... ok
+test driver::pcg::tests::a_non_spd_preconditioner_is_reported_as_the_preconditioner ... ok
+test driver::pcg::tests::an_indefinite_matrix_is_reported_as_the_matrix_and_not_the_preconditioner ... ok
+test driver::pcg::tests::an_iteration_costs_one_host_round_trip ... ok
+test driver::pcg::tests::benchmark_pcg_dispatch_overhead ... ignored, release dispatch-overhead timing, run alone with --nocapture
+test driver::pcg::tests::benchmark_pcg_scheduling ... ignored, release solve timing, run alone with --nocapture
+test driver::pcg::tests::it_solves_an_spd_system_and_the_residual_is_real ... ok
+test driver::pcg::tests::the_cooperative_fold_agrees_with_the_element_fold_within_the_summation_bound ... ok
+test driver::pcg::tests::the_device_fold_agrees_with_the_host_fold_bit_for_bit ... ok
+test driver::pcg::tests::the_dispatched_inversion_reports_a_non_spd_block_through_the_diagnostic_lane ... ok
+test driver::pcg::tests::the_dual_fold_agrees_with_two_separate_folds_bit_for_bit ... ok
+test driver::pcg::tests::the_fold_scratch_covers_every_level ... ok
+test driver::pcg::tests::the_inverse_is_exact_where_the_design_promises_it ... ok
+test driver::pcg::tests::the_inverse_is_symmetric_and_positive_definite_at_any_conditioning ... ok
+test driver::pcg::tests::the_preconditioner_reduces_the_iteration_count ... ok
+test driver::pcg::tests::the_seed_is_used_rather_than_discarded ... ok
+test driver::pcg::tests::the_solve_is_deterministic_across_thread_counts ... ok
+test driver::pcg::tests::the_split_magnitude_level_agrees_with_the_absolute_fold_bit_for_bit ... ok
+test driver::pcg::tests::unit_scale_is_an_exact_power_of_two_that_brings_a_norm_into_one_to_two ... ok
+test driver::pdrd::group_tests::a_group_that_starts_solved_borrows_the_systems_scale ... ok
+test driver::pdrd::group_tests::a_non_finite_residual_becomes_infinite_rather_than_vanishing ... ok
+test driver::pdrd::group_tests::a_solved_heavy_body_does_not_hide_an_unconverged_cloth ... ok
+test driver::pdrd::group_tests::the_groups_are_the_cloth_block_and_each_bodys_six ... ok
+test driver::pdrd::tests::a_contact_free_body_builds_its_preconditioner ... ok
+test driver::pdrd::tests::a_free_vertex_survives_the_reduction_round_trip ... ok
+test driver::pdrd::tests::prolong_and_restrict_are_adjoint ... ok
+test driver::pdrd::tests::the_seed_restriction_leaves_every_body_row_at_zero ... ok
+test driver::plasticity::tests::a_bent_rod_creeps_its_rest_turning_angle_using_the_two_segment_average ... ok
+test driver::plasticity::tests::a_face_inside_its_dead_zone_keeps_the_exact_bytes_of_its_rest_matrix ... ok
+test driver::plasticity::tests::a_face_whose_material_asks_for_no_creep_allocates_nothing_and_is_untouched ... ok
+test driver::plasticity::tests::a_fixed_hinge_does_not_creep ... ok
+test driver::plasticity::tests::a_folded_hinge_creeps_its_rest_angle_by_the_dead_zone_rule ... ok
+test driver::plasticity::tests::a_hinge_inside_its_dead_zone_does_not_creep ... ok
+test driver::plasticity::tests::a_rod_whose_two_segments_average_to_no_creep_is_untouched ... ok
+test driver::plasticity::tests::a_stretched_face_creeps_its_rest_matrix_toward_the_yield_surface ... ok
+test driver::plasticity::tests::a_stretched_tet_creeps_its_rest_matrix_toward_the_yield_surface ... ok
+test driver::plasticity::tests::a_tet_inside_its_dead_zone_keeps_the_exact_bytes_of_its_rest_matrix ... ok
+test driver::plasticity::tests::the_crept_rest_angle_is_what_the_checkpoint_serializes ... ok
+test driver::plasticity::tests::the_crept_rest_shape_is_what_the_checkpoint_serializes ... ok
+test driver::plasticity::tests::the_face_creep_rate_follows_the_substep_it_is_given ... ok
+test driver::plasticity::tests::the_face_creep_walks_the_shell_prefix ... ok
+test driver::reduce::tests::an_empty_input_sums_to_zero ... ok
+test driver::reduce::tests::the_bound_and_its_sum_come_from_one_traversal ... ok
+test driver::reduce::tests::the_fold_is_f32_throughout ... ok
+test driver::reduce::tests::the_maximum_carries_its_identity_and_propagates_nan ... ok
+test driver::reduce::tests::the_minimum_mirrors_the_maximum ... ok
+test driver::reduce::tests::the_sum_does_not_depend_on_the_thread_count ... ok
+test driver::reduce::word_fold_tests::benchmark_contact_count_total ... ignored, release timing experiment
+test driver::reduce::word_fold_tests::the_word_minimum_matches_the_host_minimum_at_every_ladder_depth ... ok
+test driver::reduce::word_fold_tests::the_word_total_carries_past_one_word_and_matches_a_u64_sum ... ok
+test driver::refusal::tests::a_contact_enabled_scene_is_accepted ... ok
+test driver::refusal::tests::a_hinge_plastic_scene_with_no_shell_at_all_is_accepted ... ok
+test driver::refusal::tests::a_material_defect_is_reported_apart_from_the_capability_refusals ... ok
+test driver::refusal::tests::a_pdrd_shell_face_asking_for_stiffness_is_named_and_counted ... ok
+test driver::refusal::tests::a_pdrd_shell_face_with_no_stiffness_is_accepted ... ok
+test driver::refusal::tests::a_plastic_solid_and_shell_scene_is_accepted ... ok
+test driver::refusal::tests::a_refusal_names_the_feature_and_its_count ... ok
+test driver::refusal::tests::a_shell_scene_carrying_only_a_membrane_is_accepted ... ok
+test driver::refusal::tests::a_shell_with_hinges_to_bend_is_accepted ... ok
+test driver::refusal::tests::a_solid_naming_the_membrane_model_is_named_and_counted ... ok
+test driver::refusal::tests::a_solid_surface_face_past_the_shell_prefix_is_not_counted ... ok
+test driver::refusal::tests::a_strain_limited_rod_is_accepted ... ok
+test driver::refusal::tests::a_strain_limited_shell_is_accepted ... ok
+test driver::refusal::tests::a_tet_scene_with_contact_disabled_is_accepted ... ok
+test driver::refusal::tests::an_empty_contactless_scene_is_accepted ... ok
+test driver::refusal::tests::every_defect_is_reported_not_just_the_first ... ok
+test driver::refusal::tests::multigrid_is_refused_beside_a_rigid_body_and_beside_cosserat_rods ... ok
+test driver::refusal::tests::schwarz_is_accepted_at_every_level_count ... ok
+test driver::refusal::tests::the_fix_xz_drag_is_accepted_now_that_both_halves_exist ... ok
+test driver::refusal::tests::the_shell_models_the_membrane_carries_are_accepted ... ok
+test driver::refusal::tests::the_solid_models_the_table_carries_are_accepted ... ok
+test driver::rigid_map::tests::a_bodys_vertices_leave_the_reduced_vector ... ok
+test driver::rigid_map::tests::a_joint_or_a_lock_is_what_needs_projecting ... ok
+test driver::rigid_map::tests::a_scene_with_no_body_reduces_to_itself ... ok
+test driver::rigid_map::tests::two_locks_of_one_kind_on_one_body_is_refused ... ok
+test driver::scan::tests::an_empty_scan_is_a_no_op ... ok
+test driver::scan::tests::the_encoded_scan_agrees_with_the_submitting_one ... ok
+test driver::scan::tests::the_scan_matches_a_host_oracle_at_every_recursion_depth ... ok
+test driver::schwarz::build_tests::the_built_preconditioner_is_spd_on_the_operator ... ok
+test driver::schwarz::factor_tests::the_packed_factor_inverts_its_own_block ... ok
+test driver::schwarz::galerkin_tests::the_coarse_operator_carries_the_fine_quadratic_form ... ok
+test driver::schwarz::galerkin_tests::the_coarse_rows_are_sorted_and_deduplicated_across_a_reused_scratch ... ok
+test driver::schwarz::gather_tests::the_gathered_block_is_the_operator_restricted_to_the_domain ... ok
+test driver::schwarz::graph_tests::an_empty_operator_builds_an_empty_graph ... ok
+test driver::schwarz::graph_tests::the_fine_graph_carries_one_weighted_edge_per_operator_entry ... ok
+test driver::schwarz::hierarchy_tests::a_rebuilt_hierarchy_reuses_its_slots_and_retires_the_rest ... ok
+test driver::schwarz::hierarchy_tests::the_multilevel_sweep_is_spd_and_actually_coarsens ... ok
+test driver::schwarz::level0_tests::the_materialized_matrix_acts_like_the_operator ... ok
+test driver::schwarz::partition_tests::every_vertex_is_claimed_exactly_once ... ok
+test driver::schwarz::partition_tests::isolated_vertices_become_singletons ... ok
+test driver::schwarz::partition_tests::no_aggregate_exceeds_kmax ... ok
+test driver::schwarz::partition_tests::the_partition_is_reproducible ... ok
+test driver::schwarz::partition_tests::the_stiffest_edge_lands_inside_one_aggregate ... ok
+test driver::schwarz::tests::build_domains_partitions_every_vertex_into_its_aggregate ... ok
+test driver::schwarz::tests::build_domains_with_no_aggregates_is_a_no_op ... ok
+test driver::schwarz::transfer_tests::restriction_and_prolongation_are_transposes ... ok
+test driver::schwarz::transfer_tests::the_level_map_composes_through_the_level_below ... ok
+test driver::seed::tests::a_linear_and_an_angular_override_compose_into_one_rigid_field ... ok
+test driver::seed::tests::a_non_positive_step_seeds_nothing ... ok
+test driver::seed::tests::a_short_gather_buffer_is_refused ... ok
+test driver::seed::tests::a_velocity_override_far_from_the_origin_reproduces_the_commanded_velocity ... ok
+test driver::seed::tests::an_angular_override_spins_about_the_commanded_pivot ... ok
+test driver::seed::tests::an_out_of_range_index_fatals_rather_than_writing ... ok
+test driver::seed::tests::the_gather_returns_the_live_absolute_positions ... ok
+test driver::sort::tests::an_empty_or_single_input_sorts ... ok
+test driver::sort::tests::an_unstable_sort_really_does_break_the_contract ... ok
+test driver::sort::tests::equal_keys_keep_ascending_index_order ... ok
+test driver::sort::tests::the_parallel_form_produces_the_identical_permutation ... ok
+test driver::sort::tests::the_permutation_does_not_depend_on_the_thread_count ... ok
+test driver::spmv::tests::a_device_copy_between_different_lengths_is_refused - should panic ... ok
+test driver::spmv::tests::a_device_to_device_copy_moves_the_source_bytes ... ok
+test driver::spmv::tests::a_one_block_row_equals_the_shared_block_matvec ... ok
+test driver::spmv::tests::a_readback_copy_moves_the_device_half_and_stales_the_mirror ... ok
+test driver::spmv::tests::a_seeded_readback_buffer_answers_without_a_download ... ok
+test driver::spmv::tests::chunking_does_not_change_a_single_bit ... ok
+test driver::spmv::tests::reading_a_readback_buffer_after_a_dispatch_named_it_traps - should panic ... ok
+test driver::spmv::tests::the_answer_does_not_depend_on_the_thread_count ... ok
+test driver::spmv::tests::transpose_mul_agrees_with_mul_on_a_symmetric_block ... ok
+test driver::state::restage_tests::a_released_pin_reaches_the_staged_vertex_props ... ok
+test driver::state::restage_tests::a_streamed_rest_shape_reaches_the_staged_buffers ... ok
+test driver::state::restage_tests::the_rest_excluded_mask_reaches_the_device_with_its_rest_matrices ... ok
+test driver::state::restage_tests::the_restage_preserves_a_crept_rest_angle ... ok
+test driver::step::tests::a_held_step_is_described_in_the_index_space_its_slot_is_in ... ok
+test driver::step::tests::the_dof_mask_and_its_sum_are_both_computed_on_the_device ... ok
+test driver::step::tests::the_pin_index_gather_copies_every_vertex_record ... ok
+test driver::step::tests::the_step_delay_defaults_to_zero_and_parses_milliseconds ... ok
+test driver::tests::empty_dyn_counts_are_reported_as_zero ... ok
+test driver::tests::fatal_latch_keeps_the_first_writer ... ok
+test driver::tests::the_shared_bodies_are_built_for_an_fma_baseline ... ok
+test force_field::tests::a_backward_jump_is_refused_so_every_program_terminates ... ok
+test force_field::tests::a_branch_that_leaves_the_stack_unbalanced_is_refused ... ok
+test force_field::tests::a_fluid_bracket_blends_inside_and_holds_its_ends ... ok
+test force_field::tests::a_fluid_cell_is_held_to_the_float_the_device_reads_axis_by_axis ... ok
+test force_field::tests::a_fluid_field_takes_its_volume_and_no_noise_or_wind_factor ... ok
+test force_field::tests::a_fluid_field_with_gravitation_or_unmeasured_frames_is_refused ... ok
+test force_field::tests::a_fluid_frame_is_held_to_its_table_and_its_bricks ... ok
+test force_field::tests::a_fluid_needs_a_rotation_a_cell_and_a_spacing ... ok
+test force_field::tests::a_multi_frame_fluid_reads_back_frame_for_frame ... ok
+test force_field::tests::a_record_with_a_rotation_and_positive_scales_verifies ... ok
+test force_field::tests::a_reread_frame_must_hold_the_table_and_bricks_load_measured ... ok
+test force_field::tests::a_scaled_or_sheared_frame_is_refused ... ok
+test force_field::tests::a_stack_past_capacity_is_refused ... ok
+test force_field::tests::a_straight_program_that_returns_three_values_verifies ... ok
+test force_field::tests::a_texture_needs_its_whole_image_and_a_positive_nabla_for_differences ... ok
+test force_field::tests::a_texture_takes_z_up_from_its_manifest ... ok
+test force_field::tests::a_track_that_does_not_match_its_origins_is_refused ... ok
+test force_field::tests::a_transform_of_the_wrong_width_is_refused ... ok
+test force_field::tests::a_turbulence_of_size_zero_and_a_zero_noise_scale_are_refused ... ok
+test force_field::tests::a_wind_factor_on_a_wind_is_refused_and_on_a_force_admitted ... ok
+test force_field::tests::an_empty_frame_is_a_zero_domain_with_no_table_and_no_brick ... ok
+test force_field::tests::an_operand_out_of_range_is_refused ... ok
+test force_field::tests::falling_off_the_end_is_refused ... ok
+test force_field::tests::noise_pops_five_and_curl_pushes_three_with_bounded_octaves ... ok
+test mesh::tests::compute_hinge_rejects_duplicate_faces - should panic ... ok
+test mesh::tests::compute_hinge_valid_quad_has_one_hinge ... ok
+test mesh::tests::derived_topology_is_reproducible_and_retains_face_incidence ... ok
+test plastic_state::tests::a_kernel_with_no_elements_is_inactive_however_the_material_is_set ... ok
+test plastic_state::tests::apply_rejects_a_checkpoint_from_a_different_scene - should panic ... ok
+test plastic_state::tests::apply_restores_enabled_and_leaves_disabled_alone ... ok
+test plastic_state::tests::extract_carries_only_enabled_kernels ... ok
+test plastic_state::tests::kinds_track_each_kernel_independently ... ok
+test plastic_state::tests::round_trips_through_the_wire_format ... ok
+test scene::lock_axis_tests::all_axes_mode_requires_an_exactly_zero_axis ... ok
+test scene::lock_axis_tests::lock_axes_keep_zero_and_normalize_unit_values ... ok
+test scene::lock_axis_tests::lock_axes_reject_malformed_data ... ok
+test scene::lock_axis_tests::optional_lock_axes_default_to_disabled ... ok
+test scene::lock_axis_tests::optional_rotation_lock_modes_default_to_allow_only ... ok
+test scene::lock_axis_tests::rotation_lock_modes_reject_malformed_data ... ok
+test scene::lock_axis_tests::translation_lock_modes_default_to_the_axis_mode ... ok
+test scene::pin_op_tests::a_negative_angular_velocity_turns_the_other_way ... ok
+test scene::pin_op_tests::a_spin_waits_for_its_start ... ok
+test statistics::tests::angular_pseudoinverse_keeps_observable_rod_components ... ok
+test status_writer::tests::init_failure_names_the_cause_the_backend_stamped ... ok
+test status_writer::tests::init_failure_with_a_code_but_no_detail_names_the_code ... ok
+test status_writer::tests::init_failure_without_a_code_reports_unknown_not_intersection ... ok
+test tests::prune_out_streams_drops_resimulated_frames ... ok
+test tests::save_round_trips_and_leaves_no_temp_file ... ok
+
+test result: ok. 580 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.60s
+

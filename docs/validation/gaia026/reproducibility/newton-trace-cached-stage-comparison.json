@@ -1,0 +1,1710 @@
+[
+  {
+    "iteration": 1,
+    "stage": "momentum",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "momentum",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "momentum",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "rod",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "rod",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "rod",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "rod",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "rod",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "membrane",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "membrane",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "membrane",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "tet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "tet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "tet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "tet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "tet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "bending",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "bending",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "bending",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "stitch",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "stitch",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "stitch",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "stitch",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "stitch",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "hydro",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "hydro",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "hydro",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "strain",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "strain",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "strain",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "strain",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "strain",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "preconstraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "preconstraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "preconstraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "preconstraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "preconstraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "constraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "constraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "constraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "constraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "constraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "contact",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "contact",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "contact",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "contact",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "contact",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "dirichlet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "dirichlet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "dirichlet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 1,
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "momentum",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "momentum",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "momentum",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "rod",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "rod",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "rod",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "rod",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "rod",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "membrane",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "membrane",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "membrane",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "tet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "tet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "tet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "tet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "tet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "bending",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "bending",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "bending",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "stitch",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "stitch",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "stitch",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "stitch",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "stitch",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "hydro",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "hydro",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "hydro",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "strain",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "strain",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "strain",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "strain",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "strain",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "preconstraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "preconstraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "preconstraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "preconstraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "preconstraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "constraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "constraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "constraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "constraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "constraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "contact",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "contact",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "contact",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "contact",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "contact",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "dirichlet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "dirichlet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "dirichlet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 2,
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "momentum",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "momentum",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "momentum",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "rod",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "rod",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "rod",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "rod",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "rod",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "membrane",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "membrane",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "membrane",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "tet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "tet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "tet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "tet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "tet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "bending",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "bending",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "bending",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "stitch",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "stitch",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "stitch",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "stitch",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "stitch",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "hydro",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "hydro",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "hydro",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "strain",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "strain",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "strain",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "strain",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "strain",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "preconstraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "preconstraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "preconstraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "preconstraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "preconstraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "constraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "constraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "constraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "constraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "constraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "contact",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "contact",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "contact",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "contact",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "contact",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "dirichlet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "dirichlet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "dirichlet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 3,
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "momentum",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "momentum",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "momentum",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "rod",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "rod",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "rod",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "rod",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "rod",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "membrane",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "membrane",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "membrane",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "tet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "tet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "tet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "tet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "tet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "bending",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "bending",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "bending",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "stitch",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "stitch",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "stitch",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "stitch",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "stitch",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "hydro",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "hydro",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "hydro",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "strain",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "strain",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "strain",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "strain",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "strain",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "preconstraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "preconstraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "preconstraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "preconstraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "preconstraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "constraints",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "constraints",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "constraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "constraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "constraints",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "contact",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "contact",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "contact",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "contact",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "contact",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "dirichlet",
+    "field": "positions",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "dirichlet",
+    "field": "eval_x",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "dirichlet",
+    "field": "diagonal",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "iteration": 4,
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  }
+]

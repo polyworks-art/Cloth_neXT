@@ -1,0 +1,82 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 250,
+  "vertices": 1000,
+  "total_cloth_vertices": 2000,
+  "combination": "two",
+  "coupling_strength": 0.2,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    250
+  ],
+  "dry": false,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "quality": {
+    "time_step": 0.009999999776482582,
+    "cg_max_iter": 2500,
+    "cg_tol": 0.009999999776482582
+  },
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0035877999998774612
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 0.015073999999913212
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 54.40393419999964
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 71.57998539999971
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 71.59135539999988
+    },
+    {
+      "state": "CANCELLING",
+      "seconds": 155.3618621999999
+    },
+    {
+      "state": "ERROR",
+      "seconds": 155.53150849999975
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "ERROR",
+  "error": "Bake stopped at the RAM safety limit.",
+  "error_details": "Stage: cancellation cleanup\nCause: System RAM remained above the configured Auto Cancel threshold.\nWhat to do: Lower scene complexity or raise the threshold cautiously.",
+  "exception": "AssertionError('Regular Bake ended in ERROR: Bake stopped at the RAM safety limit.')",
+  "session_timings_and_contacts": [
+    {
+      "timings": {
+        "total": 83.9143180000001
+      },
+      "contact_peak": 0,
+      "contact_samples": 0
+    }
+  ],
+  "solver_diagnostics_samples": [],
+  "solver_diagnostics_paths": [],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 698769408,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 501,
+  "wall_seconds": 155.60304989999986
+}

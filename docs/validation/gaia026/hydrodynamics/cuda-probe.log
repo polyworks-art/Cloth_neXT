@@ -1,0 +1,6 @@
+backend: cuda
+hydrodynamic-test: uniform-sheet-si-v1
+hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1
+linked: cuda
+stamp: 946c425688ff022e
+device: NVIDIA GeForce RTX 4070 SUPER

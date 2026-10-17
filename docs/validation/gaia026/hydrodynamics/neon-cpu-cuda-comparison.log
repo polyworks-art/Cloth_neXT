@@ -1,0 +1,98 @@
+{
+  "scope": "Completed matching full native NEON trajectories",
+  "cpu_solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+  "cuda_solver_sha256": "09405c5b64177c940107680b5c0acc3643a4112f49f571a3386d1aed9ecd38d0",
+  "acceptance": "Measured differences; no production threshold claimed",
+  "cases": [
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments.001",
+      "max_m": 0.0001387870693347039,
+      "rms_m": 1.1989112447249908e-05
+    },
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments.002",
+      "max_m": 0.0009182004443184345,
+      "rms_m": 9.650495936681352e-06
+    },
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments",
+      "max_m": 0.0011440598872383377,
+      "rms_m": 1.7319831044521886e-05
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments.001",
+      "max_m": 0.0002386105551073774,
+      "rms_m": 1.6701893891039813e-05
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments.002",
+      "max_m": 0.0016607766590917591,
+      "rms_m": 1.4209964504257402e-05
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments",
+      "max_m": 0.001863861415315313,
+      "rms_m": 3.355274163039253e-05
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments.001",
+      "max_m": 0.00015793128405416955,
+      "rms_m": 1.27407740940025e-05
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments.002",
+      "max_m": 0.0015845967579142931,
+      "rms_m": 1.4501468035253256e-05
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments",
+      "max_m": 0.001720755232239355,
+      "rms_m": 3.9052881719001744e-05
+    },
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments.001",
+      "max_m": 0.00017303414895449,
+      "rms_m": 1.260657537817186e-05
+    },
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments.002",
+      "max_m": 0.000414358989679845,
+      "rms_m": 7.189337913498863e-06
+    },
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments",
+      "max_m": 0.008479852522532591,
+      "rms_m": 0.00024205838150787574
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments.001",
+      "max_m": 0.00010890306584304462,
+      "rms_m": 5.7248636278414174e-06
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments.002",
+      "max_m": 0.0006078904264360255,
+      "rms_m": 7.411401501676772e-06
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments",
+      "max_m": 0.006231649344600306,
+      "rms_m": 0.00017440839355583335
+    }
+  ]
+}

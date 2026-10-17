@@ -1,0 +1,533 @@
+--- a/crates/ppf-cts-solver/src/mesh.rs
++++ b/crates/ppf-cts-solver/src/mesh.rs
+@@ -5,7 +5,7 @@
+ 
+ use na::{Matrix2xX, Matrix3xX, Matrix4xX};
+ use serde::{Deserialize, Serialize};
+-use std::collections::{HashMap, HashSet};
++use std::collections::{BTreeMap, HashSet};
+ 
+ #[derive(Serialize, Deserialize)]
+ pub struct MeshInfo {
+@@ -193,7 +193,9 @@
+     // vertex array shared with rod/tet groups, so they can sit
+     // arbitrarily far past any packed-integer radix derived from
+     // face count alone.
+-    let mut hash = HashMap::<(usize, usize), (usize, usize, usize, Option<usize>)>::new();
++    // Derived element order reaches bending sums, contact IDs and CSR assembly.
++    // Randomized hash iteration must never choose that numerical order.
++    let mut hash = BTreeMap::<(usize, usize), (usize, usize, usize, Option<usize>)>::new();
+     for (i, column) in face.column_iter().enumerate() {
+         for j in 0..3 {
+             let e = (column[j], column[(j + 1) % 3], i, None);
+@@ -255,7 +257,7 @@
+         );
+     }
+     let mut hash =
+-        HashMap::<(usize, usize), (usize, usize, usize, Option<usize>, usize, Option<usize>)>::new(
++        BTreeMap::<(usize, usize), (usize, usize, usize, Option<usize>, usize, Option<usize>)>::new(
+         );
+     let mut excludes = Vec::new();
+     for (i, f) in face.column_iter().enumerate() {
+@@ -345,6 +347,21 @@
+     use super::*;
+ 
+     #[test]
++    fn derived_topology_is_reproducible_and_retains_face_incidence() {
++        let faces=Matrix3xX::<usize>::from_column_slice(&[8,2,5,2,9,5,5,9,11,11,9,13]);
++        let rods=Matrix2xX::<usize>::zeros(0);
++        let expected_edges=compute_edge(&rods,&faces);
++        let expected_hinges=compute_hinge(&faces);
++        let keys:Vec<_>=expected_hinges.0.column_iter().map(|h|(h[0].min(h[1]),h[0].max(h[1]))).collect();
++        assert_eq!(keys,vec![(2,5),(5,9),(9,11)]);
++        assert_eq!(expected_hinges.1,vec![vec![0,1],vec![1,2],vec![2,3]]);
++        for _ in 0..64 {
++            assert_eq!(compute_edge(&rods,&faces),expected_edges);
++            assert_eq!(compute_hinge(&faces),expected_hinges);
++        }
++    }
++
++    #[test]
+     fn compute_hinge_valid_quad_has_one_hinge() {
+         // Quad split into [0,1,2] + [0,2,3]: a single hinge across the
+         // shared diagonal edge (0,2).
+--- a/crates/ppf-cts-solver/src/driver/step.rs
++++ b/crates/ppf-cts-solver/src/driver/step.rs
+@@ -991,6 +991,7 @@
+         // `matrix assembly` total counts it and `asm_elastic` does not.
+         let _phase = super::phase::start("assemble.momentum");
+         assemble::momentum(device, data, param, state, dt)?;
++        repro_checkpoint(device, state, &mut fixed, "momentum")?;
+         drop(_phase);
+ 
+         // THE ELASTIC SUB-TIMER spans the five elastic layers alone: the
+@@ -1004,22 +1005,26 @@
+ 
+         // STEP B7b. The rod stretch layer, SECOND of the five.
+         assemble::rod_stretch(device, data, state, &mut fixed, dt)?;
++        repro_checkpoint(device, state, &mut fixed, "rod")?;
+ 
+         // STEP B7c. The shell membrane layer. BEFORE the tets: the five
+         // elastic dispatches run as rod bend, rod, shell face, tet and hinge,
+         // and the assembled sums are fp32, so the order decides the last bits.
+         let _phase = super::phase::start("assemble.shell_membrane");
+         assemble::shell_membrane(device, data, prm.eiganalysis_eps, state, &mut fixed, dt)?;
++        repro_checkpoint(device, state, &mut fixed, "membrane")?;
+         drop(_phase);
+ 
+         // STEP B7d. The tet elastic layer.
+         assemble::tet_elastic(device, data, prm.eiganalysis_eps, state, &mut fixed, dt)?;
++        repro_checkpoint(device, state, &mut fixed, "tet")?;
+ 
+         // STEP B7e. The shell hinge bending layer, LAST of the five elastic
+         // dispatches, so it is assembled after the membrane and after the
+         // tets.
+         let _phase = super::phase::start("assemble.shell_bending");
+         assemble::shell_bending(device, data, state, &mut fixed, dt)?;
++        repro_checkpoint(device, state, &mut fixed, "bending")?;
+         drop(_phase);
+         // Name: Assembly: Elastic
+         // Format: list[(time, ms)]
+@@ -1049,6 +1054,7 @@
+         // are missing from.
+         let _phase = super::phase::start("assemble.stitch");
+         assemble::stitch(device, data, prm.stitch_length_factor, state, &mut fixed)?;
++        repro_checkpoint(device, state, &mut fixed, "stitch")?;
+         drop(_phase);
+ 
+         // STEP B9. Snapshot the elastic matrix. The contact stiffness reads
+@@ -1074,6 +1080,7 @@
+         // Their damping blocks enter the live Newton matrix AFTER the elastic
+         // reference snapshot, so they do not change calibrated elastic stiffness.
+         assemble::hydrodynamic_test(device,data,state,&mut fixed,dt,(*param).time_f32+dt/prm.playback)?;
++        repro_checkpoint(device, state, &mut fixed, "hydro")?;
+ 
+         // STEP B12 and B13. The two strain limiters, shell then rod, reading
+         // the snapshot above and writing the live
+@@ -1115,6 +1122,7 @@
+             } else {
+                 Ok(())
+             };
++            repro_checkpoint(device, state, &mut fixed, "strain")?;
+             // Name: Assembly: Strain Limit
+             // Format: list[(time, ms)]
+             // Description:
+@@ -1171,16 +1179,7 @@
+                     )?;
+                 }
+             }
+-            // THE RESIDUAL SNAPSHOT THIS PASS'S FRICTION ANCHORS ON. Taken
+-            // here rather than read out of `force` directly because the
+-            // contacts below deposit into `force` through atomics, so a pair
+-            // reading that vector would read a row another pair had already
+-            // moved. TWO SNAPSHOTS, NOT ONE, because this driver deposits both
+-            // halves straight into `force` rather than accumulating the
+-            // self-contact half into a vector of its own and folding it in at
+-            // the end. The second copy therefore carries the analytic and
+-            // collision-mesh forces, which is what the self-contact pass must
+-            // anchor on.
++            repro_checkpoint(device, state, &mut fixed, "preconstraints")?;
+             {
+                 let bytes = 3 * state.sizes.vertices * size_of::<f32>();
+                 let (residual, force) = (state.residual.handle(), state.force.handle());
+@@ -1270,6 +1269,7 @@
+             } else {
+                 Ok(())
+             };
++            repro_checkpoint(device, state, &mut fixed, "constraints")?;
+             // THE RESIDUAL SNAPSHOT THIS PASS'S FRICTION ANCHORS ON. Taken
+             // here rather than read out of `force` directly because the
+             // contacts below deposit into `force` through atomics, so a pair
+@@ -1358,6 +1358,7 @@
+             log::mark("advance", "asm_contact", _asm_contact.elapsed());
+             contact_result?;
+             constraint_result?;
++        repro_checkpoint(device, state, &mut fixed, "contact")?;
+ 
+             // A PAIR THE ASSEMBLY FOUND ALREADY COLLAPSED TO ITS OFFSET ends
+             // the advance here, and the report is a HOST CONTRACT: the kind
+@@ -1511,6 +1512,7 @@
+         // with it, read against the same targets the Dirichlet pass above read
+         // and before `target` is reused at STEP B20.
+         super::cosserat::State::prescribe(state, device)?;
++        repro_checkpoint(device, state, &mut fixed, "dirichlet")?;
+         // THE LINEAR SOLVE'S TIMER OPENS HERE: after the Dirichlet scope
+         // closes and before anything the solve needs is prepared. That places
+         // the block-Jacobi build inside it, the preconditioner being part of
+@@ -2021,6 +2023,7 @@
+         };
+         drop(operator);
+         // Give the value array back so the next iteration reuses it.
++        repro_solution(device, dx)?;
+         state.fixed_values = fixed.into_values();
+ 
+         // Name: Linear Solve Time
+@@ -3364,3 +3367,75 @@
+         );
+     }
+ }
++
++// Research-only opt-in state capture. Absent PPF_REPRO_DIR this does no I/O.
++fn repro_checkpoint<D: ppf_cts_compute::Device>(device: &mut D, state: &mut SolverState,
++    fixed: &mut FixedCsr<'_>, stage: &str) -> FatalResult<()> {
++    use std::sync::atomic::{AtomicUsize,Ordering};
++    static ITERATION: AtomicUsize = AtomicUsize::new(0);
++    let Some(dir)=std::env::var_os("PPF_REPRO_DIR") else { return Ok(()); };
++    let iteration=if stage=="momentum" {ITERATION.fetch_add(1,Ordering::SeqCst)+1} else {ITERATION.load(Ordering::SeqCst)};
++    let count=std::env::var("PPF_REPRO_ITERATIONS").ok().and_then(|s|s.parse::<usize>().ok()).unwrap_or(1);
++    if iteration>count {return Ok(());}
++    let path=std::path::Path::new(&dir);
++    std::fs::create_dir_all(path).map_err(|e|Fatal::invariant(format!("repro directory: {e}")))?;
++    if stage=="momentum" {
++        state.positions.download(device)?;state.eval_x.download(device)?;state.target.download(device)?;
++        for (name,values) in [("positions",state.positions.host()),("eval_x",state.eval_x.host()),("target",state.target.host())] {
++            std::fs::write(path.join(format!("{iteration:03}-{stage}-{name}.f32")),bytemuck::cast_slice(values)).map_err(|e|Fatal::invariant(format!("repro input capture: {e}")))?;
++        }
++        std::fs::write(path.join(format!("{iteration:03}-{stage}-vertex_props.json")),serde_json::to_vec(state.prop_vertex.host()).map_err(|e|Fatal::invariant(format!("repro property encoding: {e}")))?).map_err(|e|Fatal::invariant(format!("repro property capture: {e}")))?;
++        let material=serde_json::json!({"face_prop":state.prop_face.host(),"face_param":state.param_face.host(),"hinge_prop":state.prop_hinge.host(),"hinge_param":state.param_hinge.host(),"hinge_remapped":state.hinge.remapped.host()});
++        std::fs::write(path.join(format!("{iteration:03}-{stage}-material_records.json")),serde_json::to_vec(&material).map_err(|e|Fatal::invariant(format!("repro material encoding: {e}")))?).map_err(|e|Fatal::invariant(format!("repro material capture: {e}")))?;
++    }
++    state.eval_x.download(device)?;state.positions.download(device)?;
++    state.force.download(device)?;
++    fixed.download(device)?;
++    if stage=="contact" || stage=="dirichlet" {
++        if let Some(contact)=state.contact.as_ref() {
++            let flat=&contact.flat;
++            let mut offsets=vec![0u32;flat.rows+1];
++            let mut indices=vec![0u32;flat.nnz];
++            let mut values=vec![0f32;9*flat.nnz];
++            flat.offset.read(device,0,&mut offsets)?;
++            flat.index.read(device,0,&mut indices)?;
++            flat.value.read(device,0,&mut values)?;
++            for (name,bytes) in [("dynamic-offset",bytemuck::cast_slice(offsets.as_slice())),("dynamic-index",bytemuck::cast_slice(indices.as_slice())),("dynamic-value",bytemuck::cast_slice(values.as_slice()))] {
++                std::fs::write(path.join(format!("{iteration:03}-{stage}-{name}.bin")),bytes).map_err(|e|Fatal::invariant(format!("repro dynamic capture: {e}")))?;
++            }
++            let transpose=&contact.transpose;
++            let mut offsets=vec![0u32;flat.rows+1];
++            let mut indices=vec![0u32;transpose.total];
++            let mut values=vec![0u32;transpose.total];
++            transpose.offset.read(device,0,&mut offsets)?;
++            transpose.index.read(device,0,&mut indices)?;
++            transpose.value.read(device,0,&mut values)?;
++            for (name,words) in [("transpose-offset",offsets.as_slice()),("transpose-index",indices.as_slice()),("transpose-value",values.as_slice())] {
++                std::fs::write(path.join(format!("{iteration:03}-{stage}-{name}.bin")),bytemuck::cast_slice(words)).map_err(|e|Fatal::invariant(format!("repro transpose capture: {e}")))?;
++            }
++        }
++    }
++    let mut dx=vec![0f32;state.dx.len()];state.dx.read(device,0,&mut dx)?;
++    let mut diagonal=vec![0f32;state.diagonal.len()];state.diagonal.read(device,0,&mut diagonal)?;
++    for (name,values) in [("force",state.force.host()),("fixed",fixed.values()),("diagonal",diagonal.as_slice()),("dx",dx.as_slice()),("eval_x",state.eval_x.host()),("positions",state.positions.host())] {
++        let file=path.join(format!("{iteration:03}-{stage}-{name}.f32"));
++        std::fs::write(file,bytemuck::cast_slice(values)).map_err(|e|Fatal::invariant(format!("repro capture: {e}")))?;
++    }
++    if stage=="linear_solve" && std::env::var_os("PPF_REPRO_STOP_AFTER_FIRST_SOLVE").is_some() {
++        return Err(Fatal::invariant("REPRO_EXPECTED_STOP_AFTER_FIRST_SOLVE"));
++    }
++    Ok(())
++}
++
++fn repro_solution<D: ppf_cts_compute::Device>(device: &mut D, dx: &ppf_cts_compute::Buffer<f32>) -> FatalResult<()> {
++    use std::sync::atomic::{AtomicUsize,Ordering};
++    static SOLVE: AtomicUsize=AtomicUsize::new(0);
++    let Some(dir)=std::env::var_os("PPF_REPRO_DIR") else {return Ok(());};
++    let iteration=SOLVE.fetch_add(1,Ordering::SeqCst)+1;
++    let count=std::env::var("PPF_REPRO_ITERATIONS").ok().and_then(|s|s.parse::<usize>().ok()).unwrap_or(1);
++    if iteration>count {return Ok(());}
++    let mut values=vec![0f32;dx.len()];dx.read(device,0,&mut values)?;
++    std::fs::write(std::path::Path::new(&dir).join(format!("{iteration:03}-linear_solve-dx.f32")),bytemuck::cast_slice(values.as_slice())).map_err(|e|Fatal::invariant(format!("repro solve capture: {e}")))?;
++    if std::env::var_os("PPF_REPRO_STOP_AFTER_FIRST_SOLVE").is_some() {return Err(Fatal::invariant("REPRO_EXPECTED_STOP_AFTER_FIRST_SOLVE"));}
++    Ok(())
++}
+--- a/crates/ppf-cts-compute/seam/kernelgen.py
++++ b/crates/ppf-cts-compute/seam/kernelgen.py
+@@ -2911,7 +2911,38 @@
+         out.extend(_hoist(entry, _resolve_cu, "args.", 0))
+         out.append(_slots(entry, "args.", 4, "assert(seam_slots_valid);"))
+         out.append(_call(entry, "args.") + "}\n")
+-        out.append(_launcher_cu(entry, target))
++        if target == "cu" and not entry.is_group and entry.indices_field is not None and entry.bound_field is not None and any("atomic_float_t" in f.base for f in entry.fields):
++            out.append('#include "research_order.hpp"\n')
++            out.append(_research_order_entries(entry))
++            launcher = _launcher_cu(entry, target)
++            marker = "    const unsigned block_size = "
++            assert launcher.count(marker) == 1
++            launcher = launcher.replace(marker, _research_order_launch(entry) + marker, 1)
++            out.append(launcher)
++        elif target == "cu" and entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse", "dyn_push_pass", "dyn_scatter_transpose_pass", "stitch_atomic_embed_force", "fixed_csr_atomic_push"):
++            # Diagnostic isolation: serialize query execution, retaining the original
++            # tree traversal, narrow phase, force body and matrix insertion guards.
++            out.append('#include "research_order.hpp"\n')
++            out.append(_research_order_entries(entry, modes=("serial",)))
++            launcher = _launcher_cu(entry, target)
++            count = entry.count_field.name
++            switch = ("PPF_REPRO_SERIAL_CSR" if entry.name.startswith("dyn_") else
++                      "PPF_REPRO_SERIAL_STITCH" if entry.name in ("stitch_atomic_embed_force", "fixed_csr_atomic_push") else
++                      "PPF_REPRO_SERIAL_CONTACT")
++            filtered = ""
++            if entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse"):
++                probe, filtered = _research_contact_filter(entry)
++                out.append(probe)
++            diagnostic = (f'    if (std::getenv("{switch}")) {{\n'
++                f'        for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
++                f'            unsigned end=std::min(begin+32,args.{count});\n'
++                f'            {entry.entry_symbol}_serial<<<1,1,0,queue>>>(args,nullptr,begin,end{_diag_cu_arg(entry)});\n'
++                '            CUDA_HANDLE_ERROR(cudaGetLastError());\n        }\n        return;\n    }\n')
++            marker = "    const unsigned block_size = "
++            assert launcher.count(marker) == 1
++            out.append(launcher.replace(marker, filtered + diagnostic + marker, 1))
++        else:
++            out.append(_launcher_cu(entry, target))
+     return "".join(out)
+ 
+ 
+@@ -5760,5 +5791,71 @@
+     return 0
+ 
+ 
++
++# Research-only execution-order variants. No formula, record, guard or body changes.
++def _research_order_entries(entry, modes=("serial", "colored")):
++    out=[]
++    for mode in modes:
++        out.append(f"\n__global__ void {entry.entry_symbol}_{mode}({entry.record_cpp} args, const unsigned *order, unsigned begin, unsigned end{_diag_cu_param(entry)}) {{\n")
++        if mode == "serial":
++            out.append("    if (blockIdx.x || threadIdx.x) return;\n")
++            out.append("    for (unsigned ordinal=begin; ordinal<end; ++ordinal) {\n")
++            out.append(f"    unsigned {entry.index_name}=order ? order[ordinal] : ordinal;\n")
++        else:
++            out.append("    unsigned ordinal=begin+blockIdx.x*blockDim.x+threadIdx.x;\n    if (ordinal>=end) return;\n")
++            out.append(f"    unsigned {entry.index_name}=order[ordinal];\n")
++        out.append(f"    if ({entry.index_name}>=args.{entry.count_field.name}) return;\n")
++        out.append(_diag_cu_bind(entry));out.extend(_hoist(entry,_resolve_cu,"args.",0))
++        out.append(_slots(entry,"args.",4,"assert(seam_slots_valid);"));out.append(_call(entry,"args.").replace("return ", "", 1) if mode=="serial" else _call(entry,"args."))
++        if mode=="serial":out.append("    }\n")
++        out.append("}\n")
++    return "".join(out)
++
++
++def _research_contact_filter(entry):
++    mutable=[f for f in entry.fields if f.kind=="handle" and not f.is_const]
++    assert any(f.name=="assembled" for f in mutable)
++    count=entry.count_field.name;idx=entry.index_name;diag=_diag_cu_arg(entry)
++    probe=[f'\n__global__ void {entry.entry_symbol}_select({entry.record_cpp} args, void **scratch, unsigned *flags{_diag_cu_param(entry)}) {{\n',
++        f'    unsigned {idx}=blockIdx.x*blockDim.x+threadIdx.x;\n    if({idx}>=args.{count}) return;\n']
++    probe.append(_diag_cu_bind(entry));probe.extend(_hoist(entry,_resolve_cu,"args.",0))
++    for k,f in enumerate(mutable):
++        if f.name=="assembled":probe.append(f'    static_assert(sizeof(compute::atomic_uint_t)==sizeof(unsigned));\n    assembled=reinterpret_cast<compute::atomic_uint_t *>(flags+{idx});\n')
++        else:probe.append(f'    {f.name}=reinterpret_cast<{f.base} *>(scratch[{k}]);\n')
++    probe.append(_call(entry,"args.").replace("return ","",1))
++    probe.append(f'    if(out_overlap[{idx}].flagged) flags[{idx}]=1u;\n}}\n')
++    handles=','.join('{args.'+f.name+',sizeof('+f.base+')}' for f in mutable)
++    launch=(f'    if(std::getenv("PPF_REPRO_FILTERED_CONTACT")) {{\n'
++        '        CUDA_HANDLE_ERROR(cudaStreamSynchronize(queue));\n'
++        f'        ReproContactScratch scratch({{{handles}}},args.{count},queue,"{entry.name}");\n'
++        f'        {entry.entry_symbol}_select<<<(args.{count}+127)/128,128,0,queue>>>(args,scratch.table,scratch.flags{diag});\n'
++        '        CUDA_HANDLE_ERROR(cudaGetLastError());\n'
++        '        CUDA_HANDLE_ERROR(cudaStreamSynchronize(queue));\n'
++        '        unsigned selected=scratch.select();\n'
++        '        for(unsigned begin=0;begin<selected;begin+=32) {\n'
++        '            unsigned end=std::min(begin+32,selected);\n'
++        f'            {entry.entry_symbol}_serial<<<1,1,0,queue>>>(args,scratch.order,begin,end{diag});\n'
++        '            CUDA_HANDLE_ERROR(cudaGetLastError());\n        }\n        return;\n    }\n')
++    return ''.join(probe),launch
++
++
++def _research_order_launch(entry):
++    count=entry.count_field.name;indices=entry.indices_field.name;arity=entry.indices_field.stride;bound=entry.bound_field.name;diag=_diag_cu_arg(entry)
++    return (f'    if (const char *mode=repro_order_mode("{entry.name}")) {{\n'
++            '        if (!std::strcmp(mode,"serial")) {\n'
++            f'            for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
++            f'                unsigned end=std::min(begin+32,args.{count});\n'
++            f'                {entry.entry_symbol}_serial<<<1,1,0,queue>>>(args,nullptr,begin,end{diag});\n'
++            '                CUDA_HANDLE_ERROR(cudaGetLastError());\n            }\n'
++            '        } else {\n'
++            '            CUDA_HANDLE_ERROR(cudaStreamSynchronize(queue));\n'
++            f'            ReproColorOrder order(args.{indices},args.{count},{arity},args.{bound},queue,"{entry.name}");\n'
++            '            for(unsigned color=0;color+1<order.offsets.size();++color) {\n'
++            '                unsigned begin=order.offsets[color],end=order.offsets[color+1];\n'
++            f'                {entry.entry_symbol}_colored<<<(end-begin+127)/128,128,0,queue>>>(args,order.device,begin,end{diag});\n'
++            '                CUDA_HANDLE_ERROR(cudaGetLastError());\n            }\n'
++            '        }\n        return;\n    }\n')
++
++
+ if __name__ == "__main__":
+     sys.exit(main(sys.argv))
+--- /dev/null
++++ b/crates/ppf-cts-compute/cuda/research_order.hpp
+@@ -0,0 +1,157 @@
++#pragma once
++// Research dispatch ordering only. Every contribution still uses the original body.
++#include <algorithm>
++#include <cstdlib>
++#include <cstdio>
++#include <cstring>
++#include <stdexcept>
++#include <vector>
++#include <initializer_list>
++#include <cstdint>
++#include <map>
++#include "arena/arena.hpp"
++
++inline const char *repro_order_mode(const char *kernel) {
++    const char *mode=std::getenv("PPF_REPRO_ORDER_MODE");
++    if (!mode || (!std::strcmp(mode,"parallel"))) return nullptr;
++    if (std::strcmp(mode,"serial") && std::strcmp(mode,"colored"))
++        throw std::runtime_error("unknown research accumulation mode");
++    const char *filter=std::getenv("PPF_REPRO_ORDER_FILTER");
++    if (!filter) filter="face_elastic_embed_from_records";
++    bool enabled=(!std::strcmp(filter,"all") || !std::strcmp(filter,kernel));
++    if(enabled && std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr,"REPRO_ORDER %s %s\n",kernel,mode);
++    return enabled ? mode : nullptr;
++}
++
++inline void repro_cuda_check(cudaError_t status) {
++    if(status!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(status));
++}
++// High-water storage belongs to a stream/kernel, not to an individual Newton
++// assembly. Scratch views are refreshed in full; color reuse compares indices.
++struct ReproCacheEntry {
++    std::vector<void *> blocks,active_blocks;
++    std::vector<size_t> capacities;
++    void *table=nullptr,*flags=nullptr,*order=nullptr;
++    size_t table_bytes=0,flag_bytes=0,order_bytes=0;
++    std::vector<unsigned> host_order,host_flags,stencil,offsets;
++    unsigned arity=0,bound=0;
++    static void ensure(void *&pointer,size_t &capacity,size_t bytes) {
++        if(capacity>=bytes)return;
++        void *fresh=nullptr;repro_cuda_check(cudaMalloc(&fresh,bytes));
++        if(pointer)cudaFree(pointer);pointer=fresh;capacity=bytes;
++    }
++    ~ReproCacheEntry() {
++        for(void *p:blocks)if(p)cudaFree(p);
++        if(table)cudaFree(table);if(flags)cudaFree(flags);if(order)cudaFree(order);
++    }
++    ReproCacheEntry()=default;
++    ReproCacheEntry(const ReproCacheEntry &)=delete;
++};
++inline auto &repro_caches() {
++    static thread_local std::map<std::pair<uintptr_t,std::string>,ReproCacheEntry> entries;
++    return entries;
++}
++inline ReproCacheEntry &repro_cache(cudaStream_t queue,const std::string &key) {
++    return repro_caches().try_emplace(std::make_pair(reinterpret_cast<uintptr_t>(queue),key)).first->second;
++}
++inline void repro_release_queue(cudaStream_t queue) {
++    auto &entries=repro_caches();
++    for(auto it=entries.begin();it!=entries.end();) {
++        if(it->first.first==reinterpret_cast<uintptr_t>(queue))it=entries.erase(it);
++        else ++it;
++    }
++}
++
++struct ReproColorOrder {
++    unsigned *device=nullptr;
++    std::vector<unsigned> offsets;
++    ReproColorOrder(const ArenaHandle &indices,unsigned count,unsigned arity,unsigned bound,cudaStream_t queue,const char *kernel) {
++        auto &cache=repro_cache(queue,std::string("color:")+kernel);
++        std::vector<unsigned> input(static_cast<size_t>(count)*arity);
++        std::string error;
++        if (!compute::arena::read(compute::arena::active(),indices,input.data(),input.size()*sizeof(unsigned),&error))
++            throw std::runtime_error("research index read: "+error);
++        if(cache.arity==arity && cache.bound==bound && cache.stencil==input && !cache.offsets.empty()) {
++            device=static_cast<unsigned *>(cache.order);offsets=cache.offsets;return;
++        }
++        std::vector<std::vector<unsigned>> used(bound),bins;
++        for (unsigned element=0;element<count;++element) {
++            std::vector<unsigned char> forbidden(bins.size()+1,0);
++            for (unsigned j=0;j<arity;++j) {
++                unsigned v=input[static_cast<size_t>(element)*arity+j];
++                if (v>=bound) throw std::runtime_error("research color index exceeds declared vertex bound");
++                for (unsigned color:used[v]) forbidden[color]=1;
++            }
++            unsigned color=0;while (forbidden[color]) ++color;
++            if (color==bins.size()) bins.emplace_back();
++            bins[color].push_back(element);
++            for (unsigned j=0;j<arity;++j) {
++                auto &colors=used[input[static_cast<size_t>(element)*arity+j]];
++                if (std::find(colors.begin(),colors.end(),color)==colors.end()) colors.push_back(color);
++            }
++        }
++        if(std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr,"REPRO_COLORS elements=%u arity=%u colors=%zu\n",count,arity,bins.size());
++        std::vector<unsigned> order;order.reserve(count);offsets.push_back(0);
++        for (const auto &bin:bins) {order.insert(order.end(),bin.begin(),bin.end());offsets.push_back(static_cast<unsigned>(order.size()));}
++        cache.host_order=std::move(order);
++        ReproCacheEntry::ensure(cache.order,cache.order_bytes,cache.host_order.size()*sizeof(unsigned));
++        repro_cuda_check(cudaMemcpyAsync(cache.order,cache.host_order.data(),cache.host_order.size()*sizeof(unsigned),cudaMemcpyHostToDevice,queue));
++        cache.stencil=std::move(input);cache.arity=arity;cache.bound=bound;cache.offsets=offsets;
++        device=static_cast<unsigned *>(cache.order);
++    }
++    ReproColorOrder(const ReproColorOrder &)=delete;
++};
++
++// Scratch copies are used only to identify queries that actually contribute.
++// They never replace the live assembly. The original traversal runs again, in
++// ascending query order, for every contributing or overlap-reporting query.
++static __global__ void repro_copy_span(ArenaHandle handle,void *destination,size_t words) {
++    size_t i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<words) static_cast<unsigned *>(destination)[i]=compute::arena::resolve_const<unsigned>(handle)[i];
++}
++struct ReproScratchSpan {ArenaHandle handle;size_t element_bytes;};
++struct ReproContactScratch {
++    ReproCacheEntry &cache;
++    void **table=nullptr;
++    unsigned *flags=nullptr,*order=nullptr;
++    unsigned count=0;
++    cudaStream_t queue;
++    static void check(cudaError_t status) {
++        if(status!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
++    }
++    ReproContactScratch(std::initializer_list<ReproScratchSpan> handles,unsigned queries,cudaStream_t stream,const char *kernel)
++        :cache(repro_cache(stream,std::string("contact:")+kernel)),count(queries),queue(stream) {
++        cache.blocks.resize(handles.size(),nullptr);cache.capacities.resize(handles.size(),0);
++        cache.active_blocks.clear();size_t k=0;
++        for(const auto &span:handles) {
++            const auto &handle=span.handle;
++            if(!handle.size) {cache.active_blocks.push_back(nullptr);++k;continue;}
++            // Exact typed view size, including nonzero-offset staging spans.
++            // Original record handles are validated before this launcher runs.
++            size_t bytes=static_cast<size_t>(handle.size)*span.element_bytes;
++            if(bytes%sizeof(unsigned)) throw std::runtime_error("unaligned contact scratch span");
++            ReproCacheEntry::ensure(cache.blocks[k],cache.capacities[k],bytes);
++            size_t words=bytes/sizeof(unsigned);
++            repro_copy_span<<<static_cast<unsigned>((words+255)/256),256,0,queue>>>(handle,cache.blocks[k],words);
++            check(cudaGetLastError());cache.active_blocks.push_back(cache.blocks[k]);++k;
++        }
++        ReproCacheEntry::ensure(cache.table,cache.table_bytes,handles.size()*sizeof(void *));
++        ReproCacheEntry::ensure(cache.flags,cache.flag_bytes,queries*sizeof(unsigned));
++        table=static_cast<void **>(cache.table);flags=static_cast<unsigned *>(cache.flags);
++        check(cudaMemcpyAsync(table,cache.active_blocks.data(),handles.size()*sizeof(void *),cudaMemcpyHostToDevice,queue));
++        check(cudaMemsetAsync(flags,0,queries*sizeof(unsigned),queue));
++    }
++    unsigned select() {
++        cache.host_flags.resize(count);cache.host_order.clear();
++        check(cudaMemcpy(cache.host_flags.data(),flags,count*sizeof(unsigned),cudaMemcpyDeviceToHost));
++        for(unsigned i=0;i<count;++i) if(cache.host_flags[i])cache.host_order.push_back(i);
++        if(!cache.host_order.empty()) {
++            ReproCacheEntry::ensure(cache.order,cache.order_bytes,cache.host_order.size()*sizeof(unsigned));
++            check(cudaMemcpyAsync(cache.order,cache.host_order.data(),cache.host_order.size()*sizeof(unsigned),cudaMemcpyHostToDevice,queue));
++        }
++        order=static_cast<unsigned *>(cache.order);
++        if(std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr,"REPRO_CONTACT_SELECT %zu/%u\n",cache.host_order.size(),count);
++        return static_cast<unsigned>(cache.host_order.size());
++    }
++    ReproContactScratch(const ReproContactScratch &)=delete;
++};
+--- a/crates/ppf-cts-compute/cuda/backend/backend.cu
++++ b/crates/ppf-cts-compute/cuda/backend/backend.cu
+@@ -38,6 +38,7 @@
+ #include "seam/backend_abi.h"
+ 
+ #include "arena/arena.hpp"
++#include "research_order.hpp"
+ #include "cuda_utils.hpp"
+ #include "diagnostics/diagnostics.hpp"
+ 
+@@ -736,6 +737,8 @@
+     // pages on backend teardown would leave the next kernel launched in this
+     // process writing through a dangling pointer. It is one small mapped
+     // allocation, reused for the life of the process.
++    cudaStreamSynchronize(be->queue);
++    repro_release_queue(be->queue);
+     compute::arena::destroy(be->allocator);
+     cudaStreamDestroy(be->queue);
+     if (g_backend == be) {

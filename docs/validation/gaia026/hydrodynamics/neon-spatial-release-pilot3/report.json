@@ -1,0 +1,175 @@
+{
+  "source_scene": "F:\\16_Cloth_neXt\\cache_AD\\.cloth_next_export\\scene\\00\\006a0ef0ba8466634b590c5dd7bb9f2a7e7295e2ecc7438d129afa5beebf175c\\scene.cbor",
+  "source_scene_sha256": "006a0ef0ba8466634b590c5dd7bb9f2a7e7295e2ecc7438d129afa5beebf175c",
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver.exe",
+  "solver_sha256": "1707852a1e211ed15ede85ee1df841e8feeb3d4559cfc1a61a2abfc8175d51db",
+  "frames": 3,
+  "quality": {
+    "dt": 0.009999999776482582,
+    "min-newton-steps": 1,
+    "cg-max-iter": 2500,
+    "cg-tol": 0.009999999776482582,
+    "target-toi": 0.25,
+    "line-search-max-t": 1.25,
+    "constraint-ghat": 0.0010000000474974513,
+    "constraint-tol": 0.009999999776482582,
+    "max-newton-steps": 2048,
+    "max-dx": 1.0,
+    "eiganalysis-eps": 0.009999999776482582,
+    "friction-eps": 9.999999747378752e-06,
+    "csrmat-max-nnz": 10000000,
+    "barrier": "cubic",
+    "gravity": [
+      0.0,
+      -9.8100004196167,
+      -0.0
+    ],
+    "wind": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "frames": 2,
+    "fps": 30.0,
+    "friction-mode": "min",
+    "disable-contact": false,
+    "auto-save": 20,
+    "keep-states": 3
+  },
+  "saved_zones": true,
+  "cases": [
+    {
+      "label": "hydro1",
+      "mode": "hydro",
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro1_1792082340230885800\\session",
+      "seconds": 78.21900000000005,
+      "shape": [
+        3,
+        77860,
+        3
+      ],
+      "finite": true,
+      "groups": [
+        [
+          {
+            "model": "baraff-witkin",
+            "density": 0.20729699730873108,
+            "young-mod": 8000.0,
+            "poiss-rat": 0.3199999928474426,
+            "bend": 3.806999921798706,
+            "plasticity": 0.0,
+            "plasticity-threshold": 0.05000000074505806,
+            "bend-plasticity": 0.0,
+            "bend-plasticity-threshold": 0.1745329201221466,
+            "bend-rest-from-geometry": 1.0,
+            "deformation-damping": 0.0,
+            "bending-damping": 0.0,
+            "friction": 0.17499999701976776,
+            "contact-gap": 0.0010000000474974513,
+            "contact-offset": 0.0,
+            "strain-limit": 0.03999999910593033,
+            "shrink-x": 1.0,
+            "shrink-y": 1.0,
+            "pressure": 0.0,
+            "stitch-stiffness": 100.0,
+            "force-field-weight": 1.0
+          },
+          [
+            "S04_NEON_Garments"
+          ],
+          [
+            "20d41915-b825-3f3c-508e-f7b165220b44"
+          ]
+        ],
+        [
+          {
+            "model": "baraff-witkin",
+            "density": 0.4650000035762787,
+            "young-mod": 50000.0,
+            "poiss-rat": 0.14000000059604645,
+            "bend": 20.0,
+            "plasticity": 0.0,
+            "plasticity-threshold": 0.05000000074505806,
+            "bend-plasticity": 0.0,
+            "bend-plasticity-threshold": 0.1745329201221466,
+            "bend-rest-from-geometry": 1.0,
+            "deformation-damping": 0.0,
+            "bending-damping": 0.0,
+            "friction": 0.23999999463558197,
+            "contact-gap": 0.0010000000474974513,
+            "contact-offset": 0.0,
+            "strain-limit": 0.03999999910593033,
+            "shrink-x": 1.0,
+            "shrink-y": 1.0,
+            "pressure": 0.0,
+            "stitch-stiffness": 100.0,
+            "force-field-weight": 1.0
+          },
+          [
+            "S04_NEON_Garments.001"
+          ],
+          [
+            "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+          ]
+        ],
+        [
+          {
+            "model": "baraff-witkin",
+            "density": 0.5600000023841858,
+            "young-mod": 420.0,
+            "poiss-rat": 0.47999998927116394,
+            "bend": 2.799999952316284,
+            "plasticity": 0.0,
+            "plasticity-threshold": 0.05000000074505806,
+            "bend-plasticity": 0.0,
+            "bend-plasticity-threshold": 0.1745329201221466,
+            "bend-rest-from-geometry": 1.0,
+            "deformation-damping": 0.0,
+            "bending-damping": 0.0,
+            "friction": 0.2750000059604645,
+            "contact-gap": 0.0010000000474974513,
+            "contact-offset": 0.0,
+            "strain-limit": 0.3199999928474426,
+            "shrink-x": 1.0,
+            "shrink-y": 1.0,
+            "pressure": 0.0,
+            "stitch-stiffness": 100.0,
+            "force-field-weight": 1.0
+          },
+          [
+            "S04_NEON_Garments.002"
+          ],
+          [
+            "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+          ]
+        ],
+        [
+          {
+            "friction": 0.25,
+            "contact-gap": 0.0010000000474974513,
+            "contact-offset": 0.0
+          },
+          [
+            "SW_04_body_lod0_mesh"
+          ],
+          [
+            "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+          ]
+        ],
+        [
+          {
+            "friction": 0.25,
+            "contact-gap": 0.0010000000474974513,
+            "contact-offset": 0.0
+          },
+          [
+            "SW_04_head_lod0_mesh"
+          ],
+          [
+            "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+          ]
+        ]
+      ]
+    }
+  ]
+}

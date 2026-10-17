@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "roles": [
+    "velocity_m_s_support",
+    "signed_distance_m_x_identity"
+  ],
+  "units": "metre_second",
+  "start": 0.0,
+  "step": 0.1,
+  "frames": 2,
+  "provenance": {
+    "kind": "analytic test field",
+    "case": "reverse"
+  }
+}

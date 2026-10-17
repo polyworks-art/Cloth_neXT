@@ -1,0 +1,673 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 23356,
+  "total_cloth_vertices": 23356,
+  "combination": "base",
+  "coupling_strength": 1.0,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    -0.5071269273757935,
+    -0.8373814821243286,
+    0.6050718426704407
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "fps": 30.0,
+  "quality": {
+    "time_step": 0.009999999776482582,
+    "cg_max_iter": 2500,
+    "cg_tol": 0.009999999776482582
+  },
+  "geometry_source": "Existing scene meshes and enabled collider roles",
+  "excluded_colliders": [
+    "SW_04_body_lod0_mesh.001"
+  ],
+  "scene_objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "role": "CLOTH",
+      "vertices": 14946,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "role": "CLOTH",
+      "vertices": 4379,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "role": "CLOTH",
+      "vertices": 4031,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_body_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 30455,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_head_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 24049,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    }
+  ],
+  "ram_safety": {
+    "enabled": true,
+    "threshold_percent": 90
+  },
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.006444000000101369
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.2760533000000578
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 10.659101299999975
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 25.38350770000011
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 25.41281230000004
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 26.442950999999994
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 32.60800949999998
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 32.731368400000065
+    },
+    {
+      "state": "ERROR",
+      "seconds": 35.09657080000011
+    }
+  ],
+  "activity_events": [
+    {
+      "seconds": 0.006451400000059948,
+      "state": "PREPARING",
+      "activity": "CAPTURING_GEOMETRY",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 1.2760702000000492,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 1.443127400000094,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 1 / 10",
+      "current": 76,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 2.017663000000084,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 2 / 10",
+      "current": 153,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 2.612671099999943,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 4 / 10",
+      "current": 307,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 3.1873673000000053,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 5 / 10",
+      "current": 384,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 3.782425699999976,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 7 / 10",
+      "current": 538,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 4.377508300000045,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 8 / 10",
+      "current": 615,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 4.973197600000049,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Checking FLIP bake \u00b7 10 / 10",
+      "current": 769,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 4.97328379999999,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reading FLIP \u00b7 Frame 1",
+      "current": 769,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 5.24377040000013,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 0 / 3",
+      "current": 769,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 6.599388999999974,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 1 / 3",
+      "current": 846,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 6.59944100000007,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reading FLIP \u00b7 Frame 2",
+      "current": 846,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 6.882671099999925,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 1 / 3",
+      "current": 846,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 8.320572200000015,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 2 / 3",
+      "current": 923,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 8.320640599999933,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reading FLIP \u00b7 Frame 3",
+      "current": 923,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 8.582385800000111,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 2 / 3",
+      "current": 923,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 9.979796800000031,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Reconstructing flow \u00b7 3 / 3",
+      "current": 1000,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 10.262528299999985,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Using verified Fluid Cache",
+      "current": 2000,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 10.534363200000143,
+      "state": "PREPARING_WATER",
+      "activity": "PREPARING_WATER",
+      "label": "Using verified Fluid Cache",
+      "current": 3000,
+      "total": 3000,
+      "eta": null
+    },
+    {
+      "seconds": 10.659113500000103,
+      "state": "PREPARING",
+      "activity": "CAPTURING_GEOMETRY",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 11.922941100000116,
+      "state": "PREPARING",
+      "activity": "CAPTURING_COLLIDER_MOTION",
+      "label": "",
+      "current": 0,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 12.322027700000035,
+      "state": "PREPARING",
+      "activity": "CAPTURING_COLLIDER_MOTION",
+      "label": "",
+      "current": 1,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 12.66797059999999,
+      "state": "PREPARING",
+      "activity": "CAPTURING_COLLIDER_MOTION",
+      "label": "",
+      "current": 2,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 13.017648100000088,
+      "state": "PREPARING",
+      "activity": "CAPTURING_COLLIDER_MOTION",
+      "label": "",
+      "current": 3,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 13.15441850000002,
+      "state": "PREPARING",
+      "activity": "CAPTURING_GEOMETRY",
+      "label": "",
+      "current": 3,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 13.280189100000143,
+      "state": "PREPARING",
+      "activity": "CAPTURING_GEOMETRY",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 25.38352409999993,
+      "state": "STARTING_RUN",
+      "activity": "UNKNOWN",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 25.412822700000106,
+      "state": "EXPORTING",
+      "activity": "ENCODING_SCENE",
+      "label": "",
+      "current": 1,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 25.496976700000005,
+      "state": "EXPORTING",
+      "activity": "ENCODING_NATIVE_FLUID",
+      "label": "Encoding native fluid sequence",
+      "current": 0,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 25.804600400000027,
+      "state": "EXPORTING",
+      "activity": "ENCODING_NATIVE_FLUID",
+      "label": "Encoding native fluid frame 1",
+      "current": 1,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 26.091814699999986,
+      "state": "EXPORTING",
+      "activity": "ENCODING_NATIVE_FLUID",
+      "label": "Encoding native fluid frame 2",
+      "current": 2,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 26.38105480000013,
+      "state": "EXPORTING",
+      "activity": "ENCODING_NATIVE_FLUID",
+      "label": "Encoding native fluid frame 3",
+      "current": 3,
+      "total": 3,
+      "eta": null
+    },
+    {
+      "seconds": 26.442960099999937,
+      "state": "STARTING_SOLVER",
+      "activity": "STARTING_SOLVER",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 32.60801809999998,
+      "state": "UPLOADING",
+      "activity": "UPLOADING_SCENE",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 32.73138240000003,
+      "state": "BUILDING",
+      "activity": "BUILDING_SOLVER",
+      "label": "",
+      "current": 0,
+      "total": null,
+      "eta": null
+    },
+    {
+      "seconds": 33.019192200000134,
+      "state": "BUILDING",
+      "activity": "BUILDING_SOLVER",
+      "label": "",
+      "current": 0,
+      "total": 100,
+      "eta": null
+    },
+    {
+      "seconds": 35.09658080000008,
+      "state": "ERROR",
+      "activity": "ERROR",
+      "label": "",
+      "current": 0,
+      "total": 100,
+      "eta": null
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "export_timings": {
+    "validation": 1.2546694000000116,
+    "animated_collider_cache_hits": 0.0,
+    "animated_collider_cache_misses": 2.0,
+    "collider_sample_count": 6.0,
+    "collider_frame_set_seconds": 0.7762125000001561,
+    "collider_depsgraph_seconds": 3.670000000965956e-05,
+    "frame_set_count": 3.0,
+    "depsgraph_evaluation_count": 3.0,
+    "collider_mesh_capture_seconds": 0.25560280000013336,
+    "evaluated_get_count": 6.0,
+    "to_mesh_count": 6.0,
+    "animated_collider_verified_misses": 2.0,
+    "capture_seconds": 1.3579021000000466,
+    "scene_source_key_safe": 0.0,
+    "pin_capture": 0.0003373000001829496,
+    "mesh_extraction": 0.25632580000001326,
+    "scene_cache_hit": 0.0,
+    "scene_cache_miss": 1.0,
+    "scene_encoding": 2.458578700000089,
+    "parameter_encoding": 0.007512199999837321,
+    "scene_cache_store": 1.0,
+    "export_preparation": 11.667461000000003
+  },
+  "state": "ERROR",
+  "error": "The solver reported a failure while building. No verified recovery checkpoint is available.",
+  "error_details": "Stage: solver project build\nCause: server status FAILED during building: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_e57481e5a8bd\\\\.cash' | at frontend/build_worker.py:611 in main: os.makedirs(cache_root, exist_ok=True) | errno=17 winerror=183 strerror='Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist' filename='C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-3...\nWhat to do: Inspect the Cloth NeXt log and the solver stderr tail, then retry.\nDiagnostic log: C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a41728\\cloth_next_run_clothnext_e57481e5a8bd\\failure.log",
+  "exception": "AssertionError('Regular Bake ended in ERROR: The solver reported a failure while building. No verified recovery checkpoint is available.')",
+  "session_timings_and_contacts": [
+    {
+      "timings": {
+        "native_fluid_encoding": 0.9642019000000346,
+        "start_solver": 6.153256000000056,
+        "upload": 0.12771619999989525,
+        "build": 2.087949700000081,
+        "total": 9.372904900000094
+      },
+      "contact_peak": 0,
+      "contact_samples": 0
+    }
+  ],
+  "system_ram_samples": [
+    {
+      "updated_at": 0.0,
+      "seconds": 0.005686299999979383,
+      "used_bytes": null,
+      "total_bytes": null,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077388.4958196,
+      "seconds": 1.2755789000000277,
+      "used_bytes": 25901092864,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077389.5846786,
+      "seconds": 2.263451100000111,
+      "used_bytes": 25889271808,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077390.6727762,
+      "seconds": 3.371671699999979,
+      "used_bytes": 25889492992,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077391.779294,
+      "seconds": 4.45951910000008,
+      "used_bytes": 25887989760,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077392.8695354,
+      "seconds": 5.572747100000015,
+      "used_bytes": 25873125376,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077393.9746094,
+      "seconds": 6.881667399999969,
+      "used_bytes": 25824804864,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077395.0794053,
+      "seconds": 7.765190699999948,
+      "used_bytes": 25811075072,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077396.1706452,
+      "seconds": 8.869920399999955,
+      "used_bytes": 25812434944,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077397.2758822,
+      "seconds": 10.26191740000013,
+      "used_bytes": 25802924032,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077398.4288752,
+      "seconds": 11.922330200000033,
+      "used_bytes": 25784160256,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077399.6416337,
+      "seconds": 12.342345900000055,
+      "used_bytes": 25788256256,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077412.4594603,
+      "seconds": 25.382832700000108,
+      "used_bytes": 26058940416,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077413.5476916,
+      "seconds": 26.235414600000013,
+      "used_bytes": 26074357760,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077414.637643,
+      "seconds": 27.306352800000013,
+      "used_bytes": 26096869376,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077415.7087297,
+      "seconds": 28.39563820000012,
+      "used_bytes": 26070339584,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077416.7974317,
+      "seconds": 29.483073200000035,
+      "used_bytes": 26083540992,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077417.8871195,
+      "seconds": 30.593138100000033,
+      "used_bytes": 26081927168,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077418.9930801,
+      "seconds": 31.682004100000086,
+      "used_bytes": 26078294016,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077420.0785959,
+      "seconds": 32.75158980000015,
+      "used_bytes": 26108026880,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077421.1520956,
+      "seconds": 33.84050479999996,
+      "used_bytes": 26102824960,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077422.2398655,
+      "seconds": 34.967607199999975,
+      "used_bytes": 26077155328,
+      "total_bytes": 67792531456,
+      "stale": false
+    }
+  ],
+  "solver_diagnostics_samples": [
+    {
+      "seconds": 33.01771680000002,
+      "contacts": null,
+      "newton": null,
+      "iterations": null
+    }
+  ],
+  "solver_diagnostics_paths": [
+    "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.tmp_verify\\neon-p3\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-b58c4a3a3f0a4df8aeff4561ed87fd35\\server-data\\clothnext_e57481e5a8bd\\session\\output\\data"
+  ],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 4428075008,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 10,
+  "wall_seconds": 35.94992840000009
+}

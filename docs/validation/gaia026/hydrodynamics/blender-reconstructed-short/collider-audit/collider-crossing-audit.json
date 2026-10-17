@@ -1,0 +1,47 @@
+{
+  "analytic_check": "PASS",
+  "segment_endpoint_exclusion_m": 1e-06,
+  "cases": [
+    {
+      "case": "regular-blender-130-132",
+      "frame": 0,
+      "cloth_edges_vs_collider": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_edges_vs_cloth": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_watertight": false
+    },
+    {
+      "case": "regular-blender-130-132",
+      "frame": 1,
+      "cloth_edges_vs_collider": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_edges_vs_cloth": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_watertight": false
+    },
+    {
+      "case": "regular-blender-130-132",
+      "frame": 2,
+      "cloth_edges_vs_collider": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_edges_vs_cloth": {
+        "crossing_segments": 0,
+        "examples_solver_m": []
+      },
+      "collider_watertight": false
+    }
+  ],
+  "scope": "Reciprocal edge-triangle intersections at exported frames; no global inside/outside or between-frame claim",
+  "crossing_segments": 0
+}

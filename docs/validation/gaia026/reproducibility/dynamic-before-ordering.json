@@ -1,0 +1,32 @@
+[
+  {
+    "file": "001-contact-dynamic-index.bin",
+    "different": 0,
+    "length": 2107
+  },
+  {
+    "file": "001-contact-dynamic-offset.bin",
+    "different": 0,
+    "length": 77861
+  },
+  {
+    "file": "001-contact-dynamic-value.bin",
+    "different": 847,
+    "length": 18963
+  },
+  {
+    "file": "001-contact-transpose-index.bin",
+    "different": 110,
+    "length": 2107
+  },
+  {
+    "file": "001-contact-transpose-offset.bin",
+    "different": 0,
+    "length": 77861
+  },
+  {
+    "file": "001-contact-transpose-value.bin",
+    "different": 110,
+    "length": 2107
+  }
+]

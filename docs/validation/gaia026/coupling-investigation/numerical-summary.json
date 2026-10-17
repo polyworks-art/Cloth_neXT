@@ -1,0 +1,3231 @@
+{
+  "scope": "30-frame native controls at 30 FPS; source scene and captured animations unchanged; original controls include saved Inlay zone, soft material uniform. Wet5/contact-off exploratory runs use base materials without Inlay.",
+  "comparisons": {
+    "original_dry_noise": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.003537624029613286,
+          "mean": 5.024224833751861e-05,
+          "rms": 8.267108809635558e-05,
+          "p99": 0.0002688022840661683
+        },
+        "velocity_m_s": {
+          "max": 0.06599362349055048,
+          "mean": 0.0007462838206229815,
+          "rms": 0.0015171206568440237,
+          "p99": 0.00601688873219636
+        },
+        "max_centroid_difference_m": 4.9391934053687113e-05
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.00045507210641800315,
+          "mean": 2.782502823596177e-05,
+          "rms": 3.875105258238892e-05,
+          "p99": 0.00014528751491027023
+        },
+        "velocity_m_s": {
+          "max": 0.01416617734487663,
+          "mean": 0.0005174548993397468,
+          "rms": 0.0010004631467632112,
+          "p99": 0.004235951898788132
+        },
+        "max_centroid_difference_m": 3.200303209227623e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.002138411184674787,
+          "mean": 2.303002774684351e-05,
+          "rms": 3.645287731184631e-05,
+          "p99": 0.00010511099649546511
+        },
+        "velocity_m_s": {
+          "max": 0.08487592907746386,
+          "mean": 0.0003110612642044545,
+          "rms": 0.0009344368656479837,
+          "p99": 0.002768032056636255
+        },
+        "max_centroid_difference_m": 2.8302402728905076e-05
+      }
+    },
+    "original_wet_dry": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.003577138717826308,
+          "mean": 0.00010082517878292572,
+          "rms": 0.00014043929197358663,
+          "p99": 0.0003580097672694604
+        },
+        "velocity_m_s": {
+          "max": 0.06358578175454317,
+          "mean": 0.0007858431746766136,
+          "rms": 0.0014139094003662975,
+          "p99": 0.0055837093105466145
+        },
+        "max_centroid_difference_m": 0.00011771358172928729
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.000458137274931013,
+          "mean": 3.1892320584924945e-05,
+          "rms": 4.7573749229622754e-05,
+          "p99": 0.00017596925776770754
+        },
+        "velocity_m_s": {
+          "max": 0.012628453596288973,
+          "mean": 0.0004944574716148384,
+          "rms": 0.0008429510671597674,
+          "p99": 0.00331232829784052
+        },
+        "max_centroid_difference_m": 6.0283273763929405e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0012990663217548604,
+          "mean": 1.8451084452149826e-05,
+          "rms": 3.1928803828637025e-05,
+          "p99": 0.0001002402603894986
+        },
+        "velocity_m_s": {
+          "max": 0.038629225027100894,
+          "mean": 0.0002900458638932935,
+          "rms": 0.0006843727899676745,
+          "p99": 0.00244537368158481
+        },
+        "max_centroid_difference_m": 2.722480053339867e-05
+      }
+    },
+    "original_wet_repeat_noise": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.002993865081794676,
+          "mean": 4.2211599705144735e-05,
+          "rms": 7.115370677715219e-05,
+          "p99": 0.0002450314291717862
+        },
+        "velocity_m_s": {
+          "max": 0.05708613684204865,
+          "mean": 0.0006988112578782012,
+          "rms": 0.0011945727217165323,
+          "p99": 0.004468715193963464
+        },
+        "max_centroid_difference_m": 4.448060333255538e-05
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.00040398645380686953,
+          "mean": 2.6150476177863144e-05,
+          "rms": 3.828059083885334e-05,
+          "p99": 0.00014675174851301468
+        },
+        "velocity_m_s": {
+          "max": 0.013094018626396886,
+          "mean": 0.0004256881387811691,
+          "rms": 0.0007030449884902575,
+          "p99": 0.002586012989234996
+        },
+        "max_centroid_difference_m": 3.961773928847068e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0008358756436578377,
+          "mean": 1.3991863549005936e-05,
+          "rms": 2.4781172785059733e-05,
+          "p99": 7.517679166471542e-05
+        },
+        "velocity_m_s": {
+          "max": 0.023513642880502877,
+          "mean": 0.00022414125470652277,
+          "rms": 0.0005015708153195475,
+          "p99": 0.002035953721093132
+        },
+        "max_centroid_difference_m": 1.6997244387449317e-05
+      }
+    },
+    "original_second_wet_dry": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.0031175023493722016,
+          "mean": 9.460809481628712e-05,
+          "rms": 0.00012626972011561718,
+          "p99": 0.00034802689787307
+        },
+        "velocity_m_s": {
+          "max": 0.04781518832685072,
+          "mean": 0.0007135540601755285,
+          "rms": 0.001225669388113627,
+          "p99": 0.004658490706481682
+        },
+        "max_centroid_difference_m": 0.00012310125977661127
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.0002707658821985248,
+          "mean": 1.9157588444913683e-05,
+          "rms": 2.775673055624426e-05,
+          "p99": 0.00010605708241095925
+        },
+        "velocity_m_s": {
+          "max": 0.009698633697850954,
+          "mean": 0.00044734217373512247,
+          "rms": 0.0007478807712709417,
+          "p99": 0.002861041064798257
+        },
+        "max_centroid_difference_m": 3.0502787275722197e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0009442178786721034,
+          "mean": 1.2512444482981228e-05,
+          "rms": 2.118520458134797e-05,
+          "p99": 6.748059215792985e-05
+        },
+        "velocity_m_s": {
+          "max": 0.02843774510643757,
+          "mean": 0.00021634422374323137,
+          "rms": 0.0004747092725780561,
+          "p99": 0.0015903101284563265
+        },
+        "max_centroid_difference_m": 1.991454994630857e-05
+      }
+    },
+    "soft_dry_noise": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.0037271301248666647,
+          "mean": 7.25348817504524e-05,
+          "rms": 0.00015685053565713761,
+          "p99": 0.0005458734101685757
+        },
+        "velocity_m_s": {
+          "max": 0.0680421011431658,
+          "mean": 0.0009489213591634239,
+          "rms": 0.0018746530758336091,
+          "p99": 0.006754801560256839
+        },
+        "max_centroid_difference_m": 3.937536768009806e-05
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.0017253550124574147,
+          "mean": 1.8954513550227353e-05,
+          "rms": 5.0107988907416255e-05,
+          "p99": 0.0001605374300312207
+        },
+        "velocity_m_s": {
+          "max": 0.01784297744738601,
+          "mean": 0.0003408722192576643,
+          "rms": 0.0008886930254395651,
+          "p99": 0.004076807824356798
+        },
+        "max_centroid_difference_m": 1.6353616492315874e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0027357404060494583,
+          "mean": 9.050514701221818e-06,
+          "rms": 3.420389857623866e-05,
+          "p99": 6.041814362460604e-05
+        },
+        "velocity_m_s": {
+          "max": 0.07394752572471369,
+          "mean": 0.00015427499494967723,
+          "rms": 0.0006485595477566905,
+          "p99": 0.0017258932819636964
+        },
+        "max_centroid_difference_m": 4.863119990585341e-06
+      }
+    },
+    "soft_wet_dry": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.007718948279216688,
+          "mean": 0.00058532200061385,
+          "rms": 0.0009208464995436262,
+          "p99": 0.003180758788705699
+        },
+        "velocity_m_s": {
+          "max": 0.09314253785739707,
+          "mean": 0.002336014132935131,
+          "rms": 0.0038416659967121783,
+          "p99": 0.014255738679324254
+        },
+        "max_centroid_difference_m": 0.000842456382395403
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.006846512678864035,
+          "mean": 7.110993514639908e-05,
+          "rms": 0.00021612692579741835,
+          "p99": 0.0008839131067757871
+        },
+        "velocity_m_s": {
+          "max": 0.11678671276471138,
+          "mean": 0.0008352243980351871,
+          "rms": 0.0026532338414480255,
+          "p99": 0.011159084731969714
+        },
+        "max_centroid_difference_m": 5.183271259464996e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0021713642393950084,
+          "mean": 2.54594800681277e-05,
+          "rms": 5.145264704076003e-05,
+          "p99": 0.0001772474499040532
+        },
+        "velocity_m_s": {
+          "max": 0.054861674581839104,
+          "mean": 0.00034761124155070343,
+          "rms": 0.0011434775279249843,
+          "p99": 0.005172880245410513
+        },
+        "max_centroid_difference_m": 4.11088633915632e-05
+      }
+    },
+    "material_wet_difference": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.026188418965941,
+          "mean": 0.004162204695663028,
+          "rms": 0.005136852080388955,
+          "p99": 0.015583908041061238
+        },
+        "velocity_m_s": {
+          "max": 0.23894133564812733,
+          "mean": 0.010110455049001644,
+          "rms": 0.0210354617863847,
+          "p99": 0.1010649480142069
+        },
+        "max_centroid_difference_m": 0.001792179985170717
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.009834946387499165,
+          "mean": 0.0025402991506440036,
+          "rms": 0.003050585198886022,
+          "p99": 0.007079161519371165
+        },
+        "velocity_m_s": {
+          "max": 0.295048391624975,
+          "mean": 0.00538138517225076,
+          "rms": 0.014984269260528937,
+          "p99": 0.06896915388351872
+        },
+        "max_centroid_difference_m": 0.002661357918760014
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.009227380621634616,
+          "mean": 0.001817513797209535,
+          "rms": 0.002277986928084944,
+          "p99": 0.006358511940086986
+        },
+        "velocity_m_s": {
+          "max": 0.1863243261405325,
+          "mean": 0.0032275358454327482,
+          "rms": 0.00880998200792383,
+          "p99": 0.04500073693902077
+        },
+        "max_centroid_difference_m": 0.0016996403810180625
+      }
+    },
+    "soft_wet_repeat_noise": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.0042858644355234345,
+          "mean": 0.00014463175767071693,
+          "rms": 0.0002513528614398854,
+          "p99": 0.0009780626389518548
+        },
+        "velocity_m_s": {
+          "max": 0.0871837646833049,
+          "mean": 0.0018937120027995,
+          "rms": 0.003661491117098711,
+          "p99": 0.014406386739117245
+        },
+        "max_centroid_difference_m": 0.00017112721276930104
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.004906028840824559,
+          "mean": 7.138089639810474e-05,
+          "rms": 0.00021024409228884375,
+          "p99": 0.0009429519892047714
+        },
+        "velocity_m_s": {
+          "max": 0.1007843014049203,
+          "mean": 0.0010944305572039767,
+          "rms": 0.0035823859112856663,
+          "p99": 0.01647367207243638
+        },
+        "max_centroid_difference_m": 6.470332678856823e-05
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0031646240613252283,
+          "mean": 1.6438210011936976e-05,
+          "rms": 5.719818630329974e-05,
+          "p99": 0.00015025095937583978
+        },
+        "velocity_m_s": {
+          "max": 0.059784353135259406,
+          "mean": 0.000310846439496816,
+          "rms": 0.0012614591166722994,
+          "p99": 0.00478767932996954
+        },
+        "max_centroid_difference_m": 1.4564208552267832e-05
+      }
+    },
+    "soft_second_wet_dry": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.007775014669177339,
+          "mean": 0.0005787189162389215,
+          "rms": 0.0008964965486527636,
+          "p99": 0.0030239968383531856
+        },
+        "velocity_m_s": {
+          "max": 0.10005255342214717,
+          "mean": 0.0024397551396614084,
+          "rms": 0.004043140230752534,
+          "p99": 0.01455172151146409
+        },
+        "max_centroid_difference_m": 0.0008160513157771828
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.007271450455391331,
+          "mean": 5.968302303904561e-05,
+          "rms": 0.00018281759904273983,
+          "p99": 0.0007126041662736425
+        },
+        "velocity_m_s": {
+          "max": 0.09597941553116182,
+          "mean": 0.001060953563913923,
+          "rms": 0.003361550957000592,
+          "p99": 0.01713791074518938
+        },
+        "max_centroid_difference_m": 0.00011537091218832732
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0031226256555947026,
+          "mean": 2.6423293337425958e-05,
+          "rms": 6.804342738519655e-05,
+          "p99": 0.00021770593687577423
+        },
+        "velocity_m_s": {
+          "max": 0.06541351855862938,
+          "mean": 0.00039563491746405906,
+          "rms": 0.001461574749218828,
+          "p99": 0.006224146701903584
+        },
+        "max_centroid_difference_m": 4.409090457065331e-05
+      }
+    },
+    "contact_off_wet_dry": {
+      "S04_NEON_Garments": {
+        "position_m": {
+          "max": 0.014795212913788066,
+          "mean": 0.0025986699654849013,
+          "rms": 0.0036308346340430267,
+          "p99": 0.010317154393475898
+        },
+        "velocity_m_s": {
+          "max": 0.13194269968089295,
+          "mean": 0.009723788984335933,
+          "rms": 0.013060328683184748,
+          "p99": 0.035807963615311
+        },
+        "max_centroid_difference_m": 0.004101403595510479
+      },
+      "S04_NEON_Garments.001": {
+        "position_m": {
+          "max": 0.3539102819133921,
+          "mean": 0.10868547942868387,
+          "rms": 0.16116297477724056,
+          "p99": 0.3520164259730411
+        },
+        "velocity_m_s": {
+          "max": 0.6805105780939888,
+          "mean": 0.3631554799421335,
+          "rms": 0.45584215583036597,
+          "p99": 0.6372425133268185
+        },
+        "max_centroid_difference_m": 0.35061387357873053
+      },
+      "S04_NEON_Garments.002": {
+        "position_m": {
+          "max": 0.0039346115884040175,
+          "mean": 0.00010672711541893432,
+          "rms": 0.000197269232574227,
+          "p99": 0.0007985536952038512
+        },
+        "velocity_m_s": {
+          "max": 0.0734220198482317,
+          "mean": 0.0008426830046568998,
+          "rms": 0.001644051625460385,
+          "p99": 0.005592839475131746
+        },
+        "max_centroid_difference_m": 9.672699005623836e-05
+      }
+    }
+  },
+  "cases": {
+    "original_dry1": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.01349486045399882,
+            "mean": 0.0012907701409680796,
+            "rms": 0.0016432186793660251,
+            "p99": 0.005395466388402275
+          },
+          "speed_m_s": {
+            "max": 0.16555498794591686,
+            "mean": 0.0026370691714292303,
+            "rms": 0.007768017774536343,
+            "p99": 0.03836456277882915
+          },
+          "contact_peak": 2238,
+          "contact_final": 2238,
+          "max_edge_ratio": 1.0241980888985127,
+          "min_edge_ratio": 0.7052817955611754,
+          "mean_abs_edge_strain": 0.0010402982679486982,
+          "bend_change_degrees": {
+            "mean": 1.1346666642865568,
+            "p99": 12.732370505391087,
+            "max": 69.3451956974196
+          },
+          "minimum_triangle_area": 2.927830666512056e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.0038387759580107575,
+            "mean": 0.0007782348557934688,
+            "rms": 0.0008686385792405745,
+            "p99": 0.0024014111530596574
+          },
+          "speed_m_s": {
+            "max": 0.11516327874032273,
+            "mean": 0.0018571962046464506,
+            "rms": 0.005514485058031125,
+            "p99": 0.024130324405394588
+          },
+          "contact_peak": 1797,
+          "contact_final": 1561,
+          "max_edge_ratio": 1.0086961802119123,
+          "min_edge_ratio": 0.9397583910153041,
+          "mean_abs_edge_strain": 0.00047870311583721913,
+          "bend_change_degrees": {
+            "mean": 0.3416193527014685,
+            "p99": 2.3724656986519026,
+            "max": 10.941226722265695
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.007944242488291045,
+            "mean": 0.0014857698129110053,
+            "rms": 0.0017884600323933048,
+            "p99": 0.005017188900679319
+          },
+          "speed_m_s": {
+            "max": 0.17654108066504406,
+            "mean": 0.002099318608487893,
+            "rms": 0.008212234457495837,
+            "p99": 0.03856575350475278
+          },
+          "contact_peak": 8570,
+          "contact_final": 8570,
+          "max_edge_ratio": 1.1220618602137122,
+          "min_edge_ratio": 0.6802524872122241,
+          "mean_abs_edge_strain": 0.009097153465720013,
+          "bend_change_degrees": {
+            "mean": 2.4779741062661644,
+            "p99": 19.7254484977967,
+            "max": 100.21449113127875
+          },
+          "minimum_triangle_area": 1.6385688605696684e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.501185607678249e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "dry1",
+        "strength": 0,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_dry1_clothnext_7983d95d6f30",
+        "seconds": 41.797000000000025,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false,
+        "saved_zones_applied": true
+      }
+    },
+    "original_dry2": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.013509447047763579,
+            "mean": 0.001291459231289043,
+            "rms": 0.0016430956755274992,
+            "p99": 0.005379906016637211
+          },
+          "speed_m_s": {
+            "max": 0.18763419574122792,
+            "mean": 0.0025703856657811907,
+            "rms": 0.007839391689919699,
+            "p99": 0.03946671735835826
+          },
+          "contact_peak": 2251,
+          "contact_final": 2251,
+          "max_edge_ratio": 1.0242202161405214,
+          "min_edge_ratio": 0.705205527326212,
+          "mean_abs_edge_strain": 0.0010409481818990478,
+          "bend_change_degrees": {
+            "mean": 1.1376555611565546,
+            "p99": 12.789639746223978,
+            "max": 69.36649114374887
+          },
+          "minimum_triangle_area": 2.927836117907837e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.004013171451298339,
+            "mean": 0.0007804594479904635,
+            "rms": 0.0008688690395772043,
+            "p99": 0.002391393596001677
+          },
+          "speed_m_s": {
+            "max": 0.12039514353895017,
+            "mean": 0.001822998395966069,
+            "rms": 0.005543332941381209,
+            "p99": 0.02365438170277966
+          },
+          "contact_peak": 1581,
+          "contact_final": 1547,
+          "max_edge_ratio": 1.0082742944980565,
+          "min_edge_ratio": 0.9400364515847167,
+          "mean_abs_edge_strain": 0.0004781284932122153,
+          "bend_change_degrees": {
+            "mean": 0.3389159295217139,
+            "p99": 2.3540280244298173,
+            "max": 10.884348190709343
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.007959064683745994,
+            "mean": 0.0014959115776528782,
+            "rms": 0.0017982027531700175,
+            "p99": 0.005035870067656223
+          },
+          "speed_m_s": {
+            "max": 0.17801728713116188,
+            "mean": 0.002103140406748194,
+            "rms": 0.0083790716532526,
+            "p99": 0.039608954603426026
+          },
+          "contact_peak": 8598,
+          "contact_final": 8598,
+          "max_edge_ratio": 1.1223447313273716,
+          "min_edge_ratio": 0.6802276290053368,
+          "mean_abs_edge_strain": 0.009101802689824254,
+          "bend_change_degrees": {
+            "mean": 2.484927419806425,
+            "p99": 19.79605578915205,
+            "max": 100.3489754292968
+          },
+          "minimum_triangle_area": 1.6385688605696684e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.491501804247091e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "dry2",
+        "strength": 0,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_dry2_clothnext_1fd550d836f4",
+        "seconds": 43.68799999999999,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false,
+        "saved_zones_applied": true
+      }
+    },
+    "original_wet1": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.013568289838507597,
+            "mean": 0.001301769851261038,
+            "rms": 0.0016514959275058258,
+            "p99": 0.005435001420467671
+          },
+          "speed_m_s": {
+            "max": 0.19564314016721338,
+            "mean": 0.0026308601666399354,
+            "rms": 0.007839190667121815,
+            "p99": 0.03899720918228552
+          },
+          "contact_peak": 2259,
+          "contact_final": 2259,
+          "max_edge_ratio": 1.0242124591762656,
+          "min_edge_ratio": 0.7053502261273443,
+          "mean_abs_edge_strain": 0.0010384643757702253,
+          "bend_change_degrees": {
+            "mean": 1.1348982545553175,
+            "p99": 12.76450610525429,
+            "max": 69.47537120291045
+          },
+          "minimum_triangle_area": 2.9278224374618508e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.0039358920705394465,
+            "mean": 0.0007718205858389246,
+            "rms": 0.0008633150967909447,
+            "p99": 0.002394053388522322
+          },
+          "speed_m_s": {
+            "max": 0.1180767621161834,
+            "mean": 0.0017995249026488142,
+            "rms": 0.005460905422500818,
+            "p99": 0.023777983068225712
+          },
+          "contact_peak": 1563,
+          "contact_final": 1542,
+          "max_edge_ratio": 1.0084615439896376,
+          "min_edge_ratio": 0.9402793681130416,
+          "mean_abs_edge_strain": 0.0004771422942126627,
+          "bend_change_degrees": {
+            "mean": 0.3404074567805959,
+            "p99": 2.3590342964983755,
+            "max": 10.999343756405711
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.007944586033419115,
+            "mean": 0.0014825735906321188,
+            "rms": 0.0017852039816626955,
+            "p99": 0.005012675549347924
+          },
+          "speed_m_s": {
+            "max": 0.17744557921489118,
+            "mean": 0.0020933768670221083,
+            "rms": 0.008366268454267179,
+            "p99": 0.039545695621182146
+          },
+          "contact_peak": 8564,
+          "contact_final": 8564,
+          "max_edge_ratio": 1.1223146342077268,
+          "min_edge_ratio": 0.6803621383695104,
+          "mean_abs_edge_strain": 0.009095813640131884,
+          "bend_change_degrees": {
+            "mean": 2.479125731499676,
+            "p99": 19.750979109778182,
+            "max": 100.26856046441834
+          },
+          "minimum_triangle_area": 1.6385688605696684e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.491501804247091e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "wet1",
+        "strength": 1,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet1_clothnext_40c3d50f5278",
+        "seconds": 48.43799999999999,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false,
+        "saved_zones_applied": true
+      }
+    },
+    "original_wet2": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.013546909510612572,
+            "mean": 0.0013033715308199824,
+            "rms": 0.0016501539786622469,
+            "p99": 0.00540579588621529
+          },
+          "speed_m_s": {
+            "max": 0.16541362071211566,
+            "mean": 0.0026210098671049834,
+            "rms": 0.007650433993293046,
+            "p99": 0.03820091219778277
+          },
+          "contact_peak": 2252,
+          "contact_final": 2249,
+          "max_edge_ratio": 1.0242121519792045,
+          "min_edge_ratio": 0.7052404021449489,
+          "mean_abs_edge_strain": 0.00103807149592368,
+          "bend_change_degrees": {
+            "mean": 1.1348472988230551,
+            "p99": 12.735252352374342,
+            "max": 69.35968436197625
+          },
+          "minimum_triangle_area": 2.9277663936980624e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.003840724363271871,
+            "mean": 0.0007785029221790629,
+            "rms": 0.0008685284142568151,
+            "p99": 0.002394547899349812
+          },
+          "speed_m_s": {
+            "max": 0.11522173089815613,
+            "mean": 0.0018426259308155714,
+            "rms": 0.005493253644544608,
+            "p99": 0.02403194343535733
+          },
+          "contact_peak": 1686,
+          "contact_final": 1574,
+          "max_edge_ratio": 1.0086070832308744,
+          "min_edge_ratio": 0.9342936588318238,
+          "mean_abs_edge_strain": 0.00047886460743575156,
+          "bend_change_degrees": {
+            "mean": 0.3409599871075465,
+            "p99": 2.3702103579451532,
+            "max": 10.544271593745437
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.007939706097702108,
+            "mean": 0.0014845206432285607,
+            "rms": 0.0017871046845762471,
+            "p99": 0.00502033366544218
+          },
+          "speed_m_s": {
+            "max": 0.17681795538373957,
+            "mean": 0.002101754660339154,
+            "rms": 0.008223546039616149,
+            "p99": 0.038682698187566644
+          },
+          "contact_peak": 8559,
+          "contact_final": 8557,
+          "max_edge_ratio": 1.122087524224609,
+          "min_edge_ratio": 0.6804621594118098,
+          "mean_abs_edge_strain": 0.009092341122566287,
+          "bend_change_degrees": {
+            "mean": 2.4779179768620754,
+            "p99": 19.734571478783568,
+            "max": 100.33139454262736
+          },
+          "minimum_triangle_area": 1.6385688605696684e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.501748090494785e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "wet2",
+        "strength": 1,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet2_clothnext_3895e67ab84c",
+        "seconds": 43.672000000000025,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false,
+        "saved_zones_applied": true
+      }
+    },
+    "original_wet5": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.013670472330996374,
+            "mean": 0.0014623770394901015,
+            "rms": 0.0017917535663658892,
+            "p99": 0.005666731482529643
+          },
+          "speed_m_s": {
+            "max": 0.23809523323961337,
+            "mean": 0.0032516191638299135,
+            "rms": 0.008616619734213505,
+            "p99": 0.041648437960146854
+          },
+          "contact_peak": 2302,
+          "contact_final": 2276,
+          "max_edge_ratio": 1.0242142810594594,
+          "min_edge_ratio": 0.7048082118880622,
+          "mean_abs_edge_strain": 0.0010500383643049329,
+          "bend_change_degrees": {
+            "mean": 1.1727176220421676,
+            "p99": 12.95526934369372,
+            "max": 69.37456721252532
+          },
+          "minimum_triangle_area": 2.927639496289273e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.0030974889966311567,
+            "mean": 0.0007289962436833832,
+            "rms": 0.0007840896062154781,
+            "p99": 0.0015172910345055057
+          },
+          "speed_m_s": {
+            "max": 0.08791962163523977,
+            "mean": 0.0017302502809652261,
+            "rms": 0.004864792565609935,
+            "p99": 0.022897563876231354
+          },
+          "contact_peak": 1504,
+          "contact_final": 1504,
+          "max_edge_ratio": 1.003244500204986,
+          "min_edge_ratio": 0.9957329747930397,
+          "mean_abs_edge_strain": 0.0001307731594181268,
+          "bend_change_degrees": {
+            "mean": 0.26827760743253604,
+            "p99": 1.7939531465987657,
+            "max": 5.879310525473508
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.007922028139205114,
+            "mean": 0.0015001581552258451,
+            "rms": 0.0018038978706818919,
+            "p99": 0.005057314121244263
+          },
+          "speed_m_s": {
+            "max": 0.17818050400271462,
+            "mean": 0.002111702056331127,
+            "rms": 0.008425993288712815,
+            "p99": 0.03970615090030198
+          },
+          "contact_peak": 8627,
+          "contact_final": 8614,
+          "max_edge_ratio": 1.1224081421237095,
+          "min_edge_ratio": 0.6801912078883138,
+          "mean_abs_edge_strain": 0.009102053488900728,
+          "bend_change_degrees": {
+            "mean": 2.4833578631959683,
+            "p99": 19.855546147762734,
+            "max": 100.67792186935436
+          },
+          "minimum_triangle_area": 1.6385688605696684e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.491501804247091e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "wet5",
+        "strength": 5,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet5_clothnext_22ea6f01363b",
+        "seconds": 66.40599999999998,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ]
+      }
+    },
+    "soft_dry1": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.029363934757380306,
+            "mean": 0.004996599654012181,
+            "rms": 0.006120007412322862,
+            "p99": 0.01850057306096415
+          },
+          "speed_m_s": {
+            "max": 0.31246016929314485,
+            "mean": 0.011117267531391618,
+            "rms": 0.02369386702089343,
+            "p99": 0.11448158941648792
+          },
+          "contact_peak": 5665,
+          "contact_final": 5605,
+          "max_edge_ratio": 1.0364088361668273,
+          "min_edge_ratio": 0.44563642110288226,
+          "mean_abs_edge_strain": 0.004570997164391295,
+          "bend_change_degrees": {
+            "mean": 3.841486806611172,
+            "p99": 28.084788258205762,
+            "max": 81.84497956690926
+          },
+          "minimum_triangle_area": 2.895723793950044e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.010085496624372916,
+            "mean": 0.003142860666022166,
+            "rms": 0.0035998493483748117,
+            "p99": 0.007831800947953963
+          },
+          "speed_m_s": {
+            "max": 0.30256489873118747,
+            "mean": 0.005960672851650776,
+            "rms": 0.016656804083145047,
+            "p99": 0.07806275950095766
+          },
+          "contact_peak": 4039,
+          "contact_final": 3048,
+          "max_edge_ratio": 1.0152017033733665,
+          "min_edge_ratio": 0.9074419440702554,
+          "mean_abs_edge_strain": 0.002478422239936312,
+          "bend_change_degrees": {
+            "mean": 2.590588662376513,
+            "p99": 31.33424467875116,
+            "max": 80.66206252415796
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.013364433975063199,
+            "mean": 0.0027231680218806277,
+            "rms": 0.003241227767475223,
+            "p99": 0.008659066745779263
+          },
+          "speed_m_s": {
+            "max": 0.2602131336247661,
+            "mean": 0.00435359736928789,
+            "rms": 0.012828637843191751,
+            "p99": 0.06749265013453905
+          },
+          "contact_peak": 9582,
+          "contact_final": 9422,
+          "max_edge_ratio": 1.2031318776841007,
+          "min_edge_ratio": 0.4415235420841301,
+          "mean_abs_edge_strain": 0.019150618598384447,
+          "bend_change_degrees": {
+            "mean": 3.3360925493298996,
+            "p99": 29.48519556883874,
+            "max": 112.22409456987492
+          },
+          "minimum_triangle_area": 4.7718953745973145e-06,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 1.4551915228366852e-11,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "softdry1",
+        "strength": 0,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_softdry1_clothnext_64de93b52dc7",
+        "seconds": 42.125,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false
+      }
+    },
+    "soft_dry2": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.029305600776686203,
+            "mean": 0.004996140360700723,
+            "rms": 0.0061224055059959995,
+            "p99": 0.01845273847387279
+          },
+          "speed_m_s": {
+            "max": 0.31208544540726196,
+            "mean": 0.011256855282737756,
+            "rms": 0.023816991754961978,
+            "p99": 0.11469786340866511
+          },
+          "contact_peak": 5713,
+          "contact_final": 5644,
+          "max_edge_ratio": 1.0372852856598966,
+          "min_edge_ratio": 0.4456862810748852,
+          "mean_abs_edge_strain": 0.004573101927478347,
+          "bend_change_degrees": {
+            "mean": 3.8560935963269998,
+            "p99": 28.34847691520282,
+            "max": 81.80902255540619
+          },
+          "minimum_triangle_area": 2.894462609259737e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.01006336085416185,
+            "mean": 0.0031423036244319375,
+            "rms": 0.003599922764380844,
+            "p99": 0.007852178939287116
+          },
+          "speed_m_s": {
+            "max": 0.3019008256248555,
+            "mean": 0.005960959757628339,
+            "rms": 0.016613691775887514,
+            "p99": 0.07718961447789378
+          },
+          "contact_peak": 4003,
+          "contact_final": 3057,
+          "max_edge_ratio": 1.0152020950735519,
+          "min_edge_ratio": 0.9068155066913608,
+          "mean_abs_edge_strain": 0.002475083001220972,
+          "bend_change_degrees": {
+            "mean": 2.593315266303364,
+            "p99": 31.317392784657095,
+            "max": 80.66755494071371
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.013365095123033813,
+            "mean": 0.0027222534654833064,
+            "rms": 0.0032400492725786563,
+            "p99": 0.008654082327562361
+          },
+          "speed_m_s": {
+            "max": 0.2595953173238626,
+            "mean": 0.004354664810342858,
+            "rms": 0.012834592297347505,
+            "p99": 0.06776289605703889
+          },
+          "contact_peak": 9592,
+          "contact_final": 9424,
+          "max_edge_ratio": 1.203127116177368,
+          "min_edge_ratio": 0.4409029127692629,
+          "mean_abs_edge_strain": 0.01915099786428722,
+          "bend_change_degrees": {
+            "mean": 3.3367179604746955,
+            "p99": 29.54444217492732,
+            "max": 112.23830562208963
+          },
+          "minimum_triangle_area": 4.78323033292402e-06,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 1.4551915228366852e-11,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "softdry2",
+        "strength": 0,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_softdry2_clothnext_3247818a27f8",
+        "seconds": 46.60899999999998,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false
+      }
+    },
+    "soft_wet1": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.02822277256179959,
+            "mean": 0.005098488026173929,
+            "rms": 0.006216833215973318,
+            "p99": 0.018559571778967613
+          },
+          "speed_m_s": {
+            "max": 0.31745829215114396,
+            "mean": 0.011185585879835645,
+            "rms": 0.02395481672414569,
+            "p99": 0.11712012607392086
+          },
+          "contact_peak": 5716,
+          "contact_final": 5697,
+          "max_edge_ratio": 1.0372359371623838,
+          "min_edge_ratio": 0.4453170215954363,
+          "mean_abs_edge_strain": 0.004577023303503277,
+          "bend_change_degrees": {
+            "mean": 3.8766449242334557,
+            "p99": 28.33291668420952,
+            "max": 81.79398445381888
+          },
+          "minimum_triangle_area": 2.8940044811499937e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.01026961978327478,
+            "mean": 0.0031353830352808657,
+            "rms": 0.0035853058979725873,
+            "p99": 0.007747653444468322
+          },
+          "speed_m_s": {
+            "max": 0.30808859349824347,
+            "mean": 0.005950593927116952,
+            "rms": 0.016599961237901716,
+            "p99": 0.07735331330570493
+          },
+          "contact_peak": 3721,
+          "contact_final": 3065,
+          "max_edge_ratio": 1.015186660892705,
+          "min_edge_ratio": 0.9313759492105983,
+          "mean_abs_edge_strain": 0.0024817005519428732,
+          "bend_change_degrees": {
+            "mean": 2.578377478664557,
+            "p99": 31.403891069853938,
+            "max": 54.037272496482395
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.013371636983364518,
+            "mean": 0.0027329194389582832,
+            "rms": 0.0032506530865492825,
+            "p99": 0.008663868401539578
+          },
+          "speed_m_s": {
+            "max": 0.27137493158115833,
+            "mean": 0.004347296983368238,
+            "rms": 0.013094297432135806,
+            "p99": 0.06932546561174871
+          },
+          "contact_peak": 9598,
+          "contact_final": 9436,
+          "max_edge_ratio": 1.2031383279468562,
+          "min_edge_ratio": 0.44158110139764306,
+          "mean_abs_edge_strain": 0.019161941579552803,
+          "bend_change_degrees": {
+            "mean": 3.3415164621084745,
+            "p99": 29.544774057456177,
+            "max": 112.27078786480932
+          },
+          "minimum_triangle_area": 4.773330068162938e-06,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.547473508864641e-13,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "softwet1",
+        "strength": 1,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_softwet1_clothnext_55847553eeb5",
+        "seconds": 41.093999999999994,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false
+      }
+    },
+    "soft_wet2": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.02815260548257807,
+            "mean": 0.005070121992843244,
+            "rms": 0.006177611703605407,
+            "p99": 0.01847573760432167
+          },
+          "speed_m_s": {
+            "max": 0.3179472549380864,
+            "mean": 0.011035887121860068,
+            "rms": 0.023299677900449626,
+            "p99": 0.11271545541816652
+          },
+          "contact_peak": 5714,
+          "contact_final": 5662,
+          "max_edge_ratio": 1.0368292051345596,
+          "min_edge_ratio": 0.445340802067796,
+          "mean_abs_edge_strain": 0.004565287227459211,
+          "bend_change_degrees": {
+            "mean": 3.8740306210839552,
+            "p99": 28.178769996881027,
+            "max": 81.79812816753163
+          },
+          "minimum_triangle_area": 2.8950769827094707e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 0.0096376607085675,
+            "mean": 0.0031467292258254547,
+            "rms": 0.0035963065604027082,
+            "p99": 0.007725407420821257
+          },
+          "speed_m_s": {
+            "max": 0.2752388948125003,
+            "mean": 0.005745030452253175,
+            "rms": 0.01579685530073774,
+            "p99": 0.07293334369565958
+          },
+          "contact_peak": 3446,
+          "contact_final": 3046,
+          "max_edge_ratio": 1.015224150765432,
+          "min_edge_ratio": 0.92384003615501,
+          "mean_abs_edge_strain": 0.002476997491385389,
+          "bend_change_degrees": {
+            "mean": 2.585289948784653,
+            "p99": 31.551323095593858,
+            "max": 56.94258789348274
+          },
+          "minimum_triangle_area": 1.232464162694093e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.013372286965488459,
+            "mean": 0.0027331551120156404,
+            "rms": 0.0032504494827074806,
+            "p99": 0.008669704846706703
+          },
+          "speed_m_s": {
+            "max": 0.26333363926548586,
+            "mean": 0.0043432094252095575,
+            "rms": 0.012988527402987055,
+            "p99": 0.06864063526315164
+          },
+          "contact_peak": 9591,
+          "contact_final": 9428,
+          "max_edge_ratio": 1.203147395845614,
+          "min_edge_ratio": 0.441622804125008,
+          "mean_abs_edge_strain": 0.019164592294936313,
+          "bend_change_degrees": {
+            "mean": 3.3399872426235406,
+            "p99": 29.50643307665941,
+            "max": 112.25949477163326
+          },
+          "minimum_triangle_area": 4.7726474364869435e-06,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 7.275957614183426e-12,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "softwet2",
+        "strength": 1,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_softwet2_clothnext_d39dc4ec162a",
+        "seconds": 39.6400000000001,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.08,
+              "young-mod": 200.0,
+              "poiss-rat": 0.35,
+              "bend": 0.1,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0005,
+              "bending-damping": 0.0005,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": false,
+        "saved_zones_applied": false
+      }
+    },
+    "contact_off_dry": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.06346521226549377,
+            "mean": 0.016345606628546484,
+            "rms": 0.019917367572672772,
+            "p99": 0.05183286438213462
+          },
+          "speed_m_s": {
+            "max": 0.48946055443250874,
+            "mean": 0.05014073461621786,
+            "rms": 0.06398555625879428,
+            "p99": 0.17146890777493776
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.0164812570796895,
+          "min_edge_ratio": 0.6323164978904571,
+          "mean_abs_edge_strain": 0.0015182379441247243,
+          "bend_change_degrees": {
+            "mean": 2.798796314927721,
+            "p99": 32.477493195525604,
+            "max": 140.96689572031264
+          },
+          "minimum_triangle_area": 3.0589083724977758e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 4.560336488069679,
+            "mean": 1.5613516045481222,
+            "rms": 2.1009255432618645,
+            "p99": 4.554527060955465
+          },
+          "speed_m_s": {
+            "max": 9.09610255352575,
+            "mean": 4.7067551117910265,
+            "rms": 5.400012516200872,
+            "p99": 9.09179133234972
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.0002303309656972,
+          "min_edge_ratio": 0.9997536244140557,
+          "mean_abs_edge_strain": 1.0063403552284998e-05,
+          "bend_change_degrees": {
+            "mean": 0.048624148958636045,
+            "p99": 0.3984419514421747,
+            "max": 1.2940163040023618
+          },
+          "minimum_triangle_area": 1.232030801673205e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.04525687752925678,
+            "mean": 0.0064231638447546395,
+            "rms": 0.008742103779600205,
+            "p99": 0.03203017406132053
+          },
+          "speed_m_s": {
+            "max": 0.7093891053542195,
+            "mean": 0.011366377818451618,
+            "rms": 0.03911241467242328,
+            "p99": 0.19168319475881312
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.1360200412575838,
+          "min_edge_ratio": 0.7079621072129161,
+          "mean_abs_edge_strain": 0.008142715802537746,
+          "bend_change_degrees": {
+            "mean": 5.618298793764757,
+            "p99": 38.98555561823228,
+            "max": 113.88754832190068
+          },
+          "minimum_triangle_area": 1.4825177384105855e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.491501804247091e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "nocontactdry",
+        "strength": 0,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_nocontactdry_clothnext_2071048e469b",
+        "seconds": 56.09400000000005,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": true
+      }
+    },
+    "contact_off_wet": {
+      "metrics": {
+        "S04_NEON_Garments": {
+          "displacement_m": {
+            "max": 0.05401192104941396,
+            "mean": 0.015536186661260162,
+            "rms": 0.01845739657292743,
+            "p99": 0.0447624858489993
+          },
+          "speed_m_s": {
+            "max": 0.48952842779135025,
+            "mean": 0.045206871651686964,
+            "rms": 0.05790026053182882,
+            "p99": 0.16003974405855942
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.0164852750798359,
+          "min_edge_ratio": 0.6322763931940608,
+          "mean_abs_edge_strain": 0.001519187282713021,
+          "bend_change_degrees": {
+            "mean": 2.77970414175631,
+            "p99": 32.3822127962898,
+            "max": 139.18674871606706
+          },
+          "minimum_triangle_area": 3.0589623723712394e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement_m": {
+            "max": 4.209595188146242,
+            "mean": 1.4529839405922063,
+            "rms": 1.941669683246741,
+            "p99": 4.203647405646994
+          },
+          "speed_m_s": {
+            "max": 8.524251768250688,
+            "mean": 4.345035631971773,
+            "rms": 4.965186254845079,
+            "p99": 8.497364472050894
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.0007139937419354,
+          "min_edge_ratio": 0.9993603092058223,
+          "mean_abs_edge_strain": 2.611347005410087e-05,
+          "bend_change_degrees": {
+            "mean": 0.13145342108058422,
+            "p99": 1.2342014417009481,
+            "max": 5.4850197734453525
+          },
+          "minimum_triangle_area": 1.2322597816719751e-06,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement_m": {
+            "max": 0.04491163258213447,
+            "mean": 0.006405463499502972,
+            "rms": 0.00868965626642621,
+            "p99": 0.03187130063165589
+          },
+          "speed_m_s": {
+            "max": 0.7083424965218466,
+            "mean": 0.011247683677879834,
+            "rms": 0.039074931812785534,
+            "p99": 0.19192688364819863
+          },
+          "contact_peak": 0,
+          "contact_final": 0,
+          "max_edge_ratio": 1.1360134964669029,
+          "min_edge_ratio": 0.7079565659552297,
+          "mean_abs_edge_strain": 0.008130911560688627,
+          "bend_change_degrees": {
+            "mean": 5.609690778050319,
+            "p99": 38.72430717513565,
+            "max": 114.45645364593136
+          },
+          "minimum_triangle_area": 1.4793848219664082e-05,
+          "finite": true
+        }
+      },
+      "body_max_movement_m": 4.491501804247091e-18,
+      "initial_world_transform_errors_m": {
+        "S04_NEON_Garments": 2.9800812262337217e-08,
+        "S04_NEON_Garments.001": 5.960364557466846e-08,
+        "S04_NEON_Garments.002": 5.951051207375713e-08
+      },
+      "source_record": {
+        "label": "nocontactwet",
+        "strength": 1,
+        "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_nocontactwet_clothnext_474cb9185ba8",
+        "seconds": 55.43700000000001,
+        "positions_shape": [
+          30,
+          77860,
+          3
+        ],
+        "groups": [
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.20729699730873108,
+              "young-mod": 8000.0,
+              "poiss-rat": 0.3199999928474426,
+              "bend": 3.806999921798706,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.17499999701976776,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments"
+            ],
+            [
+              "20d41915-b825-3f3c-508e-f7b165220b44"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.4650000035762787,
+              "young-mod": 50000.0,
+              "poiss-rat": 0.14000000059604645,
+              "bend": 20.0,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.23999999463558197,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.03999999910593033,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.001"
+            ],
+            [
+              "f03c52ba-eb0a-45e0-a15e-7fdcdede4082"
+            ]
+          ],
+          [
+            {
+              "model": "baraff-witkin",
+              "density": 0.5600000023841858,
+              "young-mod": 420.0,
+              "poiss-rat": 0.47999998927116394,
+              "bend": 2.799999952316284,
+              "plasticity": 0.0,
+              "plasticity-threshold": 0.05000000074505806,
+              "bend-plasticity": 0.0,
+              "bend-plasticity-threshold": 0.1745329201221466,
+              "bend-rest-from-geometry": 1.0,
+              "deformation-damping": 0.0,
+              "bending-damping": 0.0,
+              "friction": 0.2750000059604645,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0,
+              "strain-limit": 0.3199999928474426,
+              "shrink-x": 1.0,
+              "shrink-y": 1.0,
+              "pressure": 0.0,
+              "stitch-stiffness": 100.0,
+              "force-field-weight": 1.0
+            },
+            [
+              "S04_NEON_Garments.002"
+            ],
+            [
+              "ff2bf6b4-1228-85d4-c927-c2b50beee422"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_body_lod0_mesh"
+            ],
+            [
+              "b4175c13-e11f-f4e5-8f86-4cee05a3ba0e"
+            ]
+          ],
+          [
+            {
+              "friction": 0.25,
+              "contact-gap": 0.0010000000474974513,
+              "contact-offset": 0.0
+            },
+            [
+              "SW_04_head_lod0_mesh"
+            ],
+            [
+              "fccdb0ea-3724-11ff-5c91-12bea164d18d"
+            ]
+          ]
+        ],
+        "disable_contact": true
+      }
+    }
+  },
+  "native_fluid": {
+    "original_wet1": {
+      "scope": "Actual official solver input bricks, transforms and masks, sampled by unchanged official spatial/temporal reference; host expectation",
+      "objects": {
+        "S04_NEON_Garments": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.7364512244078684,
+              "mean_occupancy": 0.6834144804456136,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.02967093196581186,
+              "mean_relative_speed": 0.02967093196581186
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.7359159641375619,
+              "mean_occupancy": 0.6889153780894278,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.19917832549882705,
+              "max_fluid_speed": 0.5230436609235893,
+              "mean_vertex_speed": 0.0006790422830612133,
+              "mean_relative_speed": 0.1992918395882969
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.7359159641375619,
+              "mean_occupancy": 0.6891570750068143,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.19916052658579866,
+              "max_fluid_speed": 0.534837861281066,
+              "mean_vertex_speed": 0.0006790422830612133,
+              "mean_relative_speed": 0.19926883842543575
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.77151077211294,
+              "mean_occupancy": 0.7313605991245298,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.2945040447067189,
+              "max_fluid_speed": 0.7371071795675354,
+              "mean_vertex_speed": 0.0004976620919452049,
+              "mean_relative_speed": 0.2944232572776572
+            }
+          ]
+        },
+        "S04_NEON_Garments.001": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.020539043964842615,
+              "mean_relative_speed": 0.020539043964842615
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.0005651317785621634,
+              "mean_relative_speed": 0.0005651317785621634
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.0005651317785621634,
+              "mean_relative_speed": 0.0005651317785621634
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.00015108672957193093,
+              "mean_relative_speed": 0.00015108672957193093
+            }
+          ]
+        },
+        "S04_NEON_Garments.002": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.18184073430910444,
+              "mean_occupancy": 0.09058582082763834,
+              "max_occupancy": 0.9388565974708575,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.03579907263871946,
+              "mean_relative_speed": 0.03579907263871946
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.18233688910940213,
+              "mean_occupancy": 0.10147262138100659,
+              "max_occupancy": 0.9994475250820984,
+              "mean_fluid_speed": 0.03155726690133879,
+              "max_fluid_speed": 0.49237620366240786,
+              "mean_vertex_speed": 0.0005109482341261086,
+              "mean_relative_speed": 0.032000934651087935
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.18233688910940213,
+              "mean_occupancy": 0.10216871482218828,
+              "max_occupancy": 0.9994928250580299,
+              "mean_fluid_speed": 0.031784976374001024,
+              "max_fluid_speed": 0.5034882022402115,
+              "mean_vertex_speed": 0.0005109482341261086,
+              "mean_relative_speed": 0.032229080411135036
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.2622178119573307,
+              "mean_occupancy": 0.1790532821471367,
+              "max_occupancy": 1.0,
+              "mean_fluid_speed": 0.06864550736865066,
+              "max_fluid_speed": 0.6712502279934802,
+              "mean_vertex_speed": 0.0002378994838119395,
+              "mean_relative_speed": 0.06882328612503673
+            }
+          ]
+        }
+      }
+    },
+    "soft_wet1": {
+      "scope": "Actual official solver input bricks, transforms and masks, sampled by unchanged official spatial/temporal reference; host expectation",
+      "objects": {
+        "S04_NEON_Garments": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.7364512244078684,
+              "mean_occupancy": 0.6834144804456136,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.08935581633050926,
+              "mean_relative_speed": 0.08935581633050926
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.7349123511307373,
+              "mean_occupancy": 0.6872423415998465,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.19924882116442127,
+              "max_fluid_speed": 0.5252194288113883,
+              "mean_vertex_speed": 0.004475434772649511,
+              "mean_relative_speed": 0.19919820100787078
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.7347785360631607,
+              "mean_occupancy": 0.6874576669285952,
+              "max_occupancy": 1.0000000000000004,
+              "mean_fluid_speed": 0.19932159546555298,
+              "max_fluid_speed": 0.5369856058021435,
+              "mean_vertex_speed": 0.004475434772649511,
+              "mean_relative_speed": 0.1992066262147326
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.769102100896561,
+              "mean_occupancy": 0.7283024723079056,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.29332828802713135,
+              "max_fluid_speed": 0.7360486973727381,
+              "mean_vertex_speed": 0.0027388785416694013,
+              "mean_relative_speed": 0.29244787597035804
+            }
+          ]
+        },
+        "S04_NEON_Garments.001": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.056832552488819,
+              "mean_relative_speed": 0.056832552488819
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.001128443354815741,
+              "mean_relative_speed": 0.001128443354815741
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.001128443354815741,
+              "mean_relative_speed": 0.001128443354815741
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.0004389937248224572,
+              "mean_relative_speed": 0.0004389937248224572
+            }
+          ]
+        },
+        "S04_NEON_Garments.002": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.18184073430910444,
+              "mean_occupancy": 0.09058582082763834,
+              "max_occupancy": 0.9388565974708575,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.056050222043024595,
+              "mean_relative_speed": 0.056050222043024595
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.18233688910940213,
+              "mean_occupancy": 0.10196622694995754,
+              "max_occupancy": 0.999460647616115,
+              "mean_fluid_speed": 0.03166019830697312,
+              "max_fluid_speed": 0.4899982130131349,
+              "mean_vertex_speed": 0.0018165071979955236,
+              "mean_relative_speed": 0.033303180641655064
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.18233688910940213,
+              "mean_occupancy": 0.10262470903285419,
+              "max_occupancy": 0.9995048240990203,
+              "mean_fluid_speed": 0.031881219869469735,
+              "max_fluid_speed": 0.5009882105740291,
+              "mean_vertex_speed": 0.0018165071979955236,
+              "mean_relative_speed": 0.033524133562183325
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.2587447283552468,
+              "mean_occupancy": 0.17763455698223152,
+              "max_occupancy": 1.0,
+              "mean_fluid_speed": 0.06829167196542063,
+              "max_fluid_speed": 0.6730753260504713,
+              "mean_vertex_speed": 0.0010411937130731465,
+              "mean_relative_speed": 0.06913205229930333
+            }
+          ]
+        }
+      }
+    },
+    "contact_off_wet": {
+      "scope": "Actual official solver input bricks, transforms and masks, sampled by unchanged official spatial/temporal reference; host expectation",
+      "objects": {
+        "S04_NEON_Garments": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.7364512244078684,
+              "mean_occupancy": 0.6834144804456136,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.08912234253454997,
+              "mean_relative_speed": 0.08912234253454997
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.7381239127525759,
+              "mean_occupancy": 0.6871374921583365,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.20567282753973887,
+              "max_fluid_speed": 0.4972341987984382,
+              "mean_vertex_speed": 0.014967851717514555,
+              "mean_relative_speed": 0.20947546667616754
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.7380570052187876,
+              "mean_occupancy": 0.687499968534902,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.20643377962106854,
+              "max_fluid_speed": 0.5064247447948187,
+              "mean_vertex_speed": 0.014967851717514555,
+              "mean_relative_speed": 0.21028236944605644
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.7721798474508229,
+              "mean_occupancy": 0.7298146688403019,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.30020709869523216,
+              "max_fluid_speed": 0.7372843354986308,
+              "mean_vertex_speed": 0.013321108887534952,
+              "mean_relative_speed": 0.2944927045457609
+            }
+          ]
+        },
+        "S04_NEON_Garments.001": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.22360406859839266,
+              "mean_relative_speed": 0.22360406859839266
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.6775519525005709,
+              "mean_occupancy": 0.6621844551129646,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.204691800427242,
+              "max_fluid_speed": 0.40658969604551215,
+              "mean_vertex_speed": 4.150847193545259,
+              "mean_relative_speed": 4.161800129968085
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.43503082895638273,
+              "mean_occupancy": 0.4308923397961744,
+              "max_occupancy": 1.0000000000000002,
+              "mean_fluid_speed": 0.13241548695061797,
+              "max_fluid_speed": 0.4476822152049578,
+              "mean_vertex_speed": 4.150847193545259,
+              "mean_relative_speed": 4.152077148048244
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.0,
+              "mean_occupancy": 0.0,
+              "max_occupancy": 0.0,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 8.494118362675273,
+              "mean_relative_speed": 8.494118362675273
+            }
+          ]
+        },
+        "S04_NEON_Garments.002": {
+          "target_mask_values": [
+            1
+          ],
+          "frames": [
+            {
+              "frame": 1.0,
+              "occupied_fraction": 0.18184073430910444,
+              "mean_occupancy": 0.09058582082763834,
+              "max_occupancy": 0.9388565974708575,
+              "mean_fluid_speed": 0.0,
+              "max_fluid_speed": 0.0,
+              "mean_vertex_speed": 0.15046400793484008,
+              "mean_relative_speed": 0.15046400793484008
+            },
+            {
+              "frame": 15.0,
+              "occupied_fraction": 0.18382535351029522,
+              "mean_occupancy": 0.10018557360987412,
+              "max_occupancy": 0.9994217017345406,
+              "mean_fluid_speed": 0.03134683331012324,
+              "max_fluid_speed": 0.4886198133801,
+              "mean_vertex_speed": 0.001765284973244422,
+              "mean_relative_speed": 0.032878090730000385
+            },
+            {
+              "frame": 15.5,
+              "occupied_fraction": 0.18382535351029522,
+              "mean_occupancy": 0.10100714441072564,
+              "max_occupancy": 0.9994691050419018,
+              "mean_fluid_speed": 0.03158096006246747,
+              "max_fluid_speed": 0.49963469171048525,
+              "mean_vertex_speed": 0.001765284973244422,
+              "mean_relative_speed": 0.03311312821326176
+            },
+            {
+              "frame": 30.0,
+              "occupied_fraction": 0.26420243115852143,
+              "mean_occupancy": 0.1776499419837243,
+              "max_occupancy": 1.0,
+              "mean_fluid_speed": 0.06879494334136295,
+              "max_fluid_speed": 0.673409171120311,
+              "mean_vertex_speed": 0.0007974790966556669,
+              "mean_relative_speed": 0.0695063117667303
+            }
+          ]
+        }
+      }
+    }
+  }
+}

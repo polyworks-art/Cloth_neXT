@@ -1,0 +1,1970 @@
+[
+  {
+    "frame": 130,
+    "sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+    "vertices": 711260,
+    "triangles": 1421952,
+    "components": 405,
+    "closed_components": 404,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.173458335744,
+    "open_edges": 7,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.45543622970581055,
+          -0.659839391708374,
+          0.4710272550582886
+        ],
+        "maximum": [
+          0.4640989303588867,
+          -0.6559948921203613,
+          0.48159849643707275
+        ],
+        "domain_distance_m": 0.4710272550582886,
+        "boundary_edges": 7,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 1,
+        "boundary_endpoints": 1
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203928,
+        "layout": [
+          [
+            120526,
+            723134,
+            7941130,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203928,
+        "layout": [
+          [
+            120526,
+            723134,
+            7941130,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 131,
+    "sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+    "vertices": 710144,
+    "triangles": 1419876,
+    "components": 378,
+    "closed_components": 378,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.1814658022564535,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203844,
+        "layout": [
+          [
+            119305,
+            722610,
+            7942868,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203844,
+        "layout": [
+          [
+            119305,
+            722610,
+            7942868,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 132,
+    "sha256": "d0fa6f9b3ea8ee377b8ee78a2c4d3629be4cd51febed636c59b5141e0e1c84d0",
+    "vertices": 694362,
+    "triangles": 1388124,
+    "components": 403,
+    "closed_components": 403,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.186871952405339,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203808,
+        "layout": [
+          [
+            113740,
+            720592,
+            7950448,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203808,
+        "layout": [
+          [
+            113740,
+            720592,
+            7950448,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 133,
+    "sha256": "0f6b3de875388a3b1a28f7ee3878d08c0fb4291ef4f260339ab2e21ffd82ae8c",
+    "vertices": 677116,
+    "triangles": 1353536,
+    "components": 429,
+    "closed_components": 429,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.1932715877218465,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203484,
+        "layout": [
+          [
+            107627,
+            718715,
+            7958411,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203484,
+        "layout": [
+          [
+            107627,
+            718715,
+            7958411,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 134,
+    "sha256": "64bb03af6e1cef7a5daa23ddf7ce7eb61f1bef477d43854bbc971cf7e42e7d36",
+    "vertices": 664934,
+    "triangles": 1329176,
+    "components": 394,
+    "closed_components": 394,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.198487607037879,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203472,
+        "layout": [
+          [
+            103499,
+            717925,
+            7963328,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203472,
+        "layout": [
+          [
+            103499,
+            717925,
+            7963328,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 135,
+    "sha256": "7ac0e35805dc2a553875e7663465daa06ca862a5f622788aab6528b4d2c3578b",
+    "vertices": 659706,
+    "triangles": 1318816,
+    "components": 363,
+    "closed_components": 362,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.20450880472183,
+    "open_edges": 2,
+    "nonmanifold_edges": 2,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.4224332571029663,
+          0.7043895721435547,
+          0.595291018486023
+        ],
+        "maximum": [
+          0.42932963371276855,
+          0.7068729400634766,
+          0.6036452054977417
+        ],
+        "domain_distance_m": 0.5742194652557373,
+        "boundary_edges": 2,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203448,
+        "layout": [
+          [
+            102391,
+            715809,
+            7966550,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203448,
+        "layout": [
+          [
+            102391,
+            715809,
+            7966550,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 136,
+    "sha256": "25157ae73cdbbe30920385c69d2ed626d5b22f551f886b6a1f53ef5244ff55a9",
+    "vertices": 655956,
+    "triangles": 1311448,
+    "components": 354,
+    "closed_components": 354,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.212257272504815,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203412,
+        "layout": [
+          [
+            100291,
+            714809,
+            7969647,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203412,
+        "layout": [
+          [
+            100291,
+            714809,
+            7969647,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 137,
+    "sha256": "2a0c210ecb03b077fbf35ca3ec7c4935e27724eddc748e3826fea54fe83a6482",
+    "vertices": 650724,
+    "triangles": 1300800,
+    "components": 367,
+    "closed_components": 367,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.218791710975654,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203412,
+        "layout": [
+          [
+            99598,
+            713862,
+            7971287,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203412,
+        "layout": [
+          [
+            99598,
+            713862,
+            7971287,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 138,
+    "sha256": "b5362c99261da050233eb6704daa1e02bcd1d6dcc049729af52d1a87e6102d33",
+    "vertices": 654144,
+    "triangles": 1307612,
+    "components": 351,
+    "closed_components": 351,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.228377527120012,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            99836,
+            712467,
+            7972442,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            99836,
+            712467,
+            7972442,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 139,
+    "sha256": "ffb0133d3a304a377982a09fd73a490deff0b9388dcc80c67b328d983f1d1f04",
+    "vertices": 658012,
+    "triangles": 1315376,
+    "components": 353,
+    "closed_components": 353,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.239112175620181,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            100856,
+            712410,
+            7971479,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            100856,
+            712410,
+            7971479,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 140,
+    "sha256": "53e369b4deb6abbdc7397743ee5abd8534df97f7215ac00fec225cfe1930a5ac",
+    "vertices": 664166,
+    "triangles": 1327656,
+    "components": 395,
+    "closed_components": 394,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.251332531628188,
+    "open_edges": 3,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.5781348943710327,
+          -0.6577072143554688,
+          0.5277957916259766
+        ],
+        "maximum": [
+          0.5892417430877686,
+          -0.6542397737503052,
+          0.5290250778198242
+        ],
+        "domain_distance_m": 0.4143073558807373,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            100795,
+            712600,
+            7971350,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203388,
+        "layout": [
+          [
+            100795,
+            712600,
+            7971350,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 141,
+    "sha256": "4690033103f23bb72bffb0323535301fc1604243c48f3e8e83309ab351e8da69",
+    "vertices": 666078,
+    "triangles": 1331532,
+    "components": 405,
+    "closed_components": 405,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.261815960161941,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203376,
+        "layout": [
+          [
+            99283,
+            712612,
+            7972849,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203376,
+        "layout": [
+          [
+            99283,
+            712612,
+            7972849,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 142,
+    "sha256": "5cf41ac7bc2906f9d78d4c8d68412d78b727b19067f59b0358ecaa3e91e24ed0",
+    "vertices": 666370,
+    "triangles": 1332160,
+    "components": 386,
+    "closed_components": 386,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.270588077060201,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            97028,
+            712956,
+            7974758,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            97028,
+            712956,
+            7974758,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 143,
+    "sha256": "5ef04eca4fcf7345f4108f18e8c0096790edd147c40432d840580a456a063a79",
+    "vertices": 666056,
+    "triangles": 1331716,
+    "components": 371,
+    "closed_components": 371,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.278617603787345,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            95813,
+            713082,
+            7975847,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            95813,
+            713082,
+            7975847,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 144,
+    "sha256": "52fda4e79c40be7c6cc0703a4c53faddf67f6c77a29e7cb67e988412e1ec3a68",
+    "vertices": 665854,
+    "triangles": 1331208,
+    "components": 367,
+    "closed_components": 367,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.287067512784426,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            96202,
+            713022,
+            7975518,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            96202,
+            713022,
+            7975518,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 145,
+    "sha256": "447bba8cf61f23f613ff40404fa0f0dfde871b17f5f240ee2d0fb98b554a0a61",
+    "vertices": 664850,
+    "triangles": 1329076,
+    "components": 387,
+    "closed_components": 387,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.294627784750708,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            95284,
+            711597,
+            7977861,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            95284,
+            711597,
+            7977861,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 146,
+    "sha256": "ac285cd504ec84aafd28a7841524aab9d9d9fbafe0779dd902e203dd93e3bd28",
+    "vertices": 663926,
+    "triangles": 1327240,
+    "components": 365,
+    "closed_components": 364,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.301772258950285,
+    "open_edges": 3,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.795110821723938,
+          -0.6599023342132568,
+          0.6943227052688599
+        ],
+        "maximum": [
+          0.8054653406143188,
+          -0.6543476581573486,
+          0.6974822282791138
+        ],
+        "domain_distance_m": 0.198083758354187,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            94643,
+            710220,
+            7979879,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203352,
+        "layout": [
+          [
+            94643,
+            710220,
+            7979879,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 147,
+    "sha256": "5e2ef49ddc661f063a0fe4f57330218f1480fa5ab6075a0c6174886da2a98bd3",
+    "vertices": 657210,
+    "triangles": 1313908,
+    "components": 354,
+    "closed_components": 354,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.30664918784945,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203340,
+        "layout": [
+          [
+            92334,
+            708874,
+            7983533,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203340,
+        "layout": [
+          [
+            92334,
+            708874,
+            7983533,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 148,
+    "sha256": "5bed170491a94366ba4af62729b15cbe36715ee25abf33ede24da413fca57cc7",
+    "vertices": 650624,
+    "triangles": 1300640,
+    "components": 346,
+    "closed_components": 346,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.3104416139222375,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106203328,
+        "layout": [
+          [
+            91264,
+            707588,
+            7985888,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106203328,
+        "layout": [
+          [
+            91264,
+            707588,
+            7985888,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 149,
+    "sha256": "14f5571f36744f8d34e5b744076746d128ea59368ea330f8467a8232aff67dcc",
+    "vertices": 646289,
+    "triangles": 1291996,
+    "components": 342,
+    "closed_components": 341,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.313501272528293,
+    "open_edges": 7,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 1,
+    "problem_regions": [
+      {
+        "minimum": [
+          -0.06362438201904297,
+          -0.6587138175964355,
+          0.4621221423149109
+        ],
+        "maximum": [
+          -0.052974164485931396,
+          -0.6557552814483643,
+          0.4653938412666321
+        ],
+        "domain_distance_m": 0.4621221423149109,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      },
+      {
+        "minimum": [
+          0.10723423957824707,
+          -0.6583421230316162,
+          0.5172063112258911
+        ],
+        "maximum": [
+          0.11586189270019531,
+          -0.6540945768356323,
+          0.5217043161392212
+        ],
+        "domain_distance_m": 0.5172063112258911,
+        "boundary_edges": 4,
+        "boundary_loop": true,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 0
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202908,
+        "layout": [
+          [
+            90564,
+            708314,
+            7985827,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202908,
+        "layout": [
+          [
+            90564,
+            708314,
+            7985827,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 150,
+    "sha256": "b74d02be44627a7738b1cd7782a69c7cc8b5de83b1c587a2affc3a3cba8f0f88",
+    "vertices": 644314,
+    "triangles": 1288116,
+    "components": 335,
+    "closed_components": 334,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.320086427118665,
+    "open_edges": 6,
+    "nonmanifold_edges": 4,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.21323680877685547,
+          -0.659961462020874,
+          0.4157664477825165
+        ],
+        "maximum": [
+          0.21950459480285645,
+          -0.6559324264526367,
+          0.4318690299987793
+        ],
+        "domain_distance_m": 0.4157664477825165,
+        "boundary_edges": 4,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 1,
+        "boundary_endpoints": 1
+      },
+      {
+        "minimum": [
+          0.09575271606445312,
+          -0.6582050323486328,
+          0.5118907690048218
+        ],
+        "maximum": [
+          0.10031390190124512,
+          -0.6561672687530518,
+          0.5140286684036255
+        ],
+        "domain_distance_m": 0.5118907690048218,
+        "boundary_edges": 2,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202908,
+        "layout": [
+          [
+            90148,
+            708522,
+            7986035,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202908,
+        "layout": [
+          [
+            90148,
+            708522,
+            7986035,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 151,
+    "sha256": "135417da6c7af6c1640dc2424637626e2c4eed40e18a081409b877df30f1dce1",
+    "vertices": 644933,
+    "triangles": 1289300,
+    "components": 311,
+    "closed_components": 310,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.326556320290901,
+    "open_edges": 6,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.572390079498291,
+          -0.6599578857421875,
+          0.6959146857261658
+        ],
+        "maximum": [
+          0.5806000232696533,
+          -0.6556787490844727,
+          0.7078179121017456
+        ],
+        "domain_distance_m": 0.42294907569885254,
+        "boundary_edges": 6,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 1,
+        "boundary_endpoints": 0
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202872,
+        "layout": [
+          [
+            90624,
+            709461,
+            7984617,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202872,
+        "layout": [
+          [
+            90624,
+            709461,
+            7984617,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 152,
+    "sha256": "040596a851e5e1545c13e08f3009d6b47ab7a0649146e6a032d8264d7e3170f5",
+    "vertices": 647892,
+    "triangles": 1295448,
+    "components": 281,
+    "closed_components": 281,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.333820534731348,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202836,
+        "layout": [
+          [
+            91264,
+            711823,
+            7981612,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202836,
+        "layout": [
+          [
+            91264,
+            711823,
+            7981612,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 153,
+    "sha256": "618fa0f767cccbed7062dcbe7e5972e7ec9c5f9caa84c70a7c3f5dd8fea81aad",
+    "vertices": 660092,
+    "triangles": 1319868,
+    "components": 303,
+    "closed_components": 303,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.345368586509267,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202800,
+        "layout": [
+          [
+            93974,
+            713196,
+            7977526,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202800,
+        "layout": [
+          [
+            93974,
+            713196,
+            7977526,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 154,
+    "sha256": "df4a12c5efcfd535e3bbc8c547fbc0239bf3b851b77644ed32c1c4d2e86b8779",
+    "vertices": 671386,
+    "triangles": 1342400,
+    "components": 298,
+    "closed_components": 298,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.356006324557446,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106202296,
+        "layout": [
+          [
+            95725,
+            713036,
+            7975893,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106202296,
+        "layout": [
+          [
+            95725,
+            713036,
+            7975893,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 155,
+    "sha256": "197f7abb0ad8c96c589e2ccfa72c652ddb2371f479cb680b6605c872f080d25a",
+    "vertices": 682532,
+    "triangles": 1365004,
+    "components": 286,
+    "closed_components": 286,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.366673203734564,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200760,
+        "layout": [
+          [
+            96796,
+            713355,
+            7974375,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200760,
+        "layout": [
+          [
+            96796,
+            713355,
+            7974375,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 156,
+    "sha256": "3bd79a49ee7d3c29478782a20df4def3788b73d0cdab4f3e7bfba8de38a78a4f",
+    "vertices": 680016,
+    "triangles": 1359772,
+    "components": 343,
+    "closed_components": 342,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.375542031793358,
+    "open_edges": 3,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.45859694480895996,
+          -0.6600120067596436,
+          0.37061208486557007
+        ],
+        "maximum": [
+          0.4746752977371216,
+          -0.6557581424713135,
+          0.37576210498809814
+        ],
+        "domain_distance_m": 0.37061208486557007,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200748,
+        "layout": [
+          [
+            95983,
+            712536,
+            7976006,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200748,
+        "layout": [
+          [
+            95983,
+            712536,
+            7976006,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 157,
+    "sha256": "43b61c36756ea7b6f2106bf05b5bed8442ee97130806a4910f7f8fc4249aaf79",
+    "vertices": 664984,
+    "triangles": 1329504,
+    "components": 362,
+    "closed_components": 362,
+    "watertight": true,
+    "winding": true,
+    "volume_m3": 5.378806308318116,
+    "open_edges": 0,
+    "nonmanifold_edges": 0,
+    "degenerate_triangles": 4,
+    "boundary_loops": 0,
+    "problem_regions": [],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200748,
+        "layout": [
+          [
+            93623,
+            712367,
+            7978535,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200748,
+        "layout": [
+          [
+            93623,
+            712367,
+            7978535,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 158,
+    "sha256": "cd8e1fe470eff0a9f3ffe973c935eafbe527578a7225b1f31a320281bb5580ac",
+    "vertices": 651586,
+    "triangles": 1302464,
+    "components": 368,
+    "closed_components": 367,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.382381790897843,
+    "open_edges": 2,
+    "nonmanifold_edges": 2,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.4155278205871582,
+          -0.6588732004165649,
+          0.3143554925918579
+        ],
+        "maximum": [
+          0.4188535213470459,
+          -0.6574541330337524,
+          0.3230261504650116
+        ],
+        "domain_distance_m": 0.3143554925918579,
+        "boundary_edges": 2,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            91042,
+            710102,
+            7983375,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            91042,
+            710102,
+            7983375,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 159,
+    "sha256": "33f403672d77c1fe34e2d23c57f52a216e2d701209fee8fbb6fa080d2bc1a8ed",
+    "vertices": 639294,
+    "triangles": 1277740,
+    "components": 380,
+    "closed_components": 379,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.386843628647294,
+    "open_edges": 3,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.002006053924560547,
+          0.7036337852478027,
+          0.7047134637832642
+        ],
+        "maximum": [
+          0.010439872741699219,
+          0.7082970142364502,
+          0.7078036069869995
+        ],
+        "domain_distance_m": 0.7047134637832642,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            89104,
+            707281,
+            7988134,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            89104,
+            707281,
+            7988134,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  },
+  {
+    "frame": 160,
+    "sha256": "c7210bf22f6002e2efb4cbe933a7cb25e32f992612333d396cc71ec7f707d161",
+    "vertices": 632748,
+    "triangles": 1264820,
+    "components": 331,
+    "closed_components": 330,
+    "watertight": false,
+    "winding": true,
+    "volume_m3": 5.392294040097551,
+    "open_edges": 3,
+    "nonmanifold_edges": 1,
+    "degenerate_triangles": 0,
+    "boundary_loops": 0,
+    "problem_regions": [
+      {
+        "minimum": [
+          0.6994807720184326,
+          -0.65761399269104,
+          0.6290299892425537
+        ],
+        "maximum": [
+          0.7094789743423462,
+          -0.6541895866394043,
+          0.6333145499229431
+        ],
+        "domain_distance_m": 0.29407012462615967,
+        "boundary_edges": 3,
+        "boundary_loop": false,
+        "boundary_branch_vertices": 0,
+        "boundary_endpoints": 2
+      }
+    ],
+    "domain": {
+      "x": -1.0,
+      "y": -2.0194754600524902,
+      "z": 0.0,
+      "width": 2.003549098968506,
+      "height": 4.007098197937012,
+      "depth": 2.003549098968506,
+      "dx": 0.016028392791748048,
+      "isize": 125,
+      "jsize": 250,
+      "ksize": 125
+    },
+    "particles": {
+      "positions": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            88462,
+            704149,
+            7991908,
+            65536
+          ],
+          786448
+        ]
+      },
+      "velocities": {
+        "available": true,
+        "bytes": 106200676,
+        "layout": [
+          [
+            88462,
+            704149,
+            7991908,
+            65536
+          ],
+          786448
+        ]
+      }
+    }
+  }
+]

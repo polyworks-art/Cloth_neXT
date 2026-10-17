@@ -1,0 +1,184 @@
+[
+  {
+    "mode": "parallel",
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "parallel",
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "parallel",
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 23720,
+    "maximum_absolute_delta": 0.0078125
+  },
+  {
+    "mode": "parallel",
+    "stage": "membrane",
+    "field": "force",
+    "different": 10875,
+    "maximum_absolute_delta": 8.731149137020111e-11
+  },
+  {
+    "mode": "parallel",
+    "stage": "bending",
+    "field": "fixed",
+    "different": 25513,
+    "maximum_absolute_delta": 0.0078125
+  },
+  {
+    "mode": "parallel",
+    "stage": "bending",
+    "field": "force",
+    "different": 13256,
+    "maximum_absolute_delta": 8.731149137020111e-11
+  },
+  {
+    "mode": "parallel",
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 25536,
+    "maximum_absolute_delta": 0.0078125
+  },
+  {
+    "mode": "parallel",
+    "stage": "hydro",
+    "field": "force",
+    "different": 12849,
+    "maximum_absolute_delta": 2.9802322387695312e-08
+  },
+  {
+    "mode": "parallel",
+    "stage": "contact",
+    "field": "fixed",
+    "different": 28337,
+    "maximum_absolute_delta": 0.0234375
+  },
+  {
+    "mode": "parallel",
+    "stage": "contact",
+    "field": "force",
+    "different": 13339,
+    "maximum_absolute_delta": 7.62939453125e-06
+  },
+  {
+    "mode": "parallel",
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 26551,
+    "maximum_absolute_delta": 0.0234375
+  },
+  {
+    "mode": "parallel",
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 13017,
+    "maximum_absolute_delta": 7.62939453125e-06
+  },
+  {
+    "mode": "parallel",
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 70067,
+    "maximum_absolute_delta": 4.278647247701883e-05
+  },
+  {
+    "mode": "colored",
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "contact",
+    "field": "fixed",
+    "different": 35,
+    "maximum_absolute_delta": 0.00390625
+  },
+  {
+    "mode": "colored",
+    "stage": "contact",
+    "field": "force",
+    "different": 18,
+    "maximum_absolute_delta": 4.76837158203125e-07
+  },
+  {
+    "mode": "colored",
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 26,
+    "maximum_absolute_delta": 0.00390625
+  },
+  {
+    "mode": "colored",
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 15,
+    "maximum_absolute_delta": 4.76837158203125e-07
+  },
+  {
+    "mode": "colored",
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 70067,
+    "maximum_absolute_delta": 3.57599783455953e-05
+  }
+]

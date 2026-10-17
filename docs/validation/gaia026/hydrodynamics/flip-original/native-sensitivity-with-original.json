@@ -1,0 +1,594 @@
+{
+  "scope": "Unchanged native CUDA on original 131\u2013133 scene copies; 2 force outputs only. Temporal screen cannot certify 30-frame stability or visual quality.",
+  "criteria": "docs/GAIA_PRACTICAL_RECONSTRUCTION_ACCEPTANCE.md",
+  "cases": [
+    {
+      "label": "baseline1",
+      "sdf_offset_m": 0,
+      "seconds": 19.79699999999866,
+      "returncode": 0,
+      "finished": true,
+      "volume": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-grid-edge-transport-131-134",
+      "session": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\baseline1\\session"
+    },
+    {
+      "label": "baseline2",
+      "sdf_offset_m": 0,
+      "seconds": 20.687999999998283,
+      "returncode": 0,
+      "finished": true,
+      "volume": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-grid-edge-transport-131-134",
+      "session": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\baseline2\\session"
+    },
+    {
+      "label": "sdf_plus_2p5mm",
+      "sdf_offset_m": 0.0025,
+      "seconds": 18.545999999998457,
+      "returncode": 0,
+      "finished": true,
+      "volume": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\sdf_plus_2p5mm\\volumes",
+      "session": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\sdf_plus_2p5mm\\session"
+    },
+    {
+      "label": "sdf_minus_2p5mm",
+      "sdf_offset_m": -0.0025,
+      "seconds": 19.812000000001717,
+      "returncode": 0,
+      "finished": true,
+      "volume": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\sdf_minus_2p5mm\\volumes",
+      "session": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\sdf_minus_2p5mm\\session"
+    },
+    {
+      "label": "coarse_15p65mm",
+      "sdf_offset_m": 0,
+      "seconds": 19.81199999999808,
+      "returncode": 0,
+      "finished": true,
+      "volume": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-grid-edge-transport-131-134-scale2",
+      "session": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\flip-reconstruction-sensitivity\\coarse_15p65mm\\session"
+    }
+  ],
+  "rows": [
+    {
+      "case": "baseline2",
+      "object": "S04_NEON_Garments",
+      "trajectory_rms_m": 5.7055915382389695e-05,
+      "trajectory_max_m": 0.004557208600863929,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.5963132160984514,
+        0.5848408645786094
+      ],
+      "case_wet_area_m2": [
+        0.5963118657327868,
+        0.5847752873139598
+      ],
+      "wet_area_delta_m2": [
+        1.3503656646207673e-06,
+        6.557726464961888e-05
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        96.11265737798892,
+        104.89185263414367
+      ],
+      "case_normal_load_n": [
+        96.10194553549621,
+        104.7164266156392
+      ],
+      "normal_load_delta_n": [
+        0.010711842492710844,
+        0.17542601850448136
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.16471417601177052,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "baseline2",
+      "object": "S04_NEON_Garments.001",
+      "trajectory_rms_m": 4.998096630986172e-06,
+      "trajectory_max_m": 2.6985378604728362e-05,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "case_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_delta_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "case_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_delta_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.0,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "baseline2",
+      "object": "S04_NEON_Garments.002",
+      "trajectory_rms_m": 2.6397035406757517e-05,
+      "trajectory_max_m": 0.00191644763404709,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.046840157464430376,
+        0.037622651345373015
+      ],
+      "case_wet_area_m2": [
+        0.046841947127177264,
+        0.037617574982505175
+      ],
+      "wet_area_delta_m2": [
+        1.7896627468871884e-06,
+        5.076362867839634e-06
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        2.1775580167431485,
+        1.8920455788510253
+      ],
+      "case_normal_load_n": [
+        2.1773667926769917,
+        1.892196396209897
+      ],
+      "normal_load_delta_n": [
+        0.0001912240661567921,
+        0.00015081735887179093
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.00034204142502858303,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_plus_2p5mm",
+      "object": "S04_NEON_Garments",
+      "trajectory_rms_m": 0.00011407608737297115,
+      "trajectory_max_m": 0.004409424883414701,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.5963132160984514,
+        0.5848408645786094
+      ],
+      "case_wet_area_m2": [
+        0.593501106857957,
+        0.5819781997338396
+      ],
+      "wet_area_delta_m2": [
+        0.0028121092404944648,
+        0.0028626648447698244
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        96.11265737798892,
+        104.89185263414367
+      ],
+      "case_normal_load_n": [
+        95.86267648624585,
+        104.53974944058054
+      ],
+      "normal_load_delta_n": [
+        0.24998089174307836,
+        0.35210319356313846
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.1021223018200601,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_plus_2p5mm",
+      "object": "S04_NEON_Garments.001",
+      "trajectory_rms_m": 1.5679297389131228e-05,
+      "trajectory_max_m": 7.034095099885652e-05,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "case_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_delta_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "case_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_delta_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.0,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_plus_2p5mm",
+      "object": "S04_NEON_Garments.002",
+      "trajectory_rms_m": 4.9733335498158904e-05,
+      "trajectory_max_m": 0.0019298992957444137,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.046840157464430376,
+        0.037622651345373015
+      ],
+      "case_wet_area_m2": [
+        0.04389555293300873,
+        0.03575189500770648
+      ],
+      "wet_area_delta_m2": [
+        0.0029446045314216462,
+        0.0018707563376665348
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        2.1775580167431485,
+        1.8920455788510253
+      ],
+      "case_normal_load_n": [
+        2.0312291208949205,
+        1.7844748066137157
+      ],
+      "normal_load_delta_n": [
+        0.14632889584822806,
+        0.1075707722373096
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.03875812361091846,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_minus_2p5mm",
+      "object": "S04_NEON_Garments",
+      "trajectory_rms_m": 9.221198580432393e-05,
+      "trajectory_max_m": 0.005287444574764025,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.5963132160984514,
+        0.5848408645786094
+      ],
+      "case_wet_area_m2": [
+        0.5992311578297631,
+        0.5876497960439337
+      ],
+      "wet_area_delta_m2": [
+        0.0029179417313116573,
+        0.002808931465324349
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        96.11265737798892,
+        104.89185263414367
+      ],
+      "case_normal_load_n": [
+        96.45999028087405,
+        104.85994021152791
+      ],
+      "normal_load_delta_n": [
+        0.3473329028851282,
+        0.031912422615761216
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.3792453255008894,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_minus_2p5mm",
+      "object": "S04_NEON_Garments.001",
+      "trajectory_rms_m": 7.670649773229365e-06,
+      "trajectory_max_m": 4.295294091342682e-05,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "case_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_delta_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "case_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_delta_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.0,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "sdf_minus_2p5mm",
+      "object": "S04_NEON_Garments.002",
+      "trajectory_rms_m": 3.425799735434392e-05,
+      "trajectory_max_m": 0.0016069649446855325,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.046840157464430376,
+        0.037622651345373015
+      ],
+      "case_wet_area_m2": [
+        0.04905937199600885,
+        0.03957711057319102
+      ],
+      "wet_area_delta_m2": [
+        0.002219214531578473,
+        0.001954459227818006
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        2.1775580167431485,
+        1.8920455788510253
+      ],
+      "case_normal_load_n": [
+        2.3118556274011937,
+        2.00065892668664
+      ],
+      "normal_load_delta_n": [
+        0.13429761065804513,
+        0.1086133478356146
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.025684262822430526,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "coarse_15p65mm",
+      "object": "S04_NEON_Garments",
+      "trajectory_rms_m": 0.00012461026705674452,
+      "trajectory_max_m": 0.004385099350442763,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.5963132160984514,
+        0.5848408645786094
+      ],
+      "case_wet_area_m2": [
+        0.5943587638187182,
+        0.5821222726053747
+      ],
+      "wet_area_delta_m2": [
+        0.001954452279733232,
+        0.002718591973234652
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        96.11265737798892,
+        104.89185263414367
+      ],
+      "case_normal_load_n": [
+        95.87598299150503,
+        104.2739501437246
+      ],
+      "normal_load_delta_n": [
+        0.23667438648389805,
+        0.6179024904190697
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.3812281039351717,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "coarse_15p65mm",
+      "object": "S04_NEON_Garments.001",
+      "trajectory_rms_m": 1.3000790592375985e-05,
+      "trajectory_max_m": 8.802386161147952e-05,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "case_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_delta_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "case_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_delta_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.0,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "coarse_15p65mm",
+      "object": "S04_NEON_Garments.002",
+      "trajectory_rms_m": 8.434560194122436e-05,
+      "trajectory_max_m": 0.0018966595341453926,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.046840157464430376,
+        0.037622651345373015
+      ],
+      "case_wet_area_m2": [
+        0.04256636804620939,
+        0.03599736051273794
+      ],
+      "wet_area_delta_m2": [
+        0.004273789418220986,
+        0.0016252908326350735
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        2.1775580167431485,
+        1.8920455788510253
+      ],
+      "case_normal_load_n": [
+        1.9603054661763508,
+        1.752093472037437
+      ],
+      "normal_load_delta_n": [
+        0.2172525505667977,
+        0.13995210681358827
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.07730044375320944,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "reference_original",
+      "object": "S04_NEON_Garments",
+      "trajectory_rms_m": 0.00010591028569273154,
+      "trajectory_max_m": 0.004350211326679626,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.5963132160984514,
+        0.5848408645786094
+      ],
+      "case_wet_area_m2": [
+        0.5964134267442205,
+        0.5845302293289478
+      ],
+      "wet_area_delta_m2": [
+        0.00010021064576903882,
+        0.00031063524966157274
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        96.11265737798892,
+        104.89185263414367
+      ],
+      "case_normal_load_n": [
+        96.66902241830537,
+        104.44919817139481
+      ],
+      "normal_load_delta_n": [
+        0.5563650403164502,
+        0.44265446274886244
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.9990195030653126,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "reference_original",
+      "object": "S04_NEON_Garments.001",
+      "trajectory_rms_m": 1.2980995993828739e-05,
+      "trajectory_max_m": 7.481198616941391e-05,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "case_wet_area_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_delta_m2": [
+        0.0,
+        0.0
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "case_normal_load_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_delta_n": [
+        0.0,
+        0.0
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.0,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    },
+    {
+      "case": "reference_original",
+      "object": "S04_NEON_Garments.002",
+      "trajectory_rms_m": 3.239840464092458e-05,
+      "trajectory_max_m": 0.0018763970062482848,
+      "trajectory_screen": "PASS",
+      "baseline_wet_area_m2": [
+        0.046840157464430376,
+        0.037622651345373015
+      ],
+      "case_wet_area_m2": [
+        0.047166350607767527,
+        0.037402141671009304
+      ],
+      "wet_area_delta_m2": [
+        0.0003261931433371501,
+        0.00022050967436371138
+      ],
+      "wet_area_screen": "PASS",
+      "baseline_normal_load_n": [
+        2.1775580167431485,
+        1.8920455788510253
+      ],
+      "case_normal_load_n": [
+        2.1989877603710966,
+        1.8747009289182959
+      ],
+      "normal_load_delta_n": [
+        0.021429743627948028,
+        0.01734464993272944
+      ],
+      "normal_load_screen": "PASS",
+      "normal_load_first_difference_change_n": 0.03877439356067747,
+      "temporal_screen": "PASS",
+      "zero_tangential_load": true
+    }
+  ],
+  "release_approved": false
+}

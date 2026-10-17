@@ -1,0 +1,96 @@
+{
+  "result": "PASS",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 4,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": true,
+  "center": [
+    2.7999993085861377,
+    -3.107692294854388,
+    1.0769230677531283
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.006579299999430077
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 0.20641599999908067
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 0.21494720000009693
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 0.23900619999949413
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 6.250804499999504
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 6.312375999999858
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 11.602773900000102
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 11.776496899999984
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 11.80112679999911
+    }
+  ],
+  "operator_result": [
+    "FINISHED"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\native-file-sequence\\003-dry\\cn_test_cloth_6fc0b5990c7b.pc2",
+  "playback_max_error": 0.0,
+  "final_local_positions": [
+    [
+      -0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      -0.009999990463256836,
+      0.0
+    ],
+    [
+      -0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ],
+    [
+      0.009999990463256836,
+      0.009999990463256836,
+      0.0
+    ]
+  ],
+  "work_directory": "C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a13380\\cloth_next_run_clothnext_6fc0b5990c7b",
+  "water_stream_status": [],
+  "base_param_bytes": [],
+  "native_file_metrics": [],
+  "blender_peak_working_set_bytes": 383062016,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 7,
+  "wall_seconds": 11.886996100000033
+}

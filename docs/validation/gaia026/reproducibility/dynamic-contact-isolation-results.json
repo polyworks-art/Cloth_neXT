@@ -1,0 +1,135 @@
+[
+  {
+    "mode": "colored",
+    "stage": "momentum",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "momentum",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "membrane",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "membrane",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "bending",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "bending",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "hydro",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "hydro",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "strain",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "strain",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "preconstraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "preconstraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "constraints",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "constraints",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "contact",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "contact",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "dirichlet",
+    "field": "fixed",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "dirichlet",
+    "field": "force",
+    "different": 0,
+    "maximum_absolute_delta": 0.0
+  },
+  {
+    "mode": "colored",
+    "stage": "linear_solve",
+    "field": "dx",
+    "different": 70067,
+    "maximum_absolute_delta": 8.032610639929771e-05
+  }
+]

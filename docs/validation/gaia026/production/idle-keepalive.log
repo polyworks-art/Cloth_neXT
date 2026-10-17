@@ -1,0 +1,118 @@
+[STARTING_SOLVER] Starting simulation solver
+[RUNTIME_METADATA] Solver runtime connected
+[UPLOADING] Uploading scene
+[UPLOADING] Uploading scene · 0.0 MiB
+[BUILDING] Building solver project
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Preparing build...
+[BUILDING] Exporting solver input...
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading solver output map
+[FETCHING] Downloading frame 1 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[FETCHING] Downloading frame 2 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 3 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading frame 3 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[FETCHING] Downloading frame 4 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 1 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 2 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[FETCHING] Downloading frame 5 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[FETCHING] Downloading frame 6 of 7
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 8 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 6 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 5 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 9 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 7 linear iterations
+[SIMULATING] Solver · 0 contacts · Newton 1 · 9 linear iterations
+[FETCHING] Downloading frame 7 of 7
+{
+  "result": "PASS",
+  "timeout_cli_seconds": 3,
+  "production_default_seconds": 3600,
+  "cases": [
+    {
+      "case": "idle",
+      "result": "PASS",
+      "requests": 1,
+      "connected_seconds": 0.0,
+      "idle_exit_seconds": 3.0159999999996217
+    },
+    {
+      "case": "keepalive",
+      "result": "PASS",
+      "requests": 21,
+      "connected_seconds": 8.265999999999622,
+      "idle_exit_seconds": 3.014999999999418
+    },
+    {
+      "case": "active-session-with-production-polling",
+      "result": "PASS",
+      "frames": 8,
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-scoped\\idle-keepalive\\active-session"
+    }
+  ],
+  "binary_unchanged": true,
+  "scope": "idle expiry, existing TCMD keepalive, actual Build/Solve/Fetch with production polling; no independent busy-without-polling claim"
+}

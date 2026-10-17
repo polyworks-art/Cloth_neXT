@@ -1,0 +1,134 @@
+{
+  "scope": "All four reference transport samples 131-134, original 7.826mm SDF grid/bounds; original GAIA velocity. No new native solve.",
+  "result": "PASS",
+  "all_payloads_bit_identical": true,
+  "files": [
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\bricks-00000.bin",
+      "baseline_sha256": "6f9dffeb6b44940132f60068b6abc15f66de286d91278ed33ab09802b0136dcc",
+      "candidate_sha256": "6f9dffeb6b44940132f60068b6abc15f66de286d91278ed33ab09802b0136dcc",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\bricks-00001.bin",
+      "baseline_sha256": "6c3723e7248c063f866c1ef7d9ea1e02797e984350bbc262acfca5233501b610",
+      "candidate_sha256": "6c3723e7248c063f866c1ef7d9ea1e02797e984350bbc262acfca5233501b610",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\bricks-00002.bin",
+      "baseline_sha256": "0ba4b3d69907e677290fce1ec9eb1c607dc142646196d9008d23f7eea562b2ee",
+      "candidate_sha256": "0ba4b3d69907e677290fce1ec9eb1c607dc142646196d9008d23f7eea562b2ee",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\bricks-00003.bin",
+      "baseline_sha256": "4557ffa28ba40118cf8ea88caaba2275e01f3be4d2ed2cc39e18b5d6e0b93780",
+      "candidate_sha256": "4557ffa28ba40118cf8ea88caaba2275e01f3be4d2ed2cc39e18b5d6e0b93780",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\table-00000.bin",
+      "baseline_sha256": "4778426e097b2726776231779c8103f95f773604341cd45963ac10c0e4a958a8",
+      "candidate_sha256": "4778426e097b2726776231779c8103f95f773604341cd45963ac10c0e4a958a8",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\table-00001.bin",
+      "baseline_sha256": "c14ecab249615277949f3a3b28f6aac2d06f9810d3ee4e2345580c54bab32478",
+      "candidate_sha256": "c14ecab249615277949f3a3b28f6aac2d06f9810d3ee4e2345580c54bab32478",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\table-00002.bin",
+      "baseline_sha256": "40b9e4034b378114fe4307d43e79a495ae6d25f8700cfb646009632cb640e842",
+      "candidate_sha256": "40b9e4034b378114fe4307d43e79a495ae6d25f8700cfb646009632cb640e842",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\table-00003.bin",
+      "baseline_sha256": "a345c1c7f6d97a4b8d3b1a432f8dfb35da2c8a9f26342583a386150af56cce2d",
+      "candidate_sha256": "a345c1c7f6d97a4b8d3b1a432f8dfb35da2c8a9f26342583a386150af56cce2d",
+      "identical": true
+    },
+    {
+      "role": "velocity",
+      "file": "field-0-fluid\\transform.bin",
+      "baseline_sha256": "6b5bbadd6f3039f07bab21c45126d9efd92d02639a7377f5fdaf0f8e06ed67f8",
+      "candidate_sha256": "6b5bbadd6f3039f07bab21c45126d9efd92d02639a7377f5fdaf0f8e06ed67f8",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\bricks-00000.bin",
+      "baseline_sha256": "5185125d2fce6ea30cba169a6db4ab5c53a687796a23a269a8bc7247fc5c9fbc",
+      "candidate_sha256": "5185125d2fce6ea30cba169a6db4ab5c53a687796a23a269a8bc7247fc5c9fbc",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\bricks-00001.bin",
+      "baseline_sha256": "a49d5686101b158c4919af6d2522aa67067d2f62e5bd1549cae73333631cfb97",
+      "candidate_sha256": "a49d5686101b158c4919af6d2522aa67067d2f62e5bd1549cae73333631cfb97",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\bricks-00002.bin",
+      "baseline_sha256": "5b4e3c9ead1707f140ba9778645d4ba27d19458e0af21e3e9541c01571b28944",
+      "candidate_sha256": "5b4e3c9ead1707f140ba9778645d4ba27d19458e0af21e3e9541c01571b28944",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\bricks-00003.bin",
+      "baseline_sha256": "dc4ead57e22857b1b3424a7ef73914a688520c657dc3a3be994b3ee6596c2ff5",
+      "candidate_sha256": "dc4ead57e22857b1b3424a7ef73914a688520c657dc3a3be994b3ee6596c2ff5",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\table-00000.bin",
+      "baseline_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "candidate_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\table-00001.bin",
+      "baseline_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "candidate_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\table-00002.bin",
+      "baseline_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "candidate_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\table-00003.bin",
+      "baseline_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "candidate_sha256": "1ae2f49b56d9b5fcca81b5f2836763026b3dc765667caa1da61f8342495f33fd",
+      "identical": true
+    },
+    {
+      "role": "sdf",
+      "file": "field-1-fluid\\transform.bin",
+      "baseline_sha256": "ad6dc1b2c5f72078f2fa1724436be3241a4bacd1a52f51f2178444fe88834b29",
+      "candidate_sha256": "ad6dc1b2c5f72078f2fa1724436be3241a4bacd1a52f51f2178444fe88834b29",
+      "identical": true
+    }
+  ],
+  "interpretation": "Identical grid transforms, tables, velocity bricks and SDF bricks imply identical interpolated inputs, wetting and force evaluations at identical solver states. Does not establish new trajectory or invalid-frame quality."
+}

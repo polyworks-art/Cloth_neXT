@@ -1,0 +1,62 @@
+{
+  "result": "PASS",
+  "source_run": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132",
+  "blender": "5.2.2 LTS",
+  "native_output": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-b7d0f153fba64bcb997a5e8dbb62955f\\server-data\\clothnext_73d418cd9eca\\session\\output",
+  "hydrodynamics": [
+    {
+      "file": "hydro_1.bin",
+      "area_m2": 1.3806164264678955,
+      "wet_area_m2": 0.6737562417984009,
+      "normal_load_n": 94.5113754272461,
+      "tangential_load_n": 0.0
+    },
+    {
+      "file": "hydro_2.bin",
+      "area_m2": 1.3806357383728027,
+      "wet_area_m2": 0.6427861452102661,
+      "normal_load_n": 108.14949035644531,
+      "tangential_load_n": 0.0
+    }
+  ],
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_00.pc2",
+      "native_max_error_m": 3.051691188638017e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_01.pc2",
+      "native_max_error_m": 6.103197680573658e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_02.pc2",
+      "native_max_error_m": 6.086069781474635e-08,
+      "reload_playback_max_error_m": 0.0
+    }
+  ],
+  "gui_model": {
+    "enabled": true,
+    "action": "REBAKE",
+    "reason": "",
+    "summary_line": "Multi Object \u00b7 3 Deformable \u00b7 2 Collider",
+    "cache_label": "Cache stale \u00b7 settings changed"
+  },
+  "gui_solver_status": {
+    "ready": true,
+    "title": "Ready \u00c2\u00b7 Protocol 0.26",
+    "details": [
+      "Package 0.1.0",
+      "Protocol 0.26",
+      "Schema 2",
+      "External installation"
+    ]
+  }
+}

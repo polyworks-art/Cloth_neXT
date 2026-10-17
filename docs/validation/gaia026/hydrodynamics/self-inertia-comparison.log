@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "cpu_backend": "cpu",
+  "cuda_backend": "cuda",
+  "cases": [
+    {
+      "case": "self_collision",
+      "max_position_difference_m": 1.0509298675742684e-07,
+      "rms_position_difference_m": 3.342856302879227e-08,
+      "net_force_difference_n": 0.0,
+      "force_limit_n": 1e-05,
+      "position_limit_m": 1e-05,
+      "passed": true
+    }
+  ],
+  "scope": "Full native solves and final native force telemetry; no direct Jacobian readback"
+}

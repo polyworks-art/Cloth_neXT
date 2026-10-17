@@ -1,0 +1,28 @@
+{
+  "scope": "Historical NEON scene replay, identical captured animation and material/quality; field is sole A/B variable",
+  "water": "F:\\16_Cloth_neXt\\cache_AD\\S04_NEON_Garments_002_WaterFlow.gaia",
+  "cases": [
+    {
+      "label": "wet1",
+      "strength": 1,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet1_clothnext_e3569a6c29e2",
+      "seconds": 49.624999999999986,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    },
+    {
+      "label": "wet5",
+      "strength": 5,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet5_clothnext_22ea6f01363b",
+      "seconds": 66.40599999999998,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    }
+  ]
+}

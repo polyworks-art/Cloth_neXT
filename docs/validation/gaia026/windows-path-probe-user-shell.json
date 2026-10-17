@@ -1,0 +1,104 @@
+{
+  "python": "C:\\Users\\timch\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "cwd": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT",
+  "owned_probe_root": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2",
+  "rows": [
+    {
+      "alias_parent": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\control-aliases",
+      "alias": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\control-aliases\\cnxprobe_b7450242aadf",
+      "target": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\cnxprobe_b7450242aadf",
+      "tests": {
+        "file": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "python_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "win32_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "resolved_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        }
+      },
+      "cleanup_success": true
+    },
+    {
+      "alias_parent": "C:\\Users\\timch\\AppData\\Local",
+      "alias": "C:\\Users\\timch\\AppData\\Local\\cnxprobe_7842174271a0",
+      "target": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\cnxprobe_7842174271a0",
+      "tests": {
+        "file": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "python_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "win32_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "resolved_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        }
+      },
+      "cleanup_success": true
+    },
+    {
+      "alias_parent": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt",
+      "alias": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\cnxprobe_56bdef75a9aa",
+      "target": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\cnxprobe_56bdef75a9aa",
+      "tests": {
+        "file": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "python_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "win32_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "resolved_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        }
+      },
+      "cleanup_success": true
+    },
+    {
+      "alias_parent": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown",
+      "alias": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\local\\share\\ppf-cts\\git-unknown\\cnxprobe_aeee2cff3580",
+      "target": "C:\\Users\\timch\\AppData\\Local\\Temp\\cnx-alias-probe-o3f6p7n2\\cnxprobe_aeee2cff3580",
+      "tests": {
+        "file": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "python_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "win32_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        },
+        "resolved_mkdir": {
+          "result": "PASS",
+          "physical_exists": true
+        }
+      },
+      "cleanup_success": true
+    }
+  ]
+}

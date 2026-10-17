@@ -1,0 +1,17 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 4,
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "operator_result": [
+    "FINISHED"
+  ],
+  "state": "ERROR",
+  "error": "The solver reported a failure while building. No verified recovery checkpoint is available.",
+  "error_details": "Stage: solver project build\nCause: server status FAILED during building: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_74e506d86e4b\\\\.cash' | at frontend/build_worker.py:611 in main: os.makedirs(cache_root, exist_ok=True) | errno=17 winerror=183 strerror='Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist' filename='C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-3...\nWhat to do: Inspect the Cloth NeXt log and the solver stderr tail, then retry.\nDiagnostic log: C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a13400\\cloth_next_run_clothnext_74e506d86e4b\\failure.log",
+  "exception": "AssertionError('Regular Bake ended in ERROR: The solver reported a failure while building. No verified recovery checkpoint is available.')",
+  "wall_seconds": 7.8964278000003105
+}

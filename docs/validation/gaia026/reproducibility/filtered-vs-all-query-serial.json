@@ -1,0 +1,442 @@
+[
+  {
+    "file": "001-bending-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-bending-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-bending-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-bending-fixed.f32",
+    "identical": true,
+    "sha256": "9c48771eaf85f1824a0676bd7ab34a2215b6824a0c5a4bfaf8056b560f81cdcc"
+  },
+  {
+    "file": "001-bending-force.f32",
+    "identical": true,
+    "sha256": "8034cca30aaa6a36184213615436364e25a92889ce1b7398ab6ef59c4ffe6043"
+  },
+  {
+    "file": "001-bending-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-constraints-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-constraints-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-constraints-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-constraints-fixed.f32",
+    "identical": true,
+    "sha256": "3e1b1680f18b197581c9c929b06f8cddc0daf82ba714457a65cfc76ff801784f"
+  },
+  {
+    "file": "001-constraints-force.f32",
+    "identical": true,
+    "sha256": "8996bae17e89bd872e08c1bbabec537bd44d0bbfab8a2aba71f439076a992de6"
+  },
+  {
+    "file": "001-constraints-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-contact-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-contact-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-contact-dynamic-index.bin",
+    "identical": true,
+    "sha256": "4ff7730a19a4910423460d5cf3f446827a986e66bd0cddee3ad7400fe55aad79"
+  },
+  {
+    "file": "001-contact-dynamic-offset.bin",
+    "identical": true,
+    "sha256": "2c6d04a5085caa91fc6ee091739394766ea06cf95089c379da2194cbe0ee286d"
+  },
+  {
+    "file": "001-contact-dynamic-value.bin",
+    "identical": true,
+    "sha256": "d0649807cb9b09824a88c9fc9cfc4930aadcb6ce0196068c4c72e7ed652c59d9"
+  },
+  {
+    "file": "001-contact-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-contact-fixed.f32",
+    "identical": true,
+    "sha256": "06507f177e1eb427504072ef2f9a5a2d6f605a5a940bd37aede4f42fd0292ed6"
+  },
+  {
+    "file": "001-contact-force.f32",
+    "identical": true,
+    "sha256": "bd894c8f498be52b4b29179157ce180b1ff8a71cb3ec68f1eab65b7ecf3e3946"
+  },
+  {
+    "file": "001-contact-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-contact-transpose-index.bin",
+    "identical": true,
+    "sha256": "43cb8fd3ba5cc0c0183ce71a96a82da1531e46c0b1132a83a091789846a80aab"
+  },
+  {
+    "file": "001-contact-transpose-offset.bin",
+    "identical": true,
+    "sha256": "34d6c5d67259e25c49b2252571e3dfc6bc6416bd5ce0650a6e57a0647af99d6f"
+  },
+  {
+    "file": "001-contact-transpose-value.bin",
+    "identical": true,
+    "sha256": "4755ec2a005f10926a6114077a2823f38cd6d2514f50a4d4869837c4638c97e9"
+  },
+  {
+    "file": "001-dirichlet-diagonal.f32",
+    "identical": true,
+    "sha256": "bab3f1dbb10f2274726426aa784c3b67e666638f60c8475cdd6308d58c5b9e31"
+  },
+  {
+    "file": "001-dirichlet-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-dirichlet-dynamic-index.bin",
+    "identical": true,
+    "sha256": "4ff7730a19a4910423460d5cf3f446827a986e66bd0cddee3ad7400fe55aad79"
+  },
+  {
+    "file": "001-dirichlet-dynamic-offset.bin",
+    "identical": true,
+    "sha256": "2c6d04a5085caa91fc6ee091739394766ea06cf95089c379da2194cbe0ee286d"
+  },
+  {
+    "file": "001-dirichlet-dynamic-value.bin",
+    "identical": true,
+    "sha256": "5109201ffff6311ae48840c7cbcf3269b39fc114563f5ffbd4bed262666027a2"
+  },
+  {
+    "file": "001-dirichlet-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-dirichlet-fixed.f32",
+    "identical": true,
+    "sha256": "a7beb1c2bb2f5b1fc88e41072a44763ae3a1d783650c910eaf1d07eef35158a3"
+  },
+  {
+    "file": "001-dirichlet-force.f32",
+    "identical": true,
+    "sha256": "6223df5575e998c4a80cab6e3eda0e8c68c79cd49b641483573ad7f0622f3719"
+  },
+  {
+    "file": "001-dirichlet-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-dirichlet-transpose-index.bin",
+    "identical": true,
+    "sha256": "43cb8fd3ba5cc0c0183ce71a96a82da1531e46c0b1132a83a091789846a80aab"
+  },
+  {
+    "file": "001-dirichlet-transpose-offset.bin",
+    "identical": true,
+    "sha256": "34d6c5d67259e25c49b2252571e3dfc6bc6416bd5ce0650a6e57a0647af99d6f"
+  },
+  {
+    "file": "001-dirichlet-transpose-value.bin",
+    "identical": true,
+    "sha256": "4755ec2a005f10926a6114077a2823f38cd6d2514f50a4d4869837c4638c97e9"
+  },
+  {
+    "file": "001-hydro-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-hydro-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-hydro-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-hydro-fixed.f32",
+    "identical": true,
+    "sha256": "e6ce720e16b4c78b6fcc279a50b83e9a09aeb713b3e214f7e5c1b52c5ee53bda"
+  },
+  {
+    "file": "001-hydro-force.f32",
+    "identical": true,
+    "sha256": "e9ae5a9ef45075676e90797db1ee008852030e1dcc25ad0e5c213735f905bba5"
+  },
+  {
+    "file": "001-hydro-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-linear_solve-dx.f32",
+    "identical": true,
+    "sha256": "06d604c45398b37966656c5b7427a5183dc6c655ee9c95eed050359483a58094"
+  },
+  {
+    "file": "001-membrane-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-membrane-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-membrane-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-membrane-fixed.f32",
+    "identical": true,
+    "sha256": "46e1ff9759d6ecee48c3784639a3576f0990b5cc338fcd86b04be04976d7936a"
+  },
+  {
+    "file": "001-membrane-force.f32",
+    "identical": true,
+    "sha256": "76e0359f525ab5b4b88af132628d0487c017ef12ee0caacec778812f86c17335"
+  },
+  {
+    "file": "001-membrane-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-momentum-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-momentum-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-momentum-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-momentum-fixed.f32",
+    "identical": true,
+    "sha256": "087cb9496511f039cf09938568acb1969c6aeac1a98b69819c3737a9ba915f2c"
+  },
+  {
+    "file": "001-momentum-force.f32",
+    "identical": true,
+    "sha256": "537fd76a96e6dbdabcd9c08078b5056c27ca35ea87f02ee0c4de39900394a677"
+  },
+  {
+    "file": "001-momentum-material_records.json",
+    "identical": true,
+    "sha256": "ee641f530e8a64c2cff7de950b4c7bef87f0f27da40ecb0490a79fdf53f0f07e"
+  },
+  {
+    "file": "001-momentum-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-momentum-target.f32",
+    "identical": true,
+    "sha256": "b053c1379ef335d1669f2df27a433c7f92309963340eb1eed5428f4ab5589893"
+  },
+  {
+    "file": "001-momentum-vertex_props.json",
+    "identical": true,
+    "sha256": "0a89c5c95605787306f89bf0f094b65f9eb3103cd80ff467da934f14573dbd95"
+  },
+  {
+    "file": "001-preconstraints-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-preconstraints-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-preconstraints-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-preconstraints-fixed.f32",
+    "identical": true,
+    "sha256": "3e1b1680f18b197581c9c929b06f8cddc0daf82ba714457a65cfc76ff801784f"
+  },
+  {
+    "file": "001-preconstraints-force.f32",
+    "identical": true,
+    "sha256": "8996bae17e89bd872e08c1bbabec537bd44d0bbfab8a2aba71f439076a992de6"
+  },
+  {
+    "file": "001-preconstraints-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-rod-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-rod-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-rod-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-rod-fixed.f32",
+    "identical": true,
+    "sha256": "087cb9496511f039cf09938568acb1969c6aeac1a98b69819c3737a9ba915f2c"
+  },
+  {
+    "file": "001-rod-force.f32",
+    "identical": true,
+    "sha256": "537fd76a96e6dbdabcd9c08078b5056c27ca35ea87f02ee0c4de39900394a677"
+  },
+  {
+    "file": "001-rod-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-stitch-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-stitch-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-stitch-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-stitch-fixed.f32",
+    "identical": true,
+    "sha256": "24191c68a9d8ccce79d3c5fd7442b03295619d2efc7ad880f9e2cf9f7945f065"
+  },
+  {
+    "file": "001-stitch-force.f32",
+    "identical": true,
+    "sha256": "1b174fdbe4c43ed5c54650d648a30d78be5924b85f13cd141ef185df9ec1d784"
+  },
+  {
+    "file": "001-stitch-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-strain-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-strain-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-strain-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-strain-fixed.f32",
+    "identical": true,
+    "sha256": "3e1b1680f18b197581c9c929b06f8cddc0daf82ba714457a65cfc76ff801784f"
+  },
+  {
+    "file": "001-strain-force.f32",
+    "identical": true,
+    "sha256": "8996bae17e89bd872e08c1bbabec537bd44d0bbfab8a2aba71f439076a992de6"
+  },
+  {
+    "file": "001-strain-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-tet-diagonal.f32",
+    "identical": true,
+    "sha256": "0c3d738ae6ca040bae4f41456e9bfd89fb5c09ce245a04316fa7c4518fde22c8"
+  },
+  {
+    "file": "001-tet-dx.f32",
+    "identical": true,
+    "sha256": "c2a985bb0f205660878f4a43dd0446b111989a2b1e7a391dda68f76036fc6d7c"
+  },
+  {
+    "file": "001-tet-eval_x.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  },
+  {
+    "file": "001-tet-fixed.f32",
+    "identical": true,
+    "sha256": "46e1ff9759d6ecee48c3784639a3576f0990b5cc338fcd86b04be04976d7936a"
+  },
+  {
+    "file": "001-tet-force.f32",
+    "identical": true,
+    "sha256": "76e0359f525ab5b4b88af132628d0487c017ef12ee0caacec778812f86c17335"
+  },
+  {
+    "file": "001-tet-positions.f32",
+    "identical": true,
+    "sha256": "c5af9faaa4a0e8f4337f4ee41a11e6542773c27d3f5b82f87f2541a55ebd93ab"
+  }
+]

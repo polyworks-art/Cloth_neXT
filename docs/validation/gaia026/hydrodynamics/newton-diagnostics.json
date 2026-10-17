@@ -1,0 +1,79 @@
+[
+  {
+    "case": "dry",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 4.929e-10,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "normal",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 8.92e-06,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "normal_half_dt",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 6.274e-06,
+    "native_advances": 200,
+    "nonfinite_token": false
+  },
+  {
+    "case": "normal_refined",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 9.995e-06,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "heavy",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 9.971e-06,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "reverse",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 8.92e-06,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "parallel",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 4.929e-10,
+    "native_advances": 100,
+    "nonfinite_token": false
+  },
+  {
+    "case": "bend_flexible",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 2.4e-06,
+    "native_advances": 200,
+    "nonfinite_token": false
+  },
+  {
+    "case": "bend_stiff",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 2.6e-06,
+    "native_advances": 200,
+    "nonfinite_token": false
+  },
+  {
+    "case": "collider",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 6.274e-06,
+    "native_advances": 200,
+    "nonfinite_token": false
+  },
+  {
+    "case": "animated_collider",
+    "max_newton_steps": 1,
+    "linear_relative_residual_max": 6.274e-06,
+    "native_advances": 200,
+    "nonfinite_token": false
+  }
+]

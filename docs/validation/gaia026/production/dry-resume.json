@@ -1,0 +1,45 @@
+{
+  "phase": "resume",
+  "terminal": "finished",
+  "project": "clothnext_1b780f6e2bbe",
+  "upload_seconds": 0.0,
+  "fetched_frames": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "headers": {
+    "10950e45-3f9a-eed8-56ac-7f5ffd4ff4fa": {
+      "vertex_count": 49,
+      "start_frame": 0.0,
+      "sample_rate": 1.0,
+      "frame_count": 24
+    }
+  },
+  "event_count": 291,
+  "project_alias": {
+    "preserved": false,
+    "alias_state": "absent",
+    "marker_phase": "REMOVED",
+    "target_exists": false
+  }
+}

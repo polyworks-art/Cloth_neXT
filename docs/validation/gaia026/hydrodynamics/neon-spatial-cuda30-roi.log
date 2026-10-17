@@ -1,0 +1,96 @@
+{
+  "result": "PASS",
+  "cases": [
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments.001",
+      "minimum_domain_margin_m": 0.2027661632746458,
+      "passed": true
+    },
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments.002",
+      "minimum_domain_margin_m": 0.21305942349135876,
+      "passed": true
+    },
+    {
+      "case": "hydro1",
+      "object": "S04_NEON_Garments",
+      "minimum_domain_margin_m": 0.18985657021403313,
+      "passed": true
+    },
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments.001",
+      "minimum_domain_margin_m": 0.20269852690398693,
+      "passed": true
+    },
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments.002",
+      "minimum_domain_margin_m": 0.21305942349135876,
+      "passed": true
+    },
+    {
+      "case": "dry1",
+      "object": "S04_NEON_Garments",
+      "minimum_domain_margin_m": 0.19969632290303707,
+      "passed": true
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments.001",
+      "minimum_domain_margin_m": 0.20273691229522228,
+      "passed": true
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments.002",
+      "minimum_domain_margin_m": 0.21305942349135876,
+      "passed": true
+    },
+    {
+      "case": "flow1",
+      "object": "S04_NEON_Garments",
+      "minimum_domain_margin_m": 0.19973780773580074,
+      "passed": true
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments.001",
+      "minimum_domain_margin_m": 0.20274323783814907,
+      "passed": true
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments.002",
+      "minimum_domain_margin_m": 0.21305942349135876,
+      "passed": true
+    },
+    {
+      "case": "hydro2",
+      "object": "S04_NEON_Garments",
+      "minimum_domain_margin_m": 0.18987653777003288,
+      "passed": true
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments.001",
+      "minimum_domain_margin_m": 0.20273261331021786,
+      "passed": true
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments.002",
+      "minimum_domain_margin_m": 0.21305942349135876,
+      "passed": true
+    },
+    {
+      "case": "dry2",
+      "object": "S04_NEON_Garments",
+      "minimum_domain_margin_m": 0.19969662092626095,
+      "passed": true
+    }
+  ],
+  "scope": "Exported cloth vertices; convex triangle quadrature and 1e-5 m side probes are covered. Intermediate Newton iterates are not audited."
+}

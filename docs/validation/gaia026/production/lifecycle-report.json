@@ -1,0 +1,144 @@
+{
+  "result": "PASS",
+  "output": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d",
+  "gates": [
+    {
+      "name": "native-blender-long-path",
+      "result": "PASS"
+    },
+    {
+      "name": "clean-cuda-bake",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\bake\\vertical_slice_report.json",
+      "protocol": "0.26",
+      "project": "clothnext_e41f15121235"
+    },
+    {
+      "name": "blender-result-playback",
+      "result": "PASS",
+      "frames": [
+        1,
+        2,
+        8
+      ],
+      "cache": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\bake\\cn_test_cloth.pc2",
+      "modifier_removed": true
+    },
+    {
+      "name": "pc2-release-after-playback",
+      "result": "PASS"
+    },
+    {
+      "name": "second-cuda-bake",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\second\\vertical_slice_report.json",
+      "protocol": "0.26",
+      "project": "clothnext_3b796f8db7be"
+    },
+    {
+      "name": "overwrite-rebake",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\bake\\vertical_slice_report.json",
+      "protocol": "0.26",
+      "project": "clothnext_ebebd34d660d"
+    },
+    {
+      "name": "blender-restart-cancel",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\6-cancel.json"
+    },
+    {
+      "name": "blender-restart-resume",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\7-resume.json"
+    },
+    {
+      "name": "blender-restart-cancel",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\8-cancel.json"
+    },
+    {
+      "name": "blender-restart-fresh",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\9-fresh.json"
+    },
+    {
+      "name": "live-sewing-intra",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\sewing-intra\\sewing_report.json"
+    },
+    {
+      "name": "live-sewing-cross",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\sewing-cross\\sewing_report.json"
+    },
+    {
+      "name": "live-sewing-mixed",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\sewing-mixed\\sewing_report.json"
+    },
+    {
+      "name": "lumen-switch",
+      "result": "UNAVAILABLE",
+      "reason": "Lumen is not installed; no download performed"
+    },
+    {
+      "name": "switch-0-protocol-0.26",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\switch-0\\vertical_slice_report.json",
+      "protocol": "0.26",
+      "project": "clothnext_6bc311148d0c"
+    },
+    {
+      "name": "switch-1-protocol-0.23",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\switch-1\\vertical_slice_report.json",
+      "protocol": "0.23",
+      "project": "clothnext_f9793347adfa"
+    },
+    {
+      "name": "switch-2-protocol-0.22",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\switch-2\\vertical_slice_report.json",
+      "protocol": "0.22",
+      "project": "clothnext_2fd62ab947d7"
+    },
+    {
+      "name": "switch-3-protocol-0.26",
+      "result": "PASS",
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed\\lifecycle\\c400f254758d\\switch-3\\vertical_slice_report.json",
+      "protocol": "0.26",
+      "project": "clothnext_453142b3c154"
+    }
+  ],
+  "runtime_fingerprints_before": {
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-09-21-21-32-win64": {
+      "files": 310,
+      "sha256": "93829a217ffbbaa3a211a43e3809c77fa75dbaa790c773ef7763a900ac0a4186"
+    },
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-09-27-20-44-win64": {
+      "files": 325,
+      "sha256": "969e95c077012ff55c3f11eef9d3a6106739e8e062491cd4fc3cabd90af6c494"
+    },
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64": {
+      "files": 345,
+      "sha256": "30b617dbf8d55400fb1e657f16b66c53622458ea7c1f09c820c52118c91caa80"
+    }
+  },
+  "persistent_registry_unchanged": true,
+  "runtime_fingerprints_after": {
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-09-21-21-32-win64": {
+      "files": 310,
+      "sha256": "93829a217ffbbaa3a211a43e3809c77fa75dbaa790c773ef7763a900ac0a4186"
+    },
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-09-27-20-44-win64": {
+      "files": 325,
+      "sha256": "969e95c077012ff55c3f11eef9d3a6106739e8e062491cd4fc3cabd90af6c494"
+    },
+    "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64": {
+      "files": 345,
+      "sha256": "30b617dbf8d55400fb1e657f16b66c53622458ea7c1f09c820c52118c91caa80"
+    }
+  },
+  "solver_sources_and_binaries_unchanged": true
+}

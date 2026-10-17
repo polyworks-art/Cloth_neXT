@@ -1,0 +1,49 @@
+{
+  "scope": "Historical NEON scene replay, identical captured animation and material/quality; field is sole A/B variable",
+  "cases": [
+    {
+      "label": "dry1",
+      "strength": 0,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_dry1_clothnext_287de80a54d6",
+      "seconds": 57.60899999999674,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    },
+    {
+      "label": "dry2",
+      "strength": 0,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_dry2_clothnext_312ed27efd49",
+      "seconds": 52.56300000000192,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    },
+    {
+      "label": "wet1",
+      "strength": 1,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet1_clothnext_fbdfd46858f5",
+      "seconds": 49.68699999999808,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    },
+    {
+      "label": "wet5",
+      "strength": 5,
+      "native_project": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_neon_ab_wet5_clothnext_d756027d5e17",
+      "seconds": 55.56300000000192,
+      "positions_shape": [
+        30,
+        77860,
+        3
+      ]
+    }
+  ]
+}

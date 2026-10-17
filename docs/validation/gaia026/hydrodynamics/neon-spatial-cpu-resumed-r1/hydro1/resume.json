@@ -1,0 +1,14 @@
+{
+  "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro1_1792121857649978500\\session",
+  "checkpoint": 19,
+  "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+  "command": [
+    "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+    "--path",
+    "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro1\\session",
+    "--output",
+    "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro1\\session\\output",
+    "--load",
+    "19"
+  ]
+}

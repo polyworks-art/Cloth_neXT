@@ -1,0 +1,658 @@
+   Compiling getrandom v0.4.2
+warning: value assigned to `abi_linked` is never read
+    --> crates\ppf-cts-solver\build.rs:4275:26
+     |
+4275 |     let mut abi_linked = false;
+     |                          ^^^^^ this value is reassigned later and never used
+...
+4596 |             abi_linked = true;
+     |             ----------------- `abi_linked` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `logic_dir` is never used
+  --> crates\ppf-cts-solver\build.rs:66:8
+   |
+37 | impl Backend {
+   | ------------ method in this implementation
+...
+66 |     fn logic_dir(self) -> Option<&'static str> {
+   |        ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REQUIRED_CUDA_RELEASE` is never used
+   --> crates\ppf-cts-solver\build.rs:295:7
+    |
+295 | const REQUIRED_CUDA_RELEASE: &str = "release 12.8";
+    |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `require_cuda_12_8` is never used
+   --> crates\ppf-cts-solver\build.rs:313:4
+    |
+313 | fn require_cuda_12_8(cpp_dir: &str, kernel_root: &Path) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `manifest_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4796:8
+     |
+4796 |     fn manifest_arches(cpp_dir: &str) -> Vec<u32> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4828:8
+     |
+4828 |     fn image_arches(image: &Path) -> Option<Vec<u32>> {
+     |        ^^^^^^^^^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:4849:12
+     |
+4849 |     pub fn check(image: &Path, cpp_dir: &str) {
+     |            ^^^^^
+
+warning: constant `FP64_OPS` is never used
+    --> crates\ppf-cts-solver\build.rs:4925:11
+     |
+4925 |     const FP64_OPS: [&str; 7] = [
+     |           ^^^^^^^^
+
+warning: constant `FP64_MODIFIER` is never used
+    --> crates\ppf-cts-solver\build.rs:4933:11
+     |
+4933 |     const FP64_MODIFIER: &str = ".F64";
+     |           ^^^^^^^^^^^^^
+
+warning: constant `KNOWN` is never used
+    --> crates\ppf-cts-solver\build.rs:4941:11
+     |
+4941 |     const KNOWN: [&str; 0] = [];
+     |           ^^^^^
+
+warning: function `contains_fp64_modifier` is never used
+    --> crates\ppf-cts-solver\build.rs:4956:8
+     |
+4956 |     fn contains_fp64_modifier(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `contains_mnemonic` is never used
+    --> crates\ppf-cts-solver\build.rs:4964:8
+     |
+4964 |     fn contains_mnemonic(line: &str, op: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4987:8
+     |
+4987 |     fn image_arches(image: &Path) -> Vec<String> {
+     |        ^^^^^^^^^^^^
+
+warning: function `is_instruction` is never used
+    --> crates\ppf-cts-solver\build.rs:5022:8
+     |
+5022 |     fn is_instruction(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^
+
+warning: function `scan` is never used
+    --> crates\ppf-cts-solver\build.rs:5035:8
+     |
+5035 |     fn scan(sass: &str, offenders: &mut Vec<(String, usize)>) -> usize {
+     |        ^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:5059:12
+     |
+5059 |     pub fn check(image: &Path) {
+     |            ^^^^^
+
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.4.1
+warning: `ppf-cts-solver` (build script) generated 16 warnings
+warning: field `node` is never read
+  --> crates\ppf-cts-solver\src\cosserat.rs:95:9
+   |
+94 | pub struct CosseratBendSite {
+   |            ---------------- field in this struct
+95 |     pub node: u32,
+   |         ^^^^
+   |
+   = note: `CosseratBendSite` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ppf-cts-solver` (bin "ppf-contact-solver") generated 1 warning
+   Compiling tempfile v3.27.0
+   Compiling ppf-cts-solver v0.1.0 (C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-solver)
+error: couldn't find file `C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\target\hydrodynamics-cuda\release\build\ppf-cts-solver-1ee317f90dd7068c\out/kernelgen/kernel_table.rs`
+   --> crates\ppf-cts-solver\tests\abi_device.rs:98:24
+    |
+ 98 |   static ROWS: &[Row] = &include!(concat!(
+    |  ________________________^
+ 99 | |     env!("OUT_DIR"),
+100 | |     "/kernelgen/kernel_table.rs"
+101 | | ));
+    | |__^
+
+error: could not compile `ppf-cts-solver` (test "abi_device") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+warning: unnecessary parentheses around closure body
+   --> crates\ppf-cts-solver\src\driver\devsort.rs:326:22
+    |
+326 |             .map(|i| ((i.wrapping_mul(2_654_435_761) >> 4) % 97))
+    |                      ^                                         ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+326 -             .map(|i| ((i.wrapping_mul(2_654_435_761) >> 4) % 97))
+326 +             .map(|i| (i.wrapping_mul(2_654_435_761) >> 4) % 97)
+    |
+
+error[E0308]: mismatched types
+    --> crates\ppf-cts-solver\src\driver\assemble.rs:3627:21
+     |
+3627 |         clear_force(&mut device,&mut state);
+     |         ----------- ^^^^^^^^^^^ expected `&mut HostDevice`, found `&mut AbiDevice`
+     |         |
+     |         arguments to this function are incorrect
+     |
+     = note: expected mutable reference `&mut ppf_cts_compute::HostDevice`
+                found mutable reference `&mut AbiDevice`
+note: function defined here
+    --> crates\ppf-cts-solver\src\driver\assemble.rs:4574:19
+     |
+4574 |     pub(crate) fn clear_force(device: &mut HostDevice, state: &mut SolverState) {
+     |                   ^^^^^^^^^^^ -----------------------
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:503:34
+    |
+474 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+503 |             let positions_host = unsafe {
+    |                                  ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:515:29
+    |
+474 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+515 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:670:34
+    |
+642 |         let outcome = unsafe {
+    |                       ------ because it's nested under this `unsafe` block
+...
+670 |             let positions_host = unsafe {
+    |                                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:682:29
+    |
+642 |         let outcome = unsafe {
+    |                       ------ because it's nested under this `unsafe` block
+...
+682 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:906:45
+    |
+880 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+906 |             let (start_host, finish_host) = unsafe {
+    |                                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\collider.rs:917:29
+    |
+880 |         unsafe {
+    |         ------ because it's nested under this `unsafe` block
+...
+917 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, data) };
+    |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4381:34
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4381 |             let positions_host = unsafe {
+     |                                  ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4396:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4396 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4406:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4406 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4416:17
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4416 |                 unsafe {
+     |                 ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4421:29
+     |
+4356 |         unsafe {
+     |         ------ because it's nested under this `unsafe` block
+...
+4421 |             let test_mesh = unsafe { crate::driver::state::test_mesh_of(&mut device, &data) };
+     |                             ^^^^^^ unnecessary `unsafe` block
+
+warning: unused variable: `face_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4394:17
+     |
+4394 |             let face_block = crate::driver::state::position_block_u32(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_face_block`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `edge_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4404:17
+     |
+4404 |             let edge_block = crate::driver::state::position_block_u32(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_edge_block`
+
+warning: unused variable: `prop_block`
+    --> crates\ppf-cts-solver\src\driver\contact.rs:4414:17
+     |
+4414 |             let prop_block = crate::driver::state::position_block_prop(
+     |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_prop_block`
+
+warning: unnecessary `unsafe` block
+   --> crates\ppf-cts-solver\src\driver\lock.rs:892:9
+    |
+892 |         unsafe {
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: variable `param` is assigned to, but never used
+    --> crates\ppf-cts-solver\src\driver\refusal.rs:1006:24
+     |
+1006 |         let (mut data, mut param) = empty_scene();
+     |                        ^^^^^^^^^
+     |
+     = note: consider using `_param` instead
+
+warning: value assigned to `param` is never read
+    --> crates\ppf-cts-solver\src\driver\refusal.rs:1012:9
+     |
+1012 |         param.precond = PrecondMode::Schwarz;
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:370:17
+    |
+370 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:415:17
+    |
+415 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:454:17
+    |
+454 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:466:17
+    |
+466 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:544:17
+    |
+544 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:576:17
+    |
+576 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:618:17
+    |
+618 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\seed.rs:630:17
+    |
+630 |             let mut gathered = ppf_cts_compute::ReadbackBuffer::<f32>::default();
+    |                 ----^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:727:13
+    |
+727 |         let mut destination = device_vec(&mut device, &destination_host, "test.dst");
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:797:13
+    |
+797 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:819:13
+    |
+819 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:890:17
+    |
+890 |             let mut destination = device_vec(&mut device, &destination_host, "test.dst");
+    |                 ----^^^^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:914:13
+    |
+914 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:944:13
+    |
+944 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\launch.rs:971:13
+    |
+971 |         let mut destination =
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1156:13
+     |
+1156 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1156:13
+     |
+1156 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1486:13
+     |
+1486 |         let mut got_d = pattern_array_f32(&mut device, &got, "test.got");
+     |             ----^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1525:13
+     |
+1525 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1525:13
+     |
+1525 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1542:13
+     |
+1542 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1542:13
+     |
+1542 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1619:13
+     |
+1619 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1619:13
+     |
+1619 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1636:13
+     |
+1636 |         let mut staging = super::super::state::PushStaging::default();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `staging`
+    --> crates\ppf-cts-solver\src\driver\fixedcsr.rs:1636:13
+     |
+1636 |         let mut staging = super::super::state::PushStaging::default();
+     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+
+warning: unused variable: `staged_boxes`
+    --> crates\ppf-cts-solver\src\driver\lbvh.rs:1913:13
+     |
+1913 |         let staged_boxes = boxes_on_device(&mut device, &boxes, &mut qbuf);
+     |             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staged_boxes`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\operator.rs:883:17
+    |
+883 |             let mut curvature: ppf_cts_compute::Buffer<f32> = Default::default();
+    |                 ----^^^^^^^^^
+    |                 |
+    |                 help: remove this `mut`
+
+warning: unused variable: `curvature`
+   --> crates\ppf-cts-solver\src\driver\operator.rs:883:17
+    |
+883 |             let mut curvature: ppf_cts_compute::Buffer<f32> = Default::default();
+    |                 ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_curvature`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2241:13
+     |
+2241 |         let mut x = staged_block(&mut device, &vec![0.0f32; n], "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2474:13
+     |
+2474 |         let mut x = staged_block(&mut device, &vec![0.0f32; n], "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:2987:13
+     |
+2987 |         let mut x = staged_block(&mut device, &x_host, "test.x");
+     |             ----^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3000:13
+     |
+3000 |         let mut ax_d = staged_block(&mut device, &ax, "test.ax");
+     |             ----^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `x`
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3013:13
+     |
+3013 |         let x = read_back(&mut device, &x, n);
+     |             ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3043:13
+     |
+3043 |         let mut x1 = staged_block(&mut device, &x1_host, "test.x1");
+     |             ----^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3055:13
+     |
+3055 |         let mut x2 = staged_block(&mut device, &x2_host, "test.x2");
+     |             ----^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3108:21
+     |
+3108 |                 let mut x = staged_block(&mut device, &x_host, "test.x");
+     |                     ----^
+     |                     |
+     |                     help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3095:17
+     |
+3095 |             let mut x = staged_block(&mut device, &x_host, "test.x");
+     |                 ----^
+     |                 |
+     |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3149:13
+     |
+3149 |         let mut answer = staged_block(&mut device, &answer_host, "test.answer");
+     |             ----^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3169:13
+     |
+3169 |         let mut from_zero = staged_block(&mut device, &from_zero_host, "test.from_zero");
+     |             ----^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3175:13
+     |
+3175 |         let mut from_answer = staged_block(&mut device, &answer_values, "test.from_answer");
+     |             ----^^^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3214:13
+     |
+3214 |         let mut answer = staged_block(&mut device, &answer_host, "test.answer");
+     |             ----^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> crates\ppf-cts-solver\src\driver\pcg.rs:3223:13
+     |
+3223 |         let mut warm = staged_block(&mut device, &answer_values, "test.warm");
+     |             ----^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\spmv.rs:333:13
+    |
+333 |         let mut out_d = on_device(&mut device, &result, "test.result");
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates\ppf-cts-solver\src\driver\spmv.rs:443:13
+    |
+443 |         let mut out_d = on_device(&mut device, &result, "test.result");
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `ppf-cts-solver` (bin "ppf-contact-solver" test) generated 63 warnings
+error: could not compile `ppf-cts-solver` (bin "ppf-contact-solver" test) due to 1 previous error; 63 warnings emitted

@@ -1,0 +1,571 @@
+{
+  "source_cache_payload_integrity": "PASS",
+  "baseline_blend_snapshot_integrity": "PASS",
+  "checked_source_payloads": 93,
+  "current_original_blend_sha256": "c22a2da5e37137d9db24be80a38074bbfe1290b8dc190c8f026df695715c0af3",
+  "baseline_blend_sha256": "d0a7055fe124b807308308b78ad85f2a098ece209566e03d3c17f1d4fbaa2437",
+  "historical_reference_sha256": "d0a7055fe124b807308308b78ad85f2a098ece209566e03d3c17f1d4fbaa2437",
+  "current_original_matches_baseline": false,
+  "current_original_last_write_utc": "2026-10-16T15:31:28.004840+00:00",
+  "scope": "The current original blend differs from the historical reference; its last-write timestamp predates current tests. Tests intentionally use the preserved initial reference copy. No inference about who saved the original. Original FLIP payloads are unchanged.",
+  "files": [
+    {
+      "frame": 130,
+      "file": "000130.bobj",
+      "sha256": "2bae2aac7a1a9f9d0da8d064f04d43555bec767e51d834a87155dd4004ed93b1",
+      "unchanged": true
+    },
+    {
+      "frame": 130,
+      "file": "fluidparticles000130.ffp3",
+      "sha256": "efc33fb19871370a61a2e50cbd86df312d598979257b9740b7c839171e597cf3",
+      "unchanged": true
+    },
+    {
+      "frame": 130,
+      "file": "fluidparticlesvelocity000130.ffp3",
+      "sha256": "bb2414409c9579d4fa2ef5f506e9e3bb54b6b24d9d41b4e45b9d5d6859092e74",
+      "unchanged": true
+    },
+    {
+      "frame": 131,
+      "file": "000131.bobj",
+      "sha256": "4dafb8bbe2b478b35ce415a9457ff9f96958a0293c2e4f17dab3c5dfb94a342d",
+      "unchanged": true
+    },
+    {
+      "frame": 131,
+      "file": "fluidparticles000131.ffp3",
+      "sha256": "fe82271601835cdc72a3e5331f6d99fccb619454de26b583c4a9990c52196979",
+      "unchanged": true
+    },
+    {
+      "frame": 131,
+      "file": "fluidparticlesvelocity000131.ffp3",
+      "sha256": "595779ee4f61315938f37b35dc39d9f272c64276ce2c91f7fb6e21d54840f533",
+      "unchanged": true
+    },
+    {
+      "frame": 132,
+      "file": "000132.bobj",
+      "sha256": "d0fa6f9b3ea8ee377b8ee78a2c4d3629be4cd51febed636c59b5141e0e1c84d0",
+      "unchanged": true
+    },
+    {
+      "frame": 132,
+      "file": "fluidparticles000132.ffp3",
+      "sha256": "ed90de53476f4f033dc6080f0f362d5c8238cd5b14e07df514200e35850c5d2a",
+      "unchanged": true
+    },
+    {
+      "frame": 132,
+      "file": "fluidparticlesvelocity000132.ffp3",
+      "sha256": "c99fce0c5ffb4b646968f9e9ef4379061efc168542c949e9e111ff5753ed6861",
+      "unchanged": true
+    },
+    {
+      "frame": 133,
+      "file": "000133.bobj",
+      "sha256": "0f6b3de875388a3b1a28f7ee3878d08c0fb4291ef4f260339ab2e21ffd82ae8c",
+      "unchanged": true
+    },
+    {
+      "frame": 133,
+      "file": "fluidparticles000133.ffp3",
+      "sha256": "005772ada95332094cbc5a8283535dac91f65b4f6e97718f8f60c7380b33e641",
+      "unchanged": true
+    },
+    {
+      "frame": 133,
+      "file": "fluidparticlesvelocity000133.ffp3",
+      "sha256": "e8858c2cf7a091bf1c8d34a2ec107a7f74f6fa54925e3e7c8013e3ce87475bdb",
+      "unchanged": true
+    },
+    {
+      "frame": 134,
+      "file": "000134.bobj",
+      "sha256": "64bb03af6e1cef7a5daa23ddf7ce7eb61f1bef477d43854bbc971cf7e42e7d36",
+      "unchanged": true
+    },
+    {
+      "frame": 134,
+      "file": "fluidparticles000134.ffp3",
+      "sha256": "902ad88bc52c6d785fb3e61a54aac4ba0f458b3eb3af89c9dafc5f1ba7962329",
+      "unchanged": true
+    },
+    {
+      "frame": 134,
+      "file": "fluidparticlesvelocity000134.ffp3",
+      "sha256": "1d572a34869154d269b281ea2d7c8fb8c2e3bfbc77410bb701e1e63fb06a9925",
+      "unchanged": true
+    },
+    {
+      "frame": 135,
+      "file": "000135.bobj",
+      "sha256": "7ac0e35805dc2a553875e7663465daa06ca862a5f622788aab6528b4d2c3578b",
+      "unchanged": true
+    },
+    {
+      "frame": 135,
+      "file": "fluidparticles000135.ffp3",
+      "sha256": "4260eb608df8949f9539ca3bb6437bf1bb9bc2515d8822a3938f984474096a38",
+      "unchanged": true
+    },
+    {
+      "frame": 135,
+      "file": "fluidparticlesvelocity000135.ffp3",
+      "sha256": "48a2a3bd9eb41c58c5e605d9e929f2bb09d9eeb570edc6bb5aefbf0ea88c832d",
+      "unchanged": true
+    },
+    {
+      "frame": 136,
+      "file": "000136.bobj",
+      "sha256": "25157ae73cdbbe30920385c69d2ed626d5b22f551f886b6a1f53ef5244ff55a9",
+      "unchanged": true
+    },
+    {
+      "frame": 136,
+      "file": "fluidparticles000136.ffp3",
+      "sha256": "fcbf21db39d2d7c6d847acc490127ba10e0bd0731ec332ba35d25a84bf9236c4",
+      "unchanged": true
+    },
+    {
+      "frame": 136,
+      "file": "fluidparticlesvelocity000136.ffp3",
+      "sha256": "c216a29fecadccae8ef8a9355b4359ffa5f8e34616e9dcdeacf546e837ac0e2f",
+      "unchanged": true
+    },
+    {
+      "frame": 137,
+      "file": "000137.bobj",
+      "sha256": "2a0c210ecb03b077fbf35ca3ec7c4935e27724eddc748e3826fea54fe83a6482",
+      "unchanged": true
+    },
+    {
+      "frame": 137,
+      "file": "fluidparticles000137.ffp3",
+      "sha256": "bec028a7f7adf4e88862ed401ea7c2d963640c729d42e496d413ff0cc12caf4e",
+      "unchanged": true
+    },
+    {
+      "frame": 137,
+      "file": "fluidparticlesvelocity000137.ffp3",
+      "sha256": "f1f1cb766e054cdf4044ed0293b14f5caf964f06f5572d7e114450a40e275e66",
+      "unchanged": true
+    },
+    {
+      "frame": 138,
+      "file": "000138.bobj",
+      "sha256": "b5362c99261da050233eb6704daa1e02bcd1d6dcc049729af52d1a87e6102d33",
+      "unchanged": true
+    },
+    {
+      "frame": 138,
+      "file": "fluidparticles000138.ffp3",
+      "sha256": "a00f839ac6b55ff8e6d7141ef786ca12f99c0ef42d565abede13528f5f7c6839",
+      "unchanged": true
+    },
+    {
+      "frame": 138,
+      "file": "fluidparticlesvelocity000138.ffp3",
+      "sha256": "0bd91d74f408329d16d7b30708916f6c16e1edee1d0ecd94a5443d7c868f536f",
+      "unchanged": true
+    },
+    {
+      "frame": 139,
+      "file": "000139.bobj",
+      "sha256": "ffb0133d3a304a377982a09fd73a490deff0b9388dcc80c67b328d983f1d1f04",
+      "unchanged": true
+    },
+    {
+      "frame": 139,
+      "file": "fluidparticles000139.ffp3",
+      "sha256": "43358e3889b7db224ec55a246890367c304c0184bebcd53c58248c84b41a9e1e",
+      "unchanged": true
+    },
+    {
+      "frame": 139,
+      "file": "fluidparticlesvelocity000139.ffp3",
+      "sha256": "cd5bda1aeff21a440c7ba0939099e451aaf4a8a2f50b2d2b9c961b18632f341e",
+      "unchanged": true
+    },
+    {
+      "frame": 140,
+      "file": "000140.bobj",
+      "sha256": "53e369b4deb6abbdc7397743ee5abd8534df97f7215ac00fec225cfe1930a5ac",
+      "unchanged": true
+    },
+    {
+      "frame": 140,
+      "file": "fluidparticles000140.ffp3",
+      "sha256": "2d83767003251ac1fd0ccaa5d4faaa348f98cf2e9c2b036819e1c239f3f8fb12",
+      "unchanged": true
+    },
+    {
+      "frame": 140,
+      "file": "fluidparticlesvelocity000140.ffp3",
+      "sha256": "65637b335e42bf3a3315d050a98a259b146714ce1709db9035a09e4e7849440a",
+      "unchanged": true
+    },
+    {
+      "frame": 141,
+      "file": "000141.bobj",
+      "sha256": "4690033103f23bb72bffb0323535301fc1604243c48f3e8e83309ab351e8da69",
+      "unchanged": true
+    },
+    {
+      "frame": 141,
+      "file": "fluidparticles000141.ffp3",
+      "sha256": "2aaf396c73d49c3f448ccf93583d1fe429857bb5115871f9bfb0f04bdc481cb8",
+      "unchanged": true
+    },
+    {
+      "frame": 141,
+      "file": "fluidparticlesvelocity000141.ffp3",
+      "sha256": "e67d73507c8bbe0bb3365b8d99a667d32d2e92a4746c63036de5e5a129c06e9c",
+      "unchanged": true
+    },
+    {
+      "frame": 142,
+      "file": "000142.bobj",
+      "sha256": "5cf41ac7bc2906f9d78d4c8d68412d78b727b19067f59b0358ecaa3e91e24ed0",
+      "unchanged": true
+    },
+    {
+      "frame": 142,
+      "file": "fluidparticles000142.ffp3",
+      "sha256": "074d65503eba62523cc2e861cf8ce4182a4f7ea99ab69a40add15facaf2515b9",
+      "unchanged": true
+    },
+    {
+      "frame": 142,
+      "file": "fluidparticlesvelocity000142.ffp3",
+      "sha256": "ab6361ba2a20268abc64e74171e972cc768915d76e3d722477cfe9fa514612d5",
+      "unchanged": true
+    },
+    {
+      "frame": 143,
+      "file": "000143.bobj",
+      "sha256": "5ef04eca4fcf7345f4108f18e8c0096790edd147c40432d840580a456a063a79",
+      "unchanged": true
+    },
+    {
+      "frame": 143,
+      "file": "fluidparticles000143.ffp3",
+      "sha256": "88ad8109edee39abd6429ed045a217dc65fc3a875d325184e949b01b792a3ed6",
+      "unchanged": true
+    },
+    {
+      "frame": 143,
+      "file": "fluidparticlesvelocity000143.ffp3",
+      "sha256": "c0692298ee20e1e70da9e7ebc08ff993803559c0b68ff7ecc562095e60e28981",
+      "unchanged": true
+    },
+    {
+      "frame": 144,
+      "file": "000144.bobj",
+      "sha256": "52fda4e79c40be7c6cc0703a4c53faddf67f6c77a29e7cb67e988412e1ec3a68",
+      "unchanged": true
+    },
+    {
+      "frame": 144,
+      "file": "fluidparticles000144.ffp3",
+      "sha256": "88b1ad2c59709bdc76050cc5b8160a108b59c359a7aa23d9641365e85fa41e06",
+      "unchanged": true
+    },
+    {
+      "frame": 144,
+      "file": "fluidparticlesvelocity000144.ffp3",
+      "sha256": "38b50926faf906831360e757acdc8ddf5354533b319b801363ce854a2b4e99a7",
+      "unchanged": true
+    },
+    {
+      "frame": 145,
+      "file": "000145.bobj",
+      "sha256": "447bba8cf61f23f613ff40404fa0f0dfde871b17f5f240ee2d0fb98b554a0a61",
+      "unchanged": true
+    },
+    {
+      "frame": 145,
+      "file": "fluidparticles000145.ffp3",
+      "sha256": "1a3ff1052714883770f8e3f0179d7d63b55e550fe8c76cb5731287d990c4ee16",
+      "unchanged": true
+    },
+    {
+      "frame": 145,
+      "file": "fluidparticlesvelocity000145.ffp3",
+      "sha256": "091e0b2768aff784235a73153dc2309b61778844e4e97aa71684469126d85caf",
+      "unchanged": true
+    },
+    {
+      "frame": 146,
+      "file": "000146.bobj",
+      "sha256": "ac285cd504ec84aafd28a7841524aab9d9d9fbafe0779dd902e203dd93e3bd28",
+      "unchanged": true
+    },
+    {
+      "frame": 146,
+      "file": "fluidparticles000146.ffp3",
+      "sha256": "8e58aa88779b51f43116f010b2ad4f990d0de382a1cf7851ea4e2c9a497dd86b",
+      "unchanged": true
+    },
+    {
+      "frame": 146,
+      "file": "fluidparticlesvelocity000146.ffp3",
+      "sha256": "07773c9afc487f5c906770925daa6dd98a225ce9cebaa9f1abda1817698ad413",
+      "unchanged": true
+    },
+    {
+      "frame": 147,
+      "file": "000147.bobj",
+      "sha256": "5e2ef49ddc661f063a0fe4f57330218f1480fa5ab6075a0c6174886da2a98bd3",
+      "unchanged": true
+    },
+    {
+      "frame": 147,
+      "file": "fluidparticles000147.ffp3",
+      "sha256": "18a83c149f2f2936a2e89701eaf911c3a51784512cfafccd35e3642aebaacc17",
+      "unchanged": true
+    },
+    {
+      "frame": 147,
+      "file": "fluidparticlesvelocity000147.ffp3",
+      "sha256": "940c1e50c3617540c45b820d6b58775ad4e4fd90285c660e58e7c8159b13c885",
+      "unchanged": true
+    },
+    {
+      "frame": 148,
+      "file": "000148.bobj",
+      "sha256": "5bed170491a94366ba4af62729b15cbe36715ee25abf33ede24da413fca57cc7",
+      "unchanged": true
+    },
+    {
+      "frame": 148,
+      "file": "fluidparticles000148.ffp3",
+      "sha256": "41850450659ea4d654d031e0ecad4936990a6dd6c7d6b05cb91b8af3cb7e6c08",
+      "unchanged": true
+    },
+    {
+      "frame": 148,
+      "file": "fluidparticlesvelocity000148.ffp3",
+      "sha256": "91e03f11c582a601ef0fda5f802a084d2fa2b09ea24c9067147bed4a401e4582",
+      "unchanged": true
+    },
+    {
+      "frame": 149,
+      "file": "000149.bobj",
+      "sha256": "14f5571f36744f8d34e5b744076746d128ea59368ea330f8467a8232aff67dcc",
+      "unchanged": true
+    },
+    {
+      "frame": 149,
+      "file": "fluidparticles000149.ffp3",
+      "sha256": "aef26963720a784e7f9d225229674e437c05fe0ab069b5433067953a10766076",
+      "unchanged": true
+    },
+    {
+      "frame": 149,
+      "file": "fluidparticlesvelocity000149.ffp3",
+      "sha256": "247b9657956323443c062d69dedaceb51f40fe4edb31fe11cf91ee48c99e1269",
+      "unchanged": true
+    },
+    {
+      "frame": 150,
+      "file": "000150.bobj",
+      "sha256": "b74d02be44627a7738b1cd7782a69c7cc8b5de83b1c587a2affc3a3cba8f0f88",
+      "unchanged": true
+    },
+    {
+      "frame": 150,
+      "file": "fluidparticles000150.ffp3",
+      "sha256": "1a109ab4b9e678a0f76f9807a3c3c6f4a57cd3cf1c01e72c8896ec1e441a26e4",
+      "unchanged": true
+    },
+    {
+      "frame": 150,
+      "file": "fluidparticlesvelocity000150.ffp3",
+      "sha256": "803d83af460c5f99758e9a5a05de6f761eacded5a4c325e3f384afe980c7f892",
+      "unchanged": true
+    },
+    {
+      "frame": 151,
+      "file": "000151.bobj",
+      "sha256": "135417da6c7af6c1640dc2424637626e2c4eed40e18a081409b877df30f1dce1",
+      "unchanged": true
+    },
+    {
+      "frame": 151,
+      "file": "fluidparticles000151.ffp3",
+      "sha256": "04ed0a67560c15c7484948ccae016e41ab4078f2a27b062c1901ae195dff9404",
+      "unchanged": true
+    },
+    {
+      "frame": 151,
+      "file": "fluidparticlesvelocity000151.ffp3",
+      "sha256": "f401c880e64c6115c4a46059a938db9f68a78e099a7824e610fa9640ec5a9a27",
+      "unchanged": true
+    },
+    {
+      "frame": 152,
+      "file": "000152.bobj",
+      "sha256": "040596a851e5e1545c13e08f3009d6b47ab7a0649146e6a032d8264d7e3170f5",
+      "unchanged": true
+    },
+    {
+      "frame": 152,
+      "file": "fluidparticles000152.ffp3",
+      "sha256": "7b53ffbf4e2e229decc340ea6e4d74563f41dce80c6550e4e86224d34e8b1442",
+      "unchanged": true
+    },
+    {
+      "frame": 152,
+      "file": "fluidparticlesvelocity000152.ffp3",
+      "sha256": "d52ca635e3a8038b9989a29096b922b057c099220b119cbd178041ab76de3db1",
+      "unchanged": true
+    },
+    {
+      "frame": 153,
+      "file": "000153.bobj",
+      "sha256": "618fa0f767cccbed7062dcbe7e5972e7ec9c5f9caa84c70a7c3f5dd8fea81aad",
+      "unchanged": true
+    },
+    {
+      "frame": 153,
+      "file": "fluidparticles000153.ffp3",
+      "sha256": "18a8d8531f935d14bb696795a276b25bbf10c7ba42dad97a187f6f71ef5804bf",
+      "unchanged": true
+    },
+    {
+      "frame": 153,
+      "file": "fluidparticlesvelocity000153.ffp3",
+      "sha256": "928a3fa675bec8537e2c0b865c271cc9b3221a2a6bd3adf997d9273a43512829",
+      "unchanged": true
+    },
+    {
+      "frame": 154,
+      "file": "000154.bobj",
+      "sha256": "df4a12c5efcfd535e3bbc8c547fbc0239bf3b851b77644ed32c1c4d2e86b8779",
+      "unchanged": true
+    },
+    {
+      "frame": 154,
+      "file": "fluidparticles000154.ffp3",
+      "sha256": "2eec5ace7e45a10c1ea346d7a3f89503b6603e6871ea5f665b0b64b2031f06a3",
+      "unchanged": true
+    },
+    {
+      "frame": 154,
+      "file": "fluidparticlesvelocity000154.ffp3",
+      "sha256": "ae5620862696d769321e20c1da1a2c1803d80bed50eda385125e68d41fd86838",
+      "unchanged": true
+    },
+    {
+      "frame": 155,
+      "file": "000155.bobj",
+      "sha256": "197f7abb0ad8c96c589e2ccfa72c652ddb2371f479cb680b6605c872f080d25a",
+      "unchanged": true
+    },
+    {
+      "frame": 155,
+      "file": "fluidparticles000155.ffp3",
+      "sha256": "407c7473e0ca4b2f439e3bd21e870d21a31ce68d9e7a98ee1345c2bc50210fd6",
+      "unchanged": true
+    },
+    {
+      "frame": 155,
+      "file": "fluidparticlesvelocity000155.ffp3",
+      "sha256": "63d50c43bd91e994fa5cfe5835aceda3cbd3acef776666e20662ad41475302ae",
+      "unchanged": true
+    },
+    {
+      "frame": 156,
+      "file": "000156.bobj",
+      "sha256": "3bd79a49ee7d3c29478782a20df4def3788b73d0cdab4f3e7bfba8de38a78a4f",
+      "unchanged": true
+    },
+    {
+      "frame": 156,
+      "file": "fluidparticles000156.ffp3",
+      "sha256": "98e69fcb3cb64f21dfbd5e7c0794f6a85d653d80631d9039b29f8eafd3c857b2",
+      "unchanged": true
+    },
+    {
+      "frame": 156,
+      "file": "fluidparticlesvelocity000156.ffp3",
+      "sha256": "89e8089bb3847f0f43efce6dfbf529b9d2c731afd0c6a7a821e320031f808044",
+      "unchanged": true
+    },
+    {
+      "frame": 157,
+      "file": "000157.bobj",
+      "sha256": "43b61c36756ea7b6f2106bf05b5bed8442ee97130806a4910f7f8fc4249aaf79",
+      "unchanged": true
+    },
+    {
+      "frame": 157,
+      "file": "fluidparticles000157.ffp3",
+      "sha256": "7340787d73af93738f79d0306e1ffc6d7df6abb3a8a6b1034dbb3f1a90e1190c",
+      "unchanged": true
+    },
+    {
+      "frame": 157,
+      "file": "fluidparticlesvelocity000157.ffp3",
+      "sha256": "195373a4a7984861783046c97b4ed9baf8b4bccd0accc70f68d3c9b779938d57",
+      "unchanged": true
+    },
+    {
+      "frame": 158,
+      "file": "000158.bobj",
+      "sha256": "cd8e1fe470eff0a9f3ffe973c935eafbe527578a7225b1f31a320281bb5580ac",
+      "unchanged": true
+    },
+    {
+      "frame": 158,
+      "file": "fluidparticles000158.ffp3",
+      "sha256": "cd82f8edd936237840768702cddce1a9a4445b8ccbaa5850e4e6fa8284b4aef8",
+      "unchanged": true
+    },
+    {
+      "frame": 158,
+      "file": "fluidparticlesvelocity000158.ffp3",
+      "sha256": "53144bb5579a469e38ebb36e07d9fa514e96484212260f9a9362f231c9c3f8ce",
+      "unchanged": true
+    },
+    {
+      "frame": 159,
+      "file": "000159.bobj",
+      "sha256": "33f403672d77c1fe34e2d23c57f52a216e2d701209fee8fbb6fa080d2bc1a8ed",
+      "unchanged": true
+    },
+    {
+      "frame": 159,
+      "file": "fluidparticles000159.ffp3",
+      "sha256": "4e34e38bbcde3f05f39144b80e7e240d5436a6973eb32a6c41b457f238a61e10",
+      "unchanged": true
+    },
+    {
+      "frame": 159,
+      "file": "fluidparticlesvelocity000159.ffp3",
+      "sha256": "1bd005129dda7f924399797d622688905e03cc690cb13e2a19689bc6d3b14ce4",
+      "unchanged": true
+    },
+    {
+      "frame": 160,
+      "file": "000160.bobj",
+      "sha256": "c7210bf22f6002e2efb4cbe933a7cb25e32f992612333d396cc71ec7f707d161",
+      "unchanged": true
+    },
+    {
+      "frame": 160,
+      "file": "fluidparticles000160.ffp3",
+      "sha256": "b0aee66cb3b3a74fd8f4a941378da9c30c10ec3316d39155b98d39215a9ce3be",
+      "unchanged": true
+    },
+    {
+      "frame": 160,
+      "file": "fluidparticlesvelocity000160.ffp3",
+      "sha256": "1f37a08057103d9fa472526029bfb52fdfb9903da5c44c76923a59da3bab11fa",
+      "unchanged": true
+    }
+  ]
+}

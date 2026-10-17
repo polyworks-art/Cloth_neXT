@@ -1,0 +1,90 @@
+sssssssssssss........................................................... [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+.........................s.............................................. [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 31%]
+........................................................ss.............. [ 34%]
+........................................................................ [ 37%]
+............F........................................................... [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+...................................s.................................... [ 49%]
+............................sss......................................... [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+..............                                                           [100%]
+================================== FAILURES ===================================
+_________________________ test_extension_source_root __________________________
+
+    def test_extension_source_root():
+>       validate_source_tree(EXTENSION_ROOT)
+
+tests\test_package_structure.py:16: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+root = WindowsPath('C:/Users/timch/Documents/GitHub/Cloth_neXT/cloth_next')
+
+    def validate_source_tree(root: Path) -> None:
+        root = root.resolve()
+        required = (root / "blender_manifest.toml", root / "__init__.py")
+        missing = [str(path) for path in required if not path.is_file()]
+        if missing:
+            raise ValueError(f"Missing extension-root files: {missing}")
+        manifest = tomllib.loads(required[0].read_text(encoding="utf-8"))
+        extension_id = manifest.get("id")
+        if not extension_id:
+            raise ValueError("Manifest id is missing")
+        if (root / extension_id / "blender_manifest.toml").exists():
+            raise ValueError(f"Redundant nested extension root: {extension_id}/{extension_id}")
+        if ((root / "bin" / "cloth-next-bake.exe").exists()
+                or (root / "bin" / "cloth-next-bake").exists()
+                or (root / "companion_manifest.json").exists()):
+>           raise ValueError("source phase must not contain generated companion artifacts")
+E           ValueError: source phase must not contain generated companion artifacts
+
+tools\validate_extension.py:35: ValueError
+============================== warnings summary ===============================
+tests/test_package_structure.py::test_zip_has_manifest_and_entrypoint_at_archive_root
+  C:\Users\timch\AppData\Local\Programs\Python\Python311\Lib\zipfile.py:1566: UserWarning: Duplicate name: 'bin/cloth-next-bake.exe'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+tests/test_package_structure.py::test_zip_has_manifest_and_entrypoint_at_archive_root
+  C:\Users\timch\AppData\Local\Programs\Python\Python311\Lib\zipfile.py:1566: UserWarning: Duplicate name: 'companion_manifest.json'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] tests\integration\test_phase3a_vertical_slice.py:14: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [4] tests\integration\test_phase3b_materials.py:23: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [2] tests\integration\test_real_ppf_health.py:41: no CLOTH_NEXT_PPF_EXECUTABLE or local development solver configured
+SKIPPED [1] tests\integration\test_real_ppf_material_zones.py:12: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [1] tests\integration\test_real_ppf_multi_object.py:16: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [1] tests\integration\test_real_ppf_rod_softbody.py:19: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [3] tests\integration\test_real_ppf_sewing.py:17: CLOTH_NEXT_PPF_EXECUTABLE is not configured
+SKIPPED [1] tests\test_companion_bundle.py:58: POSIX executable modes only
+SKIPPED [1] tests\test_migration_release.py:21: 2.6.0 migration artifact only
+SKIPPED [1] tests\test_migration_release.py:33: 2.6.0 migration artifact only
+SKIPPED [1] tests\test_ppf_cbor_codec.py:143: local official solver package not present
+SKIPPED [1] tests\test_ppf_process.py:364: POSIX process groups only
+SKIPPED [1] tests\test_ppf_process.py:383: POSIX process groups only
+SKIPPED [1] tests\test_ppf_process.py:413: POSIX process groups only
+FAILED tests/test_package_structure.py::test_extension_source_root - ValueErr...
+1 failed, 2297 passed, 20 skipped, 3 deselected, 2 warnings in 167.08s (0:02:47)

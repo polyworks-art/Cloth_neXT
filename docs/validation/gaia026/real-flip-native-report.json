@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "protocol": "0.26",
+  "schema": "2",
+  "backend": "cuda",
+  "source_frames": [
+    150,
+    152
+  ],
+  "mean_displacement_vs_control": [
+    0.006056800484657288,
+    0.03339046239852905,
+    -0.0013080760836601257
+  ],
+  "flow_alignment": 0.9999435676215378,
+  "source_velocity_blender": [
+    1.02057945728302,
+    5.669186115264893,
+    -0.2828729748725891
+  ],
+  "pc2": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\real-flip-rebake\\real-flip-cloth.pc2",
+  "pc2_frames": 3,
+  "scope": "Real FLIP source \u2192 .gaia \u2192 CNX CBOR \u2192 official decoder/worker \u2192 PC2; isolated patch"
+}

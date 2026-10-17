@@ -1,0 +1,29 @@
+{
+  "result": "PASS",
+  "timeout_cli_seconds": 3,
+  "production_default_seconds": 3600,
+  "cases": [
+    {
+      "case": "idle",
+      "result": "PASS",
+      "requests": 1,
+      "connected_seconds": 0.0,
+      "idle_exit_seconds": 3.0159999999996217
+    },
+    {
+      "case": "keepalive",
+      "result": "PASS",
+      "requests": 21,
+      "connected_seconds": 8.265999999999622,
+      "idle_exit_seconds": 3.014999999999418
+    },
+    {
+      "case": "active-session-with-production-polling",
+      "result": "PASS",
+      "frames": 8,
+      "report": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-scoped\\idle-keepalive\\active-session"
+    }
+  ],
+  "binary_unchanged": true,
+  "scope": "idle expiry, existing TCMD keepalive, actual Build/Solve/Fetch with production polling; no independent busy-without-polling claim"
+}

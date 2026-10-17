@@ -1,0 +1,79 @@
+{
+  "scope": "three point quadrature on existing dry trajectory",
+  "volumes": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-hydro-crop4",
+  "comparison": "exact closed BOBJ inside test versus native interpolated voxel SDF",
+  "results": [
+    {
+      "frame": 1,
+      "object": "S04_NEON_Garments",
+      "true_wet_area_m2": 0.5527918667067445,
+      "sdf_wet_area_m2": 0.5521380942213614,
+      "misclassified_area_m2": 0.0006537724853831572,
+      "signed_area_error_m2": -0.000653772485383157
+    },
+    {
+      "frame": 1,
+      "object": "S04_NEON_Garments.001",
+      "true_wet_area_m2": 0.0,
+      "sdf_wet_area_m2": 0.0,
+      "misclassified_area_m2": 0.0,
+      "signed_area_error_m2": 0.0
+    },
+    {
+      "frame": 1,
+      "object": "S04_NEON_Garments.002",
+      "true_wet_area_m2": 0.008667370850961581,
+      "sdf_wet_area_m2": 0.008474517672417145,
+      "misclassified_area_m2": 0.00021663502242493318,
+      "signed_area_error_m2": -0.00019285317854443628
+    },
+    {
+      "frame": 15,
+      "object": "S04_NEON_Garments",
+      "true_wet_area_m2": 0.5574949656746476,
+      "sdf_wet_area_m2": 0.5567030569953805,
+      "misclassified_area_m2": 0.0024486175296832024,
+      "signed_area_error_m2": -0.0007919086792670736
+    },
+    {
+      "frame": 15,
+      "object": "S04_NEON_Garments.001",
+      "true_wet_area_m2": 0.0,
+      "sdf_wet_area_m2": 0.0,
+      "misclassified_area_m2": 0.0,
+      "signed_area_error_m2": 0.0
+    },
+    {
+      "frame": 15,
+      "object": "S04_NEON_Garments.002",
+      "true_wet_area_m2": 0.00987956180145816,
+      "sdf_wet_area_m2": 0.009377169501550044,
+      "misclassified_area_m2": 0.0013586231196365218,
+      "signed_area_error_m2": -0.0005023922999081155
+    },
+    {
+      "frame": 30,
+      "object": "S04_NEON_Garments",
+      "true_wet_area_m2": 0.6022265879734271,
+      "sdf_wet_area_m2": 0.6018893427695561,
+      "misclassified_area_m2": 0.0019478051657856612,
+      "signed_area_error_m2": -0.0003372452038710132
+    },
+    {
+      "frame": 30,
+      "object": "S04_NEON_Garments.001",
+      "true_wet_area_m2": 0.0,
+      "sdf_wet_area_m2": 0.0,
+      "misclassified_area_m2": 0.0,
+      "signed_area_error_m2": 0.0
+    },
+    {
+      "frame": 30,
+      "object": "S04_NEON_Garments.002",
+      "true_wet_area_m2": 0.0406737163414083,
+      "sdf_wet_area_m2": 0.03963381577042481,
+      "misclassified_area_m2": 0.0017255076313956628,
+      "signed_area_error_m2": -0.001039900570983492
+    }
+  ]
+}

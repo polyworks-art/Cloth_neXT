@@ -1,0 +1,626 @@
+diff --git a/crates/ppf-cts-solver/build.rs b/crates/ppf-cts-solver/build.rs
+index e85eaf7..9c3c0a2 100644
+--- a/crates/ppf-cts-solver/build.rs
++++ b/crates/ppf-cts-solver/build.rs
+@@ -3434,6 +3434,12 @@ const HANDLE_FIELDS: &[(&str, &str)] = &[
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.index"),
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.offset"),
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.value"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_words"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_floats"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_table"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_data"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_telemetry"),
++
+     ("utility/face_damping", "FaceDampingArgs.beta"),
+     ("utility/hinge_damping", "HingeDampingArgs.beta"),
+     ("utility/rod_bend_damping", "RodBendDampingArgs.beta"),
+diff --git a/crates/ppf-cts-solver/src/backend.rs b/crates/ppf-cts-solver/src/backend.rs
+index 2503657..cb55822 100644
+--- a/crates/ppf-cts-solver/src/backend.rs
++++ b/crates/ppf-cts-solver/src/backend.rs
+@@ -907,6 +907,12 @@ impl Backend {
+         mut param: ParamSet,
+         mut scene: Scene,
+     ) {
++        if std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON").is_some() {
++            assert!(sim_args.world_scaling == 1.0,
++                "experimental hydrodynamics requires SI metre geometry, world_scaling=1");
++            assert!(sim_args.playback==1.0,"experimental hydrodynamics currently requires playback=1 physical time");
++            info!("EXPERIMENTAL hydrodynamics: typed spatial velocity/SDF transport or explicit uniform reference; SI units");
++        }
+         let initialize_finish_path = std::path::Path::new(program_args.output.as_str())
+             .join(ppf_cts_formats::files::INITIALIZE_FINISH);
+         let finished_path = std::path::Path::new(program_args.output.as_str())
+@@ -1399,6 +1405,7 @@ let _wphase = crate::driver::phase::start("solver.write_frame");
+                     );
+ drop(_wphase);
+                 }
++                crate::driver::export_hydrodynamics(&std::path::Path::new(&program_args.output).join(format!("hydro_{new_frame}.bin")));
+                 self.state.curr_frame = new_frame;
+                 crate::status_writer::progress(Phase::Running, new_frame, self.state.time);
+                 // Fire the crash injection once on the final frame, preserving
+diff --git a/crates/ppf-cts-solver/src/driver/assemble.rs b/crates/ppf-cts-solver/src/driver/assemble.rs
+index 87d3c4a..dc89b21 100644
+--- a/crates/ppf-cts-solver/src/driver/assemble.rs
++++ b/crates/ppf-cts-solver/src/driver/assemble.rs
+@@ -766,6 +766,47 @@ pub unsafe fn shell_membrane<D: Device>(
+     fixed: &mut FixedCsr<'_>,
+     dt: f32,
+ ) -> FatalResult<()> {
++    shell_face_pass(device, data, eiganalysis_eps, state, fixed, dt, None)
++}
++
++/// Isolated experiment: prescribed uniform SI flow and known area fraction.
++/// Not a FluidVolume/occupancy adapter. Existing material/contact terms remain.
++#[derive(Clone, Copy, serde::Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct HydroTest {
++    pub density_kg_m3: f32,
++    pub normal_coefficient: f32,
++    pub tangential_coefficient: f32,
++    pub wet_area_fraction: f32,
++    pub velocity_m_s: [f32;3],
++    #[serde(default)]
++    pub volume_mode: u32,
++}
++
++pub unsafe fn hydrodynamic_test<D: Device>(device: &mut D, data: &DataSet,
++    state: &mut SolverState, fixed: &mut FixedCsr<'_>, dt:f32, time:f32) -> FatalResult<()> {
++    let Some(path) = std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON") else { return Ok(()); };
++    let text = std::fs::read_to_string(&path).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
++    let h: HydroTest = serde_json::from_str(&text).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
++    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction];
++    if values.iter().any(|v| !v.is_finite() || *v<0.0) || h.wet_area_fraction>1.0 || h.velocity_m_s.iter().any(|v| !v.is_finite()) || !(dt>0.0 && dt.is_finite()) {
++        return Err(Fatal::invariant("invalid SI hydrodynamic test inputs"));
++    }
++    if state.field.has_active_fluid_flow() {
++        return Err(Fatal::invariant("hydrodynamics: simultaneous legacy Fluid Flow is refused"));
++    }
++    if h.volume_mode>1 {return Err(Fatal::invariant("hydrodynamics: invalid volume mode"));}
++    if h.volume_mode==1 {
++        state.hydro_field.hydrodynamic_volumes(device,time)?;
++    }
++    state.hydro_last_time=time;
++    state.hydro_last_dt=dt;
++    // This experiment deliberately only accepts scenes authored in SI metres.
++    shell_face_pass(device,data,0.0,state,fixed,dt,Some(h))
++}
++
++unsafe fn shell_face_pass<D:Device>(device:&mut D,data:&DataSet,eiganalysis_eps:f32,
++    state:&mut SolverState,fixed:&mut FixedCsr<'_>,dt:f32,hydro:Option<HydroTest>) -> FatalResult<()> {
+     let faces = state.sizes.shell_faces;
+     if faces == 0 {
+         return Ok(());
+@@ -857,7 +898,7 @@ pub unsafe fn shell_membrane<D: Device>(
+         // term is present, correct, and never dispatched.
+         let stiff = material.mu > 0.0;
+         let inflated = material.pressure > 0.0;
+-        if !stiff && !inflated {
++        if !stiff && !inflated && hydro.is_none() {
+             continue;
+         }
+         for k in 0..3 {
+@@ -919,6 +960,19 @@ pub unsafe fn shell_membrane<D: Device>(
+         face_param: state.param_face.handle(),
+         dt,
+         eigenanalysis_eps: eiganalysis_eps,
++        hydro_only: hydro.map_or(0,|h|1+h.volume_mode),
++        hydro_words: state.hydro_field.hydrodynamic_empty_handles()[0],
++        hydro_floats: state.hydro_field.hydrodynamic_empty_handles()[1],
++        hydro_table: state.hydro_field.hydrodynamic_empty_handles()[2],
++        hydro_data: state.hydro_field.hydrodynamic_empty_handles()[3],
++        hydro_telemetry: state.hydro_telemetry.handle(),
++        hydro_rho: hydro.map_or(0.0, |h| h.density_kg_m3),
++        hydro_cn: hydro.map_or(0.0, |h| h.normal_coefficient),
++        hydro_ct: hydro.map_or(0.0, |h| h.tangential_coefficient),
++        hydro_wet: hydro.map_or(0.0, |h| h.wet_area_fraction),
++        hydro_ux: hydro.map_or(0.0, |h| h.velocity_m_s[0]),
++        hydro_uy: hydro.map_or(0.0, |h| h.velocity_m_s[1]),
++        hydro_uz: hydro.map_or(0.0, |h| h.velocity_m_s[2]),
+         force: state.force.handle(),
+         index: matrix.index,
+         offset: matrix.offset,
+@@ -2934,6 +2988,9 @@ pub(crate) mod tests {
+         }
+ 
+         fn assemble_faces(&mut self, dt: f32, gathered: usize) -> FatalResult<Assembled> {
++            self.assemble_faces_hydro(dt,gathered,None)
++        }
++        fn assemble_faces_hydro(&mut self, dt:f32,gathered:usize,hydro:Option<HydroTest>) -> FatalResult<Assembled> {
+             let Membrane { scene, state, device } = self;
+             clear_force(device, state);
+             // `positions` IS the start-of-step pose, so it tracks the scene at
+@@ -2967,7 +3024,7 @@ pub(crate) mod tests {
+                     .seed(device, pose)
+                     .expect("the fixture seeds the iterate");
+                 let mut fixed = FixedCsr::adopt_from_dataset(device, state.fixed_pattern_refs(), &scene.data, Default::default())?;
+-                shell_membrane(device, &scene.data, EPS, state, &mut fixed, dt)?;
++                shell_face_pass(device, &scene.data, EPS, state, &mut fixed, dt, hydro)?;
+                 // THE MATRIX IS DEVICE-RESIDENT, so the dense reference below reads
+                 // the mirror and the mirror is stale the moment the assembly
+                 // dispatch names the buffer. The download costs a copy and buys
+@@ -3498,6 +3555,130 @@ pub(crate) mod tests {
+     /// THE REST SHAPE IS THE FIXTURE ON PURPOSE, because the membrane force
+     /// vanishes there for every model: whatever this face carries is the
+     /// pressure term alone, with nothing to subtract.
++    fn water(speed:f32, wet:f32) -> HydroTest {
++        HydroTest { density_kg_m3:1000.0,normal_coefficient:1.0,
++            tangential_coefficient:0.0,wet_area_fraction:wet,velocity_m_s:[0.0,0.0,speed],volume_mode:0 }
++    }
++
++    #[test]
++    fn hydrodynamic_triangle_force_and_all_nine_matrix_blocks() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        let result=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        for a in 0..3 {
++            assert!((result.force[3*a+2]+1000.0/3.0).abs()<0.001);
++            assert!(result.force[3*a].abs()<1e-6);
++            for b in 0..3 {
++                assert!((result.dense[(3*a+2)*9+3*b+2]-100000.0/9.0).abs()<0.1);
++            }
++        }
++    }
++
++    #[test]
++    fn spatial_fluid_quadrature_has_consistent_nine_jacobian_blocks() {
++        use crate::force_field::test_session::{Frame,FluidSettings,write_fluid,brick,transform,IDENTITY};
++        let velocity_dir=tempfile::tempdir().unwrap();
++        let sdf_dir=tempfile::tempdir().unwrap();
++        let frame=|cell| Frame {resolution:[8,8,8],table:vec![0],bricks:brick(cell),
++            transform:transform([-2.0;3],IDENTITY,[1.0;3])};
++        let settings=FluidSettings {strength:0.0,..Default::default()};
++        write_fluid(velocity_dir.path(),&[frame([0.0,0.0,2.0,1.0]),frame([0.0,0.0,2.0,1.0])],&settings);
++        write_fluid(sdf_dir.path(),&[frame([-1.0,0.0,0.0,1.0]),frame([-1.0,0.0,0.0,1.0])],&settings);
++        let mut data=crate::force_field::load_dir(velocity_dir.path(),3).unwrap().unwrap();
++        data.fields.push(crate::force_field::load_dir(sdf_dir.path(),3).unwrap().unwrap().fields.remove(0));
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        patch.state.hydro_field.install(&mut patch.device,&data,1.0).unwrap();
++        patch.state.hydro_field.hydrodynamic_volumes(&mut patch.device,0.0).unwrap();
++        let mut h=water(0.0,1.0);h.volume_mode=1;
++        let result=patch.assemble_faces_hydro(0.01,3,Some(h)).unwrap();
++        for a in 0..3 {
++            assert!((result.force[3*a+2]+1000.0/3.0).abs()<0.01);
++            for b in 0..3 {
++                let expected=100000.0/(if a==b {6.0} else {12.0});
++                assert!((result.dense[(3*a+2)*9+3*b+2]-expected).abs()<0.1);
++            }
++        }
++    }
++
++    /// Explicit device readback: the host fixture alone cannot validate CUDA.
++    #[cfg(abi_backend_linked)]
++    #[test]
++    #[ignore = "requires the experimental CUDA backend and a usable GPU"]
++    fn hydrodynamic_cuda_force_and_nine_jacobian_blocks_match_host() {
++        use crate::force_field::test_session::{Frame,FluidSettings,write_fluid,brick,transform,IDENTITY};
++        let velocity_dir=tempfile::tempdir().unwrap();
++        let sdf_dir=tempfile::tempdir().unwrap();
++        let frame=|cell| Frame {resolution:[8,8,8],table:vec![0],bricks:brick(cell),
++            transform:transform([-2.0;3],IDENTITY,[1.0;3])};
++        let settings=FluidSettings {strength:0.0,..Default::default()};
++        write_fluid(velocity_dir.path(),&[frame([0.4,0.0,2.0,1.0]),frame([0.4,0.0,2.0,1.0])],&settings);
++        write_fluid(sdf_dir.path(),&[frame([-1.0,0.0,0.0,1.0]),frame([-1.0,0.0,0.0,1.0])],&settings);
++        let mut data=crate::force_field::load_dir(velocity_dir.path(),3).unwrap().unwrap();
++        data.fields.push(crate::force_field::load_dir(sdf_dir.path(),3).unwrap().unwrap().fields.remove(0));
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        patch.state.hydro_field.install(&mut patch.device,&data,1.0).unwrap();
++        patch.state.hydro_field.hydrodynamic_volumes(&mut patch.device,0.0).unwrap();
++        let mut h=water(0.0,1.0);h.volume_mode=1;h.tangential_coefficient=0.02;
++        let reference=patch.assemble_faces_hydro(0.01,3,Some(h)).unwrap();
++        let mut device=crate::driver::launch::try_backend().expect("GPU backend must open");
++        let mut state=SolverState::default();
++        unsafe { state.allocate(&mut device,&patch.scene.data) }.unwrap();
++        state.hydro_field.install(&mut device,&data,1.0).unwrap();
++        state.hydro_field.hydrodynamic_volumes(&mut device,0.0).unwrap();
++        clear_force(&mut device,&mut state);
++        crate::driver::state::reseed_committed(&mut device,&mut state,&patch.scene.data);
++        crate::driver::state::reseed_props(&mut device,&mut state,&patch.scene.data);
++        crate::driver::state::reseed_pattern(&mut device,&mut state,&patch.scene.data);
++        unsafe {
++            let pose=crate::driver::state::slice_or_empty(patch.scene.data.vertex.curr.data as *const f32,9);
++            state.positions.seed(&mut device,pose).unwrap();
++            state.eval_x.seed(&mut device,pose).unwrap();
++            let mut fixed=FixedCsr::adopt_from_dataset(&mut device,state.fixed_pattern_refs(),&patch.scene.data,Default::default()).unwrap();
++            shell_face_pass(&mut device,&patch.scene.data,EPS,&mut state,&mut fixed,0.01,Some(h)).unwrap();
++            fixed.download(&mut device).unwrap();
++            state.force.download(&mut device).unwrap();
++            for (actual,expected) in state.force.host().iter().zip(&reference.force) {
++                assert!(actual.is_finite() && (actual-expected).abs() <= 1e-4+1e-5*expected.abs());
++            }
++            for i in 0..3 { for j in 0..3 {
++                let block=fixed.read(i,j);
++                for r in 0..3 { for c in 0..3 {
++                    let actual=block[3*c+r];
++                    let expected=reference.dense[9*(3*i as usize+r)+3*j as usize+c];
++                    assert!(actual.is_finite() && (actual-expected).abs() <= 1e-3+1e-5*expected.abs(),
++                        "GPU matrix ({i},{j})[{r},{c}]: {actual} vs {expected}");
++                }}
++            }}
++        }
++    }
++
++    #[test]
++    fn hydrodynamic_area_normal_and_mass_are_independent_inputs() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        patch.scale_along_x(2.0);
++        let a=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        assert!((a.force[2]+2000.0/3.0).abs()<0.01);
++        patch.scene.data.prop.face.as_mut_slice()[0].mass=10.0;
++        let b=patch.assemble_faces_hydro(0.01,3,Some(water(2.0,1.0))).unwrap();
++        assert_eq!(a.force,b.force,"water forces in N cannot depend on cloth mass");
++        let mut parallel=water(0.0,1.0);parallel.velocity_m_s=[2.0,0.0,0.0];
++        let c=patch.assemble_faces_hydro(0.01,3,Some(parallel)).unwrap();
++        assert!(c.force.iter().all(|v|v.abs()<1e-6));
++        parallel.tangential_coefficient=0.02;
++        let d=patch.assemble_faces_hydro(0.01,3,Some(parallel)).unwrap();
++        assert!((d.force[0]+40.0/3.0).abs()<0.001);
++    }
++
++    #[test]
++    fn hydrodynamic_native_dry_reverse_quadratic_and_small_wet_fraction() {
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        for (speed,wet,expected) in [(2.0,0.0,0.0),(0.0,1.0,0.0),
++            (-2.0,1.0,1000.0/3.0),(4.0,1.0,-4000.0/3.0),(20.0,0.001,-100.0/3.0)] {
++            let result=patch.assemble_faces_hydro(0.01,3,Some(water(speed,wet))).unwrap();
++            assert!((result.force[2]-expected).abs()<0.01,"{} {} {:?}",speed,wet,result.force);
++            assert!(result.force.iter().chain(result.dense.iter()).all(|x|x.is_finite()));
++        }
++    }
++
+     #[test]
+     fn a_pressurized_face_carries_a_force_its_unpressurized_twin_does_not() {
+         let quiet = material(Model::Arap, 100.0, 50.0);
+@@ -4390,7 +4571,7 @@ pub(crate) mod tests {
+             .collect()
+     }
+ 
+-    pub(crate) fn clear_force(device: &mut HostDevice, state: &mut SolverState) {
++    pub(crate) fn clear_force<D: ppf_cts_compute::Device>(device: &mut D, state: &mut SolverState) {
+         let n = 3 * state.sizes.vertices;
+         let args = crate::driver::kernels::VecFillArgs {
+             array: state.force.handle(),
+diff --git a/crates/ppf-cts-solver/src/driver/force_field.rs b/crates/ppf-cts-solver/src/driver/force_field.rs
+index b34c225..37104f9 100644
+--- a/crates/ppf-cts-solver/src/driver/force_field.rs
++++ b/crates/ppf-cts-solver/src/driver/force_field.rs
+@@ -126,6 +126,7 @@ impl FluidResidency {
+ #[derive(Default)]
+ pub struct ForceField {
+     installed: bool,
++    active_fluid_flow: bool,
+     vertices: usize,
+     field_count: u32,
+     script_count: u32,
+@@ -220,6 +221,8 @@ impl ForceField {
+         field: &ForceFieldData,
+         world_scaling: f32,
+     ) -> FatalResult<()> {
++        self.active_fluid_flow=field.fields.iter().any(|f|f.kind==FieldType::Fluid &&
++            f.track.chunks_exact(TRACK_FILE_FLOATS).any(|t|t[9]!=0.0));
+         let vertices = self.vertices;
+         if !(world_scaling > 0.0 && world_scaling.is_finite()) {
+             return Err(Fatal::invariant(format!(
+@@ -718,6 +721,62 @@ impl ForceField {
+         Ok(())
+     }
+ 
++    /// Experimental typed transport reuses only the verified brick storage and
++    /// two-frame residency. It is never installed as an acceleration field.
++    pub fn hydrodynamic_volumes(&mut self, device:&mut impl Device, time:f32)
++        -> FatalResult<[Handle;4]> {
++        if !self.installed {
++            let root=std::env::var_os("PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR")
++                .ok_or_else(|| Fatal::invariant("hydrodynamics: missing volume directory"))?;
++            let dir=std::path::Path::new(&root);
++            let meta:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(dir.join("hydrodynamics.json"))
++                .map_err(|e|Fatal::invariant(format!("hydrodynamics manifest: {e}")))?)
++                .map_err(|e|Fatal::invariant(format!("hydrodynamics manifest: {e}")))?;
++            if meta["version"]!=1 || meta["roles"]!=serde_json::json!(["velocity_m_s_support","signed_distance_m_x_identity"])
++                || meta["units"]!="metre_second" {
++                return Err(Fatal::invariant("hydrodynamics: incompatible typed volume manifest"));
++            }
++            let data=crate::force_field::load_dir(dir,self.vertices)
++                .map_err(Fatal::invariant)?.ok_or_else(||Fatal::invariant("hydrodynamics: missing brick manifest"))?;
++            if data.fields.len()!=2 || !data.scripts.is_empty() {
++                return Err(Fatal::invariant("hydrodynamics: exactly velocity and SDF volumes required"));
++            }
++            let a=data.fields[0].fluid.as_ref().ok_or_else(||Fatal::invariant("hydrodynamics: missing velocity"))?;
++            let b=data.fields[1].fluid.as_ref().ok_or_else(||Fatal::invariant("hydrodynamics: missing SDF"))?;
++            if a.start!=b.start || a.step!=b.step || a.frames()!=b.frames() || a.frames()<2 {
++                return Err(Fatal::invariant("hydrodynamics: velocity/SDF clocks disagree"));
++            }
++            for k in 0..b.frames() {
++                for c in 0..3 {
++                    let expected=std::array::from_fn(|j|if c==j {1.0} else {0.0});
++                    if b.axis(k,c)!=expected {return Err(Fatal::invariant("hydrodynamics: SDF axes must be identity"));}
++                }
++                if b.is_empty_frame(k) {return Err(Fatal::invariant("hydrodynamics: missing SDF frame"));}
++            }
++            self.install(device,&data,1.0)?;
++        }
++        let v=&self.fluids[0].volume;
++        let end=v.start+v.step*(v.frames()-1) as f32;
++        if time<v.start-1e-6 || time>end+1e-6 {
++            return Err(Fatal::invariant(format!("hydrodynamics: time {time} outside [{}, {end}]",v.start)));
++        }
++        self.prepare_fluid(device,time)?;
++        Ok([self.fluid_words.handle(),self.fluid_floats.handle(),self.fluid_table.handle(),self.fluid_data.handle()])
++    }
++
++    pub fn has_active_fluid_flow(&self)->bool {self.active_fluid_flow}
++
++    pub fn hydrodynamic_io(&self)->serde_json::Value {
++        serde_json::json!({"disk_reads":self.fluids.iter().map(|f|f.disk_reads).collect::<Vec<_>>(),
++            "resident_frames":self.fluids.iter().map(|f|f.resident).collect::<Vec<_>>(),
++            "device_brick_capacity_bytes":self.fluids.iter().map(|f|2*f.data_slot*4).sum::<usize>(),
++            "host_frame_cache_capacity_bytes":self.fluids.iter().map(|f|f.cache.len()*f.data_slot*4).sum::<usize>()})
++    }
++
++    pub fn hydrodynamic_empty_handles(&self)->[Handle;4] {
++        [self.fluid_words.handle(),self.fluid_floats.handle(),self.fluid_table.handle(),self.fluid_data.handle()]
++    }
++
+     /// The per-vertex acceleration the target adds beside gravity.
+     pub fn acceleration(&self) -> Handle {
+         self.acceleration.handle()
+diff --git a/crates/ppf-cts-solver/src/driver/mod.rs b/crates/ppf-cts-solver/src/driver/mod.rs
+index 3ad9626..e9ab4e1 100644
+--- a/crates/ppf-cts-solver/src/driver/mod.rs
++++ b/crates/ppf-cts-solver/src/driver/mod.rs
+@@ -1750,3 +1750,21 @@ mod tests {
+         }
+     }
+ }
++
++/// Last native hydrodynamic assembly at each output frame, in face order.
++pub(crate) fn export_hydrodynamics(path:&std::path::Path) {
++    if std::env::var_os("PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR").is_none(){return;}
++    let mut guard=SOLVER.lock().unwrap();
++    let state=guard.as_mut().unwrap();
++    if let Err(fatal)=with_device(|device| {
++        state.hydro_telemetry.download(device)?;
++        let mut io=state.hydro_field.hydrodynamic_io();
++        io["evaluation_time_s"]=serde_json::json!(state.hydro_last_time);
++        io["dt_s"]=serde_json::json!(state.hydro_last_dt);
++        std::fs::write(path.with_extension("io.json"),io.to_string())
++            .map_err(|e|Fatal::invariant(format!("hydrodynamic I/O telemetry: {e}")))?;
++        std::fs::write(path,bytemuck::cast_slice(state.hydro_telemetry.host()))
++            .map_err(|e|Fatal::invariant(format!("hydrodynamic telemetry: {e}")))?;
++        Ok(())
++    }) {drop(guard);fatal_exit(fatal);}
++}
+diff --git a/crates/ppf-cts-solver/src/driver/state.rs b/crates/ppf-cts-solver/src/driver/state.rs
+index f37aff7..013445f 100644
+--- a/crates/ppf-cts-solver/src/driver/state.rs
++++ b/crates/ppf-cts-solver/src/driver/state.rs
+@@ -735,6 +735,10 @@ pub struct SolverState {
+     /// outputs, the acceleration the target adds beside gravity and the air
+     /// velocity the drag adds to the scene wind.
+     pub field: super::force_field::ForceField,
++    pub hydro_field: super::force_field::ForceField,
++    pub hydro_telemetry: ReadbackBuffer<f32>,
++    pub hydro_last_time: f32,
++    pub hydro_last_dt: f32,
+     /// The Newton right-hand side, `3 * vertices` floats.
+     pub force: ReadbackBuffer<f32>,
+     /// THE RESIDUAL EVERY CONTACT'S FRICTION ANCHOR IS READ OFF, `3 * vertices`
+@@ -2571,6 +2575,8 @@ impl SolverState {
+         self.velocity
+             .size(device, 3 * vertices, AllocLabel("step.velocity"))?;
+         self.field.allocate(device, vertices)?;
++        self.hydro_field.allocate(device, vertices)?;
++        self.hydro_telemetry.size(device, 16*self.sizes.shell_faces, AllocLabel("hydro.telemetry"))?;
+         self.force
+             .size(device, 3 * vertices, AllocLabel("step.force"))?;
+         self.residual
+diff --git a/crates/ppf-cts-solver/src/driver/step.rs b/crates/ppf-cts-solver/src/driver/step.rs
+index d7ecc6d..f58a821 100644
+--- a/crates/ppf-cts-solver/src/driver/step.rs
++++ b/crates/ppf-cts-solver/src/driver/step.rs
+@@ -1070,6 +1070,11 @@ pub unsafe fn advance<D: Device>(
+             log::mark("advance", "asm_copy", _asm_copy.elapsed());
+         }
+ 
++        // External water forces must precede both friction residual snapshots.
++        // Their damping blocks enter the live Newton matrix AFTER the elastic
++        // reference snapshot, so they do not change calibrated elastic stiffness.
++        assemble::hydrodynamic_test(device,data,state,&mut fixed,dt,(*param).time_f32+dt/prm.playback)?;
++
+         // STEP B12 and B13. The two strain limiters, shell then rod, reading
+         // the snapshot above and writing the live
+         // matrix. Both are dispatched on an element count alone, so a scene
+@@ -1353,6 +1358,7 @@ pub unsafe fn advance<D: Device>(
+             log::mark("advance", "asm_contact", _asm_contact.elapsed());
+             contact_result?;
+             constraint_result?;
++
+             // A PAIR THE ASSEMBLY FOUND ALREADY COLLAPSED TO ITS OFFSET ends
+             // the advance here, and the report is a HOST CONTRACT: the kind
+             // string, the pair, the world-space lengths, and for a
+diff --git a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+index b3852c6..241699d 100644
+--- a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
++++ b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+@@ -4,6 +4,7 @@
+ // License: Apache v2.0
+ 
+ #pragma once
++#include "external_field.kernel.cpp"
+ 
+ // A NEUTRAL KERNEL SOURCE. This file is plain C++ and belongs to no backend: no
+ // preprocessor conditional, no macro of its own, and no spelling that only nvcc
+@@ -293,6 +294,111 @@ template <typename D>
+ // `compute::atomic_float_t` is the seam's own name for both destinations'
+ // element type, `float` under nvcc and on the host and `atomic_float` under
+ // MSL: a `float *` here would compile on two backends and fail on the third.
++// Experimental two-sided sheet drag in SI units. Geometry is evaluated at the
++// current Newton iterate; the PSD tangent lags geometry and sampled flow.
++[[seam::device_fn]] inline void hydrodynamic_sheet_embed(
++    const Vec3f &x0, const Vec3f &x1, const Vec3f &x2,
++    const Vec3f &current0, const Vec3f &current1, const Vec3f &current2,
++    const Vec3u &face_vertex, float dt, float rho, float cn, float ct,
++    float wet, float ux, float uy, float uz,
++    compute::atomic_float_t *force, const unsigned *index,
++    const unsigned *offset, compute::atomic_float_t *value,
++    unsigned row_count, DiagHandle diag, unsigned element) {
++    const Vec3f cross = (x1-x0).cross(x2-x0);
++    const float twice_area = cross.norm();
++    if (rho <= 0.0f || wet <= 0.0f || twice_area <= 0.0f) return;
++    const Vec3f n = cross / twice_area;
++    const Vec3f velocity = (x0+x1+x2-current0-current1-current2)/(3.0f*dt);
++    const Vec3f relative = Vec3f(ux,uy,uz)-velocity;
++    const float normal_speed = n.dot(relative);
++    const Vec3f tangent = relative-normal_speed*n;
++    const float speed = tangent.norm();
++    const float factor = 0.25f*rho*twice_area*wet;
++    const Vec3f total = factor*(cn*fmath::abs(normal_speed)*normal_speed*n+ct*speed*tangent);
++    const Mat3x3f nn = n*n.transpose();
++    Mat3x3f damping = 2.0f*factor*cn*fmath::abs(normal_speed)*nn;
++    if (speed > 0.0f) damping += factor*ct*(speed*(Mat3x3f::Identity()-nn)+tangent*tangent.transpose()/speed);
++    const bool finite = !fmath::isnan(total[0]) && !fmath::isinf(total[0]) &&
++        !fmath::isnan(total[1]) && !fmath::isinf(total[1]) &&
++        !fmath::isnan(total[2]) && !fmath::isinf(total[2]);
++    DIAG_ASSERT4(diag, finite, total[0],total[1],total[2],static_cast<float>(element));
++    if (!finite) return;
++    Mat3x3f gradient;
++    Mat9x9f hessian = Mat9x9f::Zero();
++    for (unsigned a=0; a<3; ++a) {
++        gradient.col(a) = -total/3.0f;
++        for (unsigned b=0; b<3; ++b)
++            hessian.block<3,3>(3*a,3*b) = damping/(9.0f*dt);
++    }
++    face_atomic_embed_force(face_vertex, gradient, force);
++    face_atomic_push_hessian(face_vertex, hessian,index,offset,value,row_count,diag,element);
++}
++
++// Typed experimental transport: stream 0 is velocity/support, stream 1
++// carries signed distance in its x slot, with identity axes. No static pressure.
++[[seam::device_fn]] inline void hydrodynamic_spatial_embed(
++    const Vec3f &x0,const Vec3f &x1,const Vec3f &x2,
++    const Vec3f &c0,const Vec3f &c1,const Vec3f &c2,
++    const Vec3u &vertices,float dt,float rho,float cn,float ct,
++    const unsigned *words,const float *floats,const unsigned *table,const float *data,
++    float *telemetry,compute::atomic_float_t *force,const unsigned *index,
++    const unsigned *offset,compute::atomic_float_t *value,unsigned rows,
++    DiagHandle diag,unsigned element) {
++    const Vec3f cross=(x1-x0).cross(x2-x0);
++    const float a2=cross.norm();
++    if (a2<=0.0f) return;
++    const float area=0.5f*a2;
++    const Vec3f n=cross/a2;
++    Mat3x3f gradient=Mat3x3f::Zero();
++    Mat9x9f hessian=Mat9x9f::Zero();
++    telemetry[16u*element]=area;
++    for (unsigned q=0;q<3;++q) {
++        float b[3]={1.0f/6.0f,1.0f/6.0f,1.0f/6.0f};b[q]=2.0f/3.0f;
++        const Vec3f p=b[0]*x0+b[1]*x1+b[2]*x2;
++        const Vec3f v=(b[0]*(x0-c0)+b[1]*(x1-c1)+b[2]*(x2-c2))/dt;
++        Vec3f sdf;float sdf_support;float sdf_presence;
++        field_fluid(words,floats,table,data,1u,p,1.0f,sdf,sdf_support,sdf_presence);
++        if (sdf_presence<=0.0f || sdf[0]>0.0f) continue;
++        Vec3f u;float support;float presence;
++        field_fluid(words,floats,table,data,0u,p,1.0f,u,support,presence);
++        const bool valid=presence>0.0f && support>0.0f && sdf_support>0.0f;
++        DIAG_ASSERT4(diag,valid,p[0],p[1],p[2],static_cast<float>(element));
++        if (!valid) return;
++        const Vec3f r=u-v;
++        const float normal=n.dot(r);
++        const Vec3f tangent=r-normal*n;
++        const float speed=tangent.norm();
++        const float factor=0.5f*rho*area/3.0f;
++        const Vec3f fn=factor*cn*fmath::abs(normal)*normal*n;
++        const Vec3f ft=factor*ct*speed*tangent;
++        const Vec3f total=fn+ft;
++        const Mat3x3f nn=n*n.transpose();
++        Mat3x3f damping=2.0f*factor*cn*fmath::abs(normal)*nn;
++        if (speed>0.0f) damping+=factor*ct*(speed*(Mat3x3f::Identity()-nn)+tangent*tangent.transpose()/speed);
++        for (unsigned a=0;a<3;++a) {
++            gradient.col(a)-=b[a]*total;
++            for (unsigned j=0;j<3;++j)
++                hessian.block<3,3>(3*a,3*j)+=(b[a]*b[j]/dt)*damping;
++        }
++        const unsigned at=16u*element;
++        telemetry[at+1u]+=area/3.0f;
++        telemetry[at+2u]+=fn.norm();telemetry[at+3u]+=ft.norm();
++        telemetry[at+4u]+=total[0];telemetry[at+5u]+=total[1];telemetry[at+6u]+=total[2];
++        telemetry[at+7u]+=area*u.norm()/3.0f;telemetry[at+8u]+=area*r.norm()/3.0f;
++        telemetry[at+13u]=fmath::max(telemetry[at+13u],u.norm());
++        telemetry[at+14u]=fmath::max(telemetry[at+14u],r.norm());
++        Vec3f plus;Vec3f minus;float rs;float ps;
++        field_fluid(words,floats,table,data,1u,p+1e-5f*n,1.0f,plus,rs,ps);
++        field_fluid(words,floats,table,data,1u,p-1e-5f*n,1.0f,minus,rs,ps);
++        const bool wp=plus[0]<=0.0f;const bool wm=minus[0]<=0.0f;
++        if (wp) telemetry[at+9u]+=area/3.0f;
++        if (wm) telemetry[at+10u]+=area/3.0f;
++        if (wp && wm) telemetry[at+11u]+=area/3.0f;
++    }
++    face_atomic_embed_force(vertices,gradient,force);
++    face_atomic_push_hessian(vertices,hessian,index,offset,value,rows,diag,element);
++}
++
+ // THE SAME EMBED, READING ITS MATERIAL OFF THE DEVICE RECORDS.
+ //
+ // The six scalars the body above takes are read here out of `FaceProp` and
+@@ -327,7 +433,10 @@ template <typename D>
+     const Mat2x2f &inverse_rest,
+     const FaceProp &prop,
+     const FaceParam *face_param, float dt,
+-    float eigenanalysis_eps,
++    float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
++    const unsigned *hydro_words,const float *hydro_floats,
++    const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+@@ -339,9 +448,24 @@ template <typename D>
+     // collider's face or one whose streamed rest shape is near-singular would
+     // assemble an elastic term it must not carry. `shell_stretch_terms` applies
+     // the same three in its body for the same reason.
++    if (hydro_only!=0u) {
++        for (unsigned k=0;k<16u;++k) hydro_telemetry[16u*element+k]=0.0f;
++    }
+     if (prop.fixed || prop.rest_excluded || prop.collider) {
+         return;
+     }
++    if (hydro_only==2u) {
++        hydrodynamic_spatial_embed(x0,x1,x2,current0,current1,current2,face_vertex,
++            dt,hydro_rho,hydro_cn,hydro_ct,hydro_words,hydro_floats,hydro_table,
++            hydro_data,hydro_telemetry,force,index,offset,value,row_count,diag,element);
++        return;
++    }
++    if (hydro_only != 0u) {
++        hydrodynamic_sheet_embed(x0,x1,x2,current0,current1,current2,face_vertex,
++            dt,hydro_rho,hydro_cn,hydro_ct,hydro_wet,hydro_ux,hydro_uy,hydro_uz,
++            force,index,offset,value,row_count,diag,element);
++        return;
++    }
+     const FaceParam param = face_param[prop.param_index];
+     face_elastic_embed(x0, x1, x2, current0, current1, current2, face_vertex,
+                        inverse_rest, static_cast<unsigned>(param.model),
+@@ -360,7 +484,10 @@ template <typename D>
+     const Mat2x2f *inverse_rest,
+     const FaceProp *prop,
+     const FaceParam *face_param,
+-    float dt, float eigenanalysis_eps,
++    float dt, float eigenanalysis_eps, unsigned hydro_only, float hydro_rho, float hydro_cn, float hydro_ct,
++    float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
++    const unsigned *hydro_words,const float *hydro_floats,
++    const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+diff --git a/crates/ppf-cts-solver/src/main.rs b/crates/ppf-cts-solver/src/main.rs
+index 159eef2..7ceacc1 100644
+--- a/crates/ppf-cts-solver/src/main.rs
++++ b/crates/ppf-cts-solver/src/main.rs
+@@ -88,6 +88,8 @@ const PROBE_UNUSABLE: i32 = 3;
+ /// with [`PROBE_UNUSABLE`].
+ fn probe() -> i32 {
+     println!("backend: {}", env!("PPF_BACKEND"));
++    println!("hydrodynamic-test: uniform-sheet-si-v1");
++    println!("hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1");
+     #[cfg(abi_backend_linked)]
+     {
+         println!("linked: {}", ppf_cts_compute::abi::linked_backend_name());

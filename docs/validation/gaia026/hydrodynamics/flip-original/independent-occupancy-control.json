@@ -1,0 +1,88 @@
+[
+  {
+    "frame": 130,
+    "control": "Original FLIP mesher, one compute chunk, unchanged particles/grid/radius/static obstacle/smoothing; no cross-chunk join. Control only, not selected transport.",
+    "frozen_cloth_geometry": "Preserved native frame131 initial state; not an assertion of actual 130/135 trajectories.",
+    "near_cloth_uniform_samples": 100000,
+    "near_cloth_sample_bounds_m": [
+      [
+        -0.20851691961288452,
+        -0.1632937729358673,
+        0.04184944778680801
+      ],
+      [
+        0.20807755887508392,
+        0.1098921537399292,
+        1.3868634939193725
+      ]
+    ],
+    "near_cloth_occupancy_disagreements": 0,
+    "wet_area": [
+      {
+        "object": "S04_NEON_Garments",
+        "candidate_m2": 0.6336920495392249,
+        "independent_control_m2": 0.6336920495392249,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      },
+      {
+        "object": "S04_NEON_Garments.001",
+        "candidate_m2": 0.0,
+        "independent_control_m2": 0.0,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      },
+      {
+        "object": "S04_NEON_Garments.002",
+        "candidate_m2": 0.07513309655462068,
+        "independent_control_m2": 0.07513309655462068,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      }
+    ],
+    "transport_approved": false
+  },
+  {
+    "frame": 135,
+    "control": "Original FLIP mesher, one compute chunk, unchanged particles/grid/radius/static obstacle/smoothing; no cross-chunk join. Control only, not selected transport.",
+    "frozen_cloth_geometry": "Preserved native frame131 initial state; not an assertion of actual 130/135 trajectories.",
+    "near_cloth_uniform_samples": 100000,
+    "near_cloth_sample_bounds_m": [
+      [
+        -0.20851691961288452,
+        -0.1632937729358673,
+        0.04184944778680801
+      ],
+      [
+        0.20807755887508392,
+        0.1098921537399292,
+        1.3868634939193725
+      ]
+    ],
+    "near_cloth_occupancy_disagreements": 0,
+    "wet_area": [
+      {
+        "object": "S04_NEON_Garments",
+        "candidate_m2": 0.5679035058923869,
+        "independent_control_m2": 0.5679035058923869,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      },
+      {
+        "object": "S04_NEON_Garments.001",
+        "candidate_m2": 0.0,
+        "independent_control_m2": 0.0,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      },
+      {
+        "object": "S04_NEON_Garments.002",
+        "candidate_m2": 0.03915855772844259,
+        "independent_control_m2": 0.03915855772844259,
+        "misclassified_area_m2": 0.0,
+        "screen": "PASS"
+      }
+    ],
+    "transport_approved": false
+  }
+]

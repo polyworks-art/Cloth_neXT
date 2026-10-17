@@ -1,0 +1,11 @@
+{
+  "base_commit": "7232f4033515e1e72359f4ce5145456ce7d156f7",
+  "cuda_solver_sha256": "09405C5B64177C940107680B5C0ACC3643A4112F49F571A3386D1AED9ECD38D0",
+  "cuda_backend_sha256": "9F0C3A1F0F5191C179FF812EA8F29EDDE8225CEAAA52475F472A5A6CCC5EE854",
+  "cpu_solver_sha256": "25C99225A189415605C73B74BAFA89D6A01BD8DAB80E5775C6AA370685F253F9",
+  "nvcc": "12.8.93",
+  "gpu": "NVIDIA GeForce RTX 4070 SUPER",
+  "native_matrix_test": "PASS: actual GPU force and nine matrix blocks vs HostDevice",
+  "additional_test_exe_sha256": "9acc287259a125da0d4cb31047981f472a0b2428edecb268cb3e9634f40a2ca3",
+  "additional_test_source_patch": "native-spatial-hydrodynamics-with-frozen-tests.patch"
+}

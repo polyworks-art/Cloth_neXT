@@ -1,0 +1,61 @@
+{
+  "scope": "Full native CPU Newton simulation, synthetic uniform flow / prescribed wetting; no FLIP adapter",
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\debug\\ppf-contact-solver.exe",
+  "solver_sha256": "3ef47a8d03b69af70ff186be6c5cf7fd590f86f5aeb47b4bcad794e8fd0ab7ec",
+  "cases": [
+    {
+      "case": "dry",
+      "dt_s": 0.001,
+      "density_kg_m2": 1.0,
+      "divisions": 1,
+      "measured_final_interval_velocity_m_s": [
+        -3.1647572894254216e-17,
+        0.0,
+        0.0
+      ],
+      "analytic_m_s": 0.0,
+      "error_m_s": 3.1647572894254216e-17,
+      "max_patch_deflection_m": 3.438435289044511e-17,
+      "analytic_reference_applicable": true,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-58b395d80b3c40c8a09b84b6d2661e78\\water",
+      "contact_enabled": true,
+      "finite": true
+    },
+    {
+      "case": "normal",
+      "dt_s": 0.001,
+      "density_kg_m2": 1.0,
+      "divisions": 1,
+      "measured_final_interval_velocity_m_s": [
+        0.17678774893283844,
+        0.0,
+        0.0
+      ],
+      "analytic_m_s": 0.17937367125583203,
+      "error_m_s": 0.0025859223229935946,
+      "max_patch_deflection_m": 0.01505478098988533,
+      "analytic_reference_applicable": true,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-bfc23e4a05d34415884230a90a2f7a80\\water",
+      "contact_enabled": true,
+      "finite": true
+    },
+    {
+      "case": "normal_half_dt",
+      "dt_s": 0.0005,
+      "density_kg_m2": 1.0,
+      "divisions": 1,
+      "measured_final_interval_velocity_m_s": [
+        0.17849057912826538,
+        0.0,
+        0.0
+      ],
+      "analytic_m_s": 0.17937367125583203,
+      "error_m_s": 0.0008830921275666537,
+      "max_patch_deflection_m": 0.015148648992180824,
+      "analytic_reference_applicable": true,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-4a52b0601da5463d82e7bd9b724e30b8\\water",
+      "contact_enabled": true,
+      "finite": true
+    }
+  ]
+}

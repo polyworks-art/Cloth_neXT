@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "v1",
+    "output": 0,
+    "world_material_vertex_maximum_m": 0.0,
+    "different_scalar_bits": 0
+  },
+  {
+    "variant": "v1",
+    "output": 1,
+    "world_material_vertex_maximum_m": 0.0027078089585092866,
+    "different_scalar_bits": 69946
+  },
+  {
+    "variant": "v2",
+    "output": 0,
+    "world_material_vertex_maximum_m": 0.0,
+    "different_scalar_bits": 0
+  },
+  {
+    "variant": "v2",
+    "output": 1,
+    "world_material_vertex_maximum_m": 0.0,
+    "different_scalar_bits": 0
+  }
+]

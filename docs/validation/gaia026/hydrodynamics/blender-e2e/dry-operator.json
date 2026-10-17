@@ -1,0 +1,115 @@
+{
+  "result": "FAIL",
+  "blender": "5.2.2 LTS",
+  "range": [
+    131,
+    133
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "states": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0037176999994699145
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 10.815142299999934
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 10.848639599999842
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 10.893184399999882
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 17.987165199999254
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 18.008392699999604
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 28.693750099999306
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 31.209499499999765
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 31.21027729999969
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 31.210988400000133
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 33.44613619999927
+    }
+  ],
+  "dry": true,
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\target\\cuda\\release\\ppf-cts-server.exe",
+  "addon_version": "2.9.25",
+  "objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "vertices": 14946,
+      "material": "MIT_OUTDOOR_POLYESTER"
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "vertices": 4379,
+      "material": "CUSTOM"
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "vertices": 4031,
+      "material": "PRODUCT_YAMAMOTO_39_3MM"
+    }
+  ],
+  "attachment_groups": 4,
+  "attachment_count": 186,
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "work_directory": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\temp\\blender_a36756\\cloth_next_run_clothnext_1048060652dc",
+  "seconds": 33.538945299999796,
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\dry-131-133\\cache\\cn_test_cloth_1048060652dc_00.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 3.0515171722811374e-08,
+      "sha256": "05624729a5d68719f3a30a06d26492723a294b16c5dd42979428ec01a36411bb"
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\dry-131-133\\cache\\cn_test_cloth_1048060652dc_01.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.10314911941856e-08,
+      "sha256": "eaa296d5dc7b207d85b76509e4dfea75e3049266ba8bba1ba8e43c7b1b6407b4"
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\dry-131-133\\cache\\cn_test_cloth_1048060652dc_02.pc2",
+      "frames": 3,
+      "max_error_m": 0.0,
+      "native_max_error_m": 6.08006200941702e-08,
+      "sha256": "1c9bb8575901e0f267a2f45cbbbb2581fb3ea6c03f6a6e3a9238b6bd0db5f921"
+    }
+  ],
+  "native_output": "\\\\?\\C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\dry-131-133\\cache\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-d591ac8f356b4a05ac806ab6badfb856\\server-data\\clothnext_1048060652dc\\session\\output",
+  "hydrodynamics": [],
+  "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\tools\\blender_neon_hydrodynamic_e2e.py\", line 163, in main\n    assert obj.cloth_next.water_hydrodynamic_pressure\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+  "session_evidence": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\dry-131-133\\session-evidence"
+}

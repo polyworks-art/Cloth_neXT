@@ -1,0 +1,20 @@
+{
+  "scope": "False-colour native geometry, identical camera/framing. Not a beauty render, material test, or continuous collision proof. Playback separately verified.",
+  "views": [
+    {
+      "frame": 130,
+      "view": "side",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\hydrodynamics\\blender-reconstructed-130-159\\native-side-views\\frame-130-side.png"
+    },
+    {
+      "frame": 144,
+      "view": "side",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\hydrodynamics\\blender-reconstructed-130-159\\native-side-views\\frame-144-side.png"
+    },
+    {
+      "frame": 159,
+      "view": "side",
+      "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\hydrodynamics\\blender-reconstructed-130-159\\native-side-views\\frame-159-side.png"
+    }
+  ]
+}

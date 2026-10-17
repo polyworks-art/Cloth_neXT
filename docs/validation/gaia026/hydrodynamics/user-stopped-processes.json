@@ -1,0 +1,62 @@
+[
+  {
+    "ProcessId": 11452,
+    "ParentProcessId": 23052,
+    "Name": "python.exe",
+    "CommandLine": "\"C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe\" tools/run_neon_hydrodynamics.py --frontend-root C:/Users/timch/AppData/Local/ClothNeXt/solver/versions/official-2026-10-13-12-32-win64 --solver C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/target/hydrodynamics-cpu/release/ppf-contact-solver-spatial-r3.exe --volumes C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/.tools/neon-hydro-crop4 --frames 30 --cases hydro1 dry1 flow1 dry2 hydro2 --tight-newton --output C:/Users/timch/Documents/GitHub/Cloth_neXT/docs/validation/gaia026/hydrodynamics/neon-spatial-cpu30-r3"
+  },
+  {
+    "ProcessId": 43124,
+    "ParentProcessId": 48356,
+    "Name": "python.exe",
+    "CommandLine": "\"C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe\" tools/run_neon_hydrodynamics.py --frontend-root C:/Users/timch/AppData/Local/ClothNeXt/solver/versions/official-2026-10-13-12-32-win64 --solver C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/target/hydrodynamics-cpu/release/ppf-contact-solver-spatial-r3.exe --volumes C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/.tools/neon-hydro-crop4 --frames 30 --cases flow1 --tight-newton --output C:/Users/timch/Documents/GitHub/Cloth_neXT/docs/validation/gaia026/hydrodynamics/neon-spatial-parallel-flow1"
+  },
+  {
+    "ProcessId": 46392,
+    "ParentProcessId": 43072,
+    "Name": "python.exe",
+    "CommandLine": "\"C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe\" tools/run_neon_hydrodynamics.py --frontend-root C:/Users/timch/AppData/Local/ClothNeXt/solver/versions/official-2026-10-13-12-32-win64 --solver C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/target/hydrodynamics-cpu/release/ppf-contact-solver-spatial-r3.exe --volumes C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/.tools/neon-hydro-crop4 --frames 30 --cases dry2 --tight-newton --output C:/Users/timch/Documents/GitHub/Cloth_neXT/docs/validation/gaia026/hydrodynamics/neon-spatial-parallel-dry2"
+  },
+  {
+    "ProcessId": 46952,
+    "ParentProcessId": 43140,
+    "Name": "python.exe",
+    "CommandLine": "\"C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe\" tools/run_neon_hydrodynamics.py --frontend-root C:/Users/timch/AppData/Local/ClothNeXt/solver/versions/official-2026-10-13-12-32-win64 --solver C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/target/hydrodynamics-cpu/release/ppf-contact-solver-spatial-r3.exe --volumes C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/.tools/neon-hydro-crop4 --frames 30 --cases hydro2 --tight-newton --output C:/Users/timch/Documents/GitHub/Cloth_neXT/docs/validation/gaia026/hydrodynamics/neon-spatial-parallel2-hydro2"
+  },
+  {
+    "ProcessId": 45428,
+    "ParentProcessId": 45660,
+    "Name": "python.exe",
+    "CommandLine": "\"C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\python\\python.exe\" tools/run_neon_hydrodynamics.py --frontend-root C:/Users/timch/AppData/Local/ClothNeXt/solver/versions/official-2026-10-13-12-32-win64 --solver C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/target/hydrodynamics-cpu/release/ppf-contact-solver-spatial-r3.exe --volumes C:/Users/timch/Documents/GitHub/ppf-contact-solver-hydrodynamics/.tools/neon-hydro-crop4 --frames 30 --cases dry1 --tight-newton --output C:/Users/timch/Documents/GitHub/Cloth_neXT/docs/validation/gaia026/hydrodynamics/neon-spatial-parallel2-dry1"
+  },
+  {
+    "ProcessId": 30584,
+    "ParentProcessId": 11452,
+    "Name": "ppf-contact-solver-spatial-r3.exe",
+    "CommandLine": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro1_1792121857649978500\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro1_1792121857649978500\\session\\output"
+  },
+  {
+    "ProcessId": 40052,
+    "ParentProcessId": 46392,
+    "Name": "ppf-contact-solver-spatial-r3.exe",
+    "CommandLine": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry2_1792122293996115900\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry2_1792122293996115900\\session\\output"
+  },
+  {
+    "ProcessId": 46680,
+    "ParentProcessId": 43124,
+    "Name": "ppf-contact-solver-spatial-r3.exe",
+    "CommandLine": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_flow1_1792122293851461200\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_flow1_1792122293851461200\\session\\output"
+  },
+  {
+    "ProcessId": 48448,
+    "ParentProcessId": 46952,
+    "Name": "ppf-contact-solver-spatial-r3.exe",
+    "CommandLine": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro2_1792122361476875300\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro2_1792122361476875300\\session\\output"
+  },
+  {
+    "ProcessId": 48400,
+    "ParentProcessId": 45428,
+    "Name": "ppf-contact-solver-spatial-r3.exe",
+    "CommandLine": "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe --path C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry1_1792122362068647400\\session --output C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry1_1792122362068647400\\session\\output"
+  }
+]

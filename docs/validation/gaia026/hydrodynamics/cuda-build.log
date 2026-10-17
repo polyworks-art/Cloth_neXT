@@ -1,0 +1,636 @@
+
+============================================================
+[2/4] Building CUDA Library with nvcc
+============================================================
+
+CUDA architectures from manifest: floor compute_61, cubins sm_61, sm_75, sm_86, sm_89, sm_90, sm_100, sm_120
+Rendering neutral kernels with the transcompiler...
+Compiling the ABI TU (backend.cu) with the vocabulary headers...
+Compiling the mechanism TUs (arena, diagnostics)...
+Compiling the generated entry points...
+Compiling host C++ TUs...
+Running the compiles, 3 at a time...
+=== 89 commands, 3 at a time ===
+  backend.cu: ok
+backend.cu
+tmpxft_0000bfc8_00000000-7_backend.cudafe1.cpp
+  arena.cu: ok
+arena.cu
+tmpxft_000066fc_00000000-7_arena.cudafe1.cpp
+  diagnostics.cu: ok
+diagnostics.cu
+tmpxft_0000a3a8_00000000-7_diagnostics.cudafe1.cpp
+  entry aabb.entry.cu: ok
+aabb.entry.cu
+tmpxft_0000857c_00000000-7_aabb.entry.cudafe1.cpp
+  entry aabb_traversal.entry.cu: ok
+aabb_traversal.entry.cu
+tmpxft_00004548_00000000-7_aabb_traversal.entry.cudafe1.cpp
+  entry analytic_contact.entry.cu: ok
+analytic_contact.entry.cu
+tmpxft_00001d8c_00000000-7_analytic_contact.entry.cudafe1.cpp
+  entry ccd_sweep.entry.cu: ok
+ccd_sweep.entry.cu
+tmpxft_0000a7b4_00000000-7_ccd_sweep.entry.cudafe1.cpp
+  entry collision_narrow.entry.cu: ok
+collision_narrow.entry.cu
+tmpxft_0000af28_00000000-7_collision_narrow.entry.cudafe1.cpp
+  entry contact_assembly.entry.cu: ok
+contact_assembly.entry.cu
+tmpxft_000035c4_00000000-7_contact_assembly.entry.cudafe1.cpp
+  entry contact_narrow.entry.cu: ok
+contact_narrow.entry.cu
+tmpxft_0000ae44_00000000-7_contact_narrow.entry.cudafe1.cpp
+  entry intersect_geometry.entry.cu: ok
+intersect_geometry.entry.cu
+tmpxft_0000b358_00000000-7_intersect_geometry.entry.cudafe1.cpp
+  entry pair_cache.entry.cu: ok
+pair_cache.entry.cu
+tmpxft_00005b04_00000000-7_pair_cache.entry.cudafe1.cpp
+  entry vertex_constraint.entry.cu: ok
+vertex_constraint.entry.cu
+tmpxft_0000abfc_00000000-7_vertex_constraint.entry.cudafe1.cpp
+  entry dynamic_csr.entry.cu: ok
+dynamic_csr.entry.cu
+tmpxft_00004df0_00000000-7_dynamic_csr.entry.cudafe1.cpp
+  entry fixed_csr.entry.cu: ok
+fixed_csr.entry.cu
+tmpxft_00003e60_00000000-7_fixed_csr.entry.cudafe1.cpp
+  entry face_eigenanalysis.entry.cu: ok
+face_eigenanalysis.entry.cu
+tmpxft_00003ac0_00000000-7_face_eigenanalysis.entry.cudafe1.cpp
+  entry tet_eigenanalysis.entry.cu: ok
+tet_eigenanalysis.entry.cu
+tmpxft_0000b10c_00000000-7_tet_eigenanalysis.entry.cudafe1.cpp
+  entry external_field.entry.cu: ok
+external_field.entry.cu
+tmpxft_000094e0_00000000-7_external_field.entry.cudafe1.cpp
+  entry external_field_implicit.entry.cu: ok
+external_field_implicit.entry.cu
+tmpxft_0000b594_00000000-7_external_field_implicit.entry.cudafe1.cpp
+  entry face_force.entry.cu: ok
+face_force.entry.cu
+tmpxft_0000b014_00000000-7_face_force.entry.cudafe1.cpp
+  entry baraffwitkin.entry.cu: ok
+baraffwitkin.entry.cu
+tmpxft_000097b8_00000000-7_baraffwitkin.entry.cudafe1.cpp
+  entry cosserat.entry.cu: ok
+cosserat.entry.cu
+tmpxft_0000bea4_00000000-7_cosserat.entry.cudafe1.cpp
+  entry face_pressure.entry.cu: ok
+face_pressure.entry.cu
+tmpxft_0000bff4_00000000-7_face_pressure.entry.cudafe1.cpp
+  entry friction.entry.cu: ok
+friction.entry.cu
+tmpxft_0000a428_00000000-7_friction.entry.cudafe1.cpp
+  entry material_diff_table.entry.cu: ok
+material_diff_table.entry.cu
+tmpxft_00006f60_00000000-7_material_diff_table.entry.cudafe1.cpp
+  entry pdrd_lock_projector.entry.cu: ok
+pdrd_lock_projector.entry.cu
+tmpxft_0000b044_00000000-7_pdrd_lock_projector.entry.cudafe1.cpp
+  entry pdrd_rigid.entry.cu: ok
+pdrd_rigid.entry.cu
+tmpxft_00005b04_00000000-7_pdrd_rigid.entry.cudafe1.cpp
+  entry push.entry.cu: ok
+push.entry.cu
+tmpxft_0000a3a8_00000000-7_push.entry.cudafe1.cpp
+  entry rod_bend.entry.cu: ok
+rod_bend.entry.cu
+tmpxft_0000512c_00000000-7_rod_bend.entry.cudafe1.cpp
+  entry rod_bend_stiffness.entry.cu: ok
+rod_bend_stiffness.entry.cu
+tmpxft_0000b7b0_00000000-7_rod_bend_stiffness.entry.cudafe1.cpp
+  entry sand_rigid.entry.cu: ok
+sand_rigid.entry.cu
+tmpxft_0000b034_00000000-7_sand_rigid.entry.cudafe1.cpp
+  entry shell_bend.entry.cu: ok
+shell_bend.entry.cu
+tmpxft_00009090_00000000-7_shell_bend.entry.cudafe1.cpp
+  entry shell_bend_stiffness.entry.cu: ok
+shell_bend_stiffness.entry.cu
+tmpxft_0000a79c_00000000-7_shell_bend_stiffness.entry.cudafe1.cpp
+  entry stitch.entry.cu: ok
+stitch.entry.cu
+tmpxft_000093ec_00000000-7_stitch.entry.cudafe1.cpp
+  entry torque.entry.cu: ok
+torque.entry.cu
+tmpxft_0000abe0_00000000-7_torque.entry.cudafe1.cpp
+  entry rod_force.entry.cu: ok
+rod_force.entry.cu
+tmpxft_0000bd20_00000000-7_rod_force.entry.cudafe1.cpp
+  entry tet_force.entry.cu: ok
+tet_force.entry.cu
+tmpxft_00009634_00000000-7_tet_force.entry.cudafe1.cpp
+  entry bitonic.entry.cu: ok
+bitonic.entry.cu
+tmpxft_0000a43c_00000000-7_bitonic.entry.cudafe1.cpp
+  entry lbvh.entry.cu: ok
+lbvh.entry.cu
+tmpxft_0000b88c_00000000-7_lbvh.entry.cudafe1.cpp
+  entry dirichlet.entry.cu: ok
+dirichlet.entry.cu
+tmpxft_000011fc_00000000-7_dirichlet.entry.cudafe1.cpp
+  entry dump_linsys.entry.cu: ok
+dump_linsys.entry.cu
+tmpxft_0000a53c_00000000-7_dump_linsys.entry.cudafe1.cpp
+  entry dx_norm.entry.cu: ok
+dx_norm.entry.cu
+tmpxft_00003528_00000000-7_dx_norm.entry.cudafe1.cpp
+  entry dx_seed.entry.cu: ok
+dx_seed.entry.cu
+tmpxft_00007a2c_00000000-7_dx_seed.entry.cudafe1.cpp
+  entry fix_xz_drag.entry.cu: ok
+fix_xz_drag.entry.cu
+tmpxft_0000b5b0_00000000-7_fix_xz_drag.entry.cudafe1.cpp
+  entry momentum.entry.cu: ok
+momentum.entry.cu
+tmpxft_0000afc4_00000000-7_momentum.entry.cudafe1.cpp
+  entry override_seed.entry.cu: ok
+override_seed.entry.cu
+tmpxft_0000a7f0_00000000-7_override_seed.entry.cudafe1.cpp
+  entry position_accept.entry.cu: ok
+position_accept.entry.cu
+tmpxft_00009594_00000000-7_position_accept.entry.cudafe1.cpp
+  entry position_step.entry.cu: ok
+position_step.entry.cu
+tmpxft_0000a654_00000000-7_position_step.entry.cudafe1.cpp
+  entry rewind_fix.entry.cu: ok
+rewind_fix.entry.cu
+tmpxft_0000b614_00000000-7_rewind_fix.entry.cudafe1.cpp
+  entry stretch.entry.cu: ok
+stretch.entry.cu
+tmpxft_00008d08_00000000-7_stretch.entry.cudafe1.cpp
+  entry target.entry.cu: ok
+target.entry.cu
+tmpxft_0000bd14_00000000-7_target.entry.cudafe1.cpp
+  entry velocity.entry.cu: ok
+velocity.entry.cu
+tmpxft_00009128_00000000-7_velocity.entry.cudafe1.cpp
+  entry multigrid.entry.cu: ok
+multigrid.entry.cu
+tmpxft_00009e1c_00000000-7_multigrid.entry.cudafe1.cpp
+  entry plasticity.entry.cu: ok
+plasticity.entry.cu
+tmpxft_0000af1c_00000000-7_plasticity.entry.cudafe1.cpp
+  entry radix.entry.cu: ok
+radix.entry.cu
+tmpxft_0000386c_00000000-7_radix.entry.cudafe1.cpp
+  entry reduce_bounds.entry.cu: ok
+reduce_bounds.entry.cu
+tmpxft_0000a10c_00000000-7_reduce_bounds.entry.cudafe1.cpp
+  entry reduce_scalar.entry.cu: ok
+reduce_scalar.entry.cu
+tmpxft_00007b0c_00000000-7_reduce_scalar.entry.cudafe1.cpp
+  entry scan_levels.entry.cu: ok
+scan_levels.entry.cu
+tmpxft_00009a9c_00000000-7_scan_levels.entry.cudafe1.cpp
+  entry vec_ops.entry.cu: ok
+vec_ops.entry.cu
+tmpxft_0000ab6c_00000000-7_vec_ops.entry.cudafe1.cpp
+  entry schwarz.entry.cu: ok
+schwarz.entry.cu
+tmpxft_0000b9e4_00000000-7_schwarz.entry.cudafe1.cpp
+  entry block_jacobi.entry.cu: ok
+block_jacobi.entry.cu
+tmpxft_000020fc_00000000-7_block_jacobi.entry.cudafe1.cpp
+  entry pcg.entry.cu: ok
+pcg.entry.cu
+tmpxft_00009c30_00000000-7_pcg.entry.cudafe1.cpp
+  entry spmv.entry.cu: ok
+spmv.entry.cu
+tmpxft_0000a30c_00000000-7_spmv.entry.cudafe1.cpp
+  entry translation_lock_check.entry.cu: ok
+translation_lock_check.entry.cu
+tmpxft_000087a0_00000000-7_translation_lock_check.entry.cudafe1.cpp
+  entry translation_lock_frames.entry.cu: ok
+translation_lock_frames.entry.cu
+tmpxft_0000aca0_00000000-7_translation_lock_frames.entry.cudafe1.cpp
+  entry translation_lock_rows.entry.cu: ok
+translation_lock_rows.entry.cu
+tmpxft_00009e9c_00000000-7_translation_lock_rows.entry.cudafe1.cpp
+  entry rod_strain.entry.cu: ok
+rod_strain.entry.cu
+tmpxft_0000bc3c_00000000-7_rod_strain.entry.cudafe1.cpp
+  entry shell_strain.entry.cu: ok
+shell_strain.entry.cu
+tmpxft_0000adc8_00000000-7_shell_strain.entry.cudafe1.cpp
+  entry strain_toi.entry.cu: ok
+strain_toi.entry.cu
+tmpxft_0000b4ac_00000000-7_strain_toi.entry.cudafe1.cpp
+  entry collision_window.entry.cu: ok
+collision_window.entry.cu
+tmpxft_0000a344_00000000-7_collision_window.entry.cudafe1.cpp
+  entry face_convert.entry.cu: ok
+face_convert.entry.cu
+tmpxft_00002a84_00000000-7_face_convert.entry.cudafe1.cpp
+  entry face_damping.entry.cu: ok
+face_damping.entry.cu
+tmpxft_0000b0c0_00000000-7_face_damping.entry.cudafe1.cpp
+  entry face_deformation.entry.cu: ok
+face_deformation.entry.cu
+tmpxft_0000b504_00000000-7_face_deformation.entry.cudafe1.cpp
+  entry face_hessian_scatter.entry.cu: ok
+face_hessian_scatter.entry.cu
+tmpxft_00003dd0_00000000-7_face_hessian_scatter.entry.cudafe1.cpp
+  entry face_scatter.entry.cu: ok
+face_scatter.entry.cu
+tmpxft_00000934_00000000-7_face_scatter.entry.cudafe1.cpp
+  entry hinge_damping.entry.cu: ok
+hinge_damping.entry.cu
+tmpxft_00001c98_00000000-7_hinge_damping.entry.cudafe1.cpp
+  entry hinge_scatter.entry.cu: ok
+hinge_scatter.entry.cu
+tmpxft_0000b444_00000000-7_hinge_scatter.entry.cudafe1.cpp
+  entry rod_bend_damping.entry.cu: ok
+rod_bend_damping.entry.cu
+tmpxft_0000243c_00000000-7_rod_bend_damping.entry.cudafe1.cpp
+  entry rod_damping.entry.cu: ok
+rod_damping.entry.cu
+tmpxft_0000bab0_00000000-7_rod_damping.entry.cudafe1.cpp
+  entry rod_scatter.entry.cu: ok
+rod_scatter.entry.cu
+tmpxft_00009bb0_00000000-7_rod_scatter.entry.cudafe1.cpp
+  entry stitch_scatter.entry.cu: ok
+stitch_scatter.entry.cu
+tmpxft_0000a8d0_00000000-7_stitch_scatter.entry.cudafe1.cpp
+  entry svd3x2.entry.cu: ok
+svd3x2.entry.cu
+tmpxft_000092fc_00000000-7_svd3x2.entry.cudafe1.cpp
+  entry svd3x3.entry.cu: ok
+svd3x3.entry.cu
+tmpxft_0000abec_00000000-7_svd3x3.entry.cudafe1.cpp
+  entry tet_convert.entry.cu: ok
+tet_convert.entry.cu
+tmpxft_00009fa8_00000000-7_tet_convert.entry.cudafe1.cpp
+  entry tet_damping.entry.cu: ok
+tet_damping.entry.cu
+tmpxft_000014d0_00000000-7_tet_damping.entry.cudafe1.cpp
+  entry vertex_normal.entry.cu: ok
+vertex_normal.entry.cu
+tmpxft_00009ec4_00000000-7_vertex_normal.entry.cudafe1.cpp
+  entry vertex_scatter.entry.cu: ok
+vertex_scatter.entry.cu
+tmpxft_00009cfc_00000000-7_vertex_scatter.entry.cudafe1.cpp
+  SimpleLog.cpp: ok
+SimpleLog.cpp
+  stub.cpp: ok
+stub.cpp
+=== all 89 commands ok in 137s ===
+Device-linking with LTO (-dlto: native SASS cubins sm_61, sm_75, sm_86, sm_89, sm_90, sm_100, sm_120, no PTX)...
+Linking 89 objects from the response file.
+--- device-link output ---
+backend.obj
+arena.obj
+diagnostics.obj
+aabb.entry.obj
+aabb_traversal.entry.obj
+analytic_contact.entry.obj
+ccd_sweep.entry.obj
+collision_narrow.entry.obj
+contact_assembly.entry.obj
+contact_narrow.entry.obj
+intersect_geometry.entry.obj
+pair_cache.entry.obj
+vertex_constraint.entry.obj
+dynamic_csr.entry.obj
+fixed_csr.entry.obj
+face_eigenanalysis.entry.obj
+tet_eigenanalysis.entry.obj
+external_field.entry.obj
+external_field_implicit.entry.obj
+face_force.entry.obj
+baraffwitkin.entry.obj
+cosserat.entry.obj
+face_pressure.entry.obj
+friction.entry.obj
+material_diff_table.entry.obj
+pdrd_lock_projector.entry.obj
+pdrd_rigid.entry.obj
+push.entry.obj
+rod_bend.entry.obj
+rod_bend_stiffness.entry.obj
+sand_rigid.entry.obj
+shell_bend.entry.obj
+shell_bend_stiffness.entry.obj
+stitch.entry.obj
+torque.entry.obj
+rod_force.entry.obj
+tet_force.entry.obj
+bitonic.entry.obj
+lbvh.entry.obj
+dirichlet.entry.obj
+dump_linsys.entry.obj
+dx_norm.entry.obj
+dx_seed.entry.obj
+fix_xz_drag.entry.obj
+momentum.entry.obj
+override_seed.entry.obj
+position_accept.entry.obj
+position_step.entry.obj
+rewind_fix.entry.obj
+stretch.entry.obj
+target.entry.obj
+velocity.entry.obj
+multigrid.entry.obj
+plasticity.entry.obj
+radix.entry.obj
+reduce_bounds.entry.obj
+reduce_scalar.entry.obj
+scan_levels.entry.obj
+vec_ops.entry.obj
+schwarz.entry.obj
+block_jacobi.entry.obj
+pcg.entry.obj
+spmv.entry.obj
+translation_lock_check.entry.obj
+translation_lock_frames.entry.obj
+translation_lock_rows.entry.obj
+rod_strain.entry.obj
+shell_strain.entry.obj
+strain_toi.entry.obj
+collision_window.entry.obj
+face_convert.entry.obj
+face_damping.entry.obj
+face_deformation.entry.obj
+face_hessian_scatter.entry.obj
+face_scatter.entry.obj
+hinge_damping.entry.obj
+hinge_scatter.entry.obj
+rod_bend_damping.entry.obj
+rod_damping.entry.obj
+rod_scatter.entry.obj
+stitch_scatter.entry.obj
+svd3x2.entry.obj
+svd3x3.entry.obj
+tet_convert.entry.obj
+tet_damping.entry.obj
+vertex_normal.entry.obj
+vertex_scatter.entry.obj
+SimpleLog.obj
+stub.obj
+link.stub
+   Bibliothek "C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-compute\cuda\build\lib\libsimbackend_cuda.lib" und Objekt "C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-compute\cuda\build\lib\libsimbackend_cuda.exp" werden erstellt.
+--- end device-link output ---
+  [DONE] libsimbackend_cuda.dll created
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling autocfg v1.5.0
+   Compiling serde v1.0.228
+   Compiling crossbeam-utils v0.8.21
+   Compiling cfg-if v1.0.4
+   Compiling windows-link v0.2.1
+   Compiling rayon-core v1.13.0
+   Compiling zerocopy v0.8.48
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling winapi v0.3.9
+   Compiling getrandom v0.3.4
+   Compiling bytemuck v1.25.0
+   Compiling paste v1.0.15
+   Compiling zmij v1.0.21
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling memchr v2.8.0
+   Compiling serde_json v1.0.149
+   Compiling once_cell_polyfill v1.70.2
+   Compiling windows-sys v0.61.2
+   Compiling itoa v1.0.18
+   Compiling rawpointer v0.2.1
+   Compiling libc v0.2.186
+   Compiling safe_arch v0.7.4
+   Compiling cc v1.2.61
+   Compiling ppf-cts-compute v0.1.0 (C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-compute)
+   Compiling anstyle v1.0.14
+   Compiling indexmap v2.14.0
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.10
+   Compiling either v1.15.0
+   Compiling rustversion v1.0.22
+   Compiling thiserror v1.0.69
+   Compiling utf8parse v0.2.2
+   Compiling ntapi v0.4.3
+   Compiling parking_lot_core v0.9.12
+   Compiling pin-project-lite v0.2.17
+   Compiling anstyle-query v1.1.5
+   Compiling anstyle-wincon v3.0.11
+   Compiling windows-targets v0.52.6
+   Compiling wide v0.7.33
+   Compiling anstyle-parse v1.0.0
+   Compiling scopeguard v1.2.0
+   Compiling colorchoice v1.0.5
+   Compiling thiserror v2.0.18
+   Compiling ciborium-io v0.2.2
+   Compiling crossbeam-epoch v0.9.18
+   Compiling windows-result v0.1.2
+   Compiling crc32fast v1.5.0
+   Compiling rand_core v0.9.5
+   Compiling unicode-xid v0.2.6
+   Compiling futures-core v0.3.32
+   Compiling destructure_traitobject v0.2.0
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling slab v0.4.12
+   Compiling futures-task v0.3.32
+   Compiling anyhow v1.0.102
+   Compiling smallvec v1.15.1
+   Compiling lock_api v0.4.14
+   Compiling crossbeam-deque v0.8.6
+   Compiling tokio v1.52.2
+   Compiling syn v2.0.117
+   Compiling unsafe-any-ors v1.0.0
+   Compiling anstream v1.0.0
+   Compiling ppf-cts-core v0.1.0 (C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-core)
+   Compiling num-integer v0.1.46
+   Compiling approx v0.5.1
+   Compiling ordered-float v2.10.1
+   Compiling typenum v1.20.0
+   Compiling simd-adler32 v0.3.9
+   Compiling futures-sink v0.3.32
+   Compiling ryu v1.0.23
+   Compiling winnow v0.7.15
+   Compiling num_cpus v1.17.0
+   Compiling heck v0.5.0
+   Compiling adler2 v2.0.1
+   Compiling strsim v0.11.1
+   Compiling clap_lex v1.1.0
+   Compiling num-rational v0.4.2
+   Compiling bytes v1.11.1
+   Compiling unsafe-libyaml v0.2.11
+   Compiling ppf-cts-formats v0.1.0 (C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-formats)
+   Compiling toml_write v0.1.2
+   Compiling miniz_oxide v0.8.9
+   Compiling arc-swap v1.9.1
+   Compiling rayon v1.12.0
+   Compiling parking_lot v0.12.5
+   Compiling clap_builder v4.6.0
+   Compiling typemap-ors v1.0.0
+   Compiling chrono v0.4.44
+   Compiling log v0.4.29
+   Compiling thread-id v5.1.0
+   Compiling unicode-segmentation v1.13.2
+   Compiling humantime v2.3.0
+   Compiling log-mdc v0.1.0
+   Compiling fnv v1.0.7
+   Compiling mock_instant v0.6.0
+   Compiling flate2 v1.1.9
+   Compiling git_info v0.1.3
+   Compiling more-asserts v0.2.2
+   Compiling serde_derive v1.0.228
+   Compiling zerocopy-derive v0.8.48
+   Compiling windows-interface v0.57.0
+   Compiling windows-implement v0.57.0
+   Compiling futures-macro v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling thiserror-impl v2.0.18
+   Compiling nalgebra-macros v0.2.2
+   Compiling derive_more-impl v2.1.1
+   Compiling clap_derive v4.6.1
+   Compiling ppf-cts-solver v0.1.0 (C:\Users\timch\Documents\GitHub\ppf-contact-solver-hydrodynamics\crates\ppf-cts-solver)
+warning: value assigned to `abi_linked` is never read
+    --> crates\ppf-cts-solver\build.rs:4275:26
+     |
+4275 |     let mut abi_linked = false;
+     |                          ^^^^^ this value is reassigned later and never used
+...
+4596 |             abi_linked = true;
+     |             ----------------- `abi_linked` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `logic_dir` is never used
+  --> crates\ppf-cts-solver\build.rs:66:8
+   |
+37 | impl Backend {
+   | ------------ method in this implementation
+...
+66 |     fn logic_dir(self) -> Option<&'static str> {
+   |        ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REQUIRED_CUDA_RELEASE` is never used
+   --> crates\ppf-cts-solver\build.rs:295:7
+    |
+295 | const REQUIRED_CUDA_RELEASE: &str = "release 12.8";
+    |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `require_cuda_12_8` is never used
+   --> crates\ppf-cts-solver\build.rs:313:4
+    |
+313 | fn require_cuda_12_8(cpp_dir: &str, kernel_root: &Path) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `manifest_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4796:8
+     |
+4796 |     fn manifest_arches(cpp_dir: &str) -> Vec<u32> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4828:8
+     |
+4828 |     fn image_arches(image: &Path) -> Option<Vec<u32>> {
+     |        ^^^^^^^^^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:4849:12
+     |
+4849 |     pub fn check(image: &Path, cpp_dir: &str) {
+     |            ^^^^^
+
+warning: constant `FP64_OPS` is never used
+    --> crates\ppf-cts-solver\build.rs:4925:11
+     |
+4925 |     const FP64_OPS: [&str; 7] = [
+     |           ^^^^^^^^
+
+warning: constant `FP64_MODIFIER` is never used
+    --> crates\ppf-cts-solver\build.rs:4933:11
+     |
+4933 |     const FP64_MODIFIER: &str = ".F64";
+     |           ^^^^^^^^^^^^^
+
+warning: constant `KNOWN` is never used
+    --> crates\ppf-cts-solver\build.rs:4941:11
+     |
+4941 |     const KNOWN: [&str; 0] = [];
+     |           ^^^^^
+
+warning: function `contains_fp64_modifier` is never used
+    --> crates\ppf-cts-solver\build.rs:4956:8
+     |
+4956 |     fn contains_fp64_modifier(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `contains_mnemonic` is never used
+    --> crates\ppf-cts-solver\build.rs:4964:8
+     |
+4964 |     fn contains_mnemonic(line: &str, op: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^
+
+warning: function `image_arches` is never used
+    --> crates\ppf-cts-solver\build.rs:4987:8
+     |
+4987 |     fn image_arches(image: &Path) -> Vec<String> {
+     |        ^^^^^^^^^^^^
+
+warning: function `is_instruction` is never used
+    --> crates\ppf-cts-solver\build.rs:5022:8
+     |
+5022 |     fn is_instruction(line: &str) -> bool {
+     |        ^^^^^^^^^^^^^^
+
+warning: function `scan` is never used
+    --> crates\ppf-cts-solver\build.rs:5035:8
+     |
+5035 |     fn scan(sass: &str, offenders: &mut Vec<(String, usize)>) -> usize {
+     |        ^^^^
+
+warning: function `check` is never used
+    --> crates\ppf-cts-solver\build.rs:5059:12
+     |
+5059 |     pub fn check(image: &Path) {
+     |            ^^^^^
+
+   Compiling windows-core v0.57.0
+   Compiling futures-util v0.3.32
+   Compiling derive_more v2.1.1
+warning: `ppf-cts-solver` (build script) generated 16 warnings
+   Compiling clap v4.6.1
+   Compiling windows v0.57.0
+   Compiling tokio-util v0.7.18
+   Compiling num-complex v0.4.6
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling serde-value v0.7.0
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling bincode v1.3.3
+   Compiling toml_edit v0.22.27
+   Compiling simba v0.9.1
+   Compiling ndarray v0.16.1
+   Compiling toml v0.8.23
+   Compiling ppv-lite86 v0.2.21
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium v0.2.2
+   Compiling rand v0.9.4
+   Compiling log4rs v1.4.0
+   Compiling nalgebra v0.33.3
+   Compiling sysinfo v0.32.1
+warning: field `node` is never read
+  --> crates\ppf-cts-solver\src\cosserat.rs:95:9
+   |
+94 | pub struct CosseratBendSite {
+   |            ---------------- field in this struct
+95 |     pub node: u32,
+   |         ^^^^
+   |
+   = note: `CosseratBendSite` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ppf-cts-solver` (bin "ppf-contact-solver") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 9m 33s

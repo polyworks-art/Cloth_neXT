@@ -1,0 +1,63 @@
+{
+  "result": "PASS",
+  "previous": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\stability-fixed",
+  "verified_previous_gates": [
+    {
+      "name": "cache-integrity",
+      "returncode": 0,
+      "seconds": 28.57800000000134,
+      "result": "PASS"
+    },
+    {
+      "name": "fluid-cancel",
+      "returncode": 0,
+      "seconds": 29.71899999999914,
+      "result": "PASS"
+    },
+    {
+      "name": "fluid-resume",
+      "returncode": 0,
+      "seconds": 28.98400000000038,
+      "result": "PASS"
+    },
+    {
+      "name": "lifecycle",
+      "returncode": 0,
+      "seconds": 779.3119999999999,
+      "result": "PASS"
+    }
+  ],
+  "previous_integration_passed": 10,
+  "gates": [
+    {
+      "name": "physical-cleanup-integration",
+      "returncode": 0,
+      "seconds": 43.54699999999866,
+      "result": "PASS"
+    },
+    {
+      "name": "scoped-sewing-with-live-sibling-probe",
+      "returncode": 0,
+      "seconds": 176.03099999999904,
+      "result": "PASS"
+    },
+    {
+      "name": "collider-attachments",
+      "returncode": 0,
+      "seconds": 110.7029999999977,
+      "result": "PASS"
+    },
+    {
+      "name": "idle-keepalive",
+      "returncode": 0,
+      "seconds": 54.07900000000154,
+      "result": "PASS"
+    }
+  ],
+  "sibling_probe": {
+    "pid": 43036,
+    "name": "ppf-contact-metadata-probe.exe",
+    "role": "non-solver process matching the old host-global name scan",
+    "all_three_native_solves_passed_while_probe_alive": true
+  }
+}

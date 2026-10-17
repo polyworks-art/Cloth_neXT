@@ -1,0 +1,354 @@
+{
+  "result": "FAIL",
+  "solver": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\target\\cuda\\release\\ppf-cts-server.exe",
+  "blender": "5.2.2 LTS",
+  "frames": 3,
+  "vertices": 23356,
+  "total_cloth_vertices": 23356,
+  "combination": "base",
+  "coupling_strength": 1.0,
+  "self_collision_enabled": true,
+  "source_range": [
+    1,
+    3
+  ],
+  "dry": false,
+  "center": [
+    -0.5071269273757935,
+    -0.8373814821243286,
+    0.6050718426704407
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "headless_timer_pump": true,
+  "fps": 30.0,
+  "quality": {
+    "time_step": 0.009999999776482582,
+    "cg_max_iter": 2500,
+    "cg_tol": 0.009999999776482582
+  },
+  "geometry_source": "Existing scene meshes and enabled collider roles",
+  "excluded_colliders": [
+    "SW_04_body_lod0_mesh.001"
+  ],
+  "scene_objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "role": "CLOTH",
+      "vertices": 14946,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "role": "CLOTH",
+      "vertices": 4379,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "role": "CLOTH",
+      "vertices": 4031,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_body_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 30455,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    },
+    {
+      "name": "SW_04_head_lod0_mesh",
+      "role": "COLLIDER",
+      "vertices": 24049,
+      "pinning_enabled": false,
+      "self_collision_enabled": true
+    }
+  ],
+  "ram_safety": {
+    "enabled": true,
+    "threshold_percent": 90
+  },
+  "state_transitions": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.005878999999936241
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.6023854999999685
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 16.027378699999986
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 29.03401199999996
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 29.06669899999997
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 30.548866299999986
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 37.208028499999955
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 37.43400759999997
+    },
+    {
+      "state": "ERROR",
+      "seconds": 40.312651399999936
+    }
+  ],
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "ERROR",
+  "error": "The solver reported a failure while building. No verified recovery checkpoint is available.",
+  "error_details": "Stage: solver project build\nCause: server status FAILED during building: FileExistsError: [WinError 183] Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist: 'C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-32-win64\\\\target\\\\local\\\\share\\\\ppf-cts\\\\git-unknown\\\\clothnext_43ec1143ff14\\\\.cash' | at frontend/build_worker.py:611 in main: os.makedirs(cache_root, exist_ok=True) | errno=17 winerror=183 strerror='Eine Datei kann nicht erstellt werden, wenn sie bereits vorhanden ist' filename='C:\\\\Users\\\\timch\\\\AppData\\\\Local\\\\ClothNeXt\\\\solver\\\\versions\\\\official-2026-10-13-12-3...\nWhat to do: Inspect the Cloth NeXt log and the solver stderr tail, then retry.\nDiagnostic log: C:\\Users\\timch\\AppData\\Local\\Temp\\blender_a44240\\cloth_next_run_clothnext_43ec1143ff14\\failure.log",
+  "exception": "AssertionError('Regular Bake ended in ERROR: The solver reported a failure while building. No verified recovery checkpoint is available.')",
+  "session_timings_and_contacts": [
+    {
+      "timings": {
+        "native_fluid_encoding": 1.3835836999999174,
+        "start_solver": 6.6689175000000205,
+        "upload": 0.2244772000000239,
+        "build": 2.471365399999968,
+        "total": 10.802562999999964
+      },
+      "contact_peak": 0,
+      "contact_samples": 0
+    }
+  ],
+  "system_ram_samples": [
+    {
+      "updated_at": 0.0,
+      "seconds": 0.005251199999975142,
+      "used_bytes": null,
+      "total_bytes": null,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077085.295077,
+      "seconds": 1.6017719999999827,
+      "used_bytes": 25322561536,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077086.3830755,
+      "seconds": 2.324265999999966,
+      "used_bytes": 25310486528,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077087.472122,
+      "seconds": 3.411792099999957,
+      "used_bytes": 25375956992,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077088.56181,
+      "seconds": 4.499954099999968,
+      "used_bytes": 25555800064,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077089.6515846,
+      "seconds": 5.608216200000015,
+      "used_bytes": 25424625664,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077090.7407637,
+      "seconds": 6.695542499999988,
+      "used_bytes": 25461653504,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077091.8297796,
+      "seconds": 7.789600899999982,
+      "used_bytes": 25463279616,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077092.9362726,
+      "seconds": 8.94174739999994,
+      "used_bytes": 25513598976,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077094.0880663,
+      "seconds": 10.384084799999982,
+      "used_bytes": 25985441792,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077095.1928499,
+      "seconds": 11.144566199999986,
+      "used_bytes": 25777471488,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077096.296289,
+      "seconds": 12.233898299999964,
+      "used_bytes": 25684062208,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077097.386432,
+      "seconds": 13.355596099999957,
+      "used_bytes": 25873666048,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077098.49329,
+      "seconds": 14.465978800000016,
+      "used_bytes": 25946587136,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077099.614328,
+      "seconds": 15.847320099999934,
+      "used_bytes": 26089734144,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077100.7343075,
+      "seconds": 17.847059599999966,
+      "used_bytes": 26097700864,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077101.9154222,
+      "seconds": 17.868614099999945,
+      "used_bytes": 26105573376,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077103.0056558,
+      "seconds": 19.56602239999995,
+      "used_bytes": 26579963904,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077112.9437132,
+      "seconds": 29.03324699999996,
+      "used_bytes": 26574802944,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077114.035127,
+      "seconds": 29.993325899999945,
+      "used_bytes": 26565513216,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077115.1572592,
+      "seconds": 31.165079099999957,
+      "used_bytes": 26596261888,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077116.309594,
+      "seconds": 32.315927999999985,
+      "used_bytes": 26571395072,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077117.4624863,
+      "seconds": 33.40520409999999,
+      "used_bytes": 26553040896,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077118.5531514,
+      "seconds": 34.494143399999984,
+      "used_bytes": 26565636096,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077119.6571798,
+      "seconds": 35.603929600000015,
+      "used_bytes": 26536263680,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077120.762558,
+      "seconds": 36.75489429999993,
+      "used_bytes": 26535878656,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077121.900001,
+      "seconds": 37.96790299999998,
+      "used_bytes": 26568249344,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077123.1280754,
+      "seconds": 39.07779819999996,
+      "used_bytes": 26519486464,
+      "total_bytes": 67792531456,
+      "stale": false
+    },
+    {
+      "updated_at": 1792077124.253759,
+      "seconds": 40.311872199999925,
+      "used_bytes": 26506072064,
+      "total_bytes": 67792531456,
+      "stale": false
+    }
+  ],
+  "solver_diagnostics_samples": [
+    {
+      "seconds": 37.848310699999956,
+      "contacts": null,
+      "newton": null,
+      "iterations": null
+    }
+  ],
+  "solver_diagnostics_paths": [
+    "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\docs\\validation\\gaia026\\coupling-investigation\\operator-profile3\\.cloth_next_recovery\\9e8b9ddedccd41fffb3c98a0d91e9c643af7b43b12aef93a2a78c147448a6992-8308f7621f6942dbbb269be474bca22b\\server-data\\clothnext_43ec1143ff14\\session\\output\\data"
+  ],
+  "runtime_metric_reader_source": "def _tail_numeric_metric(path: Path) -> int | None:\n    \"\"\"Read one live PPF metric without loading its growing history.\"\"\"\n    try:\n        with io_path(path).open(\"rb\") as stream:\n            stream.seek(0, 2)\n            size = stream.tell()\n            if size <= 0:\n                return None\n            stream.seek(max(0, size - 4096))\n            lines = stream.read().splitlines()\n    except OSError:\n        return None\n    for line in reversed(lines):\n        fields = line.split()\n        if len(fields) < 2:\n            continue\n        try:\n            return int(float(fields[-1]))\n        except ValueError:\n            continue\n    return None\n",
+  "blender_peak_working_set_bytes": 4461019136,
+  "source_blend_unchanged": true,
+  "source_cache_unchanged": true,
+  "source_cache_files_checked": 10,
+  "wall_seconds": 41.55097169999999
+}

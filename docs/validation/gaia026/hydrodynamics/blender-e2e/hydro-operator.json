@@ -1,0 +1,99 @@
+{
+  "result": "FAIL",
+  "blender": "5.2.2 LTS",
+  "range": [
+    131,
+    133
+  ],
+  "entry_point": "bpy.ops.clothnext.bake(EXEC_DEFAULT)",
+  "states": [
+    {
+      "state": "PREPARING",
+      "seconds": 0.0035901999999623513
+    },
+    {
+      "state": "PREPARING_WATER",
+      "seconds": 1.457379000000401
+    },
+    {
+      "state": "PREPARING",
+      "seconds": 14.334827100000439
+    },
+    {
+      "state": "STARTING_RUN",
+      "seconds": 30.1859486000003
+    },
+    {
+      "state": "EXPORTING",
+      "seconds": 30.209998900000755
+    },
+    {
+      "state": "STARTING_SOLVER",
+      "seconds": 53.18332310000005
+    },
+    {
+      "state": "UPLOADING",
+      "seconds": 59.84168310000041
+    },
+    {
+      "state": "BUILDING",
+      "seconds": 59.94493990000046
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 69.02727520000008
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 70.52628929999992
+    },
+    {
+      "state": "SIMULATING",
+      "seconds": 72.93254920000072
+    },
+    {
+      "state": "FETCHING",
+      "seconds": 72.9741066000006
+    },
+    {
+      "state": "IMPORTING",
+      "seconds": 74.86800620000031
+    },
+    {
+      "state": "FINISHED",
+      "seconds": 77.00915280000027
+    }
+  ],
+  "solver": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\runtime\\target\\cuda\\release\\ppf-cts-server.exe",
+  "addon_version": "2.9.25",
+  "objects": [
+    {
+      "name": "S04_NEON_Garments",
+      "vertices": 14946,
+      "material": "MIT_OUTDOOR_POLYESTER"
+    },
+    {
+      "name": "S04_NEON_Garments.001",
+      "vertices": 4379,
+      "material": "CUSTOM"
+    },
+    {
+      "name": "S04_NEON_Garments.002",
+      "vertices": 4031,
+      "material": "PRODUCT_YAMAMOTO_39_3MM"
+    }
+  ],
+  "attachment_groups": 4,
+  "attachment_count": 186,
+  "operator_result": [
+    "RUNNING_MODAL"
+  ],
+  "state": "FINISHED",
+  "error": "",
+  "error_details": "",
+  "work_directory": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\temp\\blender_a06616\\cloth_next_run_clothnext_be4568281d47",
+  "seconds": 77.10020710000026,
+  "playback": [],
+  "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\tools\\blender_neon_hydrodynamic_e2e.py\", line 113, in main\n    assert len(maps)==1,[str(p) for p in maps]\n           ^^^^^^^^^^^^\nAssertionError: []\n",
+  "session_evidence": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-a-131-133-r9\\session-evidence"
+}

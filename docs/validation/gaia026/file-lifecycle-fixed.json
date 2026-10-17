@@ -1,0 +1,16 @@
+{
+  "blender": "5.2.2 LTS",
+  "cloth_uuid": "e224149d-b3a4-8f55-35a2-382ce411892d",
+  "collider_uuid": "ac9a5572-a4ce-4dff-0fd1-a4ce1cf46c68",
+  "handlers_while_registered": 4,
+  "unicode_save_reopen": true,
+  "scene_switch_delete": true,
+  "undo_redo": false,
+  "undo_redo_reason": "Blender background mode has no undo editor context",
+  "rename_delete_reopen": true,
+  "artist_cache_preserved": true,
+  "owned_playback_disable_restore": true,
+  "owned_playback_retarget": true,
+  "clear_removed_retargeted_cache": true,
+  "windows_lock_preserved_old_cache": true
+}

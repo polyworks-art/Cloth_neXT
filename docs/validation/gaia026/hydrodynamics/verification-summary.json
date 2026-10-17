@@ -1,0 +1,11 @@
+{
+  "source_surfaces_hash_unchanged": true,
+  "native_full_cases": 11,
+  "native_cpu_regressions_passed": 578,
+  "native_cpu_ignored": 9,
+  "addon_focused_passed": 175,
+  "hydrodynamic_neon_solve_executed": false,
+  "cuda_executed": false,
+  "ui_enabled": false,
+  "solver_sha256": "dcf2a1c530ae5cd2ee77a594a7898f2d3a38e6654fb34eca86a9743cad916378"
+}

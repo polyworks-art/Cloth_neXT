@@ -1,0 +1,4728 @@
+{
+  "scope": "actual native trajectories; force telemetry is native, not a host force reconstruction",
+  "backend": "cpu",
+  "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+  "quality": {
+    "dt": 0.009999999776482582,
+    "min-newton-steps": 4,
+    "cg-max-iter": 2500,
+    "cg-tol": 0.0001,
+    "target-toi": 0.25,
+    "line-search-max-t": 1.25,
+    "constraint-ghat": 0.0010000000474974513,
+    "constraint-tol": 0.009999999776482582,
+    "max-newton-steps": 2048,
+    "max-dx": 0.001,
+    "eiganalysis-eps": 0.009999999776482582,
+    "friction-eps": 9.999999747378752e-06,
+    "csrmat-max-nnz": 10000000,
+    "barrier": "cubic",
+    "gravity": [
+      0.0,
+      -9.8100004196167,
+      -0.0
+    ],
+    "wind": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "frames": 29,
+    "fps": 30.0,
+    "friction-mode": "min",
+    "disable-contact": false,
+    "auto-save": 20,
+    "keep-states": 3
+  },
+  "cases": [
+    {
+      "label": "dry1",
+      "seconds": 813.953,
+      "seconds_scope": "resumed segment only; earlier compute excluded",
+      "log_scope": "resumed segment only",
+      "resume": {
+        "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry1_1792122362068647400\\session",
+        "checkpoint": 19,
+        "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+        "command": [
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+          "--path",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\dry1\\session",
+          "--output",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\dry1\\session\\output",
+          "--load",
+          "19"
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.013327292663665034,
+            "rms_m": 0.0017751624689896564
+          },
+          "velocity_interval_mean_m_s": 0.00295249311071226,
+          "velocity_interval_max_m_s": 0.2343653975656739,
+          "edge_stretch_min": 0.7048831692973626,
+          "edge_stretch_max": 1.0242288405086586,
+          "mean_abs_edge_strain": 0.0010480635267600673,
+          "mean_bend_change_rad": 0.020429961732072153,
+          "max_bend_change_rad": 1.2080620456063402,
+          "minimum_triangle_area_m2": 2.927853554384271e-06,
+          "native_contact_peak": 2310,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.0036340062338927584,
+            "rms_m": 0.000914252538139196
+          },
+          "velocity_interval_mean_m_s": 0.001563520601649117,
+          "velocity_interval_max_m_s": 0.10902018701678275,
+          "edge_stretch_min": 0.9561818154577485,
+          "edge_stretch_max": 1.0084611051550345,
+          "mean_abs_edge_strain": 0.0004855253204390695,
+          "mean_bend_change_rad": 0.006008788148288357,
+          "max_bend_change_rad": 0.20206624355545988,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1614,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.007945350789170965,
+            "rms_m": 0.0018256508303911424
+          },
+          "velocity_interval_mean_m_s": 0.002002957921205334,
+          "velocity_interval_max_m_s": 0.20472494991483586,
+          "edge_stretch_min": 0.680280420435011,
+          "edge_stretch_max": 1.1217701887491263,
+          "mean_abs_edge_strain": 0.009109175366857703,
+          "mean_bend_change_rad": 0.043657055226582996,
+          "max_bend_change_rad": 1.8622211949994831,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 8656,
+          "finite": true
+        }
+      },
+      "native_loads": [],
+      "max_newton_steps": 4,
+      "max_linear_relative_residual": 9.999e-05,
+      "max_cg_iterations": 837,
+      "native_advances": 33,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    },
+    {
+      "label": "flow1",
+      "seconds": 818.516,
+      "seconds_scope": "resumed segment only; earlier compute excluded",
+      "log_scope": "resumed segment only",
+      "resume": {
+        "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_flow1_1792122293851461200\\session",
+        "checkpoint": 19,
+        "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+        "command": [
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+          "--path",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\flow1\\session",
+          "--output",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\flow1\\session\\output",
+          "--load",
+          "19"
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.013388214920190626,
+            "rms_m": 0.0017849870174249177
+          },
+          "velocity_interval_mean_m_s": 0.0029714576656369664,
+          "velocity_interval_max_m_s": 0.22875865480237625,
+          "edge_stretch_min": 0.7048637766252069,
+          "edge_stretch_max": 1.0242155678729254,
+          "mean_abs_edge_strain": 0.001047989876886153,
+          "mean_bend_change_rad": 0.02047390429971827,
+          "max_bend_change_rad": 1.2076179408868055,
+          "minimum_triangle_area_m2": 2.9278217386105744e-06,
+          "native_contact_peak": 2301,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.0036258225056681995,
+            "rms_m": 0.0009154968874394032
+          },
+          "velocity_interval_mean_m_s": 0.0015607829646936404,
+          "velocity_interval_max_m_s": 0.10877467517004599,
+          "edge_stretch_min": 0.9561362425293457,
+          "edge_stretch_max": 1.0084627638723067,
+          "mean_abs_edge_strain": 0.00048579179893652594,
+          "mean_bend_change_rad": 0.006013166436812443,
+          "max_bend_change_rad": 0.20251060689709632,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1615,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.007940860409474757,
+            "rms_m": 0.0018270569618088382
+          },
+          "velocity_interval_mean_m_s": 0.002003034543352076,
+          "velocity_interval_max_m_s": 0.205316687248002,
+          "edge_stretch_min": 0.6803329396570514,
+          "edge_stretch_max": 1.121739092871898,
+          "mean_abs_edge_strain": 0.009110077184887506,
+          "mean_bend_change_rad": 0.04366889034577902,
+          "max_bend_change_rad": 1.8650593982224088,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 8667,
+          "finite": true
+        }
+      },
+      "native_loads": [],
+      "max_newton_steps": 4,
+      "max_linear_relative_residual": 0.0001,
+      "max_cg_iterations": 826,
+      "native_advances": 33,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    },
+    {
+      "label": "dry2",
+      "seconds": 827.703,
+      "seconds_scope": "resumed segment only; earlier compute excluded",
+      "log_scope": "resumed segment only",
+      "resume": {
+        "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_dry2_1792122293996115900\\session",
+        "checkpoint": 19,
+        "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+        "command": [
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+          "--path",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\dry2\\session",
+          "--output",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\dry2\\session\\output",
+          "--load",
+          "19"
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.013331348035833853,
+            "rms_m": 0.0017706953514130279
+          },
+          "velocity_interval_mean_m_s": 0.0029509539453043353,
+          "velocity_interval_max_m_s": 0.22798104943619518,
+          "edge_stretch_min": 0.7048749936652644,
+          "edge_stretch_max": 1.0242336401434313,
+          "mean_abs_edge_strain": 0.0010478308629982534,
+          "mean_bend_change_rad": 0.020420325455549653,
+          "max_bend_change_rad": 1.2079409889680048,
+          "minimum_triangle_area_m2": 2.927864468738301e-06,
+          "native_contact_peak": 2309,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.003653651605553859,
+            "rms_m": 0.0009132308304261705
+          },
+          "velocity_interval_mean_m_s": 0.0015585182780469917,
+          "velocity_interval_max_m_s": 0.10960954816661578,
+          "edge_stretch_min": 0.9562407936884967,
+          "edge_stretch_max": 1.0084725771928458,
+          "mean_abs_edge_strain": 0.0004854014694749737,
+          "mean_bend_change_rad": 0.006004565530747809,
+          "max_bend_change_rad": 0.20268700938341122,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1617,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.00794491465815761,
+            "rms_m": 0.001824814835273195
+          },
+          "velocity_interval_mean_m_s": 0.0020028880180248507,
+          "velocity_interval_max_m_s": 0.20474657776698782,
+          "edge_stretch_min": 0.6802758640762976,
+          "edge_stretch_max": 1.121684993462276,
+          "mean_abs_edge_strain": 0.009109630071841773,
+          "mean_bend_change_rad": 0.0436406266361019,
+          "max_bend_change_rad": 1.8544563250862862,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 8656,
+          "finite": true
+        }
+      },
+      "native_loads": [],
+      "max_newton_steps": 4,
+      "max_linear_relative_residual": 9.996e-05,
+      "max_cg_iterations": 946,
+      "native_advances": 33,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    },
+    {
+      "label": "hydro1",
+      "seconds": 988.828,
+      "seconds_scope": "resumed segment only; earlier compute excluded",
+      "log_scope": "resumed segment only",
+      "resume": {
+        "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro1_1792121857649978500\\session",
+        "checkpoint": 19,
+        "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+        "command": [
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+          "--path",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro1\\session",
+          "--output",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro1\\session\\output",
+          "--load",
+          "19"
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.05350417630016673,
+            "rms_m": 0.010002595856354749
+          },
+          "velocity_interval_mean_m_s": 0.016029006248323457,
+          "velocity_interval_max_m_s": 0.2749283587813854,
+          "edge_stretch_min": 0.7065573727661005,
+          "edge_stretch_max": 1.0242111116620347,
+          "mean_abs_edge_strain": 0.001840059782182913,
+          "mean_bend_change_rad": 0.05992523085926835,
+          "max_bend_change_rad": 2.205274607861024,
+          "minimum_triangle_area_m2": 2.9100867425675776e-06,
+          "native_contact_peak": 6937,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.0036532438642858348,
+            "rms_m": 0.0009149684947249553
+          },
+          "velocity_interval_mean_m_s": 0.0015634567436387985,
+          "velocity_interval_max_m_s": 0.10959731592857504,
+          "edge_stretch_min": 0.9555996012806721,
+          "edge_stretch_max": 1.0084808882006773,
+          "mean_abs_edge_strain": 0.0004861135416405986,
+          "mean_bend_change_rad": 0.006009729454594254,
+          "max_bend_change_rad": 0.20276236625815547,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1622,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.00793124973410881,
+            "rms_m": 0.0018280260290938172
+          },
+          "velocity_interval_mean_m_s": 0.0020333172266369394,
+          "velocity_interval_max_m_s": 0.2030073202922147,
+          "edge_stretch_min": 0.677232962402941,
+          "edge_stretch_max": 1.1217314096537923,
+          "mean_abs_edge_strain": 0.009138701284439072,
+          "mean_bend_change_rad": 0.04361334043739566,
+          "max_bend_change_rad": 1.8530093981589573,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 10130,
+          "finite": true
+        }
+      },
+      "native_loads": [
+        {
+          "output_frame": 1,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              3,
+              3
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.03415551409125328,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990748286247253,
+              "wet_area_m2": 0.5525387525558472,
+              "normal_force_magnitude_sum_n": 0.11467228084802628,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.044102828949689865,
+                0.015111535787582397,
+                0.015967972576618195
+              ],
+              "two_sided_wet_area_m2": 0.5525310039520264,
+              "mean_fluid_speed_wet_m_s": 0.02457422763109207,
+              "mean_relative_speed_wet_m_s": 0.029535192996263504,
+              "max_fluid_speed_m_s": 0.03926681727170944,
+              "max_relative_speed_m_s": 0.09999987483024597
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536561191082001,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32883572578430176,
+              "wet_area_m2": 0.007934575900435448,
+              "normal_force_magnitude_sum_n": 0.00045640155440196395,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0003539930912666023,
+                8.819563845463563e-06,
+                -2.854976810340304e-05
+              ],
+              "two_sided_wet_area_m2": 0.007934575900435448,
+              "mean_fluid_speed_wet_m_s": 0.022806763648986816,
+              "mean_relative_speed_wet_m_s": 0.023463262245059013,
+              "max_fluid_speed_m_s": 0.034057922661304474,
+              "max_relative_speed_m_s": 0.035326991230249405
+            }
+          }
+        },
+        {
+          "output_frame": 2,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              4,
+              4
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.07403165847063065,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                3
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990949153900146,
+              "wet_area_m2": 0.5525248050689697,
+              "normal_force_magnitude_sum_n": 0.14623454213142395,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.10881532728672028,
+                -0.0013087468687444925,
+                0.012167064473032951
+              ],
+              "two_sided_wet_area_m2": 0.5525248050689697,
+              "mean_fluid_speed_wet_m_s": 0.05277508124709129,
+              "mean_relative_speed_wet_m_s": 0.04382184520363808,
+              "max_fluid_speed_m_s": 0.08641764521598816,
+              "max_relative_speed_m_s": 0.0823395699262619
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536890506744385,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32889288663864136,
+              "wet_area_m2": 0.007773909717798233,
+              "normal_force_magnitude_sum_n": 0.0014778936747461557,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0011230913223698735,
+                -2.007154944294598e-05,
+                -2.4972228857222944e-05
+              ],
+              "two_sided_wet_area_m2": 0.007773909717798233,
+              "mean_fluid_speed_wet_m_s": 0.04757825285196304,
+              "mean_relative_speed_wet_m_s": 0.047652799636125565,
+              "max_fluid_speed_m_s": 0.07553981989622116,
+              "max_relative_speed_m_s": 0.07529255747795105
+            }
+          }
+        },
+        {
+          "output_frame": 3,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              5,
+              5
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.10375208407640457,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                4,
+                3
+              ],
+              [
+                4,
+                3
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990875840187073,
+              "wet_area_m2": 0.5528952479362488,
+              "normal_force_magnitude_sum_n": 0.28296005725860596,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.2214880883693695,
+                -0.003014650894328952,
+                0.011242303997278214
+              ],
+              "two_sided_wet_area_m2": 0.5528952479362488,
+              "mean_fluid_speed_wet_m_s": 0.07345344126224518,
+              "mean_relative_speed_wet_m_s": 0.062443315982818604,
+              "max_fluid_speed_m_s": 0.1221664771437645,
+              "max_relative_speed_m_s": 0.11727751046419144
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370174646377563,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32892024517059326,
+              "wet_area_m2": 0.007585357408970594,
+              "normal_force_magnitude_sum_n": 0.0023735356517136097,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0017417070921510458,
+                -2.6069785235449672e-05,
+                -8.26994510134682e-05
+              ],
+              "two_sided_wet_area_m2": 0.007585357408970594,
+              "mean_fluid_speed_wet_m_s": 0.06524388492107391,
+              "mean_relative_speed_wet_m_s": 0.06532184034585953,
+              "max_fluid_speed_m_s": 0.10805884748697281,
+              "max_relative_speed_m_s": 0.10790054500102997
+            }
+          }
+        },
+        {
+          "output_frame": 4,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              6,
+              6
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.13371337950229645,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                4,
+                5
+              ],
+              [
+                4,
+                5
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990806102752686,
+              "wet_area_m2": 0.5540821552276611,
+              "normal_force_magnitude_sum_n": 0.48281145095825195,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.3820185959339142,
+                -0.005405215080827475,
+                0.006166067440062761
+              ],
+              "two_sided_wet_area_m2": 0.5540821552276611,
+              "mean_fluid_speed_wet_m_s": 0.09393703937530518,
+              "mean_relative_speed_wet_m_s": 0.08185537904500961,
+              "max_fluid_speed_m_s": 0.15862496197223663,
+              "max_relative_speed_m_s": 0.15018606185913086
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536964416503906,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32897090911865234,
+              "wet_area_m2": 0.007746513467282057,
+              "normal_force_magnitude_sum_n": 0.003460787935182452,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0025297196116298437,
+                1.8647204342414625e-05,
+                -0.0002086618624161929
+              ],
+              "two_sided_wet_area_m2": 0.007746513467282057,
+              "mean_fluid_speed_wet_m_s": 0.0810459777712822,
+              "mean_relative_speed_wet_m_s": 0.08113465458154678,
+              "max_fluid_speed_m_s": 0.1423950344324112,
+              "max_relative_speed_m_s": 0.1422383040189743
+            }
+          }
+        },
+        {
+          "output_frame": 5,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              7,
+              7
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.17371338605880737,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                6,
+                5
+              ],
+              [
+                6,
+                5
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990472316741943,
+              "wet_area_m2": 0.5536616444587708,
+              "normal_force_magnitude_sum_n": 0.8211238980293274,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.6506826281547546,
+                -0.010716985911130905,
+                0.0013065945822745562
+              ],
+              "two_sided_wet_area_m2": 0.5536559224128723,
+              "mean_fluid_speed_wet_m_s": 0.12078221142292023,
+              "mean_relative_speed_wet_m_s": 0.10715436935424805,
+              "max_fluid_speed_m_s": 0.2082754373550415,
+              "max_relative_speed_m_s": 0.19865137338638306
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536965012550354,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290303945541382,
+              "wet_area_m2": 0.007594790309667587,
+              "normal_force_magnitude_sum_n": 0.004537167027592659,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0031362653244286776,
+                2.63105976046063e-05,
+                -0.00040879318839870393
+              ],
+              "two_sided_wet_area_m2": 0.007594790309667587,
+              "mean_fluid_speed_wet_m_s": 0.10297010093927383,
+              "mean_relative_speed_wet_m_s": 0.10303552448749542,
+              "max_fluid_speed_m_s": 0.19159820675849915,
+              "max_relative_speed_m_s": 0.1914547234773636
+            }
+          }
+        },
+        {
+          "output_frame": 6,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              8,
+              8
+            ],
+            "dt_s": 0.009817940182983875,
+            "evaluation_time_s": 0.20309501886367798,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                6,
+                7
+              ],
+              [
+                6,
+                7
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990152835845947,
+              "wet_area_m2": 0.553641140460968,
+              "normal_force_magnitude_sum_n": 1.1222543716430664,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.8885897994041443,
+                -0.016793856397271156,
+                -0.0013608421431854367
+              ],
+              "two_sided_wet_area_m2": 0.5536308288574219,
+              "mean_fluid_speed_wet_m_s": 0.14015185832977295,
+              "mean_relative_speed_wet_m_s": 0.12550577521324158,
+              "max_fluid_speed_m_s": 0.24498708546161652,
+              "max_relative_speed_m_s": 0.23447060585021973
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536989450454712,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32904040813446045,
+              "wet_area_m2": 0.007774691097438335,
+              "normal_force_magnitude_sum_n": 0.005883019883185625,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.003967014141380787,
+                -2.8152258892077953e-05,
+                -0.0005282983183860779
+              ],
+              "two_sided_wet_area_m2": 0.007759941276162863,
+              "mean_fluid_speed_wet_m_s": 0.11838120967149734,
+              "mean_relative_speed_wet_m_s": 0.11843519657850266,
+              "max_fluid_speed_m_s": 0.22831284999847412,
+              "max_relative_speed_m_s": 0.22818225622177124
+            }
+          }
+        },
+        {
+          "output_frame": 7,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              9,
+              9
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.24289831519126892,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                8,
+                7
+              ],
+              [
+                8,
+                7
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7989574074745178,
+              "wet_area_m2": 0.5539489388465881,
+              "normal_force_magnitude_sum_n": 1.5499602556228638,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.2207280397415161,
+                -0.02862848900258541,
+                -0.006360903382301331
+              ],
+              "two_sided_wet_area_m2": 0.553938090801239,
+              "mean_fluid_speed_wet_m_s": 0.16553109884262085,
+              "mean_relative_speed_wet_m_s": 0.1482274830341339,
+              "max_fluid_speed_m_s": 0.2921653091907501,
+              "max_relative_speed_m_s": 0.28054890036582947
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536988854408264,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32904982566833496,
+              "wet_area_m2": 0.00794515572488308,
+              "normal_force_magnitude_sum_n": 0.008066324517130852,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.005245564505457878,
+                -0.00012945607886649668,
+                -0.000576365040615201
+              ],
+              "two_sided_wet_area_m2": 0.007932926528155804,
+              "mean_fluid_speed_wet_m_s": 0.13826891779899597,
+              "mean_relative_speed_wet_m_s": 0.13831527531147003,
+              "max_fluid_speed_m_s": 0.2778923511505127,
+              "max_relative_speed_m_s": 0.2777808606624603
+            }
+          }
+        },
+        {
+          "output_frame": 8,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              10,
+              10
+            ],
+            "dt_s": 0.00984952598810196,
+            "evaluation_time_s": 0.2725403904914856,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                8,
+                9
+              ],
+              [
+                8,
+                9
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7989212870597839,
+              "wet_area_m2": 0.5544459819793701,
+              "normal_force_magnitude_sum_n": 1.9194897413253784,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.5034602880477905,
+                -0.03757082298398018,
+                -0.01703060418367386
+              ],
+              "two_sided_wet_area_m2": 0.5544347763061523,
+              "mean_fluid_speed_wet_m_s": 0.1837676614522934,
+              "mean_relative_speed_wet_m_s": 0.16535751521587372,
+              "max_fluid_speed_m_s": 0.326151967048645,
+              "max_relative_speed_m_s": 0.31594136357307434
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536993622779846,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290574252605438,
+              "wet_area_m2": 0.008179651573300362,
+              "normal_force_magnitude_sum_n": 0.010140052996575832,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.006432575639337301,
+                -0.00022467716189567,
+                -0.0005402126698754728
+              ],
+              "two_sided_wet_area_m2": 0.008166881278157234,
+              "mean_fluid_speed_wet_m_s": 0.1511668711900711,
+              "mean_relative_speed_wet_m_s": 0.15119566023349762,
+              "max_fluid_speed_m_s": 0.3135511577129364,
+              "max_relative_speed_m_s": 0.31344765424728394
+            }
+          }
+        },
+        {
+          "output_frame": 9,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              11,
+              11
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.3024866282939911,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                10,
+                9
+              ],
+              [
+                10,
+                9
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798875093460083,
+              "wet_area_m2": 0.5546692609786987,
+              "normal_force_magnitude_sum_n": 2.301593065261841,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.7995084524154663,
+                -0.05778045952320099,
+                -0.02132519707083702
+              ],
+              "two_sided_wet_area_m2": 0.5546692609786987,
+              "mean_fluid_speed_wet_m_s": 0.20151780545711517,
+              "mean_relative_speed_wet_m_s": 0.1814393401145935,
+              "max_fluid_speed_m_s": 0.3580996096134186,
+              "max_relative_speed_m_s": 0.3500484824180603
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537000775337219,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32906374335289,
+              "wet_area_m2": 0.008284593932330608,
+              "normal_force_magnitude_sum_n": 0.01222207210958004,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0075861262157559395,
+                -0.00024855523952282965,
+                -0.0010895786108449101
+              ],
+              "two_sided_wet_area_m2": 0.008272359147667885,
+              "mean_fluid_speed_wet_m_s": 0.16156847774982452,
+              "mean_relative_speed_wet_m_s": 0.1615745723247528,
+              "max_fluid_speed_m_s": 0.3465692400932312,
+              "max_relative_speed_m_s": 0.34647491574287415
+            }
+          }
+        },
+        {
+          "output_frame": 10,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              12,
+              12
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.34228548407554626,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                10,
+                11
+              ],
+              [
+                10,
+                11
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7988084554672241,
+              "wet_area_m2": 0.5551823377609253,
+              "normal_force_magnitude_sum_n": 2.8976058959960938,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.269559383392334,
+                -0.10200480371713638,
+                -0.0623018741607666
+              ],
+              "two_sided_wet_area_m2": 0.5551823377609253,
+              "mean_fluid_speed_wet_m_s": 0.22361378371715546,
+              "mean_relative_speed_wet_m_s": 0.20425686240196228,
+              "max_fluid_speed_m_s": 0.3954235911369324,
+              "max_relative_speed_m_s": 0.38864290714263916
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537005543708801,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32906875014305115,
+              "wet_area_m2": 0.008036133833229542,
+              "normal_force_magnitude_sum_n": 0.014157751575112343,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.008955759927630424,
+                -0.00015149179671425372,
+                -0.001478800317272544
+              ],
+              "two_sided_wet_area_m2": 0.008020749315619469,
+              "mean_fluid_speed_wet_m_s": 0.16921183466911316,
+              "mean_relative_speed_wet_m_s": 0.16918431222438812,
+              "max_fluid_speed_m_s": 0.3778042793273926,
+              "max_relative_speed_m_s": 0.3777167797088623
+            }
+          }
+        },
+        {
+          "output_frame": 11,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              13,
+              13
+            ],
+            "dt_s": 0.009839481674134731,
+            "evaluation_time_s": 0.37194547057151794,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                12,
+                11
+              ],
+              [
+                12,
+                11
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7987539172172546,
+              "wet_area_m2": 0.5555568933486938,
+              "normal_force_magnitude_sum_n": 3.1391401290893555,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.4822850227355957,
+                -0.07931223511695862,
+                -0.10655170679092407
+              ],
+              "two_sided_wet_area_m2": 0.5555496215820312,
+              "mean_fluid_speed_wet_m_s": 0.22866490483283997,
+              "mean_relative_speed_wet_m_s": 0.21221107244491577,
+              "max_fluid_speed_m_s": 0.4114050567150116,
+              "max_relative_speed_m_s": 0.4050273895263672
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537008821964264,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907456159591675,
+              "wet_area_m2": 0.00808574166148901,
+              "normal_force_magnitude_sum_n": 0.014899923466145992,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.009814022108912468,
+                0.00020486724679358304,
+                -0.0015559368766844273
+              ],
+              "two_sided_wet_area_m2": 0.008070357143878937,
+              "mean_fluid_speed_wet_m_s": 0.17608202993869781,
+              "mean_relative_speed_wet_m_s": 0.17605167627334595,
+              "max_fluid_speed_m_s": 0.3877866864204407,
+              "max_relative_speed_m_s": 0.38770684599876404
+            }
+          }
+        },
+        {
+          "output_frame": 12,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              14,
+              14
+            ],
+            "dt_s": 0.009721825830638409,
+            "evaluation_time_s": 0.40125125646591187,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                12,
+                13
+              ],
+              [
+                12,
+                13
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7986974120140076,
+              "wet_area_m2": 0.555934488773346,
+              "normal_force_magnitude_sum_n": 3.642996311187744,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.8899407386779785,
+                -0.05865928530693054,
+                -0.15078647434711456
+              ],
+              "two_sided_wet_area_m2": 0.555934488773346,
+              "mean_fluid_speed_wet_m_s": 0.2429145723581314,
+              "mean_relative_speed_wet_m_s": 0.22641430795192719,
+              "max_fluid_speed_m_s": 0.44323933124542236,
+              "max_relative_speed_m_s": 0.4380512833595276
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370126962661743,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907575368881226,
+              "wet_area_m2": 0.008678639307618141,
+              "normal_force_magnitude_sum_n": 0.016897255554795265,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.011638828553259373,
+                0.00044435629388317466,
+                -0.0014096323866397142
+              ],
+              "two_sided_wet_area_m2": 0.008661312982439995,
+              "mean_fluid_speed_wet_m_s": 0.18047577142715454,
+              "mean_relative_speed_wet_m_s": 0.1804322749376297,
+              "max_fluid_speed_m_s": 0.4164959490299225,
+              "max_relative_speed_m_s": 0.41646823287010193
+            }
+          }
+        },
+        {
+          "output_frame": 13,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              15,
+              15
+            ],
+            "dt_s": 0.009843554347753525,
+            "evaluation_time_s": 0.4407263994216919,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                14,
+                13
+              ],
+              [
+                14,
+                13
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7986304759979248,
+              "wet_area_m2": 0.5559600591659546,
+              "normal_force_magnitude_sum_n": 4.355298042297363,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -3.433919906616211,
+                -0.09491758793592453,
+                -0.21417836844921112
+              ],
+              "two_sided_wet_area_m2": 0.5559600591659546,
+              "mean_fluid_speed_wet_m_s": 0.26361536979675293,
+              "mean_relative_speed_wet_m_s": 0.24587342143058777,
+              "max_fluid_speed_m_s": 0.4901730418205261,
+              "max_relative_speed_m_s": 0.4851680099964142
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537016272544861,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290770947933197,
+              "wet_area_m2": 0.00925888866186142,
+              "normal_force_magnitude_sum_n": 0.020315613597631454,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.014151031151413918,
+                0.0002789677237160504,
+                -0.0018016224494203925
+              ],
+              "two_sided_wet_area_m2": 0.00925888866186142,
+              "mean_fluid_speed_wet_m_s": 0.1889597624540329,
+              "mean_relative_speed_wet_m_s": 0.18888719379901886,
+              "max_fluid_speed_m_s": 0.4570139944553375,
+              "max_relative_speed_m_s": 0.45695626735687256
+            }
+          }
+        },
+        {
+          "output_frame": 14,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              16,
+              16
+            ],
+            "dt_s": 0.009831547737121582,
+            "evaluation_time_s": 0.4702400267124176,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                14,
+                15
+              ],
+              [
+                14,
+                15
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7985925078392029,
+              "wet_area_m2": 0.5555937886238098,
+              "normal_force_magnitude_sum_n": 5.054501533508301,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -3.893975257873535,
+                -0.11496908962726593,
+                -0.27731087803840637
+              ],
+              "two_sided_wet_area_m2": 0.5555937886238098,
+              "mean_fluid_speed_wet_m_s": 0.2848345637321472,
+              "mean_relative_speed_wet_m_s": 0.2684025764465332,
+              "max_fluid_speed_m_s": 0.5332751274108887,
+              "max_relative_speed_m_s": 0.5279317498207092
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537018656730652,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907629013061523,
+              "wet_area_m2": 0.009309189394116402,
+              "normal_force_magnitude_sum_n": 0.02452854812145233,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.016584008932113647,
+                -0.0007653915672563016,
+                -0.0013070824788883328
+              ],
+              "two_sided_wet_area_m2": 0.009309189394116402,
+              "mean_fluid_speed_wet_m_s": 0.19572380185127258,
+              "mean_relative_speed_wet_m_s": 0.19566546380519867,
+              "max_fluid_speed_m_s": 0.4975270926952362,
+              "max_relative_speed_m_s": 0.49751046299934387
+            }
+          }
+        },
+        {
+          "output_frame": 15,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              17,
+              17
+            ],
+            "dt_s": 0.009914295747876167,
+            "evaluation_time_s": 0.5001543164253235,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                16,
+                15
+              ],
+              [
+                16,
+                15
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7985585927963257,
+              "wet_area_m2": 0.5560683608055115,
+              "normal_force_magnitude_sum_n": 5.505826950073242,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -4.264929294586182,
+                -0.15979376435279846,
+                -0.330995112657547
+              ],
+              "two_sided_wet_area_m2": 0.5560439825057983,
+              "mean_fluid_speed_wet_m_s": 0.2878255248069763,
+              "mean_relative_speed_wet_m_s": 0.2722139060497284,
+              "max_fluid_speed_m_s": 0.5546677112579346,
+              "max_relative_speed_m_s": 0.5533360838890076
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537020742893219,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907742261886597,
+              "wet_area_m2": 0.009115013293921947,
+              "normal_force_magnitude_sum_n": 0.024328965693712234,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.01620221883058548,
+                -0.001057163579389453,
+                -0.001156700891442597
+              ],
+              "two_sided_wet_area_m2": 0.00910194218158722,
+              "mean_fluid_speed_wet_m_s": 0.19570261240005493,
+              "mean_relative_speed_wet_m_s": 0.1956353336572647,
+              "max_fluid_speed_m_s": 0.5159977674484253,
+              "max_relative_speed_m_s": 0.5159687995910645
+            }
+          }
+        },
+        {
+          "output_frame": 16,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              18,
+              18
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.5398519039154053,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                16,
+                17
+              ],
+              [
+                16,
+                17
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7985328435897827,
+              "wet_area_m2": 0.5568363666534424,
+              "normal_force_magnitude_sum_n": 6.2095112800598145,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -4.78957986831665,
+                -0.134195938706398,
+                -0.5117350220680237
+              ],
+              "two_sided_wet_area_m2": 0.5568089485168457,
+              "mean_fluid_speed_wet_m_s": 0.29990124702453613,
+              "mean_relative_speed_wet_m_s": 0.2853001654148102,
+              "max_fluid_speed_m_s": 0.5677286386489868,
+              "max_relative_speed_m_s": 0.5638208985328674
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537022829055786,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907843589782715,
+              "wet_area_m2": 0.009791304357349873,
+              "normal_force_magnitude_sum_n": 0.028032347559928894,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.018545446917414665,
+                -0.000849410193040967,
+                -0.0005495497025549412
+              ],
+              "two_sided_wet_area_m2": 0.009791304357349873,
+              "mean_fluid_speed_wet_m_s": 0.20533901453018188,
+              "mean_relative_speed_wet_m_s": 0.20529726147651672,
+              "max_fluid_speed_m_s": 0.5300500392913818,
+              "max_relative_speed_m_s": 0.5300101041793823
+            }
+          }
+        },
+        {
+          "output_frame": 17,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              19,
+              19
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.5696190595626831,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                18,
+                17
+              ],
+              [
+                18,
+                17
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984794974327087,
+              "wet_area_m2": 0.5569080710411072,
+              "normal_force_magnitude_sum_n": 6.810694217681885,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.204711437225342,
+                -0.13314233720302582,
+                -0.6807848811149597
+              ],
+              "two_sided_wet_area_m2": 0.5568922758102417,
+              "mean_fluid_speed_wet_m_s": 0.3111286163330078,
+              "mean_relative_speed_wet_m_s": 0.30055153369903564,
+              "max_fluid_speed_m_s": 0.5852134227752686,
+              "max_relative_speed_m_s": 0.583803653717041
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370246171951294,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290792405605316,
+              "wet_area_m2": 0.010147316381335258,
+              "normal_force_magnitude_sum_n": 0.030427439138293266,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.020611472427845,
+                -0.0007797334692440927,
+                -8.184582839021459e-05
+              ],
+              "two_sided_wet_area_m2": 0.010147316381335258,
+              "mean_fluid_speed_wet_m_s": 0.20609988272190094,
+              "mean_relative_speed_wet_m_s": 0.20607194304466248,
+              "max_fluid_speed_m_s": 0.5340334177017212,
+              "max_relative_speed_m_s": 0.5340114235877991
+            }
+          }
+        },
+        {
+          "output_frame": 18,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              20,
+              20
+            ],
+            "dt_s": 0.009960135444998741,
+            "evaluation_time_s": 0.6092872023582458,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                18,
+                19
+              ],
+              [
+                18,
+                19
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984501719474792,
+              "wet_area_m2": 0.558405339717865,
+              "normal_force_magnitude_sum_n": 7.129383563995361,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.541965484619141,
+                -0.10539902001619339,
+                -0.8509228229522705
+              ],
+              "two_sided_wet_area_m2": 0.558405339717865,
+              "mean_fluid_speed_wet_m_s": 0.3153347373008728,
+              "mean_relative_speed_wet_m_s": 0.30569398403167725,
+              "max_fluid_speed_m_s": 0.5971410274505615,
+              "max_relative_speed_m_s": 0.5935133695602417
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537026107311249,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290790617465973,
+              "wet_area_m2": 0.011170124635100365,
+              "normal_force_magnitude_sum_n": 0.032997921109199524,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.02309727482497692,
+                0.0005845596315339208,
+                -0.002543790964409709
+              ],
+              "two_sided_wet_area_m2": 0.011157284490764141,
+              "mean_fluid_speed_wet_m_s": 0.21875518560409546,
+              "mean_relative_speed_wet_m_s": 0.21872922778129578,
+              "max_fluid_speed_m_s": 0.5455352663993835,
+              "max_relative_speed_m_s": 0.5455024242401123
+            }
+          }
+        },
+        {
+          "output_frame": 19,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              21,
+              21
+            ],
+            "dt_s": 0.009745797142386436,
+            "evaluation_time_s": 0.6386077404022217,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                20,
+                19
+              ],
+              [
+                20,
+                19
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984281182289124,
+              "wet_area_m2": 0.5611143112182617,
+              "normal_force_magnitude_sum_n": 7.518346309661865,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.786883354187012,
+                -0.05896487832069397,
+                -1.0005316734313965
+              ],
+              "two_sided_wet_area_m2": 0.5611143112182617,
+              "mean_fluid_speed_wet_m_s": 0.320420503616333,
+              "mean_relative_speed_wet_m_s": 0.31119489669799805,
+              "max_fluid_speed_m_s": 0.6177786588668823,
+              "max_relative_speed_m_s": 0.6140363216400146
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370272994041443,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907792925834656,
+              "wet_area_m2": 0.012750411406159401,
+              "normal_force_magnitude_sum_n": 0.03959088772535324,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.027055855840444565,
+                0.0008254149579443038,
+                -0.0034073449205607176
+              ],
+              "two_sided_wet_area_m2": 0.01273682713508606,
+              "mean_fluid_speed_wet_m_s": 0.23036684095859528,
+              "mean_relative_speed_wet_m_s": 0.23031939566135406,
+              "max_fluid_speed_m_s": 0.5683514475822449,
+              "max_relative_speed_m_s": 0.5683128833770752
+            }
+          }
+        },
+        {
+          "output_frame": 20,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              3,
+              3
+            ],
+            "dt_s": 0.009914522990584373,
+            "evaluation_time_s": 0.6679384708404541,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                21,
+                20
+              ],
+              [
+                21,
+                20
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984204292297363,
+              "wet_area_m2": 0.5636950731277466,
+              "normal_force_magnitude_sum_n": 8.22200870513916,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.180245876312256,
+                -0.08285852521657944,
+                -1.2237282991409302
+              ],
+              "two_sided_wet_area_m2": 0.563686192035675,
+              "mean_fluid_speed_wet_m_s": 0.3335040509700775,
+              "mean_relative_speed_wet_m_s": 0.32593733072280884,
+              "max_fluid_speed_m_s": 0.6301891803741455,
+              "max_relative_speed_m_s": 0.6263142824172974
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537028193473816,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907813787460327,
+              "wet_area_m2": 0.014729821123182774,
+              "normal_force_magnitude_sum_n": 0.06418018043041229,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.04128885269165039,
+                -0.002226121723651886,
+                0.002516750479117036
+              ],
+              "two_sided_wet_area_m2": 0.014729821123182774,
+              "mean_fluid_speed_wet_m_s": 0.23678803443908691,
+              "mean_relative_speed_wet_m_s": 0.23673328757286072,
+              "max_fluid_speed_m_s": 0.5851609110832214,
+              "max_relative_speed_m_s": 0.5851506590843201
+            }
+          }
+        },
+        {
+          "output_frame": 21,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              4,
+              4
+            ],
+            "dt_s": 0.009877219796180725,
+            "evaluation_time_s": 0.7076731324195862,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                21,
+                22
+              ],
+              [
+                21,
+                22
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983849048614502,
+              "wet_area_m2": 0.5659916400909424,
+              "normal_force_magnitude_sum_n": 8.094013214111328,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.09700870513916,
+                -0.015371255576610565,
+                -1.4776957035064697
+              ],
+              "two_sided_wet_area_m2": 0.5659916400909424,
+              "mean_fluid_speed_wet_m_s": 0.3321777582168579,
+              "mean_relative_speed_wet_m_s": 0.3272740840911865,
+              "max_fluid_speed_m_s": 0.6306958198547363,
+              "max_relative_speed_m_s": 0.6289576888084412
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370296835899353,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907843589782715,
+              "wet_area_m2": 0.01650545373558998,
+              "normal_force_magnitude_sum_n": 0.06853154301643372,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.04549473151564598,
+                -0.0004334218392614275,
+                -0.00339614599943161
+              ],
+              "two_sided_wet_area_m2": 0.01650545373558998,
+              "mean_fluid_speed_wet_m_s": 0.24961021542549133,
+              "mean_relative_speed_wet_m_s": 0.24957071244716644,
+              "max_fluid_speed_m_s": 0.5916603803634644,
+              "max_relative_speed_m_s": 0.5916348695755005
+            }
+          }
+        },
+        {
+          "output_frame": 22,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              5,
+              5
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.7376053333282471,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                23,
+                22
+              ],
+              [
+                23,
+                22
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983563542366028,
+              "wet_area_m2": 0.5698018670082092,
+              "normal_force_magnitude_sum_n": 8.523805618286133,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.341107368469238,
+                -0.013415721245110035,
+                -1.6746352910995483
+              ],
+              "two_sided_wet_area_m2": 0.5697893500328064,
+              "mean_fluid_speed_wet_m_s": 0.3396819829940796,
+              "mean_relative_speed_wet_m_s": 0.33298519253730774,
+              "max_fluid_speed_m_s": 0.6516920328140259,
+              "max_relative_speed_m_s": 0.6492015719413757
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537030279636383,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907533645629883,
+              "wet_area_m2": 0.018454037606716156,
+              "normal_force_magnitude_sum_n": 0.07832272350788116,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.05140665918588638,
+                0.00043900826130993664,
+                -0.006855160463601351
+              ],
+              "two_sided_wet_area_m2": 0.018427275121212006,
+              "mean_fluid_speed_wet_m_s": 0.26896899938583374,
+              "mean_relative_speed_wet_m_s": 0.2688846290111542,
+              "max_fluid_speed_m_s": 0.5967509746551514,
+              "max_relative_speed_m_s": 0.5967466235160828
+            }
+          }
+        },
+        {
+          "output_frame": 23,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              6,
+              6
+            ],
+            "dt_s": 0.0098948422819376,
+            "evaluation_time_s": 0.7674006223678589,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                23,
+                24
+              ],
+              [
+                23,
+                24
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983518242835999,
+              "wet_area_m2": 0.5734716057777405,
+              "normal_force_magnitude_sum_n": 9.134445190429688,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.662069797515869,
+                -0.1537209451198578,
+                -1.9947870969772339
+              ],
+              "two_sided_wet_area_m2": 0.5734716057777405,
+              "mean_fluid_speed_wet_m_s": 0.3440946042537689,
+              "mean_relative_speed_wet_m_s": 0.33914878964424133,
+              "max_fluid_speed_m_s": 0.6459156274795532,
+              "max_relative_speed_m_s": 0.6421340107917786
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537030875682831,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290744721889496,
+              "wet_area_m2": 0.021888069808483124,
+              "normal_force_magnitude_sum_n": 0.12009269744157791,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.07013673335313797,
+                -0.003011438762769103,
+                -0.00636356882750988
+              ],
+              "two_sided_wet_area_m2": 0.021888069808483124,
+              "mean_fluid_speed_wet_m_s": 0.2721468508243561,
+              "mean_relative_speed_wet_m_s": 0.27204641699790955,
+              "max_fluid_speed_m_s": 0.6152529716491699,
+              "max_relative_speed_m_s": 0.6152435541152954
+            }
+          }
+        },
+        {
+          "output_frame": 24,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              7,
+              7
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.8072755932807922,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                25,
+                24
+              ],
+              [
+                25,
+                24
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983393669128418,
+              "wet_area_m2": 0.5763307213783264,
+              "normal_force_magnitude_sum_n": 9.333340644836426,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.658814907073975,
+                0.07510143518447876,
+                -2.3386878967285156
+              ],
+              "two_sided_wet_area_m2": 0.5763152837753296,
+              "mean_fluid_speed_wet_m_s": 0.3560659885406494,
+              "mean_relative_speed_wet_m_s": 0.35133132338523865,
+              "max_fluid_speed_m_s": 0.6857941150665283,
+              "max_relative_speed_m_s": 0.6844763159751892
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370317697525024,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907330989837646,
+              "wet_area_m2": 0.0237564779818058,
+              "normal_force_magnitude_sum_n": 0.11846412718296051,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.06992588192224503,
+                0.0011980937561020255,
+                -0.014143156819045544
+              ],
+              "two_sided_wet_area_m2": 0.0237564779818058,
+              "mean_fluid_speed_wet_m_s": 0.29629042744636536,
+              "mean_relative_speed_wet_m_s": 0.29620876908302307,
+              "max_fluid_speed_m_s": 0.624875009059906,
+              "max_relative_speed_m_s": 0.6248185634613037
+            }
+          }
+        },
+        {
+          "output_frame": 25,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              8,
+              8
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.8371194005012512,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                25,
+                26
+              ],
+              [
+                25,
+                26
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7982999086380005,
+              "wet_area_m2": 0.5809765458106995,
+              "normal_force_magnitude_sum_n": 9.803528785705566,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.900699138641357,
+                0.0979650542140007,
+                -2.61979079246521
+              ],
+              "two_sided_wet_area_m2": 0.5809613466262817,
+              "mean_fluid_speed_wet_m_s": 0.3638911843299866,
+              "mean_relative_speed_wet_m_s": 0.3586556017398834,
+              "max_fluid_speed_m_s": 0.6866286396980286,
+              "max_relative_speed_m_s": 0.6847089529037476
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537032663822174,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290698528289795,
+              "wet_area_m2": 0.026183439418673515,
+              "normal_force_magnitude_sum_n": 0.14263257384300232,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0839666873216629,
+                0.0025755991227924824,
+                -0.018216419965028763
+              ],
+              "two_sided_wet_area_m2": 0.026183439418673515,
+              "mean_fluid_speed_wet_m_s": 0.31144699454307556,
+              "mean_relative_speed_wet_m_s": 0.3113369941711426,
+              "max_fluid_speed_m_s": 0.6364204287528992,
+              "max_relative_speed_m_s": 0.6363491415977478
+            }
+          }
+        },
+        {
+          "output_frame": 26,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              9,
+              9
+            ],
+            "dt_s": 0.009847884066402912,
+            "evaluation_time_s": 0.8669673204421997,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                27,
+                26
+              ],
+              [
+                27,
+                26
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7982692718505859,
+              "wet_area_m2": 0.5860498547554016,
+              "normal_force_magnitude_sum_n": 10.386613845825195,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -7.179693698883057,
+                0.12631624937057495,
+                -3.0084285736083984
+              ],
+              "two_sided_wet_area_m2": 0.5860440731048584,
+              "mean_fluid_speed_wet_m_s": 0.37313777208328247,
+              "mean_relative_speed_wet_m_s": 0.36712127923965454,
+              "max_fluid_speed_m_s": 0.7014766335487366,
+              "max_relative_speed_m_s": 0.6998609304428101
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537032961845398,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32906872034072876,
+              "wet_area_m2": 0.02988186664879322,
+              "normal_force_magnitude_sum_n": 0.18392138183116913,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.10216117650270462,
+                0.003899618983268738,
+                -0.03015190362930298
+              ],
+              "two_sided_wet_area_m2": 0.029867321252822876,
+              "mean_fluid_speed_wet_m_s": 0.3245820999145508,
+              "mean_relative_speed_wet_m_s": 0.32445093989372253,
+              "max_fluid_speed_m_s": 0.6472455263137817,
+              "max_relative_speed_m_s": 0.6471662521362305
+            }
+          }
+        },
+        {
+          "output_frame": 27,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              10,
+              10
+            ],
+            "dt_s": 0.009912493638694286,
+            "evaluation_time_s": 0.9064844846725464,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                27,
+                28
+              ],
+              [
+                27,
+                28
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983049750328064,
+              "wet_area_m2": 0.5935785174369812,
+              "normal_force_magnitude_sum_n": 11.480629920959473,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -7.697824478149414,
+                0.09084314107894897,
+                -3.4774086475372314
+              ],
+              "two_sided_wet_area_m2": 0.5935785174369812,
+              "mean_fluid_speed_wet_m_s": 0.37810808420181274,
+              "mean_relative_speed_wet_m_s": 0.37417271733283997,
+              "max_fluid_speed_m_s": 0.6969634890556335,
+              "max_relative_speed_m_s": 0.6945521831512451
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370335578918457,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290715217590332,
+              "wet_area_m2": 0.035294100642204285,
+              "normal_force_magnitude_sum_n": 0.3222770094871521,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.15665152668952942,
+                -0.001417210092768073,
+                -0.035658154636621475
+              ],
+              "two_sided_wet_area_m2": 0.03528416156768799,
+              "mean_fluid_speed_wet_m_s": 0.3353990912437439,
+              "mean_relative_speed_wet_m_s": 0.3351961672306061,
+              "max_fluid_speed_m_s": 0.6434299945831299,
+              "max_relative_speed_m_s": 0.643415629863739
+            }
+          }
+        },
+        {
+          "output_frame": 28,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              11,
+              11
+            ],
+            "dt_s": 0.009791095741093159,
+            "evaluation_time_s": 0.9359118938446045,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                29,
+                28
+              ],
+              [
+                29,
+                28
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983120679855347,
+              "wet_area_m2": 0.5969790816307068,
+              "normal_force_magnitude_sum_n": 12.259895324707031,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -8.101675987243652,
+                0.07895980775356293,
+                -3.8191797733306885
+              ],
+              "two_sided_wet_area_m2": 0.5969790816307068,
+              "mean_fluid_speed_wet_m_s": 0.3852245509624481,
+              "mean_relative_speed_wet_m_s": 0.3833155333995819,
+              "max_fluid_speed_m_s": 0.7050567865371704,
+              "max_relative_speed_m_s": 0.7135094404220581
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370338559150696,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.329070508480072,
+              "wet_area_m2": 0.03762092441320419,
+              "normal_force_magnitude_sum_n": 0.3804028034210205,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.17165717482566833,
+                -0.002466608537361026,
+                -0.06471366435289383
+              ],
+              "two_sided_wet_area_m2": 0.03762092441320419,
+              "mean_fluid_speed_wet_m_s": 0.3413241505622864,
+              "mean_relative_speed_wet_m_s": 0.3411444425582886,
+              "max_fluid_speed_m_s": 0.6583308577537537,
+              "max_relative_speed_m_s": 0.6583356857299805
+            }
+          }
+        },
+        {
+          "output_frame": 29,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              12,
+              12
+            ],
+            "dt_s": 0.009821698069572449,
+            "evaluation_time_s": 0.9753497242927551,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                29,
+                30
+              ],
+              [
+                29,
+                30
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7982633113861084,
+              "wet_area_m2": 0.6003198623657227,
+              "normal_force_magnitude_sum_n": 12.842370986938477,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -8.37467098236084,
+                0.07842721045017242,
+                -4.208768844604492
+              ],
+              "two_sided_wet_area_m2": 0.6003120541572571,
+              "mean_fluid_speed_wet_m_s": 0.39710286259651184,
+              "mean_relative_speed_wet_m_s": 0.3960180878639221,
+              "max_fluid_speed_m_s": 0.72784423828125,
+              "max_relative_speed_m_s": 0.7298912405967712
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370341539382935,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.329070508480072,
+              "wet_area_m2": 0.04009394720196724,
+              "normal_force_magnitude_sum_n": 0.4189363420009613,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.1644756942987442,
+                -0.0024668173864483833,
+                -0.11202578991651535
+              ],
+              "two_sided_wet_area_m2": 0.04009394720196724,
+              "mean_fluid_speed_wet_m_s": 0.35009968280792236,
+              "mean_relative_speed_wet_m_s": 0.35002750158309937,
+              "max_fluid_speed_m_s": 0.6673697233200073,
+              "max_relative_speed_m_s": 0.66737961769104
+            }
+          }
+        }
+      ],
+      "max_newton_steps": 4,
+      "max_linear_relative_residual": 0.0001,
+      "max_cg_iterations": 1120,
+      "native_advances": 34,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    },
+    {
+      "label": "hydro2",
+      "seconds": 993.0150000000001,
+      "seconds_scope": "resumed segment only; earlier compute excluded",
+      "log_scope": "resumed segment only",
+      "resume": {
+        "original_session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx_spatial_neon_hydro2_1792122361476875300\\session",
+        "checkpoint": 19,
+        "solver_sha256": "25c99225a189415605c73b74bafa89d6a01bd8dab80e5775c6aa370685f253f9",
+        "command": [
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\target\\hydrodynamics-cpu\\release\\ppf-contact-solver-spatial-r3.exe",
+          "--path",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro2\\session",
+          "--output",
+          "C:\\Users\\timch\\Documents\\GitHub\\ppf-contact-solver-hydrodynamics\\.tools\\neon-cpu-resume-20261016-r1\\hydro2\\session\\output",
+          "--load",
+          "19"
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "displacement": {
+            "max_m": 0.05327938948525465,
+            "rms_m": 0.010003272903657663
+          },
+          "velocity_interval_mean_m_s": 0.016074035970815467,
+          "velocity_interval_max_m_s": 0.2778192707930366,
+          "edge_stretch_min": 0.7066490375102723,
+          "edge_stretch_max": 1.0242142138440065,
+          "mean_abs_edge_strain": 0.0018373326513805629,
+          "mean_bend_change_rad": 0.05994839948614864,
+          "max_bend_change_rad": 2.2466382881638323,
+          "minimum_triangle_area_m2": 2.9097693602522937e-06,
+          "native_contact_peak": 6831,
+          "finite": true
+        },
+        "S04_NEON_Garments.001": {
+          "displacement": {
+            "max_m": 0.003654604706582797,
+            "rms_m": 0.0009147377117177888
+          },
+          "velocity_interval_mean_m_s": 0.0015646786720424377,
+          "velocity_interval_max_m_s": 0.10963814119748391,
+          "edge_stretch_min": 0.9556004241904434,
+          "edge_stretch_max": 1.0084738920476009,
+          "mean_abs_edge_strain": 0.000485915474733736,
+          "mean_bend_change_rad": 0.006004478114225988,
+          "max_bend_change_rad": 0.202419602162913,
+          "minimum_triangle_area_m2": 1.232464162694093e-06,
+          "native_contact_peak": 1624,
+          "finite": true
+        },
+        "S04_NEON_Garments.002": {
+          "displacement": {
+            "max_m": 0.007944929007236656,
+            "rms_m": 0.001827769880833102
+          },
+          "velocity_interval_mean_m_s": 0.002033615178035313,
+          "velocity_interval_max_m_s": 0.20288124166792912,
+          "edge_stretch_min": 0.6772667395791592,
+          "edge_stretch_max": 1.1216778625713746,
+          "mean_abs_edge_strain": 0.00913734002404671,
+          "mean_bend_change_rad": 0.04360706284526712,
+          "max_bend_change_rad": 1.8415547682462954,
+          "minimum_triangle_area_m2": 1.6385688605696684e-05,
+          "native_contact_peak": 10133,
+          "finite": true
+        }
+      },
+      "native_loads": [
+        {
+          "output_frame": 1,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              3,
+              3
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.03415469825267792,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990747690200806,
+              "wet_area_m2": 0.5525387525558472,
+              "normal_force_magnitude_sum_n": 0.11486702412366867,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.044146351516246796,
+                0.015150364488363266,
+                0.015959076583385468
+              ],
+              "two_sided_wet_area_m2": 0.5525387525558472,
+              "mean_fluid_speed_wet_m_s": 0.024573661386966705,
+              "mean_relative_speed_wet_m_s": 0.029559902846813202,
+              "max_fluid_speed_m_s": 0.03926604241132736,
+              "max_relative_speed_m_s": 0.10018616169691086
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536562383174896,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32883569598197937,
+              "wet_area_m2": 0.007934480905532837,
+              "normal_force_magnitude_sum_n": 0.0004571842437144369,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.00035443154047243297,
+                9.234388016921002e-06,
+                -2.91657979687443e-05
+              ],
+              "two_sided_wet_area_m2": 0.007934480905532837,
+              "mean_fluid_speed_wet_m_s": 0.022806258872151375,
+              "mean_relative_speed_wet_m_s": 0.023481277748942375,
+              "max_fluid_speed_m_s": 0.03405699133872986,
+              "max_relative_speed_m_s": 0.035576432943344116
+            }
+          }
+        },
+        {
+          "output_frame": 2,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              4,
+              4
+            ],
+            "dt_s": 0.009909601882100105,
+            "evaluation_time_s": 0.07368239015340805,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                2,
+                3
+              ],
+              [
+                2,
+                3
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990937829017639,
+              "wet_area_m2": 0.5525456666946411,
+              "normal_force_magnitude_sum_n": 0.1458718627691269,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.10853919386863708,
+                -0.0012738814111799002,
+                0.012199562974274158
+              ],
+              "two_sided_wet_area_m2": 0.5525456666946411,
+              "mean_fluid_speed_wet_m_s": 0.05253162235021591,
+              "mean_relative_speed_wet_m_s": 0.043709900230169296,
+              "max_fluid_speed_m_s": 0.08599843829870224,
+              "max_relative_speed_m_s": 0.08188868314027786
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536885738372803,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32889097929000854,
+              "wet_area_m2": 0.007773601450026035,
+              "normal_force_magnitude_sum_n": 0.0014693328412249684,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0011171253863722086,
+                -2.049432623607572e-05,
+                -2.3452757886843756e-05
+              ],
+              "two_sided_wet_area_m2": 0.007773601450026035,
+              "mean_fluid_speed_wet_m_s": 0.047374892979860306,
+              "mean_relative_speed_wet_m_s": 0.04742627963423729,
+              "max_fluid_speed_m_s": 0.07515361160039902,
+              "max_relative_speed_m_s": 0.0745990127325058
+            }
+          }
+        },
+        {
+          "output_frame": 3,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              5,
+              5
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.10340867191553116,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                4,
+                3
+              ],
+              [
+                4,
+                3
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990875840187073,
+              "wet_area_m2": 0.5528656244277954,
+              "normal_force_magnitude_sum_n": 0.2809666693210602,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.2199045568704605,
+                -0.002996134804561734,
+                0.011130633763968945
+              ],
+              "two_sided_wet_area_m2": 0.5528656244277954,
+              "mean_fluid_speed_wet_m_s": 0.07321888208389282,
+              "mean_relative_speed_wet_m_s": 0.062227554619312286,
+              "max_fluid_speed_m_s": 0.12175031006336212,
+              "max_relative_speed_m_s": 0.11680254340171814
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370168685913086,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3289164900779724,
+              "wet_area_m2": 0.007577043958008289,
+              "normal_force_magnitude_sum_n": 0.002347799250856042,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0017241579480469227,
+                -2.7675472665578127e-05,
+                -7.024601654848084e-05
+              ],
+              "two_sided_wet_area_m2": 0.007577043958008289,
+              "mean_fluid_speed_wet_m_s": 0.06504470109939575,
+              "mean_relative_speed_wet_m_s": 0.0652088075876236,
+              "max_fluid_speed_m_s": 0.10766418278217316,
+              "max_relative_speed_m_s": 0.10732941329479218
+            }
+          }
+        },
+        {
+          "output_frame": 4,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              6,
+              6
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.13340868055820465,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                4,
+                5
+              ],
+              [
+                4,
+                5
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990808486938477,
+              "wet_area_m2": 0.554092526435852,
+              "normal_force_magnitude_sum_n": 0.4802902340888977,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.37997591495513916,
+                -0.005388443823903799,
+                0.00626442302018404
+              ],
+              "two_sided_wet_area_m2": 0.5540823936462402,
+              "mean_fluid_speed_wet_m_s": 0.09373161196708679,
+              "mean_relative_speed_wet_m_s": 0.08164220303297043,
+              "max_fluid_speed_m_s": 0.1582508683204651,
+              "max_relative_speed_m_s": 0.1497858762741089
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25369635224342346,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3289664387702942,
+              "wet_area_m2": 0.007746574468910694,
+              "normal_force_magnitude_sum_n": 0.0034519294276833534,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0025246022269129753,
+                1.818110467866063e-05,
+                -0.00020419011707417667
+              ],
+              "two_sided_wet_area_m2": 0.007746574468910694,
+              "mean_fluid_speed_wet_m_s": 0.08088354766368866,
+              "mean_relative_speed_wet_m_s": 0.08099089562892914,
+              "max_fluid_speed_m_s": 0.14201240241527557,
+              "max_relative_speed_m_s": 0.1417027711868286
+            }
+          }
+        },
+        {
+          "output_frame": 5,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              7,
+              7
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.17340867221355438,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                6,
+                5
+              ],
+              [
+                6,
+                5
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990472316741943,
+              "wet_area_m2": 0.5536603331565857,
+              "normal_force_magnitude_sum_n": 0.813581109046936,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.6444618105888367,
+                -0.010675630532205105,
+                0.0013970162253826857
+              ],
+              "two_sided_wet_area_m2": 0.5536478757858276,
+              "mean_fluid_speed_wet_m_s": 0.12058042734861374,
+              "mean_relative_speed_wet_m_s": 0.10680156946182251,
+              "max_fluid_speed_m_s": 0.2078978717327118,
+              "max_relative_speed_m_s": 0.1981324851512909
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25369641184806824,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290296196937561,
+              "wet_area_m2": 0.007584030274301767,
+              "normal_force_magnitude_sum_n": 0.0045121656730771065,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0031177622731775045,
+                2.6446194169693626e-05,
+                -0.0004009654512628913
+              ],
+              "two_sided_wet_area_m2": 0.007584030274301767,
+              "mean_fluid_speed_wet_m_s": 0.10283365845680237,
+              "mean_relative_speed_wet_m_s": 0.1029151976108551,
+              "max_fluid_speed_m_s": 0.1912112832069397,
+              "max_relative_speed_m_s": 0.19105328619480133
+            }
+          }
+        },
+        {
+          "output_frame": 6,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              8,
+              8
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.20340867340564728,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                6,
+                7
+              ],
+              [
+                6,
+                7
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7990138530731201,
+              "wet_area_m2": 0.5536306500434875,
+              "normal_force_magnitude_sum_n": 1.1151612997055054,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.8823559880256653,
+                -0.017009194940328598,
+                -0.0016117640770971775
+              ],
+              "two_sided_wet_area_m2": 0.5536306500434875,
+              "mean_fluid_speed_wet_m_s": 0.14035317301750183,
+              "mean_relative_speed_wet_m_s": 0.12541264295578003,
+              "max_fluid_speed_m_s": 0.24538415670394897,
+              "max_relative_speed_m_s": 0.23473906517028809
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536989450454712,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290386199951172,
+              "wet_area_m2": 0.0077592856250703335,
+              "normal_force_magnitude_sum_n": 0.005862672347575426,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0039488328620791435,
+                -2.3909000447019935e-05,
+                -0.0005077189998701215
+              ],
+              "two_sided_wet_area_m2": 0.0077592856250703335,
+              "mean_fluid_speed_wet_m_s": 0.1185501292347908,
+              "mean_relative_speed_wet_m_s": 0.11857093125581741,
+              "max_fluid_speed_m_s": 0.22870123386383057,
+              "max_relative_speed_m_s": 0.22855758666992188
+            }
+          }
+        },
+        {
+          "output_frame": 7,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              9,
+              9
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.23340867459774017,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                8,
+                7
+              ],
+              [
+                8,
+                7
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798970103263855,
+              "wet_area_m2": 0.5537581443786621,
+              "normal_force_magnitude_sum_n": 1.443810224533081,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.1384303569793701,
+                -0.025385065004229546,
+                -0.005562518257647753
+              ],
+              "two_sided_wet_area_m2": 0.553750216960907,
+              "mean_fluid_speed_wet_m_s": 0.15963813662528992,
+              "mean_relative_speed_wet_m_s": 0.14286509156227112,
+              "max_fluid_speed_m_s": 0.2809605896472931,
+              "max_relative_speed_m_s": 0.2697739601135254
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536989450454712,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290475010871887,
+              "wet_area_m2": 0.007862376980483532,
+              "normal_force_magnitude_sum_n": 0.007474691141396761,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.004906100686639547,
+                -0.00010461867350386456,
+                -0.0006037779385223985
+              ],
+              "two_sided_wet_area_m2": 0.007862376980483532,
+              "mean_fluid_speed_wet_m_s": 0.13376930356025696,
+              "mean_relative_speed_wet_m_s": 0.133825421333313,
+              "max_fluid_speed_m_s": 0.2663014829158783,
+              "max_relative_speed_m_s": 0.26617321372032166
+            }
+          }
+        },
+        {
+          "output_frame": 8,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              10,
+              10
+            ],
+            "dt_s": 0.009997081942856312,
+            "evaluation_time_s": 0.2731211483478546,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                8,
+                9
+              ],
+              [
+                8,
+                9
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7989209890365601,
+              "wet_area_m2": 0.5544301867485046,
+              "normal_force_magnitude_sum_n": 1.9229881763458252,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.506035327911377,
+                -0.0379943810403347,
+                -0.0156636331230402
+              ],
+              "two_sided_wet_area_m2": 0.5544198751449585,
+              "mean_fluid_speed_wet_m_s": 0.18410973250865936,
+              "mean_relative_speed_wet_m_s": 0.16563040018081665,
+              "max_fluid_speed_m_s": 0.32672926783561707,
+              "max_relative_speed_m_s": 0.3167245090007782
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2536993622779846,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.329058438539505,
+              "wet_area_m2": 0.008150950074195862,
+              "normal_force_magnitude_sum_n": 0.010167430154979229,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0064405533485114574,
+                -0.00022436896688304842,
+                -0.0005464294808916748
+              ],
+              "two_sided_wet_area_m2": 0.008138718083500862,
+              "mean_fluid_speed_wet_m_s": 0.15176425874233246,
+              "mean_relative_speed_wet_m_s": 0.1517917364835739,
+              "max_fluid_speed_m_s": 0.3141937851905823,
+              "max_relative_speed_m_s": 0.3140801787376404
+            }
+          }
+        },
+        {
+          "output_frame": 9,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              11,
+              11
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.3031211495399475,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                10,
+                9
+              ],
+              [
+                10,
+                9
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798876166343689,
+              "wet_area_m2": 0.554693341255188,
+              "normal_force_magnitude_sum_n": 2.299332618713379,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -1.795643925666809,
+                -0.05919503793120384,
+                -0.020680295303463936
+              ],
+              "two_sided_wet_area_m2": 0.554693341255188,
+              "mean_fluid_speed_wet_m_s": 0.20193196833133698,
+              "mean_relative_speed_wet_m_s": 0.18168655037879944,
+              "max_fluid_speed_m_s": 0.35878708958625793,
+              "max_relative_speed_m_s": 0.35061851143836975
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537000775337219,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290635645389557,
+              "wet_area_m2": 0.008272587321698666,
+              "normal_force_magnitude_sum_n": 0.012270241044461727,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.0076070684008300304,
+                -0.00025354980607517064,
+                -0.0011005165288224816
+              ],
+              "two_sided_wet_area_m2": 0.008272587321698666,
+              "mean_fluid_speed_wet_m_s": 0.16180258989334106,
+              "mean_relative_speed_wet_m_s": 0.16180478036403656,
+              "max_fluid_speed_m_s": 0.347163587808609,
+              "max_relative_speed_m_s": 0.3470590114593506
+            }
+          }
+        },
+        {
+          "output_frame": 10,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              12,
+              12
+            ],
+            "dt_s": 0.009919513016939163,
+            "evaluation_time_s": 0.34304067492485046,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                10,
+                11
+              ],
+              [
+                10,
+                11
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798805832862854,
+              "wet_area_m2": 0.5551802515983582,
+              "normal_force_magnitude_sum_n": 2.9246931076049805,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.293003559112549,
+                -0.10091368854045868,
+                -0.06521502882242203
+              ],
+              "two_sided_wet_area_m2": 0.5551802515983582,
+              "mean_fluid_speed_wet_m_s": 0.2236597090959549,
+              "mean_relative_speed_wet_m_s": 0.20474036037921906,
+              "max_fluid_speed_m_s": 0.395745187997818,
+              "max_relative_speed_m_s": 0.3893424868583679
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370052456855774,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290705978870392,
+              "wet_area_m2": 0.00804247334599495,
+              "normal_force_magnitude_sum_n": 0.014170710928738117,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.008973564952611923,
+                -0.00014496433141175658,
+                -0.001490354654379189
+              ],
+              "two_sided_wet_area_m2": 0.008027088828384876,
+              "mean_fluid_speed_wet_m_s": 0.16916964948177338,
+              "mean_relative_speed_wet_m_s": 0.1691458821296692,
+              "max_fluid_speed_m_s": 0.3779630959033966,
+              "max_relative_speed_m_s": 0.3778669238090515
+            }
+          }
+        },
+        {
+          "output_frame": 11,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              13,
+              13
+            ],
+            "dt_s": 0.009900064207613468,
+            "evaluation_time_s": 0.3726917803287506,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                12,
+                11
+              ],
+              [
+                12,
+                11
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798753023147583,
+              "wet_area_m2": 0.5555533766746521,
+              "normal_force_magnitude_sum_n": 3.1477880477905273,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.490344285964966,
+                -0.08029738813638687,
+                -0.10785198956727982
+              ],
+              "two_sided_wet_area_m2": 0.5555403232574463,
+              "mean_fluid_speed_wet_m_s": 0.2290038764476776,
+              "mean_relative_speed_wet_m_s": 0.212583526968956,
+              "max_fluid_speed_m_s": 0.41219043731689453,
+              "max_relative_speed_m_s": 0.40560972690582275
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.253700852394104,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290769159793854,
+              "wet_area_m2": 0.00809103436768055,
+              "normal_force_magnitude_sum_n": 0.014811270870268345,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.009779711253941059,
+                0.00022408390941563994,
+                -0.0016805401537567377
+              ],
+              "two_sided_wet_area_m2": 0.008066819049417973,
+              "mean_fluid_speed_wet_m_s": 0.1758975237607956,
+              "mean_relative_speed_wet_m_s": 0.17586937546730042,
+              "max_fluid_speed_m_s": 0.3884401321411133,
+              "max_relative_speed_m_s": 0.3883536458015442
+            }
+          }
+        },
+        {
+          "output_frame": 12,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              14,
+              14
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.4024619460105896,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                12,
+                13
+              ],
+              [
+                12,
+                13
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798697829246521,
+              "wet_area_m2": 0.5559329986572266,
+              "normal_force_magnitude_sum_n": 3.6365277767181396,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -2.884840965270996,
+                -0.06196651980280876,
+                -0.14722657203674316
+              ],
+              "two_sided_wet_area_m2": 0.5559252500534058,
+              "mean_fluid_speed_wet_m_s": 0.24348703026771545,
+              "mean_relative_speed_wet_m_s": 0.22676584124565125,
+              "max_fluid_speed_m_s": 0.4446043074131012,
+              "max_relative_speed_m_s": 0.4393618404865265
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370121002197266,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907912135124207,
+              "wet_area_m2": 0.008691620081663132,
+              "normal_force_magnitude_sum_n": 0.01697468012571335,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.01168381329625845,
+                0.0004443847865331918,
+                -0.0014292954001575708
+              ],
+              "two_sided_wet_area_m2": 0.008674291893839836,
+              "mean_fluid_speed_wet_m_s": 0.1807342767715454,
+              "mean_relative_speed_wet_m_s": 0.1806955188512802,
+              "max_fluid_speed_m_s": 0.4176284670829773,
+              "max_relative_speed_m_s": 0.41761788725852966
+            }
+          }
+        },
+        {
+          "output_frame": 13,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              15,
+              15
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.4424619674682617,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                14,
+                13
+              ],
+              [
+                14,
+                13
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7986204624176025,
+              "wet_area_m2": 0.5559355020523071,
+              "normal_force_magnitude_sum_n": 4.341581344604492,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -3.414618730545044,
+                -0.09769859164953232,
+                -0.2073933631181717
+              ],
+              "two_sided_wet_area_m2": 0.5559272766113281,
+              "mean_fluid_speed_wet_m_s": 0.26492759585380554,
+              "mean_relative_speed_wet_m_s": 0.24653705954551697,
+              "max_fluid_speed_m_s": 0.4928600788116455,
+              "max_relative_speed_m_s": 0.48762795329093933
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537015974521637,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32908040285110474,
+              "wet_area_m2": 0.009228581562638283,
+              "normal_force_magnitude_sum_n": 0.02036019042134285,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.014195303432643414,
+                0.00023332670389208943,
+                -0.0017307153902947903
+              ],
+              "two_sided_wet_area_m2": 0.009228581562638283,
+              "mean_fluid_speed_wet_m_s": 0.18882015347480774,
+              "mean_relative_speed_wet_m_s": 0.1887367069721222,
+              "max_fluid_speed_m_s": 0.45956599712371826,
+              "max_relative_speed_m_s": 0.45949625968933105
+            }
+          }
+        },
+        {
+          "output_frame": 14,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              16,
+              16
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.4724619686603546,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                14,
+                15
+              ],
+              [
+                14,
+                15
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7986041307449341,
+              "wet_area_m2": 0.5556719303131104,
+              "normal_force_magnitude_sum_n": 5.041636943817139,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -3.878474235534668,
+                -0.11983194947242737,
+                -0.27494287490844727
+              ],
+              "two_sided_wet_area_m2": 0.5556719303131104,
+              "mean_fluid_speed_wet_m_s": 0.28490784764289856,
+              "mean_relative_speed_wet_m_s": 0.26818159222602844,
+              "max_fluid_speed_m_s": 0.5348766446113586,
+              "max_relative_speed_m_s": 0.5299138426780701
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537018358707428,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.329079806804657,
+              "wet_area_m2": 0.009290128014981747,
+              "normal_force_magnitude_sum_n": 0.024521958082914352,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.016501188278198242,
+                -0.0008168905624188483,
+                -0.0011409310391172767
+              ],
+              "two_sided_wet_area_m2": 0.009290128014981747,
+              "mean_fluid_speed_wet_m_s": 0.19607357680797577,
+              "mean_relative_speed_wet_m_s": 0.1960156410932541,
+              "max_fluid_speed_m_s": 0.4989144206047058,
+              "max_relative_speed_m_s": 0.4988754689693451
+            }
+          }
+        },
+        {
+          "output_frame": 15,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              17,
+              17
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.5024619698524475,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                16,
+                15
+              ],
+              [
+                16,
+                15
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7985485792160034,
+              "wet_area_m2": 0.5560486316680908,
+              "normal_force_magnitude_sum_n": 5.568369388580322,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -4.313037395477295,
+                -0.15576298534870148,
+                -0.35455024242401123
+              ],
+              "two_sided_wet_area_m2": 0.5560486316680908,
+              "mean_fluid_speed_wet_m_s": 0.28846558928489685,
+              "mean_relative_speed_wet_m_s": 0.2729007303714752,
+              "max_fluid_speed_m_s": 0.5553357005119324,
+              "max_relative_speed_m_s": 0.5536210536956787
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537020444869995,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290787637233734,
+              "wet_area_m2": 0.00912958849221468,
+              "normal_force_magnitude_sum_n": 0.024427618831396103,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.016220267862081528,
+                -0.0010117749916389585,
+                -0.0012503017205744982
+              ],
+              "two_sided_wet_area_m2": 0.009116517379879951,
+              "mean_fluid_speed_wet_m_s": 0.19632279872894287,
+              "mean_relative_speed_wet_m_s": 0.1962534785270691,
+              "max_fluid_speed_m_s": 0.5169274210929871,
+              "max_relative_speed_m_s": 0.5169251561164856
+            }
+          }
+        },
+        {
+          "output_frame": 16,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              18,
+              18
+            ],
+            "dt_s": 0.009975682012736797,
+            "evaluation_time_s": 0.5421127676963806,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                16,
+                17
+              ],
+              [
+                16,
+                17
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7985246181488037,
+              "wet_area_m2": 0.5568729639053345,
+              "normal_force_magnitude_sum_n": 6.294646739959717,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -4.853549480438232,
+                -0.1318427175283432,
+                -0.5326357483863831
+              ],
+              "two_sided_wet_area_m2": 0.5568729639053345,
+              "mean_fluid_speed_wet_m_s": 0.30075234174728394,
+              "mean_relative_speed_wet_m_s": 0.2868269979953766,
+              "max_fluid_speed_m_s": 0.5691347718238831,
+              "max_relative_speed_m_s": 0.5654028058052063
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537022829055786,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907938957214355,
+              "wet_area_m2": 0.009794393554329872,
+              "normal_force_magnitude_sum_n": 0.028370611369609833,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.018849607557058334,
+                -0.0007744611939415336,
+                -0.00027975125703960657
+              ],
+              "two_sided_wet_area_m2": 0.009780069813132286,
+              "mean_fluid_speed_wet_m_s": 0.2051326185464859,
+              "mean_relative_speed_wet_m_s": 0.20509551465511322,
+              "max_fluid_speed_m_s": 0.5303761959075928,
+              "max_relative_speed_m_s": 0.5303551554679871
+            }
+          }
+        },
+        {
+          "output_frame": 17,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              19,
+              19
+            ],
+            "dt_s": 0.009764034301042557,
+            "evaluation_time_s": 0.5718768239021301,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                18,
+                17
+              ],
+              [
+                18,
+                17
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984631657600403,
+              "wet_area_m2": 0.5569356679916382,
+              "normal_force_magnitude_sum_n": 6.889270782470703,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.276280403137207,
+                -0.13120007514953613,
+                -0.6948229670524597
+              ],
+              "two_sided_wet_area_m2": 0.5569356679916382,
+              "mean_fluid_speed_wet_m_s": 0.3110896050930023,
+              "mean_relative_speed_wet_m_s": 0.3014936149120331,
+              "max_fluid_speed_m_s": 0.5852215886116028,
+              "max_relative_speed_m_s": 0.5826759338378906
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370243191719055,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907921075820923,
+              "wet_area_m2": 0.010184304788708687,
+              "normal_force_magnitude_sum_n": 0.030330458655953407,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.02059686742722988,
+                -0.0006650913273915648,
+                -0.0002994780952576548
+              ],
+              "two_sided_wet_area_m2": 0.010184304788708687,
+              "mean_fluid_speed_wet_m_s": 0.20666836202144623,
+              "mean_relative_speed_wet_m_s": 0.20663759112358093,
+              "max_fluid_speed_m_s": 0.5342938899993896,
+              "max_relative_speed_m_s": 0.5342817902565002
+            }
+          }
+        },
+        {
+          "output_frame": 18,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              20,
+              20
+            ],
+            "dt_s": 0.009941189549863338,
+            "evaluation_time_s": 0.6013140082359314,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                18,
+                19
+              ],
+              [
+                18,
+                19
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984364628791809,
+              "wet_area_m2": 0.5577053427696228,
+              "normal_force_magnitude_sum_n": 7.106204509735107,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.5164642333984375,
+                -0.11982107907533646,
+                -0.8128090500831604
+              ],
+              "two_sided_wet_area_m2": 0.5576749444007874,
+              "mean_fluid_speed_wet_m_s": 0.31497815251350403,
+              "mean_relative_speed_wet_m_s": 0.3054477274417877,
+              "max_fluid_speed_m_s": 0.5913322567939758,
+              "max_relative_speed_m_s": 0.588790237903595
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537025511264801,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907792925834656,
+              "wet_area_m2": 0.010815870016813278,
+              "normal_force_magnitude_sum_n": 0.031762950122356415,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.022291133180260658,
+                0.00048065828741528094,
+                -0.0023786970414221287
+              ],
+              "two_sided_wet_area_m2": 0.010788955725729465,
+              "mean_fluid_speed_wet_m_s": 0.21600860357284546,
+              "mean_relative_speed_wet_m_s": 0.21598154306411743,
+              "max_fluid_speed_m_s": 0.5391802191734314,
+              "max_relative_speed_m_s": 0.53915935754776
+            }
+          }
+        },
+        {
+          "output_frame": 19,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              21,
+              21
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.6407734751701355,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                20,
+                19
+              ],
+              [
+                20,
+                19
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984398007392883,
+              "wet_area_m2": 0.5613716840744019,
+              "normal_force_magnitude_sum_n": 7.519265174865723,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -5.772577285766602,
+                -0.0629555955529213,
+                -1.010705590248108
+              ],
+              "two_sided_wet_area_m2": 0.5613628029823303,
+              "mean_fluid_speed_wet_m_s": 0.32129836082458496,
+              "mean_relative_speed_wet_m_s": 0.3117997646331787,
+              "max_fluid_speed_m_s": 0.6188101768493652,
+              "max_relative_speed_m_s": 0.6148387789726257
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370270013809204,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907792925834656,
+              "wet_area_m2": 0.012896344065666199,
+              "normal_force_magnitude_sum_n": 0.041013315320014954,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.027874978259205818,
+                0.000653617549687624,
+                -0.0028364944737404585
+              ],
+              "two_sided_wet_area_m2": 0.012869995087385178,
+              "mean_fluid_speed_wet_m_s": 0.23056140542030334,
+              "mean_relative_speed_wet_m_s": 0.2305150032043457,
+              "max_fluid_speed_m_s": 0.5696185827255249,
+              "max_relative_speed_m_s": 0.5695881247520447
+            }
+          }
+        },
+        {
+          "output_frame": 20,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              3,
+              3
+            ],
+            "dt_s": 0.009816737845540047,
+            "evaluation_time_s": 0.6703537702560425,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                21,
+                20
+              ],
+              [
+                21,
+                20
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7984429597854614,
+              "wet_area_m2": 0.5638307332992554,
+              "normal_force_magnitude_sum_n": 8.188777923583984,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.154965400695801,
+                -0.07174931466579437,
+                -1.2627184391021729
+              ],
+              "two_sided_wet_area_m2": 0.5638307332992554,
+              "mean_fluid_speed_wet_m_s": 0.3329337239265442,
+              "mean_relative_speed_wet_m_s": 0.3259578347206116,
+              "max_fluid_speed_m_s": 0.6297956109046936,
+              "max_relative_speed_m_s": 0.6267262101173401
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.253702849149704,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907915115356445,
+              "wet_area_m2": 0.014783503487706184,
+              "normal_force_magnitude_sum_n": 0.06425067037343979,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.041493866592645645,
+                -0.0020812188740819693,
+                0.0018840852426365018
+              ],
+              "two_sided_wet_area_m2": 0.014783503487706184,
+              "mean_fluid_speed_wet_m_s": 0.23720097541809082,
+              "mean_relative_speed_wet_m_s": 0.23715388774871826,
+              "max_fluid_speed_m_s": 0.5855398774147034,
+              "max_relative_speed_m_s": 0.5855096578598022
+            }
+          }
+        },
+        {
+          "output_frame": 21,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              4,
+              4
+            ],
+            "dt_s": 0.009999999776482582,
+            "evaluation_time_s": 0.7001827955245972,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                21,
+                22
+              ],
+              [
+                21,
+                22
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983958721160889,
+              "wet_area_m2": 0.5652672648429871,
+              "normal_force_magnitude_sum_n": 7.987316131591797,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.026351451873779,
+                -0.021501610055565834,
+                -1.4331111907958984
+              ],
+              "two_sided_wet_area_m2": 0.5652672648429871,
+              "mean_fluid_speed_wet_m_s": 0.3305680751800537,
+              "mean_relative_speed_wet_m_s": 0.32642772793769836,
+              "max_fluid_speed_m_s": 0.6240262985229492,
+              "max_relative_speed_m_s": 0.6223321557044983
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370293855667114,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290785551071167,
+              "wet_area_m2": 0.01601555570960045,
+              "normal_force_magnitude_sum_n": 0.0664316937327385,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.043994344770908356,
+                -0.0006931931129656732,
+                -0.002596018835902214
+              ],
+              "two_sided_wet_area_m2": 0.01601555570960045,
+              "mean_fluid_speed_wet_m_s": 0.24461619555950165,
+              "mean_relative_speed_wet_m_s": 0.24459049105644226,
+              "max_fluid_speed_m_s": 0.5911217331886292,
+              "max_relative_speed_m_s": 0.5911248326301575
+            }
+          }
+        },
+        {
+          "output_frame": 22,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              5,
+              5
+            ],
+            "dt_s": 0.009754493832588196,
+            "evaluation_time_s": 0.7394099235534668,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                23,
+                22
+              ],
+              [
+                23,
+                22
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983526587486267,
+              "wet_area_m2": 0.5701393485069275,
+              "normal_force_magnitude_sum_n": 8.552852630615234,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.3482279777526855,
+                -0.01295536570250988,
+                -1.703054666519165
+              ],
+              "two_sided_wet_area_m2": 0.5701393485069275,
+              "mean_fluid_speed_wet_m_s": 0.3397115170955658,
+              "mean_relative_speed_wet_m_s": 0.33292198181152344,
+              "max_fluid_speed_m_s": 0.6509175896644592,
+              "max_relative_speed_m_s": 0.6482834219932556
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537030875682831,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290758430957794,
+              "wet_area_m2": 0.01861002668738365,
+              "normal_force_magnitude_sum_n": 0.08022074401378632,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.05242893099784851,
+                0.00028529352857731283,
+                -0.006170898675918579
+              ],
+              "two_sided_wet_area_m2": 0.01861002668738365,
+              "mean_fluid_speed_wet_m_s": 0.2691146433353424,
+              "mean_relative_speed_wet_m_s": 0.26903581619262695,
+              "max_fluid_speed_m_s": 0.5977410674095154,
+              "max_relative_speed_m_s": 0.5977343916893005
+            }
+          }
+        },
+        {
+          "output_frame": 23,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              6,
+              6
+            ],
+            "dt_s": 0.00985832791775465,
+            "evaluation_time_s": 0.7690386772155762,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                23,
+                24
+              ],
+              [
+                23,
+                24
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.798356294631958,
+              "wet_area_m2": 0.5736263990402222,
+              "normal_force_magnitude_sum_n": 9.110483169555664,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.6398138999938965,
+                -0.1353422850370407,
+                -2.010573148727417
+              ],
+              "two_sided_wet_area_m2": 0.5736263990402222,
+              "mean_fluid_speed_wet_m_s": 0.34433671832084656,
+              "mean_relative_speed_wet_m_s": 0.3391868770122528,
+              "max_fluid_speed_m_s": 0.6447623372077942,
+              "max_relative_speed_m_s": 0.6418425440788269
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537030875682831,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290750980377197,
+              "wet_area_m2": 0.02198357880115509,
+              "normal_force_magnitude_sum_n": 0.1201188936829567,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.07017986476421356,
+                -0.0028652369510382414,
+                -0.006819100584834814
+              ],
+              "two_sided_wet_area_m2": 0.02198357880115509,
+              "mean_fluid_speed_wet_m_s": 0.27316272258758545,
+              "mean_relative_speed_wet_m_s": 0.27306705713272095,
+              "max_fluid_speed_m_s": 0.6148346066474915,
+              "max_relative_speed_m_s": 0.614823579788208
+            }
+          }
+        },
+        {
+          "output_frame": 24,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              7,
+              7
+            ],
+            "dt_s": 0.009867308661341667,
+            "evaluation_time_s": 0.8087033629417419,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                25,
+                24
+              ],
+              [
+                25,
+                24
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983555197715759,
+              "wet_area_m2": 0.5765141248703003,
+              "normal_force_magnitude_sum_n": 9.327309608459473,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.64112663269043,
+                0.08605670928955078,
+                -2.386045455932617
+              ],
+              "two_sided_wet_area_m2": 0.5765141248703003,
+              "mean_fluid_speed_wet_m_s": 0.3564102053642273,
+              "mean_relative_speed_wet_m_s": 0.3517816960811615,
+              "max_fluid_speed_m_s": 0.6856245994567871,
+              "max_relative_speed_m_s": 0.6838585138320923
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370317697525024,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290727734565735,
+              "wet_area_m2": 0.0238664373755455,
+              "normal_force_magnitude_sum_n": 0.11884692311286926,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.07021539658308029,
+                0.0012995117576792836,
+                -0.014207408763468266
+              ],
+              "two_sided_wet_area_m2": 0.023850485682487488,
+              "mean_fluid_speed_wet_m_s": 0.29666370153427124,
+              "mean_relative_speed_wet_m_s": 0.29657191038131714,
+              "max_fluid_speed_m_s": 0.6254169940948486,
+              "max_relative_speed_m_s": 0.6253566741943359
+            }
+          }
+        },
+        {
+          "output_frame": 25,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              8,
+              8
+            ],
+            "dt_s": 0.009956840425729752,
+            "evaluation_time_s": 0.8384686708450317,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                25,
+                26
+              ],
+              [
+                25,
+                26
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983198761940002,
+              "wet_area_m2": 0.5812644362449646,
+              "normal_force_magnitude_sum_n": 9.815401077270508,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -6.887704372406006,
+                0.10177609324455261,
+                -2.6771717071533203
+              ],
+              "two_sided_wet_area_m2": 0.581223726272583,
+              "mean_fluid_speed_wet_m_s": 0.3643270432949066,
+              "mean_relative_speed_wet_m_s": 0.358943372964859,
+              "max_fluid_speed_m_s": 0.6871746778488159,
+              "max_relative_speed_m_s": 0.6847159266471863
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.253703236579895,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32906991243362427,
+              "wet_area_m2": 0.026342974975705147,
+              "normal_force_magnitude_sum_n": 0.14368952810764313,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.08435598015785217,
+                0.0026619660202413797,
+                -0.0191052183508873
+              ],
+              "two_sided_wet_area_m2": 0.026325345039367676,
+              "mean_fluid_speed_wet_m_s": 0.31149888038635254,
+              "mean_relative_speed_wet_m_s": 0.3113790452480316,
+              "max_fluid_speed_m_s": 0.6369238495826721,
+              "max_relative_speed_m_s": 0.6368504166603088
+            }
+          }
+        },
+        {
+          "output_frame": 26,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              9,
+              9
+            ],
+            "dt_s": 0.00973171554505825,
+            "evaluation_time_s": 0.8680124878883362,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                27,
+                26
+              ],
+              [
+                27,
+                26
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7982967495918274,
+              "wet_area_m2": 0.5863655805587769,
+              "normal_force_magnitude_sum_n": 10.47043228149414,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -7.2047624588012695,
+                0.143599733710289,
+                -3.076277732849121
+              ],
+              "two_sided_wet_area_m2": 0.5863547325134277,
+              "mean_fluid_speed_wet_m_s": 0.3732938766479492,
+              "mean_relative_speed_wet_m_s": 0.36799782514572144,
+              "max_fluid_speed_m_s": 0.7002686262130737,
+              "max_relative_speed_m_s": 0.6986185312271118
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537032961845398,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32906800508499146,
+              "wet_area_m2": 0.030028341338038445,
+              "normal_force_magnitude_sum_n": 0.18744292855262756,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.1040797159075737,
+                0.0037556823808699846,
+                -0.030133165419101715
+              ],
+              "two_sided_wet_area_m2": 0.030028341338038445,
+              "mean_fluid_speed_wet_m_s": 0.3247954547405243,
+              "mean_relative_speed_wet_m_s": 0.32464921474456787,
+              "max_fluid_speed_m_s": 0.6467858552932739,
+              "max_relative_speed_m_s": 0.6467053294181824
+            }
+          }
+        },
+        {
+          "output_frame": 27,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              10,
+              10
+            ],
+            "dt_s": 0.009918599389493465,
+            "evaluation_time_s": 0.9069927930831909,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                27,
+                28
+              ],
+              [
+                27,
+                28
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983208894729614,
+              "wet_area_m2": 0.5937519073486328,
+              "normal_force_magnitude_sum_n": 11.543316841125488,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -7.7161993980407715,
+                0.10766717046499252,
+                -3.519270658493042
+              ],
+              "two_sided_wet_area_m2": 0.5937448740005493,
+              "mean_fluid_speed_wet_m_s": 0.3783932030200958,
+              "mean_relative_speed_wet_m_s": 0.37470752000808716,
+              "max_fluid_speed_m_s": 0.6969692707061768,
+              "max_relative_speed_m_s": 0.7032467722892761
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.2537033259868622,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290703296661377,
+              "wet_area_m2": 0.03535039722919464,
+              "normal_force_magnitude_sum_n": 0.3232531249523163,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.15693794190883636,
+                -0.001468984060920775,
+                -0.036155976355075836
+              ],
+              "two_sided_wet_area_m2": 0.03535039722919464,
+              "mean_fluid_speed_wet_m_s": 0.3355672061443329,
+              "mean_relative_speed_wet_m_s": 0.33536651730537415,
+              "max_fluid_speed_m_s": 0.6435061097145081,
+              "max_relative_speed_m_s": 0.643502950668335
+            }
+          }
+        },
+        {
+          "output_frame": 28,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              11,
+              11
+            ],
+            "dt_s": 0.00971523392945528,
+            "evaluation_time_s": 0.9363391399383545,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                29,
+                28
+              ],
+              [
+                29,
+                28
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7983289957046509,
+              "wet_area_m2": 0.5971097350120544,
+              "normal_force_magnitude_sum_n": 12.289461135864258,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -8.081435203552246,
+                0.09415733069181442,
+                -3.854660987854004
+              ],
+              "two_sided_wet_area_m2": 0.5971097350120544,
+              "mean_fluid_speed_wet_m_s": 0.38557693362236023,
+              "mean_relative_speed_wet_m_s": 0.38367101550102234,
+              "max_fluid_speed_m_s": 0.7056070566177368,
+              "max_relative_speed_m_s": 0.7079450488090515
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370338559150696,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.32907068729400635,
+              "wet_area_m2": 0.03762181103229523,
+              "normal_force_magnitude_sum_n": 0.3809111714363098,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.17168153822422028,
+                -0.002480937633663416,
+                -0.06519608199596405
+              ],
+              "two_sided_wet_area_m2": 0.03762181103229523,
+              "mean_fluid_speed_wet_m_s": 0.3413766622543335,
+              "mean_relative_speed_wet_m_s": 0.3412075638771057,
+              "max_fluid_speed_m_s": 0.6584537625312805,
+              "max_relative_speed_m_s": 0.6584409475326538
+            }
+          }
+        },
+        {
+          "output_frame": 29,
+          "evaluation_clock": {
+            "device_brick_capacity_bytes": 72024064,
+            "disk_reads": [
+              12,
+              12
+            ],
+            "dt_s": 0.009728661738336086,
+            "evaluation_time_s": 0.9757159352302551,
+            "host_frame_cache_capacity_bytes": 108036096,
+            "resident_frames": [
+              [
+                29,
+                30
+              ],
+              [
+                29,
+                30
+              ]
+            ]
+          },
+          "objects": {
+            "S04_NEON_Garments": {
+              "area_m2": 0.7982744574546814,
+              "wet_area_m2": 0.600429117679596,
+              "normal_force_magnitude_sum_n": 12.841075897216797,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -8.39501953125,
+                0.09130547195672989,
+                -4.203636169433594
+              ],
+              "two_sided_wet_area_m2": 0.600429117679596,
+              "mean_fluid_speed_wet_m_s": 0.3975917398929596,
+              "mean_relative_speed_wet_m_s": 0.3970574736595154,
+              "max_fluid_speed_m_s": 0.7274843454360962,
+              "max_relative_speed_m_s": 0.7268780469894409
+            },
+            "S04_NEON_Garments.001": {
+              "area_m2": 0.25370341539382935,
+              "wet_area_m2": 0.0,
+              "normal_force_magnitude_sum_n": 0.0,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "two_sided_wet_area_m2": 0.0,
+              "mean_fluid_speed_wet_m_s": 0.0,
+              "mean_relative_speed_wet_m_s": 0.0,
+              "max_fluid_speed_m_s": 0.0,
+              "max_relative_speed_m_s": 0.0
+            },
+            "S04_NEON_Garments.002": {
+              "area_m2": 0.3290724754333496,
+              "wet_area_m2": 0.040108028799295425,
+              "normal_force_magnitude_sum_n": 0.41819316148757935,
+              "tangential_force_magnitude_sum_n": 0.0,
+              "resulting_force_n": [
+                -0.1641354262828827,
+                -0.002418327610939741,
+                -0.11213618516921997
+              ],
+              "two_sided_wet_area_m2": 0.040095340460538864,
+              "mean_fluid_speed_wet_m_s": 0.35037755966186523,
+              "mean_relative_speed_wet_m_s": 0.35029762983322144,
+              "max_fluid_speed_m_s": 0.6673142910003662,
+              "max_relative_speed_m_s": 0.6673197746276855
+            }
+          }
+        }
+      ],
+      "max_newton_steps": 4,
+      "max_linear_relative_residual": 9.994e-05,
+      "max_cg_iterations": 1265,
+      "native_advances": 34,
+      "native_finished": true,
+      "native_contact_guard_errors": [],
+      "contact_reaction_vectors_n": "not exposed by the current upstream telemetry",
+      "collider_intersection_check": "native CCD/intersection guard; not an independent signed body-SDF audit"
+    }
+  ],
+  "comparisons": {
+    "dry1__flow1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.0014753834647642163,
+        "rms_m": 0.00015147147514028007
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.0001439632962005566,
+        "rms_m": 9.574422038943168e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0011345071681289176,
+        "rms_m": 1.1421942006405356e-05
+      }
+    },
+    "dry1__hydro1": {
+      "S04_NEON_Garments": {
+        "max_m": 0.05329455816495358,
+        "rms_m": 0.009684738161517558
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 0.00012962732283333057,
+        "rms_m": 8.896997116604703e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0015301691225538408,
+        "rms_m": 0.00010501427099215171
+      }
+    },
+    "dry1__dry2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.0015695885603579838,
+        "rms_m": 2.5232119361525873e-05
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 6.729787686602366e-05,
+        "rms_m": 8.646647710825827e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.0009183316247773229,
+        "rms_m": 8.798770144851874e-06
+      }
+    },
+    "hydro1__hydro2": {
+      "S04_NEON_Garments": {
+        "max_m": 0.009352786102185168,
+        "rms_m": 0.0002654346011061694
+      },
+      "S04_NEON_Garments.001": {
+        "max_m": 5.275766225015653e-05,
+        "rms_m": 3.593452667118097e-06
+      },
+      "S04_NEON_Garments.002": {
+        "max_m": 0.00046577333313777523,
+        "rms_m": 8.899345401321752e-06
+      }
+    }
+  }
+}

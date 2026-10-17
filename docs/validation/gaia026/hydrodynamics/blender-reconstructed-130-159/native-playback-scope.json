@@ -1,0 +1,7 @@
+{
+  "source": "Verified native outputs from regular Blender130\u2013159 bake",
+  "simulation_fps": 30,
+  "inspection_gif_fps": 10,
+  "colour": "diagnostic false colour; original simulation material parameters preserved",
+  "not_tested": "Original material beauty rendering, global inside/outside for open colliders, and between-output collision proof"
+}

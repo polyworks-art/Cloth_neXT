@@ -1,0 +1,53 @@
+{
+  "result": "PASS",
+  "cases": [
+    {
+      "frame": 1,
+      "source_particle_count": 8784881,
+      "source_hashes_match": true,
+      "source_speed_m_s": {
+        "mean": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "max_velocity_reconstruction_error": 0.0,
+      "max_occupancy_reconstruction_error": 0.0
+    },
+    {
+      "frame": 30,
+      "source_particle_count": 8784853,
+      "source_hashes_match": true,
+      "source_speed_m_s": {
+        "mean": 0.6459484609805266,
+        "p99": 2.1493065171136685,
+        "max": 2.7314344229384937
+      },
+      "max_velocity_reconstruction_error": 0.0,
+      "max_occupancy_reconstruction_error": 0.0
+    },
+    {
+      "frame": 125,
+      "source_particle_count": 8784791,
+      "source_hashes_match": true,
+      "source_speed_m_s": {
+        "mean": 1.646132529090474,
+        "p99": 3.6937946415427576,
+        "max": 5.439455941997109
+      },
+      "max_velocity_reconstruction_error": 0.0,
+      "max_occupancy_reconstruction_error": 0.0
+    },
+    {
+      "frame": 250,
+      "source_particle_count": 8783879,
+      "source_hashes_match": true,
+      "source_speed_m_s": {
+        "mean": 1.9044971800511439,
+        "p99": 3.735918908659028,
+        "max": 6.022150895671472
+      },
+      "max_velocity_reconstruction_error": 0.0,
+      "max_occupancy_reconstruction_error": 0.0
+    }
+  ]
+}

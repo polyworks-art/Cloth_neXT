@@ -1,0 +1,12 @@
+C:\Users\timch\Documents\GitHub\Cloth_neXT\tools\blender_shared_water_flow_smoke.py:37: RuntimeWarning: CLOTHNEXT_PG_object_settings.water_flow_container: does not support blend relative "//" prefix
+  a.cloth_next.water_flow_container='//SharedFlow.gaia'
+C:\Users\timch\Documents\GitHub\Cloth_neXT\cloth_next\blender\water_settings.py:67: RuntimeWarning: CLOTHNEXT_PG_object_settings.water_flow_container: does not support blend relative "//" prefix
+  setattr(obj.cloth_next, key, value)
+C:\Users\timch\Documents\GitHub\Cloth_neXT\tools\blender_shared_water_flow_smoke.py:59: RuntimeWarning: CLOTHNEXT_PG_object_settings.water_flow_container: does not support blend relative "//" prefix
+  other.cloth_next.water_flow_container='//Independent.gaia'
+00:01.031  blend            | Read blend: "C:\Users\timch\AppData\Local\Temp\cnx-shared-flow-w2oqx6du\sharing.blend"
+Info: Saved as "sharing.blend"
+SHARED WATER FLOW PASS: RNA changes, individual influence/scale, new Cloth, scene isolation, reload, migration, source deletion, cleanup
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:37:04)
+
+Blender quit

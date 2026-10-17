@@ -1,0 +1,18 @@
+{
+  "result": "FAIL",
+  "gates": [
+    {
+      "name": "cache-integrity",
+      "returncode": 0,
+      "seconds": 26.82799999999952,
+      "result": "PASS"
+    },
+    {
+      "name": "fluid-cancel",
+      "returncode": 1,
+      "seconds": 11.859000000000378,
+      "result": "FAIL"
+    }
+  ],
+  "error": "AssertionError('fluid-cancel')"
+}

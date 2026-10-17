@@ -1,0 +1,224 @@
+{
+  "frames": [
+    130,
+    132
+  ],
+  "real_fluid_lookahead": 133,
+  "operator_seconds": 83.42348830000003,
+  "operator_state": "FINISHED",
+  "verification": "PASS",
+  "attachment_count": 186,
+  "model": {
+    "Cn": 1,
+    "Ct": 0,
+    "coupling": "one-way"
+  },
+  "request": {
+    "bounds": [
+      -0.43403345346450806,
+      -0.3886232525110245,
+      -0.18513421714305878,
+      0.43291451036930084,
+      0.33433888107538223,
+      1.6113353967666626
+    ],
+    "field_kind": "experimental-hydrodynamic",
+    "fingerprint": "077b4dcdf57bcdaa90c5e6da7cb1574c0fa077945cf4516bc71d32a497b7abd7",
+    "first": 130,
+    "fps": 30.0,
+    "last": 132,
+    "model": {
+      "density_kg_m3": 1000.0,
+      "normal_coefficient": 1.0,
+      "tangential_coefficient": 0.0,
+      "velocity_m_s": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_mode": 1,
+      "wet_area_fraction": 1.0
+    },
+    "path": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\Fluid.gaia",
+    "version": 1
+  },
+  "native_loads": [
+    {
+      "output_frame": 1,
+      "evaluation_clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          3,
+          3
+        ],
+        "dt_s": 0.003636144334450364,
+        "evaluation_time_s": 0.03446590527892113,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "area_m2": 0.7982611060142517,
+          "wet_area_m2": 0.6139420866966248,
+          "normal_load_n": 91.96052551269531,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            -43.301910400390625,
+            -1.8102226257324219,
+            -2.875540256500244
+          ],
+          "mean_wet_fluid_speed_m_s": 1.0784483738678297,
+          "mean_wet_relative_speed_m_s": 0.999451566123854,
+          "maximum_fluid_speed_m_s": 2.873403787612915
+        },
+        "S04_NEON_Garments.001": {
+          "area_m2": 0.2536558210849762,
+          "wet_area_m2": 0.0,
+          "normal_load_n": 0.0,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean_wet_fluid_speed_m_s": 0.0,
+          "mean_wet_relative_speed_m_s": 0.0,
+          "maximum_fluid_speed_m_s": 0.0
+        },
+        "S04_NEON_Garments.002": {
+          "area_m2": 0.32869940996170044,
+          "wet_area_m2": 0.05981408804655075,
+          "normal_load_n": 2.5508484840393066,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            -0.9513996839523315,
+            -0.35439980030059814,
+            1.0221298933029175
+          ],
+          "mean_wet_fluid_speed_m_s": 0.8648271679352715,
+          "mean_wet_relative_speed_m_s": 0.8643221923563339,
+          "maximum_fluid_speed_m_s": 1.6848526000976562
+        }
+      }
+    },
+    {
+      "output_frame": 2,
+      "evaluation_clock": {
+        "device_brick_capacity_bytes": 88145920,
+        "disk_reads": [
+          4,
+          4
+        ],
+        "dt_s": 0.004889975301921368,
+        "evaluation_time_s": 0.0708647221326828,
+        "host_frame_cache_capacity_bytes": 132218880,
+        "resident_frames": [
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "objects": {
+        "S04_NEON_Garments": {
+          "area_m2": 0.7982639670372009,
+          "wet_area_m2": 0.5962957143783569,
+          "normal_load_n": 105.98198699951172,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            -42.35591506958008,
+            -4.050933361053467,
+            -5.981980800628662
+          ],
+          "mean_wet_fluid_speed_m_s": 1.0945219709117646,
+          "mean_wet_relative_speed_m_s": 1.0679528821047037,
+          "maximum_fluid_speed_m_s": 2.8559188842773438
+        },
+        "S04_NEON_Garments.001": {
+          "area_m2": 0.25368690490722656,
+          "wet_area_m2": 0.0,
+          "normal_load_n": 0.0,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "mean_wet_fluid_speed_m_s": 0.0,
+          "mean_wet_relative_speed_m_s": 0.0,
+          "maximum_fluid_speed_m_s": 0.0
+        },
+        "S04_NEON_Garments.002": {
+          "area_m2": 0.32868480682373047,
+          "wet_area_m2": 0.046490442007780075,
+          "normal_load_n": 2.1675004959106445,
+          "tangential_load_n": 0.0,
+          "net_force_n": [
+            -0.6634976267814636,
+            -0.28254127502441406,
+            0.9990671873092651
+          ],
+          "mean_wet_fluid_speed_m_s": 0.8665868355790768,
+          "mean_wet_relative_speed_m_s": 0.8658676666706999,
+          "maximum_fluid_speed_m_s": 1.5531303882598877
+        }
+      }
+    }
+  ],
+  "sdf": {
+    "all_output_cloth_vertices_inside": true,
+    "minimum_output_clearance_m": 0.22597350180149078,
+    "native_iterate_guard": "fail-closed-v1 remains active"
+  },
+  "resources": {
+    "sample_count": 20,
+    "interval_seconds": 5,
+    "maximum_sampled_tree_rss_bytes": 5516816384.0,
+    "maximum_sampled_tree_private_bytes": 7329046528.0,
+    "maximum_sampled_global_gpu_memory_mib": 5082,
+    "scope": "Sampled maxima from monitor start, not guaranteed process lifetime peaks; GPU memory is system-wide, not exclusive to this bake"
+  },
+  "playback": [
+    {
+      "object": "S04_NEON_Garments",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_00.pc2",
+      "native_max_error_m": 3.051691188638017e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.001",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_01.pc2",
+      "native_max_error_m": 6.103197680573658e-08,
+      "reload_playback_max_error_m": 0.0
+    },
+    {
+      "object": "S04_NEON_Garments.002",
+      "frames": 3,
+      "pc2": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\blender-e2e-20261016\\test-d-reconstructed-130-132\\cache\\cn_test_cloth_73d418cd9eca_02.pc2",
+      "native_max_error_m": 6.086069781474635e-08,
+      "reload_playback_max_error_m": 0.0
+    }
+  ],
+  "independent_collider_audit": {
+    "result": "PASS",
+    "frames": 3,
+    "crossing_segments": 0,
+    "scope": "Reciprocal edge-triangle intersections at exported frames; no global inside/outside or between-frame claim"
+  },
+  "middle_sequence_130_159": "NOT_PASSED_BY_THIS_SEPARATE_TEST"
+}

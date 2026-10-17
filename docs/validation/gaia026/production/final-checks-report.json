@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "gates": [
+    {
+      "name": "fluid-server-loss-crash",
+      "returncode": 0,
+      "seconds": 26.57800000000134,
+      "result": "PASS"
+    },
+    {
+      "name": "fluid-server-loss-resume",
+      "returncode": 0,
+      "seconds": 24.39099999999962,
+      "result": "PASS"
+    },
+    {
+      "name": "250-cache-reuse-resource-confirm",
+      "returncode": 0,
+      "seconds": 249.06199999999808,
+      "result": "PASS"
+    }
+  ]
+}

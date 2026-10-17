@@ -1,0 +1,21 @@
+{
+  "phase": "cancel",
+  "terminal": "cancelled",
+  "project": "clothnext_1b780f6e2bbe",
+  "state": "RESUMABLE",
+  "saved_states": [
+    1,
+    2
+  ],
+  "partial_pc2": {
+    "10950e45-3f9a-eed8-56ac-7f5ffd4ff4fa": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\phase2-recovery\\cache\\.cloth_next_recovery\\563ab543db206f6e43fb4008953146785785228d45fdd9600245dc8cd8ca507a-99df59315431477189df1c9ad740b09b\\partials\\10950e45-3f9a-eed8-56ac-7f5ffd4ff4fa.pc2.partial"
+  },
+  "blend": "C:\\Users\\timch\\AppData\\Local\\Temp\\cloth-next-gaia026-audit\\phase2-recovery\\cancel.blend",
+  "event_count": 35,
+  "project_alias": {
+    "preserved": true,
+    "alias_state": "junction",
+    "marker_phase": "COMMITTED",
+    "target_exists": true
+  }
+}

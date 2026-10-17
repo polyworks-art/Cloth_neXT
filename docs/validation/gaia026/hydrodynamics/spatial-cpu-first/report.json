@@ -1,0 +1,115 @@
+{
+  "cases": [
+    {
+      "case": "uniform",
+      "final_velocity_m_s": [
+        0.1784924417734146,
+        0.0,
+        0.0
+      ],
+      "wet_area_m2": 0.010000001639127731,
+      "normal_load_n": 0.003545940387994051,
+      "force_n": [
+        0.003545940387994051,
+        0.0,
+        0.0
+      ],
+      "two_sided_wet_area_m2": 0.010000001639127731,
+      "fluid_speed_max_m_s": 0.20000000298023224,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-9c9d2ab4fd174cb4aac556976f0a3b2f\\spatial"
+    },
+    {
+      "case": "dry",
+      "final_velocity_m_s": [
+        -3.8003109251687e-17,
+        0.0,
+        0.0
+      ],
+      "wet_area_m2": 0.0,
+      "normal_load_n": 0.0,
+      "force_n": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "two_sided_wet_area_m2": 0.0,
+      "fluid_speed_max_m_s": 0.0,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-86c4819d4493475d854fba29617f3e85\\spatial"
+    },
+    {
+      "case": "partial",
+      "final_velocity_m_s": [
+        0.12932075560092926,
+        0.0015462934970855713,
+        0.00022843480110168457
+      ],
+      "wet_area_m2": 0.005000066477805376,
+      "normal_load_n": 0.0025987988337874413,
+      "force_n": [
+        0.002581146080046892,
+        0.00030078866984695196,
+        1.1468730008346029e-05
+      ],
+      "two_sided_wet_area_m2": 0.005000066477805376,
+      "fluid_speed_max_m_s": 0.20000001788139343,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-e9e5bb77773144a7829fff40c8ed63cf\\spatial"
+    },
+    {
+      "case": "gradient",
+      "final_velocity_m_s": [
+        0.20298056304454803,
+        -0.000590980052947998,
+        1.2516975402832031e-05
+      ],
+      "wet_area_m2": 0.010000014677643776,
+      "normal_load_n": 0.004303459078073502,
+      "force_n": [
+        0.004301027394831181,
+        -0.00014275121793616563,
+        -2.334077362320386e-05
+      ],
+      "two_sided_wet_area_m2": 0.010000014677643776,
+      "fluid_speed_max_m_s": 0.24164219200611115,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-898179133ad44561ab631dd39fb1b456\\spatial"
+    },
+    {
+      "case": "temporal",
+      "final_velocity_m_s": [
+        -0.06250739097595215,
+        0.0,
+        0.0
+      ],
+      "wet_area_m2": 0.010000001639127731,
+      "normal_load_n": 0.04229911416769028,
+      "force_n": [
+        -0.04229911416769028,
+        -1.9288340212167165e-18,
+        -5.909117195557201e-09
+      ],
+      "two_sided_wet_area_m2": 0.010000001639127731,
+      "fluid_speed_max_m_s": 0.20000001788139343,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-c9e5a39bd8d746e88bb11bdf3ce48b24\\spatial"
+    },
+    {
+      "case": "reverse",
+      "final_velocity_m_s": [
+        -0.1784919947385788,
+        0.0,
+        0.0
+      ],
+      "wet_area_m2": 0.010000001639127731,
+      "normal_load_n": 0.003546022344380617,
+      "force_n": [
+        -0.003546022344380617,
+        -1.2880065902720617e-09,
+        -1.2880065902720617e-09
+      ],
+      "two_sided_wet_area_m2": 0.010000001639127731,
+      "fluid_speed_max_m_s": 0.20000000298023224,
+      "session": "C:\\Users\\timch\\AppData\\Local\\ClothNeXt\\solver\\versions\\official-2026-10-13-12-32-win64\\local\\share\\ppf-cts\\git-unknown\\cnx-hydro-spatial-32bf9f8691b74fa8b26f0dc6066e7d05\\spatial"
+    }
+  ],
+  "backend": "native CPU",
+  "transport": "typed velocity/SDF v1",
+  "host_forces": false
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "frame": 130,
+    "nearest_map_is_bijective": true,
+    "vertices_above_10um": 15,
+    "changed_vertex_bounds_m": [
+      [
+        0.45483481884002686,
+        -0.6643942594528198,
+        0.4643324613571167
+      ],
+      [
+        0.4682694673538208,
+        -0.6553432941436768,
+        0.4816308617591858
+      ]
+    ],
+    "changed_triangle_rows": 5,
+    "nearest_vertex_distance_max_m": 0.0014068371718562076,
+    "note": "Nearest-vertex correspondence/localization only, not triangle Hausdorff or independent liquid validity; malformed source cannot be ground truth."
+  },
+  {
+    "frame": 135,
+    "nearest_map_is_bijective": true,
+    "vertices_above_10um": 10,
+    "changed_vertex_bounds_m": [
+      [
+        0.4224276542663574,
+        0.6968011856079102,
+        0.5934288501739502
+      ],
+      [
+        0.4352456331253052,
+        0.7142238616943359,
+        0.6059939861297607
+      ]
+    ],
+    "changed_triangle_rows": 3,
+    "nearest_vertex_distance_max_m": 0.0024916454106886075,
+    "note": "Nearest-vertex correspondence/localization only, not triangle Hausdorff or independent liquid validity; malformed source cannot be ground truth."
+  }
+]

@@ -1,0 +1,138 @@
+{
+  "scope": "Five complete native independent canvas/animated-plane solves; exact geometry identity follows when all vertex bits and connectivity match. Native outputs, not Blender Bake validation.",
+  "pairs": [
+    {
+      "left": 0,
+      "right": 1,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 0,
+      "right": 2,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 0,
+      "right": 3,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 0,
+      "right": 4,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 1,
+      "right": 2,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 1,
+      "right": 3,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 1,
+      "right": 4,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 2,
+      "right": 3,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 2,
+      "right": 4,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    },
+    {
+      "left": 3,
+      "right": 4,
+      "rms_material_vertex_m": 0.0,
+      "maximum_material_vertex_m": 0.0,
+      "all_position_bits_equal": true,
+      "all_telemetry_bits_equal": true
+    }
+  ],
+  "contact_peak": 409,
+  "minimum_plane_vertex_separation_m": 0.0009364411234855652,
+  "plane_collision_test": "All canvas vertices remain on the allowed side of the animated planar collider at every output frame; no interframe CCD certification.",
+  "frames": 60,
+  "cloth_vertices": 441,
+  "resources_scope": "Exploratory shared-GPU timings and whole-device memory; not isolated performance measurements.",
+  "runs": [
+    {
+      "run": 0,
+      "exit_code": 0,
+      "elapsed_seconds": 58.97051790000114,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 6583.0
+    },
+    {
+      "run": 1,
+      "exit_code": 0,
+      "elapsed_seconds": 49.12804640000104,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 6577.0
+    },
+    {
+      "run": 2,
+      "exit_code": 0,
+      "elapsed_seconds": 61.076637699996354,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 6791.0
+    },
+    {
+      "run": 3,
+      "exit_code": 0,
+      "elapsed_seconds": 60.734207499997865,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 6846.0
+    },
+    {
+      "run": 4,
+      "exit_code": 0,
+      "elapsed_seconds": 54.04096440000285,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 6582.0
+    }
+  ]
+}
