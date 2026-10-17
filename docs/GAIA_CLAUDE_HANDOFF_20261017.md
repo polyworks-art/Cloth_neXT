@@ -68,3 +68,9 @@ Large raw arrays, scene files, caches and runtime binaries remain LOCAL and are 
 5. Complete remaining controlled fixed/adaptive timestep sensitivity and fair runtime/VRAM comparison. Initial divergence preceded adaptive/contact population divergence; do not overstate experiments not performed.
 6. Integrate standard AETHER/GAIA engine selection and installation after numerical gates. Relevant files: `cloth_next/updater/solver_registry.py`, `cloth_next/ppf/resolver.py`, `cloth_next/blender/solver_preferences_ui.py`, `cloth_next/gaia/hydrodynamic_session.py`. Registry has no engine field yet and UI currently calls all solvers GAIA. Existing managed solver validation targets official bundled manifests. Preserve compatibility and avoid inventing distribution/backend API behavior.
 7. Only seek release approval after validated end-to-end behavior. No production certification claim.
+
+## Final checkpoint results
+
+Final cached NEON suite completed: five independent 30-frame CUDA runs, all ten trajectory pairs bit-identical, maximum material-vertex deviation 0 m. Force and wet-area telemetry are bit-identical in all 870 compared object/frame rows. All runs verified the actual loaded DLL SHA. Runtime 311.621–314.099 s (median 312.714 s); whole-device memory peak 6,811 MiB. Two final cached CUDA hydrodynamic regressions passed. See the research report for final independent-scene/SDF results and remaining Blender/product gates.
+
+Final cached independent fixture: five 60-frame runs, all ten position/telemetry pairs bit-identical, zero deviation. Final cached SDF valid/outside cases both PASS with original timeout/guard. All scheduled native tests completed. No corrected Blender Bake/PC2/fresh playback was performed. Continue from the remaining gates above.

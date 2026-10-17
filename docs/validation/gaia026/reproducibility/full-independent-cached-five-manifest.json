@@ -1,0 +1,90 @@
+{
+  "mode": "ordered",
+  "worker_sha256": "f3a071af94155fa2378967ff44a8c3bf17c7b9809327cde5783d180a9a831b38",
+  "cuda_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+  "inputs": {
+    "bin\\color.bin": "e7120d7dbf41d6f9dcb88ce9e107d30c96e63d5e95b46296e431af688b8c5c3f",
+    "bin\\displacement.bin": "17b0761f87b081d5cf10757ccc89f12be355c70e2e29df288b65b30710dcbcd1",
+    "bin\\object_vert.bin": "5c5aed5641dcbbc0fde575eb19ef494e88817d0a15947a7ddea105b7ad719b7a",
+    "bin\\param\\tri-bend-plasticity-threshold.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-bend-plasticity.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-bend-rest-from-geometry.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-bend-warp.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-bend-weft.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-bend.bin": "eab58e024798349f852713b2183f3e798dd977c56d7c95a3ea23f024c601184b",
+    "bin\\param\\tri-bending-damping.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-contact-gap.bin": "0adf692ee3369ad7c708fce99db4214fa78db6e5b198d57b432fcbbbf53f146f",
+    "bin\\param\\tri-contact-offset.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-deformation-damping.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-density.bin": "785f3140f0a1634ea0cc227b9ea7628ac9bd0b48ad403a4cf32b3202d8425848",
+    "bin\\param\\tri-friction.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-model.bin": "806e4bad872938800ef8273d2da9d17df73d3a3fdf4b6941b96c7990231aa973",
+    "bin\\param\\tri-plasticity-threshold.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-plasticity.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-poiss-rat.bin": "c99431e29d0d9d958df4855f5b79187172bcc33f50c21b5b2f7c90f8798c7db8",
+    "bin\\param\\tri-pressure.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-shrink-x.bin": "785f3140f0a1634ea0cc227b9ea7628ac9bd0b48ad403a4cf32b3202d8425848",
+    "bin\\param\\tri-shrink-y.bin": "785f3140f0a1634ea0cc227b9ea7628ac9bd0b48ad403a4cf32b3202d8425848",
+    "bin\\param\\tri-strain-limit.bin": "125cc4a765aed3bc28e10bff1aae4242c403bd65680a71e30036da1592a40f0d",
+    "bin\\param\\tri-young-mod.bin": "50f7c42c22346415d0fae1428bd5bfb2729a0e64b20f3ed7b245483723232307",
+    "bin\\pin-1-op-0.bin": "32ed1c44c9a66ea6b291bee468bc45cfd943fd4d75568f81b910cd0e83dc60f9",
+    "bin\\pin-ind-0.bin": "79ae181fc66a7949e2e7a49330b788a4fd97243b35ad6eb0dee923376843d77d",
+    "bin\\pin-ind-1.bin": "9963078893795af1d468e9cb5e7a3a31702f63a0361291160c1075e5bcb79c81",
+    "bin\\tri.bin": "092eca6b42c46318c05307cb355ce4feb44434b658b426378abe13adbaa50f04",
+    "bin\\uv.bin": "f5c88002b61d4ba53bd402d0d5d82c32734ef4f672931a0c8505ee36b71e8976",
+    "bin\\vel.bin": "b59d3bd89e114f786acb9afdc84405135793daae29dd44537e8bd8e27fc24e12",
+    "bin\\vert.bin": "aea124321d45023d882a999c3b6eed287c7387ec3c9bdf67d58926bd3c50054f",
+    "bin\\vert_dmap.bin": "5c5aed5641dcbbc0fde575eb19ef494e88817d0a15947a7ddea105b7ad719b7a",
+    "param.toml": "9767fc25b6b7c48bd5c3cd35f6271889cfe64e641c426da7cccbe2fcf9483acf"
+  },
+  "physical_parameters": "frozen independent 441-vertex canvas / animated plane; Cn=1 Ct=0; full uniform fluid interior",
+  "probe_readbacks": false,
+  "scope": "native repeatability control; Blender playback and collision audits are separate required gates",
+  "runs": [
+    {
+      "run": 0,
+      "exit_code": 0,
+      "elapsed_seconds": 34.90132040000026,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 4028.0
+    },
+    {
+      "run": 1,
+      "exit_code": 0,
+      "elapsed_seconds": 33.7124940000067,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 4025.0
+    },
+    {
+      "run": 2,
+      "exit_code": 0,
+      "elapsed_seconds": 36.7619995999994,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 4127.0
+    },
+    {
+      "run": 3,
+      "exit_code": 0,
+      "elapsed_seconds": 36.238686100005,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 4049.0
+    },
+    {
+      "run": 4,
+      "exit_code": 0,
+      "elapsed_seconds": 34.389620300004026,
+      "vertex_outputs": 60,
+      "finite": true,
+      "device_memory_scope": "whole GPU, not per-process VRAM",
+      "peak_total_device_memory_mib": 4039.0
+    }
+  ]
+}

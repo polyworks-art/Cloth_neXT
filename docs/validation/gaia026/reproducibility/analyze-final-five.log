@@ -1,0 +1,7 @@
+{
+  "scope": "Native world-space trajectory repeatability; PC2, Blender playback and independent collision audits remain separate gates.",
+  "investigation_threshold_m": 0.008,
+  "maximum_material_vertex_deviation_m": 0.0,
+  "all_trajectory_bits_identical": true,
+  "screen": "WITHIN_EXISTING_SCREEN; NOT PRODUCTION CERTIFICATION"
+}

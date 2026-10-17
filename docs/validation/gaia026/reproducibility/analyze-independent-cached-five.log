@@ -1,0 +1,8 @@
+{
+  "pairs": 10,
+  "maximum_delta_m": 0.0,
+  "all_position_bits_equal": true,
+  "all_telemetry_bits_equal": true,
+  "minimum_plane_vertex_separation_m": 0.0009364411234855652,
+  "contact_peak": 409
+}

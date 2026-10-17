@@ -64,3 +64,13 @@ Final cached-candidate five-run NEON validation is recorded separately in `full-
 The source delivery consists of `native-hydrodynamics-baseline.patch` against upstream commit `7232f4033515e1e72359f4ce5145456ce7d156f7`, followed by `native-research.patch` against that hydrodynamic working tree. Apply in that order to reconstruct the modified native source. No native upstream repository was pushed. Binaries, proprietary NEON fixtures, and raw large caches remain local and are deliberately excluded from public Git.
 
 Remaining gates include final cached-candidate regressions, a genuine corrected-solver Blender Bake with PC2 and fresh-process playback, collider audit, fixed/adaptive timestep sensitivity, and AETHER/GAIA product integration. No broader acceptance, packaging, release or production certification is claimed.
+
+## Final cached-candidate NEON result
+
+Five independent complete native CUDA runs of NEON 130–159 passed using the verified loaded DLL SHA above. All ten trajectory pairs are bit-identical: maximum world-space material-vertex deviation 0 m. With identical vertex positions/connectivity, geometric surfaces are identical as well; no approximate distance metric is needed to infer equality. All 870 compared per-object/frame hydrodynamic telemetry rows are bit-identical, including force and wet area. The existing 8 mm screening threshold is unchanged. This is repeatability evidence for this fixture/GPU/toolchain, not general production certification.
+
+Runtime per complete native replay: 311.621–314.099 s, median 312.714 s. Maximum recorded whole-GPU memory: 6,811 MiB. These measurements do not establish process-exclusive VRAM or an apples-to-apples upstream performance comparison. Actual backend module identity passed for all five runs.
+
+The final cached DLL also passed both CUDA hydrodynamic regression tests (force/nine Jacobian blocks and frozen contact scale, zero host/contact deltas). Corrected-solver Blender Bake, PC2/fresh playback, independent NEON collider audit, broader hardware testing and product engine integration remain open.
+
+Final cached-candidate independent-scene and safety checks also completed: five 60-frame canvas/animated-plane runs, all ten pairs bit-identical in positions and fluid telemetry (maximum deviation 0 m); peak contact count 409 and minimum output-frame plane separation 0.936441 mm. Both final cached SDF cases passed: valid domain accepted and shifted/out-of-bounds SDF rejected by the existing native guard, with the unchanged 60-second timeout. No running native tests remain at this checkpoint. The independent fixture remains a native test, not a corrected Blender/PC2 acceptance result.
