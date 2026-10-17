@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.9.26 - 2026-10-17
+
+- Add an explicitly gated GAIA CUDA owner evaluation using a separately configured local runtime and verified frozen NEON fluid data.
+- Preserve one-way native hydrodynamics, original materials/attachments, SDF and velocity coverage guards; validate NEON 130–159 with real frame-160 lookahead and PC2 playback after restart.
+- Bind reconstructed surfaces, fluid arrays and scene/material/attachment inputs; reject unsupported changes or missing/corrupted sources before native solving.
+- Keep PolyWorks account controls in the Companion EXE, with read-only account status in Blender and Welcome-style account tiles/buttons. Backend-dependent features remain disabled pending the approved API contract.
+- Retain existing release blockers: CPU/CUDA self-contact parity 19/20, trajectory repeatability above 8 mm, NEON-only scope and untested real VRAM exhaustion. The external CPU/material-zone combination remains unsupported; this is not production certification.
+- Do not bundle or publish external solver binaries, FLIP assets or proprietary scenes. Existing GAIA validation artifacts remain preserved locally.
+- Bound retries for transient Windows snapshot replacement holds; preserve atomic publication and surface permanent permission errors.
+
 ## 2.9.25 - 2026-10-14
 
 - Show the reason when a solver selection fails instead of silently returning to the previously selected release.

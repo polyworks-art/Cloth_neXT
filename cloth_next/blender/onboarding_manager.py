@@ -84,7 +84,11 @@ def companion_info_command(mode: str, version: str | None = None, *,
                            splash_ms: int = 0,
                            show_after_updates: bool = True,
                            preference_path: Path | None = None,
-                           preference_token: str | None = None) -> list[str]:
+                           preference_token: str | None = None,
+                           account_root: Path | None = None,
+                           open_account: bool = False,
+                           superhive_connected: bool = False,
+                           purchase_detected: bool = False) -> list[str]:
     extension_root = Path(__file__).resolve().parents[1]
     repository_root = extension_root.parent
     try:
@@ -106,10 +110,27 @@ def companion_info_command(mode: str, version: str | None = None, *,
     if preference_path is not None and preference_token is not None:
         command += ["--preference-path", str(preference_path),
                     f"--preference-token={preference_token}"]
+    if account_root is not None:
+        command += ['--account-root', str(account_root)]
+    if open_account:
+        command += ['--open-account']
+    if superhive_connected:
+        command += ['--superhive-connected']
+    if purchase_detected:
+        command += ['--purchase-detected']
     return command
 
 
-def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
+def account_root():
+    """Location handoff only. Account state is edited exclusively by Companion."""
+    try:
+        root = bpy.utils.user_resource('CONFIG')
+        return Path(root)/'cloth_next'/'polyworks' if root else None
+    except (AttributeError, TypeError):
+        return None
+
+
+def launch_screen(mode: str, *, manual: bool = False, open_account: bool = False) -> tuple[bool, str]:
     """Start one independent informational window; never block Blender."""
     version = manifest_version()
     temporary = None
@@ -125,12 +146,18 @@ def launch_screen(mode: str, *, manual: bool = False) -> tuple[bool, str]:
         preference = Path(temporary.name) / "preference.json"
         token = secrets.token_hex(16)
         preferences = _preferences()
+        from ..superhive_status import repository_status
+        repos = getattr(getattr(bpy.context.preferences, 'extensions', None), 'repos', ())
+        superhive = repository_status(repos)
         show_after_updates = bool(getattr(
             preferences, "show_whats_new_after_updates", True))
         command = companion_info_command(
             mode, version, splash_ms=2000,
             show_after_updates=show_after_updates,
-            preference_path=preference, preference_token=token)
+            preference_path=preference, preference_token=token,
+            account_root=account_root(), open_account=open_account,
+            superhive_connected=superhive.connected,
+            purchase_detected=superhive.purchase_detected)
         env = dict(os.environ, CLOTH_NEXT_INFO_READY_PATH=str(ready),
                    CLOTH_NEXT_INFO_READY_TOKEN=token)
         process = subprocess.Popen(

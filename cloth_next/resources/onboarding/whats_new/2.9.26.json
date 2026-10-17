@@ -1,0 +1,33 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.26",
+  "title": "What's New in Cloth NeXt 2.9.26",
+  "subtitle": "GAIA owner evaluation — experimental, not production-ready.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Native GAIA owner test",
+      "description": "Evaluate CUDA hydrodynamics with a separate local runtime and the approved frozen NEON dataset. The regular 30-frame Bake and playback after Blender restart have been validated."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Verified fluid inputs",
+      "description": "Scene, material, attachment and fluid identities are checked before solving. Unsupported changes and corrupted sources fail safely; the native SDF and velocity guards stay active."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Account controls in the Companion",
+      "description": "The account window follows the Welcome style. Blender shows read-only status. Backend-dependent account and activation features remain disabled until approved; login is not required for this test."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Clear experimental limits",
+      "description": "NEON-only hydrodynamics, repeatability above the 8 mm screen and CPU/CUDA self-contact differences remain open. Solver binaries and scene assets are installed separately."
+    }
+  ],
+  "actions": [
+    {"label": "Continue", "kind": "close"},
+    {"label": "Learning Center", "kind": "url", "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"}
+  ]
+}

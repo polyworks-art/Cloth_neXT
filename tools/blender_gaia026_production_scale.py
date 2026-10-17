@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--existing-scene', action='store_true')
     parser.add_argument('--exclude-collider', action='append', default=[])
     parser.add_argument('--preflight-only',action='store_true')
+    parser.add_argument('--profile-capture', action='store_true')
     parser.add_argument('--combination', choices=['base','collider','sweep','zones','two','folded'], default='base')
     parser.add_argument('--rebake', action='store_true')
     parser.add_argument('--time-step', type=float)
@@ -283,6 +284,11 @@ def main():
     from cloth_next.ppf_run.session import SolverSession, _SOLVER_METRICS, _tail_numeric_metric
     original_activity = SolverSession._runtime_activity
     original_run = SolverSession._run
+    original_merge = solver_test._merge_export_diagnostics
+    def capture_export_timings(diagnostics, plan):
+        original_merge(diagnostics, plan)
+        report['export_timings'] = dict(plan.export_timings)
+    solver_test._merge_export_diagnostics = capture_export_timings
     session_results = []
     def capture_run(session, **kwargs):
         try:
@@ -306,16 +312,25 @@ def main():
         return result
     SolverSession._runtime_activity = capture_activity
     report['state_transitions'] = []
+    report['activity_events'] = []
     def record_state(snapshot):
         capture_ram()
         states = report['state_transitions']
         if not states or states[-1]['state'] != snapshot.state.value:
             states.append({'state':snapshot.state.value,'seconds':time.monotonic()-started})
+        activity = dict(state=snapshot.state.value, activity=snapshot.activity_code.value,
+            label=snapshot.activity_label, current=snapshot.progress_current,
+            total=snapshot.progress_total, eta=snapshot.estimated_remaining_seconds)
+        previous = report['activity_events'][-1] if report['activity_events'] else None
+        if previous is None or any(previous[k] != v for k,v in activity.items()):
+            report['activity_events'].append(dict(seconds=time.monotonic()-started, **activity))
     unsubscribe_trace = solver_test.shared_controller.subscribe(record_state)
     def wait_for_bake():
         deadline = time.monotonic() + args.timeout
         while solver_test.shared_controller.snapshot().active:
             capture_ram()
+            if solver_test._active_plan is not None:
+                report['export_timings'] = dict(solver_test._active_plan.export_timings)
             if time.monotonic() >= deadline:
                 solver_test.request_cancel()
                 cancel_deadline = time.monotonic()+120
@@ -364,6 +379,11 @@ def main():
             bpy.context.scene.frame_set(frame)
         finally:module.DISABLE_MESH_CACHE_LOAD=previous
 
+    profiler = None
+    if args.profile_capture:
+        import cProfile
+        profiler = cProfile.Profile()
+        profiler.enable()
     try:
         report['operator_result'] = sorted(bpy.ops.clothnext.bake('EXEC_DEFAULT'))
         snapshot = wait_for_bake()
@@ -588,7 +608,14 @@ def main():
         report.update(result='FAIL', exception=repr(exc))
         raise
     finally:
+        if profiler is not None:
+            import pstats
+            profiler.disable()
+            profiler.dump_stats(str(args.output / 'capture.pstats'))
+            with (args.output / 'capture-profile.txt').open('w', encoding='utf-8') as stream:
+                pstats.Stats(profiler, stream=stream).strip_dirs().sort_stats('cumulative').print_stats(50)
         unsubscribe_trace()
+        solver_test._merge_export_diagnostics = original_merge
         SolverSession._runtime_activity = original_activity
         SolverSession._run = original_run
         report['session_timings_and_contacts'] = session_results

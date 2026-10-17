@@ -4,6 +4,9 @@ import argparse
 parser=argparse.ArgumentParser(description='Read-only real FLIP shared-field preparation and same-session reuse check')
 parser.add_argument('--blend',type=Path,required=True)
 parser.add_argument('--output',type=Path,required=True)
+parser.add_argument('--resolution',default='CUSTOM')
+parser.add_argument('--longest',type=int,default=128)
+parser.add_argument('--encode-native',action='store_true')
 a=parser.parse_args(sys.argv[sys.argv.index('--')+1:])
 root=Path(__file__).resolve().parents[1]
 out=a.output
@@ -19,7 +22,7 @@ from cloth_next.bake.status import BakeState
 objects=tuple(o for o in g['actors'] if o.cloth_next.role=='CLOTH')
 settings=objects[0].cloth_next
 settings.water_flow_domain=g['domains'][0]
-settings.water_flow_resolution='CUSTOM';settings.water_flow_custom_resolution=128
+settings.water_flow_resolution=a.resolution;settings.water_flow_custom_resolution=a.longest
 settings.water_flow_container=str(out.with_suffix('.gaia'));settings.water_flow_enabled=True
 calls=[];samples=[]
 original_worker=prep.WaterPreparationWorker
@@ -51,5 +54,18 @@ try:
     assert measurements[0]['workers']==1 and measurements[0]['captures']==3
     assert measurements[1]['workers']==0 and measurements[1]['captures']==0
     assert result['cache_unchanged'] and result['timeline_restored']
+    from cloth_next.gaia.container import GaiaContainer
+    with GaiaContainer(out.with_suffix('.gaia')) as container:
+        result['grid_layout']=container.manifest['water']['grid_layout']
+        fingerprint=container.manifest['water']['fingerprint']
+    if a.encode_native:
+        from cloth_next.gaia.native_fluid import native_fluid_payload_file
+        from cloth_next.ppf.schema import envelope
+        descriptor=dict(first=1,last=3,fps=bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,
+                        solver_fps=30.,targets=[dict(path=str(out.with_suffix('.gaia')),
+                            fingerprint=fingerprint,groups=[0,1,2],strength=1.,influence=1.,flow=1.)])
+        encoded=out.with_suffix('.native.bin')
+        native_fluid_payload_file(envelope.dumps_envelope(envelope.KIND_PARAM,{},schema_version=2),descriptor,encoded)
+        result['native_encoding']=json.loads(encoded.with_suffix('.metrics.json').read_text())
     out.write_text(json.dumps(result,indent=2));print(json.dumps(result))
 finally:prep.shutdown()

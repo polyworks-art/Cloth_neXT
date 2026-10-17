@@ -716,8 +716,30 @@ def _new_look_changed(_self, context):
 LEARNING_CENTER_URL = "https://polyworks-art.github.io/Cloth_neXT/docs/"
 
 
+def _gaia_owner_changed(self, context):
+    from ..gaia.owner_test import configure
+    configure(bpy.path.abspath(self.gaia_owner_manifest) if self.gaia_owner_manifest else '')
+
+
+def initialize_owner_runtime():
+    """Read persisted RNA only in the Blender adapter, after registration."""
+    from ..gaia.owner_test import configure
+    try:
+        prefs = addon_preferences(bpy.context, __package__)
+    except (AttributeError, KeyError):
+        configure('')
+    else:
+        value = getattr(prefs, 'gaia_owner_manifest', '')
+        configure(bpy.path.abspath(value) if value else '')
+
+
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
+
+    gaia_owner_manifest: bpy.props.StringProperty(
+        name="GAIA Owner Runtime", subtype="FILE_PATH", default="",
+        description="Manifest for your separate local experimental GAIA runtime; never replaces the official solver",
+        update=_gaia_owner_changed)
 
     new_look: bpy.props.BoolProperty(
         name="New Look", default=True,
@@ -799,6 +821,15 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         self._draw_learning_section(layout)
 
         self._draw_solver_section(layout)
+        from ..gaia import owner_test
+        if owner_test.enabled():
+            owner = layout.box()
+            owner.label(text="GAIA Owner Evaluation — NOT production-ready", icon="ERROR")
+            owner.prop(self, "gaia_owner_manifest")
+            owner.label(text="CUDA hydrodynamics: frozen NEON only, validated frame ranges.")
+            owner.label(text="Select this runtime separately under Active Solver above.")
+            owner.label(text="Enable Hydrodynamic Pressure on the cloth's Fluid Interaction panel.")
+            owner.label(text="Self-contact parity 19/20; trajectory repeatability exceeds 8 mm.")
 
         general = layout.box()
         general.label(text="General")
@@ -848,12 +879,24 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         learning.url = LEARNING_CENTER_URL
 
     def _draw_superhive_status(self, layout, context) -> None:
-        """Two informational states; never contacts a service or reads credentials."""
+        """Read-only projection; all account actions are owned by the EXE."""
         status = repository_status(context.preferences.extensions.repos)
+        from ..polyworks.display import read_status
+        from .onboarding_manager import account_root
+        account = read_status(account_root())
         box = layout.box()
-        box.label(text="Superhive")
-        box.label(text="Superhive connected", icon="CHECKMARK" if status.connected else "X")
-        box.label(text="Purchase validated", icon="CHECKMARK" if status.purchase_validated else "X")
+        box.label(text="PolyWorks Account")
+        box.label(text="Signed in (Companion status)" if account['signed_in'] else "Signed out")
+        if account['email']:
+            box.label(text=account['email'])
+        box.label(text="License: " + account['tier'])
+        box.label(text=account['verification'])
+        box.label(text="Superhive Connected" if status.connected else "Superhive not connected")
+        box.label(text="Cloth NeXt Purchase Detected" if status.purchase_detected else "No purchase detected locally")
+        devices = account['devices']
+        box.label(text=f"Activated devices: {len(devices)}" if devices is not None else "Activated devices: not supported yet")
+        box.operator('clothnext.manage_polyworks_account', text='Manage Account', icon='URL')
+        box.label(text="Account changes and Sign Out are available in Companion.")
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
@@ -1038,7 +1081,20 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=f"External installation: {self.external_solver_path}")
 
 
+class CLOTHNEXT_OT_manage_polyworks_account(bpy.types.Operator):
+    bl_idname = 'clothnext.manage_polyworks_account'
+    bl_label = 'Manage PolyWorks Account'
+    bl_description = 'Open account settings in the Cloth NeXt Companion EXE'
+
+    def execute(self, context):
+        from .onboarding_manager import launch_screen
+        ok, message = launch_screen('welcome', manual=True, open_account=True)
+        self.report({'INFO'} if ok else {'ERROR'}, message)
+        return {'FINISHED'} if ok else {'CANCELLED'}
+
+
 CLASSES = (
+    CLOTHNEXT_OT_manage_polyworks_account,
     CLOTHNEXT_OT_solver_use,
     CLOTHNEXT_OT_solver_refresh_installations,
     CLOTHNEXT_OT_solver_download,

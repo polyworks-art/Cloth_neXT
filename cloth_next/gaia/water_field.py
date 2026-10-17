@@ -82,7 +82,7 @@ def check_grid_memory(info):
             f"(limit {MAX_WORKING_BYTES/1024**2:.0f} MiB). Choose a smaller resolution.")
 
 
-def grid_plan(minimum, maximum, selection='AUTO', custom=100, *, source_voxel_size=None):
+def grid_plan(minimum, maximum, selection='AUTO', custom=100, *, source_voxel_size=None, budget=None):
     target = resolution_target(selection,custom)
     if str(selection) in {'AUTO','24'} and source_voxel_size is not None:
         if not np.isfinite(source_voxel_size) or source_voxel_size <= 0:
@@ -91,10 +91,36 @@ def grid_plan(minimum, maximum, selection='AUTO', custom=100, *, source_voxel_si
         # FLIP exposes dx through float32 RNA; avoid an accidental extra
         # sample caused solely by 0.08 becoming 0.079999998.
         target=max(target,int(math.ceil(ratio-1e-6*max(1.,ratio))))
+    requested=target
+    if budget is not None:
+        from .flow_budget import fits_budget
+        def fits(longest):
+            dimensions=grid_dimensions(minimum,maximum,longest)
+            diagnostic=grid_diagnostics(minimum,maximum,dimensions)
+            return (diagnostic['field_bytes']<=MAX_FRAME_BYTES
+                    and diagnostic['estimated_working_bytes']<=MAX_WORKING_BYTES
+                    and fits_budget(dimensions,budget))
+        if not fits(2):
+            raise ValueError('Fluid sequence cannot fit even the smallest coupling grid. Split the Bake frame range.')
+        low,high=2,min(target,4096)
+        while low<high:
+            middle=(low+high+1)//2
+            if fits(middle):low=middle
+            else:high=middle-1
+        target=low
     if target > 4096:
         raise ValueError(f'Water Flow requested resolution {target} exceeds the supported sizing limit 4096')
     dims = grid_dimensions(minimum,maximum,target)
-    info = grid_diagnostics(minimum,maximum,dims,requested=target)
+    info = grid_diagnostics(minimum,maximum,dims,requested=requested)
+    if budget is not None:
+        from .flow_budget import native_encoding_bytes,packed_frame_bytes
+        # Budget inputs can change without changing the physical field.
+        # Keep frame/object counts out of the cache fingerprint in that case.
+        info['coupling_budget_recipe']=1
+        info['estimated_encoding_bytes']=native_encoding_bytes(dims)
+        info['packed_frame_upper_bound']=packed_frame_bytes(dims)
+        info['effective_resolution']=target
+        info['budget_adjusted']=target<requested
     info['selection']=str(selection)
     info['source_voxel_size']=source_voxel_size
     reference=grid_dimensions(minimum,maximum,MIN_LONGEST_AXIS_RESOLUTION)

@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 from cloth_next.ppf.official_scene_bridge import (
-    bind_face_friction, bind_stiffness, create_owned_project_link, prepare_scene, recovery_param_hash)
+    bind_face_friction, bind_stiffness, create_owned_project_link, prepare_scene, recovery_param_hash,
+    restore_prepared_scene)
 from cloth_next.ppf.schema import envelope
 
 
@@ -73,6 +74,29 @@ def test_old_generation_is_byte_identical():
     original = scene()
     assert prepare_scene(original, enabled=False) is original
     assert recovery_param_hash(original) == original.param_hash
+
+
+def test_cached_prepared_scene_preserves_zones_and_does_not_duplicate_seams():
+    original = scene()
+    data = envelope.loads_envelope(original.data_payload, 'Scene', schema_version=2)
+    data[0]['object'][0]['face_material_params'] = {'young-mod': [10., 50000.], 'bend': [2., 20.]}
+    original = replace(original, data_payload=envelope.dumps_envelope('Scene', data, schema_version=2))
+    cold = prepare_scene(original, enabled=True)
+    # Persistent DATA is already stripped; PARAM is independently rebuilt.
+    warm = restore_prepared_scene(replace(cold, official_bridge_json='',
+        param_payload=original.param_payload), cold.official_bridge_json)
+    assert warm.data_payload == cold.data_payload
+    assert warm.param_payload == cold.param_payload
+    assert warm.official_bridge_json == cold.official_bridge_json
+    doc = json.loads(warm.official_bridge_json)
+    assert doc['face_material_params'][0]['params']['young-mod'] == [10., 50000.]
+    assert len(doc['stitches']) == 2
+    assert prepare_scene(warm, enabled=True) is warm
+    changed = envelope.loads_envelope(original.param_payload, 'Param', schema_version=2)
+    changed['scene'] = {'dt': .001}
+    fresh_params = envelope.dumps_envelope('Param', changed, schema_version=2)
+    updated = restore_prepared_scene(replace(warm, param_payload=fresh_params), cold.official_bridge_json)
+    assert recovery_param_hash(updated) != recovery_param_hash(warm)
 
 
 def test_standalone_worker_bootstrap_preserves_extension_namespace():

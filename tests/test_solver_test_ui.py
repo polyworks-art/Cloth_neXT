@@ -114,7 +114,34 @@ def test_animated_collider_motion_digest_covers_all_axes_and_times(blender_env):
         assert module._collider_motion_digest(offsets, moved, dtype="<f4") != baseline
 
     assert module._collider_motion_digest((0.0, 2.0), base, dtype="<f4") != baseline
-    assert module.SCENE_EXPORT_CACHE_SCHEMA == 4
+    assert module.SCENE_EXPORT_CACHE_SCHEMA == 5
+
+
+def test_persistent_scene_plan_keeps_official_material_bindings(blender_env, tmp_path):
+    from cloth_next.export_cache import ExportPayloadCache, deterministic_key
+    from cloth_next.ppf.official_scene_bridge import restore_prepared_scene
+    from cloth_next.ppf.schema import envelope
+    from tests.test_official_scene_bridge import scene, prepare_scene
+    module = blender_env.solver_test
+    original = scene()
+    prepared = prepare_scene(original, enabled=True)
+    target = SimpleNamespace(initial_local=((0.,0.,0.),), object_name='cloth',
+        uuid='cloth', role='CLOTH', world_matrix=np.eye(4), topology_signature='topology',
+        material_meta={}, stitch_pairs=(), stitch_snap_distance=0.)
+    plan = SimpleNamespace(deformables=(target,), pin_configs=(), scene=prepared,
+        frame_count=2, frame_start=1, frame_end=2, fps=30., geometry_fingerprint='geometry')
+    record, artifacts = module._cache_plan_record(plan)
+    cache = ExportPayloadCache(tmp_path)
+    key = deterministic_key('scene', {'case':'official bindings'})
+    cache.store('scene', key, prepared.data_payload, plan=record, artifacts=artifacts)
+    hit = cache.lookup('scene', key)
+    paths = cache.lookup_artifacts('scene', key)
+    document = paths[hit.metadata['official_bindings_artifact']].read_text(encoding='utf-8')
+    warm = restore_prepared_scene(replace(prepared, official_bridge_json='',
+        param_payload=original.param_payload), document)
+    assert warm == prepared
+    paths[record['official_bindings_artifact']].write_text('corrupt')
+    assert cache.lookup_artifacts('scene', key) == {}
 
 
 def test_static_collider_animation_detection_and_bake_guard(blender_env):
@@ -3987,3 +4014,66 @@ def test_evaluated_scene_identity_and_payload_reuse(blender_env, tmp_path, monke
     module._cached_payload(cache, 'scene', key, producer)
     module._cached_payload(cache, 'scene', key, producer)
     assert len(calls) == 1
+
+
+def test_native_encoding_worker_events_reach_the_bake_activity(blender_env, monkeypatch):
+    from cloth_next.bake.status import BakeActivity
+    module = blender_env.solver_test
+    controller = module.shared_controller
+    controller.reset()
+    controller.transition(BakeState.PREPARING)
+    controller.transition(BakeState.EXPORTING)
+    module._active_plan = SimpleNamespace(frame_start=1, frame_end=3, frame_count=3)
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    monkeypatch.setattr(module, '_ram_auto_cancel_enabled', False)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    module._queue.put(('event', SimpleNamespace(phase='EXPORTING',
+        message='Encoding native fluid frame 2', frame_current=None, frame_total=None,
+        progress_current=2, progress_total=3, indeterminate=False,
+        activity_code='ENCODING_NATIVE_FLUID')))
+    try:
+        module._pump_once()
+        snapshot = controller.snapshot()
+        assert snapshot.state is BakeState.EXPORTING
+        assert snapshot.activity_code is BakeActivity.ENCODING_NATIVE_FLUID
+        assert snapshot.progress_current == 2 and snapshot.progress_total == 3
+        assert snapshot.active
+    finally:
+        module._active_plan = None
+        module._worker = None
+        controller.fail('test cleanup')
+        controller.reset()
+
+
+def test_eta_observes_each_queued_frame_at_worker_time(blender_env, monkeypatch):
+    module = blender_env.solver_test
+    controller = module.shared_controller
+    if controller.snapshot().state is not BakeState.IDLE:
+        controller.reset()
+    controller.transition(BakeState.PREPARING)
+    controller.transition(BakeState.EXPORTING)
+    controller.transition(BakeState.STARTING_SOLVER)
+    controller.transition(BakeState.SIMULATING, frame_start=1, frame_end=250)
+    module._eta_estimator.reset()
+    module._active_plan = SimpleNamespace(frame_start=1, frame_end=250, frame_count=250)
+    module._worker = SimpleNamespace(is_alive=lambda: True)
+    monkeypatch.setattr(module, "_ram_auto_cancel_enabled", False)
+    while not module._queue.empty():
+        module._queue.get_nowait()
+    for frame, stamp in ((0, 10.), (1, 12.), (2, 14.)):
+        module._queue.put(("event", SimpleNamespace(
+            phase="SIMULATING", message="Solving constraints",
+            frame_current=frame, frame_total=250, indeterminate=False,
+            activity_code="SOLVING_CONSTRAINTS", emitted_at=stamp)))
+    try:
+        module._pump_once()
+        snapshot = controller.snapshot()
+        assert snapshot.current_frame == 3
+        assert snapshot.estimated_remaining_seconds == pytest.approx(494.)
+    finally:
+        module._active_plan = None
+        module._worker = None
+        module._eta_estimator.reset()
+        controller.fail("test cleanup")
+        controller.reset()

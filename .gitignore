@@ -37,3 +37,12 @@ downloads/
 managed_solver/
 staging/
 *.partial
+
+# Unpublished owner evaluation artifacts, local runtimes and proprietary inputs.
+.owner-test-tmp/
+.owner-companion-build.log
+.hydro-test-tmp/
+.polyworks-test-tmp/
+.polyworks-build.log
+cloth_next/gaia_owner_test.json
+cloth_next/dev_build.json

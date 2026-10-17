@@ -254,7 +254,8 @@ def progress_display_text(snapshot: BakeSnapshot) -> str:
         if snapshot.state is BakeState.CANCELLED: return 'Water Flow cancelled'
         if snapshot.state is BakeState.ERROR: return 'Water Flow failed'
         return f'Water Flow · {snapshot.progress_fraction:.0%}' if snapshot.progress_total else 'Preparing Water Flow'
-    if snapshot.current_frame is not None and snapshot.progress_total:
+    if (snapshot.state in {BakeState.SIMULATING, BakeState.FETCHING}
+            and snapshot.current_frame is not None and snapshot.progress_total):
         return (f"Frame {snapshot.current_frame} · "
                 f"{snapshot.progress_current} / {snapshot.progress_total}")
     if snapshot.progress_total:
@@ -1156,6 +1157,9 @@ class BakeWindow:
             total = snapshot.preparation_total
             fraction = min(1., max(0., snapshot.preparation_current/total)) if total else 0.
             self._frame_progress_state=FrameProgress(fraction, indeterminate=not bool(total))
+        elif snapshot.state in {BakeState.PREPARING, BakeState.EXPORTING}:
+            self._frame_progress_state=FrameProgress(
+                snapshot.progress_fraction, indeterminate=not bool(snapshot.progress_total))
         else:
             self._frame_progress_state=self._frame_progress.observe(snapshot)
         self.root.update_idletasks()
@@ -1286,6 +1290,10 @@ def main(argv=None):
     parser.add_argument("--show-after-updates",choices=("0","1"),default="1")
     parser.add_argument("--preference-path")
     parser.add_argument("--preference-token")
+    parser.add_argument("--account-root")
+    parser.add_argument("--open-account",action="store_true")
+    parser.add_argument("--superhive-connected",action="store_true")
+    parser.add_argument("--purchase-detected",action="store_true")
     args=parser.parse_args(argv)
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:
@@ -1300,12 +1308,17 @@ def main(argv=None):
                             splash_ms=args.splash_ms,
                             show_after_updates=args.show_after_updates=="1",
                             preference_path=Path(args.preference_path) if args.preference_path else None,
-                            preference_token=args.preference_token)
+                            preference_token=args.preference_token,
+                            account_root=Path(args.account_root) if args.account_root else None,
+                            open_account=args.open_account,
+                            superhive_connected=args.superhive_connected,
+                            purchase_detected=args.purchase_detected)
         except (OSError,ValueError,json.JSONDecodeError):
             LOG.error("informational companion failed\n%s",traceback.format_exc())
             raise SystemExit(2)
         return
-    if args.version or args.splash_ms or args.preference_path or args.preference_token:
+    if (args.version or args.splash_ms or args.preference_path or args.preference_token
+            or args.account_root or args.open_account or args.superhive_connected or args.purchase_detected):
         parser.error("informational arguments require an informational mode")
     if args.content_root:
         parser.error("--content-root is only valid with informational modes")

@@ -353,6 +353,7 @@ class SessionEvent:
     solver_backend: str = ""
     solver_device: str = ""
     solver_telemetry: dict[str, str] = field(default_factory=dict)
+    emitted_at: float = field(default_factory=time.monotonic)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1455,6 +1456,7 @@ class SolverSession:
         server_data = self._server_data_root()
         io_path(server_data).mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
+        environment.update(getattr(self, '_hydrodynamic_environment', {}))
         if self._official_bridge:
             # Public scene preparation is a sibling of the control server.
             # The official worker mode prevents its native metadata probes
@@ -1951,9 +1953,16 @@ class SolverSession:
                         fetched.add(frame);self.diagnostics.fetched_frames.append(frame)
                         self.diagnostics.last_fetched_frame=frame
                         self.diagnostics.last_completed_logical_frame=frame
-                    source=json.loads(self.scene.water_stream_json)['first']+available
-                    self._event('SIMULATING',f'Water Flow source frame {source}',
-                                frame_current=available,frame_total=total)
+                source=json.loads(self.scene.water_stream_json)['first']+available
+                activity_code, activity_message = self._runtime_activity()
+                self._event('SIMULATING',
+                            activity_message or f'Water Flow source frame {source}',
+                            frame_current=available, frame_total=total,
+                            activity_code=activity_code,
+                            solver_name=self.diagnostics.solver_name,
+                            solver_backend=self.diagnostics.solver_backend,
+                            solver_device=self.diagnostics.solver_device,
+                            solver_telemetry=dict(self.diagnostics.solver_telemetry))
                 if phase=='FAILED':
                     raise _session_error('Water Flow cache streaming failed.',str(state.get('error','')))
                 if phase=='CANCELLED':raise SessionCancelled()
@@ -2473,14 +2482,38 @@ class SolverSession:
             self._check_cancel()
             if self.scene.water_stream_json:
                 descriptor = json.loads(self.scene.water_stream_json)
+                if descriptor.get('field_kind') == 'experimental-hydrodynamic':
+                    from ..gaia.hydrodynamic_session import prepare_session
+                    def report_surface(current,total):
+                        self._event('EXPORTING','Preparing native hydrodynamic surfaces',
+                            progress_current=current,progress_total=total,
+                            activity_code='ENCODING_NATIVE_FLUID')
+                    self._hydrodynamic_environment = prepare_session(descriptor,
+                        self.resolved.executable_path,self.work_directory,
+                        check_cancel=self._check_cancel,progress=report_surface,
+                        scene=self.scene)
+                    self.scene = replace(self.scene,water_stream_json='')
                 if descriptor.get('field_kind') == 'native-file':
                     from ..gaia.native_fluid import native_fluid_payload_file
                     payload_path = self.work_directory / ('native-fluid-' + uuid_module.uuid4().hex + '.cbor')
-                    self._event('EXPORTING', 'Encoding native fluid sequence', indeterminate=True)
+                    encoding_total = ((descriptor['last'] - descriptor['first'] + 1)
+                                      * len(descriptor['targets']))
+                    encoding_current = 0
+                    def report_native_encoding(frame):
+                        nonlocal encoding_current
+                        encoding_current += 1
+                        self._event('EXPORTING', f'Encoding native fluid frame {frame}',
+                            progress_current=encoding_current, progress_total=encoding_total,
+                            activity_code="ENCODING_NATIVE_FLUID")
+                    self._event('EXPORTING', 'Encoding native fluid sequence',
+                                progress_current=0, progress_total=encoding_total,
+                                activity_code="ENCODING_NATIVE_FLUID")
+                    encoding_started = time.monotonic()
                     digest = native_fluid_payload_file(self.scene.param_payload, descriptor,
                         payload_path, check_cancel=self._check_cancel,
-                        progress=lambda frame: self._event('EXPORTING',
-                            f'Encoding native fluid frame {frame}', indeterminate=True))
+                        progress=report_native_encoding)
+                    self.diagnostics.timings['native_fluid_encoding'] = (
+                        time.monotonic() - encoding_started)
                     self.scene = replace(self.scene, param_payload=payload_path,
                                          param_hash=digest, water_stream_json='')
                     self.diagnostics.param_hash = digest

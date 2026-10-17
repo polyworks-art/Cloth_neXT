@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import sys
+import argparse
 
 import PyInstaller.__main__
 
@@ -22,6 +23,12 @@ from cloth_next.platform_support import platform_spec  # noqa: E402
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output-root', type=Path,
+                        help='Isolated development build root; preserves existing Companion artifacts')
+    args = parser.parse_args()
+    build_root = args.output_root.resolve() if args.output_root else ROOT/'companion'
+    build_root.mkdir(parents=True, exist_ok=True)
     build_assets()
     assets = ROOT / "companion/assets"
     PyInstaller.__main__.run(
@@ -31,6 +38,7 @@ def main():
             "--onefile",
             "--windowed",
             "--noconfirm",
+            '--hidden-import=cryptography.hazmat.primitives.asymmetric.ed25519',
             *([f"--icon={assets / 'cloth_next.ico'}"] if sys.platform == "win32" else []),
             f"--add-data={assets / 'cloth_next.png'}{os.pathsep}companion_assets",
             f"--add-data={assets / 'veyra.png'}{os.pathsep}companion_assets",
@@ -47,13 +55,13 @@ def main():
                 f"--add-data={assets / name}{os.pathsep}companion_assets"
                 for name in STATUS_ASSETS
             ],
-            f"--distpath={ROOT / 'companion/dist'}",
-            f"--workpath={ROOT / 'companion/build/app_icon'}",
-            f"--specpath={ROOT / 'companion'}",
+            f"--distpath={build_root / 'dist'}",
+            f"--workpath={build_root / 'build/app_icon'}",
+            f"--specpath={build_root}",
             f"--paths={ROOT}",
         ]
     )
-    output = ROOT / "companion/dist" / platform_spec().companion_build_name
+    output = build_root / 'dist' / platform_spec().companion_build_name
     if not output.is_file():
         raise RuntimeError("companion executable was not produced")
     print(f"Development companion: {output}")

@@ -144,7 +144,10 @@ def require_capability(obj, resolved):
     from ..ppf.compatibility import protocol_profile
     profile = protocol_profile(str(getattr(resolved, 'protocol_version', '')),
                                str(getattr(resolved, 'schema_version', '')))
-    if (resolved.mode is not SolverMode.MANAGED_INSTALLATION or profile is None
+    from ..ppf.hydrodynamic_capability import hydrodynamic_capability
+    experimental = (getattr(resolved,'executable_path',None) is not None
+                    and hydrodynamic_capability(resolved.executable_path).available)
+    if ((resolved.mode is not SolverMode.MANAGED_INSTALLATION and not experimental) or profile is None
             or (not uses_official_bridge(resolved)
                 and profile.adapter_id not in {'legacy-schema2', 'modern-schema2'})):
         names = ', '.join(z.name for z in obj.cloth_next.material_zones)

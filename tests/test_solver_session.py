@@ -12,6 +12,7 @@ import gzip
 import json
 import struct
 import threading
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -115,7 +116,8 @@ class ScriptedWire:
                        param_payload, data_hash, param_hash, check_cancel=None):
         if check_cancel: check_cancel()
         self.log.append(("upload", project_name, len(data_payload),
-                         len(param_payload), data_hash, param_hash))
+                         param_payload.stat().st_size if isinstance(param_payload, Path) else len(param_payload),
+                         data_hash, param_hash))
 
     def _data_receive(self, _address, _config, *, project_name, path,
                       max_bytes=0):
@@ -138,6 +140,27 @@ def _run_session(monkeypatch, scripted=None, **kwargs):
         emit=events.append, frame_sink=frames.append, poll_interval=0.001,
         **kwargs)
     return session, scripted, frames, events
+
+
+def test_native_encoding_progress_counts_every_target_without_restart(monkeypatch, tmp_path):
+    from cloth_next.gaia import native_fluid
+    s, scripted, frames, events = _run_session(monkeypatch)
+    descriptor = dict(field_kind='native-file', first=7, last=8, targets=[{}, {}])
+    s.scene = replace(s.scene, water_stream_json=json.dumps(descriptor))
+    s.work_directory = tmp_path
+    def encode(base, descriptor, path, *, check_cancel, progress):
+        for frame in (7, 8, 7, 8):
+            check_cancel()
+            progress(frame)
+        path.write_bytes(b'param')
+        return 'ph'
+    monkeypatch.setattr(native_fluid, 'native_fluid_payload_file', encode)
+    s.run()
+    encoded = [e for e in events if e.activity_code == 'ENCODING_NATIVE_FLUID']
+    assert [e.progress_current for e in encoded] == [0, 1, 2, 3, 4]
+    assert {e.progress_total for e in encoded} == {4}
+    assert encoded[2].progress_current < encoded[2].progress_total
+    assert len(frames) == 7
 
 
 def _transport_failure(phase="READ_TIMEOUT"):

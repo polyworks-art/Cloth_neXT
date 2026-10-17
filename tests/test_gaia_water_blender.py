@@ -80,6 +80,9 @@ def test_authoritative_flip_conversion_separates_points_and_world_velocity(blend
 
 @pytest.mark.parametrize('mode', ['POSITIONS', 'CONSTANT_X', 'DIRECTION', 'MAGNITUDE'])
 def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch, tmp_path, mode):
+    from cloth_next.blender import preferences
+    monkeypatch.setattr(preferences,'_read_registry',lambda:(SimpleNamespace(
+        selected=SimpleNamespace(protocol_version='0.23')),None))
     from contextlib import nullcontext
     module = sys.modules['cloth_next.blender.water_flow']
     field = reconstruct([[.5,.5,.5]], [[2,0,0]], [0,0,0], [1,1,1], [3,3,3])

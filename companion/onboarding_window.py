@@ -79,7 +79,9 @@ class InfoWindow:
                  content_root: Path | None = None, splash_ms: int = 0,
                  version: str | None = None, show_after_updates: bool = True,
                  preference_path: Path | None = None,
-                 preference_token: str | None = None):
+                 preference_token: str | None = None,
+                 account_root: Path | None = None, open_account: bool = False,
+                 superhive_connected: bool = False, purchase_detected: bool = False):
         self.mode = mode
         self.content = content
         self.version = version or content.get("version", "")
@@ -88,6 +90,11 @@ class InfoWindow:
         self.splash_ms = max(0, splash_ms)
         self.preference_path = preference_path
         self.preference_token = preference_token
+        self.account_root = account_root
+        self.open_account = open_account
+        self.superhive_connected = superhive_connected
+        self.purchase_detected = purchase_detected
+        self.account_window = None
         self.root = root or tk.Tk()
         self.root.withdraw()
         self.root.title("Cloth NeXt")
@@ -323,6 +330,25 @@ class InfoWindow:
             y += 72
         self._button(48, 420, 158, 36, self.content["actions"][0]["label"],
                      self.close, primary=True)
+        self._text(470, 157, 'PolyWorks Accounts · Cloth NeXt 3.0', size=11, weight='bold', width=300)
+        self._text(470, 190, 'Cloud Bakes — Coming Soon', size=9, color=MUTED)
+        for y, label in ((220, 'Create PolyWorks Account'), (258, 'Sign In'),
+                         (296, 'Automatically Validate Superhive Purchase'), (334, 'Enter Activation Key')):
+            # Every account input/action opens the same Companion-owned editor.
+            self._button(470, y, 305, 32, label, self._open_account)
+        self._button(470, 420, 158, 36, 'Sign In Later', self.close)
+        if self.open_account:
+            self.open_account = False
+            self._schedule(0, self._open_account)
+
+    def _open_account(self):
+        if self.account_window is not None and not self.account_window.closed:
+            self.account_window.window.lift()
+            return
+        from companion.account_window import AccountWindow
+        self.account_window = AccountWindow(self.root, root_path=self.account_root,
+            superhive_connected=self.superhive_connected, purchase_detected=self.purchase_detected,
+            content_root=self.content_root)
 
     def _release_items(self):
         items = list(self.content["highlights"])
@@ -453,6 +479,9 @@ class InfoWindow:
                 pass
 
     def close(self):
+        account = getattr(self, 'account_window', None)
+        if account is not None and not account.closed:
+            account.close()
         self._write_preference()
         for identifier in getattr(self, "_after_ids", ()):
             try:
@@ -474,10 +503,14 @@ def run_info_window(mode: str, version: str | None = None,
                     content_root: Path | None = None, *, splash_ms: int = 0,
                     show_after_updates: bool = True,
                     preference_path: Path | None = None,
-                    preference_token: str | None = None) -> None:
+                    preference_token: str | None = None,
+                    account_root: Path | None = None, open_account: bool = False,
+                    superhive_connected: bool = False, purchase_detected: bool = False) -> None:
     root = content_root or default_resource_root()
     InfoWindow(mode, load_content(mode, version, root), content_root=root,
                splash_ms=splash_ms, version=version,
                show_after_updates=show_after_updates,
                preference_path=preference_path,
-               preference_token=preference_token).run()
+               preference_token=preference_token, account_root=account_root,
+               open_account=open_account, superhive_connected=superhive_connected,
+               purchase_detected=purchase_detected).run()

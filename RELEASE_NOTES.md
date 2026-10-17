@@ -1,7 +1,9 @@
-# Cloth NeXt 2.9.25
+# Cloth NeXt 2.9.26
 
-Solver selection failures now show their reason in Preferences. An unhealthy installation, missing registration or registry write failure no longer leaves the user with a silently rejected selection. The previously selected solver is preserved on failure, and successful selection clears the old error.
+Experimental GAIA owner evaluation for the private GitHub test channel. Native CUDA hydrodynamics passed the regular NEON 130–159 Blender Bake with real frame-160 lookahead, original materials and attachments, and PC2 playback in a new Blender process. The validated reconstruction is explicitly restricted to the frozen NEON configuration; arbitrary FLIP simulations are not supported by this test.
 
-In the reported NEON case, GAIA 0.26 was blocked by an old local validation marker. A fresh real health check passed, the marker was repaired locally, and selecting GAIA 0.26 in Blender persisted correctly. This release does not bypass health checks or automatically change solver selection.
+Configure the separate local experimental runtime and its approved NEON dataset in Preferences. Official GAIA 0.26 fluid support alone does not enable experimental triangle pressure. This package contains no external solver runtime, FLIP cache, mesher binary or proprietary scene. Existing solver installations are not replaced automatically. Ordinary CUDA cloth baking remains available with hydrodynamics disabled, and no account login is required.
 
-The shared GAIA Flow and preparation improvements from 2.9.24 are retained. The external solver is not bundled.
+The PolyWorks account interface remains inside the existing Companion EXE and uses the Welcome visual style. Blender displays read-only account status. Production sign-in, purchase verification and license activation remain safely disabled where the approved backend contract or trust configuration is unavailable; local metadata never grants a license.
+
+Not production-ready: CPU/CUDA self-contact parity remains 19/20; main-garment repeatability still exceeds the existing 8 mm maximum screen; the external owner CPU/material-zone combination is rejected by its existing guard; interframe collisions, additional scenes and real GPU-memory-exhaustion handling need further validation. Existing acceptance gates are unchanged.

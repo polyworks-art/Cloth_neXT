@@ -31,6 +31,10 @@ class Layout:
     def separator(self):
         pass
 
+    def menu(self, identifier, **kwargs):
+        assert identifier=='CLOTHNEXT_MT_water_source_provider'
+        assert hasattr(bpy.types,identifier)
+
     def operator(self, identifier, **kwargs):
         assert identifier in {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
         assert getattr(bpy.ops.cloth_next,identifier.split('.')[1]).get_rna_type()
@@ -38,6 +42,10 @@ class Layout:
 
 
 cloth_next.register()
+from cloth_next.blender import preferences
+original_read = preferences._read_registry
+preferences._read_registry = lambda: (SimpleNamespace(
+    selected=SimpleNamespace(protocol_version='0.23')), None)
 try:
     obj = bpy.data.objects.new('Water Flow UI Smoke', bpy.data.meshes.new('Water Flow UI Smoke'))
     bpy.context.scene.collection.objects.link(obj)
@@ -66,7 +74,6 @@ try:
     }, controls
     assert operators == {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
     from cloth_next.blender import preferences
-    original_read = preferences._read_registry
     try:
         preferences._read_registry = lambda: (SimpleNamespace(
             selected=SimpleNamespace(protocol_version='0.26')), None)
@@ -74,8 +81,28 @@ try:
         assert {'water_flow_coupling_strength', 'water_flow_native_flow'} <= controls
     finally:
         preferences._read_registry = original_read
+    from cloth_next.blender.water_flow import CLOTHNEXT_MT_water_source_provider,CLOTHNEXT_OT_select_water_source
+    providers=[]
+    class ProviderRow:
+        enabled=True
+        def operator(self,identifier,**kwargs):
+            assert identifier=='cloth_next.select_water_source'
+            props=SimpleNamespace()
+            providers.append((kwargs['text'],self.enabled,props))
+            return props
+    class ProviderLayout:
+        def row(self):return ProviderRow()
+    CLOTHNEXT_MT_water_source_provider.draw(SimpleNamespace(layout=ProviderLayout()),context)
+    assert [(name,enabled) for name,enabled,_ in providers]==[
+        ('FLIP Fluids',True),('Mantaflow',False),
+        ('Houdini FX',False),('LiquiGen',False)]
+    assert CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='MANTAFLOW'))=='Blenders Fluidsolver'
+    assert CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='HOUDINI'))=='You should know how to export particle Data'
+    assert 'Export velocity' in CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='LIQUIGEN'))
+    assert bpy.ops.cloth_next.select_water_source(provider='FLIP_FLUIDS')=={'FINISHED'}
     print('WATER FLOW UI PASS: registered Physics panel, RNA controls, preparation and FLIP export operators')
 finally:
+    preferences._read_registry = original_read
     cloth_next.unregister()
 assert not hasattr(bpy.types, 'CLOTHNEXT_PT_water_flow')
 print('WATER FLOW UI PASS: registration cleanup')

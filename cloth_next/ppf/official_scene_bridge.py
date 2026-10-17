@@ -123,10 +123,11 @@ def prepare_scene(scene, *, enabled: bool):
                            "stitches": bindings, "face_friction": friction}
     if materials:
         binding_document["face_material_params"] = materials
-    document = json.dumps(binding_document,
-                          sort_keys=True, separators=(",", ":"), allow_nan=False)
     wire_data = envelope.dumps_envelope(envelope.KIND_SCENE, data, schema_version=2)
     wire_param = envelope.dumps_envelope(envelope.KIND_PARAM, params, schema_version=2)
+    binding_document['prepared_param_hash'] = envelope.payload_sha256(wire_param)
+    document = json.dumps(binding_document,
+                          sort_keys=True, separators=(",", ":"), allow_nan=False)
     return replace(scene, data_payload=wire_data, param_payload=wire_param,
                    data_hash=envelope.payload_sha256(wire_data),
                    param_hash=envelope.payload_sha256(wire_param),
@@ -144,6 +145,33 @@ def recovery_param_hash(scene) -> str:
     if not scene.official_bridge_json:
         return scene.param_hash
     return hashlib.sha256(scene.official_bridge_json.encode("utf-8")).hexdigest()
+
+
+def restore_prepared_scene(scene, document: str):
+    """Restore hash-verified cache bindings alongside a prepared DATA payload.
+
+    PARAM is rebuilt independently on cache reuse. Native intra-object seams
+    already exist in DATA, so don't also hand their original rows to the decoder.
+    Cross-object attachments remain owned by the official decoder.
+    """
+    from .schema import envelope
+    binding = json.loads(document)
+    if binding.get('version') != 1:
+        raise ValueError('Unsupported cached official scene bindings')
+    raw = scene.param_payload.read_bytes() if isinstance(scene.param_payload, Path) else scene.param_payload
+    params = envelope.loads_envelope(raw, envelope.KIND_PARAM, schema_version=2)
+    if 'cross_stitch' in params:
+        rows = [row for row in params['cross_stitch']
+                if row['source_uuid'] != row['target_uuid']]
+        if rows:
+            params['cross_stitch'] = rows
+        else:
+            params.pop('cross_stitch')
+    payload = envelope.dumps_envelope(envelope.KIND_PARAM, params, schema_version=2)
+    binding['prepared_param_hash'] = envelope.payload_sha256(payload)
+    document = json.dumps(binding, sort_keys=True, separators=(',', ':'), allow_nan=False)
+    return replace(scene, param_payload=payload,
+        param_hash=envelope.payload_sha256(payload), official_bridge_json=document)
 
 
 def bind_stiffness(indices, weights, stiffness, mapping, bindings):

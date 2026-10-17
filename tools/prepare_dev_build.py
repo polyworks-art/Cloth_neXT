@@ -16,6 +16,20 @@ def prepare(root: Path, version: str, commit: str, run_id: str) -> None:
     compat=root/"cloth_next/solver_compatibility.json"
     payload=json.loads(compat.read_text(encoding="utf-8")); payload["cloth_next_version"]=version
     compat.write_text(json.dumps(payload,indent=2)+"\n",encoding="utf-8")
+    # Version-bound owner opt-in metadata contains only the approved dataset
+    # digest. No runtime paths, solver binaries or private scene data ship.
+    owner_candidate=root/"gaia_owner_build.json"
+    owner_marker=root/"cloth_next/gaia_owner_test.json"
+    if owner_candidate.is_file():
+        owner=json.loads(owner_candidate.read_text(encoding="utf-8"))
+        if owner.get("version")==version:
+            if (owner.get("kind")!="ClothNeXt.OwnerBuild.v1"
+                    or owner.get("production_ready") is not False
+                    or not re.fullmatch(r"[0-9a-f]{64}",str(owner.get("dataset_sha256","")))):
+                raise ValueError("Invalid version-bound GAIA owner candidate")
+            owner_marker.write_text(json.dumps(owner,indent=2)+"\n",encoding="utf-8")
+        elif owner_marker.exists():
+            raise ValueError("GAIA owner marker does not match the requested Dev version")
     whats_new=root/"cloth_next/resources/onboarding/whats_new"
     for path in whats_new.glob("*.json"):
         if path.name != f"{version}.json":

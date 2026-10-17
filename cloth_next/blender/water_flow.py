@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+from zipfile import BadZipFile
 import bpy
 import numpy as np
 from ..gaia.water_field import reconstruct, grid_plan, fingerprint, display_stride
@@ -11,6 +12,33 @@ from ..gaia.solver_fields import official_grid_payload
 
 
 WATER_COORDINATE_RECIPE = 'flip-evaluated-world-v2'
+_grid_display_cache = {}
+WATER_SOURCE_OPTIONS = (
+    ('FLIP_FLUIDS','FLIP Fluids',True,
+     'Use a baked FLIP Fluids domain with particle velocity export enabled.'),
+    ('MANTAFLOW','Mantaflow',False,'Blenders Fluidsolver'),
+    ('HOUDINI','Houdini FX',False,'You should know how to export particle Data'),
+    ('LIQUIGEN','LiquiGen',False,
+     'Export liquid particles as Alembic with Export velocity enabled.'),
+)
+
+
+def prepared_grid_info(settings):
+    """Read only bounded manifest metadata; never load fields in a UI draw."""
+    if not settings.water_flow_container:
+        return None
+    path=Path(bpy.path.abspath(settings.water_flow_container))
+    try:
+        stat=path.stat();key=(str(path),stat.st_size,stat.st_mtime_ns)
+        if key not in _grid_display_cache:
+            with GaiaContainer(path) as cache:
+                _grid_display_cache[key]=dict(cache.manifest['water'].get('grid_layout',{}))
+            if len(_grid_display_cache)>32:
+                newest=_grid_display_cache[key]
+                _grid_display_cache.clear();_grid_display_cache[key]=newest
+        return _grid_display_cache[key]
+    except (OSError,ValueError,KeyError,BadZipFile):
+        return None
 
 
 def flip_sample_to_world(positions, velocities, matrix_world):
@@ -34,6 +62,7 @@ class FLIPWaterFlowProvider:
                                      'object_type', '') != 'TYPE_DOMAIN'):
             raise ValueError('Select a baked FLIP Fluids Domain')
         self.context, self.domain = context, domain
+        self.frame_count = len(frames)
         self.properties = domain.flip_fluid.domain
         d = self.properties
         if getattr(getattr(d,'bake',None),'is_simulation_running',False):
@@ -213,6 +242,7 @@ def water_settings_record(obj):
         source = {'cache': str(cache), 'matrix': [list(row) for row in domain.matrix_world],
                   'bake_stat': [stats.stat().st_size, stats.stat().st_mtime_ns] if stats.is_file() else None}
     return {'domain': domain.name if domain else None, 'source': source, 'influence': s.water_flow_influence,
+            'hydrodynamic_pressure':getattr(s,'water_hydrodynamic_pressure',False),
             'coupling_strength':getattr(s,'water_flow_coupling_strength',1.),
             'native_flow':getattr(s,'water_flow_native_flow',1.),
             'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
@@ -227,8 +257,26 @@ def water_grid_plan(provider, settings):
     if dx is not None:
         scale=float(np.linalg.norm(provider.cache_matrix[:3,:3],axis=0).min())
         source_voxel=float(dx)*scale
+    from ..gaia.flow_budget import coupling_budget
+    context=getattr(provider,'context',None)
+    scene=getattr(context,'scene',None)
+    native=False
+    if context is not None:
+        from .preferences import _read_registry
+        registry,_error=_read_registry()
+        native=bool(registry.selected and registry.selected.protocol_version=='0.26')
+    # Native export merges identical fields across disjoint Cloth groups.
+    identities=set()
+    for obj in getattr(scene,'objects',()):
+        s=getattr(obj,'cloth_next',None)
+        if s and s.enabled and s.role=='CLOTH' and s.water_flow_enabled:
+            identities.add((s.water_flow_container,s.water_flow_influence,
+                s.water_flow_velocity_scale,s.water_flow_coupling_strength,s.water_flow_native_flow))
+    budget=coupling_budget(frames=getattr(provider,'frame_count',1),
+                           fields=max(1,len(identities)),native=native)
     return grid_plan(provider.minimum,provider.maximum,settings.water_flow_resolution or 'AUTO',
-                     getattr(settings,'water_flow_custom_resolution',100),source_voxel_size=source_voxel)
+                     getattr(settings,'water_flow_custom_resolution',100),source_voxel_size=source_voxel,
+                     budget=budget)
 
 
 def water_container_destination(value, object_name):
@@ -299,6 +347,8 @@ def apply_water_stream_payload(context, payload, resolved, first, last):
              and obj.cloth_next.enabled and obj.cloth_next.role=='CLOTH'
              and getattr(obj.cloth_next,'water_flow_enabled',False)]
     if not targets:return payload,None,''
+    if any(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in targets):
+        return apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,targets)
     if str(getattr(resolved,'protocol_version','')) == '0.26':
         return apply_native_water_stream_payload(context, payload, resolved, first, last)
     from ..ppf.models import ConnectionOwnership
@@ -331,6 +381,55 @@ def apply_water_stream_payload(context, payload, resolved, first, last):
     import json
     return data,hashlib.sha256(data).hexdigest(),json.dumps(descriptor,sort_keys=True,
                                                         separators=(',',':'),allow_nan=False)
+
+
+def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,targets):
+    from ..ppf.hydrodynamic_capability import require_hydrodynamic_capability
+    from ..ppf.models import ConnectionOwnership
+    from ..ppf.schema import envelope
+    from ..gaia.streaming import WaterStreamReader
+    from mathutils import Vector
+    require_hydrodynamic_capability(resolved.executable_path)
+    if resolved.ownership is not ConnectionOwnership.OWNED_PROCESS:
+        raise ValueError('Hydrodynamic Pressure requires an owned isolated solver')
+    if not all(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in targets):
+        raise ValueError('Hydrodynamic Pressure cannot be mixed with Native Flow')
+    if context.scene.unit_settings.scale_length!=1.:
+        raise ValueError('Hydrodynamic Pressure requires Unit Scale 1')
+    raw=payload.read_bytes() if isinstance(payload,Path) else payload
+    tree=envelope.loads_envelope(raw,envelope.KIND_PARAM,schema_version=2)
+    fps=context.scene.render.fps/context.scene.render.fps_base
+    if abs(float(tree['scene']['fps'])-fps)>1e-7:
+        raise ValueError('Hydrodynamic Pressure requires physical playback speed 1')
+    paths=set();fingerprints=set()
+    for obj in targets:
+        s=obj.cloth_next
+        if abs(s.water_flow_influence-1.)>1e-7 or abs(s.water_flow_velocity_scale-1.)>1e-7:
+            raise ValueError('Experimental pressure requires Influence and Velocity Scale 1 on all cloth')
+        path=prepare_container(context,obj,first,last+1)
+        with GaiaContainer(path) as container:digest=container.manifest['water']['fingerprint']
+        with WaterStreamReader(path,first=int(first),last=int(last)+1,fps=fps,expected_fingerprint=digest):pass
+        paths.add(str(Path(path).resolve()));fingerprints.add(digest)
+    if len(paths)!=1 or len(fingerprints)!=1:
+        raise ValueError('Experimental pressure requires one shared FLIP cache for all cloth')
+    if tree.get('force_field',{}).get('fields'):
+        raise ValueError('Experimental pressure refuses simultaneous force fields')
+    original=context.scene.frame_current
+    points=[]
+    try:
+        for frame in range(int(first),int(last)+1):
+            context.scene.frame_set(frame)
+            for obj in targets:
+                evaluated=obj.evaluated_get(context.evaluated_depsgraph_get())
+                points.extend(tuple(evaluated.matrix_world@Vector(corner)) for corner in evaluated.bound_box)
+    finally:context.scene.frame_set(original)
+    points=np.asarray(points)
+    bounds=np.r_[points.min(0)-.25,points.max(0)+.25].tolist()
+    descriptor=dict(version=1,field_kind='experimental-hydrodynamic',first=int(first),last=int(last),
+        fps=fps,path=next(iter(paths)),fingerprint=next(iter(fingerprints)),bounds=bounds,
+        model=dict(density_kg_m3=1000.,normal_coefficient=1.,tangential_coefficient=0.,
+                   wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1))
+    return payload,None,json.dumps(descriptor,sort_keys=True,separators=(',',':'),allow_nan=False)
 
 
 def apply_native_water_stream_payload(context, payload, resolved, first, last):
@@ -381,11 +480,8 @@ def apply_native_water_stream_payload(context, payload, resolved, first, last):
             if (not np.isfinite((strength,flow)).all() or strength<0 or not 0<=flow<=1):
                 raise ValueError('Invalid native fluid strength or flow')
             # Targets are encoded sequentially; only one dense/packed frame is live.
-            import math
-            dense = math.prod(reader.dimensions)*16
-            packed = min(MAX_PAYLOAD_BYTES,
-                math.prod((n+BRICK-1)//BRICK for n in reader.dimensions)*(4+512*16))
-            active_bytes = max(active_bytes,2*dense+3*packed+(1<<20))
+            from ..gaia.flow_budget import native_encoding_bytes
+            active_bytes = max(active_bytes,native_encoding_bytes(reader.dimensions))
         descriptor['targets'].append({'path':str(Path(path).resolve()),'fingerprint':digest,
             'arrays_digest':array_digest,'groups':indices,'influence':s.water_flow_influence,'velocity_scale':1.,
             'strength':strength,'flow':flow})
@@ -557,6 +653,37 @@ class CLOTHNEXT_OT_enable_flip_velocity_export(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class CLOTHNEXT_OT_select_water_source(bpy.types.Operator):
+    bl_idname = 'cloth_next.select_water_source'
+    bl_label = 'Select Fluid Source'
+    bl_options = {'INTERNAL'}
+    provider: bpy.props.StringProperty(default='FLIP_FLUIDS')
+
+    @classmethod
+    def description(cls, _context, properties):
+        return next((tooltip for identifier,_name,_enabled,tooltip in WATER_SOURCE_OPTIONS
+                     if identifier==properties.provider),'This fluid provider is not supported yet.')
+
+    def execute(self, _context):
+        if self.provider != 'FLIP_FLUIDS':
+            self.report({'ERROR'}, 'This fluid provider is not supported yet.')
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class CLOTHNEXT_MT_water_source_provider(bpy.types.Menu):
+    bl_idname = 'CLOTHNEXT_MT_water_source_provider'
+    bl_label = 'Fluid Provider'
+
+    def draw(self, _context):
+        for identifier,label,supported,_tooltip in WATER_SOURCE_OPTIONS:
+            row=self.layout.row()
+            row.enabled=supported
+            op=row.operator('cloth_next.select_water_source',text=label,
+                            icon='CHECKMARK' if supported else 'NONE')
+            op.provider=identifier
+
+
 class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
     bl_idname = 'cloth_next.prepare_water_flow'
     bl_label = 'Prepare .gaia Water Field'
@@ -623,6 +750,8 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         body.label(text='Shared by all Cloth objects in this scene.', icon='LINKED')
         source = body.box().column(align=True)
         source.label(text='Fluid Source', icon='MOD_FLUIDSIM')
+        source.label(text='Provider')
+        source.menu('CLOTHNEXT_MT_water_source_provider',text='FLIP Fluids')
         source.prop(s, 'water_flow_domain')
         source.operator('cloth_next.enable_flip_velocity_export',
                         text='Enable Velocity Export', icon='CHECKMARK')
@@ -630,10 +759,23 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         body.separator()
         response = body.box().column(align=True)
         response.label(text='Cloth Response', icon='MOD_CLOTH')
-        response.prop(s, 'water_flow_influence', text='Influence (This Object)')
         if native:
-            response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
-            response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+            from ..ppf.hydrodynamic_capability import hydrodynamic_capability
+            hydro = hydrodynamic_capability(registry.selected.executable if registry.selected else None)
+            hydro_row = response.row()
+            hydro_row.enabled = hydro.available or bool(s.water_hydrodynamic_pressure)
+            hydro_row.prop(s,'water_hydrodynamic_pressure')
+            if not hydro.available:
+                response.label(text='Requires verified native pressure capability.', icon='INFO')
+        influence_row=response.row()
+        influence_row.enabled=not getattr(s,'water_hydrodynamic_pressure',False)
+        influence_row.prop(s, 'water_flow_influence', text='Influence (This Object)')
+        if native:
+            if getattr(s,'water_hydrodynamic_pressure',False):
+                response.label(text='Water density: 1000 kg/m³ · Cn 1 · Ct 0')
+            else:
+                response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
+                response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
             response.label(text='One-way coupling: fluid moves cloth.')
             if abs(s.water_flow_velocity_scale-1.)>1e-7:
                 response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale (This Object)')
@@ -646,6 +788,13 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         cache.prop(s, 'water_flow_resolution')
         if s.water_flow_resolution == 'CUSTOM':
             cache.prop(s, 'water_flow_custom_resolution')
+        cache.label(text='Coupling grid adapts to memory and sequence size.')
+        cache.label(text='FLIP bake resolution and all particles are retained.')
+        info=prepared_grid_info(s)
+        if info and info.get('dimensions'):
+            cache.label(text='Prepared grid: '+' x '.join(map(str,info['dimensions'])))
+            if info.get('budget_adjusted'):
+                cache.label(text=f"Requested {info['requested_resolution']}; effective {info['effective_resolution']}.",icon='INFO')
         cache.prop(s, 'water_flow_container', text='.gaia File')
         if not s.water_flow_container:
             cache.label(text='Saved in the Cloth cache folder.')
@@ -790,7 +939,9 @@ def unregister():
         _handle=None
     _preview.clear()
     _diagnostics.clear()
+    _grid_display_cache.clear()
 
 
-CLASSES = (CLOTHNEXT_OT_enable_flip_velocity_export, CLOTHNEXT_OT_prepare_water_flow,
+CLASSES = (CLOTHNEXT_OT_select_water_source, CLOTHNEXT_MT_water_source_provider,
+           CLOTHNEXT_OT_enable_flip_velocity_export, CLOTHNEXT_OT_prepare_water_flow,
            CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)

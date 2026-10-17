@@ -69,6 +69,10 @@ def start(context, objects, first, last, *, job_id=None, on_complete=None, wait_
         if first > last: raise ValueError('Water Flow frame range is empty')
         objects = tuple(objects)
         if not objects: raise ValueError('No Water Flow Cloth object selected')
+        if any(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in objects):
+            # Native adaptive steps can evaluate past the final output time.
+            # Supply a genuine source sample rather than holding the last field.
+            last=int(last)+1
         for obj in objects:
             s = obj.cloth_next
             if not s.water_flow_resolution:

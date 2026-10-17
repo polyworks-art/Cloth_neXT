@@ -16,6 +16,18 @@ def project(tmp_path, generation="new"):
                              owned_root=root, project_name=name)
 
 
+@pytest.mark.parametrize('layout',['target/release','target/cuda/release','target/cpu/release'])
+def test_canonical_project_matches_server_data_root_abi_for_each_layout(tmp_path,layout):
+    root=tmp_path/'bundle'
+    executable=root/layout/'ppf-cts-server.exe'
+    path=links.canonical_project_path(executable,'clothnext_test')
+    # Gaia's server data ABI takes three executable ancestors, including
+    # target/ for its multi-backend layout; it is not the frontend bundle root.
+    expected_base=(executable.parent.parent.parent/'local/share/ppf-cts' if os.name=='nt'
+                   else Path(os.environ.get('HOME') or Path.home())/'.local/share/ppf-cts')
+    assert path==expected_base/'git-unknown/clothnext_test'
+
+
 def test_absent_repeated_ensure_and_cleanup_preserve_target(tmp_path):
     link = project(tmp_path)
     link.ensure()

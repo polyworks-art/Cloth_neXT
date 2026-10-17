@@ -8,10 +8,21 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class SuperhiveStatus:
     connected: bool = False
-    purchase_validated: bool = False
+    purchase_detected: bool = False
+
+    def __init__(self, connected=False, purchase_detected=False, *, purchase_validated=None):
+        # Preserve the legacy constructor keyword while making its meaning explicit.
+        object.__setattr__(self, 'connected', bool(connected))
+        object.__setattr__(self, 'purchase_detected', bool(
+            purchase_detected if purchase_validated is None else purchase_validated))
+
+    @property
+    def purchase_validated(self):
+        """Legacy detection alias; never authoritative purchase verification."""
+        return self.purchase_detected
 
 
 def _is_superhive(repo) -> bool:

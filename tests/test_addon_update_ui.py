@@ -469,11 +469,13 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     pairs = [entry for entry in log if len(entry) == 2]
     labels = [text for kind, text in pairs if kind == "label"]
     operators = [text for kind, text in pairs if kind == "operator"]
-    assert "Superhive" in labels
+    assert "PolyWorks Account" in labels
     assert "GAIA Engine" in labels
-    assert labels.index("Superhive") < labels.index("GAIA Engine")
-    assert "Superhive connected" in labels
-    assert "Purchase validated" in labels
+    assert labels.index("PolyWorks Account") < labels.index("GAIA Engine")
+    assert "Superhive not connected" in labels
+    assert "No purchase detected locally" in labels
+    assert 'clothnext.manage_polyworks_account' in operators
+    assert not any(kind == 'prop' and text.startswith('polyworks') for kind, text in pairs)
     assert not any(text.startswith("Update Status:") for text in labels)
     assert ("prop", "update_channel") not in log
     assert "update_channel" not in preferences.CLOTHNEXT_AddonPreferences.__annotations__
@@ -553,8 +555,9 @@ def test_preferences_offers_native_repository_setup_without_channel_selector(
     prefs.draw(env.bpy.context)
     log = prefs.layout.log
     assert ("prop", "update_channel") not in log
-    assert ("label", "Superhive connected") in log
-    assert ("label", "Purchase validated") in log
+    assert ("label", "Superhive not connected") in log
+    assert ("label", "No purchase detected locally") in log
+    assert ("operator", "clothnext.manage_polyworks_account") in log
     assert ("operator", "clothnext.addon_update_repo_setup") not in log
     env.registration.unregister()
 

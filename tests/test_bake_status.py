@@ -209,3 +209,33 @@ def test_new_bake_clears_all_previous_run_status_fields():
     assert fresh.error_summary == ""
     assert fresh.error_details == ""
     assert fresh.error_code == ""
+
+
+def test_changing_activity_clears_previous_label_without_losing_explicit_label():
+    controller = BakeController()
+    controller.transition(BakeState.PREPARING,
+                          activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
+                          activity_label="Capturing frame 250")
+    encoded = controller.update(activity_code=BakeActivity.ENCODING_SCENE)
+    assert encoded.activity_label == ""
+    explicit = controller.update(activity_code=BakeActivity.CAPTURING_GEOMETRY,
+                                 activity_label="Evaluating geometry")
+    assert explicit.activity_label == "Evaluating geometry"
+    assert controller.transition(BakeState.EXPORTING).activity_label == ""
+
+
+def test_native_encoding_upload_and_build_have_distinct_activities():
+    controller = BakeController()
+    controller.transition(BakeState.PREPARING)
+    controller.transition(BakeState.EXPORTING,
+        activity_code=BakeActivity.ENCODING_NATIVE_FLUID,
+        activity_label='Encoding native fluid frame 250')
+    controller.transition(BakeState.STARTING_SOLVER)
+    upload = controller.transition(BakeState.UPLOADING)
+    build = controller.transition(BakeState.BUILDING)
+    assert upload.activity_code is BakeActivity.UPLOADING_SCENE
+    assert build.activity_code is BakeActivity.BUILDING_SOLVER
+    assert upload.activity_label == build.activity_label == ''
+    assert upload.active and build.active
+    assert len({BakeActivity.ENCODING_NATIVE_FLUID, upload.activity_code,
+                build.activity_code, BakeActivity.ENCODING_SCENE}) == 4

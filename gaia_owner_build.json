@@ -1,0 +1,7 @@
+{
+  "version": "2.9.26",
+  "kind": "ClothNeXt.OwnerBuild.v1",
+  "dataset_sha256": "72d04081766259b027d5a3fd6fb38677e7db43a3c52772e31c7b0712e35ef259",
+  "production_ready": false,
+  "distribution": "EXPERIMENTAL_OWNER_EVALUATION"
+}

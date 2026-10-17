@@ -901,17 +901,20 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
     water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False, update=_on_shared_water_update)
+    water_hydrodynamic_pressure: bpy.props.BoolProperty(name="Hydrodynamic Pressure", default=False,
+        description="Experimental native sheet pressure with surface SDF wetting; isolated verified solver required",
+        update=_on_shared_water_update)
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)
     water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="Fraction of current solver vertex velocity subtracted by native Fluid Flow", default=1., min=0., max=1., update=_on_shared_water_update)
     water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", default=1., min=0., max=10., update=_on_settings_update)
     water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_shared_water_update,
-        items=(("AUTO", "Auto", "At least 100 samples along the longest field axis", 0),
-               ("100", "Medium", "100 samples along the longest field axis", 2),
-               ("150", "High", "150 samples along the longest field axis", 3),
-               ("200", "Extreme", "200 samples along the longest field axis", 4),
-               ("CUSTOM", "Custom", "Explicit longest-axis detail; minimum 100", 5)))
+        items=(("AUTO", "Auto", "Request FLIP source detail; adapt coupling grid to available budgets", 0),
+               ("100", "Medium", "Request 100 samples; adapt to memory and sequence budgets", 2),
+               ("150", "High", "Request 150 samples; adapt to memory and sequence budgets", 3),
+               ("200", "Extreme", "Request 200 samples; adapt to memory and sequence budgets", 4),
+               ("CUSTOM", "Custom", "Requested longest-axis detail; effective grid adapts to budgets", 5)))
     water_flow_custom_resolution: bpy.props.IntProperty(name="Longest Axis", default=100,
         min=100, max=4096, update=_on_shared_water_update)
     water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',

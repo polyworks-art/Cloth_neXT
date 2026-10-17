@@ -123,6 +123,9 @@ class BakeController:
                 changes.setdefault("veyra_step_index", 0)
                 changes.setdefault("veyra_step_current", 0)
                 changes.setdefault("veyra_step_total", None)
+            if (state != old.state or changes.get("activity_code", old.activity_code)
+                    != old.activity_code):
+                changes.setdefault("activity_label", "")
             self._snapshot = normalized(old, state=state, **changes)
             listeners = tuple(self._listeners)
             result = self._snapshot

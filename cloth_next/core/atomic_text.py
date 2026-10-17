@@ -3,7 +3,8 @@
 
 Windows MoveFileEx replacement can reject an open destination even when the
 reader shares deletion. Cooperating readers close before publication through
-one OS mutex; no sleep, retry loop, or weakening of filesystem permissions.
+one OS mutex. Short Windows filesystem/scanner holds get a bounded atomic
+replace retry; permanent failures still surface without changing permissions.
 POSIX replacement already preserves an open reader's old snapshot.
 """
 from contextlib import contextmanager
@@ -11,6 +12,7 @@ import hashlib
 import os
 from pathlib import Path
 import uuid
+import time
 
 from .filesystem_paths import io_path, resolved_path
 
@@ -60,12 +62,30 @@ def read_atomic_text(path, *, encoding='utf-8'):
         return stream.read()
 
 
+def _replace_snapshot(source, destination):
+    deadline = time.monotonic() + .25
+    delay = .001
+    while True:
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError as exc:
+            # Also occurs without readers when Windows filesystem filters
+            # briefly retain a newly created/replaced generation. Never
+            # truncate the destination, alter ACLs, or hide a permanent error.
+            remaining = deadline - time.monotonic()
+            if os.name != 'nt' or getattr(exc, 'winerror', None) not in (5, 32, 33) or remaining <= 0:
+                raise
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, .032)
+
+
 def write_atomic_text(path, text, *, encoding='utf-8'):
     path=Path(path)
     temporary=path.with_name('.'+path.name+'.'+uuid.uuid4().hex+'.tmp')
     with _publication_lock(path):
         try:
             io_path(temporary).write_text(text,encoding=encoding)
-            os.replace(io_path(temporary),io_path(path))
+            _replace_snapshot(io_path(temporary),io_path(path))
         finally:
             io_path(temporary).unlink(missing_ok=True)

@@ -37,6 +37,30 @@ def test_prepare_rejects_invalid_or_reused_style(tmp_path):
     with pytest.raises(ValueError): prepare(tmp_path,"0.3.0","a"*40,"1")
 
 
+def test_owner_marker_only_ships_for_explicit_version_and_dataset(tmp_path):
+    package=tmp_path/'cloth_next';package.mkdir()
+    (package/'blender_manifest.toml').write_text('version = "2.9.25"\n')
+    (package/'solver_compatibility.json').write_text('{"cloth_next_version":"2.9.25"}')
+    owner=dict(version='2.9.26',kind='ClothNeXt.OwnerBuild.v1',
+               dataset_sha256='a'*64,production_ready=False)
+    candidate=tmp_path/'gaia_owner_build.json'
+    candidate.write_text(json.dumps(owner))
+    prepare(tmp_path,'2.9.26','b'*40,'test')
+    assert json.loads((package/'gaia_owner_test.json').read_text())==owner
+    with pytest.raises(ValueError,match='does not match'):
+        prepare(tmp_path,'2.9.27','b'*40,'test')
+
+
+def test_owner_marker_rejects_unapproved_digest(tmp_path):
+    package=tmp_path/'cloth_next';package.mkdir()
+    (package/'blender_manifest.toml').write_text('version = "2.9.26"\n')
+    (package/'solver_compatibility.json').write_text('{"cloth_next_version":"2.9.26"}')
+    (tmp_path/'gaia_owner_build.json').write_text(json.dumps(dict(version='2.9.26',
+        kind='ClothNeXt.OwnerBuild.v1',dataset_sha256='not a digest',production_ready=False)))
+    with pytest.raises(ValueError,match='Invalid version-bound'):
+        prepare(tmp_path,'2.9.26','b'*40,'test')
+
+
 def test_publish_workflow_cannot_tag_release_or_touch_public_channels():
     text=(Path(__file__).parents[1]/".github/workflows/publish-dev.yml").read_text()
     assert "gh release" not in text and "git tag" not in text

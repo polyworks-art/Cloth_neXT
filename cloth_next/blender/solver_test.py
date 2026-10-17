@@ -166,6 +166,7 @@ from .playback_cache import (
 )
 
 _EVENT_STATE = {
+    "EXPORTING": BakeState.EXPORTING,
     "STARTING_SOLVER": BakeState.STARTING_SOLVER,
     "UPLOADING": BakeState.UPLOADING,
     "BUILDING": BakeState.BUILDING,
@@ -836,6 +837,12 @@ def resolve_solver(context) -> ResolvedSolver:
         raise SceneValidationError(
             "No compatible simulation solver installation is configured. Select or "
             "install one in the Cloth NeXt add-on preferences.")
+    if any(getattr(getattr(obj, 'cloth_next', None), 'water_hydrodynamic_pressure', False)
+           and getattr(obj.cloth_next, 'enabled', False)
+           and getattr(obj.cloth_next, 'water_flow_enabled', False)
+           for obj in getattr(getattr(context, 'scene', None), 'objects', ())):
+        from ..ppf.hydrodynamic_capability import require_hydrodynamic_capability
+        require_hydrodynamic_capability(resolved.executable_path)
     return resolved
 
 
@@ -3554,6 +3561,9 @@ def _scene_source_key(context, snapshot: ValidationSnapshot, resolved=None):
                 "friction_regions": list(
                     _friction_region_settings(obj)),
                 "material_zones": _zone_settings_record(obj),
+                # Zone tables contain base values outside painted faces too.
+                "zone_base_material": (asdict(entry.material)
+                    if _zone_settings_record(obj) else None),
                 "friction_base": (
                     float(entry.material.surface_grip)
                     if _friction_region_settings(obj) else None),
@@ -4041,7 +4051,7 @@ def _collider_motion_digest(frame_offsets, samples, *, dtype="<f8") -> str:
 
 
 COLLIDER_SAMPLES_PER_FRAME = 1
-SCENE_EXPORT_CACHE_SCHEMA = 4
+SCENE_EXPORT_CACHE_SCHEMA = 5
 ANIMATED_COLLIDER_CAPTURE_LIMIT_BYTES = 256 * 1024 * 1024
 
 
@@ -4573,22 +4583,35 @@ def _capture_animated_colliders_shared(
             if _cancel_event.is_set():
                 raise SessionCancelled()
             from .preparation_preview import frame_set as _preparation_frame_set
+            sample_step_started = time.perf_counter()
             _preparation_frame_set(context.scene, point.frame, subframe=point.subframe)
             if _export_timing_sink is not None:
+                _export_timing_sink['collider_frame_set_seconds'] = (
+                    _export_timing_sink.get('collider_frame_set_seconds', 0.)
+                    + time.perf_counter() - sample_step_started)
                 _export_timing_sink["frame_set_count"] = (
                     _export_timing_sink.get("frame_set_count", 0.0) + 1.0)
                 _export_timing_sink["depsgraph_evaluation_count"] = (
                     _export_timing_sink.get(
                         "depsgraph_evaluation_count", 0.0) + 1.0)
+            sample_step_started = time.perf_counter()
             depsgraph = context.evaluated_depsgraph_get()
+            if _export_timing_sink is not None:
+                _export_timing_sink['collider_depsgraph_seconds'] = (
+                    _export_timing_sink.get('collider_depsgraph_seconds', 0.)
+                    + time.perf_counter() - sample_step_started)
             key = point.position
             for obj in colliders:
                 sample_index = required[obj.name].get(key)
                 if sample_index is None:
                     continue
                 state = states[obj.name]
+                sample_step_started = time.perf_counter()
                 evaluated = obj.evaluated_get(depsgraph)
                 if _export_timing_sink is not None:
+                    _export_timing_sink['collider_evaluated_get_seconds'] = (
+                        _export_timing_sink.get('collider_evaluated_get_seconds', 0.)
+                        + time.perf_counter() - sample_step_started)
                     _export_timing_sink["evaluated_get_count"] = (
                         _export_timing_sink.get(
                             "evaluated_get_count", 0.0) + 1.0)
@@ -4608,8 +4631,12 @@ def _capture_animated_colliders_shared(
                         state["vertices"], state["triangles"] = _extract_mesh(
                             obj, depsgraph, needs_edges=False)
                     continue
+                sample_step_started = time.perf_counter()
                 mesh = evaluated.to_mesh()
                 if _export_timing_sink is not None:
+                    _export_timing_sink['collider_to_mesh_seconds'] = (
+                        _export_timing_sink.get('collider_to_mesh_seconds', 0.)
+                        + time.perf_counter() - sample_step_started)
                     _export_timing_sink["to_mesh_count"] = (
                         _export_timing_sink.get("to_mesh_count", 0.0) + 1.0)
                 try:
@@ -4673,15 +4700,14 @@ def _capture_animated_colliders_shared(
                         local @ transform[:3, :3].T + transform[:3, 3])
                 finally:
                     evaluated.to_mesh_clear()
-            if point_index == 0 or point_index + 1 == len(union):
-                shared_controller.update(
-                    status_message=(
-                        f"Capturing animated Colliders · frame "
-                        f"{float(point.position):g} / {bake_range.end}"),
-                    activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
-                    current_frame=point.frame,
-                    progress_current=point_index + 1,
-                    progress_total=len(union))
+            shared_controller.update(
+                status_message=(
+                    f"Capturing animated Colliders · frame "
+                    f"{float(point.position):g} / {bake_range.end}"),
+                activity_code=BakeActivity.CAPTURING_COLLIDER_MOTION,
+                current_frame=point.frame,
+                progress_current=point_index + 1,
+                progress_total=len(union))
         for obj in colliders:
             _check_preparation_cancel()
             state = states[obj.name]
@@ -5291,7 +5317,7 @@ def _cached_payload(cache, kind, key, producer):
     return stored.path, stored.digest
 
 
-def _cache_plan_record(plan: RunPlan) -> tuple[dict, dict[str, memoryview]]:
+def _cache_plan_record(plan: RunPlan) -> tuple[dict, dict[str, memoryview | bytes]]:
     targets = _plan_deformables(plan)
     artifacts = {}
     rows = []
@@ -5334,8 +5360,13 @@ def _cache_plan_record(plan: RunPlan) -> tuple[dict, dict[str, memoryview]]:
             "initial_shape": list(initial.shape),
             "pin": pin_record,
         })
+    binding_artifact = None
+    if plan.scene.official_bridge_json:
+        binding_artifact = 'bind.json'
+        artifacts[binding_artifact] = plan.scene.official_bridge_json.encode('utf-8')
     return {
-        "version": 1,
+        "version": 2,
+        "official_bindings_artifact": binding_artifact,
         "frame_count": plan.frame_count,
         "frame_start": plan.frame_start,
         "frame_end": plan.frame_end,
@@ -5651,7 +5682,7 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
         return None
     try:
         record = lookup.metadata
-        if (record.get("version") != 1
+        if (record.get("version") != 2
                 or record.get("geometry_fingerprint")
                 != snapshot.geometry_fingerprint
                 or len(record.get("targets", ()))
@@ -5735,6 +5766,13 @@ def _load_early_scene_plan(context, snapshot, resolved, source_key,
             snapshot.bake_range.output_count,
             lookup.path, param_payload, lookup.digest, param_hash,
             deformables=tuple(session_targets),water_stream_json=water_stream_json)
+        if record.get('official_bindings_artifact'):
+            from ..ppf.official_scene_bridge import restore_prepared_scene
+            binding_path = artifacts.get(record['official_bindings_artifact'])
+            if binding_path is None:
+                return None
+            session_scene = restore_prepared_scene(
+                session_scene, binding_path.read_text(encoding='utf-8'))
         if _export_timing_sink is not None:
             _export_timing_sink["scene_early_cache_hit"] = 1.0
             # These counters intentionally count exported object artifacts,
@@ -6043,6 +6081,7 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                 shared_controller.update(
                     status_message="Encoding animated Collider data",
                     activity_code=BakeActivity.ENCODING_SCENE,
+                    activity_label="Encoding animated Collider data", current_frame=None,
                     progress_current=0, progress_total=encoding_total)
                 def encoding_progress(current, total):
                     if _cancel_event.is_set():
@@ -6051,7 +6090,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                         status_message=(f"Encoding animated Colliders · "
                                         f"{current} / {total}"),
                         activity_code=BakeActivity.ENCODING_SCENE,
-                        progress_current=current, progress_total=total)
+                        activity_label=f"Encoding animated Colliders · {current} / {total}",
+                        current_frame=None, progress_current=current, progress_total=total)
                 return encode_multi_deformable_scene_file(
                     scene_dynamics, scene_colliders,
                     work_directory / "scene.cbor",
@@ -6487,6 +6527,7 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
             shared_controller.update(
                 status_message="Encoding animated Collider data",
                 activity_code=BakeActivity.ENCODING_SCENE,
+                activity_label="Encoding animated Collider data", current_frame=None,
                 progress_current=0, progress_total=encoding_total)
             def encoding_progress(current, total):
                 if _cancel_event.is_set():
@@ -6495,7 +6536,8 @@ def _build_run_plan_impl(context, *, animated_pin_samples=None,
                     status_message=(f"Encoding animated Colliders · "
                                     f"{current} / {total}"),
                     activity_code=BakeActivity.ENCODING_SCENE,
-                    progress_current=current, progress_total=total)
+                    activity_label=f"Encoding animated Colliders · {current} / {total}",
+                    current_frame=None, progress_current=current, progress_total=total)
             group = ({"CLOTH": GROUP_SHELL, "ROD": GROUP_ROD,
                       "SOFT_BODY": GROUP_SOLID,
                       "RIGID_BODY": GROUP_PDRD}[deformable_role])
@@ -9029,6 +9071,9 @@ def _pump_once() -> float | None:
                         solver_backend=event.solver_backend,
                         solver_device=event.solver_device,
                         solver_telemetry=event.solver_telemetry)
+                if state in {BakeState.SIMULATING, BakeState.FETCHING}:
+                    activity_changes["estimated_remaining_seconds"] = _eta_estimator.observe(
+                        current, plan.frame_end, getattr(event, "emitted_at", _time.monotonic()))
                 _safe_transition(
                     state, status_message=event.message,
                     current_frame=current,
@@ -10069,10 +10114,18 @@ def _pin_capture_pump():
             progress_current=point_index,
             progress_total=len(state["points"]))
         from .preparation_preview import frame_set as _preparation_frame_set
-        _preparation_frame_set(scene, frame, subframe=point.subframe)
-        _check_preparation_cancel()
-        depsgraph = context.evaluated_depsgraph_get()
         timings = state["snapshot"].timings
+        sample_step_started = time.perf_counter()
+        _preparation_frame_set(scene, frame, subframe=point.subframe)
+        timings['collider_frame_set_seconds'] = (
+            timings.get('collider_frame_set_seconds', 0.)
+            + time.perf_counter() - sample_step_started)
+        _check_preparation_cancel()
+        sample_step_started = time.perf_counter()
+        depsgraph = context.evaluated_depsgraph_get()
+        timings['collider_depsgraph_seconds'] = (
+            timings.get('collider_depsgraph_seconds', 0.)
+            + time.perf_counter() - sample_step_started)
         timings["frame_set_count"] = timings.get(
             "frame_set_count", 0.0) + 1.0
         timings["depsgraph_evaluation_count"] = timings.get(
@@ -10140,9 +10193,13 @@ def _pin_capture_pump():
                 state["active_scalar_types"].update(active_scalar_types)
                 timings["force_sample_count"] = timings.get(
                     "force_sample_count", 0.0) + 1.0
+        sample_step_started = time.perf_counter()
         collider_count, evaluated_count, mesh_count = (
             _pump_collider_point(
                 depsgraph, point, state["collider_states"]))
+        timings['collider_mesh_capture_seconds'] = (
+            timings.get('collider_mesh_capture_seconds', 0.)
+            + time.perf_counter() - sample_step_started)
         timings["collider_sample_count"] = timings.get(
             "collider_sample_count", 0.0) + collider_count
         timings["evaluated_get_count"] = timings.get(
