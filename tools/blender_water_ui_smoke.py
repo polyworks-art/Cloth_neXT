@@ -10,6 +10,7 @@ from cloth_next.blender.water_flow import CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_
 
 controls = set()
 operators = set()
+control_enabled = {}
 
 
 class Layout:
@@ -18,12 +19,16 @@ class Layout:
     def column(self, **kwargs):
         return self
 
+    def row(self, **kwargs):
+        return Layout()
+
     def box(self):
         return self
 
     def prop(self, owner, name, **kwargs):
         assert name in owner.bl_rna.properties, name
         controls.add(name)
+        control_enabled[name] = self.enabled
 
     def label(self, **kwargs):
         pass
@@ -76,9 +81,11 @@ try:
     from cloth_next.blender import preferences
     try:
         preferences._read_registry = lambda: (SimpleNamespace(
-            selected=SimpleNamespace(protocol_version='0.26')), None)
+            selected=SimpleNamespace(protocol_version='0.26',executable=None)), None)
         CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
         assert {'water_flow_coupling_strength', 'water_flow_native_flow'} <= controls
+        assert 'water_hydrodynamic_pressure' in controls
+        assert control_enabled['water_hydrodynamic_pressure'] is False
     finally:
         preferences._read_registry = original_read
     from cloth_next.blender.water_flow import CLOTHNEXT_MT_water_source_provider,CLOTHNEXT_OT_select_water_source
