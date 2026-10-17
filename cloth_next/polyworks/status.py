@@ -127,9 +127,7 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
 
     # Account --------------------------------------------------------------------
     session = account["session"]
-    if not published:
-        account_label, session_label = "Unknown", "Cloth NeXt Companion has not reported yet"
-    elif session == "expired":
+    if session == "expired":
         account_label, session_label = "Session expired", "Sign in again in Cloth NeXt Companion"
     elif account["signed_in"] and session == "active":
         account_label, session_label = "Signed in", "Active"
