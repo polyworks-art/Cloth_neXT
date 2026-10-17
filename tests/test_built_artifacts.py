@@ -2,6 +2,7 @@ import hashlib
 import json
 import tomllib
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -49,11 +50,24 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         "blender/object_properties.py",
         "blender/physics_ui.py",
         "blender/registration.py",
+        "gaia/owner_test.py",
+        "gaia/prepare_experimental.py",
+        "gaia/hydrodynamic_session.py",
+        "ppf/hydrodynamic_capability.py",
+        "polyworks/client.py",
+        "polyworks/entitlements.py",
     }
 
     with zipfile.ZipFile(extension_zip) as bundle:
         names = set(bundle.namelist())
         assert required_files <= names, sorted(required_files - names)
+        owner = json.loads((Path(__file__).parents[1]/'gaia_owner_build.json').read_text())
+        version = tomllib.loads(bundle.read('blender_manifest.toml').decode())['version']
+        if version == owner['version']:
+            marker = json.loads(bundle.read('gaia_owner_test.json'))
+            assert marker['kind'] == 'ClothNeXt.OwnerBuild.v1'
+            assert marker['dataset_sha256'] == owner['dataset_sha256']
+            assert marker['production_ready'] is False
 
         product_shell = bundle.read(
             "materials/product_shell_presets.toml").decode("utf-8")
@@ -103,7 +117,7 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         solver_export
     assert '"_logical_frame_count": timeline.logical_frame_count' in \
         solver_export
-    assert "SCENE_EXPORT_CACHE_SCHEMA = 4" in solver_export
+    assert "SCENE_EXPORT_CACHE_SCHEMA = 5" in solver_export
     assert '"animation_digest"' in solver_export
     assert "content_digest=motion_hasher.hexdigest()" in solver_export
 
