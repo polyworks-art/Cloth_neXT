@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import bpy
 
-from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
+from . import (account_status, addon_update_operators, bake_operators, bake_preview, beta_tools,
                collider_proxy, companion_manager, floating_simulation, icon_registry,
                linked_colliders, object_attachments, object_properties, sewing,
                physics_operators, physics_ui,
@@ -30,6 +30,7 @@ from . import (addon_update_operators, bake_operators, bake_preview, beta_tools,
 _CLASSES = (
     preferences.CLASSES
     + onboarding_manager.CLASSES
+    + account_status.CLASSES
     + solver_preferences_ui.CLASSES
     + addon_update_operators.CLASSES
     + object_attachments.CLASSES
@@ -86,6 +87,7 @@ def _steps() -> list[tuple]:
     steps.append((floating_simulation.register, floating_simulation.unregister))
     steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
+    steps.append((account_status.register, account_status.unregister))
     # Depsgraph/load/undo handlers that mark Cloth NeXt objects dirty. Attached
     # late and detached early, and idempotent, so a reload cannot leave a
     # duplicate behind.

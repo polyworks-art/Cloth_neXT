@@ -31,6 +31,9 @@ def main():
             "--onefile",
             "--windowed",
             "--noconfirm",
+            # PolyWorks account mode: Ed25519 entitlement verification provider.
+            "--hidden-import=cryptography.hazmat.primitives.asymmetric.ed25519",
+            "--hidden-import=companion.account_window",
             *([f"--icon={assets / 'cloth_next.ico'}"] if sys.platform == "win32" else []),
             f"--add-data={assets / 'cloth_next.png'}{os.pathsep}companion_assets",
             f"--add-data={assets / 'veyra.png'}{os.pathsep}companion_assets",
