@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""One state machine turning local files into the displayed licence status.
+"""One state machine turning local files into the displayed account and services status.
+
+The licence shown here covers optional PolyWorks services (GAIA, cloud bakes).
+Cloth NeXt Classic is licensed through Superhive and never consults it.
 
 Pure and side-effect free: no network, no vault, no ``bpy``. Blender and the
 Companion both use it so they can never disagree. ``authorized`` is True only
@@ -39,11 +42,11 @@ class LicenseStatus:
 
 LABELS = {
     LicenseStatus.ACTIVE: "Active",
-    LicenseStatus.OFFLINE_VERIFIED: "Offline – license verified",
+    LicenseStatus.OFFLINE_VERIFIED: "Offline – verified",
     LicenseStatus.NOT_SIGNED_IN: "Not signed in",
     LicenseStatus.SESSION_EXPIRED: "Session expired",
-    LicenseStatus.NO_LICENSE: "No license",
-    LicenseStatus.ACTIVATION_REQUIRED: "Activation required",
+    LicenseStatus.NO_LICENSE: "No service license",
+    LicenseStatus.ACTIVATION_REQUIRED: "Computer not activated",
     LicenseStatus.DEVICE_DEACTIVATED: "Device deactivated",
     LicenseStatus.SUSPENDED: "License suspended",
     LicenseStatus.REVOKED: "License revoked",
@@ -172,7 +175,7 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
         status = LicenseStatus.ACTIVE if online_now else LicenseStatus.OFFLINE_VERIFIED
         remaining = entitlement.expires_at - now
         if remaining < RENEWAL_WARNING_SECONDS:
-            warnings.append("Renewal due: connect to the internet and open Cloth NeXt "
+            warnings.append("Renewal due for PolyWorks services: connect to the internet and open Cloth NeXt "
                             f"Companion before {format_time(entitlement.expires_at)}.")
         if status == LicenseStatus.OFFLINE_VERIFIED and connection["online"] is False:
             message = messages.OFFLINE
@@ -182,37 +185,40 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
                    if check_in["status"] == "revoked" else messages.REVOKED)
     elif entitlement and timing == "expired":
         status = LicenseStatus.EXPIRED
-        message = ("The offline license has expired. Connect to the internet and open "
-                   "Cloth NeXt Companion to renew it.")
+        message = ("The offline authorization for PolyWorks services has expired. Connect to "
+                   "the internet and open Cloth NeXt Companion to renew it.")
     elif entitlement and timing == "not_yet_valid":
         status = LicenseStatus.INVALID
-        message = "The license is not valid yet. Check the date and time of this computer."
+        message = ("The PolyWorks service license is not valid yet. Check the date and time "
+                   "of this computer.")
     elif token:
         status = LicenseStatus.INVALID
-        message = ("The saved license could not be verified on this computer "
+        message = ("The saved PolyWorks service license could not be verified on this computer "
                    f"({failure.replace('_', ' ')}). Open Cloth NeXt Companion to activate again.")
     elif check_in["status"] == "revoked":
         status = _revocation_status(check_in)
         message = messages.revocation_message(check_in["reason"])
     elif check_in["status"] == "invalid":
         status = LicenseStatus.ACTIVATION_REQUIRED
-        message = ("The previous license on this computer was not accepted. Activate it again "
-                   "in Cloth NeXt Companion.")
+        message = ("The previous PolyWorks service license on this computer was not accepted. "
+                   "Activate it again in Cloth NeXt Companion.")
     elif session == "expired":
         status, message = LicenseStatus.SESSION_EXPIRED, messages.SESSION_EXPIRED
     elif not published or not account["signed_in"]:
         status = LicenseStatus.NOT_SIGNED_IN
-        message = "Sign in through Cloth NeXt Companion to use PolyWorks services."
+        message = ("Optional: sign in through Cloth NeXt Companion to use GAIA and online "
+                   "services.")
     elif state["licenses"] is None:
         status = LicenseStatus.UNKNOWN
-        message = "Cloth NeXt Companion has not loaded your licenses yet."
+        message = "Cloth NeXt Companion has not loaded your service licenses yet."
     elif not state["licenses"]:
         status = LicenseStatus.NO_LICENSE
-        message = ("Your PolyWorks account has no license. Purchase one or claim a "
-                   "Superhive order in your PolyWorks account.")
+        message = ("Your PolyWorks account has no service license. Classic simulation "
+                   "does not need one.")
     elif any(item["usable"] for item in state["licenses"]):
         status = LicenseStatus.ACTIVATION_REQUIRED
-        message = ("Activate this computer in Cloth NeXt Companion." if state["notice"] != "device_limit"
+        message = ("Activate this computer in Cloth NeXt Companion to use PolyWorks services."
+                   if state["notice"] != "device_limit"
                    else messages.DEVICE_LIMIT_BLENDER)
     elif any(item["state"] == "suspended" for item in state["licenses"]):
         status, message = LicenseStatus.SUSPENDED, messages.REVOKED
@@ -221,8 +227,9 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
 
     authorized = status in AUTHORIZED_STATES
     if session == "expired" and authorized:
-        warnings.append("Your PolyWorks session has expired. The license keeps working "
-                        "offline until it expires; sign in again in Cloth NeXt Companion to renew it.")
+        warnings.append("Your PolyWorks session has expired. PolyWorks services keep working "
+                        "offline until the authorization expires; sign in again in Cloth NeXt "
+                        "Companion to renew it.")
     if entitlement and entitlement.development_key:
         warnings.append("Verified with a development key: this is not a production license.")
 

@@ -5,15 +5,16 @@ Server ``message`` texts are never shown; the client branches on codes only.
 """
 from __future__ import annotations
 
-OFFLINE = ("Unable to reach the PolyWorks service. Your existing offline license "
-           "will continue working if still valid.")
+OFFLINE = ("Unable to reach the PolyWorks service. Your existing offline authorization "
+           "keeps working if still valid. Classic simulation is not affected.")
 DEVICE_LIMIT_BLENDER = ("All available device activations are currently in use. "
                         "Manage your devices in Cloth NeXt Companion.")
 DEVICE_LIMIT = ("All available device activations are currently in use. Deactivate a "
                 "device below or in your PolyWorks account, then activate again.")
 SESSION_EXPIRED = ("Your PolyWorks session has expired. Sign in again through "
                    "Cloth NeXt Companion.")
-REVOKED = "This license is no longer valid. Open Cloth NeXt Companion for details."
+REVOKED = ("This PolyWorks service license is no longer valid. Classic simulation is not "
+           "affected. Open Cloth NeXt Companion for details.")
 
 REVOCATION_REASONS = {
     "refunded": "The purchase for this license was refunded.",
@@ -27,9 +28,9 @@ COMPANION = {
     "network_unavailable": OFFLINE,
     "service_unavailable": OFFLINE,
     "server_error": "The PolyWorks service had a temporary problem. Please try again later. "
-                    "Your existing offline license keeps working if still valid.",
+                    "Your existing offline authorization keeps working if still valid.",
     "feature_disabled": ("License signing is temporarily unavailable on the PolyWorks service. "
-                         "Your existing offline license keeps working if still valid."),
+                         "Your existing offline authorization keeps working if still valid."),
     "internal_error": "The PolyWorks service had an internal error. Please try again later.",
     "invalid_response": "The PolyWorks service sent a response this version cannot read. "
                         "Nothing was changed locally.",

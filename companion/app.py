@@ -1295,7 +1295,7 @@ def _run_account_mode(args):
         raise SystemExit(run_account_sync(client_name=client_name))
     try:
         run_account_window(Path(args.content_root) if args.content_root else None,
-                           purchase_detected=args.purchase_detected,client_name=client_name)
+                           client_name=client_name)
     except (OSError,ValueError):
         LOG.error("account window failed: %s",traceback.format_exc().splitlines()[-1])
         raise SystemExit(2)
@@ -1310,14 +1310,13 @@ def main(argv=None):
     parser.add_argument("--preference-path")
     parser.add_argument("--preference-token")
     parser.add_argument("--blender-version")
-    parser.add_argument("--purchase-detected",action="store_true")
     args=parser.parse_args(argv)
     if args.mode in {"account","account-sync"}:
         if args.port or args.token or args.session_root or args.preference_path or args.preference_token:
             parser.error("account modes do not accept Bake or onboarding transport arguments")
         _run_account_mode(args)
         return
-    if args.blender_version or args.purchase_detected:
+    if args.blender_version:
         parser.error("account arguments require an account mode")
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:

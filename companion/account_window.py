@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""PolyWorks account and licence window of the Cloth NeXt Companion.
+"""PolyWorks account and services window of the Cloth NeXt Companion.
+
+PolyWorks covers optional services (GAIA, cloud bakes). Cloth NeXt Classic is
+purchased, licensed and updated through Superhive and needs no account here.
 
 This is the only interactive account UI of Cloth NeXt: sign-in, sign-out,
 activation, devices, activation codes and portal links. Blender shows a
@@ -33,8 +36,8 @@ LOG = logging.getLogger(__name__)
 # Results that leave everything working: shown as a notice, not as an error.
 SOFT_ERRORS = frozenset({"authorization_pending", "network_unavailable", "service_unavailable",
                          "server_error", "rate_limited"})
-SIGNED_IN = "Signed in. Your licenses are shown below."
-SIGNED_OUT_DEVICES = "Sign in to see the devices activated with your license."
+SIGNED_IN = "Signed in. Your PolyWorks service licenses are shown below."
+SIGNED_OUT_DEVICES = "Sign in to see the devices activated with your service license."
 HEARTBEAT_MS = 5000
 RENDER_MS = 30000
 SYNC_CHECK_MS = 5 * 60 * 1000
@@ -57,10 +60,10 @@ def _can_refresh(view) -> bool:
 # Status texts are shared with Blender, where they point to the Companion. In the
 # Companion itself they point to the matching part of this window instead.
 IN_WINDOW = (
-    ("Sign in through Cloth NeXt Companion to use PolyWorks services.",
-     "Sign in above to see your licenses."),
-    ("Activate this computer in Cloth NeXt Companion.",
-     "Select a license and activate this computer under Devices."),
+    ("sign in through Cloth NeXt Companion to use GAIA and online services.",
+     "sign in above to use GAIA and online services."),
+    ("Activate this computer in Cloth NeXt Companion to use PolyWorks services.",
+     "Select a service license and activate this computer under Devices."),
     ("Manage your devices in Cloth NeXt Companion.", "Free a device slot under Devices."),
     ("Open Cloth NeXt Companion to activate again.", "Activate this computer again under Devices."),
     ("Open Cloth NeXt Companion for details.", "Check your PolyWorks account for details."),
@@ -68,7 +71,8 @@ IN_WINDOW = (
     ("connect to the internet and open Cloth NeXt Companion before",
      "connect to the internet and press Refresh before"),
     ("Sign in again through Cloth NeXt Companion.", "Sign in again above."),
-    ("Cloth NeXt Companion has not loaded your licenses yet.", "Your licenses are not loaded yet."),
+    ("Cloth NeXt Companion has not loaded your service licenses yet.",
+     "Your service licenses are not loaded yet."),
     ("Sign in again in Cloth NeXt Companion", "Sign in again above"),
     ("sign in again in Cloth NeXt Companion", "sign in again above"),
     (" in Cloth NeXt Companion", " here"),
@@ -216,7 +220,7 @@ class WelcomeCard(tk.Canvas):
 
 class AccountWindow:
     def __init__(self, parent=None, *, service: AccountService | None = None,
-                 content_root: Path | None = None, purchase_detected: bool = False):
+                 content_root: Path | None = None):
         self.owns_root = parent is None
         self.root = parent or tk.Tk()
         if self.owns_root:
@@ -225,7 +229,6 @@ class AccountWindow:
         self.content_root = content_root or default_resource_root()
         _register_onboarding_fonts(self.content_root)
         self.service = service or AccountService()
-        self.purchase_detected = purchase_detected
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="polyworks-account")
         self.events: queue.Queue = queue.Queue()
         self.closed = False
@@ -247,7 +250,6 @@ class AccountWindow:
         self._build_license()
         self._build_devices()
         self._build_code()
-        self._build_purchase()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         self._heartbeat()
         self._schedule(80, self._drain)
@@ -314,10 +316,10 @@ class AccountWindow:
             pass
         header.create_text(66, 12, text="PolyWorks Account", anchor="nw", fill=FG,
                            font=(FONT, 22, "bold"))
-        header.create_text(4, 66, text="Manage your PolyWorks account and Cloth NeXt license.",
+        header.create_text(4, 66, text="Manage your PolyWorks account for GAIA and online services.",
                            anchor="nw", fill=MUTED, font=(FONT, 10))
-        header.create_text(4, 90, text="A PolyWorks license covers PolyWorks services; the "
-                           "Cloth NeXt add-on itself is GPL software.", anchor="nw",
+        header.create_text(4, 90, text="Optional: Cloth NeXt Classic is licensed through Superhive "
+                           "and needs no PolyWorks account.", anchor="nw",
                            fill=MUTED, font=(FONT, 8))
         self.message = tk.StringVar(value="")
         self.message_label = tk.Label(self.body, textvariable=self.message, justify="left",
@@ -403,7 +405,7 @@ class AccountWindow:
         WelcomeButton(mfa_row, "Verify", self.submit_mfa, primary=True).pack(side="left")
 
     def _build_license(self):
-        card = self._card("02", "License")
+        card = self._card("02", "Service license")
         self.license_status = tk.StringVar()
         self.license_detail = tk.StringVar()
         self.license_status_label = self._text(card, self.license_status, color=FG, size=11, bold=True)
@@ -456,17 +458,6 @@ class AccountWindow:
         self.code_entry = self._entry(row, self.code, width=28)
         self.code_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self._button(row, "Redeem code", self.redeem, when=_signed_in)
-
-    def _build_purchase(self):
-        card = self._card("05", "Superhive purchase")
-        self._text(card, text=("Superhive purchases are claimed with your order number in your "
-                               "PolyWorks account. PolyWorks verifies every purchase with Superhive; "
-                               "matching email addresses alone never grant a license."), size=9)
-        if self.purchase_detected:
-            self._text(card, text="Blender reports Cloth NeXt in your Superhive library. This is a "
-                       "hint only, not a verified purchase.", size=8)
-        row = self._row(card)
-        self._button(row, "Claim purchase in PolyWorks account", self.open_portal)
 
     # Rendering ----------------------------------------------------------------------
     def _render(self, view):
@@ -893,11 +884,9 @@ class AccountWindow:
         self.root.mainloop()
 
 
-def run_account_window(content_root: Path | None = None, *, purchase_detected=False,
-                       client_name="Cloth NeXt") -> None:
+def run_account_window(content_root: Path | None = None, *, client_name="Cloth NeXt") -> None:
     service = AccountService(client_name=client_name)
-    AccountWindow(service=service, content_root=content_root,
-                  purchase_detected=purchase_detected).run()
+    AccountWindow(service=service, content_root=content_root).run()
 
 
 def run_account_sync(*, client_name="Cloth NeXt") -> int:

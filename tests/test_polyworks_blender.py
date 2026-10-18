@@ -170,9 +170,12 @@ def test_draw_is_informational_and_does_no_io(blender_env, signed, monkeypatch):
     assert layout.operators == ["clothnext.open_account_companion"]
     assert not prop_calls
     labels = "\n".join(layout.labels)
-    for expected in ("PolyWorks Account", "License", "Connection", "Offline – license verified",
-                     "Type: Commercial", "This computer: Activated", "development key"):
+    for expected in ("PolyWorks Account & Services", "Service license", "Offline – verified · Commercial",
+                     "This computer", "Activated", "Connection", "development key",
+                     "Optional · not needed for Classic simulation"):
         assert expected in labels
+    for forbidden in ("Superhive", "Purchase", "claim"):
+        assert forbidden not in labels
     for forbidden in ("Sign in", "Sign out", "Log in", "Deactivate", "Redeem", "Password"):
         assert not any(label.startswith(forbidden) for label in layout.labels)
     empty = RecordingLayout()
