@@ -1046,11 +1046,12 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     force: bpy.props.PointerProperty(type=CLOTHNEXT_PG_force_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False, update=_on_settings_update,
-        description="Hold vertices in the selected Blender vertex group at "
-                    "their evaluated Bake Start positions")
+        description="Pin the vertices of the selected Blender vertex group to "
+                    "their evaluated Bake Start positions. Constraint Type decides "
+                    "whether they hold exactly (Hard) or may yield (Soft, the default)")
     pin_group: bpy.props.StringProperty(
         name="Pin Group", default="", update=_on_settings_update,
-        description="Vertex group on this Cloth object used for static hard Pinning")
+        description="Vertex group on this Cloth object used for Pinning")
     pin_mode: bpy.props.EnumProperty(
         name="Pin Mode", default="STATIC", update=_on_settings_update,
         items=(("STATIC","Static","Keep pinned vertices fixed at their evaluated positions on Bake Start."),

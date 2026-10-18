@@ -1873,7 +1873,7 @@ def _pin_status_lines(summary):
     """Recorded pinning status, labelled by how trustworthy it is."""
     states = validation_state.ValidationState
     if not summary.enabled:
-        return (("Static hard Pinning is disabled", "NONE"),)
+        return (("Pinning is disabled", "NONE"),)
     if not summary.group_name:
         return (("Select a Pin Group.", "ERROR"),)
     if not summary.group_exists:
