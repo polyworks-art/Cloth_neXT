@@ -443,13 +443,25 @@ def test_concurrent_operation_is_rejected(make_service, tmp_path):
 def test_endpoint_validation():
     assert validate_origin("http://127.0.0.1:8000") == "http://127.0.0.1:8000"
     assert Endpoints.from_environment({}).api == "https://api.cloth-next.de"
-    for bad in ("http://api.cloth-next.de", "https://user:pw@x.de", "https://x.de/path", "ftp://x"):
+    assert validate_origin("http://[::1]:8000") == "http://[::1]:8000"
+    for bad in ("http://api.cloth-next.de", "https://user:pw@x.de", "https://x.de/path", "ftp://x",
+                "http://localhost:8000"):
         with pytest.raises(ValueError):
             validate_origin(bad)
     endpoints = Endpoints("https://api.cloth-next.de", "https://account.cloth-next.de")
     assert endpoints.browser_url("https://account.cloth-next.de/link?code=A")
     with pytest.raises(ApiError):
         endpoints.browser_url("https://evil.example/link")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_user_file_vault_discards_session_readable_by_others(tmp_path):
+    vault = UserFileVault(tmp_path)
+    vault.save({"token": "secret"})
+    assert vault.load() == {"token": "secret"}
+    os.chmod(vault.path, 0o644)
+    assert vault.load() is None
+    assert not vault.path.exists()
 
 
 def test_api_sends_no_extra_fields(backend):
