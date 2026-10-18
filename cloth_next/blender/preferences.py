@@ -854,6 +854,10 @@ def draw_account_card(layout, superhive, view) -> None:
             _wrapped(column, text, icon="ERROR" if view.status in _PROBLEM_STATES else "INFO")
     footer = card.row()
     footer.alignment = "RIGHT"
+    if signed_in:
+        footer.operator("clothnext.polyworks_disconnect", text="Disconnect")
+    else:
+        footer.operator("clothnext.polyworks_connect", text="Connect PolyWorks Account", icon="URL")
     footer.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion",
                     icon="WINDOW")
 

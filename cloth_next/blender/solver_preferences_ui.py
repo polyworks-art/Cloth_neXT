@@ -132,6 +132,7 @@ def draw_solver_section(self, layout) -> None:
                 install.activate_after_install = True
             actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
         _draw_worker_state(box)
+        _draw_gaia(box)
         return
 
     name_row = box.row(align=True)
@@ -195,6 +196,14 @@ def draw_solver_section(self, layout) -> None:
     actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
 
     _draw_worker_state(box)
+    _draw_gaia(box)
+
+
+def _draw_gaia(box) -> None:
+    from . import gaia_account
+    box.separator()
+    box.label(text="GAIA")
+    gaia_account.draw_gaia_rows(box)
 
 
 class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):

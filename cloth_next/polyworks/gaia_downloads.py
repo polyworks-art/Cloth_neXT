@@ -190,6 +190,9 @@ def download(new_session: Callable[[], dict], target: Path, *,
                         raise DownloadError("size_mismatch")
                     stream.write(block)
                     progress(done, expected_size)
+            if done < expected_size:
+                # The connection ended early: back off, then resume with Range.
+                raise http.client.IncompleteRead(b"", expected_size - done)
             failures = 0
         except DownloadError as exc:
             if exc.code in RENEW_CODES and sessions < max_sessions:

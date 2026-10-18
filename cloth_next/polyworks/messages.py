@@ -57,6 +57,15 @@ COMPANION = {
     "busy": "Another Cloth NeXt Companion window is updating the account. Try again in a moment.",
     "sign_in_required": "Sign in to your PolyWorks account first.",
     "mfa_invalid": "The code was not accepted. Check your authenticator app or recovery code.",
+    "gaia_access_required": "This PolyWorks account has no GAIA access. Request access or redeem an invitation.",
+    "requests_closed": "GAIA access requests are closed at the moment.",
+    "email_unverified": "Verify the email address of your PolyWorks account first.",
+    "invalid_code": "This invitation link is invalid, expired or already used.",
+    "build_unavailable": "This GAIA build was withdrawn. Refresh to see the current build.",
+    "download_expired": "The GAIA download link expired. Start the installation again.",
+    "checksum_mismatch": "The GAIA download failed its SHA-256 check and was deleted. Try again.",
+    "size_mismatch": "The GAIA download has the wrong size and was deleted. Try again.",
+    "build_changed": "The GAIA build changed during the download. Start the installation again.",
 }
 
 

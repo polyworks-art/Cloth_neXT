@@ -448,3 +448,53 @@ class AccountService:
                     "remaining devices in your PolyWorks account.")
         return ("Signed out. This computer stays activated until its offline license needs "
                 "renewal.") if self.store.read_entitlement() else "Signed out."
+
+    # GAIA (Companion v1 handoff 4-6) -------------------------------------------------
+    def gaia_access(self) -> dict:
+        """{"status": granted|pending|declined|None, "mode": ...}; needs a session."""
+        token = self._require_token()
+        state = self.state()
+        try:
+            result = self.api.gaia_access(token)
+        except ApiError as exc:
+            raise self._handle(state, exc) from None
+        self._online(state)
+        self._save(state)
+        return result
+
+    def request_gaia_access(self, message: str = "") -> str:
+        token = self._require_token()
+        state = self.state()
+        try:
+            return self.api.request_gaia_access(token, message)
+        except ApiError as exc:
+            raise self._handle(state, exc) from None
+
+    def redeem_gaia_invite(self, text: str) -> bool:
+        """Accepts the invite link or the bare token after '#'."""
+        invite = text.strip().split("#", 1)[-1].strip()
+        if not invite or len(invite) > 512 or any(c.isspace() for c in invite):
+            raise ServiceError("invalid_code")
+        token = self._require_token()
+        state = self.state()
+        try:
+            return self.api.redeem_gaia_invite(token, invite)["access"]
+        except ApiError as exc:
+            raise self._handle(state, exc) from None
+
+    def gaia_downloads(self) -> dict:
+        token = self._require_token()
+        state = self.state()
+        try:
+            return self.api.account_downloads(token)
+        except ApiError as exc:
+            raise self._handle(state, exc) from None
+
+    def gaia_download_session(self, build_id: str) -> dict:
+        """A fresh, server-authorised link; re-checks the entitlement every time."""
+        token = self._require_token()
+        state = self.state()
+        try:
+            return self.api.download_session(token, build_id)
+        except ApiError as exc:
+            raise self._handle(state, exc) from None

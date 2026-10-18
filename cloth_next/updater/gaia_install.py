@@ -27,7 +27,7 @@ from typing import Callable
 from . import engines
 from .archive import extract_to_staging
 from .install_paths import ManagedSolverPaths, validate_installation_id
-from .solver_registry import SolverInstallation, SolverRegistry, load_registry, write_registry
+from .solver_registry import SolverInstallation, load_registry, write_registry
 
 SERVER = PurePosixPath("target/cuda/release/ppf-cts-server.exe")
 _SUM_LINE = re.compile(r"^([0-9a-f]{64})  (.+)$")
@@ -176,15 +176,3 @@ def install_gaia_package(
         return GaiaInstallResult(installation, build)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-
-
-def remove_gaia_installation(paths: ManagedSolverPaths, registry: SolverRegistry,
-                             installation_id: str) -> SolverRegistry:
-    """Unregister and delete one GAIA build; never touches AETHER installations."""
-    installation = registry.get(installation_id)
-    if installation is None or engines.engine_of(installation) != engines.GAIA:
-        raise GaiaInstallError("Only an installed GAIA build can be removed here.")
-    target = paths.version_dir(installation_id)
-    registry = write_registry(paths.registry_json, registry.unregister(installation_id))
-    shutil.rmtree(target, ignore_errors=True)
-    return registry
