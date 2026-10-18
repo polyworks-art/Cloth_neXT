@@ -103,6 +103,16 @@ staging backend; defaults are the production origins. Plain HTTP is accepted
 only for loopback hosts. Browser URLs returned by the server are accepted only
 on the API or portal origin.
 
+Without `CLOTH_NEXT_POLYWORKS_PORTAL_URL`, an overridden API URL is also used as
+the portal origin. When testing against the production backend through an SSH
+tunnel, set both, otherwise the browser sign-in link (on
+`https://account.cloth-next.de`) is rejected as a foreign origin:
+
+```text
+CLOTH_NEXT_POLYWORKS_API_URL=http://127.0.0.1:8000
+CLOTH_NEXT_POLYWORKS_PORTAL_URL=https://account.cloth-next.de
+```
+
 ## Companion ↔ Blender
 
 The existing Bake transport (`LocalSocketServer`) is Blender-owned, single

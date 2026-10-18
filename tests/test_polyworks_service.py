@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 import pytest
 
@@ -148,8 +149,9 @@ def test_tokens_never_reach_public_files_or_logs(backend, make_service, caplog):
     public = stored_text(service)
     assert tokens and all(token not in public for token in tokens)
     assert all(token not in caplog.text for token in tokens)
-    session_file = service.store.root / "session.json"
-    assert oct(session_file.stat().st_mode & 0o777) == "0o600"
+    if os.name != "nt":  # Windows relies on the per-user ACL of %LOCALAPPDATA%
+        session_file = service.store.root / "session.json"
+        assert oct(session_file.stat().st_mode & 0o777) == "0o600"
 
 
 # Licences and devices --------------------------------------------------------------
