@@ -1,0 +1,28 @@
+{
+  "load": 19,
+  "resumed_exit": 0,
+  "compared": 20,
+  "differing": [
+    "hydro_20.bin",
+    "hydro_21.bin",
+    "hydro_22.bin",
+    "hydro_23.bin",
+    "hydro_24.bin",
+    "hydro_25.bin",
+    "hydro_26.bin",
+    "hydro_27.bin",
+    "hydro_28.bin",
+    "hydro_29.bin",
+    "vert_20.bin",
+    "vert_21.bin",
+    "vert_22.bin",
+    "vert_23.bin",
+    "vert_24.bin",
+    "vert_25.bin",
+    "vert_26.bin",
+    "vert_27.bin",
+    "vert_28.bin",
+    "vert_29.bin"
+  ],
+  "bit_identical": false
+}

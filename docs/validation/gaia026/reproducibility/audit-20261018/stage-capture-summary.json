@@ -1,0 +1,9 @@
+{
+  "method": "PPF_REPRO_DIR stage captures, first 40 Newton assemblies, two runs per scene, fast path with all switches",
+  "first_differing": {
+    "static": "038-constraints-fixed.f32",
+    "pdrd": "001-linear_solve-dx.f32",
+    "lock": "001-linear_solve-dx.f32"
+  },
+  "resume_repeat": "two resumes from state_19 byte-identical to each other at frames 20, 21, 25, 29"
+}

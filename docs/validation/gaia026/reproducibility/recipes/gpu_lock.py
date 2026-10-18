@@ -7,7 +7,16 @@ import json, sys, time, datetime, os
 from pathlib import Path
 LOCK = Path(__file__).resolve().parents[5]/'.hydro-test-tmp/GPU_LOCK'
 OWNER = 'fast-contact thread session'
+COOLDOWN = LOCK.with_name('GPU_LOCK.fast-contact-released')
 if sys.argv[1] == 'acquire':
+    # Yield: after our own release, wait 120 s before re-acquiring so a waiting
+    # session (polling every 30 s) gets the slot between our scenes.
+    try:
+        remaining = 120 - (time.time() - COOLDOWN.stat().st_mtime)
+        if remaining > 0:
+            print(f'cooldown {remaining:.0f} s', flush=True); time.sleep(remaining)
+    except OSError:
+        pass
     while True:
         try:
             fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -17,5 +26,5 @@ if sys.argv[1] == 'acquire':
         print('acquired', flush=True); break
 elif sys.argv[1] == 'release':
     data = json.loads(LOCK.read_text()) if LOCK.exists() else {}
-    if data.get('session') == OWNER: LOCK.unlink(); print('released')
+    if data.get('session') == OWNER: LOCK.unlink(); COOLDOWN.write_text(str(time.time())); print('released')
     else: print('not ours, untouched:', data)
