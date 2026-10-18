@@ -9,6 +9,14 @@ Product rule: **the Companion is the control centre; Blender is a read-only
 status display.** Every interactive account, authentication, licence and device
 action happens in the existing Cloth NeXt Companion executable.
 
+Update 2026-10-18 (direct GAIA workflow): Blender Preferences may now connect a
+PolyWorks account (browser device authorization) and check GAIA access,
+request access, redeem an invitation and install GAIA, without the Companion.
+Only `cloth_next/blender/gaia_account.py` reaches the API, only from its worker
+thread, never in draw and never during a Bake; the token stays in the shared OS
+vault. Licence, device and activation management stays in the Companion. See
+[SOLVER_ENGINES.md](SOLVER_ENGINES.md).
+
 Product architecture (2026-10-18): **Cloth NeXt Classic is sold, licensed and
 updated through Superhive** and needs no PolyWorks account. A PolyWorks account
 is optional and only covers GAIA access and future online services such as cloud

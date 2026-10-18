@@ -153,7 +153,9 @@ def build(args) -> Path:
         with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
             for path in sorted(root.rglob("*")):
                 if path.is_file():
-                    name = PurePosixPath(build_id, *path.relative_to(root).parts).as_posix()
+                    # A short top folder keeps the deepest embedded-Python path
+                    # well below Windows' 260-character limit during staging.
+                    name = PurePosixPath("gaia", *path.relative_to(root).parts).as_posix()
                     bundle.write(path, name)
         os.replace(partial, archive)
         digest = sha256(archive)

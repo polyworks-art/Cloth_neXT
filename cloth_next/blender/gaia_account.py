@@ -20,8 +20,7 @@ import logging
 import threading
 import time
 import webbrowser
-from dataclasses import dataclass, field, replace
-from pathlib import Path
+from dataclasses import dataclass, replace
 
 import bpy
 
@@ -99,6 +98,7 @@ def _run(step: str, job) -> bool:
     cancel = threading.Event()
 
     def guarded():
+        from ..polyworks.api import ApiError
         from ..polyworks.gaia_downloads import DownloadCancelled, DownloadError
         from ..polyworks.service import ServiceError
         from ..updater.gaia_install import GaiaInstallError
@@ -107,6 +107,8 @@ def _run(step: str, job) -> bool:
         except ServiceError as exc:
             if exc.code == "not_authenticated":
                 _update(signed_in=False, access=None, available=None)
+            _update(error=_message(exc.code))
+        except ApiError as exc:
             _update(error=_message(exc.code))
         except DownloadCancelled:
             _update(message="GAIA download cancelled. It resumes next time.", error="")
@@ -156,8 +158,9 @@ def connect() -> bool:
         with service.operation():
             link = service.start_device_link()
             _update(user_code=link.user_code, message="Confirm the code in your browser.")
+            browser = service.endpoints.browser_url(link.verification_uri_complete)
             with _lock:
-                _state["browser"] = link.verification_uri_complete
+                _state["browser"] = browser
             while not cancel.is_set():
                 if service.poll_device_link(link):
                     break
@@ -220,6 +223,10 @@ def install(*, activate_if_unselected: bool = True) -> bool:
                                           "Cloth NeXt version and computer yet.")
             return
         _update(available=build, progress=(0, build["size_bytes"]))
+        if build["build_id"] in _installed_gaia_build_ids(verified=True):
+            _update(installed_build_id=build["build_id"],
+                    message=f"GAIA {build['version']} is already installed and verified.")
+            return
         paths = ManagedSolverPaths.default()
         paths.ensure_layout()
         target = paths.downloads_dir / f"{build['build_id']}.zip"
@@ -454,13 +461,14 @@ def draw_gaia_rows(layout) -> None:
         column.label(text=state.message, icon="INFO")
 
 
-def _installed_gaia_build_ids() -> set[str]:
+def _installed_gaia_build_ids(*, verified: bool = False) -> set[str]:
+    """Installed GAIA build ids; ``verified`` also checksums the patched files (worker only)."""
     from ..updater import engines
     from . import preferences
     registry, _error = preferences._read_registry()
     ids = set()
     for item in engines.installations_for(registry, engines.GAIA):
         build = engines.gaia_build_of(item)
-        if build is not None:
+        if build is not None and (not verified or engines.verify_gaia_files(item.root, build) is None):
             ids.add(build.build_id)
     return ids
