@@ -117,7 +117,7 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     prefs._draw_solver_section(layout)
 
     labels = [text for text, _icon in layout.labels]
-    assert "GAIA Engine" in labels
+    assert "Solver Engine" in labels
     assert "Solver" not in labels
     assert ("gaia_engine", "NONE") in requested_icons
     assert old.display_name not in labels
@@ -128,7 +128,8 @@ def test_solver_section_hides_retired_selected_release(blender_env, monkeypatch,
     assert "Installed" not in labels
     assert "Available Downloads" not in labels
     assert layout.props == [
-        ("selected_solver_installation_id", "Release", True)
+        ("solver_engine", "Engine", True),
+        ("selected_solver_installation_id", "Release", True),
     ]
     assert layout.menus == [
         ("CLOTHNEXT_MT_solver_manage", "Manage", True)
@@ -157,7 +158,7 @@ def test_single_installed_release_hides_release_selector(blender_env, monkeypatc
     layout = RecordingLayout()
     prefs._draw_solver_section(layout)
 
-    assert layout.props == []
+    assert layout.props == [("solver_engine", "Engine", True)]
     assert layout.menus == [
         ("CLOTHNEXT_MT_solver_manage", "Manage", True)
     ]
@@ -187,7 +188,8 @@ def test_registered_release_without_selection_shows_selector_not_install(
     assert "No Solver Selected" in labels
     assert "The selected solver installation is missing." not in labels
     assert layout.props == [
-        ("selected_solver_installation_id", "Release", True)
+        ("solver_engine", "Engine", True),
+        ("selected_solver_installation_id", "Release", True),
     ]
     assert not any(
         idname == "clothnext.solver_download" and text == "Install Solver"
@@ -281,7 +283,7 @@ def test_manage_menu_offers_downloadable_generations(blender_env, monkeypatch,
     }
     assert set(release_actions) == {"ppf-0.18-current", "ppf-0.22-gaia"}
     lumen_text, lumen = release_actions["ppf-0.18-current"]
-    assert lumen_text == "Install Lumen"
+    assert lumen_text == "Install AETHER lumen-tag"
     assert lumen.activate_after_install is False
     assert release_actions["ppf-0.22-gaia"][1].activate_after_install is True
 

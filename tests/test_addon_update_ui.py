@@ -476,8 +476,8 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     labels = [text for kind, text in pairs if kind == "label"]
     operators = [text for kind, text in pairs if kind == "operator"]
     assert "Superhive" in labels
-    assert "GAIA Engine" in labels
-    assert labels.index("Superhive") < labels.index("GAIA Engine")
+    assert "Solver Engine" in labels
+    assert labels.index("Superhive") < labels.index("Solver Engine")
     assert "Account & License" in labels
     assert "Purchase" in labels and "Not validated" in labels
     assert not any(text.startswith("Update Status:") for text in labels)

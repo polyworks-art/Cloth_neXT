@@ -57,6 +57,9 @@ class ResolvedSolver:
     installation: SolverInstallation | None = None
     protocol_profile: ProtocolProfile | None = None
     frontend_path: Path | None = None
+    # Engine-specific solver environment (GAIA reproducible mode); applied
+    # after inherited PPF_REPRO_* variables were removed.
+    solver_environment: tuple[tuple[str, str], ...] = ()
 
     @property
     def installation_id(self) -> str | None:
@@ -102,7 +105,10 @@ class SolverResolver:
                 selected.protocol_version or "", selected.schema_version or "")
             if profile is None:
                 return None
-            if selected.managed:
+            from ..updater.engines import gaia_build_of
+            if gaia_build_of(selected) is not None:
+                pass  # GAIA identity and file checksums are verified by the caller
+            elif selected.managed:
                 from ..updater.solver_manifest import load_bundled_manifest
                 release = next((entry for entry in
                     load_bundled_manifest().platforms

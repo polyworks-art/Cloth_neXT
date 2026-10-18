@@ -78,9 +78,10 @@ def _draw_worker_state(layout) -> None:
 
 def draw_solver_section(self, layout) -> None:
     """Draw one active solver card with secondary actions behind Manage."""
+    from ..updater import engines
     box = layout.box()
     box.label(
-        text="GAIA Engine",
+        text="Solver Engine",
         **icon_registry.icon_kwargs("gaia_engine", "NONE"),
     )
 
@@ -96,6 +97,14 @@ def draw_solver_section(self, layout) -> None:
 
     if registry_error:
         box.label(text=registry_error, **icon_registry.icon_kwargs("error", "ERROR"))
+
+    if supported:
+        engine_row = box.row()
+        engine_row.enabled = not busy
+        engine_row.prop(self, "solver_engine", text="Engine")
+    engine = engines.engine_of(active) if active is not None else None
+    if engine is not None:
+        box.label(text=engines.ENGINE_DESCRIPTIONS[engine], icon="INFO")
 
     if active is None:
         title = (
@@ -138,7 +147,15 @@ def draw_solver_section(self, layout) -> None:
         )
     )
 
-    if len(supported) > 1:
+    if engine == engines.GAIA:
+        gaia_row = box.row()
+        gaia_row.enabled = not busy
+        gaia_row.prop(self, "gaia_reproducible_bake")
+        if getattr(self, "gaia_reproducible_bake", False):
+            box.label(text="Slower. Not yet covered: collision meshes, rods, rigid bodies.",
+                      icon="INFO")
+
+    if len(engines.installations_for(registry, engine)) > 1:
         selector = box.row()
         selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
@@ -219,7 +236,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
                 use.installation_id = installation.installation_id
             layout.separator()
 
-        layout.label(text="Compatible Releases")
+        layout.label(text="Official AETHER Releases")
         installed_by_tag = {
             installation.official_release_tag: installation
             for installation in supported
@@ -233,7 +250,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             if installed is None:
                 operator = release_row.operator(
                     "clothnext.solver_download",
-                    text=f"Install {entry.display_name}",
+                    text=f"Install AETHER {entry.official_release_tag}",
                 )
                 operator.release_id = entry.release_id
                 preferred = _preferences._session.entry
@@ -243,7 +260,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             else:
                 operator = release_row.operator(
                     "clothnext.solver_download",
-                    text=f"Reinstall {entry.display_name}",
+                    text=f"Reinstall AETHER {entry.official_release_tag}",
                 )
                 operator.release_id = entry.release_id
                 operator.reinstall = True

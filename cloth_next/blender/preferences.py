@@ -138,10 +138,75 @@ def _solver_session_active() -> bool:
         return False
 
 
-def _solver_enum_items(_self, _context):
+_ENGINE_ITEMS: list = []
+
+
+def _engine_items(_self, _context):
+    """AETHER always; GAIA once a GAIA build is installed or access is known.
+
+    Visibility is only a convenience: the server and the installed build's
+    identity decide whether GAIA can actually be installed or run.
+    """
+    from ..updater import engines
     registry, _error = _read_registry()
+    show_gaia = bool(engines.installations_for(registry, engines.GAIA)
+                     or _gaia_access_granted())
+    _ENGINE_ITEMS[:] = [(engines.AETHER, "AETHER", engines.ENGINE_DESCRIPTIONS[engines.AETHER], 0)]
+    if show_gaia:
+        _ENGINE_ITEMS.append((engines.GAIA, "GAIA", engines.ENGINE_DESCRIPTIONS[engines.GAIA], 1))
+    return _ENGINE_ITEMS
+
+
+def _gaia_access_granted() -> bool:
+    try:
+        from . import gaia_account
+    except ImportError:
+        return False
+    return gaia_account.access_granted()
+
+
+def _engine_get(_self) -> int:
+    from ..updater import engines
+    registry, _error = _read_registry()
+    return 1 if engines.selected_engine(registry) == engines.GAIA else 0
+
+
+def _engine_set(self, value: int) -> None:
+    """Switch engine only by explicit choice, to that engine's best healthy build."""
+    from ..updater import engines
+    engine = engines.GAIA if value == 1 else engines.AETHER
+    registry, error = _read_registry()
+    if error:
+        _session.worker_error = error
+        return
+    if engines.selected_engine(registry) == engine:
+        return
+    if _solver_session_active():
+        _session.worker_error = "The solver engine cannot change while a Bake is active."
+        return
+    target = engines.best_installation(registry, engine)
+    if target is None:
+        _session.worker_error = (
+            f"{engine} is not installed. Install {engine} below; the current engine stays selected.")
+        return
+    try:
+        write_registry(ManagedSolverPaths.default().registry_json,
+                       registry.select(target.installation_id))
+    except (OSError, ValueError) as exc:
+        _session.worker_error = f"Engine change failed: {exc}"
+        return
+    self.selected_solver_installation_id = target.installation_id
+    _session.worker_error = None
+
+
+def _solver_enum_items(_self, _context):
+    from ..updater import engines
+    registry, _error = _read_registry()
+    engine = engines.selected_engine(registry)
     items = []
     for index, installation in enumerate(registry.installations):
+        if engine is not None and engines.engine_of(installation) != engine:
+            continue
         status = (
             f"Protocol {installation.protocol_version or '?'} · "
             f"Schema {installation.schema_version or '?'} · "
@@ -810,6 +875,15 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         items=_solver_enum_items, update=_solver_enum_update,
         description="Select the exact installed solver used by future Bakes; "
                     "selection is locked while a session is active")
+    solver_engine: bpy.props.EnumProperty(
+        name="Engine", items=_engine_items, get=_engine_get, set=_engine_set,
+        description="Solver engine for future Bakes. Changing it never happens "
+                    "automatically and is locked while a Bake is active")
+    gaia_reproducible_bake: bpy.props.BoolProperty(
+        name="Reproducible Bake", default=False,
+        description="GAIA only: run the deterministic solver path so the same scene, "
+                    "settings, GPU and driver give bit-identical results. Slower. "
+                    "Scenes with collision meshes, rods or rigid bodies are not covered yet")
     solver_backend_choice: bpy.props.EnumProperty(
         name="Solver Backend",
         items=(("AUTO", "Auto", "Use verified CUDA if available, otherwise CPU"),
