@@ -1,0 +1,111 @@
+Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+13.9,497733172,3650,136365.3,3904.5,928,30903932,1018696.6,"repro_copy_span(BeHandle, void *, unsigned long long)"
+12.6,452914910,50,9058298.2,5061197.5,2948046,29023167,7646369.3,"contact_edge_edge_traverse_entry_fastcount(ContactEdgeEdgeTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+12.5,447275372,50,8945507.4,5058238.0,2937005,29792779,7390538.5,"contact_edge_edge_traverse_entry_fastrecord(ContactEdgeEdgeTraverseArgs, unsigned int *, diagnostics::Channel)"
+8.6,308274377,50,6165487.5,4142335.5,3012462,21161094,4839819.8,"ccd_edge_edge_entry(CcdEdgeEdgeArgs, diagnostics::Channel)"
+6.6,236321815,1200,196934.8,87201.5,19616,9978202,546174.5,"face_elastic_embed_from_records_entry_colored(FaceElasticEmbedFromRecordsArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+6.3,225273200,50,4505464.0,2370069.0,905710,39719556,5896052.3,"contact_point_face_traverse_entry_fastrecord(ContactPointFaceTraverseArgs, unsigned int *, diagnostics::Channel)"
+5.4,193961874,50,3879237.5,2159745.5,1021520,13180235,3223729.9,"contact_point_face_traverse_entry_fastcount(ContactPointFaceTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+4.7,167305523,50,3346110.5,1854749.0,1165202,15019400,3019973.2,"contact_point_edge_traverse_entry_fastcount(ContactPointEdgeTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+4.6,166344552,1100,151222.3,56832.5,16576,11691957,590496.5,"shell_bend_embed_entry_colored(ShellBendEmbedArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+3.9,139762380,50,2795247.6,1714522.5,1092657,11148460,2339477.6,"contact_point_edge_traverse_entry_fastrecord(ContactPointEdgeTraverseArgs, unsigned int *, diagnostics::Channel)"
+2.6,91825860,50,1836517.2,1243379.0,924334,6826953,1388593.7,"ccd_point_face_entry(CcdPointFaceArgs, diagnostics::Channel)"
+2.1,76678557,26,2949175.3,2917229.0,2419333,4469733,481665.7,"intersect_scan_face_edge_entry(IntersectScanFaceEdgeArgs, diagnostics::Channel)"
+1.8,65532494,26,2520480.5,2382789.0,2056543,4549894,531206.8,"intersect_scan_edge_edge_entry(IntersectScanEdgeEdgeArgs, diagnostics::Channel)"
+1.6,59023502,600,98372.5,50560.5,20224,2725226,196780.2,"shell_strain_embed_entry_colored(ShellStrainEmbedArgs, const unsigned int *, unsigned int, unsigned int)"
+1.3,47631670,9889,4816.6,2816.0,1120,846285,12990.6,aabb_merge_level_entry(AabbMergeLevelArgs)
+1.0,35291357,50,705827.1,422326.5,257476,5720376,887621.8,"contact_point_point_traverse_entry_fastcount(ContactPointPointTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+0.8,28658592,1639,17485.4,11008.0,2784,841069,36955.1,"void cub::CUB_200700_610_NS::DeviceMergeSortMergeKernel<cub::CUB_200700_610_NS::DeviceMergeSortPolicy<unsigned long long *>::Policy600, unsigned long long *, float *, unsigned long long *, float *, unsigned int, ReproAddressLess, unsigned long long, float>(bool, T4, T5, T6, T8 *, T9 *, T7, T6 *, T6, cub::CUB_200700_610_NS::detail::vsmem_t)"
+0.7,25023748,50,500475.0,251924.0,227843,1909150,427821.1,"contact_point_point_traverse_entry_fastrecord(ContactPointPointTraverseArgs, unsigned int *, diagnostics::Channel)"
+0.6,19792389,350,56549.7,33968.5,6945,477064,72251.0,"void cub::CUB_200700_610_NS::DeviceMergeSortBlockSortKernel<cub::CUB_200700_610_NS::DeviceMergeSortPolicy<unsigned long long *>::Policy600, unsigned long long *, float *, unsigned long long *, float *, unsigned int, ReproAddressLess, unsigned long long, float>(bool, T2, T3, T4, T5, T6, T8 *, T9 *, T7, cub::CUB_200700_610_NS::detail::vsmem_t)"
+0.5,18662591,50,373251.8,216995.5,184163,2318307,390103.2,"ccd_point_point_entry(CcdPointPointArgs, diagnostics::Channel)"
+0.5,17948431,100,179484.3,154899.0,6784,2503463,288437.2,dirichlet_lift_row_entry(DirichletLiftRowArgs)
+0.4,15145258,100,151452.6,91393.5,77697,2200161,218963.7,overlap_first_flagged_leaf_entry(OverlapFirstFlaggedLeafArgs)
+0.3,12522649,366,34214.9,18368.0,1056,175395,42655.1,reduce_max_leaf_entry(ReduceMaxLeafArgs)
+0.3,12103145,600,20171.9,11440.5,992,143074,25486.9,reduce_min_leaf_entry(ReduceMinLeafArgs)
+0.3,11924377,50,238487.5,118609.5,64193,4129984,571568.5,stitch_force_hessian_gathered_entry(StitchForceHessianGatheredArgs)
+0.3,11592629,99,117097.3,24928.0,14465,4961708,568369.4,aabb_leaf_face_entry(AabbLeafFaceArgs)
+0.3,11473429,600,19122.4,13456.0,2688,1457463,59880.0,radix_scatter_entry(RadixScatterArgs)
+0.3,10124034,50,202480.7,86321.5,47040,3632600,517671.8,"vertex_constraint_entry(VertexConstraintArgs, diagnostics::Channel)"
+0.3,9843194,1639,6005.6,3744.0,2016,614218,15589.5,"void cub::CUB_200700_610_NS::DeviceMergeSortPartitionKernel<unsigned long long *, unsigned int, ReproAddressLess, unsigned long long>(bool, T1, T4 *, T2, T2, T2 *, T3, T2, int)"
+0.2,8765995,75,116879.9,113922.0,52896,213892,45873.9,lbvh_scatter_levels_entry(LbvhScatterLevelsArgs)
+0.2,8481310,50,169626.2,58193.0,27168,4714344,665463.2,aabb_edge_contact_query_entry(AabbEdgeContactQueryArgs)
+0.2,8189575,1650,4963.4,3648.0,1472,13344,3038.7,scan_block_apply_entry(ScanBlockApplyArgs)
+0.2,7813014,75,104173.5,104642.0,49089,168258,41709.0,"lbvh_count_levels_entry(LbvhCountLevelsArgs, diagnostics::Channel)"
+0.2,7367473,99,74418.9,36481.0,26048,898382,132309.4,aabb_leaf_edge_entry(AabbLeafEdgeArgs)
+0.2,6594276,50,131885.5,84737.0,82561,361062,85290.5,operator_apply_dynamic_entry(OperatorApplyDynamicArgs)
+0.2,6154007,1650,3729.7,2624.0,1216,9120,2175.1,scan_block_total_entry(ScanBlockTotalArgs)
+0.2,5826963,300,19423.2,10448.0,8512,63393,15178.3,"void cub::CUB_200700_610_NS::DeviceMergeSortBlockSortKernel<cub::CUB_200700_610_NS::DeviceMergeSortPolicy<unsigned long long *>::Policy600, unsigned long long *, unsigned int *, unsigned long long *, unsigned int *, unsigned int, ReproLess64, unsigned long long, unsigned int>(bool, T2, T3, T4, T5, T6, T8 *, T9 *, T7, cub::CUB_200700_610_NS::detail::vsmem_t)"
+0.1,4927310,900,5474.8,3248.5,1344,643786,21578.4,"void cub::CUB_200700_610_NS::DeviceScanKernel<cub::CUB_200700_610_NS::DeviceScanPolicy<unsigned int, cuda::std::__4::plus<void>>::Policy900, const unsigned int *, unsigned int *, cub::CUB_200700_610_NS::ScanTileState<unsigned int, (bool)1>, cuda::std::__4::plus<void>, cub::CUB_200700_610_NS::detail::InputValue<unsigned int, unsigned int *>, unsigned int, unsigned int, (bool)0>(T2, T3, T4, int, T5, T6, T7)"
+0.1,4548506,350,12995.7,4464.0,1056,362213,27147.3,"repro_apply_log(const unsigned long long *, const float *, unsigned int)"
+0.1,4463630,225,19838.4,8832.0,1216,120162,24706.9,bounds_merge_entry(BoundsMergeArgs)
+0.1,4339453,600,7232.4,6256.5,1856,17985,4427.7,radix_histogram_entry(RadixHistogramArgs)
+0.1,4194659,228,18397.6,3728.0,1024,173699,31882.4,vec_block_sum_u32_entry(VecBlockSumU32Args)
+0.1,3925974,200,19629.9,13136.0,4288,68737,15452.1,"dyn_scatter_transpose_pass_entry_rscratch(DynScatterTransposePassArgs, void **)"
+0.1,3877229,2400,1615.5,1056.0,832,5408,1016.8,repro_set_record_context(compute::ReproRecordContext *)
+0.1,3544919,26,136343.0,128306.0,121506,206980,20630.2,"intersect_scan_point_point_entry(IntersectScanPointPointArgs, diagnostics::Channel)"
+0.1,3383126,24,140963.6,27616.5,11809,1819964,375116.4,shell_stretch_terms_entry(ShellStretchTermsArgs)
+0.1,3301265,50,66025.3,46016.5,26240,175554,47311.0,reduce_sum_u32_leaf_entry(ReduceSumU32LeafArgs)
+0.1,3265403,609,5361.9,3009.0,2624,17505,3953.5,"void cub::CUB_200700_610_NS::DeviceMergeSortMergeKernel<cub::CUB_200700_610_NS::DeviceMergeSortPolicy<unsigned long long *>::Policy600, unsigned long long *, unsigned int *, unsigned long long *, unsigned int *, unsigned int, ReproLess64, unsigned long long, unsigned int>(bool, T4, T5, T6, T8 *, T9 *, T7, T6 *, T6, cub::CUB_200700_610_NS::detail::vsmem_t)"
+0.1,3218677,50,64373.5,41648.5,10881,386758,65849.1,"dyn_row_compact_pass_entry(DynRowCompactPassArgs, diagnostics::Channel)"
+0.1,3166129,50,63322.6,47536.5,5856,203459,46112.3,dyn_push_pass_entry(DynPushPassArgs)
+0.1,3073197,50,61463.9,34512.5,8544,187843,48587.1,dyn_row_emit_pass_entry(DynRowEmitPassArgs)
+0.1,2983530,75,39780.4,32929.0,9120,100257,25457.3,lbvh_nodes_entry(LbvhNodesArgs)
+0.1,2662471,75,35499.6,36192.0,10592,69665,20769.2,bounds_leaf_entry(BoundsLeafArgs)
+0.1,2642666,100,26426.7,10720.0,1088,852237,86486.1,reduce_sum_wide_merge_entry(ReduceSumWideMergeArgs)
+0.1,2495592,200,12478.0,8272.0,3296,46208,9063.7,"dyn_push_pass_entry_rscratch(DynPushPassArgs, void **)"
+0.1,2451494,99,24762.6,13569.0,11008,190563,31716.7,aabb_leaf_vertex_entry(AabbLeafVertexArgs)
+0.1,2393981,609,3931.0,2464.0,1184,12352,2642.3,"void cub::CUB_200700_610_NS::DeviceMergeSortPartitionKernel<unsigned long long *, unsigned int, ReproLess64, unsigned long long>(bool, T1, T4 *, T2, T2, T2 *, T3, T2, int)"
+0.1,2381029,50,47620.6,26672.0,12096,403686,66720.3,"momentum_embed_entry(MomentumEmbedArgs, diagnostics::Channel)"
+0.1,2352902,50,47058.0,26049.0,5985,149122,38089.8,dyn_row_seed_pass_entry(DynRowSeedPassArgs)
+0.1,2199434,528,4165.6,2432.5,832,37888,4531.3,vec_fill_u32_entry(VecFillU32Args)
+0.1,2196224,50,43924.5,26192.5,14464,281892,66115.1,aabb_point_contact_query_entry(AabbPointContactQueryArgs)
+0.1,2029159,300,6763.9,5104.0,1824,26368,4620.4,"repro_serial_returns(const unsigned long long *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int, unsigned int, const unsigned int *, unsigned int *)"
+0.1,1920415,24,80017.3,40640.5,13248,382278,108567.3,face_deformation_gradient_entry(FaceDeformationGradientArgs)
+0.0,1668249,75,22243.3,18144.0,4608,58593,14723.3,lbvh_node_depth_entry(LbvhNodeDepthArgs)
+0.0,1662102,400,4155.3,2176.0,928,54209,5701.4,"repro_verify_cursors(const unsigned int *, const unsigned int *, const unsigned int *, unsigned int, unsigned int *)"
+0.0,1638906,50,32778.1,21168.0,19969,84770,19795.4,precond_diagonal_dynamic_entry(PrecondDiagonalDynamicArgs)
+0.0,1634876,750,2179.8,1856.0,864,4544,1217.3,scan_zero_entry(ScanZeroArgs)
+0.0,1502651,50,30053.0,19120.0,17472,80993,19654.0,"block_jacobi_invert_row_entry(BlockJacobiInvertRowArgs, diagnostics::Channel)"
+0.0,1282869,50,25657.4,18176.0,13824,69249,14317.9,shell_strain_toi_from_records_entry(ShellStrainToiFromRecordsArgs)
+0.0,1254328,900,1393.7,992.0,736,4192,870.9,"void cub::CUB_200700_610_NS::DeviceScanInitKernel<cub::CUB_200700_610_NS::ScanTileState<unsigned int, (bool)1>>(T1, int)"
+0.0,1225420,100,12254.2,8896.0,1344,65729,15498.7,reduce_min_u32_leaf_entry(ReduceMinU32LeafArgs)
+0.0,1215535,100,12155.4,8288.0,3840,47425,9108.9,"fixed_csr_atomic_push_entry_rscratch(FixedCsrAtomicPushArgs, void **)"
+0.0,1197463,25,47898.5,23008.0,9697,227171,67234.8,face_centroid_entry(FaceCentroidArgs)
+0.0,1194351,50,23887.0,13808.5,5632,70433,18161.0,dyn_scatter_transpose_pass_entry(DynScatterTransposePassArgs)
+0.0,1154097,50,23081.9,15136.0,14400,60449,14142.2,dirichlet_prescribe_gated_entry(DirichletPrescribeGatedArgs)
+0.0,1148788,50,22975.8,14048.5,4384,199843,39976.8,compute_target_seed_entry(ComputeTargetSeedArgs)
+0.0,1089521,324,3362.7,2000.0,1056,43488,3444.9,vec_fill_entry(VecFillArgs)
+0.0,1072878,24,44703.3,38753.0,11200,137058,35682.2,svd3x2_entry(Svd3x2Args)
+0.0,995280,50,19905.6,16176.5,7328,45345,11109.5,"vertex_constraint_sweep_entry(VertexConstraintSweepArgs, diagnostics::Channel)"
+0.0,872492,25,34899.7,18593.0,6112,200131,47890.6,edge_centroid_entry(EdgeCentroidArgs)
+0.0,787951,50,15759.0,7424.0,2944,219556,31924.3,dx_seed_entry(DxSeedArgs)
+0.0,732138,100,7321.4,4736.0,2560,23488,5076.6,"stitch_atomic_embed_force_entry_rscratch(StitchAtomicEmbedForceArgs, void **)"
+0.0,721673,50,14433.5,10592.0,5760,39072,10030.5,stitch_atomic_embed_force_entry(StitchAtomicEmbedForceArgs)
+0.0,664688,300,2215.6,1600.0,928,7520,1380.4,"repro_compare_ops(const unsigned int *, const unsigned int *, unsigned int, const unsigned long long *, const unsigned long long *, const unsigned int *, const unsigned int *, unsigned int, unsigned int *)"
+0.0,664527,75,8860.4,7616.0,1984,72001,8856.8,lbvh_morton_from_bounds_entry(LbvhMortonFromBoundsArgs)
+0.0,627434,75,8365.8,7648.0,2112,20320,4750.5,lbvh_set_parent_entry(LbvhSetParentArgs)
+0.0,616584,200,3082.9,2496.0,1312,9760,1891.4,"repro_seed_claims(BeHandle, const unsigned int *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,584907,100,5849.1,4928.0,2720,13888,2927.7,vec_combine_entry(VecCombineArgs)
+0.0,574470,250,2297.9,1664.0,1216,7616,1537.9,vec_block_sum_cooperative_entry(VecBlockSumCooperativeArgs)
+0.0,555268,50,11105.4,8208.0,4800,27840,7307.6,fixed_csr_atomic_push_entry(FixedCsrAtomicPushArgs)
+0.0,544295,24,22679.0,13456.5,5120,98049,26198.6,velocity_terms_entry(VelocityTermsArgs)
+0.0,528141,200,2640.7,1312.0,1024,88354,6510.5,"repro_finish_claims(BeHandle, const unsigned int *, const unsigned int *, unsigned int)"
+0.0,473446,26,18209.5,17808.0,16544,21313,1044.0,aabb_edge_scan_query_entry(AabbEdgeScanQueryArgs)
+0.0,469926,24,19580.3,7744.5,2144,179650,41826.1,vertex_fix_index_from_records_entry(VertexFixIndexFromRecordsArgs)
+0.0,392899,300,1309.7,864.0,736,3744,800.9,"repro_iota(unsigned int *, unsigned int)"
+0.0,357444,50,7148.9,4112.0,2464,20640,5267.3,dyn_count_transpose_pass_entry(DynCountTransposePassArgs)
+0.0,337283,75,4497.1,4321.0,1312,9760,2298.4,lbvh_find_root_entry(LbvhFindRootArgs)
+0.0,310661,50,6213.2,1888.0,1824,160259,22310.2,dx_magnitude_entry(DxMagnitudeArgs)
+0.0,305062,24,12710.9,6464.0,2432,96674,23033.4,element_add_scaled_entry(ElementAddScaledArgs)
+0.0,288102,24,12004.3,8256.5,6048,25344,7111.6,rewind_fix_entry(RewindFixArgs)
+0.0,283300,24,11804.2,6944.0,2240,138722,27212.5,vertex_dof_removal_mask_entry(VertexDofRemovalMaskArgs)
+0.0,245379,50,4907.6,2912.0,2848,20128,3718.2,mat3_mul_entry(Mat3MulArgs)
+0.0,244704,50,4894.1,3200.0,1344,14048,3240.0,dyn_row_begin_pass_entry(DynRowBeginPassArgs)
+0.0,242210,50,4844.2,3472.0,1664,12000,2638.3,dyn_dry_push_pass_entry(DynDryPushPassArgs)
+0.0,209955,25,8398.2,5696.0,2048,73153,13807.9,vertex_centroid_entry(VertexCentroidArgs)
+0.0,209412,26,8054.3,7568.5,7136,10689,1005.8,aabb_vertex_scan_query_entry(AabbVertexScanQueryArgs)
+0.0,176193,50,3523.9,2144.0,2048,9600,2316.0,vec_block_sum_abs_cooperative_entry(VecBlockSumAbsCooperativeArgs)
+0.0,172581,50,3451.6,2144.0,2048,14816,2797.3,position_accept_entry(PositionAcceptArgs)
+0.0,163298,50,3266.0,2176.0,2112,8096,1918.8,position_step_entry(PositionStepArgs)
+0.0,161346,50,3226.9,2016.0,1984,8736,2017.6,pcg_dot_terms_entry(PcgDotTermsArgs)

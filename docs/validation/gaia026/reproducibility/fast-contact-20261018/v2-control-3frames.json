@@ -1,0 +1,30 @@
+[
+  {
+    "case": "reference",
+    "repeat": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 52.815190899999834,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\reference-deterministic\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+    "outputs": 7,
+    "peak_whole_device_memory_mib": 5424.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-all-control3\\reference-0",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  },
+  {
+    "case": "fast_all",
+    "repeat": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 22.183450300000004,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "1f7fc07a448628252df79f28ef31828bddc962ffe1ff1af5d4245a01df34f360",
+    "outputs": 7,
+    "peak_whole_device_memory_mib": 5510.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-all-control3\\fast_all-0",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  }
+]

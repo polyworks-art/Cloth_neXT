@@ -1,0 +1,32 @@
+{
+ "fast_all-0": {
+  "stage_ms": {
+   "lbvh_build": 640,
+   "check_intersection": 947,
+   "asm_elastic": 986,
+   "asm_copy": 0,
+   "asm_strainlimit": 351,
+   "asm_contact": 8665,
+   "matrix_assembly": 14629,
+   "asm_dirichlet": 3,
+   "linsolve": 5524,
+   "aabb_update": 237,
+   "line_search": 2333
+  },
+  "calls": {
+   "lbvh_build": 155,
+   "check_intersection": 155,
+   "asm_elastic": 310,
+   "asm_copy": 310,
+   "asm_strainlimit": 310,
+   "asm_contact": 310,
+   "matrix_assembly": 310,
+   "asm_dirichlet": 310,
+   "linsolve": 310,
+   "aabb_update": 464,
+   "line_search": 310
+  },
+  "contacts_mean": 21327.645161290322,
+  "contacts_max": 24691
+ }
+}

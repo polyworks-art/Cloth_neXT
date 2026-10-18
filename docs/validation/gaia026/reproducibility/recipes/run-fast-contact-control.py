@@ -20,7 +20,8 @@ REPRO = dict(PPF_REPRO_ORDER_MODE='colored', PPF_REPRO_ORDER_FILTER='all', PPF_R
              PPF_REPRO_SERIAL_CSR='1', PPF_REPRO_SERIAL_STITCH='1')
 CASES = dict(reference=(B/'reference-deterministic', {}),
              fast=(B/'fast-cuda-build/lib', dict(PPF_REPRO_FAST_CONTACT='1')),
-             fast_hook_only=(B/'fast-cuda-build/lib', {}))
+             fast_hook_only=(B/'fast-cuda-build/lib', {}),
+             fast_all=(B/'fast-cuda-build/lib', dict(PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1')))
 
 
 def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()

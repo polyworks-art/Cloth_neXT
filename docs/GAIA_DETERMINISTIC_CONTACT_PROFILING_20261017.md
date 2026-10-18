@@ -73,3 +73,13 @@ Source diff against the reference source: `docs/validation/gaia026/reproducibili
 - Implementation notes: CUB `DeviceRadixSort` returns "invalid argument" in this compute_61 LTO device-link build (reproduced standalone); `DeviceMergeSort::StableSortPairs` works and is used. A backend DLL next to the worker exe wins over PATH on Windows; recipes now assert the loaded module directory. GPU runs are coordinated with other sessions through `.hydro-test-tmp/GPU_LOCK` (`recipes/gpu_lock.py`).
 
 Next: the same exact-order replay for the serial dynamic CSR fill/transpose and stitch push, which also needs serial-order replay of integer slot claims.
+
+## Result: fast serial replay v2 (2026-10-18)
+
+Adds `PPF_REPRO_FAST_SERIAL=1` (with `PPF_REPRO_FAST_CONTACT=1` and the five existing switches): a generic exact replay for the entries the reference runs serially (`dyn_push_pass`, `dyn_scatter_transpose_pass`, `stitch_atomic_embed_force`, `fixed_csr_atomic_push`). On scratch copies the unchanged body is iterated until each element's integer atomic sequence is a fixed point of the serial return assignment (sorted per counter, sequential prefix per counter); then the original parallel entry runs live with those returns, float atomics are logged and applied in serial order, and counters receive their final serial value. Not converged within four iterations: automatic fallback to the serial reference path (no live writes before that). After the live pass, the live integer sequences and float counts are checked against the converged replay; any difference aborts loudly. Applicability rule: no element reads plain stores of another element in the same pass (true for the four entries: `dyn_push` reads only the carried pattern prefix, appended writes land at offsets >= carried).
+
+DLL `1f7fc07a…`, preserved as `.hydro-test-tmp/reproducibility-20261017/fast-v2/`. Patch updated: `native-fast-contact.patch`.
+
+- 3-frame control: 7/7 files byte-identical to the reference; no fallback.
+- Full NEON 130–159, five independent runs: every run byte-identical in all 59 vertex/hydro files to the reference; 54.9–63.5 s (median 57.4 s); whole-GPU peak 5.5–5.6 GiB. Reference 308.9 s, unordered 50 s: determinism overhead now ~1.15x instead of ~6x (5.4x faster than the reference).
+- Nsight, 3 frames: GPU kernel time 62.7 s (reference) → 10.5 s (v1) → 3.6 s (v2); no serial kernel left; kernel launches 255k → 40k. Largest remaining item: scratch span copies (0.5 s).

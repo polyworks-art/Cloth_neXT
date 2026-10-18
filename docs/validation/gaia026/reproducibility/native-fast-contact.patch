@@ -1,28 +1,59 @@
 --- a/crates/ppf-cts-compute/cuda/seam_cuda.cuh
 +++ b/crates/ppf-cts-compute/cuda/seam_cuda.cuh
-@@ -514,7 +514,30 @@
- __device__ inline unsigned atomic_add(atomic_uint_t *pointer, unsigned value) {
-     return atomicAdd(&pointer->storage, value);
+@@ -511,10 +511,61 @@
+ __device__ inline void atomic_store(atomic_uint_t *pointer, unsigned value) {
+     pointer->storage = value;
  }
 +// RESEARCH ORDER HOOK (PPF_REPRO_FAST_CONTACT). Null outside the deterministic
 +// contact count/record passes, so every other kernel performs the original
 +// atomicAdd. Inside those passes a float contribution is counted (mode 1) or
 +// logged as (address, value) at the calling query's cursor (mode 2); the log is
 +// later applied with this same atomicAdd in the serial reference order.
++// Modes 1/2: fast contact count/record (integer atomics execute normally).
++// Modes 3-5: generic serial-order replay. Integer atomic_add does NOT execute;
++// it returns the value the serial execution would return (looked up per thread
++// from the previous iteration, 0 when unknown) and is counted (3) or logged
++// (4, 5). Floats are counted (3), ignored (4) or logged (5).
 +struct ReproRecordContext {
 +    unsigned mode;
 +    unsigned *cursor;
 +    unsigned long long *address;
 +    float *value;
 +    unsigned limit;
++    unsigned *ucount;
++    const unsigned *uoffset;
++    unsigned long long *uaddress;
++    unsigned *uvalue;
++    unsigned ulimit;
++    const unsigned *rcount;
++    const unsigned *roffset;
++    const unsigned *rvalue;
++    unsigned *unsupported;
 +};
 +extern __device__ ReproRecordContext *g_repro_record;
+ __device__ inline unsigned atomic_add(atomic_uint_t *pointer, unsigned value) {
++    ReproRecordContext *context = g_repro_record;
++    if (context && context->mode >= 3u) {
++        const unsigned thread = blockIdx.x * blockDim.x + threadIdx.x;
++        const unsigned k = context->ucount[thread]++;
++        if (context->mode >= 4u) {
++            const unsigned at = context->uoffset[thread] + k;
++            if (at < context->ulimit) {
++                context->uaddress[at] = reinterpret_cast<unsigned long long>(&pointer->storage);
++                context->uvalue[at] = value;
++            }
++        }
++        return k < context->rcount[thread] ? context->rvalue[context->roffset[thread] + k] : 0u;
++    }
+     return atomicAdd(&pointer->storage, value);
+ }
  __device__ inline float atomic_add(atomic_float_t *pointer, float value) {
 +    ReproRecordContext *context = g_repro_record;
 +    if (context) {
 +        const unsigned thread = blockIdx.x * blockDim.x + threadIdx.x;
++        if (context->mode == 4u) return 0.0f;
 +        const unsigned at = context->cursor[thread]++;
-+        if (context->mode == 2u && at < context->limit) {
++        if ((context->mode == 2u || context->mode == 5u) && at < context->limit) {
 +            context->address[at] = reinterpret_cast<unsigned long long>(&pointer->storage);
 +            context->value[at] = value;
 +        }
@@ -54,7 +85,7 @@
  // High-water storage belongs to a stream/kernel, not to an individual Newton
  // assembly. Scratch views are refreshed in full; color reuse compares indices.
  struct ReproCacheEntry {
-@@ -155,3 +157,140 @@
+@@ -155,3 +157,326 @@
      }
      ReproContactScratch(const ReproContactScratch &)=delete;
  };
@@ -195,6 +226,192 @@
 +    }
 +    ReproFastContact(const ReproFastContact &) = delete;
 +};
++
++// ---------------------------------------------------------------------------
++// PPF_REPRO_FAST_SERIAL: generic exact replay of an entry the reference runs
++// serially in ascending element order. Iterate on scratch copies until every
++// element's integer atomic sequence is a fixed point of "returns = what the
++// serial execution would return for these sequences"; then run the ORIGINAL
++// parallel entry on live buffers with those returns, logging float atomics,
++// and apply logs in serial order. Not converged within the iteration budget:
++// the caller falls back to the serial reference path (nothing live touched).
++// Valid only for bodies whose reads never depend on plain stores of OTHER
++// elements in the same pass (checked per entry by inspection).
++struct ReproLess64 {__device__ bool operator()(unsigned long long a, unsigned long long b) const {return a < b;}};
++static __global__ void repro_iota(unsigned *output, unsigned n) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i < n) output[i] = i;
++}
++// One thread per address segment, sequential inside: the serial return chain.
++static __global__ void repro_serial_returns(const unsigned long long *key, const unsigned *index,
++                                            const unsigned *value, unsigned *returns, unsigned n,
++                                            unsigned finalize, const unsigned *expected, unsigned *mismatch) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= n || (i > 0 && key[i] == key[i - 1])) return;
++    unsigned *counter = reinterpret_cast<unsigned *>(key[i]);
++    unsigned running = *counter;
++    for (unsigned j = i; j < n && key[j] == key[i]; ++j) {
++        const unsigned op = index[j];
++        if (expected && expected[op] != running) atomicExch(mismatch, 1u);
++        if (returns) returns[op] = running;
++        running += value[op];
++    }
++    if (finalize) *counter = running;
++}
++static __global__ void repro_compare_ops(const unsigned *count_a, const unsigned *count_b, unsigned threads,
++                                         const unsigned long long *address_a, const unsigned long long *address_b,
++                                         const unsigned *value_a, const unsigned *value_b, unsigned ops, unsigned *differs) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i < threads && count_a[i] != count_b[i]) atomicExch(differs, 1u);
++    if (i < ops && (address_a[i] != address_b[i] || value_a[i] != value_b[i])) atomicExch(differs, 1u);
++}
++
++struct ReproReplay {
++    ReproCacheEntry &cache;
++    cudaStream_t queue;
++    unsigned count;
++    compute::ReproRecordContext host{};
++    compute::ReproRecordContext *context = nullptr;
++    unsigned *fcount = nullptr, *foffset = nullptr, *fsaved = nullptr, *ucount = nullptr, *uoffset = nullptr;
++    unsigned *rcount = nullptr, *roffset = nullptr, *rvalue = nullptr, *flag = nullptr, *pcount = nullptr;
++    unsigned long long *uaddress = nullptr, *paddress = nullptr, *fkeys = nullptr;
++    unsigned *uvalue = nullptr, *pvalue = nullptr;
++    float *fvalues = nullptr;
++    unsigned ops = 0, previous_ops = 0, records = 0, parity = 0;
++    bool have_previous = false;
++    template <class T> T *buffer(unsigned slot, size_t elements) {
++        if (cache.blocks.size() <= slot) {cache.blocks.resize(slot + 1, nullptr);cache.capacities.resize(slot + 1, 0);}
++        ReproCacheEntry::ensure(cache.blocks[slot], cache.capacities[slot], std::max<size_t>(1, elements) * sizeof(T));
++        return static_cast<T *>(cache.blocks[slot]);
++    }
++    void *temp(size_t bytes) {return buffer<unsigned char>(40, bytes);}
++    ReproReplay(unsigned elements, cudaStream_t stream, const char *kernel)
++        : cache(repro_cache(stream, std::string("replay:") + kernel)), queue(stream), count(elements) {
++        context = buffer<compute::ReproRecordContext>(0, 1);
++        fcount = buffer<unsigned>(1, count); foffset = buffer<unsigned>(2, count); fsaved = buffer<unsigned>(3, count);
++        ucount = buffer<unsigned>(4, count); uoffset = buffer<unsigned>(5, count);
++        rcount = buffer<unsigned>(6, count); roffset = buffer<unsigned>(7, count);
++        flag = buffer<unsigned>(8, 1); rvalue = buffer<unsigned>(9, 1); pcount = buffer<unsigned>(15, count);
++        repro_cuda_check(cudaMemsetAsync(rcount, 0, count * sizeof(unsigned), queue));
++        repro_cuda_check(cudaMemsetAsync(roffset, 0, count * sizeof(unsigned), queue));
++    }
++    void push(unsigned mode) {
++        host.mode = mode; host.rcount = rcount; host.roffset = roffset; host.rvalue = rvalue;
++        repro_cuda_check(cudaMemcpyAsync(context, &host, sizeof(host), cudaMemcpyHostToDevice, queue));
++        repro_set_record_context<<<1, 1, 0, queue>>>(context);
++        repro_cuda_check(cudaGetLastError());
++    }
++    void clear() {repro_set_record_context<<<1, 1, 0, queue>>>(nullptr);repro_cuda_check(cudaGetLastError());}
++    unsigned scan_total(const unsigned *input, unsigned *output) {
++        size_t bytes = 0;
++        repro_cuda_check(cub::DeviceScan::ExclusiveSum(nullptr, bytes, input, output, count, queue));
++        repro_cuda_check(cub::DeviceScan::ExclusiveSum(temp(bytes), bytes, input, output, count, queue));
++        unsigned last[2] = {0, 0};
++        repro_cuda_check(cudaMemcpyAsync(&last[0], output + count - 1, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaMemcpyAsync(&last[1], input + count - 1, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaStreamSynchronize(queue));
++        return last[0] + last[1];
++    }
++    // Pass A (scratch): count float and integer atomics under the current returns.
++    void begin_count() {
++        repro_cuda_check(cudaMemsetAsync(fcount, 0, count * sizeof(unsigned), queue));
++        repro_cuda_check(cudaMemsetAsync(ucount, 0, count * sizeof(unsigned), queue));
++        host = {}; host.cursor = fcount; host.ucount = ucount;
++        push(3u);
++    }
++    // Pass B (fresh scratch): log integer atomics at their serial positions.
++    void begin_record() {
++        clear();
++        ops = scan_total(ucount, uoffset);
++        uaddress = buffer<unsigned long long>(10 + parity, ops);
++        uvalue = buffer<unsigned>(12 + parity, ops);
++        repro_cuda_check(cudaMemsetAsync(ucount, 0, count * sizeof(unsigned), queue));
++        host = {}; host.ucount = ucount; host.uoffset = uoffset; host.uaddress = uaddress; host.uvalue = uvalue; host.ulimit = ops;
++        push(4u);
++    }
++    // After pass B: serial returns for the logged sequences. Converged when the
++    // sequences equal the previous iteration's, i.e. the returns used were exact.
++    bool end_record() {
++        clear();
++        // No integer atomics at all: returns are never consulted, so pass A's
++        // float counts are already exact.
++        bool converged = !have_previous && ops == 0;
++        if (have_previous && ops == previous_ops) {
++            repro_cuda_check(cudaMemsetAsync(flag, 0, sizeof(unsigned), queue));
++            const unsigned n = std::max(count, ops);
++            repro_compare_ops<<<(n + 255) / 256, 256, 0, queue>>>(ucount, pcount, count, uaddress, paddress, uvalue, pvalue, ops, flag);
++            repro_cuda_check(cudaGetLastError());
++            unsigned differs = 1;
++            repro_cuda_check(cudaMemcpyAsync(&differs, flag, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++            repro_cuda_check(cudaStreamSynchronize(queue));
++            converged = !differs;
++        }
++        // Scratch counters hold the live start values (integer atomics never execute).
++        unsigned *returns = buffer<unsigned>(14, ops);
++        serial_returns(uaddress, uvalue, returns, false, nullptr);
++        repro_cuda_check(cudaMemcpyAsync(rcount, ucount, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        repro_cuda_check(cudaMemcpyAsync(roffset, uoffset, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        rvalue = buffer<unsigned>(9, ops);
++        if (ops) repro_cuda_check(cudaMemcpyAsync(rvalue, returns, ops * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        repro_cuda_check(cudaMemcpyAsync(pcount, ucount, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        paddress = uaddress; pvalue = uvalue; previous_ops = ops; parity ^= 1u; have_previous = true;
++        if (converged) {
++            records = scan_total(fcount, foffset);
++            repro_cuda_check(cudaMemcpyAsync(fsaved, fcount, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        }
++        return converged;
++    }
++    void serial_returns(const unsigned long long *address, const unsigned *value, unsigned *returns, bool finalize, const unsigned *expected) {
++        if (!ops) return;
++        unsigned long long *keys = buffer<unsigned long long>(16, ops);
++        unsigned *order = buffer<unsigned>(17, ops);
++        repro_cuda_check(cudaMemcpyAsync(keys, address, ops * sizeof(unsigned long long), cudaMemcpyDeviceToDevice, queue));
++        repro_iota<<<(ops + 255) / 256, 256, 0, queue>>>(order, ops);
++        repro_cuda_check(cudaGetLastError());
++        size_t bytes = 0;
++        repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(nullptr, bytes, keys, order, ops, ReproLess64{}, queue));
++        repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(temp(bytes), bytes, keys, order, ops, ReproLess64{}, queue));
++        if (expected) repro_cuda_check(cudaMemsetAsync(flag, 0, sizeof(unsigned), queue));
++        repro_serial_returns<<<(ops + 255) / 256, 256, 0, queue>>>(keys, order, value, returns, ops, finalize ? 1u : 0u, expected, flag);
++        repro_cuda_check(cudaGetLastError());
++    }
++    // Final pass (live, original entry): integer returns replayed and logged,
++    // floats logged at their serial positions.
++    void begin_final() {
++        fkeys = buffer<unsigned long long>(18, records); fvalues = buffer<float>(19, records);
++        repro_cuda_check(cudaMemcpyAsync(fcount, foffset, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        repro_cuda_check(cudaMemsetAsync(ucount, 0, count * sizeof(unsigned), queue));
++        uaddress = buffer<unsigned long long>(20, ops); uvalue = buffer<unsigned>(21, ops);
++        host = {}; host.cursor = fcount; host.address = fkeys; host.value = fvalues; host.limit = records;
++        host.ucount = ucount; host.uoffset = uoffset; host.uaddress = uaddress; host.uvalue = uvalue; host.ulimit = ops;
++        push(5u);
++    }
++    void finish_final() {
++        clear();
++        // The live sequences must reproduce the replayed returns exactly; this also
++        // writes each counter's final serial value.
++        serial_returns(uaddress, uvalue, nullptr, true, rvalue);
++        unsigned *verify = buffer<unsigned>(22, 1);
++        repro_cuda_check(cudaMemsetAsync(verify, 0, sizeof(unsigned), queue));
++        repro_compare_ops<<<(count + 255) / 256, 256, 0, queue>>>(ucount, rcount, count, nullptr, nullptr, nullptr, nullptr, 0, verify);
++        repro_verify_cursors<<<(count + 255) / 256, 256, 0, queue>>>(fcount, foffset, fsaved, count, verify);
++        repro_cuda_check(cudaGetLastError());
++        unsigned bad[2] = {0, 0};
++        if (ops) repro_cuda_check(cudaMemcpyAsync(&bad[0], flag, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaMemcpyAsync(&bad[1], verify, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaStreamSynchronize(queue));
++        if (bad[0] || bad[1]) throw std::runtime_error("fast serial replay: live pass differs from converged scratch replay");
++        if (records) {
++            size_t bytes = 0;
++            repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(nullptr, bytes, fkeys, fvalues, records, ReproAddressLess{}, queue));
++            repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(temp(bytes), bytes, fkeys, fvalues, records, ReproAddressLess{}, queue));
++            repro_apply_log<<<(records + 255) / 256, 256, 0, queue>>>(fkeys, fvalues, records);
++            repro_cuda_check(cudaGetLastError());
++        }
++        if (std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr, "REPRO_FAST_SERIAL elements=%u ops=%u records=%u\n", count, ops, records);
++    }
++    ReproReplay(const ReproReplay &) = delete;
++};
 --- a/crates/ppf-cts-compute/cuda/backend/backend.cu
 +++ b/crates/ppf-cts-compute/cuda/backend/backend.cu
 @@ -1759,3 +1759,7 @@
@@ -207,17 +424,21 @@
 +namespace compute { __device__ ReproRecordContext *g_repro_record = nullptr; }
 --- a/crates/ppf-cts-compute/seam/kernelgen.py
 +++ b/crates/ppf-cts-compute/seam/kernelgen.py
-@@ -2933,6 +2933,9 @@
+@@ -2933,6 +2933,13 @@
              if entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse"):
                  probe, filtered = _research_contact_filter(entry)
                  out.append(probe)
 +                fast_kernels, fast_launch = _research_fast_contact(entry)
 +                out.append(fast_kernels)
 +                filtered = fast_launch + filtered
++            else:
++                replay_kernels, replay_launch = _research_fast_serial(entry, switch)
++                out.append(replay_kernels)
++                filtered = replay_launch + filtered
              diagnostic = (f'    if (std::getenv("{switch}")) {{\n'
                  f'        for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
                  f'            unsigned end=std::min(begin+32,args.{count});\n'
-@@ -5839,6 +5842,48 @@
+@@ -5839,6 +5846,94 @@
      return ''.join(probe),launch
  
  
@@ -260,6 +481,52 @@
 +        '        fast.finish(args.dyn_claim);\n'
 +        '        return;\n'
 +        f'    }} catch(const std::exception &error) {{ std::fprintf(stderr,"REPRO_FAST_CONTACT failure in {entry.name}: %s\\n",error.what()); std::fflush(stderr); throw; }}\n')
++    return ''.join(out),launch
++
++
++def _research_fast_serial(entry, switch):
++    """Generic exact replay (PPF_REPRO_FAST_SERIAL) of a serially-ordered entry.
++
++    One scratch kernel (every mutable handle on the scratch copies, unchanged
++    body) drives the converging count/record iterations; the final pass is the
++    ORIGINAL parallel entry kernel on live buffers under the replay context.
++    Falls through to the serial reference path when not converged.
++    """
++    mutable=[f for f in entry.fields if f.kind=="handle" and not f.is_const]
++    count=entry.count_field.name;idx=entry.index_name;diag=_diag_cu_arg(entry)
++    out=[f'\n__global__ void {entry.entry_symbol}_rscratch({entry.record_cpp} args, void **scratch{_diag_cu_param(entry)}) {{\n',
++         f'    unsigned {idx}=blockIdx.x*blockDim.x+threadIdx.x;\n    if({idx}>=args.{count}) return;\n']
++    out.append(_diag_cu_bind(entry));out.extend(_hoist(entry,_resolve_cu,"args.",0))
++    for k,f in enumerate(mutable):
++        out.append(f'    {f.name}=reinterpret_cast<{f.base} *>(scratch[{k}]);\n')
++    out.append(_call(entry,"args.").replace("return ","",1))
++    out.append('}\n')
++    handles=','.join('{args.'+f.name+',sizeof('+f.base+')}' for f in mutable)
++    grid=f'(args.{count}+127)/128,128,0,queue'
++    launch=(f'    if(std::getenv("PPF_REPRO_FAST_SERIAL") && std::getenv("{switch}")) try {{\n'
++        f'        ReproReplay replay(args.{count},queue,"{entry.name}");\n'
++        '        bool converged=false;\n'
++        '        for(int iteration=0;iteration<4 && !converged;++iteration) {\n'
++        f'            {{ ReproContactScratch scratch({{{handles}}},args.{count},queue,"{entry.name}");\n'
++        '              replay.begin_count();\n'
++        f'              {entry.entry_symbol}_rscratch<<<{grid}>>>(args,scratch.table{diag});\n'
++        '              CUDA_HANDLE_ERROR(cudaGetLastError()); }\n'
++        f'            {{ ReproContactScratch scratch({{{handles}}},args.{count},queue,"{entry.name}");\n'
++        '              replay.begin_record();\n'
++        f'              {entry.entry_symbol}_rscratch<<<{grid}>>>(args,scratch.table{diag});\n'
++        '              CUDA_HANDLE_ERROR(cudaGetLastError()); }\n'
++        '            converged=replay.end_record();\n'
++        '        }\n'
++        '        if(converged) {\n'
++        '            replay.begin_final();\n'
++        f'            {entry.entry_symbol}<<<{grid}>>>(args{diag});\n'
++        '            CUDA_HANDLE_ERROR(cudaGetLastError());\n'
++        '            replay.finish_final();\n'
++        '            return;\n'
++        '        }\n'
++        '        replay.clear();\n'
++        f'        std::fprintf(stderr,"REPRO_FAST_SERIAL not converged in {entry.name}; serial reference path\\n");\n'
++        f'    }} catch(const std::exception &error) {{ std::fprintf(stderr,"REPRO_FAST_SERIAL failure in {entry.name}: %s\\n",error.what()); std::fflush(stderr); throw; }}\n')
 +    return ''.join(out),launch
 +
 +
