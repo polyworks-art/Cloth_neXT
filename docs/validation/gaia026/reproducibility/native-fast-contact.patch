@@ -1,6 +1,6 @@
 --- a/crates/ppf-cts-compute/cuda/seam_cuda.cuh
 +++ b/crates/ppf-cts-compute/cuda/seam_cuda.cuh
-@@ -514,7 +514,29 @@
+@@ -514,7 +514,30 @@
  __device__ inline unsigned atomic_add(atomic_uint_t *pointer, unsigned value) {
      return atomicAdd(&pointer->storage, value);
  }
@@ -14,6 +14,7 @@
 +    unsigned *cursor;
 +    unsigned long long *address;
 +    float *value;
++    unsigned limit;
 +};
 +extern __device__ ReproRecordContext *g_repro_record;
  __device__ inline float atomic_add(atomic_float_t *pointer, float value) {
@@ -21,7 +22,7 @@
 +    if (context) {
 +        const unsigned thread = blockIdx.x * blockDim.x + threadIdx.x;
 +        const unsigned at = context->cursor[thread]++;
-+        if (context->mode == 2u) {
++        if (context->mode == 2u && at < context->limit) {
 +            context->address[at] = reinterpret_cast<unsigned long long>(&pointer->storage);
 +            context->value[at] = value;
 +        }
@@ -32,7 +33,28 @@
  
 --- a/crates/ppf-cts-compute/cuda/research_order.hpp
 +++ b/crates/ppf-cts-compute/cuda/research_order.hpp
-@@ -155,3 +155,123 @@
+@@ -9,6 +9,7 @@
+ #include <initializer_list>
+ #include <cstdint>
+ #include <map>
++#include <string>
+ #include "arena/arena.hpp"
+ 
+ inline const char *repro_order_mode(const char *kernel) {
+@@ -23,9 +24,10 @@
+     return enabled ? mode : nullptr;
+ }
+ 
+-inline void repro_cuda_check(cudaError_t status) {
+-    if(status!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(status));
++inline void repro_cuda_check_at(cudaError_t status, int line) {
++    if(status!=cudaSuccess)throw std::runtime_error(std::string(cudaGetErrorString(status))+" at research_order.hpp:"+std::to_string(line));
+ }
++#define repro_cuda_check(status) repro_cuda_check_at((status), __LINE__)
+ // High-water storage belongs to a stream/kernel, not to an individual Newton
+ // assembly. Scratch views are refreshed in full; color reuse compares indices.
+ struct ReproCacheEntry {
+@@ -155,3 +157,140 @@
      }
      ReproContactScratch(const ReproContactScratch &)=delete;
  };
@@ -47,7 +69,10 @@
 +// atomicAdd chain per address reproduces the serial per-address order exactly.
 +#include "seam_cuda.cuh"
 +#include <cub/device/device_scan.cuh>
-+#include <cub/device/device_radix_sort.cuh>
++#include <cub/device/device_merge_sort.cuh>
++// DeviceRadixSort fails ("invalid argument") in this lto_61 device-link build;
++// the stable merge sort is verified working under the same flags.
++struct ReproAddressLess {__device__ bool operator()(unsigned long long a, unsigned long long b) const {return a < b;}};
 +
 +static __global__ void repro_set_record_context(compute::ReproRecordContext *context) {
 +    compute::g_repro_record = context;
@@ -65,6 +90,11 @@
 +    auto *dyn_claim = compute::arena::resolve<compute::atomic_uint_t>(dyn_claim_handle);
 +    // Advance by the total, exactly what the serial claims leave behind.
 +    compute::atomic_add(dyn_claim, prefix[count - 1] + counts[count - 1]);
++}
++static __global__ void repro_verify_cursors(const unsigned *cursor, const unsigned *offset, const unsigned *counts,
++                                            unsigned count, unsigned *mismatch) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i < count && cursor[i] != offset[i] + counts[i]) atomicExch(mismatch, 1u);
 +}
 +static __global__ void repro_apply_log(const unsigned long long *address, const float *value, unsigned count) {
 +    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -101,7 +131,7 @@
 +        claim_prefix = buffer<unsigned>(5, count);
 +    }
 +    void set_context(unsigned mode, unsigned *cursor) {
-+        compute::ReproRecordContext host{mode, cursor, keys, values};
++        compute::ReproRecordContext host{mode, cursor, keys, values, records};
 +        repro_cuda_check(cudaMemcpyAsync(context, &host, sizeof(host), cudaMemcpyHostToDevice, queue));
 +        repro_set_record_context<<<1, 1, 0, queue>>>(context);
 +        repro_cuda_check(cudaGetLastError());
@@ -135,22 +165,31 @@
 +        records = last[0] + last[1];
 +        keys = buffer<unsigned long long>(6, records);
 +        values = buffer<float>(7, records);
-+        keys_sorted = buffer<unsigned long long>(8, records);
-+        values_sorted = buffer<float>(9, records);
++        // Saved: the record pass must end every cursor at offset + count.
++        repro_cuda_check(cudaMemcpyAsync(buffer<unsigned>(10, count), float_counts, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
 +        // The record cursor starts at each query's offset; float_counts is reused.
 +        repro_cuda_check(cudaMemcpyAsync(float_counts, float_offsets, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
 +        set_context(2u, float_counts);
 +    }
 +    void finish(const ArenaHandle &dyn_claim_handle) {
 +        clear_context();
++        // Consistency guard: count and record passes must agree query by query.
++        unsigned *mismatch = buffer<unsigned>(11, 1);
++        repro_cuda_check(cudaMemsetAsync(mismatch, 0, sizeof(unsigned), queue));
++        repro_verify_cursors<<<(count + 255) / 256, 256, 0, queue>>>(float_counts, float_offsets, buffer<unsigned>(10, count), count, mismatch);
++        repro_cuda_check(cudaGetLastError());
++        unsigned host_mismatch = 0;
++        repro_cuda_check(cudaMemcpyAsync(&host_mismatch, mismatch, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaStreamSynchronize(queue));
++        if (host_mismatch) throw std::runtime_error("fast contact: record pass differs from count pass");
 +        repro_finish_claims<<<1, 1, 0, queue>>>(dyn_claim_handle, claim_prefix, claim_counts, count);
 +        repro_cuda_check(cudaGetLastError());
 +        if (!records) return;
 +        size_t bytes = 0;
 +        // Stable: equal addresses keep (query, body) order from the log.
-+        repro_cuda_check(cub::DeviceRadixSort::SortPairs(nullptr, bytes, keys, keys_sorted, values, values_sorted, records, 0, 64, queue));
-+        repro_cuda_check(cub::DeviceRadixSort::SortPairs(temp(bytes), bytes, keys, keys_sorted, values, values_sorted, records, 0, 64, queue));
-+        repro_apply_log<<<(records + 255) / 256, 256, 0, queue>>>(keys_sorted, values_sorted, records);
++        repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(nullptr, bytes, keys, values, records, ReproAddressLess{}, queue));
++        repro_cuda_check(cub::DeviceMergeSort::StableSortPairs(temp(bytes), bytes, keys, values, records, ReproAddressLess{}, queue));
++        repro_apply_log<<<(records + 255) / 256, 256, 0, queue>>>(keys, values, records);
 +        repro_cuda_check(cudaGetLastError());
 +        if (std::getenv("PPF_REPRO_ORDER_TRACE")) std::fprintf(stderr, "REPRO_FAST_CONTACT records=%u queries=%u\n", records, count);
 +    }
@@ -178,7 +217,7 @@
              diagnostic = (f'    if (std::getenv("{switch}")) {{\n'
                  f'        for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
                  f'            unsigned end=std::min(begin+32,args.{count});\n'
-@@ -5839,6 +5842,47 @@
+@@ -5839,6 +5842,48 @@
      return ''.join(probe),launch
  
  
@@ -209,7 +248,7 @@
 +        out.append('}\n')
 +    handles=','.join('{args.'+f.name+',sizeof('+f.base+')}' for f in mutable)
 +    grid=f'(args.{count}+127)/128,128,0,queue'
-+    launch=(f'    if(std::getenv("PPF_REPRO_FAST_CONTACT")) {{\n'
++    launch=(f'    if(std::getenv("PPF_REPRO_FAST_CONTACT")) try {{\n'
 +        f'        ReproContactScratch scratch({{{handles}}},args.{count},queue,"{entry.name}");\n'
 +        f'        ReproFastContact fast(args.{count},queue,"{entry.name}");\n'
 +        '        fast.begin_count();\n'
@@ -219,7 +258,8 @@
 +        f'        {entry.entry_symbol}_fastrecord<<<{grid}>>>(args,fast.claims{diag});\n'
 +        '        CUDA_HANDLE_ERROR(cudaGetLastError());\n'
 +        '        fast.finish(args.dyn_claim);\n'
-+        '        return;\n    }\n')
++        '        return;\n'
++        f'    }} catch(const std::exception &error) {{ std::fprintf(stderr,"REPRO_FAST_CONTACT failure in {entry.name}: %s\\n",error.what()); std::fflush(stderr); throw; }}\n')
 +    return ''.join(out),launch
 +
 +

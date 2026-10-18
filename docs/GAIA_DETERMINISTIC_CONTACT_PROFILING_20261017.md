@@ -62,9 +62,14 @@ atomic primitive gains a branch on a device-global record context that is null o
 this pass. No formula, threshold, guard or parameter changes. The serial CSR fill
 (7 %) is the next candidate after this.
 
-## Work-in-progress checkpoint (paused 2026-10-17 late evening)
+## Result: fast contact v1 (2026-10-18)
 
-- Source: `.hydro-test-tmp/reproducibility-20261017/fast-source` (copy of `native-source`, reference untouched). Diff against the reference source: `docs/validation/gaia026/reproducibility/native-fast-contact-wip.patch` (apply after the two existing patches). Build: `build-fast-cuda.cmd` → `fast-cuda-build/lib/libsimbackend_cuda.dll` (`f6f91151…`).
-- 3-frame NEON control (`fast-control3/`, recipe `recipes/run-fast-contact-control.py`): the hook-compiled DLL WITHOUT `PPF_REPRO_FAST_CONTACT` is byte-identical to the reference (7/7 outputs), so the hook is inert when off.
-- WITH `PPF_REPRO_FAST_CONTACT=1` the worker aborts at the first contact assembly (C++ exception through the FFI, "panic in a function that cannot unwind"). Not yet diagnosed; compute-sanitizer 13.2 could not attach. Next: print the exception text in `repro_cuda_check`/launcher, check arena `resolve` inside the new seed/finish kernels and the CUB temp-storage path, then rerun the 3-frame byte comparison.
-- Pitfall found and fixed in the control recipe: a backend DLL next to the worker exe wins over PATH on Windows (`fast-control3-invalid-dll-search/` loaded the reference DLL). The recipe now asserts the loaded module directory per case.
+Source diff against the reference source: `docs/validation/gaia026/reproducibility/native-fast-contact.patch` (apply after the two existing patches); built DLL `480d437f…` preserved as `.hydro-test-tmp/reproducibility-20261017/fast-v1/`. Opt-in `PPF_REPRO_FAST_CONTACT=1` on top of the five existing switches. Evidence: `docs/validation/gaia026/reproducibility/fast-contact-20261018/`.
+
+- Bit-identical to the deterministic reference: 3-frame control 7/7 files; full NEON 130–159, five independent fast runs, every one byte-identical in all 59 vertex/hydro output files to each of the five reference runs. Loaded backend module verified per run; count/record consistency guard never tripped.
+- Runtime, full NEON, sequential under the GPU lock: reference 308.9 s, fast 100.5 s, repeats 87.7–93.1 s (median of five fast runs 88.8 s). Unordered (non-deterministic) worker: 50 s. Determinism overhead drops from ~6x to ~1.8–2x.
+- Nsight, first 3 frames: GPU kernel time 62.7 s → 10.5 s; contact traversals 56.2 s → ~1.9 s.
+- Remaining cost (fast, 3 frames): serial `dyn_push_pass` 4.9 s (47 %), serial `fixed_csr_atomic_push` 1.0 s, scratch span copies 0.6 s, serial `dyn_scatter_transpose_pass` 0.6 s, plus ~255k serial chunk launches on the host.
+- Implementation notes: CUB `DeviceRadixSort` returns "invalid argument" in this compute_61 LTO device-link build (reproduced standalone); `DeviceMergeSort::StableSortPairs` works and is used. A backend DLL next to the worker exe wins over PATH on Windows; recipes now assert the loaded module directory. GPU runs are coordinated with other sessions through `.hydro-test-tmp/GPU_LOCK` (`recipes/gpu_lock.py`).
+
+Next: the same exact-order replay for the serial dynamic CSR fill/transpose and stitch push, which also needs serial-order replay of integer slot claims.

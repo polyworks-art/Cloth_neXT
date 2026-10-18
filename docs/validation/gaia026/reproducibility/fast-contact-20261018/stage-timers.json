@@ -1,0 +1,62 @@
+{
+ "fast-0": {
+  "stage_ms": {
+   "lbvh_build": 558,
+   "check_intersection": 806,
+   "asm_elastic": 869,
+   "asm_copy": 0,
+   "asm_strainlimit": 333,
+   "asm_contact": 43392,
+   "matrix_assembly": 51807,
+   "asm_dirichlet": 0,
+   "linsolve": 4707,
+   "aabb_update": 135,
+   "line_search": 2771
+  },
+  "calls": {
+   "lbvh_build": 155,
+   "check_intersection": 155,
+   "asm_elastic": 310,
+   "asm_copy": 310,
+   "asm_strainlimit": 310,
+   "asm_contact": 310,
+   "matrix_assembly": 310,
+   "asm_dirichlet": 310,
+   "linsolve": 310,
+   "aabb_update": 464,
+   "line_search": 310
+  },
+  "contacts_mean": 21327.645161290322,
+  "contacts_max": 24691
+ },
+ "reference-0": {
+  "stage_ms": {
+   "lbvh_build": 575,
+   "check_intersection": 812,
+   "asm_elastic": 754,
+   "asm_copy": 0,
+   "asm_strainlimit": 327,
+   "asm_contact": 261233,
+   "matrix_assembly": 265969,
+   "asm_dirichlet": 5,
+   "linsolve": 4763,
+   "aabb_update": 143,
+   "line_search": 1746
+  },
+  "calls": {
+   "lbvh_build": 155,
+   "check_intersection": 155,
+   "asm_elastic": 310,
+   "asm_copy": 310,
+   "asm_strainlimit": 310,
+   "asm_contact": 306,
+   "matrix_assembly": 305,
+   "asm_dirichlet": 310,
+   "linsolve": 310,
+   "aabb_update": 464,
+   "line_search": 310
+  },
+  "contacts_mean": 21327.645161290322,
+  "contacts_max": 24691
+ }
+}

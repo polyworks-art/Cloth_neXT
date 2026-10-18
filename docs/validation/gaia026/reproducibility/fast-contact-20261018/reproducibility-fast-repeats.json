@@ -1,0 +1,58 @@
+[
+  {
+    "case": "fast",
+    "repeat": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 87.71142229999987,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "480d437f55f5ffaa687eb98cd91fb10d80a1413f983a32557751e2b701e5a4ec",
+    "outputs": 59,
+    "peak_whole_device_memory_mib": 5420.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-five-repeat\\fast-0",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  },
+  {
+    "case": "fast",
+    "repeat": 1,
+    "exit_code": 0,
+    "elapsed_seconds": 88.76359559999992,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "480d437f55f5ffaa687eb98cd91fb10d80a1413f983a32557751e2b701e5a4ec",
+    "outputs": 59,
+    "peak_whole_device_memory_mib": 5423.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-five-repeat\\fast-1",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  },
+  {
+    "case": "fast",
+    "repeat": 2,
+    "exit_code": 0,
+    "elapsed_seconds": 93.11713980000013,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "480d437f55f5ffaa687eb98cd91fb10d80a1413f983a32557751e2b701e5a4ec",
+    "outputs": 59,
+    "peak_whole_device_memory_mib": 5418.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-five-repeat\\fast-2",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  },
+  {
+    "case": "fast",
+    "repeat": 3,
+    "exit_code": 0,
+    "elapsed_seconds": 87.90496099999973,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-cuda-build\\lib\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "480d437f55f5ffaa687eb98cd91fb10d80a1413f983a32557751e2b701e5a4ec",
+    "outputs": 59,
+    "peak_whole_device_memory_mib": 5452.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\fast-five-repeat\\fast-3",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  }
+]

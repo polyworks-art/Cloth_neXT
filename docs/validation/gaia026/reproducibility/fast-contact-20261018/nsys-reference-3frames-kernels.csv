@@ -1,0 +1,91 @@
+Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+59.5,37310425818,10319,3615701.7,3301487.0,265830,9004124,1762852.5,"contact_edge_edge_traverse_entry_serial(ContactEdgeEdgeTraverseArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+22.9,14382496469,4990,2882263.8,2809252.5,140803,9461636,1607447.4,"contact_point_face_traverse_entry_serial(ContactPointFaceTraverseArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+7.2,4501183559,1749,2573575.5,2322840.0,73922,5848783,1229786.7,"contact_point_edge_traverse_entry_serial(ContactPointEdgeTraverseArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+5.9,3711256714,91894,40386.3,25761.0,1824,1979632,97450.2,"dyn_push_pass_entry_serial(DynPushPassArgs, const unsigned int *, unsigned int, unsigned int)"
+1.1,686958691,121700,5644.7,3424.0,1120,1336929,19996.7,"dyn_scatter_transpose_pass_entry_serial(DynScatterTransposePassArgs, const unsigned int *, unsigned int, unsigned int)"
+0.6,388560281,10500,37005.7,20993.0,3488,1844205,110128.6,"fixed_csr_atomic_push_entry_serial(FixedCsrAtomicPushArgs, const unsigned int *, unsigned int, unsigned int)"
+0.6,353138511,50,7062770.2,5813214.0,3754682,13487179,2885586.3,"contact_edge_edge_traverse_entry_select(ContactEdgeEdgeTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+0.4,230648071,50,4612961.4,4365371.0,2871654,8473518,1496324.5,"ccd_edge_edge_entry(CcdEdgeEdgeArgs, diagnostics::Channel)"
+0.3,160837770,50,3216755.4,2481084.5,1147292,7424628,2023444.3,"contact_point_face_traverse_entry_select(ContactPointFaceTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+0.2,139677268,1950,71629.4,18656.0,864,2122483,186524.1,"repro_copy_span(BeHandle, void *, unsigned long long)"
+0.2,137589036,50,2751780.7,2685441.5,1199677,5143420,1255042.4,"contact_point_edge_traverse_entry_select(ContactPointEdgeTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+0.2,106628390,26,4101091.9,5033498.0,1933967,6302714,1598261.7,"intersect_scan_edge_edge_entry(IntersectScanEdgeEdgeArgs, diagnostics::Channel)"
+0.2,98852391,26,3802015.0,3092539.0,2269623,7300657,1593354.7,"intersect_scan_face_edge_entry(IntersectScanFaceEdgeArgs, diagnostics::Channel)"
+0.2,96668022,1200,80556.7,39280.5,13472,1832589,164383.9,"face_elastic_embed_from_records_entry_colored(FaceElasticEmbedFromRecordsArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+0.1,65950434,1100,59954.9,30304.0,10720,1850030,170317.1,"shell_bend_embed_entry_colored(ShellBendEmbedArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+0.1,61751068,50,1235021.4,896374.0,819668,2935496,564251.3,"ccd_point_face_entry(CcdPointFaceArgs, diagnostics::Channel)"
+0.0,28568016,9889,2888.9,2240.0,1088,16673,1957.4,aabb_merge_level_entry(AabbMergeLevelArgs)
+0.0,27289304,600,45482.2,28544.5,16448,1672457,109938.0,"shell_strain_embed_entry_colored(ShellStrainEmbedArgs, const unsigned int *, unsigned int, unsigned int)"
+0.0,24102154,50,482043.1,301719.5,285447,1667017,324557.4,"contact_point_point_traverse_entry_select(ContactPointPointTraverseArgs, void **, unsigned int *, diagnostics::Channel)"
+0.0,19120719,50,382414.4,233542.0,16672,1585575,393870.8,"contact_point_point_traverse_entry_serial(ContactPointPointTraverseArgs, const unsigned int *, unsigned int, unsigned int, diagnostics::Channel)"
+0.0,9871470,50,197429.4,195908.5,167173,254150,18222.9,"ccd_point_point_entry(CcdPointPointArgs, diagnostics::Channel)"
+0.0,9265479,300,30884.9,30880.5,15841,50113,10775.0,"stitch_atomic_embed_force_entry_serial(StitchAtomicEmbedForceArgs, const unsigned int *, unsigned int, unsigned int)"
+0.0,8723577,100,87235.8,86338.0,76354,102051,8291.8,overlap_first_flagged_leaf_entry(OverlapFirstFlaggedLeafArgs)
+0.0,8717841,100,87178.4,88706.0,6848,152900,59937.5,dirichlet_lift_row_entry(DirichletLiftRowArgs)
+0.0,8057506,75,107433.4,107875.0,52193,161540,43036.6,lbvh_scatter_levels_entry(LbvhScatterLevelsArgs)
+0.0,7661339,75,102151.2,102211.0,49090,156131,41825.2,"lbvh_count_levels_entry(LbvhCountLevelsArgs, diagnostics::Channel)"
+0.0,7610840,600,12684.7,10560.0,960,30177,9978.4,reduce_min_leaf_entry(ReduceMinLeafArgs)
+0.0,5595847,50,111916.9,80626.0,78242,171172,39545.2,operator_apply_dynamic_entry(OperatorApplyDynamicArgs)
+0.0,5504709,366,15040.2,14129.0,960,38305,12376.6,reduce_max_leaf_entry(ReduceMaxLeafArgs)
+0.0,4317798,600,7196.3,6896.5,2720,17344,2858.4,radix_scatter_entry(RadixScatterArgs)
+0.0,3750149,1650,2272.8,2272.0,1376,5184,489.6,scan_block_apply_entry(ScanBlockApplyArgs)
+0.0,3713465,99,37509.7,34561.0,27105,66177,8031.1,aabb_leaf_edge_entry(AabbLeafEdgeArgs)
+0.0,3656636,50,73132.7,63985.0,59842,92066,13218.0,stitch_force_hessian_gathered_entry(StitchForceHessianGatheredArgs)
+0.0,3554452,50,71089.0,56721.0,43713,124611,26661.5,"vertex_constraint_entry(VertexConstraintArgs, diagnostics::Channel)"
+0.0,3389811,26,130377.3,132195.5,117474,147651,7984.3,"intersect_scan_point_point_entry(IntersectScanPointPointArgs, diagnostics::Channel)"
+0.0,2939104,1650,1781.3,1760.0,1120,5184,336.0,scan_block_total_entry(ScanBlockTotalArgs)
+0.0,2578852,228,11310.8,4176.0,992,36545,11951.4,vec_block_sum_u32_entry(VecBlockSumU32Args)
+0.0,2534044,50,50680.9,35265.0,18848,375433,55535.0,"dyn_row_compact_pass_entry(DynRowCompactPassArgs, diagnostics::Channel)"
+0.0,2426007,99,24505.1,23456.0,14560,41857,7145.9,aabb_leaf_face_entry(AabbLeafFaceArgs)
+0.0,2063343,50,41266.9,32017.0,25056,79266,15702.6,aabb_edge_contact_query_entry(AabbEdgeContactQueryArgs)
+0.0,1805518,225,8024.5,5568.0,1216,35905,7277.2,bounds_merge_entry(BoundsMergeArgs)
+0.0,1788114,600,2980.2,3008.0,1792,9120,933.9,radix_histogram_entry(RadixHistogramArgs)
+0.0,1728837,50,34576.7,32721.0,8065,45697,7108.6,dyn_row_emit_pass_entry(DynRowEmitPassArgs)
+0.0,1512325,99,15276.0,13344.0,11937,27457,3374.5,aabb_leaf_vertex_entry(AabbLeafVertexArgs)
+0.0,1431015,50,28620.3,24480.5,24352,36161,4886.1,reduce_sum_u32_leaf_entry(ReduceSumU32LeafArgs)
+0.0,1344349,50,26887.0,20001.0,18912,58690,10727.9,precond_diagonal_dynamic_entry(PrecondDiagonalDynamicArgs)
+0.0,1253641,528,2374.3,1728.0,800,10145,1749.1,vec_fill_u32_entry(VecFillU32Args)
+0.0,1246878,75,16625.0,16864.0,9280,31776,5017.5,lbvh_nodes_entry(LbvhNodesArgs)
+0.0,1211996,50,24239.9,22112.0,10816,51841,13167.7,"momentum_embed_entry(MomentumEmbedArgs, diagnostics::Channel)"
+0.0,1138400,75,15178.7,14177.0,10657,30400,4031.1,bounds_leaf_entry(BoundsLeafArgs)
+0.0,1104634,50,22092.7,22176.5,5504,39361,4225.8,dyn_row_seed_pass_entry(DynRowSeedPassArgs)
+0.0,947061,50,18941.2,15744.0,12512,31265,5511.6,aabb_point_contact_query_entry(AabbPointContactQueryArgs)
+0.0,915636,50,18312.7,17824.0,16065,22017,1415.0,"block_jacobi_invert_row_entry(BlockJacobiInvertRowArgs, diagnostics::Channel)"
+0.0,906612,100,9066.1,8048.0,1024,20928,8144.7,reduce_sum_wide_merge_entry(ReduceSumWideMergeArgs)
+0.0,882871,50,17657.4,17312.5,13728,23425,1800.3,shell_strain_toi_from_records_entry(ShellStrainToiFromRecordsArgs)
+0.0,812660,50,16253.2,18432.5,7072,24001,5958.8,"vertex_constraint_sweep_entry(VertexConstraintSweepArgs, diagnostics::Channel)"
+0.0,789042,24,32876.8,27552.0,12128,51937,11950.4,shell_stretch_terms_entry(ShellStretchTermsArgs)
+0.0,773815,750,1031.8,1088.0,832,1920,138.8,scan_zero_entry(ScanZeroArgs)
+0.0,748083,75,9974.4,10016.0,4832,21281,3777.7,lbvh_node_depth_entry(LbvhNodeDepthArgs)
+0.0,680559,24,28356.6,27345.0,13505,46529,6498.5,face_deformation_gradient_entry(FaceDeformationGradientArgs)
+0.0,677740,50,13554.8,13632.0,11904,14561,550.3,dirichlet_prescribe_gated_entry(DirichletPrescribeGatedArgs)
+0.0,621108,100,6211.1,6144.0,1280,11328,4941.2,reduce_min_u32_leaf_entry(ReduceMinU32LeafArgs)
+0.0,606194,324,1871.0,1568.0,1024,4960,837.8,vec_fill_entry(VecFillArgs)
+0.0,589069,50,11781.4,11056.0,4768,21825,5301.1,compute_target_seed_entry(ComputeTargetSeedArgs)
+0.0,549136,50,10982.7,9376.0,2464,27457,7796.3,dx_seed_entry(DxSeedArgs)
+0.0,435272,26,16741.2,16464.5,16000,19616,880.8,aabb_edge_scan_query_entry(AabbEdgeScanQueryArgs)
+0.0,431399,25,17256.0,18080.0,8224,20032,3156.4,face_centroid_entry(FaceCentroidArgs)
+0.0,419048,100,4190.5,4528.0,2560,5664,962.6,vec_combine_entry(VecCombineArgs)
+0.0,415941,24,17330.9,13296.0,11712,33952,6977.0,svd3x2_entry(Svd3x2Args)
+0.0,384460,75,5126.1,3873.0,2016,29569,5149.7,lbvh_set_parent_entry(LbvhSetParentArgs)
+0.0,383206,25,15328.2,16865.0,6560,27520,4727.7,edge_centroid_entry(EdgeCentroidArgs)
+0.0,381516,75,5086.9,3457.0,1984,18752,4418.5,lbvh_morton_from_bounds_entry(LbvhMortonFromBoundsArgs)
+0.0,325220,250,1300.9,1216.0,1120,1600,161.9,vec_block_sum_cooperative_entry(VecBlockSumCooperativeArgs)
+0.0,268551,24,11189.6,8512.0,5824,34081,7279.5,velocity_terms_entry(VelocityTermsArgs)
+0.0,254317,50,5086.3,2688.5,2656,10368,3262.0,mat3_mul_entry(Mat3MulArgs)
+0.0,198659,24,8277.5,2624.0,2272,19040,7588.9,vertex_dof_removal_mask_entry(VertexDofRemovalMaskArgs)
+0.0,197510,26,7596.5,7104.0,6945,10976,1201.1,aabb_vertex_scan_query_entry(AabbVertexScanQueryArgs)
+0.0,197126,24,8213.6,4416.0,2176,18593,6283.1,vertex_fix_index_from_records_entry(VertexFixIndexFromRecordsArgs)
+0.0,196742,50,3934.8,4240.5,1920,7585,1883.2,position_accept_entry(PositionAcceptArgs)
+0.0,195399,24,8141.6,8640.0,5729,11105,1652.1,rewind_fix_entry(RewindFixArgs)
+0.0,175269,75,2336.9,2176.0,1248,7936,1269.3,lbvh_find_root_entry(LbvhFindRootArgs)
+0.0,173797,50,3475.9,3072.0,1760,5472,871.6,dyn_count_transpose_pass_entry(DynCountTransposePassArgs)
+0.0,165441,50,3308.8,2048.0,1984,8000,2122.8,position_step_entry(PositionStepArgs)
+0.0,162180,50,3243.6,2832.0,2336,5504,879.4,dyn_row_begin_pass_entry(DynRowBeginPassArgs)
+0.0,155746,50,3114.9,3072.0,1536,6176,672.3,dyn_dry_push_pass_entry(DynDryPushPassArgs)
+0.0,137702,24,5737.6,3600.0,2560,14273,4099.5,element_add_scaled_entry(ElementAddScaledArgs)
+0.0,127332,50,2546.6,1760.0,1728,5664,1298.7,dx_magnitude_entry(DxMagnitudeArgs)
+0.0,96642,50,1932.8,1920.0,1888,2240,56.0,vec_block_sum_abs_cooperative_entry(VecBlockSumAbsCooperativeArgs)
+0.0,93315,50,1866.3,1856.0,1824,2208,57.3,pcg_dot_terms_entry(PcgDotTermsArgs)
+0.0,84449,25,3378.0,2368.0,2048,8384,2183.7,vertex_centroid_entry(VertexCentroidArgs)
