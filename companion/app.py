@@ -1277,16 +1277,48 @@ class BakeWindow:
             if self.root.winfo_exists(): self.root.after(50,poll)
         self.root.after(10,poll); self.root.mainloop()
 
+def _account_client_name(args) -> str:
+    try:
+        from cloth_next import manifest_version
+        name=f"Cloth NeXt {manifest_version()}"
+    except (OSError,ValueError,KeyError,ImportError):
+        name="Cloth NeXt"
+    if args.blender_version and re.fullmatch(r"[0-9][0-9A-Za-z.\- ]{0,30}",args.blender_version):
+        name+=f" / Blender {args.blender_version}"
+    return name+" (Companion)"
+
+def _run_account_mode(args):
+    """PolyWorks account window, or Blender's headless licence renewal."""
+    from companion.account_window import run_account_sync, run_account_window
+    client_name=_account_client_name(args)
+    if args.mode=="account-sync":
+        raise SystemExit(run_account_sync(client_name=client_name))
+    try:
+        run_account_window(Path(args.content_root) if args.content_root else None,
+                           purchase_detected=args.purchase_detected,client_name=client_name)
+    except (OSError,ValueError):
+        LOG.error("account window failed: %s",traceback.format_exc().splitlines()[-1])
+        raise SystemExit(2)
+
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
-    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
+    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","account","account-sync"),default="bake")
     parser.add_argument("--version")
     parser.add_argument("--content-root")
     parser.add_argument("--splash-ms",type=int,default=0)
     parser.add_argument("--show-after-updates",choices=("0","1"),default="1")
     parser.add_argument("--preference-path")
     parser.add_argument("--preference-token")
+    parser.add_argument("--blender-version")
+    parser.add_argument("--purchase-detected",action="store_true")
     args=parser.parse_args(argv)
+    if args.mode in {"account","account-sync"}:
+        if args.port or args.token or args.session_root or args.preference_path or args.preference_token:
+            parser.error("account modes do not accept Bake or onboarding transport arguments")
+        _run_account_mode(args)
+        return
+    if args.blender_version or args.purchase_detected:
+        parser.error("account arguments require an account mode")
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:
             parser.error("informational modes do not accept Bake transport arguments")

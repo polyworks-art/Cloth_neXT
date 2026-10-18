@@ -714,6 +714,59 @@ def _new_look_changed(_self, context):
 
 
 LEARNING_CENTER_URL = "https://polyworks-art.github.io/Cloth_neXT/docs/"
+_STATUS_ICONS = {"ACTIVE": "CHECKMARK", "OFFLINE_VERIFIED": "CHECKMARK", "EXPIRED": "ERROR",
+                 "REVOKED": "ERROR", "SUSPENDED": "ERROR", "INVALID": "ERROR"}
+
+
+def _wrapped(layout, text: str, width: int = 78) -> None:
+    import textwrap
+    for line in textwrap.wrap(text, width) or [""]:
+        layout.label(text=line)
+
+
+def draw_polyworks_status(layout, view) -> None:
+    from ..polyworks.status import format_time
+    account = layout.box()
+    account.label(text="PolyWorks Account")
+    if view is None:
+        account.label(text="Checking account status…", icon="TIME")
+        return
+    account.label(text=f"Status: {view.account_label}", icon="USER")
+    if view.account_identity:
+        account.label(text=f"Account: {view.account_identity}")
+    account.label(text=f"Session: {view.session_label}")
+
+    license_box = layout.box()
+    license_box.label(text="License")
+    license_box.label(text=f"Status: {view.label}", icon=_STATUS_ICONS.get(view.status, "INFO"))
+    if view.tier:
+        license_box.label(text=f"Type: {view.tier}")
+    if view.seats:
+        license_box.label(text=f"Seats on license: {view.seats}")
+    if view.devices_active is not None and view.device_limit is not None:
+        license_box.label(text=f"Devices: {view.devices_active} of {view.device_limit} in use")
+    license_box.label(text="This computer: " + (
+        f"Activated ({view.device_label})" if view.expires_at and view.device_label
+        else "Activated" if view.expires_at else "Not activated"))
+    if view.expires_at:
+        license_box.label(text=f"Offline license valid until: {format_time(view.expires_at)}")
+    for text in (view.message, *view.warnings):
+        if text:
+            _wrapped(license_box, text)
+
+    connection = layout.box()
+    connection.label(text="Connection")
+    connection.label(text="Cloth NeXt Companion: " + (
+        "Open" if view.companion_running else "Not running (not required)"))
+    connection.label(text="PolyWorks service: " + {True: "Online", False: "Offline",
+                                                  None: "Not checked yet"}[view.online])
+    connection.label(text=f"Last license sync: {format_time(view.last_sync_at)}")
+    connection.label(text=f"Offline authorization: {view.offline_authorization}")
+    if view.connection_problem and view.connection_problem != view.message:
+        _wrapped(connection, view.connection_problem)
+    connection.label(text="Sign-in, activation and devices are managed in Cloth NeXt Companion.",
+                     icon="INFO")
+    connection.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion")
 
 
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
@@ -796,6 +849,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
         layout.use_property_decorate = False
         self._draw_superhive_status(layout, context)
+        self._draw_polyworks_status(layout)
         self._draw_learning_section(layout)
 
         self._draw_solver_section(layout)
@@ -854,6 +908,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         box.label(text="Superhive")
         box.label(text="Superhive connected", icon="CHECKMARK" if status.connected else "X")
         box.label(text="Purchase validated", icon="CHECKMARK" if status.purchase_validated else "X")
+
+    def _draw_polyworks_status(self, layout) -> None:
+        """Informational only: reads a cached view, never files, network or vault.
+
+        The single button opens the Companion; it performs no account action.
+        """
+        from .account_status import current_view
+        draw_polyworks_status(layout, current_view())
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()

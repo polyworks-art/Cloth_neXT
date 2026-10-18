@@ -82,6 +82,9 @@ jobs:
           "$BLENDER" --background \
             --python-exit-code 1 --python tools/blender_smoke_test.py
 
+      - name: PolyWorks read-only status smoke
+        run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_polyworks_status_smoke.py -- --source'
+
       - name: Quick Assign registration and role dispatch
         run: '"$BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_quick_assign_smoke.py'
 
