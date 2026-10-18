@@ -85,19 +85,24 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     addon_utils.enable(args.module, default_set=True)
     solver_test = importlib.import_module(f"{args.module}.blender.solver_test")
-    engines = importlib.import_module(f"{args.module}.updater.engines")
+    try:
+        engines = importlib.import_module(f"{args.module}.updater.engines")
+    except ModuleNotFoundError:
+        engines = None
     pc2 = importlib.import_module(f"{args.module}.bake.pc2")
     prefs = bpy.context.preferences.addons[args.module].preferences
     prefs.auto_launch_bake_window = False
-    prefs.solver_engine = args.engine
-    prefs.gaia_reproducible_bake = args.reproducible
+    if hasattr(prefs, "solver_engine"):  # older add-ons (baseline runs) have no engine property
+        prefs.solver_engine = args.engine
+        prefs.gaia_reproducible_bake = args.reproducible
     report = {"engine_requested": args.engine, "scene": args.scene, "reproducible": args.reproducible,
               "blender": bpy.app.version_string, "runs": []}
     resolved = solver_test.resolve_solver(bpy.context)
     report["installation"] = resolved.installation.display_name if resolved.installation else None
-    report["engine_resolved"] = engines.engine_of(resolved.installation)
-    report["solver_environment"] = dict(resolved.solver_environment)
-    assert report["engine_resolved"] == args.engine, report
+    report["engine_resolved"] = (engines.engine_of(resolved.installation) if engines
+                                 else "AETHER (baseline add-on)")
+    report["solver_environment"] = dict(getattr(resolved, "solver_environment", ()))
+    assert engines is None or report["engine_resolved"] == args.engine, report
     before = solver_processes()
     ok = True
     for run in range(args.repeat):
