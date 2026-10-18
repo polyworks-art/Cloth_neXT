@@ -26,7 +26,7 @@ Superhive purchase is claimed through the Companion.
 | Local storage | `cloth_next/polyworks/storage.py`, `vault.py` | Per-OS-user root, atomic writes, ownership/permission checks, private session vault |
 | Companion account window | `companion/account_window.py`, `companion/app.py` (`--mode account`) | Ported from the GAIA owner-branch draft, rebuilt on the frozen contract |
 | Headless renewal | `companion/app.py` (`--mode account-sync`) | Check-in when due; launched by Blender, no window |
-| Blender dashboard | `cloth_next/blender/account_status.py`, `preferences.py` | One compact read-only "PolyWorks Account & Services" card, one "Open Cloth NeXt Companion" launcher |
+| Blender dashboard | `cloth_next/blender/account_status.py`, `preferences.py` | One compact read-only "Account & License" card (Superhive rows plus optional PolyWorks services), one "Open Cloth NeXt Companion" launcher |
 
 ### Companion account window
 
@@ -40,9 +40,10 @@ the Welcome / What's New buttons, cards, fonts and colours.
 
 ### Blender Preferences
 
-One compact card, **PolyWorks Account & Services**, drawn from a cached
-`StatusView` as key/value rows. Its header says the account is optional and not
-needed for Classic simulation.
+One compact card, **Account & License**, drawn as key/value rows. It replaces
+the separate Superhive box: **Superhive** (repository connected) and **Purchase**
+(validated) come first, then **PolyWorks Services** from a cached `StatusView`,
+marked optional and not needed for Classic simulation.
 
 * **Account**: signed-in state and email; the session only when it is not active.
 * **Service license** (only once signed in or when a service licence exists on

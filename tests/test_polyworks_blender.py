@@ -164,22 +164,22 @@ def test_draw_is_informational_and_does_no_io(blender_env, signed, monkeypatch):
         raise AssertionError("draw must not read files")
     monkeypatch.setattr(builtins, "open", no_io)
     try:
-        prefs.draw_polyworks_status(layout, view)
+        prefs.draw_account_card(layout, SimpleNamespace(connected=True, purchase_validated=False), view)
     finally:
         monkeypatch.setattr(builtins, "open", real_open)
     assert layout.operators == ["clothnext.open_account_companion"]
     assert not prop_calls
     labels = "\n".join(layout.labels)
-    for expected in ("PolyWorks Account & Services", "Service license", "Offline – verified · Commercial",
+    for expected in ("Account & License", "Superhive", "Connected", "Not validated",
+                     "PolyWorks Services", "Service license", "Offline – verified · Commercial",
                      "This computer", "Activated", "Connection", "development key",
                      "Optional · not needed for Classic simulation"):
         assert expected in labels
-    for forbidden in ("Superhive", "Purchase", "claim"):
-        assert forbidden not in labels
+    assert "claim" not in labels.lower()
     for forbidden in ("Sign in", "Sign out", "Log in", "Deactivate", "Redeem", "Password"):
         assert not any(label.startswith(forbidden) for label in layout.labels)
     empty = RecordingLayout()
-    prefs.draw_polyworks_status(empty, None)
+    prefs.draw_account_card(empty, SimpleNamespace(connected=False, purchase_validated=False), None)
     assert empty.operators == [] and "Checking account status…" in empty.labels
     module.unregister()
 

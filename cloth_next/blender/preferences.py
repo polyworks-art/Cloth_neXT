@@ -732,12 +732,22 @@ def _status_row(column, key: str, value: str, icon: str = "NONE") -> None:
     split.label(text=value, icon=icon)
 
 
-def draw_polyworks_status(layout, view) -> None:
-    """Compact read-only card; every account action lives in the Companion."""
+def draw_account_card(layout, superhive, view) -> None:
+    """One compact read-only card: Classic via Superhive, optional PolyWorks services.
+
+    Every account action lives in the Companion; the single button only opens it.
+    """
     from ..polyworks.status import LicenseStatus, format_time
     card = layout.box()
+    card.label(text="Account & License", icon="USER")
+    classic = card.column(align=True)
+    _status_row(classic, "Superhive", "Connected" if superhive.connected else "Not connected",
+                "CHECKMARK" if superhive.connected else "X")
+    _status_row(classic, "Purchase", "Validated" if superhive.purchase_validated else "Not validated",
+                "CHECKMARK" if superhive.purchase_validated else "X")
+    card.separator()
     header = card.row()
-    header.label(text="PolyWorks Account & Services", icon="USER")
+    header.label(text="PolyWorks Services")
     hint = header.row()
     hint.alignment = "RIGHT"
     hint.label(text="Optional · not needed for Classic simulation")
@@ -862,8 +872,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        self._draw_superhive_status(layout, context)
-        self._draw_polyworks_status(layout)
+        self._draw_account_card(layout, context)
         self._draw_learning_section(layout)
 
         self._draw_solver_section(layout)
@@ -915,21 +924,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             "wm.url_open", text="Learning Center", icon="URL")
         learning.url = LEARNING_CENTER_URL
 
-    def _draw_superhive_status(self, layout, context) -> None:
-        """Two informational states; never contacts a service or reads credentials."""
-        status = repository_status(context.preferences.extensions.repos)
-        box = layout.box()
-        box.label(text="Superhive")
-        box.label(text="Superhive connected", icon="CHECKMARK" if status.connected else "X")
-        box.label(text="Purchase validated", icon="CHECKMARK" if status.purchase_validated else "X")
+    def _draw_account_card(self, layout, context) -> None:
+        """Informational only: Superhive repository state plus a cached PolyWorks view.
 
-    def _draw_polyworks_status(self, layout) -> None:
-        """Informational only: reads a cached view, never files, network or vault.
-
-        The single button opens the Companion; it performs no account action.
+        Never contacts a service, reads credentials, files or the vault.
         """
         from .account_status import current_view
-        draw_polyworks_status(layout, current_view())
+        draw_account_card(layout, repository_status(context.preferences.extensions.repos),
+                          current_view())
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
