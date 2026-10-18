@@ -1,0 +1,674 @@
+{
+  "twist-120": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 13.980860799999391,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 3419.0,
+      "newton_steps": 153,
+      "contacts_mean": 21271.34640522876,
+      "contacts_max": 65774,
+      "stage_ms": {
+        "asm_contact": 1445,
+        "matrix_assembly": 2245,
+        "linsolve": 2270,
+        "line_search": 804
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 180.68907940000008,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3613.0,
+      "newton_steps": 151,
+      "contacts_mean": 21315.278145695363,
+      "contacts_max": 64420,
+      "stage_ms": {
+        "asm_contact": 23481,
+        "matrix_assembly": 23992,
+        "linsolve": 1663,
+        "line_search": 467
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 185.66388540000025,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3707.0,
+      "newton_steps": 151,
+      "contacts_mean": 21315.278145695363,
+      "contacts_max": 64420,
+      "stage_ms": {
+        "asm_contact": 23892,
+        "matrix_assembly": 24391,
+        "linsolve": 1671,
+        "line_search": 472
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 16.854841000000306,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3881.0,
+      "newton_steps": 151,
+      "contacts_mean": 21315.278145695363,
+      "contacts_max": 64420,
+      "stage_ms": {
+        "asm_contact": 3777,
+        "matrix_assembly": 4793,
+        "linsolve": 2101,
+        "line_search": 706
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 16.308915100000377,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3864.0,
+      "newton_steps": 151,
+      "contacts_mean": 21315.278145695363,
+      "contacts_max": 64420,
+      "stage_ms": {
+        "asm_contact": 3699,
+        "matrix_assembly": 4704,
+        "linsolve": 2108,
+        "line_search": 667
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.057102855294942856
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    }
+  },
+  "sheets-32": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 34.61792729999979,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 3145.0,
+      "newton_steps": 909,
+      "contacts_mean": 316.09570957095707,
+      "contacts_max": 1257,
+      "stage_ms": {
+        "asm_contact": 2270,
+        "matrix_assembly": 8346,
+        "linsolve": 2263,
+        "line_search": 2513
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 54.64910580000014,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3193.0,
+      "newton_steps": 909,
+      "contacts_mean": 315.6919691969197,
+      "contacts_max": 1237,
+      "stage_ms": {
+        "asm_contact": 17495,
+        "matrix_assembly": 23076,
+        "linsolve": 1573,
+        "line_search": 1810
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 56.31176550000055,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3197.0,
+      "newton_steps": 909,
+      "contacts_mean": 315.6919691969197,
+      "contacts_max": 1237,
+      "stage_ms": {
+        "asm_contact": 17647,
+        "matrix_assembly": 23408,
+        "linsolve": 1649,
+        "line_search": 1902
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 43.330423999999766,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3414.0,
+      "newton_steps": 909,
+      "contacts_mean": 315.6919691969197,
+      "contacts_max": 1237,
+      "stage_ms": {
+        "asm_contact": 7940,
+        "matrix_assembly": 15111,
+        "linsolve": 2901,
+        "line_search": 3070
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 42.68205940000007,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3375.0,
+      "newton_steps": 909,
+      "contacts_mean": 315.6919691969197,
+      "contacts_max": 1237,
+      "stage_ms": {
+        "asm_contact": 8029,
+        "matrix_assembly": 15039,
+        "linsolve": 2783,
+        "line_search": 2939
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.10857415199279785
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    }
+  },
+  "sheets-64": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 38.985791699999936,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 3362.0,
+      "newton_steps": 918,
+      "contacts_mean": 1504.3115468409585,
+      "contacts_max": 6209,
+      "stage_ms": {
+        "asm_contact": 3318,
+        "matrix_assembly": 9248,
+        "linsolve": 5579,
+        "line_search": 3162
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 119.53866070000004,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3521.0,
+      "newton_steps": 918,
+      "contacts_mean": 1497.2015250544662,
+      "contacts_max": 6133,
+      "stage_ms": {
+        "asm_contact": 67801,
+        "matrix_assembly": 73131,
+        "linsolve": 3324,
+        "line_search": 1933
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 122.84918180000022,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 3531.0,
+      "newton_steps": 918,
+      "contacts_mean": 1497.2015250544662,
+      "contacts_max": 6133,
+      "stage_ms": {
+        "asm_contact": 67619,
+        "matrix_assembly": 72943,
+        "linsolve": 3339,
+        "line_search": 1934
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 69.60270479999963,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3750.0,
+      "newton_steps": 918,
+      "contacts_mean": 1497.2015250544662,
+      "contacts_max": 6133,
+      "stage_ms": {
+        "asm_contact": 12107,
+        "matrix_assembly": 23600,
+        "linsolve": 6838,
+        "line_search": 4971
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 47.09171720000086,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 3728.0,
+      "newton_steps": 918,
+      "contacts_mean": 1497.2015250544662,
+      "contacts_max": 6133,
+      "stage_ms": {
+        "asm_contact": 8693,
+        "matrix_assembly": 16114,
+        "linsolve": 5005,
+        "line_search": 3147
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.10673398897051811
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    }
+  },
+  "twist-240": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 22.459369300000617,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 4920.0,
+      "newton_steps": 154,
+      "contacts_mean": 80851.04545454546,
+      "contacts_max": 257588,
+      "stage_ms": {
+        "asm_contact": 2456,
+        "matrix_assembly": 3413,
+        "linsolve": 7028,
+        "line_search": 1633
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 714.0112817999998,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 5558.0,
+      "newton_steps": 147,
+      "contacts_mean": 82556.96598639456,
+      "contacts_max": 251629,
+      "stage_ms": {
+        "asm_contact": 15491,
+        "matrix_assembly": 16082,
+        "linsolve": 6960,
+        "line_search": 1510
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 719.2054767999998,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 5549.0,
+      "newton_steps": 147,
+      "contacts_mean": 82556.96598639456,
+      "contacts_max": 251629,
+      "stage_ms": {
+        "asm_contact": 15259,
+        "matrix_assembly": 15863,
+        "linsolve": 7225,
+        "line_search": 1559
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 73.02459989999988,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 6272.0,
+      "newton_steps": 147,
+      "contacts_mean": 82556.96598639456,
+      "contacts_max": 251629,
+      "stage_ms": {
+        "asm_contact": 27171,
+        "matrix_assembly": 28177,
+        "linsolve": 7388,
+        "line_search": 1878
+      },
+      "outputs": 61,
+      "fallback": true,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 71.76262940000015,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 6324.0,
+      "newton_steps": 147,
+      "contacts_mean": 82556.96598639456,
+      "contacts_max": 251629,
+      "stage_ms": {
+        "asm_contact": 27208,
+        "matrix_assembly": 27854,
+        "linsolve": 8143,
+        "line_search": 1871
+      },
+      "outputs": 61,
+      "fallback": true,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.07707221282180399
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    }
+  },
+  "sheets-128": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 58.93994109999949,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 4982.0,
+      "newton_steps": 927,
+      "contacts_mean": 7242.077669902913,
+      "contacts_max": 30264,
+      "stage_ms": {
+        "asm_contact": 5264,
+        "matrix_assembly": 12817,
+        "linsolve": 15951,
+        "line_search": 5115
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 468.87688809999963,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 5718.0,
+      "newton_steps": 927,
+      "contacts_mean": 7346.635382955771,
+      "contacts_max": 31381,
+      "stage_ms": {
+        "asm_contact": 180716,
+        "matrix_assembly": 187941,
+        "linsolve": 13673,
+        "line_search": 3742
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 479.68061750000015,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 5556.0,
+      "newton_steps": 927,
+      "contacts_mean": 7346.635382955771,
+      "contacts_max": 31381,
+      "stage_ms": {
+        "asm_contact": 200677,
+        "matrix_assembly": 207294,
+        "linsolve": 14243,
+        "line_search": 3741
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 70.01944000000003,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 5801.0,
+      "newton_steps": 927,
+      "contacts_mean": 7346.635382955771,
+      "contacts_max": 31381,
+      "stage_ms": {
+        "asm_contact": 14446,
+        "matrix_assembly": 25792,
+        "linsolve": 14743,
+        "line_search": 4563
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 71.18110369999886,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 5834.0,
+      "newton_steps": 927,
+      "contacts_mean": 7346.635382955771,
+      "contacts_max": 31381,
+      "stage_ms": {
+        "asm_contact": 14809,
+        "matrix_assembly": 26233,
+        "linsolve": 15190,
+        "line_search": 4779
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.10820340737700462
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 0,
+      "max_abs_deviation": 0.0
+    }
+  },
+  "twist-360": {
+    "unordered": {
+      "exit_code": 0,
+      "elapsed_seconds": 62.23670979999952,
+      "loaded_backend_sha256": "9f4f156c4116a8e1a0c516889648a60d8a68901daf964c5dd6d54f9f1953712b",
+      "peak_whole_device_memory_mib": 7040.0,
+      "newton_steps": 149,
+      "contacts_mean": 236882.8255033557,
+      "contacts_max": 659031,
+      "stage_ms": {
+        "asm_contact": 5810,
+        "matrix_assembly": 7227,
+        "linsolve": 38583,
+        "line_search": 4400
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference": {
+      "exit_code": 0,
+      "elapsed_seconds": 2049.2705869,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 8398.0,
+      "newton_steps": 148,
+      "contacts_mean": 232641.39864864864,
+      "contacts_max": 661123,
+      "stage_ms": {
+        "asm_contact": 8319,
+        "matrix_assembly": 8550,
+        "linsolve": 39753,
+        "line_search": 4174
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "reference-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 2113.8658995000005,
+      "loaded_backend_sha256": "5fcb2acc3d825a992727355dca8f835b16557278161b66e0b40da507985daaba",
+      "peak_whole_device_memory_mib": 8445.0,
+      "newton_steps": 150,
+      "contacts_mean": 243434.23333333334,
+      "contacts_max": 684310,
+      "stage_ms": {
+        "asm_contact": 8556,
+        "matrix_assembly": 8768,
+        "linsolve": 38428,
+        "line_search": 4128
+      },
+      "outputs": 61,
+      "fallback": false,
+      "failure": false
+    },
+    "fast-a": {
+      "exit_code": 0,
+      "elapsed_seconds": 214.35189850000097,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 10242.0,
+      "newton_steps": 147,
+      "contacts_mean": 231704.80952380953,
+      "contacts_max": 631090,
+      "stage_ms": {
+        "asm_contact": 20079,
+        "matrix_assembly": 20134,
+        "linsolve": 42808,
+        "line_search": 4712
+      },
+      "outputs": 61,
+      "fallback": true,
+      "failure": false
+    },
+    "fast-b": {
+      "exit_code": 0,
+      "elapsed_seconds": 213.7557523000014,
+      "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+      "peak_whole_device_memory_mib": 10416.0,
+      "newton_steps": 145,
+      "contacts_mean": 230566.8275862069,
+      "contacts_max": 621106,
+      "stage_ms": {
+        "asm_contact": 17192,
+        "matrix_assembly": 18113,
+        "linsolve": 43376,
+        "line_search": 4619
+      },
+      "outputs": 61,
+      "fallback": true,
+      "failure": false
+    },
+    "fast_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.07285633683204651
+    },
+    "fast_vs_fast": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.07328972034156322
+    },
+    "unordered_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.06606236007064581
+    },
+    "reference_vs_reference": {
+      "files": 61,
+      "differing": 60,
+      "max_abs_deviation": 0.05317720025777817
+    }
+  }
+}

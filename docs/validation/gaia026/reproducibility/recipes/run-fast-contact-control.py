@@ -14,14 +14,17 @@ root = Path.cwd(); B = root/'.hydro-test-tmp/reproducibility-20261017'
 frozen_bin = root/'.hydro-test-tmp/blender-e2e-20261016/runtime/bin'
 fluid = root/'.owner-test-tmp/20261017/published-2926-full-host/session-evidence/hydrodynamic-aa366355bde442c3b8f0c2412edd3447'
 # The exe directory must hold NO backend DLL: Windows searches it before PATH.
-worker = B/'native-source/target/research-cuda/release/ppf-contact-solver.exe'
+worker = Path(os.environ.get('PPF_BENCH_WORKER', B/'native-source/target/research-cuda/release/ppf-contact-solver.exe'))
 assert not (worker.parent/'libsimbackend_cuda.dll').exists()
 REPRO = dict(PPF_REPRO_ORDER_MODE='colored', PPF_REPRO_ORDER_FILTER='all', PPF_REPRO_FILTERED_CONTACT='1',
              PPF_REPRO_SERIAL_CSR='1', PPF_REPRO_SERIAL_STITCH='1')
 CASES = dict(reference=(B/'reference-deterministic', {}),
              fast=(B/'fast-cuda-build/lib', dict(PPF_REPRO_FAST_CONTACT='1')),
              fast_hook_only=(B/'fast-cuda-build/lib', {}),
-             fast_all=(B/'fast-cuda-build/lib', dict(PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1')))
+             fast_all=(B/'fast-cuda-build/lib', dict(PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1')),
+             fast_v3=(B/'fast-v3', dict(PPF_REPRO_SERIAL_DIRICHLET='1', PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1')),
+             fast_v4=(B/'fast-v4', dict(PPF_REPRO_SERIAL_DIRICHLET='1', PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1')),
+             fast_v5=(B/'fast-v4', dict(PPF_REPRO_SERIAL_DIRICHLET='1', PPF_REPRO_FAST_CONTACT='1', PPF_REPRO_FAST_SERIAL='1', PPF_REPRO_WALK_SPMV='1')))
 
 
 def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()

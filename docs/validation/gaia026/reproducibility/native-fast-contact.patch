@@ -1,6 +1,6 @@
 --- a/crates/ppf-cts-compute/cuda/seam_cuda.cuh
 +++ b/crates/ppf-cts-compute/cuda/seam_cuda.cuh
-@@ -511,10 +511,61 @@
+@@ -511,10 +511,68 @@
  __device__ inline void atomic_store(atomic_uint_t *pointer, unsigned value) {
      pointer->storage = value;
  }
@@ -29,6 +29,8 @@
 +    const unsigned *roffset;
 +    const unsigned *rvalue;
 +    unsigned *unsupported;
++    unsigned rlimit;
++    const unsigned *ucap;
 +};
 +extern __device__ ReproRecordContext *g_repro_record;
  __device__ inline unsigned atomic_add(atomic_uint_t *pointer, unsigned value) {
@@ -37,13 +39,18 @@
 +        const unsigned thread = blockIdx.x * blockDim.x + threadIdx.x;
 +        const unsigned k = context->ucount[thread]++;
 +        if (context->mode >= 4u) {
++            // Per-thread capacity from the count pass: a sequence that grew in
++            // between (racing scratch reads) is flagged, never written past.
 +            const unsigned at = context->uoffset[thread] + k;
-+            if (at < context->ulimit) {
++            if (k < context->ucap[thread] && at < context->ulimit) {
 +                context->uaddress[at] = reinterpret_cast<unsigned long long>(&pointer->storage);
 +                context->uvalue[at] = value;
++            } else if (context->unsupported) {
++                atomicExch(context->unsupported, 1u);
 +            }
 +        }
-+        return k < context->rcount[thread] ? context->rvalue[context->roffset[thread] + k] : 0u;
++        const unsigned r = context->roffset[thread] + k;
++        return (k < context->rcount[thread] && r < context->rlimit) ? context->rvalue[r] : 0u;
 +    }
      return atomicAdd(&pointer->storage, value);
  }
@@ -85,7 +92,7 @@
  // High-water storage belongs to a stream/kernel, not to an individual Newton
  // assembly. Scratch views are refreshed in full; color reuse compares indices.
  struct ReproCacheEntry {
-@@ -155,3 +157,326 @@
+@@ -155,3 +157,347 @@
      }
      ReproContactScratch(const ReproContactScratch &)=delete;
  };
@@ -247,7 +254,7 @@
 +                                            const unsigned *value, unsigned *returns, unsigned n,
 +                                            unsigned finalize, const unsigned *expected, unsigned *mismatch) {
 +    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
-+    if (i >= n || (i > 0 && key[i] == key[i - 1])) return;
++    if (i >= n || (i > 0 && key[i] == key[i - 1]) || key[i] == 0ull) return;
 +    unsigned *counter = reinterpret_cast<unsigned *>(key[i]);
 +    unsigned running = *counter;
 +    for (unsigned j = i; j < n && key[j] == key[i]; ++j) {
@@ -257,6 +264,10 @@
 +        running += value[op];
 +    }
 +    if (finalize) *counter = running;
++}
++static __global__ void repro_clamp_counts(unsigned *count, const unsigned *cap, unsigned n, unsigned *flag) {
++    unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i < n && count[i] != cap[i]) {atomicExch(flag, 1u); if (count[i] > cap[i]) count[i] = cap[i];}
 +}
 +static __global__ void repro_compare_ops(const unsigned *count_a, const unsigned *count_b, unsigned threads,
 +                                         const unsigned long long *address_a, const unsigned long long *address_b,
@@ -295,8 +306,9 @@
 +        repro_cuda_check(cudaMemsetAsync(rcount, 0, count * sizeof(unsigned), queue));
 +        repro_cuda_check(cudaMemsetAsync(roffset, 0, count * sizeof(unsigned), queue));
 +    }
++    unsigned *ucap = nullptr, *overflow = nullptr;
 +    void push(unsigned mode) {
-+        host.mode = mode; host.rcount = rcount; host.roffset = roffset; host.rvalue = rvalue;
++        host.mode = mode; host.rcount = rcount; host.roffset = roffset; host.rvalue = rvalue; host.rlimit = previous_ops;
 +        repro_cuda_check(cudaMemcpyAsync(context, &host, sizeof(host), cudaMemcpyHostToDevice, queue));
 +        repro_set_record_context<<<1, 1, 0, queue>>>(context);
 +        repro_cuda_check(cudaGetLastError());
@@ -325,18 +337,32 @@
 +        ops = scan_total(ucount, uoffset);
 +        uaddress = buffer<unsigned long long>(10 + parity, ops);
 +        uvalue = buffer<unsigned>(12 + parity, ops);
++        ucap = buffer<unsigned>(23, count); overflow = buffer<unsigned>(24, 1);
++        // Unwritten slots (a sequence shorter than counted) stay 0 and are skipped.
++        repro_cuda_check(cudaMemsetAsync(uaddress, 0, std::max(1u, ops) * sizeof(unsigned long long), queue));
++        repro_cuda_check(cudaMemcpyAsync(ucap, ucount, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
++        repro_cuda_check(cudaMemsetAsync(overflow, 0, sizeof(unsigned), queue));
 +        repro_cuda_check(cudaMemsetAsync(ucount, 0, count * sizeof(unsigned), queue));
 +        host = {}; host.ucount = ucount; host.uoffset = uoffset; host.uaddress = uaddress; host.uvalue = uvalue; host.ulimit = ops;
++        host.ucap = ucap; host.unsupported = overflow;
 +        push(4u);
 +    }
 +    // After pass B: serial returns for the logged sequences. Converged when the
 +    // sequences equal the previous iteration's, i.e. the returns used were exact.
 +    bool end_record() {
 +        clear();
++        // A record-pass sequence that differs in length from the count pass means
++        // racing scratch reads under provisional returns: keep only what fitted,
++        // and this iteration cannot be the converged one.
++        repro_clamp_counts<<<(count + 255) / 256, 256, 0, queue>>>(ucount, ucap, count, overflow);
++        repro_cuda_check(cudaGetLastError());
++        unsigned host_overflow = 1;
++        repro_cuda_check(cudaMemcpyAsync(&host_overflow, overflow, sizeof(unsigned), cudaMemcpyDeviceToHost, queue));
++        repro_cuda_check(cudaStreamSynchronize(queue));
 +        // No integer atomics at all: returns are never consulted, so pass A's
 +        // float counts are already exact.
-+        bool converged = !have_previous && ops == 0;
-+        if (have_previous && ops == previous_ops) {
++        bool converged = !host_overflow && !have_previous && ops == 0;
++        if (!host_overflow && have_previous && ops == previous_ops) {
 +            repro_cuda_check(cudaMemsetAsync(flag, 0, sizeof(unsigned), queue));
 +            const unsigned n = std::max(count, ops);
 +            repro_compare_ops<<<(n + 255) / 256, 256, 0, queue>>>(ucount, pcount, count, uaddress, paddress, uvalue, pvalue, ops, flag);
@@ -382,8 +408,10 @@
 +        repro_cuda_check(cudaMemcpyAsync(fcount, foffset, count * sizeof(unsigned), cudaMemcpyDeviceToDevice, queue));
 +        repro_cuda_check(cudaMemsetAsync(ucount, 0, count * sizeof(unsigned), queue));
 +        uaddress = buffer<unsigned long long>(20, ops); uvalue = buffer<unsigned>(21, ops);
++        repro_cuda_check(cudaMemsetAsync(uaddress, 0, std::max(1u, ops) * sizeof(unsigned long long), queue));
 +        host = {}; host.cursor = fcount; host.address = fkeys; host.value = fvalues; host.limit = records;
 +        host.ucount = ucount; host.uoffset = uoffset; host.uaddress = uaddress; host.uvalue = uvalue; host.ulimit = ops;
++        host.ucap = rcount;
 +        push(5u);
 +    }
 +    void finish_final() {
@@ -424,7 +452,25 @@
 +namespace compute { __device__ ReproRecordContext *g_repro_record = nullptr; }
 --- a/crates/ppf-cts-compute/seam/kernelgen.py
 +++ b/crates/ppf-cts-compute/seam/kernelgen.py
-@@ -2933,6 +2933,13 @@
+@@ -2919,7 +2919,7 @@
+             assert launcher.count(marker) == 1
+             launcher = launcher.replace(marker, _research_order_launch(entry) + marker, 1)
+             out.append(launcher)
+-        elif target == "cu" and entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse", "dyn_push_pass", "dyn_scatter_transpose_pass", "stitch_atomic_embed_force", "fixed_csr_atomic_push"):
++        elif target == "cu" and entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse", "dyn_push_pass", "dyn_scatter_transpose_pass", "stitch_atomic_embed_force", "fixed_csr_atomic_push", "dirichlet_lift_row"):
+             # Diagnostic isolation: serialize query execution, retaining the original
+             # tree traversal, narrow phase, force body and matrix insertion guards.
+             out.append('#include "research_order.hpp"\n')
+@@ -2928,11 +2928,22 @@
+             count = entry.count_field.name
+             switch = ("PPF_REPRO_SERIAL_CSR" if entry.name.startswith("dyn_") else
+                       "PPF_REPRO_SERIAL_STITCH" if entry.name in ("stitch_atomic_embed_force", "fixed_csr_atomic_push") else
++                      # Prescribed (moving) pins lift onto free rows with float atomics;
++                      # each CSR slot belongs to one row's walk, so the plain block
++                      # clears are row-private and the replay applies.
++                      "PPF_REPRO_SERIAL_DIRICHLET" if entry.name == "dirichlet_lift_row" else
+                       "PPF_REPRO_SERIAL_CONTACT")
+             filtered = ""
              if entry.name in ("contact_point_face_traverse", "contact_point_edge_traverse", "contact_edge_edge_traverse", "contact_point_point_traverse"):
                  probe, filtered = _research_contact_filter(entry)
                  out.append(probe)
@@ -438,7 +484,7 @@
              diagnostic = (f'    if (std::getenv("{switch}")) {{\n'
                  f'        for(unsigned begin=0;begin<args.{count};begin+=32) {{\n'
                  f'            unsigned end=std::min(begin+32,args.{count});\n'
-@@ -5839,6 +5846,94 @@
+@@ -5839,6 +5850,94 @@
      return ''.join(probe),launch
  
  
@@ -533,3 +579,30 @@
  def _research_order_launch(entry):
      count=entry.count_field.name;indices=entry.indices_field.name;arity=entry.indices_field.stride;bound=entry.bound_field.name;diag=_diag_cu_arg(entry)
      return (f'    if (const char *mode=repro_order_mode("{entry.name}")) {{\n'
+--- a/crates/ppf-cts-solver/src/driver/operator.rs
++++ b/crates/ppf-cts-solver/src/driver/operator.rs
+@@ -76,6 +76,15 @@
+ /// two counts would narrow it, and none ships.
+ pub const SYM_MIN_ROWS: u32 = 200_000;
+ 
++/// Research opt-in (`PPF_REPRO_WALK_SPMV`): keep the walk, whose summation order
++/// is fixed, at every row count. The symmetric form scatters its mirror half with
++/// float atomics, so above `SYM_MIN_ROWS` identical operator inputs give
++/// run-to-run different solves. Same operator, same result up to that order.
++fn repro_walk_spmv() -> bool {
++    static WALK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *WALK.get_or_init(|| std::env::var_os("PPF_REPRO_WALK_SPMV").is_some())
++}
++
+ /// Every buffer one row of the whole operator is stored in.
+ ///
+ /// The mapping to a kernel's parameter names is the one `apply` already makes:
+@@ -465,7 +474,7 @@
+             // atomically, its own sum included, so no write overwrites a slot
+             // and a stale value would survive the pass. The fill rides the same
+             // submit as the apply, so the pair costs one boundary.
+-            Some(d) if rows >= SYM_MIN_ROWS => {
++            Some(d) if rows >= SYM_MIN_ROWS && !repro_walk_spmv() => {
+                 let zero = VecFillArgs {
+                     array: result,
+                     value: 0.0,

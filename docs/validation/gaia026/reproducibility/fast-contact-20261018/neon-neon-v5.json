@@ -1,0 +1,16 @@
+[
+  {
+    "case": "fast_v5",
+    "repeat": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 58.429906200000914,
+    "loaded_backend": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\reproducibility-20261017\\fast-v4\\libsimbackend_cuda.dll",
+    "loaded_backend_sha256": "249ed4a5c50bed096499671d57d75d5f134a0c07d94ecff0fe36c0cec042863a",
+    "outputs": 59,
+    "peak_whole_device_memory_mib": 5880.0,
+    "folder": ".hydro-test-tmp\\reproducibility-20261017\\neon-v5\\fast_v5-0",
+    "differing_vs_first": [],
+    "max_abs_deviation_vs_first_m": 0.0,
+    "same_file_set": true
+  }
+]
