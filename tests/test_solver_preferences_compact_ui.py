@@ -321,3 +321,12 @@ def test_learning_section_links_to_learning_center(blender_env):
     assert links == [("Learning Center", preferences.LEARNING_CENTER_URL)]
     assert preferences.LEARNING_CENTER_URL == (
         "https://polyworks-art.github.io/Cloth_neXT/docs/")
+
+
+def test_dynamic_enum_items_stay_referenced_after_the_callback(blender_env):
+    """Blender keeps only pointers to item strings; a fresh list garbles the menu."""
+    from cloth_next.blender import preferences
+    first = preferences._solver_enum_items(None, None)
+    assert first is preferences._SOLVER_ITEMS
+    assert preferences._engine_items(None, None) is preferences._ENGINE_ITEMS
+    assert all(isinstance(item[1], str) and item[1] for item in first)

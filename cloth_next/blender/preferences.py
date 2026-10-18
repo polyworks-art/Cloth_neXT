@@ -199,6 +199,12 @@ def _engine_set(self, value: int) -> None:
     _session.worker_error = None
 
 
+# Blender keeps only C pointers to the strings of dynamic EnumProperty items; a
+# list built fresh in the callback is freed on return and the menu shows garbled
+# or empty labels. Both item callbacks therefore fill module-level lists.
+_SOLVER_ITEMS: list = []
+
+
 def _solver_enum_items(_self, _context):
     from ..updater import engines
     registry, _error = _read_registry()
@@ -220,7 +226,8 @@ def _solver_enum_items(_self, _context):
     if not items:
         items.append(("NONE", "No Solver Selected",
                       "Install or register a compatible solver", "ERROR", 0))
-    return items
+    _SOLVER_ITEMS[:] = items
+    return _SOLVER_ITEMS
 
 
 def _solver_enum_update(self, _context):
