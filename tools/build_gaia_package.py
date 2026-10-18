@@ -128,7 +128,8 @@ def build(args) -> Path:
         for patch in args.patch:
             _copy(patch.resolve(), root / "source-changes" / patch.name)
             patches.append(f"source-changes/{patch.name}")
-        (root / "GAIA-NOTICE.txt").write_text(notice(args.version, revision, patches), encoding="utf-8")
+        (root / "GAIA-NOTICE.txt").write_text(notice(args.version, revision, patches),
+                                              encoding="utf-8", newline="\n")
         build_file = {
             "kind": KIND, "version": args.version, "build_id": build_id,
             "source_revision": revision, "platform": PLATFORM, "backend": BACKEND,
@@ -144,10 +145,10 @@ def build(args) -> Path:
             "files": {WORKER: sha256(root / WORKER), BACKEND_DLL: sha256(root / BACKEND_DLL)},
         }
         (root / "gaia-build.json").write_text(json.dumps(build_file, indent=2, sort_keys=True) + "\n",
-                                              encoding="utf-8")
+                                              encoding="utf-8", newline="\n")
         sums = [f"{sha256(path)}  {path.relative_to(root).as_posix()}"
                 for path in sorted(root.rglob("*")) if path.is_file()]
-        (root / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
+        (root / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8", newline="\n")
         archive = args.output / f"{build_id}.zip"
         partial = archive.with_suffix(".zip.partial")
         with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
@@ -159,7 +160,8 @@ def build(args) -> Path:
                     bundle.write(path, name)
         os.replace(partial, archive)
         digest = sha256(archive)
-        Path(f"{archive}.sha256").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        # LF only, so `sha256sum -c` accepts it as well as Get-FileHash users.
+        Path(f"{archive}.sha256").write_text(f"{digest}  {archive.name}\n", encoding="utf-8", newline="\n")
         print(json.dumps({"archive": str(archive), "sha256": digest, "size_bytes": archive.stat().st_size,
                           "build_id": build_id, "files": len(sums)}, indent=2))
         return archive
