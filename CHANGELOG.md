@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.27 - 2026-10-18
+
+- Offer exactly two solver engines, AETHER (official unmodified upstream releases) and GAIA (PolyWorks build identified by gaia-build.json); existing installations and selections are preserved and shown as AETHER.
+- Never switch the engine automatically; selecting an uninstalled engine keeps the current one and explains why.
+- Verify GAIA's patched files before every Bake; add an opt-in Reproducible Bake for GAIA and keep inherited PPF_REPRO_* variables away from every solver process.
+- Connect a PolyWorks account, check GAIA access, request access, redeem invitations and install, update or repair GAIA from Preferences with resumable, SHA-256 verified downloads and transactional installation.
+- Merge the Superhive status and the optional PolyWorks services into one compact read-only Account & License card; Classic needs no PolyWorks account and the Companion no longer claims Superhive purchases.
+
 ## 2.9.25 - 2026-10-14
 
 - Show the reason when a solver selection fails instead of silently returning to the previously selected release.

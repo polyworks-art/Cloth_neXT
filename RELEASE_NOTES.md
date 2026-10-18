@@ -1,7 +1,7 @@
-# Cloth NeXt 2.9.25
+# Cloth NeXt 2.9.27
 
-Solver selection failures now show their reason in Preferences. An unhealthy installation, missing registration or registry write failure no longer leaves the user with a silently rejected selection. The previously selected solver is preserved on failure, and successful selection clears the old error.
+Cloth NeXt now offers exactly two solver engines. **AETHER** is the official, unmodified PPF Contact Solver by ST-Tech; every official release you already installed (previously listed as Gaia, Gaia 0.23, Gaia 0.26 or Lumen) is shown as AETHER and stays selected. **GAIA** is PolyWorks' separately maintained build and is recognised only by its verified build file. The engine never changes on its own; an engine that is not installed shows a clear message instead of a fallback.
 
-In the reported NEON case, GAIA 0.26 was blocked by an old local validation marker. A fresh real health check passed, the marker was repaired locally, and selecting GAIA 0.26 in Blender persisted correctly. This release does not bypass health checks or automatically change solver selection.
+GAIA can be installed, updated and repaired directly in Preferences: connect a PolyWorks account in the browser, check GAIA access, request access or redeem an invitation, then install. The download resumes after interruptions, is checked by size and SHA-256, and is installed next to your existing solvers with rollback. GAIA's patched files are verified before every Bake. An opt-in Reproducible Bake runs GAIA's deterministic path; it is slower and does not cover collision meshes, rods or rigid bodies yet.
 
-The shared GAIA Flow and preparation improvements from 2.9.24 are retained. The external solver is not bundled.
+Superhive and the optional PolyWorks services share one compact, read-only Account & License card. Cloth NeXt Classic needs no PolyWorks account. Neither solver is bundled in the extension.
