@@ -27,6 +27,10 @@ class UserFileVault:
             return None
         if not is_trusted_file(self.path):
             raise StorageError("The saved session file has unsafe permissions.")
+        if os.name != "nt" and self.path.stat().st_mode & 0o077:
+            # Readable by other users: treat the token as exposed and sign out.
+            self.clear()
+            return None
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:

@@ -50,8 +50,7 @@ class ApiError(Exception):
 
 
 def _is_loopback(host: str) -> bool:
-    if host == "localhost":
-        return True
+    # IP literals only: "localhost" is resolved through the hosts file and DNS.
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
