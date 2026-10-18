@@ -40,8 +40,8 @@ def build_scene(kind: str, first: int, last: int, cache: Path) -> list:
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     cloths = []
-    sheets = ((("ContactSheetLower", 1.0, True), ("ContactSheetUpper", 1.25, False))
-              if kind == "contact" else (("DrapeSheet", 1.2, False),))
+    sheets = {"contact": (("ContactSheetLower", 1.0, True), ("ContactSheetUpper", 1.25, False)),
+              "pinned": (("PinnedSheet", 1.0, True),)}.get(kind, (("DrapeSheet", 1.2, False),))
     for name, height, pinned in sheets:
         bpy.ops.mesh.primitive_grid_add(x_subdivisions=24, y_subdivisions=24, size=1.0,
                                         location=(0.0, 0.0, height))
@@ -52,8 +52,11 @@ def build_scene(kind: str, first: int, last: int, cache: Path) -> list:
         cloth.cloth_next.cache_directory = str(cache)
         if pinned:
             group = cloth.vertex_groups.new(name="Pins")
-            corners = [0, 23, 24 * 23, 24 * 24 - 1]
+            coords = [(v.co.x, v.co.y) for v in cloth.data.vertices]
+            corners = sorted({min(range(len(coords)), key=lambda i: sx * coords[i][0] + sy * coords[i][1])
+                              for sx in (-1, 1) for sy in (-1, 1)})
             group.add(corners, 1.0, "REPLACE")
+            cloth["pinned_indices"] = corners
             cloth.cloth_next.pinning_enabled = True
             cloth.cloth_next.pin_group = group.name
             cloth.cloth_next.pin_mode = "STATIC"
@@ -72,7 +75,7 @@ def main() -> int:
     parser.add_argument("--module", required=True)
     parser.add_argument("--engine", choices=("AETHER", "GAIA"), required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--scene", choices=("contact", "collider"), default="contact")
+    parser.add_argument("--scene", choices=("contact", "collider", "pinned"), default="contact")
     parser.add_argument("--reproducible", action="store_true")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--frames", type=int, default=24)
@@ -142,6 +145,12 @@ def main() -> int:
                 finally:
                     evaluated.to_mesh_clear()
             moved = float(abs(frames[-1][:, 2] - frames[0][:, 2]).max())
+            pinned = list(cloth.get("pinned_indices", []))
+            if pinned:
+                pin_drift = float(max(abs(frames[k][i] - frames[0][i]).max()
+                                      for k in range(len(frames)) for i in pinned))
+                entry.setdefault("pin_drift", {})[cloth.name] = pin_drift
+                ok = ok and pin_drift < 1e-3
             entry["pc2"][cloth.name] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                                         "frames": len(frames), "playback_max_error": error,
                                         "max_vertical_motion": round(moved, 4)}

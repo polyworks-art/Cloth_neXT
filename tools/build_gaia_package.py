@@ -69,6 +69,10 @@ def _tree(root: Path):
             yield path, relative
 
 
+def archive_name(build_id: str) -> str:
+    return build_id.replace("+", "_")
+
+
 def full_revision(repo: Path, revision: str) -> str:
     completed = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{revision}^{{commit}}"],
                                capture_output=True, text=True, check=True)
@@ -149,7 +153,9 @@ def build(args) -> Path:
         sums = [f"{sha256(path)}  {path.relative_to(root).as_posix()}"
                 for path in sorted(root.rglob("*")) if path.is_file()]
         (root / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8", newline="\n")
-        archive = args.output / f"{build_id}.zip"
+        # Upload portals accept only letters, digits, dot, dash and underscore in
+        # file names; the build id keeps its "+" inside gaia-build.json.
+        archive = args.output / f"{archive_name(build_id)}.zip"
         partial = archive.with_suffix(".zip.partial")
         with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
             for path in sorted(root.rglob("*")):

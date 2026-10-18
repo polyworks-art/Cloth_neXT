@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 import sys
 import time
+import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -35,11 +36,12 @@ def main() -> int:
     user = backend.add_user("gaia-tester@example.com")
     if args.access == "granted":
         backend.gaia_access[user] = "granted"
-    name = args.package.name.removesuffix(".zip")
-    version, rest = name.removeprefix("gaia-").split("+", 1)
-    backend_id, platform, rev = rest.rsplit(".", 2)[0], rest.rsplit(".", 2)[1], rest.rsplit(".", 2)[2]
-    build_id = backend.publish_gaia_build(args.package.read_bytes(), version=version,
-                                          backend=backend_id, platform=platform, rev=rev)
+    with zipfile.ZipFile(args.package) as bundle:
+        build = json.loads(bundle.read("gaia/gaia-build.json"))
+    build_id = backend.publish_gaia_build(args.package.read_bytes(), version=build["version"],
+                                          backend=build["backend"], platform=build["platform"],
+                                          rev=build["source_revision"][:12])
+    assert build_id == build["build_id"], (build_id, build["build_id"])
     args.ready.write_text(json.dumps({"url": backend.url, "build_id": build_id}), encoding="utf-8")
     print(json.dumps({"url": backend.url, "build_id": build_id}), flush=True)
     deadline = time.time() + args.seconds

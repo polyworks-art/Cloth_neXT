@@ -229,7 +229,7 @@ def install(*, activate_if_unselected: bool = True) -> bool:
             return
         paths = ManagedSolverPaths.default()
         paths.ensure_layout()
-        target = paths.downloads_dir / f"{build['build_id']}.zip"
+        target = paths.downloads_dir / (build["build_id"].replace("+", "_") + ".zip")
         download(lambda: service.gaia_download_session(build["build_id"]), target,
                  progress=lambda done, total: _update(progress=(done, total)),
                  cancelled=cancel.is_set)
