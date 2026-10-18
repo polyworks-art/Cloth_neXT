@@ -120,8 +120,20 @@ def test_development_trust_file_is_flagged_and_cannot_shadow_pinned(signer, tmp_
     assert not pinned.is_development("kid-a")
 
 
-def test_production_trust_is_empty_until_supplied():
-    assert load_trust({}).keys == {}
+PRODUCTION_K1 = bytes.fromhex("fd71a1720dc4d89fdc82c175f12ca82b769748a730cb558cf61060a5d5ab8294")
+
+
+def test_production_key_is_pinned(signer, tmp_path):
+    trust = load_trust({})
+    assert trust.keys == {"k1": PRODUCTION_K1} and not trust.is_development("k1")
+    # A development trust file can never replace the pinned production kid.
+    path = tmp_path / "trust.json"
+    path.write_text(json.dumps({"keys": [{"key_id": "k1",
+                                          "public_key_pem": signer.backend.public_key_pem}]}))
+    shadow = load_trust({"CLOTH_NEXT_POLYWORKS_TRUST_FILE": str(path)})
+    assert shadow.key("k1") == PRODUCTION_K1 and not shadow.is_development("k1")
+    with pytest.raises(EntitlementError):
+        verify(signer(kid="k1"), trust=shadow, installation_id=INSTALLATION, now=NOW)
 
 
 def test_installation_id_is_created_once_and_never_regenerated(tmp_path):

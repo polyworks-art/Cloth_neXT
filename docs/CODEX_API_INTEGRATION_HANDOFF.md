@@ -37,8 +37,8 @@ verified itself with pinned keys.
    or portal origin.
 4. Offline revocation is impossible by construction: a revoked entitlement
    stays valid until `exp` (≤ 30 days) on a machine that never checks in.
-5. `PRODUCTION_KEYS` is intentionally empty until the product owner supplies
-   the production key, so production entitlements currently fail closed.
+5. `PRODUCTION_KEYS` pins the production key `k1` supplied by the product
+   owner; any other `kid` fails closed.
 
 ## Key source files
 
@@ -117,7 +117,8 @@ Recorded results are in `docs/POLYWORKS_API_INTEGRATION.md` (Test results).
 
 ## Unresolved issues
 
-1. Production public key (`key_id` + PEM) not yet provided.
+1. Production key `k1` is pinned but not yet tested with an entitlement the
+   production backend actually issued.
 2. OpenAPI snapshot not compared; no run against the real isolated backend.
 3. Windows: DPAPI vault, Windows EXE build, `%LOCALAPPDATA%` behaviour untested
    here. macOS: Keychain path untested (no macOS build target exists).

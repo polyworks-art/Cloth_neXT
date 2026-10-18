@@ -223,9 +223,11 @@ and logs).
 
 ## Remaining limitations and open items
 
-1. **Production public key missing.** `PRODUCTION_KEYS` is empty, so no
-   production entitlement can be verified yet (fails closed). Needs `key_id` and
-   PEM from `GET /v1/entitlements/public-key` of the production backend.
+1. **Production public key pinned** (`kid` `k1`, Ed25519, supplied by the
+   product owner on 2026-10-18 from `GET /v1/entitlements/public-key`). Not yet
+   checked against an entitlement actually issued by the production backend;
+   key rotation needs a new `kid` added to `PRODUCTION_KEYS` before the server
+   switches.
 2. OpenAPI snapshot (`addon_v1_openapi.json`) not available to the client repo;
    schemas were implemented from the contract text.
 3. No real backend run: E2E ran against `tests/polyworks_backend.py`, an

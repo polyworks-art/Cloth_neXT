@@ -22,10 +22,13 @@ from .ed25519 import KeyFormatError, raw_public_key_from_pem
 
 TRUST_FILE_ENV = "CLOTH_NEXT_POLYWORKS_TRUST_FILE"
 
-# kid -> PEM. Populate from GET /v1/entitlements/public-key of the production
-# backend once the product owner supplies the approved key. Empty means no
-# production entitlement can be verified yet (fails closed).
-PRODUCTION_KEYS: dict[str, str] = {}
+# kid -> PEM, from GET /v1/entitlements/public-key of the production backend as
+# supplied by the product owner (2026-10-18). Public keys only.
+PRODUCTION_KEYS: dict[str, str] = {
+    "k1": ("-----BEGIN PUBLIC KEY-----\n"
+           "MCowBQYDK2VwAyEA/XGhcg3E2J/cgsF18SyoK3aXSKcwy1WM9hBgpdWrgpQ=\n"
+           "-----END PUBLIC KEY-----\n"),
+}
 
 
 @dataclass(frozen=True)
