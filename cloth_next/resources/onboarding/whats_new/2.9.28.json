@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.28",
+  "title": "What's New in Cloth NeXt 2.9.28",
+  "subtitle": "Readable solver list and clearer pinning.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Readable solver list",
+      "description": "The Release list in Preferences shows correct AETHER and GAIA names again."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clear pinning modes",
+      "description": "Soft pins may yield to cloth and contact; Hard pins hold exactly. The tooltips now say so."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Two solver engines",
+      "description": "AETHER, the official solver, and GAIA, the PolyWorks build, as introduced in 2.9.27."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

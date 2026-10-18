@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.28 - 2026-10-18
+
+- Keep the Release menu's dynamic items referenced so solver names no longer appear garbled or empty.
+- Describe Pinning accurately: Soft by default (may yield), Hard holds exactly; replace the misleading "static hard Pinning" texts.
+
 ## 2.9.27 - 2026-10-18
 
 - Offer exactly two solver engines, AETHER (official unmodified upstream releases) and GAIA (PolyWorks build identified by gaia-build.json); existing installations and selections are preserved and shown as AETHER.
