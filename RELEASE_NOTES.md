@@ -1,5 +1,7 @@
-# Cloth NeXt 2.9.31
+# Cloth NeXt 2.9.32
 
-GAIA now shows up in Preferences for every account that may download it. The PolyWorks server labels GAIA builds as Dev or Public; 2.9.30 still only accepted builds from the old stable channel, so the published Dev build 0.26.0-dev.20261019 was never offered. The add-on now offers the build the server lists for your account and shows whether it is a Dev or Public release. Install and Update still compare the exact build, so a different build is offered even when its version number is not higher.
+Use Initial Bend Shape can be changed again. It sat inside the Bend Plasticity section and was greyed out unless bend plasticity was enabled, although the solver always uses it; it now sits next to Bend Resistance.
 
-The Reproducible Bake hint now names what it does not cover yet: static colliders, rigid bodies and translation locks. Everything from 2.9.30 is unchanged. Neither solver is bundled.
+The Surface Weight tooltip now says what the solver does: stretch, bend and contact stiffness scale with the weight, so a higher Surface Weight on its own barely changes how cloth falls. It matters against sewing, wind, water and other objects. If small cloth looks stiff, check Stretch Protection first: a low Maximum Stretch can hold it like a board.
+
+Everything from 2.9.31 is unchanged, including GAIA builds offered as Dev or Public release. Neither solver is bundled.

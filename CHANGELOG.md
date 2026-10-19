@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.32 - 2026-10-19
+
+- Show Use Initial Bend Shape next to Bend Resistance. It sat inside the Bend Plasticity block and was greyed out unless bend plasticity was on, although the solver always reads it.
+- Correct the Surface Weight tooltip: stretch, bend and contact stiffness scale with it, so on its own it barely changes how the cloth falls.
+
 ## 2.9.31 - 2026-10-19
 
 - Offer every GAIA build the PolyWorks server lists for this account. The server now labels builds dev or public and lists only the newest one per platform and backend; the add-on no longer requires the old stable channel and shows the label as Dev release or Public release.
