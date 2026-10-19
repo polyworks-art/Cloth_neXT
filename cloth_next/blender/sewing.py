@@ -298,7 +298,8 @@ _geometry = {}
 def _invalidate(*_args):
     if len(_args) > 1 and hasattr(_args[1], 'updates'):
         updates = tuple(_args[1].updates)
-        if not any(isinstance(update.id, (bpy.types.Object, bpy.types.Mesh)) for update in updates):
+        if not any(getattr(update, 'is_updated_geometry', False)
+                   or getattr(update, 'is_updated_transform', False) for update in updates):
             return
     _geometry.clear()
     renderer.clear()
@@ -740,8 +741,8 @@ def _ensure_draw_handler():
 def register():
     _ensure_draw_handler()
     bpy.types.Scene.cloth_next_sewing_visual = bpy.props.PointerProperty(type=CLOTHNEXT_PG_sewing_visual)
-    for handlers, callback in ((bpy.app.handlers.depsgraph_update_post, _invalidate),
-                               (getattr(bpy.app.handlers, "undo_pre", []), _reset_editors),
+    validation_state.add_depsgraph_observer(_invalidate)
+    for handlers, callback in ((getattr(bpy.app.handlers, "undo_pre", []), _reset_editors),
                                (getattr(bpy.app.handlers, "redo_pre", []), _reset_editors),
                                (bpy.app.handlers.load_pre, _reset_editors)):
         if callback not in handlers:
@@ -756,8 +757,8 @@ def unregister():
         if handle:
             bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
     _draw_handle = _text_handle = None
-    for handlers, callback in ((bpy.app.handlers.depsgraph_update_post, _invalidate),
-                               (getattr(bpy.app.handlers, "undo_pre", []), _reset_editors),
+    validation_state.remove_depsgraph_observer(_invalidate)
+    for handlers, callback in ((getattr(bpy.app.handlers, "undo_pre", []), _reset_editors),
                                (getattr(bpy.app.handlers, "redo_pre", []), _reset_editors),
                                (bpy.app.handlers.load_pre, _reset_editors)):
         if callback in handlers:
