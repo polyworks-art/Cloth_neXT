@@ -1808,6 +1808,8 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         behavior.prop(material, "stretch_resistance")
         behavior.prop(material, "sideways_response")
         behavior.prop(material, "bend_resistance")
+        # Sent to the solver whether or not bend plasticity is on.
+        behavior.prop(material, "bend_rest_from_geometry")
         protection = layout.column(align=True)
         protection.label(text="Stretch Protection")
         protection.prop(material, "stretch_limit_enabled")
@@ -1830,7 +1832,6 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         bend.enabled = material.bend_plasticity_enabled
         bend.prop(material, "bend_plasticity_rate")
         bend.prop(material, "bend_plasticity_threshold_degrees")
-        bend.prop(material, "bend_rest_from_geometry")
         from . import material_zones
         material_zones.draw(layout, context)
 
