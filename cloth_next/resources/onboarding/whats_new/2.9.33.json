@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.33",
+  "title": "What's New in Cloth NeXt 2.9.33",
+  "subtitle": "Direct sewing authoring and colored thread previews.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Keep sewing",
+      "description": "Select segments directly, connect sides within one object and create more seams without restarting the tool."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "See the correspondence",
+      "description": "Fine colored threads, directional notches and endpoint circles show how both sides connect."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "All updates through 2.9.32",
+      "description": "Includes PolyWorks account services, AETHER and GAIA selection, verified GAIA installation and the latest material control fixes."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

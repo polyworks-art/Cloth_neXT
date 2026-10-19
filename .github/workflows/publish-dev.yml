@@ -37,7 +37,7 @@ jobs:
       - run: python tools/prepare_dev_build.py --version "${{ inputs.version }}" --commit "${{ inputs.ref }}" --run-id "${{ github.run_id }}"
       - run: python tools/validate_release_policy.py --phase pre-build --tag "${{ inputs.version }}"
       - name: Wind, Attachment, Material Zone and intersection regression tests
-        run: pytest tests/test_wind_field.py tests/test_wind_obstacles.py tests/test_object_attachments.py tests/test_material_zones.py tests/test_intersection_diagnostics.py tests/test_solver_session.py tests/test_solver_test_ui.py -q
+        run: pytest tests/test_wind_field.py tests/test_wind_obstacles.py tests/test_object_attachments.py tests/test_material_zones.py tests/test_intersection_diagnostics.py tests/test_solver_session.py tests/test_solver_test_ui.py tests/test_sewing.py tests/test_sewing_visual.py -q
       - name: Mandatory source and secret checks
         shell: pwsh
         run: |
@@ -69,6 +69,7 @@ jobs:
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_shared_water_flow_smoke.py'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_attachment_workflow_smoke.py -- --repo . --blend .tmp_verify/attachment-workflow-smoke.blend'
       - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_material_zones_smoke.py'
+      - run: '& "$env:CLOTH_NEXT_BLENDER" --background --factory-startup --python-exit-code 1 --python tools/blender_sewing_smoke.py'
       - run: python tools/build_extension.py --blender "$env:CLOTH_NEXT_BLENDER" --output "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: pytest tests/test_built_artifacts.py -m built_artifact --extension-zip "dist/cloth_next-${{ inputs.version }}-windows-x64.zip"
       - run: python tools/validate_extension.py "dist/cloth_next-${{ inputs.version }}-windows-x64.zip" --phase packaged

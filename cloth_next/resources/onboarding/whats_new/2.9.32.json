@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.32",
+  "title": "What's New in Cloth NeXt 2.9.32",
+  "subtitle": "Clearer cloth material controls.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Initial bend shape is editable",
+      "description": "Use Initial Bend Shape now sits next to Bend Resistance and is always available."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Honest Surface Weight tooltip",
+      "description": "Stiffness scales with Surface Weight, so weight alone barely changes how cloth falls."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Everything from 2.9.31",
+      "description": "GAIA builds are still offered as Dev or Public release."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

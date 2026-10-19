@@ -138,10 +138,81 @@ def _solver_session_active() -> bool:
         return False
 
 
-def _solver_enum_items(_self, _context):
+_ENGINE_ITEMS: list = []
+
+
+def _engine_items(_self, _context):
+    """AETHER always; GAIA once a GAIA build is installed or access is known.
+
+    Visibility is only a convenience: the server and the installed build's
+    identity decide whether GAIA can actually be installed or run.
+    """
+    from ..updater import engines
     registry, _error = _read_registry()
+    show_gaia = bool(engines.installations_for(registry, engines.GAIA)
+                     or _gaia_access_granted())
+    _ENGINE_ITEMS[:] = [(engines.AETHER, "AETHER", engines.ENGINE_DESCRIPTIONS[engines.AETHER], 0)]
+    if show_gaia:
+        _ENGINE_ITEMS.append((engines.GAIA, "GAIA", engines.ENGINE_DESCRIPTIONS[engines.GAIA], 1))
+    return _ENGINE_ITEMS
+
+
+def _gaia_access_granted() -> bool:
+    try:
+        from . import gaia_account
+    except ImportError:
+        return False
+    return gaia_account.access_granted()
+
+
+def _engine_get(_self) -> int:
+    from ..updater import engines
+    registry, _error = _read_registry()
+    return 1 if engines.selected_engine(registry) == engines.GAIA else 0
+
+
+def _engine_set(self, value: int) -> None:
+    """Switch engine only by explicit choice, to that engine's best healthy build."""
+    from ..updater import engines
+    engine = engines.GAIA if value == 1 else engines.AETHER
+    registry, error = _read_registry()
+    if error:
+        _session.worker_error = error
+        return
+    if engines.selected_engine(registry) == engine:
+        return
+    if _solver_session_active():
+        _session.worker_error = "The solver engine cannot change while a Bake is active."
+        return
+    target = engines.best_installation(registry, engine)
+    if target is None:
+        _session.worker_error = (
+            f"{engine} is not installed. Install {engine} below; the current engine stays selected.")
+        return
+    try:
+        write_registry(ManagedSolverPaths.default().registry_json,
+                       registry.select(target.installation_id))
+    except (OSError, ValueError) as exc:
+        _session.worker_error = f"Engine change failed: {exc}"
+        return
+    self.selected_solver_installation_id = target.installation_id
+    _session.worker_error = None
+
+
+# Blender keeps only C pointers to the strings of dynamic EnumProperty items; a
+# list built fresh in the callback is freed on return and the menu shows garbled
+# or empty labels. Both item callbacks therefore fill module-level lists.
+_SOLVER_ITEMS: list = []
+
+
+def _solver_enum_items(_self, _context):
+    from ..updater import engines
+    registry, _error = _read_registry()
+    engine = engines.selected_engine(registry)
     items = []
     for index, installation in enumerate(registry.installations):
+        if engine is not None and engines.engine_of(installation) != engine:
+            continue
         status = (
             f"Protocol {installation.protocol_version or '?'} · "
             f"Schema {installation.schema_version or '?'} · "
@@ -155,7 +226,8 @@ def _solver_enum_items(_self, _context):
     if not items:
         items.append(("NONE", "No Solver Selected",
                       "Install or register a compatible solver", "ERROR", 0))
-    return items
+    _SOLVER_ITEMS[:] = items
+    return _SOLVER_ITEMS
 
 
 def _solver_enum_update(self, _context):
@@ -714,6 +786,87 @@ def _new_look_changed(_self, context):
 
 
 LEARNING_CENTER_URL = "https://polyworks-art.github.io/Cloth_neXT/docs/"
+_STATUS_ICONS = {"ACTIVE": "CHECKMARK", "OFFLINE_VERIFIED": "CHECKMARK", "EXPIRED": "ERROR",
+                 "REVOKED": "ERROR", "SUSPENDED": "ERROR", "INVALID": "ERROR"}
+_PROBLEM_STATES = frozenset({"EXPIRED", "REVOKED", "SUSPENDED", "INVALID", "SESSION_EXPIRED",
+                             "DEVICE_DEACTIVATED"})
+
+
+def _wrapped(layout, text: str, width: int = 78, icon: str = "NONE") -> None:
+    import textwrap
+    for index, line in enumerate(textwrap.wrap(text, width) or [""]):
+        layout.label(text=line, icon=icon if index == 0 else "BLANK1")
+
+
+def _status_row(column, key: str, value: str, icon: str = "NONE") -> None:
+    split = column.split(factor=0.3, align=True)
+    split.label(text=key)
+    split.label(text=value, icon=icon)
+
+
+def draw_account_card(layout, superhive, view) -> None:
+    """One compact read-only card: Classic via Superhive, optional PolyWorks services.
+
+    Every account action lives in the Companion; the single button only opens it.
+    """
+    from ..polyworks.status import LicenseStatus, format_time
+    card = layout.box()
+    card.label(text="Account & License", icon="USER")
+    classic = card.column(align=True)
+    _status_row(classic, "Superhive", "Connected" if superhive.connected else "Not connected",
+                "CHECKMARK" if superhive.connected else "X")
+    _status_row(classic, "Purchase", "Validated" if superhive.purchase_validated else "Not validated",
+                "CHECKMARK" if superhive.purchase_validated else "X")
+    card.separator()
+    header = card.row()
+    header.label(text="PolyWorks Services")
+    hint = header.row()
+    hint.alignment = "RIGHT"
+    hint.label(text="Optional · not needed for Classic simulation")
+    if view is None:
+        card.label(text="Checking account status…", icon="TIME")
+        return
+    rows = card.column(align=True)
+    signed_in = view.account_label.startswith("Signed in")
+    _status_row(rows, "Account", view.account_label + (
+        f" · {view.account_identity}" if view.account_identity else ""))
+    if signed_in and not view.session_label.startswith("Active"):
+        _status_row(rows, "Session", view.session_label)
+    if signed_in or view.expires_at is not None or view.status not in (
+            LicenseStatus.NOT_SIGNED_IN, LicenseStatus.UNKNOWN):
+        details = [view.label, view.tier]
+        if view.seats:
+            details.append(f"{view.seats} seat" + ("" if view.seats == 1 else "s"))
+        _status_row(rows, "Service license", " · ".join(item for item in details if item),
+                    _STATUS_ICONS.get(view.status, "NONE"))
+        if view.devices_active is not None and view.device_limit is not None:
+            _status_row(rows, "Devices", f"{view.devices_active} of {view.device_limit} in use")
+        _status_row(rows, "This computer", (
+            f"Activated ({view.device_label})" if view.expires_at and view.device_label
+            else "Activated" if view.expires_at else "Not activated"))
+        if view.expires_at:
+            _status_row(rows, "Offline access", view.offline_authorization)
+    online = {True: "Online", False: "Offline", None: "Not checked yet"}[view.online]
+    _status_row(rows, "Connection", online + (" · Companion open" if view.companion_running else ""))
+    if signed_in or view.last_sync_at is not None:
+        _status_row(rows, "Last sync", format_time(view.last_sync_at))
+
+    notices = []
+    for text in (view.message, *view.warnings, view.connection_problem):
+        if text and text not in notices:
+            notices.append(text)
+    if notices:
+        column = card.column(align=True)
+        for text in notices:
+            _wrapped(column, text, icon="ERROR" if view.status in _PROBLEM_STATES else "INFO")
+    footer = card.row()
+    footer.alignment = "RIGHT"
+    if signed_in:
+        footer.operator("clothnext.polyworks_disconnect", text="Disconnect")
+    else:
+        footer.operator("clothnext.polyworks_connect", text="Connect PolyWorks Account", icon="URL")
+    footer.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion",
+                    icon="WINDOW")
 
 
 def _gaia_owner_changed(self, context):
@@ -755,6 +908,15 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         items=_solver_enum_items, update=_solver_enum_update,
         description="Select the exact installed solver used by future Bakes; "
                     "selection is locked while a session is active")
+    solver_engine: bpy.props.EnumProperty(
+        name="Engine", items=_engine_items, get=_engine_get, set=_engine_set,
+        description="Solver engine for future Bakes. Changing it never happens "
+                    "automatically and is locked while a Bake is active")
+    gaia_reproducible_bake: bpy.props.BoolProperty(
+        name="Reproducible Bake", default=False,
+        description="GAIA only: run the deterministic solver path so the same scene, "
+                    "settings, GPU and driver give bit-identical results. Slower. "
+                    "Scenes with static colliders, rigid bodies or translation locks are not covered yet")
     solver_backend_choice: bpy.props.EnumProperty(
         name="Solver Backend",
         items=(("AUTO", "Auto", "Use verified CUDA if available, otherwise CPU"),
@@ -817,7 +979,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        self._draw_superhive_status(layout, context)
+        self._draw_account_card(layout, context)
         self._draw_learning_section(layout)
 
         self._draw_solver_section(layout)
@@ -878,25 +1040,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             "wm.url_open", text="Learning Center", icon="URL")
         learning.url = LEARNING_CENTER_URL
 
-    def _draw_superhive_status(self, layout, context) -> None:
-        """Read-only projection; all account actions are owned by the EXE."""
-        status = repository_status(context.preferences.extensions.repos)
-        from ..polyworks.display import read_status
-        from .onboarding_manager import account_root
-        account = read_status(account_root())
-        box = layout.box()
-        box.label(text="PolyWorks Account")
-        box.label(text="Signed in (Companion status)" if account['signed_in'] else "Signed out")
-        if account['email']:
-            box.label(text=account['email'])
-        box.label(text="License: " + account['tier'])
-        box.label(text=account['verification'])
-        box.label(text="Superhive Connected" if status.connected else "Superhive not connected")
-        box.label(text="Cloth NeXt Purchase Detected" if status.purchase_detected else "No purchase detected locally")
-        devices = account['devices']
-        box.label(text=f"Activated devices: {len(devices)}" if devices is not None else "Activated devices: not supported yet")
-        box.operator('clothnext.manage_polyworks_account', text='Manage Account', icon='URL')
-        box.label(text="Account changes and Sign Out are available in Companion.")
+    def _draw_account_card(self, layout, context) -> None:
+        """Informational only: Superhive repository state plus a cached PolyWorks view.
+
+        Never contacts a service, reads credentials, files or the vault.
+        """
+        from .account_status import current_view
+        draw_account_card(layout, repository_status(context.preferences.extensions.repos),
+                          current_view())
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
@@ -1081,20 +1232,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             box.label(text=f"External installation: {self.external_solver_path}")
 
 
-class CLOTHNEXT_OT_manage_polyworks_account(bpy.types.Operator):
-    bl_idname = 'clothnext.manage_polyworks_account'
-    bl_label = 'Manage PolyWorks Account'
-    bl_description = 'Open account settings in the Cloth NeXt Companion EXE'
-
-    def execute(self, context):
-        from .onboarding_manager import launch_screen
-        ok, message = launch_screen('welcome', manual=True, open_account=True)
-        self.report({'INFO'} if ok else {'ERROR'}, message)
-        return {'FINISHED'} if ok else {'CANCELLED'}
-
-
 CLASSES = (
-    CLOTHNEXT_OT_manage_polyworks_account,
     CLOTHNEXT_OT_solver_use,
     CLOTHNEXT_OT_solver_refresh_installations,
     CLOTHNEXT_OT_solver_download,

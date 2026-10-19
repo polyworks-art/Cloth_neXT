@@ -39,5 +39,7 @@ def test_legacy_display_name_is_presented_without_mutating_it(blender_env, monke
     from cloth_next.blender import solver_release_naming
     monkeypatch.setattr(solver_release_naming, "_entry_for_installation", lambda _: None)
     installation = SimpleNamespace(display_name="Custom PPF 0.13")
-    assert solver_release_naming.release_name(installation) == "Custom Solver 0.13"
+    # Without a root or official identity it is an unverified AETHER build.
+    assert solver_release_naming.release_name(installation) == (
+        "AETHER · external, unverified build (protocol ?)")
     assert installation.display_name == "Custom PPF 0.13"

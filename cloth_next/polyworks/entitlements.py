@@ -1,97 +1,139 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Strict offline verification of the PROPOSED PolyWorks compact JWS contract.
+"""Offline entitlement verification (contract sections 4.1 and 4.3).
 
-No issuer keys are shipped until the backend contract/distribution is approved.
-Use an audited cryptographic provider; missing providers fail closed.
+Format: ``base64url(payload_json) "." base64url(ed25519_signature)`` without
+padding; the signature covers the exact decoded payload bytes. Nothing in the
+payload is trusted before the signature has been verified with a pinned key.
 """
 from __future__ import annotations
 
 import base64
+import binascii
+from dataclasses import dataclass
 import json
 import re
 import time
-from dataclasses import dataclass
+
+from . import ed25519
+from .trust import TrustStore
+
+ENTITLEMENT_TYPE = "polyworks.entitlement"
+SUPPORTED_VERSION = 1
+PRODUCT_ID = "cloth-next"
+CLOCK_SKEW_SECONDS = 300  # contract 4.3: iat <= now + 300 and now - 300 <= exp
+MAX_TOKEN_BYTES = 16 * 1024
+_SEGMENT = re.compile(r"[A-Za-z0-9_-]+")
 
 
 class EntitlementError(ValueError):
-    pass
+    """``code`` is one of: malformed, unknown_key, bad_signature,
+    unsupported_version, wrong_installation, wrong_product, not_yet_valid,
+    expired."""
 
-
-def _pairs(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise EntitlementError('Duplicate JSON member')
-        result[key] = value
-    return result
-
-
-def decode(segment):
-    if not isinstance(segment, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', segment):
-        raise EntitlementError('Invalid base64url segment')
-    raw = base64.urlsafe_b64decode(segment + '=' * (-len(segment) % 4))
-    if base64.urlsafe_b64encode(raw).decode().rstrip('=') != segment:
-        raise EntitlementError('Noncanonical base64url segment')
-    return raw
+    def __init__(self, code: str, detail: str = ""):
+        self.code = code
+        super().__init__(detail or code)
 
 
 @dataclass(frozen=True)
 class Entitlement:
-    subject: str
-    tier: str
-    installation_id: str
-    expires_at: int
+    key_id: str
     license_id: str
+    subject: str
+    activation_id: str
+    installation_id: str
+    product: str
+    tier: str
+    seats: int | None
+    seat_id: str
+    issued_at: int
+    expires_at: int
+    development_key: bool = False
+
+    def seconds_remaining(self, now: float) -> float:
+        return self.expires_at - now
 
 
-def verify(token: str, *, keys: dict[str, bytes], issuer: str,
-           installation_id: str, product: str = 'cloth-next', now=None) -> Entitlement:
-    """Verify signature before trusting any claim. Keys come only from release code."""
+def _decode(segment: str) -> bytes:
+    if not _SEGMENT.fullmatch(segment):
+        raise EntitlementError("malformed", "invalid base64url segment")
     try:
-        if not isinstance(token, str) or len(token) > 65536:
-            raise EntitlementError('Invalid entitlement size')
-        header64, payload64, signature64 = token.split('.')
-        header = json.loads(decode(header64), object_pairs_hook=_pairs)
-        if (not isinstance(header, dict) or set(header) != {'alg', 'typ', 'kid'}
-                or header['alg'] != 'EdDSA' or header['typ'] != 'JWT'
-                or not isinstance(header['kid'], str) or header['kid'] not in keys):
-            raise EntitlementError('Untrusted entitlement header')
-        key = keys[header['kid']]
-        signature = decode(signature64)
-        if len(key) != 32 or len(signature) != 64:
-            raise EntitlementError('Invalid key or signature length')
-        try:
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-            from cryptography.exceptions import InvalidSignature
-            from cryptography.exceptions import UnsupportedAlgorithm
-        except ImportError as exc:
-            raise EntitlementError('Ed25519 verification is unavailable in this runtime') from exc
-        try:
-            Ed25519PublicKey.from_public_bytes(key).verify(signature, f'{header64}.{payload64}'.encode('ascii'))
-        except InvalidSignature as exc:
-            raise EntitlementError('Invalid entitlement signature') from exc
-        except UnsupportedAlgorithm as exc:
-            raise EntitlementError('Ed25519 verification is unavailable in this runtime') from exc
-        claims = json.loads(decode(payload64), object_pairs_hook=_pairs)
-        if not isinstance(claims, dict):
-            raise EntitlementError('Invalid claims')
-        if (claims.get('iss') != issuer or claims.get('aud') != product
-                or claims.get('product') != product or claims.get('installation_id') != installation_id):
-            raise EntitlementError('Entitlement issuer, product or installation mismatch')
-        if claims.get('tier') not in ('Personal', 'Commercial'):
-            raise EntitlementError('Unknown license tier')
-        for key in ('sub', 'jti'):
-            if not isinstance(claims.get(key), str) or not claims[key].strip():
-                raise EntitlementError('Missing entitlement identity')
-        for key in ('iat', 'nbf', 'exp'):
-            if type(claims.get(key)) is not int:
-                raise EntitlementError('Invalid validity period')
-        timestamp = time.time() if now is None else now
-        if not (claims['iat'] <= timestamp and claims['nbf'] <= timestamp < claims['exp']
-                and claims['exp'] > max(claims['iat'], claims['nbf'])):
-            raise EntitlementError('Entitlement expired or not yet valid')
-        return Entitlement(claims['sub'], claims['tier'], installation_id, claims['exp'], claims['jti'])
-    except EntitlementError:
-        raise
-    except (ValueError, TypeError, KeyError, UnicodeError) as exc:
-        raise EntitlementError('Malformed entitlement') from exc
+        raw = base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+    except (binascii.Error, ValueError) as exc:
+        raise EntitlementError("malformed", "invalid base64url") from exc
+    if base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=") != segment:
+        raise EntitlementError("malformed", "non-canonical base64url")
+    return raw
+
+
+def _text(payload: dict, name: str, *, required: bool = True) -> str:
+    value = payload.get(name)
+    if isinstance(value, str) and value:
+        return value
+    if required:
+        raise EntitlementError("malformed", f"missing {name}")
+    return ""
+
+
+def _integer(payload: dict, name: str) -> int:
+    value = payload.get(name)
+    if type(value) is not int:
+        raise EntitlementError("malformed", f"invalid {name}")
+    return value
+
+
+def verify(token: str, *, trust: TrustStore, installation_id: str,
+           now: float | None = None, check_time: bool = True) -> Entitlement:
+    if not isinstance(token, str) or not token or len(token) > MAX_TOKEN_BYTES:
+        raise EntitlementError("malformed", "invalid token size")
+    payload_part, separator, signature_part = token.strip().partition(".")
+    if not separator or "." in signature_part:
+        raise EntitlementError("malformed", "expected payload.signature")
+    payload_bytes = _decode(payload_part)
+    signature = _decode(signature_part)
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise EntitlementError("malformed", "payload is not JSON") from exc
+    if not isinstance(payload, dict):
+        raise EntitlementError("malformed", "payload is not an object")
+    kid = payload.get("kid")
+    key = trust.key(kid) if isinstance(kid, str) else None
+    if key is None:
+        raise EntitlementError("unknown_key", "no pinned key for this kid")
+    if len(signature) != 64 or not ed25519.verify(key, payload_bytes, signature):
+        raise EntitlementError("bad_signature", "signature does not verify")
+    # Only now are the payload claims authentic.
+    if payload.get("typ") != ENTITLEMENT_TYPE:
+        raise EntitlementError("malformed", "unexpected typ")
+    if payload.get("v") != SUPPORTED_VERSION or type(payload.get("v")) is not int:
+        raise EntitlementError("unsupported_version", "unknown entitlement version")
+    if payload.get("inst") != installation_id:
+        raise EntitlementError("wrong_installation", "issued for another installation")
+    if payload.get("prd") != PRODUCT_ID:
+        raise EntitlementError("wrong_product", "issued for another product")
+    issued, expires = _integer(payload, "iat"), _integer(payload, "exp")
+    seats = payload.get("seats")
+    entitlement = Entitlement(
+        key_id=kid, license_id=_text(payload, "lic"), subject=_text(payload, "sub"),
+        activation_id=_text(payload, "act"), installation_id=installation_id,
+        product=PRODUCT_ID, tier=_text(payload, "tier"),
+        seats=seats if type(seats) is int else None,
+        seat_id=_text(payload, "seat", required=False),
+        issued_at=issued, expires_at=expires,
+        development_key=trust.is_development(kid))
+    if check_time:
+        problem = time_problem(entitlement, time.time() if now is None else now)
+        if problem:
+            raise EntitlementError(problem, problem.replace("_", " "))
+    return entitlement
+
+
+def time_problem(entitlement: Entitlement, now: float) -> str | None:
+    """Contract 4.3 time window. A wall clock set back before ``iat`` fails
+    closed as ``not_yet_valid``; no further clock policy is invented."""
+    if entitlement.issued_at > now + CLOCK_SKEW_SECONDS:
+        return "not_yet_valid"
+    if now - CLOCK_SKEW_SECONDS > entitlement.expires_at:
+        return "expired"
+    return None

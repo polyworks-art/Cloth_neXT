@@ -362,6 +362,7 @@ def test_material_panel_displays_artist_facing_names(blender_env):
     assert panel.layout.props == ["model", "surface_weight",
                                   "stretch_resistance", "sideways_response",
                                   "bend_resistance",
+                                  "bend_rest_from_geometry",
                                   "stretch_limit_enabled",
                                   "maximum_stretch_percent",
                                   "shape_damping", "fold_damping",
@@ -370,8 +371,7 @@ def test_material_panel_displays_artist_facing_names(blender_env):
                                   "stretch_plasticity_threshold_percent",
                                   "bend_plasticity_enabled",
                                   "bend_plasticity_rate",
-                                  "bend_plasticity_threshold_degrees",
-                                  "bend_rest_from_geometry"]
+                                  "bend_plasticity_threshold_degrees"]
     assert "Stretch Protection" in panel.layout.labels
     assert "Damping" in panel.layout.labels
     assert "Permanent Deformation" in panel.layout.labels
@@ -408,7 +408,8 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
         env.physics_ui.CLOTHNEXT_PT_pressure:
             ["enable_inflate", "inflate_pressure"],
         env.physics_ui.CLOTHNEXT_PT_sewing:
-            ["cloth_next_show_sewing"],
+            ["cloth_next_show_sewing", "lines", "threads", "notches", "lengths",
+             "inactive", "density", "opacity", "threshold", "absolute", "xray"],
     }
     for panel_type, props in expected.items():
         panel = panel_type()

@@ -1,221 +1,206 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Atomic public entitlement storage; OS credential vault for private sessions."""
+"""Local account storage shared by the Companion (writer) and Blender (reader).
+
+Layout of the per-OS-user account root (see ``account_root``)::
+
+    installation-id      public, contract 3.3 format, created once
+    entitlement          public signed token (verified before every use)
+    state.json           public display state written by the Companion
+    companion.json       presence heartbeat of a running Companion account window
+    session.*            private bearer session (see ``vault``; Companion only)
+
+Only the session is secret. It never leaves the Companion: Blender never
+imports ``vault``. Public files are still written atomically with
+user-only permissions, and Blender ignores files another user could have
+written.
+"""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import re
+import secrets
+import sys
 import tempfile
-import uuid
-import base64
-from contextlib import contextmanager
+
+ROOT_ENV = "CLOTH_NEXT_ACCOUNT_ROOT"
+INSTALLATION_FILE = "installation-id"
+ENTITLEMENT_FILE = "entitlement"
+STATE_FILE = "state.json"
+PRESENCE_FILE = "companion.json"
+LOCK_FILE = "account.lock"
+_INSTALLATION_ID = re.compile(r"[A-Za-z0-9_-]{16,128}")
 
 
 class StorageError(RuntimeError):
     pass
 
 
-def atomic_write(path: Path, text: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    name = None
+def account_root(environ=None) -> Path:
+    """One root per OS user, shared by every Blender version and add-on build.
+
+    Using Blender's version-specific CONFIG folder would mint a new
+    installation_id (and burn a device slot) on every Blender upgrade.
+    """
+    environ = os.environ if environ is None else environ
+    override = environ.get(ROOT_ENV)
+    if override:
+        return Path(override)
+    if os.name == "nt":
+        base = environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(base) / "PolyWorks" / "ClothNeXt"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "PolyWorks" / "ClothNeXt"
+    base = environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base) / "polyworks" / "cloth-next"
+
+
+def ensure_private_directory(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        os.chmod(path, 0o700)
+
+
+def atomic_write(path: Path, data: str | bytes) -> None:
+    """Write-then-rename in the same directory; readers never see partial data."""
+    ensure_private_directory(path.parent)
+    raw = data.encode("utf-8") if isinstance(data, str) else data
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
     try:
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as stream:
-            name = Path(stream.name)
-            os.chmod(name, 0o600)
-            stream.write(text)
+        with os.fdopen(descriptor, "wb") as stream:
+            if os.name != "nt":
+                os.fchmod(stream.fileno(), 0o600)
+            stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(name, path)
+        os.replace(temporary, path)
     finally:
-        if name is not None:
-            name.unlink(missing_ok=True)
+        temporary.unlink(missing_ok=True)
 
 
-def default_root() -> Path:
-    # Companion receives Blender's actual CONFIG path explicitly. Standalone use
-    # has a separate default, never guesses a Blender version's config folder.
-    if os.name == 'nt':
-        return Path(os.environ.get('LOCALAPPDATA', Path.home()/'AppData/Local'))/'PolyWorks'/'ClothNeXt'
-    return Path(os.environ.get('XDG_CONFIG_HOME', Path.home()/'.config'))/'polyworks'/'cloth-next'
+def is_trusted_file(path: Path) -> bool:
+    """POSIX: a regular file owned by this user and not group/world writable.
+
+    Windows relies on the per-user ACL of %LOCALAPPDATA%.
+    """
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    import stat
+    if not stat.S_ISREG(info.st_mode):
+        return False
+    if os.name == "nt":
+        return True
+    return info.st_uid == os.getuid() and not info.st_mode & 0o022
 
 
-@contextmanager
-def account_operation(root):
-    """Serialize Companion operations across processes (refresh-token rotation)."""
-    path = Path(root)/'account-operation.lock'
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('a+b') as stream:
-        stream.seek(0, 2)
-        if stream.tell() == 0:
-            stream.write(b'0')
-            stream.flush()
-        stream.seek(0)
-        acquired = False
-        try:
-            try:
-                if os.name == 'nt':
-                    import msvcrt
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                acquired = True
-            except OSError as exc:
-                raise StorageError('Another Companion account operation is running. Please try again.') from exc
-            yield
-        finally:
-            if acquired:
-                stream.seek(0)
-                if os.name == 'nt':
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+def read_trusted_text(path: Path, limit: int) -> str | None:
+    """Return the file text, or None when it is missing, too large or untrusted."""
+    if not is_trusted_file(path):
+        return None
+    try:
+        with open(path, "rb") as stream:
+            raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            return None
+        return raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 class LocalStore:
-    def __init__(self, root):
-        self.root = Path(root)
+    def __init__(self, root: Path | None = None):
+        self.root = Path(root) if root is not None else account_root()
 
-    def installation_id(self):
-        path = self.root/'installation-id'
+    def path(self, name: str) -> Path:
+        return self.root / name
+
+    # Installation identity (contract 3.3) ---------------------------------
+    def read_installation_id(self) -> str | None:
+        text = read_trusted_text(self.path(INSTALLATION_FILE), 256)
+        if text is None:
+            return None
+        value = text.strip()
+        return value if _INSTALLATION_ID.fullmatch(value) else None
+
+    def installation_id(self) -> str:
+        """Create once with an exclusive create; never silently replace."""
+        path = self.path(INSTALLATION_FILE)
+        existing = self.read_installation_id()
+        if existing:
+            return existing
+        if path.exists():
+            # A damaged id is never regenerated automatically: that would bind
+            # the next activation to a new device slot.
+            raise StorageError("The local installation identity is damaged.")
+        ensure_private_directory(self.root)
+        value = "inst_" + secrets.token_urlsafe(24)  # 32 URL-safe characters
         try:
-            value = path.read_text(encoding='utf-8').strip()
-            uuid.UUID(value)
-            return value
-        except FileNotFoundError:
-            self.root.mkdir(parents=True, exist_ok=True)
-            value = str(uuid.uuid4())
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return self.installation_id()
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(value)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return value
+
+    # Entitlement -------------------------------------------------------------
+    def read_entitlement(self) -> str | None:
+        text = read_trusted_text(self.path(ENTITLEMENT_FILE), 16 * 1024)
+        return text.strip() if text else None
+
+    def write_entitlement(self, token: str) -> None:
+        atomic_write(self.path(ENTITLEMENT_FILE), token)
+
+    def delete_entitlement(self) -> None:
+        self.path(ENTITLEMENT_FILE).unlink(missing_ok=True)
+
+    # Public JSON documents ---------------------------------------------------
+    def read_json(self, name: str, limit: int = 256 * 1024):
+        text = read_trusted_text(self.path(name), limit)
+        if text is None:
+            return None
+        try:
+            value = json.loads(text)
+        except ValueError:
+            return None
+        return value if isinstance(value, dict) else None
+
+    def write_json(self, name: str, value: dict) -> None:
+        atomic_write(self.path(name), json.dumps(value, sort_keys=True, indent=1))
+
+
+@contextmanager
+def exclusive_operation(root: Path, *, blocking: bool = False):
+    """Cross-process lock serializing account operations of all Companions."""
+    ensure_private_directory(Path(root))
+    path = Path(root) / LOCK_FILE
+    with open(path, "a+b") as stream:
+        if os.name == "nt":
+            import msvcrt
+            stream.seek(0)
+            mode = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK
             try:
-                with path.open('x', encoding='utf-8') as stream:
-                    stream.write(value)
-                os.chmod(path, 0o600)
-            except FileExistsError:
-                return self.installation_id()
-            return value
-        except ValueError as exc:
-            # Never silently rebind existing entitlements to a new installation.
-            raise StorageError('Installation identity is damaged') from exc
-
-    def read_entitlement(self):
-        try:
-            path = self.root/'entitlement.jws'
-            if path.stat().st_size > 65536:
-                raise StorageError('Entitlement exceeds size limit')
-            return path.read_text(encoding='utf-8')
-        except FileNotFoundError:
-            return None
-
-    def write_entitlement(self, token):
-        atomic_write(self.root/'entitlement.jws', token)
-
-
-class CredentialVault:
-    """Use only OS-backed keyring providers. No plaintext/fallback-file backend."""
-    SERVICE = 'PolyWorks.ClothNeXt.Account.v1'
-
-    def __init__(self, installation_id):
-        self.installation_id = installation_id
-
-    def _backend(self):
-        try:
-            import keyring
-            backend = keyring.get_keyring()
-            name = type(backend).__module__
-            if name not in ('keyring.backends.Windows', 'keyring.backends.macOS', 'keyring.backends.SecretService'):
-                raise StorageError('A supported OS credential vault is required')
-            return backend
-        except ImportError as exc:
-            raise StorageError('OS credential vault support is not installed') from exc
-
-    def load(self):
-        try:
-            raw = self._backend().get_password(self.SERVICE, self.installation_id)
-            return json.loads(raw) if raw else None
-        except StorageError:
-            raise
-        except Exception as exc:
-            raise StorageError('Could not read the OS credential vault') from exc
-
-    def save(self, value):
-        try:
-            self._backend().set_password(self.SERVICE, self.installation_id, json.dumps(value))
-        except StorageError:
-            raise
-        except Exception as exc:
-            raise StorageError('Could not save the OS credential vault session') from exc
-
-    def clear(self):
-        try:
-            backend = self._backend()
-            if backend.get_password(self.SERVICE, self.installation_id) is not None:
-                backend.delete_password(self.SERVICE, self.installation_id)
-        except StorageError:
-            raise
-        except Exception as exc:
-            raise StorageError('Could not clear the OS credential vault session') from exc
-
-
-class WindowsProtectedVault:
-    """DPAPI user-scope encryption, bound to this installation by entropy.
-
-    Never uses CRYPTPROTECT_LOCAL_MACHINE. Only ciphertext reaches disk.
-    This adapter is called exclusively from Companion, not Blender.
-    """
-    def __init__(self, root, installation_id):
-        self.path = Path(root)/'session.dpapi'
-        self.entropy = ('PolyWorks.ClothNeXt.Account.v1:'+installation_id).encode()
-
-    def _crypt(self, raw, decrypt=False):
-        if os.name != 'nt':
-            raise StorageError('Windows protected storage is unavailable')
-        import ctypes
-        from ctypes import wintypes
-        class Blob(ctypes.Structure):
-            _fields_ = [('length', wintypes.DWORD), ('data', ctypes.POINTER(ctypes.c_ubyte))]
-        source_buffer = ctypes.create_string_buffer(raw)
-        entropy_buffer = ctypes.create_string_buffer(self.entropy)
-        source = Blob(len(raw), ctypes.cast(source_buffer, ctypes.POINTER(ctypes.c_ubyte)))
-        entropy = Blob(len(self.entropy), ctypes.cast(entropy_buffer, ctypes.POINTER(ctypes.c_ubyte)))
-        output = Blob()
-        library = ctypes.WinDLL('crypt32', use_last_error=True)
-        operation = library.CryptUnprotectData if decrypt else library.CryptProtectData
-        operation.argtypes = [ctypes.POINTER(Blob), ctypes.c_void_p if decrypt else wintypes.LPCWSTR,
-            ctypes.POINTER(Blob), ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(Blob)]
-        operation.restype = wintypes.BOOL
-        if not operation(ctypes.byref(source), None, ctypes.byref(entropy), None, None, 1, ctypes.byref(output)):
-            raise StorageError('Windows could not unlock the protected account session')
-        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-        kernel.LocalFree.argtypes = [ctypes.c_void_p]
-        kernel.LocalFree.restype = ctypes.c_void_p
-        try:
-            return ctypes.string_at(output.data, output.length)
-        finally:
-            if decrypt:
-                ctypes.memset(output.data, 0, output.length)
-            kernel.LocalFree(output.data)
-
-    def load(self):
-        try:
-            if self.path.stat().st_size > 128*1024:
-                raise StorageError('Protected account session exceeds size limit')
-            data = base64.b64decode(self.path.read_bytes(), validate=True)
-            value = json.loads(self._crypt(data, decrypt=True))
-            if not isinstance(value, dict):
-                raise StorageError('Invalid protected account session')
-            return value
-        except FileNotFoundError:
-            return None
-        except (OSError, ValueError) as exc:
-            raise StorageError('Could not read the protected account session') from exc
-
-    def save(self, value):
-        raw = json.dumps(value).encode()
-        if len(raw) > 65536:
-            raise StorageError('Account session exceeds size limit')
-        atomic_write(self.path, base64.b64encode(self._crypt(raw)).decode())
-
-    def clear(self):
-        try:
-            self.path.unlink(missing_ok=True)
-        except OSError as exc:
-            raise StorageError('Could not remove the protected account session') from exc
+                msvcrt.locking(stream.fileno(), mode, 1)
+            except OSError as exc:
+                raise StorageError("Another Cloth NeXt Companion is updating the account.") from exc
+            try:
+                yield
+            finally:
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            try:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except OSError as exc:
+                raise StorageError("Another Cloth NeXt Companion is updating the account.") from exc
+            try:
+                yield
+            finally:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)

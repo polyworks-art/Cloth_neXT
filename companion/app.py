@@ -1281,20 +1281,47 @@ class BakeWindow:
             if self.root.winfo_exists(): self.root.after(50,poll)
         self.root.after(10,poll); self.root.mainloop()
 
+def _account_client_name(args) -> str:
+    try:
+        from cloth_next import manifest_version
+        name=f"Cloth NeXt {manifest_version()}"
+    except (OSError,ValueError,KeyError,ImportError):
+        name="Cloth NeXt"
+    if args.blender_version and re.fullmatch(r"[0-9][0-9A-Za-z.\- ]{0,30}",args.blender_version):
+        name+=f" / Blender {args.blender_version}"
+    return name+" (Companion)"
+
+def _run_account_mode(args):
+    """PolyWorks account window, or Blender's headless licence renewal."""
+    from companion.account_window import run_account_sync, run_account_window
+    client_name=_account_client_name(args)
+    if args.mode=="account-sync":
+        raise SystemExit(run_account_sync(client_name=client_name))
+    try:
+        run_account_window(Path(args.content_root) if args.content_root else None,
+                           client_name=client_name)
+    except (OSError,ValueError):
+        LOG.error("account window failed: %s",traceback.format_exc().splitlines()[-1])
+        raise SystemExit(2)
+
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
-    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new"),default="bake")
+    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","account","account-sync"),default="bake")
     parser.add_argument("--version")
     parser.add_argument("--content-root")
     parser.add_argument("--splash-ms",type=int,default=0)
     parser.add_argument("--show-after-updates",choices=("0","1"),default="1")
     parser.add_argument("--preference-path")
     parser.add_argument("--preference-token")
-    parser.add_argument("--account-root")
-    parser.add_argument("--open-account",action="store_true")
-    parser.add_argument("--superhive-connected",action="store_true")
-    parser.add_argument("--purchase-detected",action="store_true")
+    parser.add_argument("--blender-version")
     args=parser.parse_args(argv)
+    if args.mode in {"account","account-sync"}:
+        if args.port or args.token or args.session_root or args.preference_path or args.preference_token:
+            parser.error("account modes do not accept Bake or onboarding transport arguments")
+        _run_account_mode(args)
+        return
+    if args.blender_version:
+        parser.error("account arguments require an account mode")
     if args.mode in {"welcome","whats-new"}:
         if args.port or args.token or args.session_root:
             parser.error("informational modes do not accept Bake transport arguments")
@@ -1308,17 +1335,12 @@ def main(argv=None):
                             splash_ms=args.splash_ms,
                             show_after_updates=args.show_after_updates=="1",
                             preference_path=Path(args.preference_path) if args.preference_path else None,
-                            preference_token=args.preference_token,
-                            account_root=Path(args.account_root) if args.account_root else None,
-                            open_account=args.open_account,
-                            superhive_connected=args.superhive_connected,
-                            purchase_detected=args.purchase_detected)
+                            preference_token=args.preference_token)
         except (OSError,ValueError,json.JSONDecodeError):
             LOG.error("informational companion failed\n%s",traceback.format_exc())
             raise SystemExit(2)
         return
-    if (args.version or args.splash_ms or args.preference_path or args.preference_token
-            or args.account_root or args.open_account or args.superhive_connected or args.purchase_detected):
+    if args.version or args.splash_ms or args.preference_path or args.preference_token:
         parser.error("informational arguments require an informational mode")
     if args.content_root:
         parser.error("--content-root is only valid with informational modes")

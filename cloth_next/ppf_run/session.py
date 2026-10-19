@@ -543,15 +543,8 @@ class SolverSession:
         installation = self.resolved.installation
         if installation is None or not installation.verified:
             return ""
-        if installation.protocol_version == "0.22":
-            return "Gaia"
-        identity = " ".join(value for value in (
-            installation.display_name, installation.official_release_tag)
-            if isinstance(value, str))
-        for name in ("Lumen", "Gaia"):
-            if name.casefold() in identity.casefold():
-                return name
-        return installation.display_name.strip()
+        from ..updater.engines import engine_of
+        return engine_of(installation)
 
     def _capture_solver_details(self, response: dict) -> None:
         """Capture verified identity and only values reported by status summary."""
@@ -1457,6 +1450,9 @@ class SolverSession:
         io_path(server_data).mkdir(parents=True, exist_ok=True)
         environment = dict(layout.process_environment())
         environment.update(getattr(self, '_hydrodynamic_environment', {}))
+        # GAIA's reproducible mode; inherited PPF_REPRO_* never reach a solver
+        # (SolverProcessConfig.subprocess_environment drops them).
+        environment.update(dict(getattr(self.resolved, "solver_environment", ()) or ()))
         if self._official_bridge:
             # Public scene preparation is a sibling of the control server.
             # The official worker mode prevents its native metadata probes

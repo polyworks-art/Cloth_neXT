@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.30",
+  "title": "What's New in Cloth NeXt 2.9.30",
+  "subtitle": "Reliable GAIA installation on every Windows profile.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "GAIA installs on long paths",
+      "description": "Installing GAIA no longer fails when your Windows user or profile path is long."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "GAIA for Dev testers",
+      "description": "GAIA 0.26.0-dev.20261019 installs from Preferences with a PolyWorks account that has GAIA access."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Everything from 2.9.29",
+      "description": "GAIA with CUDA and the reworked Solver Engine section stay as they were."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

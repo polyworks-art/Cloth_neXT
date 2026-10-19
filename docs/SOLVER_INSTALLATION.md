@@ -1,5 +1,11 @@
 # Solver installation
 
+> Preferences now present two engines, AETHER (official upstream releases,
+> everything below) and GAIA (PolyWorks build, installed from Preferences with a
+> PolyWorks account). Historic release codenames such as Gaia or Lumen below
+> refer to official upstream releases, which are AETHER. See
+> [SOLVER_ENGINES.md](SOLVER_ENGINES.md).
+
 The PPF Contact Solver is external software by ST Tech / ZOZO. Cloth NeXt does
 not include it; the add-on preferences install or select it separately. See
 [SOLVER_DISTRIBUTION.md](SOLVER_DISTRIBUTION.md) and

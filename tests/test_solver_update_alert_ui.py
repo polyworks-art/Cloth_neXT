@@ -49,6 +49,12 @@ class RecordingLayout:
     def column(self, align=False):
         return RecordingLayout(self.log)
 
+    def split(self, factor=0.5, align=False):
+        return RecordingLayout(self.log)
+
+    def separator(self):
+        pass
+
     def label(self, text="", icon=None):
         self.log.append(("label", text, icon))
 

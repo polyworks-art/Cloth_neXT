@@ -55,7 +55,17 @@ def _entry_for_installation(installation):
 
 
 def release_name(installation) -> str:
-    """Return a verified codename, or preserve the stored fallback name."""
+    """Engine-centred name (AETHER / GAIA); identity and paths stay unchanged.
+
+    The historic upstream codenames (Gaia, Lumen, Velune) described official
+    ST-Tech releases. Those are AETHER now; GAIA means only the PolyWorks build.
+    """
+    from ..updater.engines import installation_label
+    return installation_label(installation)
+
+
+def _legacy_release_name(installation) -> str:
+    """Pre-engine codename resolution, kept for diagnostics."""
     entry = _entry_for_installation(installation)
     if entry is not None:
         # Different protocol generations may share a product codename. Use

@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.31",
+  "title": "What's New in Cloth NeXt 2.9.31",
+  "subtitle": "GAIA appears for every account that may download it.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "GAIA builds are offered again",
+      "description": "Preferences shows the GAIA build the PolyWorks server lists for your account, labelled Dev or Public release."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Exact build updates",
+      "description": "A different GAIA build is offered even when its version number is not higher."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clearer Reproducible Bake hint",
+      "description": "The hint names what is not covered yet: static colliders, rigid bodies and translation locks."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

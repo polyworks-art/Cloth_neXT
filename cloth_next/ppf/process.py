@@ -299,7 +299,10 @@ class SolverProcessConfig:
         return args
 
     def subprocess_environment(self) -> dict[str, str]:
-        result = os.environ.copy()
+        # Research switches from the parent environment must never change a
+        # solver's numerics; only an explicit configuration may set them.
+        result = {key: value for key, value in os.environ.items()
+                  if not key.upper().startswith("PPF_REPRO_")}
         result.update(dict(self.environment))
         return result
 

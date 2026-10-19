@@ -1,0 +1,81 @@
+{
+  "reference_commit": "d8919f1ca935baff07b30046aa94d1dc89b5ab3f",
+  "files": [
+    {
+      "path": "cloth_next/polyworks/__init__.py",
+      "sha256_lf": "d27b1e627bd573d650d24d38bf8a32673f5ad033e16b29d311f9b63e5e83fc06"
+    },
+    {
+      "path": "cloth_next/polyworks/api.py",
+      "sha256_lf": "88f3988a8d80d3e8b84dd511c0361d78eb8a50ffbcd633c3b8546a8e125a1d66"
+    },
+    {
+      "path": "cloth_next/polyworks/ed25519.py",
+      "sha256_lf": "d9b7c6aacff38725a3ec1e9c8b1083887ee7e7fcce524c4ffd90daae3975e9e5"
+    },
+    {
+      "path": "cloth_next/polyworks/entitlements.py",
+      "sha256_lf": "09cc6f2bb46c4669018046def61bfaf296a86b8bcd37162a5a632f6ea9295e1a"
+    },
+    {
+      "path": "cloth_next/polyworks/gaia_downloads.py",
+      "sha256_lf": "87909e50455121bfb9ae71fe2dd0643093c4b1599f0cadccb5d1698a47ff0d8e"
+    },
+    {
+      "path": "cloth_next/polyworks/messages.py",
+      "sha256_lf": "0f0af111c47e3b210b0a1c1a2a3781863eeab4cab3cc22fcb30d067c66dd4589"
+    },
+    {
+      "path": "cloth_next/polyworks/service.py",
+      "sha256_lf": "36a2e95b210a0776a691ddb7738ae6348b62f8de44a395f07311f5fa4846967d"
+    },
+    {
+      "path": "cloth_next/polyworks/state.py",
+      "sha256_lf": "7548ad917f3afa83ec40fd03e9ee7e634010c88256f53f913b35247eabf3a628"
+    },
+    {
+      "path": "cloth_next/polyworks/status.py",
+      "sha256_lf": "a1804e903aa6a8a4094027334819a1ce06bd9a6eaeace66cd0e82f4656e9921d"
+    },
+    {
+      "path": "cloth_next/polyworks/storage.py",
+      "sha256_lf": "775b78849277e2070f6129dcc3de41808d2b8c8ab33f9196d317f993b133f5a4"
+    },
+    {
+      "path": "cloth_next/polyworks/trust.py",
+      "sha256_lf": "678165252bc64d6f09d8df6319699c50e9de958a534f1a992b2ef0c23a220a65"
+    },
+    {
+      "path": "cloth_next/polyworks/vault.py",
+      "sha256_lf": "eea5894530d9ae25b9635a8fb42a5fb0e45ff2fab53c8cd047e136925d825045"
+    },
+    {
+      "path": "cloth_next/updater/engines.py",
+      "sha256_lf": "0ba49b7b9045317aa5c7f7fd07e2a9676f29c7efef06eeb7df3e6bef714d5f46"
+    },
+    {
+      "path": "cloth_next/updater/gaia_install.py",
+      "sha256_lf": "9d8730373dc00d3d42fc9c4883a72abc0a99886918621c0858d36c3ebf0968eb"
+    },
+    {
+      "path": "cloth_next/blender/account_status.py",
+      "sha256_lf": "43b19522715fa377457baa6bd6c5548b5b970d7ab5ffc21facd2775a8346dd27"
+    },
+    {
+      "path": "cloth_next/blender/gaia_account.py",
+      "sha256_lf": "e71c2de425463ef466b8b9811aa834cd8ec802c11155422ed0efaf88de8261c3"
+    },
+    {
+      "path": "cloth_next/blender/solver_preferences_ui.py",
+      "sha256_lf": "33d12e4d980f4b290096917793e0b92675a1ba5aea496e815e67e350ee1f6ee6"
+    },
+    {
+      "path": "cloth_next/blender/solver_release_naming.py",
+      "sha256_lf": "ecda8d80f02ee4b32292afef5e263d192c7457274e21a8771c8203dadc93b329"
+    },
+    {
+      "path": "companion/account_window.py",
+      "sha256_lf": "a1454a411b07615096229231d60fe07e9c6ed0ac1807503f59b4df4758a42249"
+    }
+  ]
+}

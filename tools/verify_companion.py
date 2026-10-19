@@ -62,6 +62,31 @@ def verify_information_modes(exe: Path, package: Path = ROOT / 'cloth_next') -> 
         raise RuntimeError("companion accepted an invalid What's-New version")
 
 
+def verify_account_modes(exe: Path) -> None:
+    """Account window opens/closes and headless sync exits cleanly while the
+    PolyWorks service is unreachable (closed loopback port); no state is lost."""
+    import os
+    import socket
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    closed_port = probe.getsockname()[1]
+    probe.close()
+    with tempfile.TemporaryDirectory(prefix="clothnext-account-smoke-") as temporary:
+        env = dict(os.environ, CLOTH_NEXT_ACCOUNT_ROOT=temporary,
+                   CLOTH_NEXT_POLYWORKS_API_URL=f"http://127.0.0.1:{closed_port}",
+                   CLOTH_NEXT_COMPANION_AUTO_CLOSE_MS="2500")
+        content = str(ROOT / "cloth_next" / "resources" / "onboarding")
+        for arguments in (("--mode", "account", "--content-root", content),
+                          ("--mode", "account-sync")):
+            completed = subprocess.run([str(exe), *arguments], env=env, timeout=30,
+                                       check=False, shell=False)
+            if completed.returncode:
+                raise RuntimeError(f"companion account mode failed ({arguments}, "
+                                   f"exit {completed.returncode})")
+        if (Path(temporary) / "companion.json").exists():
+            raise RuntimeError("account window left its presence file behind")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path,
@@ -96,7 +121,8 @@ def main():
         if process.returncode:
             raise RuntimeError(f"companion exited {process.returncode}")
         verify_information_modes(exe, args.package.resolve())
-        print("Development Companion: Bake and information modes passed")
+        verify_account_modes(exe)
+        print("Development Companion: Bake, information and account modes passed")
     finally:
         if process.poll() is None:
             process.terminate()

@@ -51,85 +51,51 @@ def test_bundled_releases_have_expected_codenames():
     assert all(entry.codename == entry.display_name for entry in releases[2:])
 
 
-def test_retired_installation_is_preserved_but_supported_release_is_renamed(
+def test_official_releases_are_presented_as_aether_without_mutation(
         blender_env, monkeypatch, tmp_path):
     import cloth_next.blender.solver_release_naming as naming
 
-    lunelle = installation(
-        tmp_path,
-        installation_id="old",
-        display_name="Simulation Solver 2026-07-13",
-        protocol="0.11",
-        schema="1",
-        release_tag="2026-07-13-21-05",
-    )
-    velune = installation(
-        tmp_path,
-        installation_id="current",
-        display_name="Simulation Solver 2026-07-26",
-        protocol="0.13",
-        schema="2",
-        release_tag="2026-07-26-22-53",
-    )
-    registry = SolverRegistry((lunelle, velune), velune.installation_id)
-    monkeypatch.setattr(naming, "_ORIGINAL_READ_REGISTRY",
-                        lambda: (registry, None))
+    old = installation(tmp_path, installation_id="old", display_name="Simulation Solver 2026-07-13",
+                       protocol="0.11", schema="1", release_tag="2026-07-13-21-05")
+    gaia_upstream = installation(tmp_path, installation_id="gaia22", display_name="Gaia",
+                                 protocol="0.22", schema="2", release_tag="2026-09-21-21-32")
+    registry = SolverRegistry((old, gaia_upstream), gaia_upstream.installation_id)
+    monkeypatch.setattr(naming, "_ORIGINAL_READ_REGISTRY", lambda: (registry, None))
 
     renamed, error = naming._read_registry_with_release_names()
 
     assert error is None
+    # The historic upstream codename "Gaia" is an official ST-Tech release: AETHER.
     assert [item.display_name for item in renamed.installations] == [
-        "Simulation Solver 2026-07-13", "Velune"]
-    assert renamed.selected_installation_id == velune.installation_id
-    assert renamed.installations[1].executable_path == velune.executable_path
+        "AETHER · upstream 2026-07-13-21-05", "AETHER · upstream 2026-09-21-21-32"]
+    assert renamed.selected_installation_id == gaia_upstream.installation_id
+    assert renamed.installations[1].executable_path == gaia_upstream.executable_path
+    assert gaia_upstream.display_name == "Gaia"
 
 
-def test_external_compatible_solver_uses_protocol_codename(
-        blender_env, monkeypatch, tmp_path):
+def test_external_solver_without_gaia_identity_is_unverified_aether(blender_env, tmp_path):
     import cloth_next.blender.solver_release_naming as naming
 
-    external = installation(
-        tmp_path,
-        installation_id="external",
-        display_name="Custom solver 0.1.0",
-        protocol="0.13",
-        schema="2",
-        release_tag=None,
-    )
-    registry = SolverRegistry((external,), external.installation_id)
-    monkeypatch.setattr(naming, "_ORIGINAL_READ_REGISTRY",
-                        lambda: (registry, None))
-
-    renamed, _error = naming._read_registry_with_release_names()
-
-    assert renamed.selected.display_name == "Velune"
-    assert renamed.selected.managed is False
+    external = installation(tmp_path, installation_id="external", display_name="Custom solver 0.1.0",
+                            protocol="0.26", schema="2", release_tag=None)
+    assert naming.release_name(external) == "AETHER · external, unverified build (protocol 0.26)"
 
 
-def test_unknown_solver_keeps_stored_name(blender_env, tmp_path):
+def test_gaia_build_file_identifies_gaia(blender_env, tmp_path):
+    import json
     import cloth_next.blender.solver_release_naming as naming
+    from cloth_next.updater import engines
 
-    unknown = installation(
-        tmp_path,
-        installation_id="unknown",
-        display_name="Custom Experimental Solver",
-        protocol="9.9",
-        schema="99",
-        release_tag=None,
-    )
-    assert naming.release_name(unknown) == "Custom Experimental Solver"
-
-
-def test_gaia_generations_remain_distinct_without_registry_mutation(blender_env, tmp_path):
-    import cloth_next.blender.solver_release_naming as naming
-
-    old = installation(tmp_path, installation_id="gaia22", display_name="Gaia",
-                       protocol="0.22", schema="2", release_tag="2026-09-21-21-32")
-    new = installation(tmp_path, installation_id="gaia23", display_name="Gaia",
-                       protocol="0.23", schema="2", release_tag="2026-09-27-20-44")
-    assert naming.release_name(old) == "Gaia"
-    assert naming.release_name(new) == "Gaia 0.23"
-    assert new.display_name == "Gaia"
+    gaia = installation(tmp_path, installation_id="gaia", display_name="anything",
+                        protocol="0.26", schema="2", release_tag=None)
+    (Path(gaia.root_path) / engines.GAIA_BUILD_FILE).write_text(json.dumps({
+        "kind": engines.GAIA_BUILD_KIND, "version": "0.26.1",
+        "build_id": "gaia-0.26.1+cuda12.8.windows-x64.bf3dad5aaaaa",
+        "source_revision": "bf3dad5aaaaa", "platform": "windows-x64", "backend": "cuda12.8",
+        "base_release_tag": "2026-10-13-12-32", "protocol_version": "0.26",
+        "files": {"bin/libsimbackend_cuda.dll": "0" * 64}}), encoding="utf-8")
+    assert engines.engine_of(gaia) == engines.GAIA
+    assert naming.release_name(gaia) == "GAIA 0.26.1 · build bf3dad5aaaaa"
 
 
 def test_registration_installs_and_restores_naming_adapter(blender_env):
