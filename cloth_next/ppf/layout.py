@@ -42,7 +42,9 @@ class BundledSolverLayout:
         normalized = root.expanduser().resolve()
         candidates = (normalized / EXECUTABLE_NAME,
                       normalized / "target" / "release" / EXECUTABLE_NAME,
-                      normalized / "target" / "cpu" / "release" / EXECUTABLE_NAME)
+                      normalized / "target" / "cpu" / "release" / EXECUTABLE_NAME,
+                      # CUDA-only trees such as a GAIA package have no CPU server.
+                      normalized / "target" / "cuda" / "release" / EXECUTABLE_NAME)
         executable = next((path for path in candidates if path.is_file()), candidates[0])
         return cls(normalized, executable, normalized / "SOURCE.json", normalized / "LICENSES")
 

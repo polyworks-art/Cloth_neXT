@@ -167,7 +167,7 @@ def test_gaia_status_summary_reaches_runtime_telemetry_without_duplicates(
             "dyn-consumed":"34 %", "stretch":"1.04×",
             "contacts":408, "newton-steps":2, "pcg-iterations":187}})
 
-    assert session.diagnostics.solver_name == "Gaia"
+    assert session.diagnostics.solver_name == "AETHER"
     assert session.diagnostics.solver_backend == "cuda"
     assert session.diagnostics.solver_device == "RTX 4070 SUPER"
     assert session.diagnostics.solver_telemetry == {
@@ -185,7 +185,7 @@ def test_lumen_without_summary_telemetry_degrades_cleanly(monkeypatch):
 
     session._capture_solver_details({"status":"BUSY"})
 
-    assert session.diagnostics.solver_name == "Lumen"
+    assert session.diagnostics.solver_name == "AETHER"
     assert session.diagnostics.solver_backend == ""
     assert session.diagnostics.solver_device == ""
     assert session.diagnostics.solver_telemetry == {}

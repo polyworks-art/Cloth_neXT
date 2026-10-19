@@ -5,15 +5,16 @@ Server ``message`` texts are never shown; the client branches on codes only.
 """
 from __future__ import annotations
 
-OFFLINE = ("Unable to reach the PolyWorks service. Your existing offline license "
-           "will continue working if still valid.")
+OFFLINE = ("Unable to reach the PolyWorks service. Your existing offline authorization "
+           "keeps working if still valid. Classic simulation is not affected.")
 DEVICE_LIMIT_BLENDER = ("All available device activations are currently in use. "
                         "Manage your devices in Cloth NeXt Companion.")
 DEVICE_LIMIT = ("All available device activations are currently in use. Deactivate a "
                 "device below or in your PolyWorks account, then activate again.")
 SESSION_EXPIRED = ("Your PolyWorks session has expired. Sign in again through "
                    "Cloth NeXt Companion.")
-REVOKED = "This license is no longer valid. Open Cloth NeXt Companion for details."
+REVOKED = ("This PolyWorks service license is no longer valid. Classic simulation is not "
+           "affected. Open Cloth NeXt Companion for details.")
 
 REVOCATION_REASONS = {
     "refunded": "The purchase for this license was refunded.",
@@ -27,9 +28,9 @@ COMPANION = {
     "network_unavailable": OFFLINE,
     "service_unavailable": OFFLINE,
     "server_error": "The PolyWorks service had a temporary problem. Please try again later. "
-                    "Your existing offline license keeps working if still valid.",
+                    "Your existing offline authorization keeps working if still valid.",
     "feature_disabled": ("License signing is temporarily unavailable on the PolyWorks service. "
-                         "Your existing offline license keeps working if still valid."),
+                         "Your existing offline authorization keeps working if still valid."),
     "internal_error": "The PolyWorks service had an internal error. Please try again later.",
     "invalid_response": "The PolyWorks service sent a response this version cannot read. "
                         "Nothing was changed locally.",
@@ -56,6 +57,15 @@ COMPANION = {
     "busy": "Another Cloth NeXt Companion window is updating the account. Try again in a moment.",
     "sign_in_required": "Sign in to your PolyWorks account first.",
     "mfa_invalid": "The code was not accepted. Check your authenticator app or recovery code.",
+    "gaia_access_required": "This PolyWorks account has no GAIA access. Request access or redeem an invitation.",
+    "requests_closed": "GAIA access requests are closed at the moment.",
+    "email_unverified": "Verify the email address of your PolyWorks account first.",
+    "invalid_code": "This invitation link is invalid, expired or already used.",
+    "build_unavailable": "This GAIA build was withdrawn. Refresh to see the current build.",
+    "download_expired": "The GAIA download link expired. Start the installation again.",
+    "checksum_mismatch": "The GAIA download failed its SHA-256 check and was deleted. Try again.",
+    "size_mismatch": "The GAIA download has the wrong size and was deleted. Try again.",
+    "build_changed": "The GAIA build changed during the download. Start the installation again.",
 }
 
 

@@ -9,6 +9,20 @@ Product rule: **the Companion is the control centre; Blender is a read-only
 status display.** Every interactive account, authentication, licence and device
 action happens in the existing Cloth NeXt Companion executable.
 
+Update 2026-10-18 (direct GAIA workflow): Blender Preferences may now connect a
+PolyWorks account (browser device authorization) and check GAIA access,
+request access, redeem an invitation and install GAIA, without the Companion.
+Only `cloth_next/blender/gaia_account.py` reaches the API, only from its worker
+thread, never in draw and never during a Bake; the token stays in the shared OS
+vault. Licence, device and activation management stays in the Companion. See
+[SOLVER_ENGINES.md](SOLVER_ENGINES.md).
+
+Product architecture (2026-10-18): **Cloth NeXt Classic is sold, licensed and
+updated through Superhive** and needs no PolyWorks account. A PolyWorks account
+is optional and only covers GAIA access and future online services such as cloud
+bakes. Nothing in simulation or Bake consults the PolyWorks status, and no
+Superhive purchase is claimed through the Companion.
+
 ## Implemented functionality
 
 | Area | Where | Notes |
@@ -20,31 +34,33 @@ action happens in the existing Cloth NeXt Companion executable.
 | Local storage | `cloth_next/polyworks/storage.py`, `vault.py` | Per-OS-user root, atomic writes, ownership/permission checks, private session vault |
 | Companion account window | `companion/account_window.py`, `companion/app.py` (`--mode account`) | Ported from the GAIA owner-branch draft, rebuilt on the frozen contract |
 | Headless renewal | `companion/app.py` (`--mode account-sync`) | Check-in when due; launched by Blender, no window |
-| Blender dashboard | `cloth_next/blender/account_status.py`, `preferences.py` | Account / License / Connection boxes, one "Open Cloth NeXt Companion" launcher |
+| Blender dashboard | `cloth_next/blender/account_status.py`, `preferences.py` | One compact read-only "Account & License" card (Superhive rows plus optional PolyWorks services), one "Open Cloth NeXt Companion" launcher |
 
 ### Companion account window
 
 Sections: **Account** (sign in with browser, sign in with email + 2FA, sign out,
-refresh, open PolyWorks account), **License** (licence list, editable device
-label, activate this computer), **Devices** (list own activations of the seat,
-deactivate any of them), **Activation code** (`POST /v1/licenses/redeem`),
-**Superhive purchase** (opens the portal: contract 3.2 says order-number claims
-are made in the portal; no Superhive call exists in the client). Footer shows
-service reachability and last sync. Visual language reuses the Welcome / What's
-New buttons, cards, fonts and colours.
+refresh, open PolyWorks account), **Service license** (licence list, editable
+device label, activate this computer), **Devices** (list own activations of the
+seat, deactivate any of them), **Activation code** (`POST /v1/licenses/redeem`).
+The header states that Classic is licensed through Superhive and needs no
+account. Footer shows service reachability and last sync. Visual language reuses
+the Welcome / What's New buttons, cards, fonts and colours.
 
 ### Blender Preferences
 
-Three informational boxes drawn from a cached `StatusView`:
+One compact card, **Account & License**, drawn as key/value rows. It replaces
+the separate Superhive box: **Superhive** (repository connected) and **Purchase**
+(validated) come first, then **PolyWorks Services** from a cached `StatusView`,
+marked optional and not needed for Classic simulation.
 
-* **PolyWorks Account**: signed-in state, email, session state.
-* **License**: status label (Active, Not signed in, No license, Activation
-  required, Device deactivated, Offline – license verified, License suspended,
-  License revoked, License expired, License could not be verified, Session
-  expired, Status unknown), type, seats, devices in use, whether this computer
-  is activated, offline licence expiry, the relevant message and warnings.
-* **Connection**: whether the Companion is open, service online/offline, last
-  licence sync, offline authorization, temporary failures.
+* **Account**: signed-in state and email; the session only when it is not active.
+* **Service license** (only once signed in or when a service licence exists on
+  this computer): status, type and seats, devices in use, whether this computer
+  is activated, offline access expiry.
+* **Connection** and **Last sync**: service online/offline, whether the
+  Companion is open, last successful sync.
+* Messages and warnings below the rows, an error icon only for real problems
+  (expired, revoked, suspended, invalid, session expired, device deactivated).
 
 The only control is **Open Cloth NeXt Companion** (launches `--mode account`).
 It performs no account or licence action. There are no account properties on

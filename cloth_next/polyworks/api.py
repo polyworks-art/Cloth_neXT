@@ -351,8 +351,72 @@ class PolyWorksApi:
             result["status"] = "revoked"
         return result
 
+    # Companion v1 GAIA routes ------------------------------------------------
+    def gaia_access(self, token: str) -> dict:
+        return _gaia_access(self._call("GET", "/v1/account/gaia-access", token=token))
+
+    def request_gaia_access(self, token: str, message: str = "") -> str:
+        body = {"message": message[:1000]} if message.strip() else {}
+        value = self._call("POST", "/v1/account/gaia-access/request", body, token=token)
+        return _gaia_access(value)["status"] or "pending"
+
+    def redeem_gaia_invite(self, token: str, invite: str) -> dict:
+        value = self._call("POST", "/v1/account/gaia-invite/redeem", {"token": invite}, token=token)
+        access = value.get("access") if isinstance(value, dict) else None
+        return {"access": access is True, "mode": _gaia_access(value)["mode"]}
+
+    def account_downloads(self, token: str) -> dict:
+        value = self._call("GET", "/v1/account/downloads", token=token)
+        builds = value.get("builds") if isinstance(value, dict) else None
+        if not isinstance(builds, list):
+            raise ApiError("invalid_response")
+        return {"enabled": value.get("enabled") is True, "access": value.get("access") is True,
+                "builds": [gaia_build_from(item) for item in builds]}
+
+    def download_session(self, token: str, build_id: str) -> dict:
+        from urllib.parse import quote
+        value = self._call("POST", f"/v1/solver/builds/{quote(build_id, safe='')}/download-session",
+                           token=token)
+        digest = _field(value, "sha256", str).lower()
+        size = _field(value, "size_bytes", int)
+        if len(digest) != 64 or not set(digest) <= _HEX64 or size <= 0:
+            raise ApiError("invalid_response")
+        return {"url": _field(value, "url", str), "sha256": digest, "size_bytes": size,
+                "expires_at": _field(value, "expires_at", str, optional=True)}
+
     def public_key(self) -> dict:
         value = self._call("GET", "/v1/entitlements/public-key")
         return {"key_id": _field(value, "key_id", str),
                 "public_key_pem": _field(value, "public_key_pem", str)}
 
+
+
+# Companion v1 GAIA routes (docs/polyworks/COMPANION_DOWNLOAD_API_HANDOFF.md) -------
+GAIA_ACCESS_STATES = frozenset({"granted", "pending", "declined"})
+GAIA_MODES = frozenset({"none", "selected", "everyone"})
+_HEX64 = frozenset("0123456789abcdef")
+
+
+def gaia_build_from(value) -> dict:
+    """One published GAIA build; unknown fields are ignored, wrong types rejected."""
+    if not isinstance(value, dict):
+        raise ApiError("invalid_response")
+    digest = _field(value, "sha256", str).lower()
+    size = _field(value, "size_bytes", int)
+    if len(digest) != 64 or not set(digest) <= _HEX64 or size <= 0:
+        raise ApiError("invalid_response")
+    result = {"build_id": _field(value, "build_id", str), "version": _field(value, "version", str),
+              "sha256": digest, "size_bytes": size}
+    for name in ("channel", "platform", "backend", "min_addon_version", "max_addon_version",
+                 "release_notes", "published_at"):
+        item = value.get(name)
+        result[name] = item if isinstance(item, str) else None
+    return result
+
+
+def _gaia_access(value) -> dict:
+    status = value.get("status") if isinstance(value, dict) else None
+    mode = value.get("mode") if isinstance(value, dict) else None
+    # Handoff 4: unknown values are treated as "no access".
+    return {"status": status if status in GAIA_ACCESS_STATES else None,
+            "mode": mode if mode in GAIA_MODES else "none"}

@@ -48,7 +48,7 @@ def test_disabled_pinning_scans_no_vertices_in_the_ui(env):
     scene = mesh_fixtures.build_cloth_scene(env.bpy, vertex_count=50_000)
     scene.counters.reset()
     labels = _pin_labels(env, scene)
-    assert "Static hard Pinning is disabled" in labels
+    assert "Pinning is disabled" in labels
     assert scene.counters.full_mesh_scans == 0
 
 

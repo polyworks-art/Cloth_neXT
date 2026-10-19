@@ -19,10 +19,18 @@ _WINDOWS_LOADER_FAILURE = {3221225781, 3221225785, 3221225794}
 BACKEND_CHOICES = ("AUTO", "CUDA", "ROCM", "CPU")
 
 
+def _multi_backend_tree(root: Path) -> bool:
+    """A Gaia-generation tree: CPU, CUDA or ROCm servers under target/<backend>/.
+
+    CUDA-only packages (GAIA) have no CPU server and still count.
+    """
+    return any((root / "target" / backend / "release" / EXECUTABLE_NAME).is_file()
+               for backend in ("cpu", "cuda", "rocm"))
+
+
 def available_backend_choices(protocol_version: str, root: Path) -> tuple[str, ...]:
     """Return packaged choices for the selected verified generation."""
-    if protocol_version in {"0.22", "0.23", "0.26"} and (
-            root / "target" / "cpu" / "release" / EXECUTABLE_NAME).is_file():
+    if protocol_version in {"0.22", "0.23", "0.26"} and _multi_backend_tree(root):
         return tuple(choice for choice in BACKEND_CHOICES
                      if choice == "AUTO" or (
                          root / "target" / choice.lower() / "release" /
@@ -121,7 +129,8 @@ def preferred_executable(root: Path) -> Path:
 def _preferred_executable_cached(root: Path, _signatures: tuple) -> Path:
     target = root / "target"
     cpu = target / "cpu" / "release" / EXECUTABLE_NAME
-    if not cpu.is_file():
+    cuda_only = not cpu.is_file()
+    if cuda_only and not (target / "cuda" / "release" / EXECUTABLE_NAME).is_file():
         raise ValueError("multi-backend release lacks its CPU server")
     environment = _probe_environment(root)
     for backend in ("cuda",):
@@ -137,7 +146,13 @@ def _preferred_executable_cached(root: Path, _signatures: tuple) -> Path:
             continue
         if probe.returncode == 0 and f"backend: {backend}" in probe.stdout:
             return candidate
+        if cuda_only:
+            raise ValueError("This solver release is CUDA only and its CUDA backend is "
+                             "unavailable on this computer (NVIDIA GPU and driver required)")
         if (probe.returncode not in (3, *_WINDOWS_LOADER_FAILURE)
                 and probe.returncode & 0xffffffff not in _WINDOWS_LOADER_FAILURE):
             raise ValueError(f"{backend} backend probe failed unexpectedly")
+    if cuda_only:
+        raise ValueError("This solver release is CUDA only and its CUDA backend is "
+                         "unavailable on this computer (NVIDIA GPU and driver required)")
     return cpu

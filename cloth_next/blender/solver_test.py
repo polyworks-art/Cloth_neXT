@@ -806,7 +806,20 @@ def resolve_solver(context) -> ResolvedSolver:
         raise SceneValidationError(
             "The selected solver installation is missing. Choose "
             "another installation in the Cloth NeXt preferences.")
-    if selected is not None and selected.managed:
+    from ..updater import engines
+    gaia_build = engines.gaia_build_of(selected) if selected is not None else None
+    if gaia_build is not None:
+        problem = engines.verify_gaia_files(engines._gaia_root(selected), gaia_build)
+        if problem:
+            raise SceneValidationError(problem)
+        from ..ppf.solver_overlay import apply_solver_overlay
+        apply_solver_overlay(
+            selected.root,
+            protocol_version=selected.protocol_version or "",
+            schema_version=selected.schema_version or "",
+            official_release_tag=gaia_build.base_release_tag,
+            managed=True)
+    elif selected is not None and selected.managed:
         from ..ppf.solver_overlay import (
             apply_managed_solver_overlay,
             apply_solver_overlay,
@@ -836,7 +849,18 @@ def resolve_solver(context) -> ResolvedSolver:
         raise SceneValidationError(
             "No compatible simulation solver installation is configured. Select or "
             "install one in the Cloth NeXt add-on preferences.")
+    if gaia_build is not None and _gaia_reproducible(context):
+        from dataclasses import replace
+        resolved = replace(resolved, solver_environment=engines.REPRODUCIBLE_ENVIRONMENT)
     return resolved
+
+
+def _gaia_reproducible(context) -> bool:
+    try:
+        preferences = addon_preferences(context, __package__)
+    except (KeyError, AttributeError):
+        return False
+    return bool(getattr(preferences, "gaia_reproducible_bake", False))
 
 
 def _resolved_wire_contract(resolved: ResolvedSolver) -> tuple[int, str]:

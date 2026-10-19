@@ -55,7 +55,7 @@ verified itself with pinned keys.
 | `cloth_next/polyworks/status.py` | The single status state machine |
 | `companion/account_window.py` | Interactive UI and headless sync entry points |
 | `cloth_next/blender/account_status.py` | Blender timer, worker, launcher, renewal trigger |
-| `cloth_next/blender/preferences.py` | `draw_polyworks_status` (read-only) |
+| `cloth_next/blender/preferences.py` | `draw_account_card` (read-only) |
 | `tests/polyworks_backend.py` | Isolated contract test backend |
 
 ## Test commands

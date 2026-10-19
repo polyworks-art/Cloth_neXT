@@ -1808,6 +1808,8 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         behavior.prop(material, "stretch_resistance")
         behavior.prop(material, "sideways_response")
         behavior.prop(material, "bend_resistance")
+        # Sent to the solver whether or not bend plasticity is on.
+        behavior.prop(material, "bend_rest_from_geometry")
         protection = layout.column(align=True)
         protection.label(text="Stretch Protection")
         protection.prop(material, "stretch_limit_enabled")
@@ -1830,7 +1832,6 @@ class CLOTHNEXT_PT_material(_ClothNextSubpanel, bpy.types.Panel):
         bend.enabled = material.bend_plasticity_enabled
         bend.prop(material, "bend_plasticity_rate")
         bend.prop(material, "bend_plasticity_threshold_degrees")
-        bend.prop(material, "bend_rest_from_geometry")
         from . import material_zones
         material_zones.draw(layout, context)
 
@@ -1873,7 +1874,7 @@ def _pin_status_lines(summary):
     """Recorded pinning status, labelled by how trustworthy it is."""
     states = validation_state.ValidationState
     if not summary.enabled:
-        return (("Static hard Pinning is disabled", "NONE"),)
+        return (("Pinning is disabled", "NONE"),)
     if not summary.group_name:
         return (("Select a Pin Group.", "ERROR"),)
     if not summary.group_exists:

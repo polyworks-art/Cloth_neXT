@@ -299,9 +299,10 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
     surface_weight: bpy.props.FloatProperty(
         name="Surface Weight", default=1.0, min=0.01, soft_max=10.0,
         max=10000.0, precision=3, update=_on_material_value_update,
-        description="Mass of the fabric per square meter. Higher values "
-                    "give the cloth more inertia and make it react more "
-                    "heavily, but do not directly make it stiffer. Unit: kg/m². "
+        description="Mass of the fabric per square meter. Stretch, bend and "
+                    "contact stiffness scale with it, so on its own it barely "
+                    "changes how the cloth falls; it matters against sewing, "
+                    "wind, water and other objects. Unit: kg/m². "
                     "Solver parameter: density")
     stretch_resistance: bpy.props.FloatProperty(
         name="Stretch Resistance", default=1000.0, min=0.0,
@@ -1046,11 +1047,12 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     force: bpy.props.PointerProperty(type=CLOTHNEXT_PG_force_settings)
     pinning_enabled: bpy.props.BoolProperty(
         name="Enable Pinning", default=False, update=_on_settings_update,
-        description="Hold vertices in the selected Blender vertex group at "
-                    "their evaluated Bake Start positions")
+        description="Pin the vertices of the selected Blender vertex group to "
+                    "their evaluated Bake Start positions. Constraint Type decides "
+                    "whether they hold exactly (Hard) or may yield (Soft, the default)")
     pin_group: bpy.props.StringProperty(
         name="Pin Group", default="", update=_on_settings_update,
-        description="Vertex group on this Cloth object used for static hard Pinning")
+        description="Vertex group on this Cloth object used for Pinning")
     pin_mode: bpy.props.EnumProperty(
         name="Pin Mode", default="STATIC", update=_on_settings_update,
         items=(("STATIC","Static","Keep pinned vertices fixed at their evaluated positions on Bake Start."),

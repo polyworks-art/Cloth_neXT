@@ -16,7 +16,11 @@ from tests import fake_bpy
 from tests.test_developer_tools_ui import RecordingLayout
 
 ROOT = Path(__file__).resolve().parents[1]
-BLENDER_SIDE = [*sorted((ROOT / "cloth_next" / "blender").rglob("*.py")),
+# Since 2026-10-18 (direct GAIA workflow) exactly one Blender module may reach the
+# PolyWorks API: the account/GAIA worker, and only from its worker thread.
+GAIA_WORKER = ROOT / "cloth_next" / "blender" / "gaia_account.py"
+BLENDER_SIDE = [*sorted(path for path in (ROOT / "cloth_next" / "blender").rglob("*.py")
+                        if path != GAIA_WORKER),
                 *[ROOT / "cloth_next" / "polyworks" / f"{name}.py" for name in
                   ("status", "state", "entitlements", "storage", "trust", "ed25519", "messages")]]
 FORBIDDEN_MODULES = {"cloth_next.polyworks.api", "cloth_next.polyworks.service",
@@ -44,6 +48,15 @@ def imported_modules(path: Path) -> set[str]:
 @pytest.mark.parametrize("path", BLENDER_SIDE, ids=lambda p: p.name)
 def test_blender_side_never_imports_api_client_or_vault(path):
     assert not imported_modules(path) & FORBIDDEN_MODULES
+
+
+def test_gaia_worker_imports_the_api_only_inside_functions():
+    tree = ast.parse(GAIA_WORKER.read_text(encoding="utf-8"))
+    top_level = {alias.name for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
+                 for alias in node.names} | {node.module or "" for node in tree.body
+                                             if isinstance(node, ast.ImportFrom)}
+    assert not any(name in {"api", "service", "vault", "http.client", "urllib.request"}
+                   or "polyworks" in name for name in top_level)
 
 
 def test_blender_side_never_references_session_vaults():
@@ -164,19 +177,25 @@ def test_draw_is_informational_and_does_no_io(blender_env, signed, monkeypatch):
         raise AssertionError("draw must not read files")
     monkeypatch.setattr(builtins, "open", no_io)
     try:
-        prefs.draw_polyworks_status(layout, view)
+        prefs.draw_account_card(layout, SimpleNamespace(connected=True, purchase_validated=False), view)
     finally:
         monkeypatch.setattr(builtins, "open", real_open)
-    assert layout.operators == ["clothnext.open_account_companion"]
+    # Connect/Disconnect start the background account worker; draw itself does no I/O.
+    assert set(layout.operators) <= {"clothnext.open_account_companion", "clothnext.polyworks_connect",
+                                     "clothnext.polyworks_disconnect"}
+    assert "clothnext.open_account_companion" in layout.operators
     assert not prop_calls
     labels = "\n".join(layout.labels)
-    for expected in ("PolyWorks Account", "License", "Connection", "Offline – license verified",
-                     "Type: Commercial", "This computer: Activated", "development key"):
+    for expected in ("Account & License", "Superhive", "Connected", "Not validated",
+                     "PolyWorks Services", "Service license", "Offline – verified · Commercial",
+                     "This computer", "Activated", "Connection", "development key",
+                     "Optional · not needed for Classic simulation"):
         assert expected in labels
+    assert "claim" not in labels.lower()
     for forbidden in ("Sign in", "Sign out", "Log in", "Deactivate", "Redeem", "Password"):
         assert not any(label.startswith(forbidden) for label in layout.labels)
     empty = RecordingLayout()
-    prefs.draw_polyworks_status(empty, None)
+    prefs.draw_account_card(empty, SimpleNamespace(connected=False, purchase_validated=False), None)
     assert empty.operators == [] and "Checking account status…" in empty.labels
     module.unregister()
 

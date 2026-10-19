@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.27",
+  "title": "What's New in Cloth NeXt 2.9.27",
+  "subtitle": "Two solver engines and a compact account card.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "AETHER and GAIA engines",
+      "description": "Choose AETHER, the official unmodified PPF Contact Solver, or GAIA, the PolyWorks build. Existing installations keep working and stay selected."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Install GAIA in Preferences",
+      "description": "Connect a PolyWorks account with GAIA access, then install, update or repair GAIA with a verified, resumable download. Classic needs no account."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "One Account & License card",
+      "description": "Superhive and the optional PolyWorks services now share one compact, read-only card. GAIA can run reproducible Bakes on request."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

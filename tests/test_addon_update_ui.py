@@ -68,6 +68,12 @@ class FakeLayout:
     def row(self, align=False):
         return FakeLayout(self.log)
 
+    def split(self, factor=0.5, align=False):
+        return self.row(align)
+
+    def separator(self):
+        pass
+
     def column(self, align=False):
         return FakeLayout(self.log)
 
@@ -470,10 +476,10 @@ def test_preferences_draw_separate_update_and_solver_sections(blender_env, monke
     labels = [text for kind, text in pairs if kind == "label"]
     operators = [text for kind, text in pairs if kind == "operator"]
     assert "Superhive" in labels
-    assert "GAIA Engine" in labels
-    assert labels.index("Superhive") < labels.index("GAIA Engine")
-    assert "Superhive connected" in labels
-    assert "Purchase validated" in labels
+    assert "Solver Engine" in labels
+    assert labels.index("Superhive") < labels.index("Solver Engine")
+    assert "Account & License" in labels
+    assert "Purchase" in labels and "Not validated" in labels
     assert not any(text.startswith("Update Status:") for text in labels)
     assert ("prop", "update_channel") not in log
     assert "update_channel" not in preferences.CLOTHNEXT_AddonPreferences.__annotations__
@@ -553,8 +559,8 @@ def test_preferences_offers_native_repository_setup_without_channel_selector(
     prefs.draw(env.bpy.context)
     log = prefs.layout.log
     assert ("prop", "update_channel") not in log
-    assert ("label", "Superhive connected") in log
-    assert ("label", "Purchase validated") in log
+    assert ("label", "Superhive") in log
+    assert ("label", "Purchase") in log
     assert ("operator", "clothnext.addon_update_repo_setup") not in log
     env.registration.unregister()
 

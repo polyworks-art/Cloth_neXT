@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Read-only PolyWorks account and licence status inside Blender.
+"""Read-only PolyWorks account and services status inside Blender.
+
+Optional: Cloth NeXt Classic is licensed through Superhive; nothing here gates
+simulation or Bake.
 
 Blender never contacts the PolyWorks API, never opens the session vault and
 never changes account or licence state. A persistent timer stats the
@@ -165,12 +168,6 @@ def open_companion() -> tuple[bool, str]:
         return True, "Cloth NeXt Companion is already open."
     try:
         command = _companion_command("account")
-        try:
-            from ..superhive_status import repository_status
-            if repository_status(bpy.context.preferences.extensions.repos).purchase_validated:
-                command.append("--purchase-detected")
-        except (AttributeError, TypeError):
-            pass
         process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[2], shell=False)
     except (OSError, ValueError, KeyError) as exc:
         return False, f"Cloth NeXt Companion could not be opened: {exc}"
@@ -211,8 +208,8 @@ class CLOTHNEXT_OT_open_account_companion(bpy.types.Operator):
     """Opens the Companion; every account and licence action happens there."""
     bl_idname = "clothnext.open_account_companion"
     bl_label = "Open Cloth NeXt Companion"
-    bl_description = ("Open Cloth NeXt Companion to sign in and manage your PolyWorks account, "
-                      "license and devices")
+    bl_description = ("Open Cloth NeXt Companion to manage your optional PolyWorks account "
+                      "for GAIA and online services")
     bl_options = {"INTERNAL"}
 
     def execute(self, _context):

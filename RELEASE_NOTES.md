@@ -1,7 +1,7 @@
-# Cloth NeXt 2.9.25
+# Cloth NeXt 2.9.32
 
-Solver selection failures now show their reason in Preferences. An unhealthy installation, missing registration or registry write failure no longer leaves the user with a silently rejected selection. The previously selected solver is preserved on failure, and successful selection clears the old error.
+Use Initial Bend Shape can be changed again. It sat inside the Bend Plasticity section and was greyed out unless bend plasticity was enabled, although the solver always uses it; it now sits next to Bend Resistance.
 
-In the reported NEON case, GAIA 0.26 was blocked by an old local validation marker. A fresh real health check passed, the marker was repaired locally, and selecting GAIA 0.26 in Blender persisted correctly. This release does not bypass health checks or automatically change solver selection.
+The Surface Weight tooltip now says what the solver does: stretch, bend and contact stiffness scale with the weight, so a higher Surface Weight on its own barely changes how cloth falls. It matters against sewing, wind, water and other objects. If small cloth looks stiff, check Stretch Protection first: a low Maximum Stretch can hold it like a board.
 
-The shared GAIA Flow and preparation improvements from 2.9.24 are retained. The external solver is not bundled.
+Everything from 2.9.31 is unchanged, including GAIA builds offered as Dev or Public release. Neither solver is bundled.

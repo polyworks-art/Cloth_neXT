@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.9.32 - 2026-10-19
+
+- Show Use Initial Bend Shape next to Bend Resistance. It sat inside the Bend Plasticity block and was greyed out unless bend plasticity was on, although the solver always reads it.
+- Correct the Surface Weight tooltip: stretch, bend and contact stiffness scale with it, so on its own it barely changes how the cloth falls.
+
+## 2.9.31 - 2026-10-19
+
+- Offer every GAIA build the PolyWorks server lists for this account. The server now labels builds dev or public and lists only the newest one per platform and backend; the add-on no longer requires the old stable channel and shows the label as Dev release or Public release.
+- Correct the Reproducible Bake hint: static colliders, rigid bodies and translation locks are not covered yet; rods are.
+- Pin the selected solver in the GAIA overlay test so it no longer depends on the machine's solver registry.
+
+## 2.9.30 - 2026-10-19
+
+- Install GAIA through extended-length paths on Windows so long user or profile paths cannot exceed MAX_PATH during unpacking.
+- Strip release notes read from a file in tools/release_gaia.py; the server rejects control characters.
+
+## 2.9.29 - 2026-10-19
+
+- Fix CNX-E132 for GAIA with an explicit CUDA backend: recognise CUDA-only solver packages, keep the GPU probe, and report 'CUDA only' when no NVIDIA GPU is usable.
+- Show the backend choice for 0.23, 0.26 and GAIA installations.
+- Rework the Solver Engine section: active engine and Bake options first, one row per engine with its install or update action, technical details collapsed.
+
+## 2.9.28 - 2026-10-18
+
+- Keep the Release menu's dynamic items referenced so solver names no longer appear garbled or empty.
+- Describe Pinning accurately: Soft by default (may yield), Hard holds exactly; replace the misleading "static hard Pinning" texts.
+
+## 2.9.27 - 2026-10-18
+
+- Offer exactly two solver engines, AETHER (official unmodified upstream releases) and GAIA (PolyWorks build identified by gaia-build.json); existing installations and selections are preserved and shown as AETHER.
+- Never switch the engine automatically; selecting an uninstalled engine keeps the current one and explains why.
+- Verify GAIA's patched files before every Bake; add an opt-in Reproducible Bake for GAIA and keep inherited PPF_REPRO_* variables away from every solver process.
+- Connect a PolyWorks account, check GAIA access, request access, redeem invitations and install, update or repair GAIA from Preferences with resumable, SHA-256 verified downloads and transactional installation.
+- Merge the Superhive status and the optional PolyWorks services into one compact read-only Account & License card; Classic needs no PolyWorks account and the Companion no longer claims Superhive purchases.
+
 ## 2.9.25 - 2026-10-14
 
 - Show the reason when a solver selection fails instead of silently returning to the previously selected release.

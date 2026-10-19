@@ -138,10 +138,81 @@ def _solver_session_active() -> bool:
         return False
 
 
-def _solver_enum_items(_self, _context):
+_ENGINE_ITEMS: list = []
+
+
+def _engine_items(_self, _context):
+    """AETHER always; GAIA once a GAIA build is installed or access is known.
+
+    Visibility is only a convenience: the server and the installed build's
+    identity decide whether GAIA can actually be installed or run.
+    """
+    from ..updater import engines
     registry, _error = _read_registry()
+    show_gaia = bool(engines.installations_for(registry, engines.GAIA)
+                     or _gaia_access_granted())
+    _ENGINE_ITEMS[:] = [(engines.AETHER, "AETHER", engines.ENGINE_DESCRIPTIONS[engines.AETHER], 0)]
+    if show_gaia:
+        _ENGINE_ITEMS.append((engines.GAIA, "GAIA", engines.ENGINE_DESCRIPTIONS[engines.GAIA], 1))
+    return _ENGINE_ITEMS
+
+
+def _gaia_access_granted() -> bool:
+    try:
+        from . import gaia_account
+    except ImportError:
+        return False
+    return gaia_account.access_granted()
+
+
+def _engine_get(_self) -> int:
+    from ..updater import engines
+    registry, _error = _read_registry()
+    return 1 if engines.selected_engine(registry) == engines.GAIA else 0
+
+
+def _engine_set(self, value: int) -> None:
+    """Switch engine only by explicit choice, to that engine's best healthy build."""
+    from ..updater import engines
+    engine = engines.GAIA if value == 1 else engines.AETHER
+    registry, error = _read_registry()
+    if error:
+        _session.worker_error = error
+        return
+    if engines.selected_engine(registry) == engine:
+        return
+    if _solver_session_active():
+        _session.worker_error = "The solver engine cannot change while a Bake is active."
+        return
+    target = engines.best_installation(registry, engine)
+    if target is None:
+        _session.worker_error = (
+            f"{engine} is not installed. Install {engine} below; the current engine stays selected.")
+        return
+    try:
+        write_registry(ManagedSolverPaths.default().registry_json,
+                       registry.select(target.installation_id))
+    except (OSError, ValueError) as exc:
+        _session.worker_error = f"Engine change failed: {exc}"
+        return
+    self.selected_solver_installation_id = target.installation_id
+    _session.worker_error = None
+
+
+# Blender keeps only C pointers to the strings of dynamic EnumProperty items; a
+# list built fresh in the callback is freed on return and the menu shows garbled
+# or empty labels. Both item callbacks therefore fill module-level lists.
+_SOLVER_ITEMS: list = []
+
+
+def _solver_enum_items(_self, _context):
+    from ..updater import engines
+    registry, _error = _read_registry()
+    engine = engines.selected_engine(registry)
     items = []
     for index, installation in enumerate(registry.installations):
+        if engine is not None and engines.engine_of(installation) != engine:
+            continue
         status = (
             f"Protocol {installation.protocol_version or '?'} · "
             f"Schema {installation.schema_version or '?'} · "
@@ -155,7 +226,8 @@ def _solver_enum_items(_self, _context):
     if not items:
         items.append(("NONE", "No Solver Selected",
                       "Install or register a compatible solver", "ERROR", 0))
-    return items
+    _SOLVER_ITEMS[:] = items
+    return _SOLVER_ITEMS
 
 
 def _solver_enum_update(self, _context):
@@ -716,57 +788,85 @@ def _new_look_changed(_self, context):
 LEARNING_CENTER_URL = "https://polyworks-art.github.io/Cloth_neXT/docs/"
 _STATUS_ICONS = {"ACTIVE": "CHECKMARK", "OFFLINE_VERIFIED": "CHECKMARK", "EXPIRED": "ERROR",
                  "REVOKED": "ERROR", "SUSPENDED": "ERROR", "INVALID": "ERROR"}
+_PROBLEM_STATES = frozenset({"EXPIRED", "REVOKED", "SUSPENDED", "INVALID", "SESSION_EXPIRED",
+                             "DEVICE_DEACTIVATED"})
 
 
-def _wrapped(layout, text: str, width: int = 78) -> None:
+def _wrapped(layout, text: str, width: int = 78, icon: str = "NONE") -> None:
     import textwrap
-    for line in textwrap.wrap(text, width) or [""]:
-        layout.label(text=line)
+    for index, line in enumerate(textwrap.wrap(text, width) or [""]):
+        layout.label(text=line, icon=icon if index == 0 else "BLANK1")
 
 
-def draw_polyworks_status(layout, view) -> None:
-    from ..polyworks.status import format_time
-    account = layout.box()
-    account.label(text="PolyWorks Account")
+def _status_row(column, key: str, value: str, icon: str = "NONE") -> None:
+    split = column.split(factor=0.3, align=True)
+    split.label(text=key)
+    split.label(text=value, icon=icon)
+
+
+def draw_account_card(layout, superhive, view) -> None:
+    """One compact read-only card: Classic via Superhive, optional PolyWorks services.
+
+    Every account action lives in the Companion; the single button only opens it.
+    """
+    from ..polyworks.status import LicenseStatus, format_time
+    card = layout.box()
+    card.label(text="Account & License", icon="USER")
+    classic = card.column(align=True)
+    _status_row(classic, "Superhive", "Connected" if superhive.connected else "Not connected",
+                "CHECKMARK" if superhive.connected else "X")
+    _status_row(classic, "Purchase", "Validated" if superhive.purchase_validated else "Not validated",
+                "CHECKMARK" if superhive.purchase_validated else "X")
+    card.separator()
+    header = card.row()
+    header.label(text="PolyWorks Services")
+    hint = header.row()
+    hint.alignment = "RIGHT"
+    hint.label(text="Optional · not needed for Classic simulation")
     if view is None:
-        account.label(text="Checking account status…", icon="TIME")
+        card.label(text="Checking account status…", icon="TIME")
         return
-    account.label(text=f"Status: {view.account_label}", icon="USER")
-    if view.account_identity:
-        account.label(text=f"Account: {view.account_identity}")
-    account.label(text=f"Session: {view.session_label}")
+    rows = card.column(align=True)
+    signed_in = view.account_label.startswith("Signed in")
+    _status_row(rows, "Account", view.account_label + (
+        f" · {view.account_identity}" if view.account_identity else ""))
+    if signed_in and not view.session_label.startswith("Active"):
+        _status_row(rows, "Session", view.session_label)
+    if signed_in or view.expires_at is not None or view.status not in (
+            LicenseStatus.NOT_SIGNED_IN, LicenseStatus.UNKNOWN):
+        details = [view.label, view.tier]
+        if view.seats:
+            details.append(f"{view.seats} seat" + ("" if view.seats == 1 else "s"))
+        _status_row(rows, "Service license", " · ".join(item for item in details if item),
+                    _STATUS_ICONS.get(view.status, "NONE"))
+        if view.devices_active is not None and view.device_limit is not None:
+            _status_row(rows, "Devices", f"{view.devices_active} of {view.device_limit} in use")
+        _status_row(rows, "This computer", (
+            f"Activated ({view.device_label})" if view.expires_at and view.device_label
+            else "Activated" if view.expires_at else "Not activated"))
+        if view.expires_at:
+            _status_row(rows, "Offline access", view.offline_authorization)
+    online = {True: "Online", False: "Offline", None: "Not checked yet"}[view.online]
+    _status_row(rows, "Connection", online + (" · Companion open" if view.companion_running else ""))
+    if signed_in or view.last_sync_at is not None:
+        _status_row(rows, "Last sync", format_time(view.last_sync_at))
 
-    license_box = layout.box()
-    license_box.label(text="License")
-    license_box.label(text=f"Status: {view.label}", icon=_STATUS_ICONS.get(view.status, "INFO"))
-    if view.tier:
-        license_box.label(text=f"Type: {view.tier}")
-    if view.seats:
-        license_box.label(text=f"Seats on license: {view.seats}")
-    if view.devices_active is not None and view.device_limit is not None:
-        license_box.label(text=f"Devices: {view.devices_active} of {view.device_limit} in use")
-    license_box.label(text="This computer: " + (
-        f"Activated ({view.device_label})" if view.expires_at and view.device_label
-        else "Activated" if view.expires_at else "Not activated"))
-    if view.expires_at:
-        license_box.label(text=f"Offline license valid until: {format_time(view.expires_at)}")
-    for text in (view.message, *view.warnings):
-        if text:
-            _wrapped(license_box, text)
-
-    connection = layout.box()
-    connection.label(text="Connection")
-    connection.label(text="Cloth NeXt Companion: " + (
-        "Open" if view.companion_running else "Not running (not required)"))
-    connection.label(text="PolyWorks service: " + {True: "Online", False: "Offline",
-                                                  None: "Not checked yet"}[view.online])
-    connection.label(text=f"Last license sync: {format_time(view.last_sync_at)}")
-    connection.label(text=f"Offline authorization: {view.offline_authorization}")
-    if view.connection_problem and view.connection_problem != view.message:
-        _wrapped(connection, view.connection_problem)
-    connection.label(text="Sign-in, activation and devices are managed in Cloth NeXt Companion.",
-                     icon="INFO")
-    connection.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion")
+    notices = []
+    for text in (view.message, *view.warnings, view.connection_problem):
+        if text and text not in notices:
+            notices.append(text)
+    if notices:
+        column = card.column(align=True)
+        for text in notices:
+            _wrapped(column, text, icon="ERROR" if view.status in _PROBLEM_STATES else "INFO")
+    footer = card.row()
+    footer.alignment = "RIGHT"
+    if signed_in:
+        footer.operator("clothnext.polyworks_disconnect", text="Disconnect")
+    else:
+        footer.operator("clothnext.polyworks_connect", text="Connect PolyWorks Account", icon="URL")
+    footer.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion",
+                    icon="WINDOW")
 
 
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
@@ -786,6 +886,15 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         items=_solver_enum_items, update=_solver_enum_update,
         description="Select the exact installed solver used by future Bakes; "
                     "selection is locked while a session is active")
+    solver_engine: bpy.props.EnumProperty(
+        name="Engine", items=_engine_items, get=_engine_get, set=_engine_set,
+        description="Solver engine for future Bakes. Changing it never happens "
+                    "automatically and is locked while a Bake is active")
+    gaia_reproducible_bake: bpy.props.BoolProperty(
+        name="Reproducible Bake", default=False,
+        description="GAIA only: run the deterministic solver path so the same scene, "
+                    "settings, GPU and driver give bit-identical results. Slower. "
+                    "Scenes with static colliders, rigid bodies or translation locks are not covered yet")
     solver_backend_choice: bpy.props.EnumProperty(
         name="Solver Backend",
         items=(("AUTO", "Auto", "Use verified CUDA if available, otherwise CPU"),
@@ -848,8 +957,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        self._draw_superhive_status(layout, context)
-        self._draw_polyworks_status(layout)
+        self._draw_account_card(layout, context)
         self._draw_learning_section(layout)
 
         self._draw_solver_section(layout)
@@ -901,21 +1009,14 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             "wm.url_open", text="Learning Center", icon="URL")
         learning.url = LEARNING_CENTER_URL
 
-    def _draw_superhive_status(self, layout, context) -> None:
-        """Two informational states; never contacts a service or reads credentials."""
-        status = repository_status(context.preferences.extensions.repos)
-        box = layout.box()
-        box.label(text="Superhive")
-        box.label(text="Superhive connected", icon="CHECKMARK" if status.connected else "X")
-        box.label(text="Purchase validated", icon="CHECKMARK" if status.purchase_validated else "X")
+    def _draw_account_card(self, layout, context) -> None:
+        """Informational only: Superhive repository state plus a cached PolyWorks view.
 
-    def _draw_polyworks_status(self, layout) -> None:
-        """Informational only: reads a cached view, never files, network or vault.
-
-        The single button opens the Companion; it performs no account action.
+        Never contacts a service, reads credentials, files or the vault.
         """
         from .account_status import current_view
-        draw_polyworks_status(layout, current_view())
+        draw_account_card(layout, repository_status(context.preferences.extensions.repos),
+                          current_view())
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()

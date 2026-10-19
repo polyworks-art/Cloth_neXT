@@ -35,6 +35,9 @@ class RecordingLayout:
     def column(self, **_kw):
         return RecordingLayout(self.root)
 
+    def split(self, **_kw):
+        return RecordingLayout(self.root)
+
     def box(self):
         box = RecordingLayout(self.root)
         self.root.boxes.append(box)

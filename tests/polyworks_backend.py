@@ -49,6 +49,17 @@ class ContractBackend:
         self.rate_limit_next = 0
         self.malformed_next = 0
         self.server = None
+        # Companion v1 GAIA routes (COMPANION_DOWNLOAD_API_HANDOFF.md)
+        self.gaia_mode = "selected"
+        self.gaia_access = {}      # user -> granted | pending | declined
+        self.gaia_invites = {}     # token -> uses left
+        self.downloads_enabled = True
+        self.builds = {}           # build_id -> metadata
+        self.build_files = {}      # build_id -> bytes
+        self.download_links = {}   # t -> {user, build, expires}
+        self.cut_download_after = None   # bytes; simulate one dropped connection
+        self.no_range = False
+        self._range = None
 
     # Public key -----------------------------------------------------------------
     @property
@@ -106,6 +117,25 @@ class ContractBackend:
         if purchase_status:
             self.licenses[license_id]["purchase_status"] = purchase_status
 
+    def publish_gaia_build(self, data: bytes, *, version="0.26.0", channel="stable",
+                           platform="windows-x64", backend="cuda12.8", min_addon="2.0.0",
+                           max_addon=None, rev="bf3dad56f7a0"):
+        import hashlib
+        build_id = f"gaia-{version}+{backend}.{platform}.{rev}"
+        self.builds[build_id] = {"channel": channel, "platform": platform, "backend": backend,
+                                 "build_id": build_id, "version": version,
+                                 "sha256": hashlib.sha256(data).hexdigest(),
+                                 "size_bytes": len(data), "published_at": "2026-10-18T09:00:00Z",
+                                 "min_addon_version": min_addon, "max_addon_version": max_addon,
+                                 "release_notes": "test build"}
+        self.build_files[build_id] = data
+        return build_id
+
+    def _gaia_status(self, user_id):
+        if self.gaia_mode == "everyone":
+            return "granted"
+        return self.gaia_access.get(user_id)
+
     # HTTP --------------------------------------------------------------------------
     def start(self):
         backend = self
@@ -118,17 +148,21 @@ class ContractBackend:
                 length = int(self.headers.get("Content-Length") or 0)
                 raw = self.rfile.read(length) if length else b""
                 auth = self.headers.get("Authorization", "")
+                backend._range = self.headers.get("Range")
                 status, body, headers = backend.handle(method, self.path, raw, auth)
                 payload = b"" if body is None else (body if isinstance(body, bytes)
                                                     else json.dumps(body).encode())
                 self.send_response(status)
-                for name, value in (headers or {}).items():
-                    self.send_header(name, value)
-                if payload:
+                headers = headers or {}
+                for name, value in headers.items():
+                    if not name.startswith("X-Test-"):
+                        self.send_header(name, value)
+                if payload and "Content-Type" not in headers:
                     self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
-                self.wfile.write(payload)
+                cut = headers.get("X-Test-Cut")
+                self.wfile.write(payload if cut is None else payload[:int(cut)])
 
             def do_GET(self):
                 self._dispatch("GET")
@@ -277,6 +311,8 @@ class ContractBackend:
                 return self.error(401, "invalid_credentials")
             del self.mfa_tokens[body["mfa_token"]]
             return 200, self._new_session(record["user"]), None
+        if method == "GET" and path.startswith("/gaia/"):
+            return self._download(path)
         if method == "GET" and path == "/v1/entitlements/public-key":
             return 200, {"key_id": self.key_id, "public_key_pem": self.public_key_pem}, None
 
@@ -340,6 +376,9 @@ class ContractBackend:
                     return self.error(404, "not_found")
                 self.activations[activation_id]["active"] = False
                 return 204, None, None
+        gaia = self._gaia_route(method, path, raw, user_id)
+        if gaia is not None:
+            return gaia
         if method == "POST" and path == "/v1/entitlements/check-in":
             body, error = self._body(raw, {"entitlement", "installation_id"})
             if error:
@@ -376,3 +415,79 @@ class ContractBackend:
             return {"status": "revoked", "reason": reason, "entitlement": None, "license": None}
         return {"status": "valid", "reason": None, "entitlement": self._entitlement(payload["act"]),
                 "license": self._license_out(record["id"], user_id)}
+
+    # GAIA (Companion v1) ------------------------------------------------------------
+    def _gaia_route(self, method, path, raw, user_id):
+        if method == "GET" and path == "/v1/account/gaia-access":
+            return 200, {"status": self._gaia_status(user_id), "mode": self.gaia_mode}, None
+        if method == "POST" and path == "/v1/account/gaia-access/request":
+            try:
+                body = json.loads(raw or b"{}")
+            except ValueError:
+                return self.error(422, "validation_error")
+            if not isinstance(body, dict) or not set(body) <= {"message"}:
+                return self.error(422, "validation_error")
+            if self.gaia_mode == "none":
+                return self.error(409, "requests_closed")
+            if self._gaia_status(user_id) != "granted":
+                self.gaia_access[user_id] = "pending"
+            return 200, {"status": self._gaia_status(user_id)}, None
+        if method == "POST" and path == "/v1/account/gaia-invite/redeem":
+            body, error = self._body(raw, {"token"})
+            if error:
+                return error
+            if self._gaia_status(user_id) == "granted":
+                return 200, {"access": True, "mode": self.gaia_mode}, None
+            if self.gaia_invites.get(body["token"], 0) <= 0:
+                return self.error(400, "invalid_code")
+            self.gaia_invites[body["token"]] -= 1
+            self.gaia_access[user_id] = "granted"
+            return 200, {"access": True, "mode": self.gaia_mode}, None
+        granted = self._gaia_status(user_id) == "granted"
+        if method == "GET" and path == "/v1/account/downloads":
+            builds = list(self.builds.values()) if granted and self.downloads_enabled else []
+            return 200, {"enabled": self.downloads_enabled, "access": granted, "builds": builds}, None
+        match = re.fullmatch(r"/v1/solver/builds/([^/]+)/download-session", path)
+        if method == "POST" and match:
+            if not self.downloads_enabled:
+                return self.error(503, "feature_disabled")
+            if not granted:
+                return self.error(403, "gaia_access_required")
+            from urllib.parse import unquote
+            build_id = unquote(match.group(1))
+            if build_id not in self.builds:
+                return self.error(404, "not_found")
+            token = secrets.token_urlsafe(24)
+            self.download_links[token] = {"user": user_id, "build": build_id,
+                                          "expires": self.clock() + 6 * 3600}
+            build = self.builds[build_id]
+            return 200, {"url": f"{self.url}/gaia/{build_id}/package.zip?t={token}",
+                         "sha256": build["sha256"], "size_bytes": build["size_bytes"],
+                         "expires_at": "2026-10-18T15:00:00Z"}, None
+        return None
+
+    def _download(self, path):
+        from urllib.parse import parse_qs, urlsplit
+        parts = urlsplit(path)
+        token = (parse_qs(parts.query).get("t") or [""])[0]
+        link = self.download_links.get(token)
+        match = re.fullmatch(r"/gaia/([^/]+)/package\.zip", parts.path)
+        if not link or not match or match.group(1) != link["build"]:
+            return self.error(403, "forbidden")
+        if self.clock() > link["expires"]:
+            return self.error(403, "download_expired")
+        if self._gaia_status(link["user"]) != "granted":
+            return self.error(403, "gaia_access_required")
+        data = self.build_files.get(link["build"])
+        if data is None:
+            return self.error(403, "build_unavailable")
+        headers = {"Content-Type": "application/octet-stream", "Accept-Ranges": "bytes"}
+        status, start = 200, 0
+        if self._range and not self.no_range:
+            start = int(re.fullmatch(r"bytes=(\d+)-", self._range).group(1))
+            status = 206
+            headers["Content-Range"] = f"bytes {start}-{len(data) - 1}/{len(data)}"
+        if self.cut_download_after is not None:
+            headers["X-Test-Cut"] = str(self.cut_download_after)
+            self.cut_download_after = None
+        return status, data[start:], headers

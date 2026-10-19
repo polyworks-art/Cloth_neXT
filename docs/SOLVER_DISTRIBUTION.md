@@ -1,5 +1,11 @@
 # Solver distribution record
 
+> Engines (2026-10-18): **AETHER** is the official upstream solver described
+> below and is never redistributed by Cloth NeXt. **GAIA**, PolyWorks' patched
+> build, is distributed only by the PolyWorks download service to accounts with
+> GAIA access, never inside the Cloth NeXt extension ZIP. See
+> [SOLVER_ENGINES.md](SOLVER_ENGINES.md).
+
 > Cloth NeXt does not distribute the PPF Contact Solver.
 >
 > The solver is downloaded separately from its official upstream provider after
