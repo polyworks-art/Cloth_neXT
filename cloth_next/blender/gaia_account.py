@@ -445,14 +445,18 @@ def draw_gaia_rows(layout) -> None:
                         else "No GAIA build is published for this version yet."), icon="INFO")
         row.operator("clothnext.gaia_refresh", text="", icon="FILE_REFRESH")
     else:
+        from ..polyworks.gaia_downloads import channel_label
         build = state.available
+        label = channel_label(build)
+        suffix = f" · {label}" if label else ""
         installed = _installed_gaia_build_ids()
         row = column.row(align=True)
+        # Same build_id = same build; any other build_id is offered, even at a lower version.
         if build["build_id"] in installed:
-            row.label(text=f"GAIA {build['version']} installed", icon="CHECKMARK")
+            row.label(text=f"GAIA {build['version']} installed{suffix}", icon="CHECKMARK")
             row.operator("clothnext.gaia_install", text="Repair")
         else:
-            row.label(text=f"GAIA {build['version']} available", icon="IMPORT")
+            row.label(text=f"GAIA {build['version']} available{suffix}", icon="IMPORT")
             row.operator("clothnext.gaia_install", text="Update GAIA" if installed else "Install GAIA")
         row.operator("clothnext.gaia_refresh", text="", icon="FILE_REFRESH")
     if state.error:

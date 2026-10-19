@@ -97,6 +97,17 @@ def test_build_choice_respects_platform_backend_channel_and_addon_range(backend,
     assert choose_build(builds, "1.0.0") is None
 
 
+@pytest.mark.parametrize("channel, label", [("dev", "Dev release"), ("public", "Public release")])
+def test_server_channel_is_a_label_not_a_filter(channel, label):
+    from cloth_next.polyworks.gaia_downloads import channel_label
+    build = {"build_id": "gaia-0.26.0-dev.20261019+cuda12.8.windows-x64.bf3dad56f7a0",
+             "version": "0.26.0-dev.20261019", "sha256": "0" * 64, "size_bytes": 1,
+             "channel": channel, "platform": "windows-x64", "backend": "cuda12.8",
+             "min_addon_version": "2.9.29", "max_addon_version": None, "published_at": None}
+    assert choose_build([build], "2.9.30") is build
+    assert channel_label(build) == label
+
+
 def test_download_verifies_and_never_logs_the_signed_url(backend, service, tmp_path, caplog):
     build_id = granted(backend, service)
     caplog.set_level(logging.DEBUG)

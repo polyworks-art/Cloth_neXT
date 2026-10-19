@@ -70,10 +70,18 @@ def compatible_builds(builds: list[dict], addon_version: str, *,
     return result
 
 
-def choose_build(builds: list[dict], addon_version: str, *, channel: str = "stable") -> dict | None:
-    """The current build of one channel, compatible with this add-on and machine."""
-    usable = [b for b in compatible_builds(builds, addon_version) if b.get("channel") == channel]
+def choose_build(builds: list[dict], addon_version: str) -> dict | None:
+    """The build for this add-on and machine.
+
+    The server already lists only the newest build this account may see per
+    platform/backend, so ``channel`` ("dev"/"public") is a label, never a filter.
+    """
+    usable = compatible_builds(builds, addon_version)
     return max(usable, key=lambda b: (b.get("published_at") or "", b["version"])) if usable else None
+
+
+def channel_label(build: dict) -> str:
+    return {"dev": "Dev release", "public": "Public release"}.get(build.get("channel") or "", "")
 
 
 def validate_download_url(url: str) -> tuple[str, str, int | None, str]:
@@ -225,5 +233,6 @@ def download(new_session: Callable[[], dict], target: Path, *,
     return target
 
 
-__all__ = ["ApiError", "DownloadCancelled", "DownloadError", "choose_build", "compatible_builds",
+__all__ = ["ApiError", "DownloadCancelled", "DownloadError", "channel_label", "choose_build",
+           "compatible_builds",
            "download", "validate_download_url"]
