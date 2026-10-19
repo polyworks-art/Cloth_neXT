@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.29",
+  "title": "What's New in Cloth NeXt 2.9.29",
+  "subtitle": "GAIA with CUDA and a clearer Solver Engine section.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "GAIA with CUDA",
+      "description": "Bakes with GAIA and the CUDA backend run again; CUDA is still checked on your GPU first."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Clearer Solver Engine section",
+      "description": "The active engine and its Bake options come first, one row per engine follows, details stay collapsed."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Engine stays yours",
+      "description": "AETHER and GAIA never switch on their own; install and update each engine from its own row."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

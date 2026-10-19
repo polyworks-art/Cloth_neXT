@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.29 - 2026-10-19
+
+- Fix CNX-E132 for GAIA with an explicit CUDA backend: recognise CUDA-only solver packages, keep the GPU probe, and report 'CUDA only' when no NVIDIA GPU is usable.
+- Show the backend choice for 0.23, 0.26 and GAIA installations.
+- Rework the Solver Engine section: active engine and Bake options first, one row per engine with its install or update action, technical details collapsed.
+
 ## 2.9.28 - 2026-10-18
 
 - Keep the Release menu's dynamic items referenced so solver names no longer appear garbled or empty.
