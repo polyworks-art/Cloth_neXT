@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.31 - 2026-10-19
+
+- Offer every GAIA build the PolyWorks server lists for this account. The server now labels builds dev or public and lists only the newest one per platform and backend; the add-on no longer requires the old stable channel and shows the label as Dev release or Public release.
+- Correct the Reproducible Bake hint: static colliders, rigid bodies and translation locks are not covered yet; rods are.
+- Pin the selected solver in the GAIA overlay test so it no longer depends on the machine's solver registry.
+
 ## 2.9.30 - 2026-10-19
 
 - Install GAIA through extended-length paths on Windows so long user or profile paths cannot exceed MAX_PATH during unpacking.
