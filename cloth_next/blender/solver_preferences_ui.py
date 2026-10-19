@@ -3,9 +3,11 @@
 
 """Compact solver preferences UI.
 
-The solver registry may preserve retired releases on disk, but Preferences only
-exposes releases in the current compatibility matrix. Switching, installing,
-repairing, and cleanup live in a single Manage menu.
+Layout: the active engine with its Bake options on top, one row per engine
+(AETHER, GAIA) with its install/update action and the GAIA account state, and
+the technical details in a collapsed sub-panel. Releases outside the current
+compatibility matrix stay hidden; reinstall, switching between releases and
+cleanup live in the Manage menu.
 """
 
 from __future__ import annotations
@@ -76,8 +78,30 @@ def _draw_worker_state(layout) -> None:
         layout.label(text=installer.error.user_message, **icon_registry.icon_kwargs("error", "ERROR"))
 
 
+_BACKEND_PROTOCOLS = frozenset({"0.18", "0.22", "0.23", "0.26"})
+_ENGINE_LABEL_FACTOR = 0.2
+
+
+def _sub_panel(layout, idname: str, title: str):
+    """Collapsible sub-panel, closed by default; ``None`` while collapsed."""
+    if not hasattr(layout, "panel"):
+        column = layout.column()
+        column.label(text=title)
+        return column
+    header, body = layout.panel(idname, default_closed=True)
+    header.label(text=title)
+    return body
+
+
+def _engine_row(layout, name: str):
+    """Engine name in a fixed-width left column; returns the right column."""
+    split = layout.split(factor=_ENGINE_LABEL_FACTOR)
+    split.label(text=name)
+    return split.column(align=True)
+
+
 def draw_solver_section(self, layout) -> None:
-    """Draw one active solver card with secondary actions behind Manage."""
+    """Active engine on top, both engines below, technical details collapsed."""
     from ..updater import engines
     box = layout.box()
     box.label(
@@ -94,6 +118,7 @@ def draw_solver_section(self, layout) -> None:
         selected_id = ""
     session_active = _preferences._solver_session_active()
     busy = session_active or _worker_active()
+    engine = engines.engine_of(active) if active is not None else None
 
     if registry_error:
         box.label(text=registry_error, **icon_registry.icon_kwargs("error", "ERROR"))
@@ -102,91 +127,71 @@ def draw_solver_section(self, layout) -> None:
         engine_row = box.row()
         engine_row.enabled = not busy
         engine_row.prop(self, "solver_engine", text="Engine")
-    engine = engines.engine_of(active) if active is not None else None
-    if engine is not None:
-        box.label(text=engines.ENGINE_DESCRIPTIONS[engine], icon="INFO")
+        if active is not None:
+            status_text, status_icon = _status(active)
+            engine_row.label(text=status_text, icon=status_icon)
 
     if active is None:
-        title = (
-            "No Solver Installed"
-            if not supported
-            else "No Solver Selected"
-        )
-        box.label(text=title, **icon_registry.icon_kwargs("error", "ERROR"))
-        if selected_id:
-            box.label(text="The selected solver installation is missing.")
+        _draw_no_active(self, box, supported, selected_id, busy)
+    else:
+        _draw_active(self, box, active, engine, busy, session_active)
 
-        if supported:
-            selector = box.row()
-            selector.enabled = not busy
-            selector.prop(self, "selected_solver_installation_id", text="Release")
-            box.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
-        else:
-            actions = box.row(align=True)
-            preferred = _preferences._session.entry
-            if preferred is not None:
-                install = actions.operator(
-                    "clothnext.solver_download", text="Install Solver"
-                )
-                install.release_id = preferred.release_id
-                install.activate_after_install = True
-            actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
-        _draw_worker_state(box)
-        _draw_gaia(box)
-        return
+    _draw_worker_state(box)
+    _draw_engines(box, registry, supported, active, busy)
+    if active is not None:
+        _draw_details(self, box, registry, active, engine, busy)
 
-    name_row = box.row(align=True)
-    name_row.label(text=active.display_name)
-    status_text, status_icon = _status(active)
-    name_row.label(text=status_text, icon=status_icon)
 
-    source = "Managed" if active.managed else "External"
-    box.label(
-        text=(
-            f"Protocol {active.protocol_version or 'Unknown'} · "
-            f"Schema {active.schema_version or 'Unknown'} · {source}"
-        )
-    )
-
-    if engine == engines.GAIA:
-        gaia_row = box.row()
-        gaia_row.enabled = not busy
-        gaia_row.prop(self, "gaia_reproducible_bake")
-        if getattr(self, "gaia_reproducible_bake", False):
-            box.label(text="Slower. Not yet covered: collision meshes, rods, rigid bodies.",
-                      icon="INFO")
-
-    if len(engines.installations_for(registry, engine)) > 1:
+def _draw_no_active(self, box, supported, selected_id, busy) -> None:
+    title = "No Solver Installed" if not supported else "No Solver Selected"
+    box.label(text=title, **icon_registry.icon_kwargs("error", "ERROR"))
+    if selected_id:
+        box.label(text="The selected solver installation is missing.")
+    if supported:
         selector = box.row()
         selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
+        box.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
+        return
+    actions = box.row(align=True)
+    preferred = _preferences._session.entry
+    if preferred is not None:
+        install = actions.operator("clothnext.solver_download", text="Install Solver")
+        install.release_id = preferred.release_id
+        install.activate_after_install = True
+    actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
 
-    if active.protocol_version in {"0.22", "0.23", "0.26", "0.18"}:
+
+def _draw_active(self, box, active, engine, busy, session_active) -> None:
+    from ..updater import engines
+    has_backend = active.protocol_version in _BACKEND_PROTOCOLS
+    is_gaia = engine == engines.GAIA
+    if has_backend or is_gaia:
+        options = box.row()
+        options.enabled = not busy
+        if has_backend:
+            options.prop(self, "solver_backend_choice", text="Backend")
+        if is_gaia:
+            options.prop(self, "gaia_reproducible_bake")
+
+    # Hints appear only when they apply.
+    if has_backend:
         from ..ppf.backend_selection import available_backend_choices
         choice = str(getattr(self, "solver_backend_choice", "AUTO") or "AUTO")
-        available = available_backend_choices(
-            active.protocol_version, active.root)
-        backend_row = box.row()
-        backend_row.enabled = not busy
-        backend_row.prop(self, "solver_backend_choice", text="Backend")
-        if active.protocol_version == "0.18":
-            box.label(text="Lumen provides CUDA only; Auto uses CUDA.")
+        available = available_backend_choices(active.protocol_version, active.root)
         if choice not in available:
             box.label(
-                text=f"{choice} is unavailable in {active.display_name}; choose Auto or an available backend.",
+                text=f"{choice} is not available in this build; choose Auto or an available backend.",
                 icon="ERROR")
         if choice == "ROCM":
-            box.label(text="ROCm: general AMD GPU support is not yet verified.",
-                      icon="INFO")
-        box.label(text="The selected backend is checked before each Bake.")
-
+            box.label(text="ROCm: general AMD GPU support is not yet verified.", icon="INFO")
+    if is_gaia and getattr(self, "gaia_reproducible_bake", False):
+        box.label(text="Slower. Not yet covered: collision meshes, rods, rigid bodies.",
+                  icon="INFO")
     if active.error:
         box.label(text=active.error, **icon_registry.icon_kwargs("error", "ERROR"))
     if session_active:
-        box.label(
-            text="Solver selection is locked while a Bake is active.",
-            icon="LOCKED",
-        )
+        box.label(text="Solver selection is locked while a Bake is active.", icon="LOCKED")
 
     actions = box.row(align=True)
     test_row = actions.row(align=True)
@@ -195,15 +200,83 @@ def draw_solver_section(self, layout) -> None:
     test.installation_id = active.installation_id
     actions.menu("CLOTHNEXT_MT_solver_manage", text="Manage")
 
-    _draw_worker_state(box)
-    _draw_gaia(box)
 
-
-def _draw_gaia(box) -> None:
+def _draw_engines(box, registry, supported, active, busy) -> None:
+    """One row per engine with what is installed and its install/update action."""
     from . import gaia_account
     box.separator()
-    box.label(text="GAIA")
-    gaia_account.draw_gaia_rows(box)
+    column = box.column()
+    _draw_aether_row(_engine_row(column, "AETHER"), registry, supported, active, busy)
+    column.separator()
+    gaia = _engine_row(column, "GAIA")
+    _draw_installed_gaia(gaia, registry, gaia_account.snapshot())
+    gaia_account.draw_gaia_rows(gaia)
+
+
+def _draw_installed_gaia(column, registry, state) -> None:
+    """Name the installed build whenever the account rows below would not."""
+    from ..updater import engines
+    if state.available is not None and not state.busy:
+        return
+    build = engines.gaia_build_of(engines.best_installation(registry, engines.GAIA))
+    if build is not None:
+        column.label(text=f"{build.version} installed", icon="CHECKMARK")
+
+
+def _draw_aether_row(column, registry, supported, active, busy) -> None:
+    from ..updater import engines
+    installed = engines.best_installation(registry, engines.AETHER)
+    installed_tags = {
+        item.official_release_tag for item in supported
+        if item.managed and item.official_release_tag
+        and engines.engine_of(item) == engines.AETHER
+    }
+    preferred = _preferences._session.entry
+    offer = (preferred if preferred is not None and preferred.downloadable
+             and preferred.official_release_tag not in installed_tags else None)
+    row = column.row(align=True)
+    if installed is not None:
+        tag = installed.official_release_tag or f"protocol {installed.protocol_version or '?'}"
+        row.label(text=f"{tag} installed", icon="CHECKMARK")
+    elif offer is not None:
+        row.label(text=f"{offer.official_release_tag} available", icon="IMPORT")
+    else:
+        row.label(text="Not installed", icon="INFO")
+    if offer is None:
+        return
+    action = row.row(align=True)
+    action.enabled = not busy
+    operator = action.operator(
+        "clothnext.solver_download",
+        text="Update AETHER" if installed is not None else "Install AETHER",
+    )
+    operator.release_id = offer.release_id
+    # Never switches an active selection; only fills an empty one.
+    operator.activate_after_install = active is None
+
+
+def _draw_details(self, box, registry, active, engine, busy) -> None:
+    from ..updater import engines
+    body = _sub_panel(box, "clothnext_solver_details", "Details")
+    if body is None:
+        return
+    if len(engines.installations_for(registry, engine)) > 1:
+        selector = body.row()
+        selector.enabled = not busy
+        selector.prop(self, "selected_solver_installation_id", text="Release")
+    body.label(text=active.display_name)
+    body.label(text=engines.ENGINE_DESCRIPTIONS[engine])
+    source = "Managed" if active.managed else "External"
+    body.label(
+        text=(
+            f"Protocol {active.protocol_version or 'Unknown'} · "
+            f"Schema {active.schema_version or 'Unknown'} · {source}"
+        )
+    )
+    if active.protocol_version == "0.18":
+        body.label(text="Lumen provides CUDA only; Auto uses CUDA.")
+    if active.protocol_version in _BACKEND_PROTOCOLS:
+        body.label(text="The selected backend is checked before each Bake.")
 
 
 class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):

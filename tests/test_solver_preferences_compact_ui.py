@@ -30,6 +30,9 @@ class RecordingLayout:
     def column(self, align=False):
         return RecordingLayout(self.root)
 
+    def split(self, factor=0.0, align=False):
+        return RecordingLayout(self.root)
+
     def label(self, text="", icon=None):
         self.root.labels.append((text, icon))
 
@@ -330,3 +333,118 @@ def test_dynamic_enum_items_stay_referenced_after_the_callback(blender_env):
     assert first is preferences._SOLVER_ITEMS
     assert preferences._engine_items(None, None) is preferences._ENGINE_ITEMS
     assert all(isinstance(item[1], str) and item[1] for item in first)
+
+
+class CollapsedPanelLayout(RecordingLayout):
+    """Like Blender: ``panel`` returns no body while the sub-panel is closed."""
+
+    def box(self):
+        return CollapsedPanelLayout(self.root)
+
+    def panel(self, idname, default_closed=False):
+        self.root.panels = getattr(self.root, "panels", []) + [(idname, default_closed)]
+        return RecordingLayout(self.root), None
+
+
+def test_aether_row_offers_update_without_switching_selection(
+        blender_env, monkeypatch, tmp_path):
+    active = make_installation(
+        tmp_path, installation_id="active", display_name="Solver Release",
+        protocol="0.13", schema="2", release_tag="old-tag")
+    registry = SolverRegistry((active,), active.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    newer = SimpleNamespace(release_id="ppf-new", official_release_tag="new-tag",
+                            downloadable=True)
+    preferences._session.entries = (newer,)
+    preferences._session.entry = newer
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = active.installation_id
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+
+    labels = [text for text, _icon in layout.labels]
+    assert "AETHER" in labels and "GAIA" in labels
+    assert "old-tag installed" in labels
+    updates = [(text, operator) for idname, text, operator, _enabled in layout.operators
+               if idname == "clothnext.solver_download"]
+    assert [text for text, _operator in updates] == ["Update AETHER"]
+    assert updates[0][1].release_id == "ppf-new"
+    assert updates[0][1].activate_after_install is False
+
+    compact_ui.uninstall()
+
+
+def test_aether_row_has_no_action_when_current_release_installed(
+        blender_env, monkeypatch, tmp_path):
+    active = make_installation(
+        tmp_path, installation_id="active", display_name="Solver Release",
+        protocol="0.13", schema="2", release_tag="current-tag")
+    registry = SolverRegistry((active,), active.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    current = SimpleNamespace(release_id="ppf-current", official_release_tag="current-tag",
+                              downloadable=True)
+    preferences._session.entries = (current,)
+    preferences._session.entry = current
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = active.installation_id
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+
+    assert not any(idname == "clothnext.solver_download"
+                   for idname, _text, _operator, _enabled in layout.operators)
+    compact_ui.uninstall()
+
+
+def test_technical_details_are_collapsed_by_default(blender_env, monkeypatch, tmp_path):
+    first = make_installation(
+        tmp_path, installation_id="first", display_name="First Release",
+        protocol="0.13", schema="2", release_tag="first-tag")
+    second = make_installation(
+        tmp_path, installation_id="second", display_name="Second Release",
+        protocol="0.13", schema="2", release_tag="second-tag")
+    registry = SolverRegistry((first, second), first.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = first.installation_id
+    layout = CollapsedPanelLayout()
+    prefs._draw_solver_section(layout)
+
+    labels = [text for text, _icon in layout.labels]
+    assert layout.panels == [("clothnext_solver_details", True)]
+    assert "Details" in labels
+    assert not any(text.startswith("Protocol ") for text in labels)
+    assert first.display_name not in labels
+    assert ("selected_solver_installation_id", "Release", True) not in layout.props
+    compact_ui.uninstall()
+
+
+def test_reproducible_bake_shares_the_backend_row(
+        blender_env, monkeypatch, tmp_path):
+    gaia = make_installation(
+        tmp_path, installation_id="gaia", display_name="GAIA build",
+        protocol="0.26", schema="2", release_tag=None)
+    release = gaia.root / "target" / "cuda" / "release"
+    release.mkdir(parents=True)
+    (release / "ppf-cts-server.exe").touch()
+    registry = SolverRegistry((gaia,), gaia.installation_id)
+    preferences, compact_ui = install_compact_ui(monkeypatch, registry)
+    from cloth_next.updater import engines
+    monkeypatch.setattr(engines, "engine_of",
+                        lambda item: engines.GAIA if item is gaia else engines.AETHER)
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.selected_solver_installation_id = gaia.installation_id
+    prefs.gaia_reproducible_bake = False
+    layout = RecordingLayout()
+    prefs._draw_solver_section(layout)
+
+    assert layout.props[:3] == [
+        ("solver_engine", "Engine", True),
+        ("solver_backend_choice", "Backend", True),
+        ("gaia_reproducible_bake", None, True),
+    ]
+    assert not any(text.startswith("Slower.") for text, _icon in layout.labels)
+    compact_ui.uninstall()
