@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.30 - 2026-10-19
+
+- Install GAIA through extended-length paths on Windows so long user or profile paths cannot exceed MAX_PATH during unpacking.
+- Strip release notes read from a file in tools/release_gaia.py; the server rejects control characters.
+
 ## 2.9.29 - 2026-10-19
 
 - Fix CNX-E132 for GAIA with an explicit CUDA backend: recognise CUDA-only solver packages, keep the GPU probe, and report 'CUDA only' when no NVIDIA GPU is usable.
