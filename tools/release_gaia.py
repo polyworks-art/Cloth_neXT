@@ -68,7 +68,7 @@ def main() -> None:
     rev = a.source_revision or subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     notes = a.notes
     if notes and notes.startswith("@"):
-        notes = Path(notes[1:]).read_text()
+        notes = Path(notes[1:]).read_text(encoding="utf-8").strip()  # server rejects control characters
 
     size = a.file.stat().st_size
     h = hashlib.sha256()

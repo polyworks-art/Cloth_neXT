@@ -26,7 +26,13 @@ from typing import Callable
 
 from . import engines
 from .archive import extract_to_staging
+from ..core.filesystem_paths import io_path, resolved_path
 from .install_paths import ManagedSolverPaths, validate_installation_id
+
+# The embedded Python runtime holds paths up to ~130 characters below the package
+# root; staging adds a random directory. Always use extended-length operands on
+# Windows so long user names or profile paths cannot exceed MAX_PATH.
+_ALWAYS_LONG = 1 << 20
 from .solver_registry import SolverInstallation, load_registry, write_registry
 
 SERVER = PurePosixPath("target/cuda/release/ppf-cts-server.exe")
@@ -108,7 +114,7 @@ def install_gaia_package(
         raise GaiaInstallError("The GAIA download failed its SHA-256 check; it was not installed.")
     paths.ensure_layout()
     try:
-        staging = extract_to_staging(archive, paths.staging_dir)
+        staging = extract_to_staging(archive, io_path(paths.staging_dir, reserved_length=_ALWAYS_LONG))
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         raise GaiaInstallError(f"The GAIA package could not be unpacked safely: {exc}") from exc
     try:
@@ -118,14 +124,14 @@ def install_gaia_package(
             raise GaiaInstallError("The GAIA package is not the build that was requested.")
         if cancelled():
             raise GaiaInstallError("GAIA installation was cancelled.")
-        server = root.joinpath(*SERVER.parts)
+        server = resolved_path(root.joinpath(*SERVER.parts))  # plain path for processes
         package, protocol, schema = probe_version(server)
         if protocol != build.protocol_version:
             raise GaiaInstallError(
                 f"The GAIA server reports protocol {protocol}, expected {build.protocol_version}.")
         installation_id = installation_id_for(build)
         registry = load_registry(paths.registry_json)
-        target = paths.version_dir(installation_id)
+        target = io_path(paths.version_dir(installation_id), reserved_length=_ALWAYS_LONG)
         existing = registry.get(installation_id)
         if existing is not None and target.is_dir():
             if engines.verify_gaia_files(target, build) is None:
@@ -154,9 +160,9 @@ def install_gaia_package(
             installation_id=installation_id,
             display_name=f"GAIA {build.version}",
             source=engines.GAIA_SOURCE,
-            root_path=str(target.resolve()),
-            executable_path=str(target.joinpath(*SERVER.parts).resolve()),
-            frontend_path=str((target / "frontend").resolve()),
+            root_path=str(resolved_path(target)),
+            executable_path=str(resolved_path(target.joinpath(*SERVER.parts))),
+            frontend_path=str(resolved_path(target / "frontend")),
             package_version=package, protocol_version=protocol, schema_version=schema,
             official_release_tag=None, managed=True, verified=True, healthy=True,
             channel="gaia", error=None)
