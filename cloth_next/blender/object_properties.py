@@ -299,9 +299,10 @@ class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
     surface_weight: bpy.props.FloatProperty(
         name="Surface Weight", default=1.0, min=0.01, soft_max=10.0,
         max=10000.0, precision=3, update=_on_material_value_update,
-        description="Mass of the fabric per square meter. Higher values "
-                    "give the cloth more inertia and make it react more "
-                    "heavily, but do not directly make it stiffer. Unit: kg/m². "
+        description="Mass of the fabric per square meter. Stretch, bend and "
+                    "contact stiffness scale with it, so on its own it barely "
+                    "changes how the cloth falls; it matters against sewing, "
+                    "wind, water and other objects. Unit: kg/m². "
                     "Solver parameter: density")
     stretch_resistance: bpy.props.FloatProperty(
         name="Stretch Resistance", default=1000.0, min=0.0,
