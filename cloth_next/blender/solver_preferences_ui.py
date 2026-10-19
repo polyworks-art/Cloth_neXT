@@ -186,7 +186,7 @@ def _draw_active(self, box, active, engine, busy, session_active) -> None:
         if choice == "ROCM":
             box.label(text="ROCm: general AMD GPU support is not yet verified.", icon="INFO")
     if is_gaia and getattr(self, "gaia_reproducible_bake", False):
-        box.label(text="Slower. Not yet covered: collision meshes, rods, rigid bodies.",
+        box.label(text="Slower. Not yet covered: static colliders, rigid bodies, locks.",
                   icon="INFO")
     if active.error:
         box.label(text=active.error, **icon_registry.icon_kwargs("error", "ERROR"))

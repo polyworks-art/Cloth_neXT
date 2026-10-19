@@ -78,10 +78,16 @@ def test_authoritative_flip_conversion_separates_points_and_world_velocity(blend
         module.flip_sample_to_world([[np.nan,0,0]],[[1,0,0]],matrix)
 
 
+@pytest.mark.parametrize('native', [False, True])
 @pytest.mark.parametrize('mode', ['POSITIONS', 'CONSTANT_X', 'DIRECTION', 'MAGNITUDE'])
-def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch, tmp_path, mode):
+def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch, tmp_path, mode, native):
     from contextlib import nullcontext
     module = sys.modules['cloth_next.blender.water_flow']
+    # The overlay reads the selected solver; pin it so the machine's registry
+    # does not decide the expectation. GAIA 0.26 always draws MAGNITUDE.
+    selected = SimpleNamespace(protocol_version='0.26') if native else None
+    monkeypatch.setattr(sys.modules['cloth_next.blender.preferences'], '_read_registry',
+                        lambda: (SimpleNamespace(selected=selected), None))
     field = reconstruct([[.5,.5,.5]], [[2,0,0]], [0,0,0], [1,1,1], [3,3,3])
     path = tmp_path / 'preview.gaia'
     write_water_container(path, {}, [(1,0,field)])
@@ -111,7 +117,8 @@ def test_overlay_upload_uses_float32_world_coordinates(blender_env, monkeypatch,
     assert uploads[0][0] == ('POINTS' if mode == 'POSITIONS' else 'LINES')
     np.testing.assert_allclose(uploads[0][1][0], [.5,.5,.5])
     if mode != 'POSITIONS':
-        np.testing.assert_allclose(uploads[0][1][1]-uploads[0][1][0], [.2,0,0] if mode != 'MAGNITUDE' else [.4,0,0], atol=1e-7)
+        expected = [.4,0,0] if native or mode == 'MAGNITUDE' else [.2,0,0]
+        np.testing.assert_allclose(uploads[0][1][1]-uploads[0][1][0], expected, atol=1e-7)
 
 
 def test_streaming_disabled_fast_path_has_no_cache_or_solver_dependency(blender_env, monkeypatch):

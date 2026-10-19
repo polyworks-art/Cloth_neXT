@@ -894,7 +894,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Reproducible Bake", default=False,
         description="GAIA only: run the deterministic solver path so the same scene, "
                     "settings, GPU and driver give bit-identical results. Slower. "
-                    "Scenes with collision meshes, rods or rigid bodies are not covered yet")
+                    "Scenes with static colliders, rigid bodies or translation locks are not covered yet")
     solver_backend_choice: bpy.props.EnumProperty(
         name="Solver Backend",
         items=(("AUTO", "Auto", "Use verified CUDA if available, otherwise CPU"),
