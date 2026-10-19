@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import gc
 import time
 
 import pytest
@@ -28,6 +29,9 @@ def backend():
 
 @pytest.fixture
 def root():
+    # Tk objects must be finalized on the UI thread, before another test's
+    # account worker can trigger cyclic collection of a previous interpreter.
+    gc.collect()
     try:
         window = tk.Tk()
     except tk.TclError:
@@ -38,6 +42,7 @@ def root():
         window.destroy()
     except tk.TclError:
         pass
+    gc.collect()
 
 
 @pytest.fixture
@@ -53,6 +58,9 @@ def account(backend, tmp_path, root, monkeypatch):
     window.opened = opened
     yield window
     window.close()
+    # Product close remains nonblocking. Tests must finish their worker before
+    # destroying the shared Tk interpreter or starting the next test.
+    window.pool.shutdown(wait=True, cancel_futures=True)
 
 
 def pump(window, condition, timeout=10.0):
