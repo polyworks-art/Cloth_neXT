@@ -1485,18 +1485,25 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
         header = layout.row(align=True)
         header.prop(scene, "cloth_next_show_sewing", text="Show Sewing", toggle=True)
         header.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname,
-                        text="Add Sewing", icon="ADD")
+                        text="Segment Sewing", icon="ADD").mode = "SEGMENT"
+        row = layout.row(align=True)
+        row.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Free Sewing").mode = "FREE"
+        row.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Edit Sewing").mode = "EDIT"
+        layout.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Multi Sewing").mode = "MULTI"
+        visual = layout.column(align=True)
+        for name in ("lines", "threads", "notches", "lengths", "inactive", "density", "opacity", "threshold", "absolute", "xray"):
+            visual.prop(scene.cloth_next_sewing_visual, name)
         objects = sewing._objects(scene)
         for index, item in enumerate(scene.cloth_next_sewing_definitions):
             source = objects.get(str(item.source_persistent_id))
-            if source is not context.object:
+            if source is not context.object and objects.get(str(item.target_persistent_id)) is not context.object:
                 continue
             box = layout.box()
             row = box.row(align=True)
             row.prop(item, "ui_expanded", text="", emboss=False,
                      icon="TRIA_DOWN" if item.ui_expanded else "TRIA_RIGHT")
             row.prop(item, "enabled", text="")
-            row.label(text=item.name, icon="MOD_CLOTH")
+            row.prop(item, "name", text="")
             row.prop(item, "show_overlay", text="", icon="HIDE_OFF")
             remove = row.operator(sewing.CLOTHNEXT_OT_remove_sewing.bl_idname,
                                   text="", icon="X")
@@ -1506,11 +1513,7 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
                 details.label(text=f"Side A: {item.source_name} ({len(item.side_a)} vertices)")
                 details.label(text=f"Side B: {item.target_name} ({len(item.side_b)} vertices)")
                 details.label(text=f"Connections: {len(item.mapping)}")
-                if item.source_persistent_id == item.target_persistent_id:
-                    details.prop(context.object.cloth_next.pressure,
-                                 "sewing_stiffness", text="Object Sewing Strength")
-                else:
-                    details.prop(item, "strength")
+                details.prop(item, "strength")
                 flip = details.operator(sewing.CLOTHNEXT_OT_flip_sewing.bl_idname,
                                         text="Flip Direction", icon="ARROW_LEFTRIGHT")
                 flip.index = index

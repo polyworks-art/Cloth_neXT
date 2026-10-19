@@ -62,7 +62,9 @@ def main():
     assert len(records) == 1 and records[0][0].stiffness == 12_500.0
     unequal = sewing._commit(bpy.context.scene, first, second, (0, 1, 2, 5), (0, 1, 2))
     _, records = sewing.snapshot_enabled(bpy.context.scene, (entry(first), entry(second)))
-    sampled = records[-1][0]
+    assert len(records) == 3  # includes target-only midpoint as a reverse dynamic stitch
+    assert len(records[-1][0].points) == 1
+    sampled = records[-2][0]
     assert len(sampled.points) == 4
     assert len({point.target_point for point in sampled.points}) == 4
     assert any(sum(weight > 0.0 for weight in point.target_weights) == 2
