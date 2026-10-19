@@ -161,7 +161,7 @@ def draw_solver_section(self, layout) -> None:
         selector.enabled = not busy
         selector.prop(self, "selected_solver_installation_id", text="Release")
 
-    if active.protocol_version in {"0.22", "0.18"}:
+    if active.protocol_version in {"0.22", "0.23", "0.26", "0.18"}:
         from ..ppf.backend_selection import available_backend_choices
         choice = str(getattr(self, "solver_backend_choice", "AUTO") or "AUTO")
         available = available_backend_choices(

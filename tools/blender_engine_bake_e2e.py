@@ -80,6 +80,7 @@ def main() -> int:
     parser.add_argument("--scene", choices=("contact", "collider", "pinned"), default="contact")
     parser.add_argument("--reproducible", action="store_true")
     parser.add_argument("--hard-pins", action="store_true")
+    parser.add_argument("--backend", choices=("AUTO", "CUDA", "CPU", "ROCM"), default="AUTO")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--frames", type=int, default=24)
     parser.add_argument("--cancel-after", type=float)
@@ -97,6 +98,7 @@ def main() -> int:
     pc2 = importlib.import_module(f"{args.module}.bake.pc2")
     prefs = bpy.context.preferences.addons[args.module].preferences
     prefs.auto_launch_bake_window = False
+    prefs.solver_backend_choice = args.backend
     if hasattr(prefs, "solver_engine"):  # older add-ons (baseline runs) have no engine property
         prefs.solver_engine = args.engine
         prefs.gaia_reproducible_bake = args.reproducible

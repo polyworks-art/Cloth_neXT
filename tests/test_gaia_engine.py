@@ -190,3 +190,40 @@ def test_inherited_reproducibility_switches_never_reach_a_solver(tmp_path, monke
                                environment=engines.REPRODUCIBLE_ENVIRONMENT)
     env = gaia.subprocess_environment()
     assert env["PPF_REPRO_WALK_SPMV"] == "1" and env["PPF_REPRO_FAST_CONTACT"] == "1"
+
+
+def _cuda_only_tree(root: Path) -> Path:
+    for name in ("ppf-cts-server.exe", "ppf-contact-solver.exe"):
+        path = root / "target/cuda/release" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    return root
+
+
+def test_cuda_only_gaia_offers_and_resolves_explicit_cuda(tmp_path, monkeypatch):
+    """CNX-E132 in 2.9.27: an explicit CUDA choice failed because no CPU server existed."""
+    from types import SimpleNamespace
+    from cloth_next.ppf import backend_selection
+    root = _cuda_only_tree(tmp_path / "gaia")
+    assert backend_selection.available_backend_choices("0.26", root) == ("AUTO", "CUDA")
+    probe = SimpleNamespace(returncode=0, stdout="backend: cuda\n")
+    monkeypatch.setattr(backend_selection.subprocess, "run", lambda *a, **k: probe)
+    chosen = backend_selection.executable_for_choice(root, "0.26", "CUDA")
+    assert chosen == root / "target/cuda/release/ppf-cts-server.exe"
+    backend_selection._preferred_executable_cached.cache_clear()
+    assert backend_selection.preferred_executable(root) == chosen
+    with pytest.raises(ValueError, match="not available"):
+        backend_selection.executable_for_choice(root, "0.26", "CPU")
+
+
+def test_cuda_only_release_without_working_gpu_says_so(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from cloth_next.ppf import backend_selection
+    root = _cuda_only_tree(tmp_path / "gaia")
+    monkeypatch.setattr(backend_selection.subprocess, "run",
+                        lambda *a, **k: SimpleNamespace(returncode=3, stdout=""))
+    backend_selection._preferred_executable_cached.cache_clear()
+    with pytest.raises(ValueError, match="CUDA only"):
+        backend_selection.preferred_executable(root)
+    with pytest.raises(ValueError, match="unavailable on this machine"):
+        backend_selection.executable_for_choice(root, "0.26", "CUDA")
