@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.38",
+  "title": "What's New in Cloth NeXt 2.9.38",
+  "subtitle": "Responsive Bakes with FLIP Fluids.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Responsive Bakes",
+      "description": "The live preview skips FLIP display reloads, so Blender stays fluid while baking."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Solver details are back",
+      "description": "Contacts, Newton steps and linear iterations show during the solve again."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Faster export",
+      "description": "Animated Colliders export without FLIP reloading its display meshes on every frame."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

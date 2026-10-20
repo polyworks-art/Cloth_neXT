@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.38 - 2026-10-20
+
+- Keep Blender responsive during Bakes in scenes with FLIP Fluids: the live preview advances frames without FLIP reloading its display meshes (about 2 s per frame, even when hidden), so the Bake window shows contacts, Newton steps and linear iterations again instead of staying at "Reading simulated vertices". The viewport does not update the water live during a Bake.
+
 ## 2.9.37 - 2026-10-20
 
 - Export animated Colliders much faster in scenes with FLIP Fluids: FLIP's surface, particle and whitewater display meshes are no longer reloaded on every preparation frame change (31 NEON frames: 41 s to 1 s). Bake inputs and FLIP files are unchanged.

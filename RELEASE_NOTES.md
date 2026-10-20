@@ -1,4 +1,6 @@
-# Cloth NeXt 2.9.37
+# Cloth NeXt 2.9.38
+
+Bakes in scenes with FLIP Fluids keep Blender responsive and show solver contacts, Newton steps and linear iterations again. The live preview no longer makes FLIP reload its display meshes for every streamed frame; the water is not updated live in the viewport during a Bake.
 
 Animated Collider export is much faster in scenes with FLIP Fluids: preparation no longer makes FLIP reload its display meshes on every frame. A Bake started after a failed attempt no longer waits at "Running solver" forever when the Bake window was still open.
 
