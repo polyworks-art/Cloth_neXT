@@ -13,6 +13,75 @@ from ..gaia.solver_fields import official_grid_payload
 
 WATER_COORDINATE_RECIPE = 'flip-evaluated-world-v2'
 _grid_display_cache = {}
+# (scene name, frame) -> world (min, max) of Hydrodynamic Pressure cloth,
+# recorded during preparation frame changes and consumed once per Bake.
+_motion_bounds = {}
+# A frame change can cost seconds (FLIP reloads its meshes), so frames the
+# capture passes did not visit are sampled sparsely and padded generously.
+MAX_BOUNDS_SAMPLES = 25
+BOUNDS_MARGIN_M = .25
+SAMPLED_BOUNDS_MARGIN_M = .4
+
+
+def _pressure_targets(scene):
+    return [obj for obj in getattr(scene, 'objects', ())
+            if getattr(getattr(obj, 'cloth_next', None), 'enabled', False)
+            and obj.cloth_next.role == 'CLOTH'
+            and getattr(obj.cloth_next, 'water_flow_enabled', False)
+            and getattr(obj.cloth_next, 'water_hydrodynamic_pressure', False)]
+
+
+def _world_box(scene, targets):
+    from mathutils import Vector
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    points = []
+    for obj in targets:
+        evaluated = obj.evaluated_get(depsgraph)
+        points.extend(tuple(evaluated.matrix_world @ Vector(c)) for c in evaluated.bound_box)
+    points = np.asarray(points, float)
+    return points.min(0), points.max(0)
+
+
+def record_motion_bounds(scene, frame):
+    """Cheap when no cloth uses pressure; never raises into a capture pass."""
+    try:
+        targets = _pressure_targets(scene)
+        if targets and float(frame).is_integer():
+            _motion_bounds[(scene.name, int(frame))] = _world_box(scene, targets)
+    except Exception:  # bounds are re-sampled later if a record is missing
+        pass
+
+
+def hydrodynamic_bounds(context, targets, first, last, progress=None):
+    """World box covering the pressure cloth over ``first..last``."""
+    scene = context.scene
+    frames = range(int(first), int(last) + 1)
+    known = [_motion_bounds.get((scene.name, frame)) for frame in frames]
+    boxes = [box for box in known if box is not None]
+    margin = BOUNDS_MARGIN_M
+    missing = [frame for frame, box in zip(frames, known) if box is None]
+    if missing:
+        margin = SAMPLED_BOUNDS_MARGIN_M
+        count = min(MAX_BOUNDS_SAMPLES, len(missing))
+        picks = sorted({missing[round(i * (len(missing) - 1) / max(count - 1, 1))]
+                        for i in range(count)})
+        original = scene.frame_current
+        from .preparation_preview import quiet_debug_previews
+        try:
+            for index, frame in enumerate(picks):
+                if progress is not None:
+                    progress(index, len(picks))
+                with quiet_debug_previews(scene):
+                    scene.frame_set(frame)
+                boxes.append(_world_box(scene, targets))
+        finally:
+            with quiet_debug_previews(scene):
+                scene.frame_set(original)
+    for frame in frames:
+        _motion_bounds.pop((scene.name, frame), None)
+    lo = np.min([box[0] for box in boxes], axis=0) - margin
+    hi = np.max([box[1] for box in boxes], axis=0) + margin
+    return np.r_[lo, hi].tolist()
 WATER_SOURCE_OPTIONS = (
     ('FLIP_FLUIDS','FLIP Fluids',True,
      'Use a baked FLIP Fluids domain with particle velocity export enabled.'),
@@ -414,17 +483,13 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
         raise ValueError('Experimental pressure requires one shared FLIP cache for all cloth')
     if tree.get('force_field',{}).get('fields'):
         raise ValueError('Experimental pressure refuses simultaneous force fields')
-    original=context.scene.frame_current
-    points=[]
-    try:
-        for frame in range(int(first),int(last)+1):
-            context.scene.frame_set(frame)
-            for obj in targets:
-                evaluated=obj.evaluated_get(context.evaluated_depsgraph_get())
-                points.extend(tuple(evaluated.matrix_world@Vector(corner)) for corner in evaluated.bound_box)
-    finally:context.scene.frame_set(original)
-    points=np.asarray(points)
-    bounds=np.r_[points.min(0)-.25,points.max(0)+.25].tolist()
+    def report(current,total):
+        from ..bake.controller import shared_controller
+        from ..bake.status import BakeActivity
+        shared_controller.update(status_message='Measuring cloth extent for Hydrodynamic Pressure',
+            activity_code=BakeActivity.CAPTURING_GEOMETRY,
+            progress_current=current,progress_total=total)
+    bounds=hydrodynamic_bounds(context,targets,first,last,progress=report)
     descriptor=dict(version=1,field_kind='experimental-hydrodynamic',first=int(first),last=int(last),
         fps=fps,path=next(iter(paths)),fingerprint=next(iter(fingerprints)),bounds=bounds,
         model=dict(density_kg_m3=1000.,normal_coefficient=1.,tangential_coefficient=0.,

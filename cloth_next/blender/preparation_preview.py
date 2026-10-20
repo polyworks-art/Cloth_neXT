@@ -42,4 +42,9 @@ def quiet_debug_previews(scene):
 
 def frame_set(scene, frame, **kwargs):
     with quiet_debug_previews(scene):
-        return scene.frame_set(frame, **kwargs)
+        result = scene.frame_set(frame, **kwargs)
+    # Hydrodynamic Pressure needs the cloth's extent over the Bake. Measure it
+    # during the capture passes that already visit every frame.
+    from .water_flow import record_motion_bounds
+    record_motion_bounds(scene, frame)
+    return result
