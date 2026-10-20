@@ -31,8 +31,16 @@ def test_invalid_same_object_and_disconnected_paths():
     vertices=((0,0,0),(1,0,0),(2,0,0),(3,0,0))
     edges=((0,1),(2,3))
     validate_paths(vertices,edges,(0,1),vertices,edges,(2,3),True)
-    with pytest.raises(ValueError,match='share vertices'):
+    with pytest.raises(ValueError,match='same path'):
         validate_paths(vertices,edges,(0,1),vertices,edges,(0,1),True)
+    with pytest.raises(ValueError,match='same path'):
+        validate_paths(vertices,edges,(0,1),vertices,edges,(1,0),True)
+    # A dart: both sides meet in one shared corner vertex.
+    chain = ((0,0,0),(1,0,0),(2,0,0),(1,1,0),(0,2,0))
+    links = ((0,1),(1,2),(2,3),(3,4))
+    validate_paths(chain,links,(0,1,2),chain,links,(2,3,4),True)
+    with pytest.raises(ValueError,match='overlap'):
+        validate_paths(chain,links,(0,1,2,3),chain,links,(2,3,4),True)
     with pytest.raises(ValueError,match='disconnected'):
         validate_paths(vertices,edges,(0,2),vertices,edges,(2,3))
 

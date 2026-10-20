@@ -72,6 +72,22 @@ def main():
     assert all(abs(sum(point.target_weights) - 1.0) < 1e-8 for point in sampled.points)
     assert all(set(point.target_triangle) <= set(range(6)) for point in sampled.points)
     unequal.enabled = False
+    # A dart: both sides of one object meet in corner vertex 2. The corner
+    # sewn onto itself must not become a degenerate constraint row.
+    dart = sewing._commit(bpy.context.scene, first, first, (0, 1, 2), (2, 5, 4), True)
+    for other in (intra, cross):
+        other.enabled = False
+    _, records = sewing.snapshot_enabled(bpy.context.scene, (entry(first), entry(second)))
+    dart_rows = [record[0] for record in records if record[0].identifier.startswith(dart.identifier)]
+    assert dart_rows, "dart seam must export"
+    for attachment in dart_rows:
+        for point in attachment.points:
+            heavy = point.target_triangle[max(range(3), key=lambda i: point.target_weights[i])]
+            assert not (heavy == point.source_index and max(point.target_weights) > 1 - 1e-9)
+    dart.enabled = False
+    for other in (intra, cross):
+        other.enabled = True
+    cross.strength = 0.0
     configured_solver = os.environ.get("CLOTH_NEXT_PPF_EXECUTABLE")
     if configured_solver:
         from cloth_next.blender import solver_test

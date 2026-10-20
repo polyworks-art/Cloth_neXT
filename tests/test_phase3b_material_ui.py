@@ -407,9 +407,8 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
         env.physics_ui.CLOTHNEXT_PT_rest_shape: ["shrink_percent"],
         env.physics_ui.CLOTHNEXT_PT_pressure:
             ["enable_inflate", "inflate_pressure"],
-        env.physics_ui.CLOTHNEXT_PT_sewing:
-            ["cloth_next_show_sewing", "lines", "threads", "notches", "lengths",
-             "inactive", "density", "opacity", "threshold", "absolute", "xray"],
+        # Display settings stay folded until the artist opens them.
+        env.physics_ui.CLOTHNEXT_PT_sewing: ["cloth_next_show_sewing", "ui_expanded"],
     }
     for panel_type, props in expected.items():
         panel = panel_type()

@@ -1482,43 +1482,73 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         layout, scene = self.layout, context.scene
-        header = layout.row(align=True)
-        header.prop(scene, "cloth_next_show_sewing", text="Show Sewing", toggle=True)
-        header.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname,
-                        text="Segment Sewing", icon="ADD").mode = "SEGMENT"
-        row = layout.row(align=True)
-        row.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Free Sewing").mode = "FREE"
-        row.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Edit Sewing").mode = "EDIT"
-        layout.operator(sewing.CLOTHNEXT_OT_edit_sewing.bl_idname, text="Multi Sewing").mode = "MULTI"
-        visual = layout.column(align=True)
-        for name in ("lines", "threads", "notches", "lengths", "inactive", "density", "opacity", "threshold", "absolute", "xray"):
-            visual.prop(scene.cloth_next_sewing_visual, name)
+        op = sewing.CLOTHNEXT_OT_edit_sewing.bl_idname
+        top = layout.row(align=True)
+        top.scale_y = 1.25
+        top.operator(op, text="Start Sewing", icon="ADD").mode = "SEGMENT"
+        top.prop(scene, "cloth_next_show_sewing", text="",
+                 icon="HIDE_OFF" if scene.cloth_next_show_sewing else "HIDE_ON")
+        modes = layout.row(align=True)
+        for mode, label in (("SEGMENT", "Segment"), ("FREE", "Free"),
+                            ("MULTI", "Multi"), ("EDIT", "Edit")):
+            modes.operator(op, text=label).mode = mode
+        visual = scene.cloth_next_sewing_visual
+        display = layout.row(align=True)
+        display.prop(visual, "ui_expanded", text="Display", emboss=False,
+                     icon="TRIA_DOWN" if visual.ui_expanded else "TRIA_RIGHT")
+        if visual.ui_expanded:
+            column = layout.column(align=True)
+            toggles = column.row(align=True)
+            toggles.prop(visual, "lines", text="Lines", toggle=True)
+            toggles.prop(visual, "threads", text="Threads", toggle=True)
+            toggles.prop(visual, "notches", text="Notches", toggle=True)
+            toggles = column.row(align=True)
+            toggles.prop(visual, "lengths", text="Lengths", toggle=True)
+            toggles.prop(visual, "inactive", text="Inactive", toggle=True)
+            toggles.prop(visual, "xray", text="X-Ray", toggle=True)
+            column.separator()
+            column.prop(visual, "density")
+            column.prop(visual, "opacity")
+            column.prop(visual, "threshold")
+            column.prop(visual, "absolute")
         objects = sewing._objects(scene)
-        for index, item in enumerate(scene.cloth_next_sewing_definitions):
-            source = objects.get(str(item.source_persistent_id))
-            if source is not context.object and objects.get(str(item.target_persistent_id)) is not context.object:
-                continue
+        rows = [(index, item) for index, item in enumerate(scene.cloth_next_sewing_definitions)
+                if context.object in (objects.get(str(item.source_persistent_id)),
+                                      objects.get(str(item.target_persistent_id)))]
+        if not rows:
+            layout.label(text="No seams on this object yet", icon="INFO")
+            return
+        for index, item in rows:
+            valid, message = sewing.seam_status(scene, index)
+            selected = index == scene.cloth_next_sewing_index
             box = layout.box()
             row = box.row(align=True)
             row.prop(item, "ui_expanded", text="", emboss=False,
                      icon="TRIA_DOWN" if item.ui_expanded else "TRIA_RIGHT")
             row.prop(item, "enabled", text="")
-            row.prop(item, "name", text="")
-            row.prop(item, "show_overlay", text="", icon="HIDE_OFF")
+            name = row.row(align=True)
+            name.alert = not valid
+            name.prop(item, "name", text="", icon="ERROR" if not valid else "NONE")
+            row.prop(item, "strength", text="")
+            flip = row.operator(sewing.CLOTHNEXT_OT_flip_sewing.bl_idname, text="",
+                                icon="ARROW_LEFTRIGHT", depress=item.flipped)
+            flip.index = index
+            row.prop(item, "show_overlay", text="",
+                     icon="HIDE_OFF" if item.show_overlay else "HIDE_ON")
+            edit = row.operator(sewing.CLOTHNEXT_OT_select_sewing.bl_idname, text="",
+                                icon="GREASEPENCIL", depress=selected)
+            edit.index = index
             remove = row.operator(sewing.CLOTHNEXT_OT_remove_sewing.bl_idname,
                                   text="", icon="X")
             remove.index = index
+            if not valid and message:
+                box.label(text=message, icon="ERROR")
             if item.ui_expanded:
                 details = box.column(align=True)
-                details.label(text=f"Side A: {item.source_name} ({len(item.side_a)} vertices)")
-                details.label(text=f"Side B: {item.target_name} ({len(item.side_b)} vertices)")
-                details.label(text=f"Connections: {len(item.mapping)}")
-                details.prop(item, "strength")
-                flip = details.operator(sewing.CLOTHNEXT_OT_flip_sewing.bl_idname,
-                                        text="Flip Direction", icon="ARROW_LEFTRIGHT")
-                flip.index = index
-                if item.status_message != "Ready":
-                    details.label(text=item.status_message, icon="ERROR")
+                details.label(text=f"Side A: {item.source_name} · {len(item.side_a)} vertices")
+                details.label(text=f"Side B: {item.target_name} · {len(item.side_b)} vertices")
+                details.label(text=f"Direction: {'reversed' if item.flipped else 'forward'}"
+                                   f" · {len(item.mapping)} connections")
 
 
 class CLOTHNEXT_PT_collision(_ClothNextSubpanel, bpy.types.Panel):

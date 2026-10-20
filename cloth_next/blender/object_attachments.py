@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 import uuid
 from contextlib import nullcontext
@@ -19,6 +20,8 @@ from ..attachments import (AttachmentError, AttachmentPoint, DEFAULT_STIFFNESS,
                            validate_attachment)
 from ..bake.controller import shared_controller
 from . import validation_state
+
+_log = logging.getLogger(__name__)
 
 try:
     import bmesh
@@ -478,23 +481,38 @@ _editor_text_handle = None
 
 def _editor_operator():
     window = getattr(bpy.context, "window", None)
-    return _editor_sessions.get(window.as_pointer()) if window else None
+    operator = _editor_sessions.get(window.as_pointer()) if window else None
+    return None if operator is None or operator._finished else operator
+
+
+class _SurfaceOccluder:
+    """BVH of the editor's cached surface for self-occlusion tests."""
+
+    def __init__(self, positions, triangles):
+        from mathutils.bvhtree import BVHTree
+        self.bvh = BVHTree.FromPolygons([tuple(p) for p in positions],
+                                        [tuple(t) for t in triangles],
+                                        all_triangles=True, epsilon=0.0)
+
+
+_STAGES = (("SOURCE_VERTEX_SELECT", "1 Source"), ("TARGET_OBJECT_SELECT", "2 Target"),
+           ("TARGET_VERTEX_SELECT", "3 Target Vertices"))
 
 
 def _editor_draw_view():  # pragma: no cover - Blender GPU callback
     operator = _editor_operator()
     if operator is None:
         return
+    import gpu
+    old = (gpu.state.blend_get(), gpu.state.depth_test_get())
     try:
-        import gpu
         from gpu_extras.batch import batch_for_shader
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         gpu.state.blend_set("ALPHA")
         gpu.state.depth_test_set("LESS_EQUAL")
         for obj, color, alpha in operator._wire_specs():
-            positions, edges = operator.mesh_cache[obj][0:2]
-            if edges:
-                batch = batch_for_shader(shader, "LINES", {"pos": positions}, indices=edges)
+            batch = operator.wire_batch(obj, shader)
+            if batch is not None:
                 shader.bind(); shader.uniform_float("color", (*color, alpha)); batch.draw(shader)
         for obj, indices, color in operator._point_specs():
             positions = operator.mesh_cache.get(obj, ((),))[0]
@@ -508,35 +526,29 @@ def _editor_draw_view():  # pragma: no cover - Blender GPU callback
             batch = batch_for_shader(shader, "LINES", {"pos": lines})
             shader.bind(); shader.uniform_float("color", (.35, .95, .55, .9))
             gpu.state.line_width_set(2.0); batch.draw(shader)
+    except Exception:
+        _log.exception("Attachment editor draw failed")
     finally:
-        try:
-            gpu.state.point_size_set(1.0); gpu.state.line_width_set(1.0)
-            gpu.state.depth_test_set("NONE"); gpu.state.blend_set("NONE")
-        except Exception:
-            pass
+        gpu.state.point_size_set(1.0)
+        gpu.state.line_width_set(1.0)
+        gpu.state.depth_test_set(old[1])
+        gpu.state.blend_set(old[0])
 
 
 def _editor_draw_text():  # pragma: no cover - Blender text callback
     operator = _editor_operator()
     if operator is None:
         return
-    import blf
-    labels = {
-        "SOURCE_VERTEX_SELECT": ("SOURCE", "Select attachment vertices"),
-        "TARGET_OBJECT_SELECT": ("TARGET", "Click a Cloth NeXt target object"),
-        "TARGET_VERTEX_SELECT": ("TARGET VERTICES", "Select attachment vertices"),
-    }
-    title, instruction = labels.get(operator.stage, ("ATTACHMENT", ""))
-    if operator.smart:
-        title = f"SMART ATTACH — {title}"
-        if operator.stage == "TARGET_OBJECT_SELECT":
-            instruction = "Click target to bind each source to its nearest surface vertex"
-    blf.position(0, 28, 72, 0); blf.size(0, 18); blf.draw(0, title)
-    blf.position(0, 28, 50, 0); blf.size(0, 13); blf.draw(0, instruction)
-    blf.position(0, 28, 30, 0); blf.size(0, 12)
-    blf.draw(0, "LMB Select | Shift Add | B Path Select | Enter Continue | Esc Cancel")
-    if operator.feedback and time.monotonic() < operator.feedback_until:
-        blf.position(0, 28, 92, 0); blf.size(0, 13); blf.draw(0, operator.feedback)
+    try:
+        from . import tool_overlay as overlay_ui
+        feedback = (operator.feedback if operator.feedback
+                    and time.monotonic() < operator.feedback_until else "")
+        layout = overlay_ui.draw(bpy.context, operator.toolbar_items(),
+                                 feedback or operator.instruction(), operator.toolbar_hover,
+                                 warning=bool(feedback) and operator.feedback_error)
+        operator.layouts[bpy.context.region.as_pointer()] = layout
+    except Exception:
+        _log.exception("Attachment toolbar draw failed")
 
 
 def _stop_editor_handlers():
@@ -546,10 +558,7 @@ def _stop_editor_handlers():
     for name in ("_editor_view_handle", "_editor_text_handle"):
         handle = globals()[name]
         if handle is not None:
-            try:
-                bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
-            except Exception:
-                pass
+            bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
             globals()[name] = None
 
 
@@ -579,12 +588,17 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         self.stage = "SOURCE_VERTEX_SELECT"
         self.source_selection, self.target_selection = set(), set()
         self.hovered_vertex = None
-        self.feedback, self.feedback_until = "", 0.0
+        self.feedback, self.feedback_until, self.feedback_error = "", 0.0, False
         self.path_anchor = None
         self.path_select = False
         self.path_additive = False
         self.mesh_cache = {}
         self.projection_cache = {}
+        self.occluders = {}
+        self.wire_batches = {}
+        self.layouts = {}
+        self.toolbar_hover = None
+        self._preview = None
         self._finished = False
         self.key = self.window.as_pointer()
         _editor_sessions[self.key] = self
@@ -604,14 +618,30 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _cache_mesh(self, obj):
-        positions, _triangles = _mesh_triangles(obj)
+        positions, triangles = _mesh_triangles(obj)
         edges = tuple(tuple(map(int, edge.vertices)) for edge in obj.data.edges)
-        self.mesh_cache[obj] = (positions, edges)
+        self.mesh_cache[obj] = (positions, edges, triangles)
+        self.wire_batches.pop(obj, None)
+        self.occluders.pop(obj, None)
+
+    def wire_batch(self, obj, shader):
+        """Cached wireframe; dense meshes are not re-uploaded every frame."""
+        if obj is None or obj not in self.mesh_cache:
+            return None
+        batch = self.wire_batches.get(obj)
+        if batch is None:
+            positions, edges = self.mesh_cache[obj][0:2]
+            if not edges:
+                return None
+            from gpu_extras.batch import batch_for_shader
+            batch = batch_for_shader(shader, "LINES", {"pos": positions}, indices=edges)
+            self.wire_batches[obj] = batch
+        return batch
 
     def _wire_specs(self):
-        result = [(self.source, (.05, .7, .95), .25 if self.target else .65)]
+        result = [(self.source, (.05, .7, .95), .25 if self.target else .5)]
         if self.target is not None:
-            result.append((self.target, (.95, .42, .12), .7))
+            result.append((self.target, (.95, .42, .12), .55))
         return result
 
     def _point_specs(self):
@@ -627,6 +657,9 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
     def preview_lines(self):
         if self.target is None or not self.source_selection or not self.target_selection:
             return ()
+        key = (frozenset(self.source_selection), frozenset(self.target_selection))
+        if self._preview is not None and self._preview[0] == key:
+            return self._preview[1]
         source_positions = self.mesh_cache[self.source][0]
         target_positions = self.mesh_cache[self.target][0]
         try:
@@ -634,9 +667,81 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                 source_positions, self.source_selection, self.mesh_cache[self.source][1],
                 target_positions, self.target_selection, self.mesh_cache[self.target][1])
         except AttachmentError:
-            return ()
-        return tuple(position for source, target in mapping
-                     for position in (source_positions[source], target_positions[target]))
+            mapping = ()
+        lines = tuple(position for source, target in mapping
+                      for position in (source_positions[source], target_positions[target]))
+        self._preview = (key, lines)
+        return lines
+
+    # -- toolbar -------------------------------------------------------------
+    def instruction(self):
+        if self.path_select:
+            return ("Path Select: click the start vertex" if self.path_anchor is None
+                    else "Path Select: click the end vertex")
+        if self.stage == "SOURCE_VERTEX_SELECT":
+            return "Click source vertices  ·  Shift adds  ·  B path select  ·  Enter continues"
+        if self.stage == "TARGET_OBJECT_SELECT":
+            if self.smart:
+                return "Click the target object; each source binds to its nearest surface point"
+            return "Click the target object (Cloth, Soft Body or Collider)"
+        return "Click target vertices  ·  Shift adds  ·  B path select  ·  Enter creates"
+
+    def toolbar_items(self):
+        from .tool_overlay import SEPARATOR, ToolButton
+        source_stage = self.stage == "SOURCE_VERTEX_SELECT"
+        items = [ToolButton("smart:off", "Attach", "mode", active=not self.smart,
+                            enabled=source_stage or not self.smart,
+                            tooltip="Pair selected source and target vertices", icon="attach"),
+                 ToolButton("smart:on", "Smart Attach", "mode", active=self.smart,
+                            enabled=source_stage or self.smart,
+                            tooltip="Bind each source vertex to the nearest target surface",
+                            icon="smart"),
+                 SEPARATOR]
+        reached = {"SOURCE_VERTEX_SELECT": 0, "TARGET_OBJECT_SELECT": 1,
+                   "TARGET_VERTEX_SELECT": 2}[self.stage]
+        for number, (stage, label) in enumerate(_STAGES):
+            if self.smart and stage == "TARGET_VERTEX_SELECT":
+                continue
+            items.append(ToolButton("stage:" + stage, str(number + 1), "mode",
+                                    active=stage == self.stage, enabled=number <= reached,
+                                    tooltip=label.split(" ", 1)[1]
+                                    + ("  ·  go back to this step" if number < reached else "")))
+        selecting = self.stage != "TARGET_OBJECT_SELECT"
+        selection = self.source_selection if source_stage else self.target_selection
+        creating = self.stage == "TARGET_VERTEX_SELECT"
+        items += [SEPARATOR,
+                  ToolButton("path", "Path Select", "toggle", active=self.path_select,
+                             enabled=selecting, tooltip="Shortest edge path (B)", icon="path"),
+                  ToolButton("clear", "Clear Selection", enabled=selecting and bool(selection),
+                             icon="clear"),
+                  ToolButton("continue", "Create Attachment" if creating else "Continue",
+                             "primary", enabled=selecting and bool(selection), tooltip="Enter",
+                             icon="confirm" if creating else "next"),
+                  SEPARATOR,
+                  ToolButton("cancel", "Exit", tooltip="Exit without creating (Esc)",
+                             icon="close")]
+        return items
+
+    def _button(self, context, event, button):
+        if button.startswith("smart:"):
+            self.smart = button == "smart:on"
+        elif button.startswith("stage:"):
+            stage = button[6:]
+            if stage != "TARGET_VERTEX_SELECT":
+                self.target, self.target_selection = None, set()
+            self.stage, self.hovered_vertex, self.path_select = stage, None, False
+        elif button == "path":
+            self.path_select, self.path_anchor = not self.path_select, None
+            self.path_additive = False
+        elif button == "clear":
+            (self.source_selection if self.stage == "SOURCE_VERTEX_SELECT"
+             else self.target_selection).clear()
+        elif button == "continue":
+            return self._enter()
+        elif button == "cancel":
+            self.finish()
+            return {"CANCELLED"}
+        return {"RUNNING_MODAL"}
 
     def _alive(self):
         try:
@@ -654,78 +759,160 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         from .linked_colliders import redraw
         redraw(self.window)
 
-    def _feedback(self, message):
-        self.feedback, self.feedback_until = message, time.monotonic() + 1.8
+    def _feedback(self, message, error=False):
+        self.feedback, self.feedback_until = message, time.monotonic() + 2.2
+        self.feedback_error = error
 
     def _viewport(self, context, event):
-        from .linked_colliders import viewport_at
-        area, region = viewport_at(self.window, event)
-        if area is None:
-            return None
-        return area, region, (event.mouse_x - region.x, event.mouse_y - region.y)
+        from . import viewport_pick
+        return viewport_pick.region_under_mouse(self.window, event)
 
     def _screen_vertices(self, context, area, region, obj):
-        from bpy_extras import view3d_utils
-        with context.temp_override(window=self.window, area=area, region=region):
-            rv3d = context.region_data
-            matrix = tuple(value for row in rv3d.view_matrix for value in row)
-            key = (obj, area.as_pointer(), region.as_pointer(), matrix,
-                   region.width, region.height)
-            projected = self.projection_cache.get(key)
-            if projected is None:
-                projected = tuple(view3d_utils.location_3d_to_region_2d(
-                    region, rv3d, position) for position in self.mesh_cache[obj][0])
-                self.projection_cache = {key: projected}
-            return projected
+        from .. import sewing_pick
+        rv3d = area.spaces.active.region_3d
+        matrix = tuple(value for row in rv3d.perspective_matrix for value in row)
+        key = (obj, area.as_pointer(), region.as_pointer(), matrix,
+               region.width, region.height)
+        projected = self.projection_cache.get(key)
+        if projected is None:
+            projected = sewing_pick.project(rv3d.perspective_matrix, self.mesh_cache[obj][0],
+                                            region.width, region.height)
+            self.projection_cache = {key: projected}
+        return projected
+
+    def _occluder(self, obj):
+        occluder = self.occluders.get(obj)
+        if occluder is None:
+            positions, _edges, triangles = self.mesh_cache[obj]
+            occluder = _SurfaceOccluder(positions, triangles)
+            self.occluders[obj] = occluder
+        return occluder
 
     def _pick_vertex(self, context, event):
+        from bpy_extras import view3d_utils
+        from .. import sewing_pick
+        from . import viewport_pick
         viewport = self._viewport(context, event)
         obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
         if viewport is None or obj is None:
             return None
         area, region, mouse = viewport
-        projected = self._screen_vertices(context, area, region, obj)
-        candidates = [((point.x-mouse[0])**2 + (point.y-mouse[1])**2, index)
-                      for index, point in enumerate(projected) if point is not None]
-        if not candidates:
+        layout = self.layouts.get(region.as_pointer())
+        if layout is not None and layout.contains(*mouse):
             return None
-        distance, index = min(candidates)
-        return index if distance <= 12.0 ** 2 else None
+        projected = self._screen_vertices(context, area, region, obj)
+        rv3d = area.spaces.active.region_3d
+        origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, mouse)
+        positions = self.mesh_cache[obj][0]
+        for _distance, index in sewing_pick.nearest_vertices(projected, None, mouse):
+            if viewport_pick.is_visible(context, self.scene, positions[index], origin,
+                                        (self._occluder(obj),), {obj.as_pointer()}):
+                return index
+        return None
+
+    def _pick_target(self, context, event):
+        """First eligible object under the mouse, looking past the source."""
+        from bpy_extras import view3d_utils
+        viewport = self._viewport(context, event)
+        if viewport is None:
+            return None
+        area, region, mouse = viewport
+        rv3d = area.spaces.active.region_3d
+        origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, mouse)
+        direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, mouse)
+        depsgraph = context.evaluated_depsgraph_get()
+        for _ in range(16):
+            hit, location, _normal, _index, obj, _matrix = self.scene.ray_cast(
+                depsgraph, origin, direction)
+            if not hit:
+                return None
+            obj = getattr(obj, "original", obj)
+            if obj is not self.source and _eligible_object(None, obj):
+                return obj
+            origin = location + direction * 1e-4
+        return None
+
+    def _enter(self):
+        if self.stage == "SOURCE_VERTEX_SELECT":
+            if not self.source_selection:
+                self._feedback("Select at least one source vertex", True)
+            else:
+                self.stage = "TARGET_OBJECT_SELECT"; self.hovered_vertex = None
+                self.path_select = False
+        elif self.stage == "TARGET_VERTEX_SELECT":
+            if not self.target_selection:
+                self._feedback("Select at least one target vertex", True)
+            else:
+                try:
+                    item = _commit_attachment(self.scene, self.source, self.target,
+                                              self.source_selection, self.target_selection)
+                except AttachmentError as exc:
+                    self._feedback(str(exc), True); return {"RUNNING_MODAL"}
+                count = len(item.points); self.finish()
+                bpy.ops.ed.undo_push(message="Create Attachment")
+                self.report({"INFO"}, f"Created attachment with {count} connections")
+                return {"FINISHED"}
+        self._redraw(); return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
         if _editor_sessions.get(getattr(self, "key", None)) is not self:
             return {"CANCELLED"}
-        if not self._alive() or event.type == "WINDOW_DEACTIVATE" or (
-                event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS"):
+        if not self._alive() or event.type == "WINDOW_DEACTIVATE":
             self.finish(); return {"CANCELLED"}
-        if event.type in {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"} or event.type.startswith("NUMPAD"):
-            self.projection_cache.clear()
+        if (event.type in {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "TRACKPADPAN",
+                           "TRACKPADZOOM", "MOUSEROTATE"} or event.type.startswith("NDOF")
+                or (event.type.startswith("NUMPAD") and event.type != "NUMPAD_ENTER")):
             return {"PASS_THROUGH"}
-        if event.type == "B" and event.value == "PRESS" and self.stage != "TARGET_OBJECT_SELECT":
+        viewport = self._viewport(context, event)
+        if viewport is None:
+            if event.type == "ESC" and event.value == "PRESS":
+                self.finish(); return {"CANCELLED"}
+            return {"PASS_THROUGH"}
+        _area, region, mouse = viewport
+        layout = self.layouts.get(region.as_pointer())
+        over_toolbar = layout is not None and layout.contains(*mouse)
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
+            if event.type == "INBETWEEN_MOUSEMOVE":
+                return {"RUNNING_MODAL"}
+            hovered = layout.hit(*mouse) if over_toolbar else None
+            changed = hovered != self.toolbar_hover
+            self.toolbar_hover = hovered
+            self.window.cursor_modal_set("DEFAULT" if over_toolbar else "CROSSHAIR")
+            if self.stage != "TARGET_OBJECT_SELECT":
+                previous = self.hovered_vertex
+                self.hovered_vertex = None if over_toolbar else self._pick_vertex(context, event)
+                changed = changed or previous != self.hovered_vertex
+            if changed:
+                self._redraw()
+            return {"RUNNING_MODAL"}
+        if event.value != "PRESS":
+            return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE" and over_toolbar:
+            button = layout.hit(*mouse)
+            result = self._button(context, event, button) if button else {"RUNNING_MODAL"}
+            if not self._finished:
+                self._redraw()
+            return result
+        if event.type in {"ESC", "RIGHTMOUSE"}:
+            if self.path_select:
+                self.path_select, self.path_anchor = False, None
+                self._redraw(); return {"RUNNING_MODAL"}
+            self.finish(); return {"CANCELLED"}
+        if event.type == "B" and self.stage != "TARGET_OBJECT_SELECT":
             self.path_select, self.path_anchor = True, None
             self.path_additive = bool(event.shift)
-            self._feedback("Path Select: click the start and end vertices")
+            self._redraw()
             return {"RUNNING_MODAL"}
-        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
-            if self.stage != "TARGET_OBJECT_SELECT":
-                self.hovered_vertex = self._pick_vertex(context, event)
-            self._redraw(); return {"RUNNING_MODAL"}
-        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+        if event.type == "LEFTMOUSE":
             if self.stage == "TARGET_OBJECT_SELECT":
-                viewport = self._viewport(context, event)
-                target = None
-                if viewport is not None:
-                    area, region, _ = viewport
-                    from .linked_colliders import object_at
-                    with context.temp_override(window=self.window, area=area, region=region):
-                        target = object_at(context, event, region)
-                if target is self.source or not _eligible_object(None, target):
-                    self._feedback("Choose an enabled Cloth, Soft Body or Collider mesh")
+                target = self._pick_target(context, event)
+                if target is None:
+                    self._feedback("Choose an enabled Cloth, Soft Body or Collider mesh", True)
                 else:
                     try:
                         self._cache_mesh(target)
                     except AttachmentError as exc:
-                        self._feedback(str(exc)); return {"RUNNING_MODAL"}
+                        self._feedback(str(exc), True); return {"RUNNING_MODAL"}
                     self.target = target
                     if self.smart:
                         try:
@@ -733,9 +920,10 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                                 self.scene, self.source, target,
                                 self.source_selection, (), smart=True)
                         except AttachmentError as exc:
-                            self._feedback(str(exc)); return {"RUNNING_MODAL"}
+                            self._feedback(str(exc), True); return {"RUNNING_MODAL"}
                         count = len(item.points)
                         self.finish()
+                        bpy.ops.ed.undo_push(message="Create Attachment")
                         self.report({"INFO"}, f"Smart Attach: created {count} connections")
                         return {"FINISHED"}
                     self.stage = "TARGET_VERTEX_SELECT"; self.hovered_vertex = None
@@ -747,7 +935,6 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                     if self.path_anchor is None:
                         self.path_anchor = index
                         self.hovered_vertex = index
-                        self._feedback("Path Select: click the end vertex")
                     else:
                         obj = self.source if self.stage == "SOURCE_VERTEX_SELECT" else self.target
                         try:
@@ -755,7 +942,7 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                                 self.mesh_cache[obj][0], self.mesh_cache[obj][1],
                                 self.path_anchor, index)
                         except AttachmentError as exc:
-                            self._feedback(str(exc))
+                            self._feedback(str(exc), True)
                         else:
                             if not self.path_additive and not event.shift:
                                 selection.clear()
@@ -771,25 +958,8 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
                         selection.add(index)
                 self._redraw()
             return {"RUNNING_MODAL"}
-        if event.type in {"RET", "NUMPAD_ENTER"} and event.value == "PRESS":
-            if self.stage == "SOURCE_VERTEX_SELECT":
-                if not self.source_selection:
-                    self._feedback("Select at least one source vertex")
-                else:
-                    self.stage = "TARGET_OBJECT_SELECT"; self.hovered_vertex = None
-            elif self.stage == "TARGET_VERTEX_SELECT":
-                if not self.target_selection:
-                    self._feedback("Select at least one target vertex")
-                else:
-                    try:
-                        item = _commit_attachment(self.scene, self.source, self.target,
-                                                  self.source_selection, self.target_selection)
-                    except AttachmentError as exc:
-                        self._feedback(str(exc)); return {"RUNNING_MODAL"}
-                    count = len(item.points); self.finish()
-                    self.report({"INFO"}, f"Created attachment with {count} connections")
-                    return {"FINISHED"}
-            self._redraw(); return {"RUNNING_MODAL"}
+        if event.type in {"RET", "NUMPAD_ENTER"}:
+            return self._enter()
         return {"RUNNING_MODAL"}
 
     def finish(self):
@@ -799,6 +969,7 @@ class CLOTHNEXT_OT_edit_attachment(bpy.types.Operator):
         if _editor_sessions.get(getattr(self, "key", None)) is self:
             del _editor_sessions[self.key]
         self.mesh_cache = {}; self.projection_cache = {}; self.source = self.target = None
+        self.occluders = {}; self.wire_batches = {}
         try:
             self.window.cursor_modal_restore(); self._redraw()
         except (ReferenceError, AttributeError):
