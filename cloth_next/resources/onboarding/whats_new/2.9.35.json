@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.35",
+  "title": "What's New in Cloth NeXt 2.9.35",
+  "subtitle": "Faster pressure Bakes and sewing from every side.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "No more waiting",
+      "description": "Hydrodynamic Pressure Bakes start right after geometry preparation instead of pausing for minutes."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Sew from every side",
+      "description": "Pick seam edges on cloth with Solidify or deform modifiers; hover stays fast on dense garments."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Viewport toolbar",
+      "description": "Sewing and Object Attachment tools sit in an icon column below the navigation buttons."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.35 - 2026-10-20
+
+- Fix Bakes with Hydrodynamic Pressure waiting many minutes at "Preparing evaluated geometry": the cloth extent is now measured during the existing geometry pass instead of a second pass over every frame (each frame change reloads FLIP meshes); missing frames are sampled at most 25 times with progress.
+- Sewing: edges can now be picked from every side, including cloth with Solidify or deform modifiers; hover stays fast on dense garments; Sewing and Object Attachment editors get a clickable icon toolbar below the viewport navigation buttons (follows the N panel).
+
 ## 2.9.34 - 2026-10-20
 
 - Open Hydrodynamic Pressure for any scene and any frame range. A selected GAIA CUDA installation qualifies when its own hash-listed worker reports native pressure transport; the owner package, the frozen NEON scene and the 130-159 frame limit are no longer required.
