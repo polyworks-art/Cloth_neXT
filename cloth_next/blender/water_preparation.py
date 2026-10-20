@@ -26,6 +26,24 @@ def _field_signature(metadata):
     return fingerprint(document)
 
 
+def _require_pressure_frames(objects, first, last):
+    """Hydrodynamic Pressure samples one genuine FLIP frame past the Bake end."""
+    for obj in objects:
+        domain = getattr(obj.cloth_next, 'water_flow_domain', None)
+        flip = getattr(getattr(domain, 'flip_fluid', None), 'domain', None)
+        if flip is None:
+            continue
+        root = Path(flip.cache.get_cache_abspath()) / 'bakefiles'
+        missing = [frame for frame in range(int(first), int(last) + 1)
+                   if not (root / f'{frame:06d}.bobj').is_file()]
+        if missing:
+            raise ValueError(
+                f'Hydrodynamic Pressure needs FLIP surface frames {first}-{last} '
+                f'(one past the Bake end); missing {missing[0]}'
+                + (f'-{missing[-1]}' if len(missing) > 1 else '')
+                + f'. Bake FLIP through frame {last} or end the Cloth Bake at frame {missing[0] - 2}.')
+
+
 def active(job_id=None):
     return _job is not None and (job_id is None or _job['id'] == job_id)
 
@@ -73,6 +91,7 @@ def start(context, objects, first, last, *, job_id=None, on_complete=None, wait_
             # Native adaptive steps can evaluate past the final output time.
             # Supply a genuine source sample rather than holding the last field.
             last=int(last)+1
+            _require_pressure_frames(objects,first,last)
         for obj in objects:
             s = obj.cloth_next
             if not s.water_flow_resolution:

@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fail-closed gate for a future, independently verified native extension.
+"""Fail-closed gate for the native triangle-pressure extension.
 
 Protocol 0.26 and native FluidVolume support do not certify triangle pressure.
-The isolated uniform-flow upstream test is not a supported scene transport.
+A selected installation qualifies only when its hash-listed CUDA worker reports
+the velocity/SDF transport and the native SDF bounds guard.
 """
 from dataclasses import dataclass
 from functools import lru_cache
@@ -24,9 +25,8 @@ def experimental_configuration(executable=None):
     value = os.environ.get('CLOTH_NEXT_EXPERIMENTAL_HYDRO_MANIFEST', '')
     if not value:
         from ..gaia import owner_test
-        if not owner_test.enabled():
-            raise ValueError('Requires verified native triangle forces and surface-based wetting transport')
-        config = owner_test.configuration()
+        config = (owner_test.configuration() if owner_test.enabled()
+                  else installation_configuration(executable))
     else:
         path = Path(value).resolve(strict=True)
         profile = Path(os.environ.get('BLENDER_USER_RESOURCES', '')).resolve(strict=True)
@@ -44,6 +44,44 @@ def experimental_configuration(executable=None):
         stat = candidate.stat()
         identities.append((str(candidate), stat.st_size, stat.st_mtime_ns, config[role+'_sha256']))
     _verify(tuple(identities))
+    return config
+
+
+def installation_configuration(executable):
+    """Bind the pressure runtime to the selected installation's own files.
+
+    Server, worker, backend and Python must match the installation's
+    SHA256SUMS.txt, which the installer verified before registering it.
+    """
+    if executable is None:
+        raise ValueError('Select a GAIA solver installation first')
+    from ..updater.health_runner import bundle_root_for
+    server = Path(executable).resolve(strict=True)
+    root = bundle_root_for(server)
+    files = {'server': server,
+             'worker': server.with_name('ppf-contact-solver' + server.suffix),
+             'backend': root / 'bin' / ('libsimbackend_cuda.dll' if os.name == 'nt'
+                                        else 'libsimbackend_cuda.so'),
+             'python': root / 'python' / ('python.exe' if os.name == 'nt' else 'bin/python3')}
+    sums = root / 'SHA256SUMS.txt'
+    if not sums.is_file():
+        raise ValueError('Requires a verified GAIA installation with native pressure transport')
+    listed = {}
+    for line in sums.read_text(encoding='utf-8').splitlines():
+        digest, _, name = line.strip().partition('  ')
+        if name:
+            listed[name.strip()] = digest.lower()
+    config = {'runtime': str(root), 'dependencies': '', 'installation': True}
+    for role, path in files.items():
+        relative = path.relative_to(root).as_posix() if path.is_relative_to(root) else None
+        if not path.is_file() or relative not in listed:
+            raise ValueError('Requires a verified GAIA CUDA installation with native pressure '
+                             'transport (missing ' + path.name + ')')
+        config[role] = str(path)
+        config[role + '_sha256'] = listed[relative]
+    site = files['python'].parent / 'Lib' / 'site-packages'
+    if os.name == 'nt' and not all((site / name).is_dir() for name in ('numpy', 'scipy')):
+        raise ValueError('The solver installation Python lacks NumPy/SciPy for FLIP surface preparation')
     return config
 
 
@@ -70,7 +108,7 @@ def _verify(identities):
 def hydrodynamic_capability(executable=None):
     try:
         experimental_configuration(executable)
-        return HydrodynamicCapability(True, 'Isolated CUDA pressure / native SDF bounds verified')
+        return HydrodynamicCapability(True, 'Native CUDA pressure transport and SDF bounds guard verified')
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
         return HydrodynamicCapability(False, str(exc))
 

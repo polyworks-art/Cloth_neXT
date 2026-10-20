@@ -53,6 +53,7 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         "gaia/owner_test.py",
         "gaia/prepare_experimental.py",
         "gaia/hydrodynamic_session.py",
+        "gaia/voxelize.py",
         "ppf/hydrodynamic_capability.py",
         "polyworks/api.py",
         "polyworks/service.py",

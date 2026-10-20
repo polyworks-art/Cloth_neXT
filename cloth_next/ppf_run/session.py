@@ -2710,6 +2710,18 @@ class SolverSession:
                                 self.diagnostics.cleanup_issues.append(outcome.technical_diagnostic())
                     except OSError:
                         pass
+                hydro = getattr(self, '_hydrodynamic_environment', {}).get(
+                    'PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR')
+                if hydro:
+                    # Prepared FLIP volumes are large and rebuilt by every run, resumes included.
+                    try:
+                        outcome = delete_owned(Path(hydro).parent, root=self.work_directory,
+                            ownership_authenticated=True, recursive=True,
+                            lifecycle_stage='PPF_SESSION_FINALIZE', artifact_type='hydrodynamic_volumes')
+                        if not outcome.success:
+                            self.diagnostics.cleanup_issues.append(outcome.technical_diagnostic())
+                    except OSError:
+                        pass
                 self.diagnostics.timings["total"] = time.monotonic() - started
                 log_with_context(self._logger, 20, "session finished", {
                     "run_id": self.diagnostics.run_id,

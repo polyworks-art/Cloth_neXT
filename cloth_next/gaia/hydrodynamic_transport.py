@@ -30,6 +30,23 @@ def dense_bricks(values):
     return table,np.asarray(blocks),dims.tolist()
 
 
+def compact_bricks(table, bricks):
+    """Store each distinct brick once; table entries may share storage."""
+    table = np.asarray(table, dtype='<u4')
+    bricks = np.ascontiguousarray(bricks, dtype='<f4')
+    if len(bricks) == 0:
+        return table, bricks
+    rows = bricks.reshape(len(bricks), -1).view(np.dtype((np.void, bricks[0].nbytes)))[:, 0]
+    _unique, first, inverse = np.unique(rows, return_index=True, return_inverse=True)
+    order = np.argsort(first)            # keep first-seen storage order
+    remap = np.empty(len(order), dtype='<u4')
+    remap[order] = np.arange(len(order), dtype='<u4')
+    used = table != np.uint32(0xFFFFFFFF)
+    compact = table.copy()
+    compact[used] = remap[inverse.ravel()[table[used]]]
+    return compact, bricks[first[order]]
+
+
 class ExperimentalHydroWriter:
     def __init__(self,path,*,start,step,provenance):
         self.path=Path(path)

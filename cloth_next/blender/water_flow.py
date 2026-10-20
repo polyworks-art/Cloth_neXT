@@ -766,7 +766,7 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
             hydro_row.enabled = hydro.available or bool(s.water_hydrodynamic_pressure)
             hydro_row.prop(s,'water_hydrodynamic_pressure')
             if not hydro.available:
-                response.label(text='Requires verified native pressure capability.', icon='INFO')
+                response.label(text='Requires a GAIA CUDA solver with native pressure transport.', icon='INFO')
         influence_row=response.row()
         influence_row.enabled=not getattr(s,'water_hydrodynamic_pressure',False)
         influence_row.prop(s, 'water_flow_influence', text='Influence (This Object)')

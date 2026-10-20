@@ -26,9 +26,12 @@ def prepare_session(descriptor, executable, work, *, check_cancel, progress, sce
     volume = root / 'volumes'
     model = root / 'model.json'
     model.write_text(json.dumps(descriptor['model'], allow_nan=False), encoding='utf-8')
-    script = Path(config['preparer']).resolve(strict=True)
-    command = [config['python'], str(script), '--dependencies', config['dependencies'],
-               '--output', str(volume), '--cache', descriptor['path'],
+    script = Path(config.get('preparer')
+                  or Path(__file__).with_name('prepare_experimental.py')).resolve(strict=True)
+    command = [config['python'], str(script)]
+    if config.get('dependencies'):
+        command += ['--dependencies', config['dependencies']]
+    command += ['--output', str(volume), '--cache', descriptor['path'],
                '--first', str(descriptor['first']),
                '--frames', str(descriptor['last']-descriptor['first']+2),
                '--fps', str(descriptor['fps']), '--surface-scale', '4', '--bounds',
