@@ -8559,12 +8559,25 @@ def _advance_bake_timeline(plan: RunPlan, blender_frame: int,
         # Move a previously advanced scene back to safety before making the
         # growing cache visible; filepath/show_viewport can evaluate at once.
         if scene is not None and int(getattr(scene, "frame_current", frame)) > frame:
-            scene.frame_set(frame)
+            _live_frame_set(scene, frame)
         _attach_live_playback(
             plan, live_paths, frame_index=frame - int(plan.frame_start))
     except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
         return
     _advance_bake_progress(plan, frame)
+
+
+def _live_frame_set(scene, frame: int) -> None:
+    """Live Bake preview frame change without FLIP display reloads.
+
+    FLIP reloads its display meshes on every frame change, even when hidden
+    (about 2 s per frame in the NEON scene). Doing that for each streamed
+    frame blocked Blender longer than the solver needed per frame, so the
+    status stayed at "Reading simulated vertices" and the UI stalled.
+    """
+    from .preparation_preview import quiet_debug_previews
+    with quiet_debug_previews(scene):
+        scene.frame_set(frame)
 
 
 def _advance_bake_progress(plan: RunPlan, blender_frame: int) -> None:
@@ -8580,7 +8593,7 @@ def _advance_bake_progress(plan: RunPlan, blender_frame: int) -> None:
     try:
         scene.use_preview_range = False
         if int(getattr(scene, "frame_current", plan.frame_start)) != frame:
-            scene.frame_set(frame)
+            _live_frame_set(scene, frame)
         from . import viewport_autoframe
         viewport_autoframe.update(plan, frame)
     except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
