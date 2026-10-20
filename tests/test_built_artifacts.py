@@ -61,7 +61,12 @@ def test_release_candidate_contains_current_feature_set(extension_zip):
         "updater/engines.py",
         "updater/gaia_install.py",
         "blender/sewing_overlay.py",
+        "blender/tool_overlay.py",
+        "blender/viewport_pick.py",
         "sewing_visual.py",
+        "sewing_pick.py",
+        "tool_icons.py",
+        "tool_overlay.py",
         "polyworks/entitlements.py",
     }
 
