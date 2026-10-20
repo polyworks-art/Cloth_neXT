@@ -173,6 +173,11 @@ def _launch() -> tuple[bool, str, bool]:
     global _process, _server, _unsubscribe, _transport_ready, _session_artifacts
     if running() and _server is not None:
         _log("process", "reusing running companion")
+        # The poll timer is the only reader of readiness and the startup
+        # timeout. Blender drops a timer that ever raised, so a reused window
+        # would otherwise wait forever for a handshake nobody reads.
+        if not bpy.app.timers.is_registered(_pulse):
+            bpy.app.timers.register(_pulse, first_interval=.05)
         return True, "Bake window process reused", False
     if _process is not None or _server is not None or _unsubscribe is not None:
         shutdown()

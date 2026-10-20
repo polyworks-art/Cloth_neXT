@@ -445,3 +445,15 @@ def test_shutdown_preserves_companion_that_resists_kill(blender_env, monkeypatch
     assert ("close", None) in calls
 
     manager._process = None
+
+
+def test_reused_companion_restarts_a_dropped_poll_timer(blender_env, monkeypatch):
+    manager=__import__("cloth_next.blender.companion_manager",fromlist=["x"])
+    reset(manager)
+    monkeypatch.setattr(manager,"running",lambda:True)
+    monkeypatch.setattr(manager,"_server",SimpleNamespace(connected=lambda:False))
+    timers=blender_env.bpy.app.timers
+    if timers.is_registered(manager._pulse):
+        timers.unregister(manager._pulse)
+    assert manager._launch()[:2] == (True, "Bake window process reused")
+    assert timers.is_registered(manager._pulse)
