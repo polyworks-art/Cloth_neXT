@@ -44,3 +44,32 @@ def test_linked_read_only_domain_and_disabled_debug_are_untouched(blender_env):
     scene.frame_set=lambda frame:observed.append(debug.enable_fluid_particle_debug_output)
     m.frame_set(scene,1)
     assert observed==[True]
+
+
+class Render(dict):
+    """FLIP render settings: RNA enum values backed by ID property indices."""
+    ITEMS = ('DISPLAY_FINAL', 'DISPLAY_PREVIEW', 'DISPLAY_NONE')
+
+    def __init__(self, **values):
+        super().__init__()
+        self.rna = dict(values)
+        enum = NS(enum_items=[NS(identifier=v) for v in self.ITEMS])
+        self.bl_rna = NS(properties={k: enum for k in values})
+
+    def __getattr__(self, key):
+        if key in self:
+            return self.ITEMS[self[key]]
+        return self.rna[key]
+
+
+def test_flip_display_meshes_are_not_loaded_during_preparation_frames(blender_env):
+    m = importlib.import_module('cloth_next.blender.preparation_preview')
+    render = Render(viewport_display='DISPLAY_FINAL', fluid_particle_viewport_display='DISPLAY_PREVIEW',
+                    whitewater_viewport_display='DISPLAY_NONE')
+    domain = NS(debug=Debug(), render=render)
+    scene = NS(objects=[NS(flip_fluid=NS(object_type='TYPE_DOMAIN', domain=domain))])
+    seen = []
+    scene.frame_set = lambda frame: seen.append({k: getattr(render, k) for k in render.rna})
+    m.frame_set(scene, 3)
+    assert seen == [dict.fromkeys(render.rna, 'DISPLAY_NONE')]
+    assert dict(render) == {} and render.viewport_display == 'DISPLAY_FINAL'
