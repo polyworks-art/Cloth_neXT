@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.36 - 2026-10-20
+
+- Hydrodynamic Pressure no longer refuses a Bake that ends on the last baked FLIP frame: the final lookahead interval holds that frame instead of requiring one extra FLIP frame. Missing FLIP surfaces inside the Bake range are reported as a Bake range problem instead of the misleading CNX-E174.
+
 ## 2.9.35 - 2026-10-20
 
 - Fix Bakes with Hydrodynamic Pressure waiting many minutes at "Preparing evaluated geometry": the cloth extent is now measured during the existing geometry pass instead of a second pass over every frame (each frame change reloads FLIP meshes); missing frames are sampled at most 25 times with progress.

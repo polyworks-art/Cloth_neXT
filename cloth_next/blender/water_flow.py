@@ -470,14 +470,16 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
     fps=context.scene.render.fps/context.scene.render.fps_base
     if abs(float(tree['scene']['fps'])-fps)>1e-7:
         raise ValueError('Hydrodynamic Pressure requires physical playback speed 1')
+    from .water_preparation import pressure_source_end
+    source_end=pressure_source_end(targets,first,last)
     paths=set();fingerprints=set()
     for obj in targets:
         s=obj.cloth_next
         if abs(s.water_flow_influence-1.)>1e-7 or abs(s.water_flow_velocity_scale-1.)>1e-7:
             raise ValueError('Experimental pressure requires Influence and Velocity Scale 1 on all cloth')
-        path=prepare_container(context,obj,first,last+1)
+        path=prepare_container(context,obj,first,source_end)
         with GaiaContainer(path) as container:digest=container.manifest['water']['fingerprint']
-        with WaterStreamReader(path,first=int(first),last=int(last)+1,fps=fps,expected_fingerprint=digest):pass
+        with WaterStreamReader(path,first=int(first),last=source_end,fps=fps,expected_fingerprint=digest):pass
         paths.add(str(Path(path).resolve()));fingerprints.add(digest)
     if len(paths)!=1 or len(fingerprints)!=1:
         raise ValueError('Experimental pressure requires one shared FLIP cache for all cloth')
@@ -491,6 +493,7 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
             progress_current=current,progress_total=total)
     bounds=hydrodynamic_bounds(context,targets,first,last,progress=report)
     descriptor=dict(version=1,field_kind='experimental-hydrodynamic',first=int(first),last=int(last),
+        source_last=source_end,
         fps=fps,path=next(iter(paths)),fingerprint=next(iter(fingerprints)),bounds=bounds,
         model=dict(density_kg_m3=1000.,normal_coefficient=1.,tangential_coefficient=0.,
                    wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1))

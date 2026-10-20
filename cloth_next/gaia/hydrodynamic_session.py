@@ -34,6 +34,7 @@ def prepare_session(descriptor, executable, work, *, check_cancel, progress, sce
     command += ['--output', str(volume), '--cache', descriptor['path'],
                '--first', str(descriptor['first']),
                '--frames', str(descriptor['last']-descriptor['first']+2),
+               '--source-last', str(descriptor.get('source_last', descriptor['last']+1)),
                '--fps', str(descriptor['fps']), '--surface-scale', '4', '--bounds',
                *map(str, descriptor['bounds'])]
     if config.get('owner_test'):

@@ -109,6 +109,8 @@ def main():
     p.add_argument('--experimental-surface-directory',type=Path,
                    help='Explicit isolated reconstruction for validation only; original bounds/velocity still come from cache')
     p.add_argument('--owner-dataset', type=Path)
+    p.add_argument('--source-last',type=int,
+                   help='Last source frame; later samples hold it (no FLIP frame past the Bake end)')
     p.add_argument('--workers',type=int,default=0,
                    help='Parallel frame workers; 0 picks from the CPU count')
     a=p.parse_args()
@@ -148,11 +150,16 @@ def main():
             number=record['frame']
             if number in indices:raise ValueError(f'Duplicate source frame {number}')
             indices[number]=index
-        selected=list(range(a.first,a.first+a.frames))
-        missing=[frame for frame in selected if frame not in indices]
+        requested_last=a.first+a.frames-1
+        source_last=requested_last if a.source_last is None else min(a.source_last,requested_last)
+        if source_last<a.first+a.frames-2:
+            raise ValueError('Only the final lookahead sample may hold the last FLIP frame')
+        selected=[min(frame,source_last) for frame in range(a.first,a.first+a.frames)]
+        real=list(range(a.first,source_last+1))
+        missing=[frame for frame in real if frame not in indices]
         if missing:raise ValueError(f'Missing GAIA source frames: {missing}')
-        times=np.asarray([c.manifest['frames'][indices[frame]]['time'] for frame in selected])
-        if not np.allclose(times-times[0],np.arange(a.frames)/a.fps,rtol=0,atol=1e-7):
+        times=np.asarray([c.manifest['frames'][indices[frame]]['time'] for frame in real])
+        if not np.allclose(times-times[0],np.arange(len(real))/a.fps,rtol=0,atol=1e-7):
             raise ValueError('GAIA source clock does not match requested frame rate')
     source=bounds_source
     surface_source=(a.experimental_surface_directory.resolve()
@@ -162,7 +169,8 @@ def main():
             if not path.is_file():raise ValueError(f'Missing FLIP surface source: {path}')
     writer=ExperimentalHydroWriter(a.output,start=0,step=1/a.fps,
         provenance=dict(source_cache=str(a.cache.resolve()),source_fingerprint=water['fingerprint'],
-            first_source_frame=a.first,last_source_frame=selected[-1],source_fps=a.fps,
+            first_source_frame=a.first,last_source_frame=source_last,source_fps=a.fps,
+            held_final_frame=source_last<requested_last,
             method='BOBJ_three_axis_parity_majority_signed_EDT_band_v2',
             experimental_surface_directory=str(surface_source) if a.experimental_surface_directory else None,
             reconstruction_transport_approved=False if a.experimental_surface_directory else None,

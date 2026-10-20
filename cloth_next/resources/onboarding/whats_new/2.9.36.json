@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.36",
+  "title": "What's New in Cloth NeXt 2.9.36",
+  "subtitle": "Pressure Bakes use your full FLIP range.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Full FLIP range",
+      "description": "Hydrodynamic Pressure Bakes may end on the last baked FLIP frame; no extra frame needed."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Sew from every side",
+      "description": "Pick seam edges on cloth with Solidify or deform modifiers; hover stays fast on dense garments."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Viewport toolbar",
+      "description": "Sewing and Object Attachment tools sit in an icon column below the navigation buttons."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

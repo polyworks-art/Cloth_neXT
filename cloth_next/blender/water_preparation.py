@@ -26,8 +26,14 @@ def _field_signature(metadata):
     return fingerprint(document)
 
 
-def _require_pressure_frames(objects, first, last):
-    """Hydrodynamic Pressure samples one genuine FLIP frame past the Bake end."""
+def pressure_source_end(objects, first, last):
+    """Last FLIP frame Hydrodynamic Pressure reads for a Bake ending at ``last``.
+
+    The native solver may evaluate slightly past the final output time, so a
+    genuine FLIP sample after the Bake end is used when it exists; otherwise
+    the last FLIP frame is held for that final interval.
+    """
+    end = int(last) + 1
     for obj in objects:
         domain = getattr(obj.cloth_next, 'water_flow_domain', None)
         flip = getattr(getattr(domain, 'flip_fluid', None), 'domain', None)
@@ -38,10 +44,11 @@ def _require_pressure_frames(objects, first, last):
                    if not (root / f'{frame:06d}.bobj').is_file()]
         if missing:
             raise ValueError(
-                f'Hydrodynamic Pressure needs FLIP surface frames {first}-{last} '
-                f'(one past the Bake end); missing {missing[0]}'
-                + (f'-{missing[-1]}' if len(missing) > 1 else '')
-                + f'. Bake FLIP through frame {last} or end the Cloth Bake at frame {missing[0] - 2}.')
+                f'Hydrodynamic Pressure needs FLIP surface meshes for the Bake frames {first}-{last}; '
+                f'FLIP surface {missing[0]:06d}.bobj is not baked. Bake FLIP over the Cloth Bake range.')
+        if not (root / f'{end:06d}.bobj').is_file():
+            end = int(last)
+    return end
 
 
 def active(job_id=None):
@@ -88,10 +95,7 @@ def start(context, objects, first, last, *, job_id=None, on_complete=None, wait_
         objects = tuple(objects)
         if not objects: raise ValueError('No Water Flow Cloth object selected')
         if any(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in objects):
-            # Native adaptive steps can evaluate past the final output time.
-            # Supply a genuine source sample rather than holding the last field.
-            last=int(last)+1
-            _require_pressure_frames(objects,first,last)
+            last=pressure_source_end(objects,first,last)
         for obj in objects:
             s = obj.cloth_next
             if not s.water_flow_resolution:
