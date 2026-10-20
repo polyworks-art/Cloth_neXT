@@ -1,4 +1,6 @@
-# Cloth NeXt 2.9.36
+# Cloth NeXt 2.9.37
+
+Animated Collider export is much faster in scenes with FLIP Fluids: preparation no longer makes FLIP reload its display meshes on every frame. A Bake started after a failed attempt no longer waits at "Running solver" forever when the Bake window was still open.
 
 A Hydrodynamic Pressure Bake may now end on the last baked FLIP frame (for example FLIP and cloth both 1-250). The solver's final lookahead holds that frame instead of stopping with CNX-E174.
 

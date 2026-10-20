@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.37 - 2026-10-20
+
+- Export animated Colliders much faster in scenes with FLIP Fluids: FLIP's surface, particle and whitewater display meshes are no longer reloaded on every preparation frame change (31 NEON frames: 41 s to 1 s). Bake inputs and FLIP files are unchanged.
+- Fix a Bake that could wait at "Running solver" forever after a failed attempt left the Bake window open: reusing that window restarts its readiness polling and startup timeout.
+
 ## 2.9.36 - 2026-10-20
 
 - Hydrodynamic Pressure no longer refuses a Bake that ends on the last baked FLIP frame: the final lookahead interval holds that frame instead of requiring one extra FLIP frame. Missing FLIP surfaces inside the Bake range are reported as a Bake range problem instead of the misleading CNX-E174.

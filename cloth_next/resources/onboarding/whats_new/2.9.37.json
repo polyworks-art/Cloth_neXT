@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.37",
+  "title": "What's New in Cloth NeXt 2.9.37",
+  "subtitle": "Faster Collider export with FLIP Fluids.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Faster export",
+      "description": "Animated Colliders export without FLIP reloading its display meshes on every frame."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Reliable restarts",
+      "description": "A new Bake after a failed attempt no longer hangs at Running solver."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Full FLIP range",
+      "description": "Hydrodynamic Pressure Bakes may end on the last baked FLIP frame; no extra frame needed."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
