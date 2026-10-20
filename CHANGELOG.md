@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.34 - 2026-10-20
+
+- Open Hydrodynamic Pressure for any scene and any frame range. A selected GAIA CUDA installation qualifies when its own hash-listed worker reports native pressure transport; the owner package, the frozen NEON scene and the 130-159 frame limit are no longer required.
+- Read FLIP surfaces directly from the FLIP cache and voxelise them with a NumPy three-axis vote that tolerates small surface holes; no extra Python libraries are needed.
+- Prepare pressure volumes in parallel and store them compactly (about 15 instead of 44 MB per frame); delete them after every Bake.
+- Explain clearly when the one FLIP frame past the Bake end that pressure samples is missing.
+
 ## 2.9.33 - 2026-10-19
 
 - Add continuous Segment and Free Sewing with direct edge selection, same-object paths, ordered multi-path relationships and viewport seam editing.

@@ -1,9 +1,7 @@
-# Cloth NeXt 2.9.33
+# Cloth NeXt 2.9.34
 
-Sewing now selects edge segments directly and stays active after each committed seam. Free Sewing follows explicitly selected connected edges. Both sides may belong to the same cloth object. Edit Sewing selects existing seams and supports reversal, enable/disable, deletion and boundary-side reassignment; Strength always edits the definition exported to the solver.
+Hydrodynamic Pressure now works in any scene and for any number of frames. Enable it on the cloth's Fluid Interaction panel with a GAIA CUDA solver selected; the add-on checks the selected installation itself (hash list and native worker probe) and never switches solvers. The earlier owner evaluation package, frozen NEON scene and 130-159 frame limit are no longer needed.
 
-A separate overlay renderer adds recognizable seam colors, fine arc-length correspondence threads, directional notches and larger endpoint circles. Thread density and opacity, sewing lines, threads, notches, length differences and inactive seams have independent controls. Length mismatch warnings do not reject intentional gathers. Unequal vertex densities receive additional reverse dynamic stitches.
+FLIP surfaces are read straight from the FLIP cache. Small surface holes no longer stop the Bake. Preparation runs in parallel, needs about 15 MB per frame and is removed after each Bake. Pressure samples one FLIP frame beyond the Bake end, so bake FLIP one frame longer than the cloth (for example FLIP to 250, cloth to 249).
 
-Includes Claude's complete changes through 2.9.32: frozen-contract PolyWorks account integration, explicit AETHER/GAIA engine selection, verified GAIA installation and Dev/Public build selection, Windows long-path installation, editable Initial Bend Shape and corrected Surface Weight guidance. Existing solver choices are preserved. No external solver runtime is bundled.
-
-Development limitations: Multi Sewing supports a shared path (1:N or M:1) or equal-size ordered groups. General unequal M:N groups, dense-production picking performance and the full garment/character GUI acceptance matrix are not yet certified. The separately gated GAIA owner evaluation retains its existing limitations and is not enabled by this release.
+Development limitations: pressure is one-way (water moves cloth), uses water density 1000 kg/m³ with Cn 1 and Ct 0, requires Blender Unit Scale 1, an unrotated FLIP domain and a shared FLIP cache for all wet cloth. Includes everything from 2.9.33.

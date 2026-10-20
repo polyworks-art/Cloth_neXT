@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.34",
+  "title": "What's New in Cloth NeXt 2.9.34",
+  "subtitle": "Hydrodynamic Pressure for any scene and frame range.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Water pushes cloth",
+      "description": "Hydrodynamic Pressure works in any scene and for any number of frames with your GAIA CUDA solver."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Straight from FLIP",
+      "description": "Surfaces come directly from the FLIP cache; small surface holes no longer stop the Bake."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Faster and smaller",
+      "description": "Pressure data is prepared in parallel, about a third the size, and removed after every Bake."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
