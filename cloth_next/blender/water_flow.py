@@ -405,7 +405,8 @@ def prepare_container(context, obj, first, last):
                 positions,velocities=sample
                 field=reconstruct(positions,velocities,provider.minimum,provider.maximum,dims,**options)
             yield frame, (frame-first)/fps, field
-            del field, positions, velocities
+            # Particle-file samples stream in chunks and bind no arrays here.
+            del field, sample
     try:
         write_water_container(path, metadata, sequence())
     finally:
