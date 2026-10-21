@@ -314,6 +314,7 @@ def water_settings_record(obj):
             'hydrodynamic_pressure':getattr(s,'water_hydrodynamic_pressure',False),
             'pressure_strength':getattr(s,'water_pressure_strength',1.),
             'pressure_tangential':getattr(s,'water_pressure_tangential',0.),
+            'wet_fabric':[getattr(s,k,0.) for k in WET_FABRIC_KEYS],
             'coupling_strength':getattr(s,'water_flow_coupling_strength',1.),
             'native_flow':getattr(s,'water_flow_native_flow',1.),
             'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
@@ -468,6 +469,30 @@ def pressure_model(targets):
                 wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1)
 
 
+WET_FABRIC_KEYS=('water_wet_fabric','water_fiber_density','water_absorption','water_wet_time','water_dry_time','water_wet_cling')
+
+
+def wet_fabric_model(targets, gravity_blender):
+    """Extra sheet-model fields for buoyancy and soaking; empty when disabled."""
+    values={tuple(round(float(getattr(o.cloth_next,k,0.)),6) for k in WET_FABRIC_KEYS) for o in targets}
+    if len(values)!=1:
+        raise ValueError('Wet Fabric settings must be the same on all pressure cloth')
+    enabled,fiber,absorption,wet_time,dry_time,cling=next(iter(values))
+    if not enabled:
+        return {}
+    if not np.isfinite([fiber,absorption,wet_time,dry_time,cling]).all() or fiber<=0 or min(absorption,wet_time,dry_time,cling)<0:
+        raise ValueError('Invalid Wet Fabric settings')
+    from ..ppf.coordinates import blender_vector_to_ppf
+    gravity=[float(v) for v in blender_vector_to_ppf(gravity_blender)]
+    return dict(gravity_m_s2=gravity,buoyancy_ratio=1000./fiber,absorption=absorption,
+                wet_time_s=wet_time,dry_time_s=dry_time,wet_cling=cling)
+
+
+def _scene_gravity(context):
+    from .solver_test import _force_state
+    return tuple(_force_state(context)[0].gravity)
+
+
 def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,targets):
     from ..ppf.hydrodynamic_capability import require_hydrodynamic_capability
     from ..ppf.models import ConnectionOwnership
@@ -475,6 +500,10 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
     from ..gaia.streaming import WaterStreamReader
     from mathutils import Vector
     require_hydrodynamic_capability(resolved.executable_path)
+    if any(getattr(o.cloth_next,'water_wet_fabric',False) for o in targets):
+        from ..ppf.hydrodynamic_capability import wet_fabric_capability
+        if not wet_fabric_capability(resolved.executable_path):
+            raise ValueError('Wet Fabric needs a GAIA build with wet-fabric support; update GAIA or disable Wet Fabric')
     if resolved.ownership is not ConnectionOwnership.OWNED_PROCESS:
         raise ValueError('Hydrodynamic Pressure requires an owned isolated solver')
     if not all(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in targets):
@@ -511,7 +540,7 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
     descriptor=dict(version=1,field_kind='experimental-hydrodynamic',first=int(first),last=int(last),
         source_last=source_end,
         fps=fps,path=next(iter(paths)),fingerprint=next(iter(fingerprints)),bounds=bounds,
-        model=pressure_model(targets))
+        model={**pressure_model(targets),**wet_fabric_model(targets,_scene_gravity(context))})
     return payload,None,json.dumps(descriptor,sort_keys=True,separators=(',',':'),allow_nan=False)
 
 
@@ -857,6 +886,14 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
             if getattr(s,'water_hydrodynamic_pressure',False):
                 response.prop(s, 'water_pressure_strength')
                 response.prop(s, 'water_pressure_tangential')
+                response.prop(s, 'water_wet_fabric')
+                if getattr(s,'water_wet_fabric',False):
+                    wet=response.column(align=True)
+                    wet.prop(s, 'water_fiber_density')
+                    wet.prop(s, 'water_absorption')
+                    wet.prop(s, 'water_wet_time')
+                    wet.prop(s, 'water_dry_time')
+                    wet.prop(s, 'water_wet_cling')
             else:
                 response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
                 response.prop(s, 'water_flow_native_flow', text='Velocity Damping')

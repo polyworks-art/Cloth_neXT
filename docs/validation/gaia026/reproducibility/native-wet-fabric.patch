@@ -1,0 +1,493 @@
+--- a/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
++++ b/crates/ppf-cts-solver/src/kernels/energy/face_force.kernel.cpp
+@@ -343,11 +343,14 @@
+     const unsigned *words,const float *floats,const unsigned *table,const float *data,
+     float *telemetry,compute::atomic_float_t *force,const unsigned *index,
+     const unsigned *offset,compute::atomic_float_t *value,unsigned rows,
+-    DiagHandle diag,unsigned element) {
++    DiagHandle diag,unsigned element,
++    float mass,float time,float gx,float gy,float gz,float buoyancy,
++    float absorb,float tau_wet,float tau_dry,float *wet_state,float *wet_vertex) {
+     const Vec3f cross=(x1-x0).cross(x2-x0);
+     const float a2=cross.norm();
+     if (a2<=0.0f) return;
+     const float area=0.5f*a2;
++    unsigned submerged=0u;
+     const Vec3f n=cross/a2;
+     Mat3x3f gradient=Mat3x3f::Zero();
+     Mat9x9f hessian=Mat9x9f::Zero();
+@@ -358,11 +361,12 @@
+         const Vec3f v=(b[0]*(x0-c0)+b[1]*(x1-c1)+b[2]*(x2-c2))/dt;
+         Vec3f sdf;float sdf_support;float sdf_presence;
+         field_fluid(words,floats,table,data,1u,p,1.0f,sdf,sdf_support,sdf_presence);
+-        // Every iterate must be inside the validated SDF, including dry samples.
+-        const bool sdf_valid=sdf_presence>0.0f && sdf_support>0.0f;
+-        DIAG_ASSERT4(diag,sdf_valid,p[0],p[1],p[2],static_cast<float>(element));
+-        if (!sdf_valid) return;
++        // Every iterate must be inside the validated SDF, including dry samples.
++        const bool sdf_valid=sdf_presence>0.0f && sdf_support>0.0f;
++        DIAG_ASSERT4(diag,sdf_valid,p[0],p[1],p[2],static_cast<float>(element));
++        if (!sdf_valid) return;
+         if (sdf[0]>0.0f) continue;
++        ++submerged;
+         Vec3f u;float support;float presence;
+         field_fluid(words,floats,table,data,0u,p,1.0f,u,support,presence);
+         const bool valid=presence>0.0f && support>0.0f && sdf_support>0.0f;
+@@ -399,6 +403,45 @@
+         if (wm) telemetry[at+10u]+=area/3.0f;
+         if (wp && wm) telemetry[at+11u]+=area/3.0f;
+     }
++    // WET FABRIC. The absorbed water mass of this face is a state integrated
++    // over time: it approaches `absorb * mass` (times the submerged fraction)
++    // while submerged and decays while in air. Every Newton iterate of one
++    // step evaluates the same `time`, so the state advances once per step.
++    // Under water the absorbed water is neutrally buoyant and only the fibre
++    // volume (mass / fibre density, as `buoyancy` = water/fibre density)
++    // floats; in air the absorbed water hangs on the fabric as extra weight.
++    // Both are constant in the iterate and add no Hessian. The extra inertia
++    // of the absorbed water is not modelled.
++    const float s=static_cast<float>(submerged)/3.0f;
++    float soaked=0.0f;
++    if (wet_state!=nullptr && mass>0.0f) {
++        const float capacity=fmath::max(absorb,0.0f)*mass;
++        soaked=wet_state[2u*element];
++        const float last=wet_state[2u*element+1u];
++        if (time>last) {
++            const float h=time-last;
++            if (s>0.0f) {
++                const float target=capacity*s;
++                const float k=tau_wet>0.0f?fmath::exp(-h/tau_wet):0.0f;
++                soaked=target+(soaked-target)*k;
++            } else if (tau_dry>0.0f) {
++                soaked*=fmath::exp(-h/tau_dry);
++            }
++            soaked=fmath::min(fmath::max(soaked,0.0f),capacity);
++            wet_state[2u*element]=soaked;
++            wet_state[2u*element+1u]=time;
++        }
++        if (wet_vertex!=nullptr) {
++            const float wetness=capacity>0.0f?soaked/capacity:0.0f;
++            for (unsigned a=0;a<3;++a) wet_vertex[vertices[a]]=wetness;
++        }
++        const Vec3f g(gx,gy,gz);
++        const Vec3f load=g*(soaked*(1.0f-s))-g*(fmath::max(buoyancy,0.0f)*mass*s);
++        for (unsigned a=0;a<3;++a) gradient.col(a)-=load/3.0f;
++        const unsigned at=16u*element;
++        telemetry[at+12u]=soaked;
++        telemetry[at+15u]=s;
++    }
+     face_atomic_embed_force(vertices,gradient,force);
+     face_atomic_push_hessian(vertices,hessian,index,offset,value,rows,diag,element);
+ }
+@@ -441,6 +484,9 @@
+     float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
+     const unsigned *hydro_words,const float *hydro_floats,
+     const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
++    float hydro_time, float hydro_gx, float hydro_gy, float hydro_gz,
++    float hydro_buoyancy, float hydro_absorb, float hydro_tau_wet, float hydro_tau_dry,
++    float *hydro_wet_state, float *hydro_wet_vertex,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+@@ -461,7 +507,9 @@
+     if (hydro_only==2u) {
+         hydrodynamic_spatial_embed(x0,x1,x2,current0,current1,current2,face_vertex,
+             dt,hydro_rho,hydro_cn,hydro_ct,hydro_words,hydro_floats,hydro_table,
+-            hydro_data,hydro_telemetry,force,index,offset,value,row_count,diag,element);
++            hydro_data,hydro_telemetry,force,index,offset,value,row_count,diag,element,
++            prop.mass,hydro_time,hydro_gx,hydro_gy,hydro_gz,hydro_buoyancy,hydro_absorb,
++            hydro_tau_wet,hydro_tau_dry,hydro_wet_state,hydro_wet_vertex);
+         return;
+     }
+     if (hydro_only != 0u) {
+@@ -492,6 +540,9 @@
+     float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
+     const unsigned *hydro_words,const float *hydro_floats,
+     const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
++    float hydro_time, float hydro_gx, float hydro_gy, float hydro_gz,
++    float hydro_buoyancy, float hydro_absorb, float hydro_tau_wet, float hydro_tau_dry,
++    float *hydro_wet_state, float *hydro_wet_vertex,
+     compute::atomic_float_t *force,
+     const unsigned *index,
+     const unsigned *offset,
+--- a/crates/ppf-cts-solver/src/kernels/contact/collision_narrow.kernel.cpp
++++ b/crates/ppf-cts-solver/src/kernels/contact/collision_narrow.kernel.cpp
+@@ -268,7 +268,8 @@
+     const unsigned *fixed_offset,
+     const float *fixed_value, unsigned row_count,
+     unsigned friction_mode, float friction_eps,
+-    const float *residual, float dt, unsigned vertex_index,
++    const float *residual, float dt,
++    const float *wet_vertex, float wet_cling, unsigned vertex_index,
+     unsigned face_index, unsigned *out_slot,
+     SMatf<3, 1> &out_local_force,
+     SMatf<3, 3> &out_local_hessian,
+@@ -311,8 +312,13 @@
+         static_face_param[static_face_prop[face_index].param_index];
+     const float offset = vparam.offset + fparam.offset;
+     const float ghat = 0.5f * (vparam.ghat + fparam.ghat);
+-    const float friction = combine_friction_values(
++    // WET CLING: soaked fabric grips the skin it touches. Only an accepted
++    // contact reads it, so a dry or distant vertex is unchanged.
++    float friction = combine_friction_values(
+         vparam.friction, fparam.friction, friction_mode);
++    if (wet_cling > 0.0f) {
++        friction += wet_cling * fmath::min(fmath::max(wet_vertex[vertex_index], 0.0f), 1.0f);
++    }
+     const float reach = ghat + offset;
+     if (!(separation.squaredNorm() < reach * reach)) {
+         return false;
+@@ -367,6 +373,7 @@
+     const float *fixed_value, unsigned row_count,
+     unsigned friction_mode, float friction_eps,
+     const float *residual, float dt,
++    const float *wet_vertex, float wet_cling,
+     const unsigned *pair, unsigned k,
+     unsigned *active, unsigned *arity,
+     unsigned *out_index, float *out_force,
+@@ -394,7 +401,7 @@
+         x0, x, vertex_prop, start_link_index, start_link_offset, has_start_link, vertex_param, static_x, static_face,
+         static_face_prop, static_face_param, fixed_index, fixed_offset,
+         fixed_value, row_count, friction_mode, friction_eps, residual, dt,
+-        pair[2 * k], pair[2 * k + 1], slot, local_force, local_hessian,
++        wet_vertex, wet_cling, pair[2 * k], pair[2 * k + 1], slot, local_force, local_hessian,
+         statistics_contact_count, statistics_contact_count_size,
+         statistics_object_index, statistics_object_index_size,
+         statistics_static_object_index, statistics_static_object_index_size,
+@@ -804,6 +811,8 @@
+     // taken before this pass, and the substep it is divided by.
+     const float *residual;
+     float dt;
++    const float *wet_vertex;
++    float wet_cling;
+     compute::atomic_float_t *out_vertex_force;
+     compute::atomic_float_t *out_fixed_value;
+     compute::atomic_uint_t *dyn_claim;
+@@ -851,7 +860,7 @@
+         if (collision_point_face_m2c_at(
+                 x0, x, vertex_prop, start_link_index, start_link_offset, has_start_link, vertex_param, static_x, static_face,
+                 static_face_prop, static_face_param, fixed_index, fixed_offset,
+-                fixed_value, row_count, friction_mode, friction_eps, residual, dt, query_index, primitive, slot, local_force,
++                fixed_value, row_count, friction_mode, friction_eps, residual, dt, wet_vertex, wet_cling, query_index, primitive, slot, local_force,
+                 local_hessian, statistics_contact_count, statistics_contact_count_size,
+                 statistics_object_index, statistics_object_index_size,
+                 statistics_static_object_index,
+@@ -1079,6 +1088,7 @@
+     const float *fixed_value, unsigned row_count,
+     unsigned friction_mode, float friction_eps,
+     const float *residual, float dt,
++    const float *wet_vertex, float wet_cling,
+     compute::atomic_float_t *out_vertex_force,
+     compute::atomic_float_t *out_fixed_value,
+     compute::atomic_uint_t *dyn_claim,
+@@ -1100,7 +1110,7 @@
+     if (!box.active) {
+         return;
+     }
+-    CollisionPointFaceM2cEmbed embed{x0, x, vertex_prop, start_link_index, start_link_offset, has_start_link, vertex_param, static_x, static_face, static_face_prop, static_face_param, fixed_index, fixed_offset, fixed_value, row_count, friction_mode, friction_eps, residual, dt, out_vertex_force, out_fixed_value, dyn_claim, dyn_row, dyn_column, dyn_block, dyn_capacity, statistics_contact_count, statistics_contact_count_size, statistics_object_index, statistics_object_index_size, statistics_static_object_index, statistics_static_object_index_size, out_overlap, element, diag, 0u, 0u};
++    CollisionPointFaceM2cEmbed embed{x0, x, vertex_prop, start_link_index, start_link_offset, has_start_link, vertex_param, static_x, static_face, static_face_prop, static_face_param, fixed_index, fixed_offset, fixed_value, row_count, friction_mode, friction_eps, residual, dt, wet_vertex, wet_cling, out_vertex_force, out_fixed_value, dyn_claim, dyn_row, dyn_column, dyn_block, dyn_capacity, statistics_contact_count, statistics_contact_count_size, statistics_object_index, statistics_object_index_size, statistics_static_object_index, statistics_static_object_index_size, out_overlap, element, diag, 0u, 0u};
+     aabb_query(node, node_count, tree_aabb, root, embed, box, diag);
+     if (embed.count > 0u) {
+         compute::atomic_add(assembled, embed.count);
+--- a/crates/ppf-cts-solver/src/driver/assemble.rs
++++ b/crates/ppf-cts-solver/src/driver/assemble.rs
+@@ -766,12 +766,12 @@
+     fixed: &mut FixedCsr<'_>,
+     dt: f32,
+ ) -> FatalResult<()> {
+-    shell_face_pass(device, data, eiganalysis_eps, state, fixed, dt, None)
++    shell_face_pass(device, data, eiganalysis_eps, state, fixed, dt, None, 0.0)
+ }
+ 
+ /// Isolated experiment: prescribed uniform SI flow and known area fraction.
+ /// Not a FluidVolume/occupancy adapter. Existing material/contact terms remain.
+-#[derive(Clone, Copy, serde::Deserialize)]
++#[derive(Clone, Copy, Default, serde::Deserialize)]
+ #[serde(deny_unknown_fields)]
+ pub struct HydroTest {
+     pub density_kg_m3: f32,
+@@ -781,6 +781,23 @@
+     pub velocity_m_s: [f32;3],
+     #[serde(default)]
+     pub volume_mode: u32,
++    /// Gravity in solver axes, m/s². Zero disables buoyancy and wet weight.
++    #[serde(default)]
++    pub gravity_m_s2: [f32;3],
++    /// Water density over fibre density: the floating share of fabric weight.
++    #[serde(default)]
++    pub buoyancy_ratio: f32,
++    /// Absorbed water at saturation per kg of fabric.
++    #[serde(default)]
++    pub absorption: f32,
++    /// Time constants of soaking and drying, seconds.
++    #[serde(default)]
++    pub wet_time_s: f32,
++    #[serde(default)]
++    pub dry_time_s: f32,
++    /// Contact friction added against colliders at full saturation.
++    #[serde(default)]
++    pub wet_cling: f32,
+ }
+ 
+ pub unsafe fn hydrodynamic_test<D: Device>(device: &mut D, data: &DataSet,
+@@ -788,7 +805,11 @@
+     let Some(path) = std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON") else { return Ok(()); };
+     let text = std::fs::read_to_string(&path).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
+     let h: HydroTest = serde_json::from_str(&text).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
+-    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction];
++    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction,
++        h.buoyancy_ratio,h.absorption,h.wet_time_s,h.dry_time_s,h.wet_cling];
++    if h.gravity_m_s2.iter().any(|v| !v.is_finite()) {
++        return Err(Fatal::invariant("invalid hydrodynamic gravity"));
++    }
+     if values.iter().any(|v| !v.is_finite() || *v<0.0) || h.wet_area_fraction>1.0 || h.velocity_m_s.iter().any(|v| !v.is_finite()) || !(dt>0.0 && dt.is_finite()) {
+         return Err(Fatal::invariant("invalid SI hydrodynamic test inputs"));
+     }
+@@ -801,12 +822,17 @@
+     }
+     state.hydro_last_time=time;
+     state.hydro_last_dt=dt;
++    let wet_vertex=state.hydro_wet_vertex.handle();
++    if let Some(contact)=state.contact.as_mut() {
++        contact.wet_vertex=(h.wet_cling>0.0).then_some(wet_vertex);
++        contact.wet_cling=h.wet_cling;
++    }
+     // This experiment deliberately only accepts scenes authored in SI metres.
+-    shell_face_pass(device,data,0.0,state,fixed,dt,Some(h))
++    shell_face_pass(device,data,0.0,state,fixed,dt,Some(h),time)
+ }
+ 
+ unsafe fn shell_face_pass<D:Device>(device:&mut D,data:&DataSet,eiganalysis_eps:f32,
+-    state:&mut SolverState,fixed:&mut FixedCsr<'_>,dt:f32,hydro:Option<HydroTest>) -> FatalResult<()> {
++    state:&mut SolverState,fixed:&mut FixedCsr<'_>,dt:f32,hydro:Option<HydroTest>,time:f32) -> FatalResult<()> {
+     let faces = state.sizes.shell_faces;
+     if faces == 0 {
+         return Ok(());
+@@ -973,6 +999,16 @@
+         hydro_ux: hydro.map_or(0.0, |h| h.velocity_m_s[0]),
+         hydro_uy: hydro.map_or(0.0, |h| h.velocity_m_s[1]),
+         hydro_uz: hydro.map_or(0.0, |h| h.velocity_m_s[2]),
++        hydro_time: time,
++        hydro_gx: hydro.map_or(0.0, |h| h.gravity_m_s2[0]),
++        hydro_gy: hydro.map_or(0.0, |h| h.gravity_m_s2[1]),
++        hydro_gz: hydro.map_or(0.0, |h| h.gravity_m_s2[2]),
++        hydro_buoyancy: hydro.map_or(0.0, |h| h.buoyancy_ratio),
++        hydro_absorb: hydro.map_or(0.0, |h| h.absorption),
++        hydro_tau_wet: hydro.map_or(0.0, |h| h.wet_time_s),
++        hydro_tau_dry: hydro.map_or(0.0, |h| h.dry_time_s),
++        hydro_wet_state: state.hydro_wet_state.handle(),
++        hydro_wet_vertex: state.hydro_wet_vertex.handle(),
+         force: state.force.handle(),
+         index: matrix.index,
+         offset: matrix.offset,
+@@ -2991,6 +3027,9 @@
+             self.assemble_faces_hydro(dt,gathered,None)
+         }
+         fn assemble_faces_hydro(&mut self, dt:f32,gathered:usize,hydro:Option<HydroTest>) -> FatalResult<Assembled> {
++            self.assemble_faces_hydro_at(dt,gathered,hydro,0.0)
++        }
++        fn assemble_faces_hydro_at(&mut self, dt:f32,gathered:usize,hydro:Option<HydroTest>,time:f32) -> FatalResult<Assembled> {
+             let Membrane { scene, state, device } = self;
+             clear_force(device, state);
+             // `positions` IS the start-of-step pose, so it tracks the scene at
+@@ -3024,7 +3063,7 @@
+                     .seed(device, pose)
+                     .expect("the fixture seeds the iterate");
+                 let mut fixed = FixedCsr::adopt_from_dataset(device, state.fixed_pattern_refs(), &scene.data, Default::default())?;
+-                shell_face_pass(device, &scene.data, EPS, state, &mut fixed, dt, hydro)?;
++                shell_face_pass(device, &scene.data, EPS, state, &mut fixed, dt, hydro, time)?;
+                 // THE MATRIX IS DEVICE-RESIDENT, so the dense reference below reads
+                 // the mirror and the mirror is stale the moment the assembly
+                 // dispatch names the buffer. The download costs a copy and buys
+@@ -3557,7 +3596,7 @@
+     /// pressure term alone, with nothing to subtract.
+     fn water(speed:f32, wet:f32) -> HydroTest {
+         HydroTest { density_kg_m3:1000.0,normal_coefficient:1.0,
+-            tangential_coefficient:0.0,wet_area_fraction:wet,velocity_m_s:[0.0,0.0,speed],volume_mode:0 }
++            tangential_coefficient:0.0,wet_area_fraction:wet,velocity_m_s:[0.0,0.0,speed],volume_mode:0,..Default::default() }
+     }
+ 
+     #[test]
+@@ -3599,6 +3638,46 @@
+         }
+     }
+ 
++    /// Wet fabric: submerged faces float by the displaced fibre share and soak
++    /// up water; once out of the water the absorbed mass hangs on them.
++    #[test]
++    fn wet_fabric_floats_submerged_and_hangs_heavy_after_emerging() {
++        use crate::force_field::test_session::{Frame,FluidSettings,write_fluid,brick,transform,IDENTITY};
++        let install=|patch:&mut Membrane,sign:f32| {
++            let velocity_dir=tempfile::tempdir().unwrap();
++            let sdf_dir=tempfile::tempdir().unwrap();
++            let frame=|cell| Frame {resolution:[8,8,8],table:vec![0],bricks:brick(cell),
++                transform:transform([-2.0;3],IDENTITY,[1.0;3])};
++            let settings=FluidSettings {strength:0.0,..Default::default()};
++            write_fluid(velocity_dir.path(),&[frame([0.0,0.0,0.0,1.0]),frame([0.0,0.0,0.0,1.0])],&settings);
++            write_fluid(sdf_dir.path(),&[frame([sign,0.0,0.0,1.0]),frame([sign,0.0,0.0,1.0])],&settings);
++            let mut data=crate::force_field::load_dir(velocity_dir.path(),3).unwrap().unwrap();
++            data.fields.push(crate::force_field::load_dir(sdf_dir.path(),3).unwrap().unwrap().fields.remove(0));
++            patch.state.hydro_field=Default::default();
++            patch.state.hydro_field.allocate(&mut patch.device,3).unwrap();
++            patch.state.hydro_field.install(&mut patch.device,&data,1.0).unwrap();
++            patch.state.hydro_field.hydrodynamic_volumes(&mut patch.device,0.0).unwrap();
++        };
++        let mut patch=Membrane::unit_triangle(material(Model::Arap,0.0,0.0),0.1);
++        let h=HydroTest {density_kg_m3:0.0,normal_coefficient:1.0,wet_area_fraction:1.0,volume_mode:1,
++            gravity_m_s2:[0.0,-10.0,0.0],buoyancy_ratio:0.5,absorption:2.0,
++            wet_time_s:1e-4,dry_time_s:1e6,..Default::default()};
++        let total_y=|r:&Assembled| -(r.force[1]+r.force[4]+r.force[7]);
++        install(&mut patch,-1.0);
++        let submerged=patch.assemble_faces_hydro_at(0.01,3,Some(h),0.1).unwrap();
++        let lift=total_y(&submerged);
++        assert!(lift>0.0, "submerged fabric must float: {lift}");
++        install(&mut patch,1.0);
++        let emerged=patch.assemble_faces_hydro_at(0.01,3,Some(h),0.2).unwrap();
++        let weight=total_y(&emerged);
++        // Soaked to capacity (absorption 2 x mass) and hanging under gravity;
++        // the floating share was buoyancy 0.5 x mass under the same gravity.
++        assert!((weight/lift+4.0).abs()<1e-3, "weight {weight} lift {lift}");
++        // The same time again is the same step: no further soaking or drying.
++        let repeat=patch.assemble_faces_hydro_at(0.01,3,Some(h),0.2).unwrap();
++        assert!((total_y(&repeat)-weight).abs()<1e-6);
++    }
++
+     /// Explicit device readback: the host fixture alone cannot validate CUDA.
+     #[cfg(abi_backend_linked)]
+     #[test]
+@@ -3633,7 +3712,7 @@
+             state.positions.seed(&mut device,pose).unwrap();
+             state.eval_x.seed(&mut device,pose).unwrap();
+             let mut fixed=FixedCsr::adopt_from_dataset(&mut device,state.fixed_pattern_refs(),&patch.scene.data,Default::default()).unwrap();
+-            shell_face_pass(&mut device,&patch.scene.data,EPS,&mut state,&mut fixed,0.01,Some(h)).unwrap();
++            shell_face_pass(&mut device,&patch.scene.data,EPS,&mut state,&mut fixed,0.01,Some(h),0.0).unwrap();
+             fixed.download(&mut device).unwrap();
+             state.force.download(&mut device).unwrap();
+             for (actual,expected) in state.force.host().iter().zip(&reference.force) {
+@@ -3666,7 +3745,7 @@
+         let dt=0.0005f32;let mut start=pose;
+         for (i,v) in [-0.0025f32,0.0005,0.0003].iter().enumerate() { start[3*i]-=v*dt; }
+         let h=HydroTest {density_kg_m3:1000.0,normal_coefficient:1.0,tangential_coefficient:0.0,
+-            wet_area_fraction:1.0,velocity_m_s:[0.2,0.0,0.0],volume_mode:0};
++            wet_area_fraction:1.0,velocity_m_s:[0.2,0.0,0.0],volume_mode:0,..Default::default()};
+         fn evaluate<D:ppf_cts_compute::Device>(device:&mut D,scene:&TestScene,pose:&[f32],start:&[f32],h:HydroTest,dt:f32)->(Vec<f32>,Vec<f32>) {
+             let mut state=SolverState::default();
+             unsafe { state.allocate(device,&scene.data) }.unwrap();
+@@ -3675,7 +3754,7 @@
+             crate::driver::state::reseed_pattern(device,&mut state,&scene.data);
+             state.positions.seed(device,start).unwrap();state.eval_x.seed(device,pose).unwrap();
+             let mut fixed=unsafe { FixedCsr::adopt_from_dataset(device,state.fixed_pattern_refs(),&scene.data,Default::default()) }.unwrap();
+-            unsafe { shell_face_pass(device,&scene.data,EPS,&mut state,&mut fixed,dt,Some(h)) }.unwrap();
++            unsafe { shell_face_pass(device,&scene.data,EPS,&mut state,&mut fixed,dt,Some(h),0.0) }.unwrap();
+             fixed.download(device).unwrap();state.force.download(device).unwrap();
+             (state.force.host().to_vec(),unsafe { dense_of(&fixed,3) })
+         }
+--- a/crates/ppf-cts-solver/src/driver/state.rs
++++ b/crates/ppf-cts-solver/src/driver/state.rs
+@@ -737,6 +737,11 @@
+     pub field: super::force_field::ForceField,
+     pub hydro_field: super::force_field::ForceField,
+     pub hydro_telemetry: ReadbackBuffer<f32>,
++    /// Absorbed water per shell face as (kg, last update time s); persists
++    /// across steps. Zero means dry at the start of the run.
++    pub hydro_wet_state: ReadbackBuffer<f32>,
++    /// Normalized wetness per vertex (0 dry .. 1 saturated) for wet cling.
++    pub hydro_wet_vertex: ReadbackBuffer<f32>,
+     pub hydro_last_time: f32,
+     pub hydro_last_dt: f32,
+     /// The Newton right-hand side, `3 * vertices` floats.
+@@ -2577,6 +2582,10 @@
+         self.field.allocate(device, vertices)?;
+         self.hydro_field.allocate(device, vertices)?;
+         self.hydro_telemetry.size(device, 16*self.sizes.shell_faces, AllocLabel("hydro.telemetry"))?;
++        self.hydro_wet_state.size(device, 2*self.sizes.shell_faces, AllocLabel("hydro.wet_state"))?;
++        self.hydro_wet_state.seed(device, &vec![0.0f32; 2*self.sizes.shell_faces])?;
++        self.hydro_wet_vertex.size(device, vertices, AllocLabel("hydro.wet_vertex"))?;
++        self.hydro_wet_vertex.seed(device, &vec![0.0f32; vertices])?;
+         self.force
+             .size(device, 3 * vertices, AllocLabel("step.force"))?;
+         self.residual
+--- a/crates/ppf-cts-solver/src/driver/contact.rs
++++ b/crates/ppf-cts-solver/src/driver/contact.rs
+@@ -297,6 +297,11 @@
+     collider_edge_param: ppf_cts_compute::Buffer<crate::data::EdgeParam>,
+     collider_faces: usize,
+     collider_edges: usize,
++    /// Wet cling: per-vertex wetness written by the hydrodynamic pass and the
++    /// friction it adds against colliders at full saturation. `None` / zero
++    /// leaves contact friction exactly as authored.
++    pub wet_vertex: Option<ppf_cts_compute::Handle>,
++    pub wet_cling: f32,
+ }
+ 
+ /// The mirror sibling of [`staged`], for an array the KERNEL writes and a test
+@@ -399,6 +404,8 @@
+             collider_edge_param: ppf_cts_compute::Buffer::none(),
+             collider_faces,
+             collider_edges,
++            wet_vertex: None,
++            wet_cling: 0.0,
+         };
+         // EVERY QUERY BOX IS A DEVICE ALLOCATION AND NONE OF THEM CARRIES A
+         // MIRROR: each is written by a query kernel and read by a walk that
+@@ -2319,6 +2326,8 @@
+             friction_eps: a.friction_eps,
+             residual: a.residual,
+             dt: a.dt,
++            wet_vertex: a.wet_vertex,
++            wet_cling: a.wet_cling,
+             out_vertex_force: force,
+             out_fixed_value,
+             dyn_claim: dyn_stage.claim,
+@@ -2598,6 +2607,9 @@
+             friction_eps: (*param).friction_eps,
+             residual,
+             dt: (*param).dt,
++            // Never read while cling is zero, so any live buffer serves.
++            wet_vertex: self.wet_vertex.unwrap_or(x0),
++            wet_cling: if self.wet_vertex.is_some() { self.wet_cling } else { 0.0 },
+         }
+     }
+ }
+@@ -2978,6 +2990,8 @@
+     /// reading it directly would read a row another pair had already moved.
+     residual: ppf_cts_compute::Handle,
+     dt: f32,
++    wet_vertex: ppf_cts_compute::Handle,
++    wet_cling: f32,
+ }
+ 
+ /// # Safety
+--- a/crates/ppf-cts-solver/build.rs
++++ b/crates/ppf-cts-solver/build.rs
+@@ -919,6 +919,8 @@
+     ("contact/collision_narrow", "CollisionPointFaceC2mArgs.residual"),
+     ("contact/collision_narrow", "CollisionEdgeEdgeArgs.residual"),
+     ("contact/collision_narrow", "CollisionPointFaceM2cTraverseArgs.residual"),
++    ("contact/collision_narrow", "CollisionPointFaceM2cTraverseArgs.wet_vertex"),
++    ("contact/collision_narrow", "CollisionPointFaceM2cArgs.wet_vertex"),
+     ("contact/collision_narrow", "CollisionPointFaceC2mTraverseArgs.residual"),
+     ("contact/collision_narrow", "CollisionEdgeEdgeTraverseArgs.residual"),
+     ("contact/vertex_constraint", "VertexConstraintArgs.residual"),
+@@ -3439,6 +3441,8 @@
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_table"),
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_data"),
+     ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_telemetry"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_wet_state"),
++    ("energy/face_force", "FaceElasticEmbedFromRecordsArgs.hydro_wet_vertex"),
+ 
+     ("utility/face_damping", "FaceDampingArgs.beta"),
+     ("utility/hinge_damping", "HingeDampingArgs.beta"),
+--- a/crates/ppf-cts-solver/src/main.rs
++++ b/crates/ppf-cts-solver/src/main.rs
+@@ -89,8 +89,9 @@
+ fn probe() -> i32 {
+     println!("backend: {}", env!("PPF_BACKEND"));
+     println!("hydrodynamic-test: uniform-sheet-si-v1");
+-    println!("hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1");
++    println!("hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1");
+     println!("hydrodynamic-sdf-bounds: fail-closed-v1");
++    println!("hydrodynamic-wet-fabric: buoyancy-absorption-v1");
+     #[cfg(abi_backend_linked)]
+     {
+         println!("linked: {}", ppf_cts_compute::abi::linked_backend_name());

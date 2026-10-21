@@ -9,6 +9,7 @@ import bpy
 
 SHARED_PROPERTIES = (
     'water_hydrodynamic_pressure', 'water_pressure_strength', 'water_pressure_tangential',
+    'water_wet_fabric', 'water_fiber_density', 'water_absorption', 'water_wet_time', 'water_dry_time', 'water_wet_cling',
     'water_flow_enabled', 'water_flow_domain', 'water_flow_coupling_strength',
     'water_flow_native_flow', 'water_flow_resolution', 'water_flow_custom_resolution',
     'water_flow_container', 'water_flow_show_vectors', 'water_flow_debug_mode',

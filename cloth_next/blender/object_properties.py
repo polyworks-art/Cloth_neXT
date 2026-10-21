@@ -911,6 +911,24 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_pressure_tangential: bpy.props.FloatProperty(name="Tangential Drag",
         description="Drag coefficient for water sliding along the fabric (Ct). 0 pushes only against the surface; around 0.05-0.3 lets flow drag fitted garments along",
         default=0., min=0., soft_max=1., max=5., update=_on_shared_water_update)
+    water_wet_fabric: bpy.props.BoolProperty(name="Wet Fabric",
+        description="Buoyancy under water and time-dependent soaking: fabric soaks up water while submerged and hangs heavy once it leaves the water. Needs a GAIA build with wet-fabric support",
+        default=False, update=_on_shared_water_update)
+    water_fiber_density: bpy.props.FloatProperty(name="Fiber Density",
+        description="Density of the fibre material in kg/m³; the fabric volume it displaces gives the buoyancy (polyester 1380, cotton 1540, nylon 1140, wool 1310)",
+        default=1380., min=100., max=5000., update=_on_shared_water_update)
+    water_absorption: bpy.props.FloatProperty(name="Water Absorption",
+        description="Water held at saturation per kg of fabric (polyester ~0.4, wool ~1.5, cotton ~2)",
+        default=0.4, min=0., soft_max=3., max=10., update=_on_shared_water_update)
+    water_wet_time: bpy.props.FloatProperty(name="Soak Time",
+        description="Time constant in seconds for submerged fabric to soak up water",
+        default=0.5, min=0., soft_max=10., max=600., subtype='TIME_ABSOLUTE', update=_on_shared_water_update)
+    water_dry_time: bpy.props.FloatProperty(name="Dry Time",
+        description="Time constant in seconds for fabric to lose its water in air (dripping and drying)",
+        default=60., min=0., soft_max=600., max=36000., subtype='TIME_ABSOLUTE', update=_on_shared_water_update)
+    water_wet_cling: bpy.props.FloatProperty(name="Wet Cling",
+        description="Extra grip of soaked fabric on the body it touches (added to contact friction at full saturation). Only real contact sticks; cotton and jersey ~0.5-1, technical polyester ~0-0.1",
+        default=0.3, min=0., soft_max=2., max=10., update=_on_shared_water_update)
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)

@@ -117,3 +117,26 @@ def require_hydrodynamic_capability(executable=None):
     capability = hydrodynamic_capability(executable)
     if not capability.available:
         raise ValueError('Hydrodynamic Pressure unavailable: '+capability.reason)
+
+
+WET_FABRIC_PROBE = 'hydrodynamic-wet-fabric: buoyancy-absorption-v1'
+
+
+@lru_cache(maxsize=8)
+def _wet_fabric_probe(worker, backend, size, mtime):
+    environment = os.environ.copy()
+    environment['PATH'] = str(Path(backend).parent) + os.pathsep + environment.get('PATH', '')
+    result = subprocess.run([worker, '--probe'], capture_output=True, text=True, env=environment,
+                            timeout=20, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    return result.returncode == 0 and WET_FABRIC_PROBE in result.stdout.splitlines()
+
+
+def wet_fabric_capability(executable=None) -> bool:
+    """Whether the verified pressure worker also integrates wet fabric."""
+    try:
+        config = experimental_configuration(executable)
+        worker = Path(config['worker']).resolve(strict=True)
+        stat = worker.stat()
+        return _wet_fabric_probe(str(worker), str(config['backend']), stat.st_size, stat.st_mtime_ns)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        return False
