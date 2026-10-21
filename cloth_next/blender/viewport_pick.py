@@ -240,8 +240,10 @@ def is_visible(context, scene, point, origin, cloth_geometries, cloth_pointers, 
 
     Cloth occlusion uses the displayed cage of every candidate cloth, which
     contains the picked edge itself. Solidify or Subdivision shells therefore
-    no longer hide their own boundary from one side. Other objects (bodies,
-    colliders) occlude through a regular scene ray cast.
+    no longer hide their own boundary from one side. Other Cloth NeXt objects
+    (bodies, colliders) occlude through a scene ray cast. Objects outside the
+    simulation (hair, props, environment, helpers) never block authoring,
+    in the spirit of Marvelous Designer where only the avatar occludes.
     """
     if xray:
         return True
@@ -271,12 +273,18 @@ def is_visible(context, scene, point, origin, cloth_geometries, cloth_pointers, 
             pointer = original.as_pointer()
         except ReferenceError:
             return True
-        if pointer not in cloth_pointers:
+        if pointer not in cloth_pointers and _simulation_occluder(original):
             return False
         travelled = (location - start).length + tolerance * .5
         start = location + direction * (tolerance * .5)
         remaining -= travelled
     return True
+
+
+def _simulation_occluder(obj):
+    settings = getattr(obj, "cloth_next", None)
+    return bool(settings is not None and getattr(settings, "enabled", False)
+                and getattr(obj, "type", "") == "MESH")
 
 
 def region_under_mouse(window, event):
