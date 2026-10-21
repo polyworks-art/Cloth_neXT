@@ -905,6 +905,12 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_hydrodynamic_pressure: bpy.props.BoolProperty(name="Hydrodynamic Pressure", default=False,
         description="Experimental native sheet pressure with surface SDF wetting; isolated verified solver required",
         update=_on_shared_water_update)
+    water_pressure_strength: bpy.props.FloatProperty(name="Pressure Strength",
+        description="Scales the hydrodynamic sheet drag (water density 1000 kg/m³ times this value). 1 is physical; raise it for a stronger, art-directed push",
+        default=1., min=0., soft_max=20., max=200., update=_on_shared_water_update)
+    water_pressure_tangential: bpy.props.FloatProperty(name="Tangential Drag",
+        description="Drag coefficient for water sliding along the fabric (Ct). 0 pushes only against the surface; around 0.05-0.3 lets flow drag fitted garments along",
+        default=0., min=0., soft_max=1., max=5., update=_on_shared_water_update)
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)

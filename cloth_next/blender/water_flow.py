@@ -312,6 +312,8 @@ def water_settings_record(obj):
                   'bake_stat': [stats.stat().st_size, stats.stat().st_mtime_ns] if stats.is_file() else None}
     return {'domain': domain.name if domain else None, 'source': source, 'influence': s.water_flow_influence,
             'hydrodynamic_pressure':getattr(s,'water_hydrodynamic_pressure',False),
+            'pressure_strength':getattr(s,'water_pressure_strength',1.),
+            'pressure_tangential':getattr(s,'water_pressure_tangential',0.),
             'coupling_strength':getattr(s,'water_flow_coupling_strength',1.),
             'native_flow':getattr(s,'water_flow_native_flow',1.),
             'velocity_scale': s.water_flow_velocity_scale, 'resolution': s.water_flow_resolution,
@@ -452,6 +454,20 @@ def apply_water_stream_payload(context, payload, resolved, first, last):
                                                         separators=(',',':'),allow_nan=False)
 
 
+def pressure_model(targets):
+    """One sheet-drag model for every pressure cloth (settings are scene-shared)."""
+    values={(round(float(getattr(o.cloth_next,'water_pressure_strength',1.)),6),
+             round(float(getattr(o.cloth_next,'water_pressure_tangential',0.)),6)) for o in targets}
+    if len(values)!=1:
+        raise ValueError('Hydrodynamic Pressure needs the same Pressure Strength and Tangential Drag on all cloth')
+    strength,tangential=next(iter(values))
+    if not (np.isfinite(strength) and np.isfinite(tangential)) or strength<0 or tangential<0:
+        raise ValueError('Invalid Hydrodynamic Pressure strength or tangential drag')
+    # Strength scales the dynamic pressure 1/2 rho |u|^2 through the density.
+    return dict(density_kg_m3=1000.*strength,normal_coefficient=1.,tangential_coefficient=tangential,
+                wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1)
+
+
 def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,targets):
     from ..ppf.hydrodynamic_capability import require_hydrodynamic_capability
     from ..ppf.models import ConnectionOwnership
@@ -495,8 +511,7 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
     descriptor=dict(version=1,field_kind='experimental-hydrodynamic',first=int(first),last=int(last),
         source_last=source_end,
         fps=fps,path=next(iter(paths)),fingerprint=next(iter(fingerprints)),bounds=bounds,
-        model=dict(density_kg_m3=1000.,normal_coefficient=1.,tangential_coefficient=0.,
-                   wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1))
+        model=pressure_model(targets))
     return payload,None,json.dumps(descriptor,sort_keys=True,separators=(',',':'),allow_nan=False)
 
 
@@ -840,7 +855,8 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         influence_row.prop(s, 'water_flow_influence', text='Influence (This Object)')
         if native:
             if getattr(s,'water_hydrodynamic_pressure',False):
-                response.label(text='Water density: 1000 kg/m³ · Cn 1 · Ct 0')
+                response.prop(s, 'water_pressure_strength')
+                response.prop(s, 'water_pressure_tangential')
             else:
                 response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
                 response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
